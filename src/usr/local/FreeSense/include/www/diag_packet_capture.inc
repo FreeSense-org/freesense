@@ -2,7 +2,7 @@
 /*
  * diag_packet_capture.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2023-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *

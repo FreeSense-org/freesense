@@ -2,7 +2,7 @@
 /*
  * vpn_openvpn_client.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -31,7 +31,7 @@
 
 require_once("guiconfig.inc");
 require_once("openvpn.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("pkg-utils.inc");
 
 global $openvpn_topologies, $openvpn_tls_modes;
@@ -249,7 +249,7 @@ if ($_POST['save']) {
 		$input_errors[] = gettext("The selected Fallback Data Encryption Algorithm is not valid.");
 	}
 
-	/* Maximum option line length = 256, see https://redmine.pfsense.org/issues/11559 */
+	/* Maximum option line length = 256, see https://redmine.freesense.org/issues/11559 */
 	if (!empty($pconfig['data_ciphers']) && (strlen("data-ciphers " . implode(",", $pconfig['data_ciphers'])) > 254)) {
 		$input_errors[] = gettext("Too many Data Encryption Algorithms have been selected.");
 	}

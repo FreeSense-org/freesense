@@ -2,7 +2,7 @@
 /*
  * interfaces.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -91,7 +91,7 @@ $gateway_settings4 = [];
 $gateway_settings6 = [];
 
 /* Interfaces which have addresses configured elsewhere and should not be
- * configured here. See https://redmine.pfsense.org/issues/8687 */
+ * configured here. See https://redmine.freesense.org/issues/8687 */
 $no_address_interfaces = ["ovpn", "ipsec", "gif", "gre", "l2tps"];
 $show_address_controls = true;
 foreach ($no_address_interfaces as $ifbl) {
@@ -1747,7 +1747,7 @@ if ($_POST['apply']) {
 		exit;
 	}
 
-	/* keep port value, see https://redmine.pfsense.org/issues/12498 */
+	/* keep port value, see https://redmine.freesense.org/issues/12498 */
 	if (!empty($_POST['ppp_port'])) {
 		array_set_path($pconfig, 'port', $_POST['ppp_port']);
 	}
@@ -2164,7 +2164,7 @@ $group->add(new Form_Button(
 $group->setHelp('If this interface is an Internet connection, select an existing Gateway from the list or add a new one using the "Add" button.%1$s' .
 				'On local area network interfaces the upstream gateway should be "none".%1$s' .
 				'Selecting an upstream gateway causes the firewall to treat this interface as a %2$sWAN type interface%4$s.%1$s' .
-				'Gateways can be managed by %3$sclicking here%4$s.', '<br />', '<a target="_blank" href="https://docs.netgate.com/pfsense/en/latest/interfaces/wanvslan.html">', '<a target="_blank" href="system_gateways.php">', '</a>');
+				'Gateways can be managed by %3$sclicking here%4$s.', '<br />', '<a target="_blank" href="https://docs.netgate.com/freesense/en/latest/interfaces/wanvslan.html">', '<a target="_blank" href="system_gateways.php">', '</a>');
 
 $section->add($group);
 

@@ -2,7 +2,7 @@
 /*
  * system_update_settings.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -167,8 +167,8 @@ if (file_exists("/usr/local/bin/git")) {
 		isset($gitcfg['synconupgrade'])
 		))->setHelp(gettext('After updating, sync with the following repository/branch before reboot.'));
 
-	if (is_dir("/root/pfsense/FreeSenseGITREPO/FreeSenseGITREPO")) {
-		exec("cd /root/pfsense/FreeSenseGITREPO/FreeSenseGITREPO && /usr/local/bin/git config remote.origin.url", $output_str);
+	if (is_dir("/root/freesense/FreeSenseGITREPO/FreeSenseGITREPO")) {
+		exec("cd /root/freesense/FreeSenseGITREPO/FreeSenseGITREPO && /usr/local/bin/git config remote.origin.url", $output_str);
 		if (is_array($output_str) && !empty($output_str[0])) {
 			$lastrepositoryurl = $output_str[0];
 		}
@@ -182,8 +182,8 @@ if (file_exists("/usr/local/bin/git")) {
 		($gitcfg['repositoryurl'] ? $gitcfg['repositoryurl'] : '')
 		))->setHelp(gettext('The most recently used repository was %s. This repository will be used if the field is left blank.'), $lastrepositoryurl);
 
-	if (is_dir("/root/pfsense/FreeSenseGITREPO/FreeSenseGITREPO")) {
-		exec("cd /root/pfsense/FreeSenseGITREPO/FreeSenseGITREPO && /usr/local/bin/git branch", $output_str);
+	if (is_dir("/root/freesense/FreeSenseGITREPO/FreeSenseGITREPO")) {
+		exec("cd /root/freesense/FreeSenseGITREPO/FreeSenseGITREPO && /usr/local/bin/git branch", $output_str);
 		if (is_array($output_str)) {
 			foreach ($output_str as $output_line) {
 				if (strstr($output_line, '* ')) {

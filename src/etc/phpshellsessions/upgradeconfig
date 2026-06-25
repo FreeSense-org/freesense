@@ -1,7 +1,7 @@
 /*
  * upgradeconfig
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2022-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -91,7 +91,7 @@ if (file_exists("/etc/inc/upgrade_config_custom.inc")) {
 config_write_file();
 
 /* Read in the desired config */
-config_set_path('', parse_xml_config($in_file, array($g['xml_rootobj'], 'pfsense')));
+config_set_path('', parse_xml_config($in_file, array($g['xml_rootobj'], 'freesense')));
 $prev_version = config_get_path('version');
 
 /* If it's already current, there is nothing to do. */

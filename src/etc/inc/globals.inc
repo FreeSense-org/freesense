@@ -2,7 +2,7 @@
 /*
  * globals.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -59,7 +59,7 @@ $g = [
 	'acbbackuppath' => '/cf/conf/acb/',
 	'event_address' => 'unix:///var/run/check_reload_status',
 	'factory_shipped_username' => 'admin',
-	'factory_shipped_password' => 'pfsense',
+	'factory_shipped_password' => 'freesense',
 	'upload_path' => '/root',
 	'dhcpd_chroot_path' => '/var/dhcpd',
 	'unbound_chroot_path' => '/var/unbound',
@@ -76,7 +76,7 @@ $g = [
 	'cf_path' => '/cf',
 	'cf_conf_path' => '/cf/conf',
 	'www_path' => '/usr/local/www',
-	'xml_rootobj' => 'pfsense',
+	'xml_rootobj' => 'freesense',
 	'admin_group' => 'admins',
 	'product_name' => 'FreeSense',
 	'product_label' => 'FreeSense',

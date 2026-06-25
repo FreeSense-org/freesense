@@ -2,7 +2,7 @@
 /*
  * system_advanced_network.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -21,7 +21,7 @@
 
 require_once("config.gui.inc");
 require_once("util.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("filter.inc");
 require_once("syslog.inc");
 

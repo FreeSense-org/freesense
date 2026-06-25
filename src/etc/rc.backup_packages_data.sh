@@ -10,7 +10,7 @@
 
 
 # Get the internal name of packages.
-xml_rootobj=$(/usr/local/bin/php -n /usr/local/sbin/read_global_var xml_rootobj pfsense 2>/dev/null)
+xml_rootobj=$(/usr/local/bin/php -n /usr/local/sbin/read_global_var xml_rootobj freesense 2>/dev/null)
 path="${xml_rootobj}/installedpackages/package/ramdisk_dir_names"
 config=${config:-"/cf/conf/config.xml"}
 DIR_NAMES=$(/usr/local/bin/xmllint --xpath "//${path}/text()" "${config}" 2>/dev/null | tr '\r\n' ' ' | tr -d "'*$\`\"\\")

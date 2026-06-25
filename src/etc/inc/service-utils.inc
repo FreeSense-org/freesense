@@ -2,7 +2,7 @@
 /*
  * service-utils.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2005-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -891,7 +891,7 @@ function service_control_restart($name, $extras) {
 			$zone = htmlspecialchars($extras['zone']);
 			killbypid("{$g['varrun_path']}/nginx-{$zone}-CaptivePortal.pid");
 			killbypid("{$g['varrun_path']}/nginx-{$zone}-CaptivePortal-SSL.pid");
-			/* see https://redmine.pfsense.org/issues/12651 */
+			/* see https://redmine.freesense.org/issues/12651 */
 			sleep(1);
 			captiveportal_init_webgui_zonename($zone);
 			break;

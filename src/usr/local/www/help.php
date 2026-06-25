@@ -2,7 +2,7 @@
 /*
  * help.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -24,7 +24,7 @@
 require_once("guiconfig.inc");
 
 # Docs redirect base URL
-$redirect_base = "https://docs.netgate.com/pfsense/help";
+$redirect_base = "https://docs.netgate.com/freesense/help";
 
 $pagename = "";
 /* Check for parameter "page". */

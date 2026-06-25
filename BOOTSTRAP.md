@@ -1,7 +1,7 @@
-pfSense on bootstrap (<a href="https://github.com/SjonHortensius/pfsense/blob/bootstrap/PROGRESS.md#php-file-status">progress</a>)
+FreeSense on bootstrap (<a href="https://github.com/SjonHortensius/freesense/blob/bootstrap/PROGRESS.md#php-file-status">progress</a>)
 ====================
 
-We are migrating pfSense to Bootstrap. You can help! Please respect these code-guidelines:
+We are migrating FreeSense to Bootstrap. You can help! Please respect these code-guidelines:
 
 * use tabs (tabstop=4) for indenting (except the license-header which contains 3 lines that are indented with ```\t<SP><SP><SP>```)
 * no trailing whitespace
@@ -21,7 +21,7 @@ We suggest you setup a development environment for testing your changes. This ca
 
 ## Qemu
 
-Use libvirt to setup a FreeBSD-10 machine with 2 NICs. Boot the latest pfSense.iso and install it. I've attached both NICs to the virbr0 that libvirt offers by default. One interface can be used as WAN (where pfSense will use dhcp and should get a NATted ip on your local network), the other as a LAN interface with a fixed IP address.
+Use libvirt to setup a FreeBSD-10 machine with 2 NICs. Boot the latest FreeSense.iso and install it. I've attached both NICs to the virbr0 that libvirt offers by default. One interface can be used as WAN (where FreeSense will use dhcp and should get a NATted ip on your local network), the other as a LAN interface with a fixed IP address.
 
 ## Virtualbox
 
@@ -33,7 +33,7 @@ When finished, don't forget to remove the installation disk from your machine. O
 
 ## Post install tasks
 
-Disable the dhcp server (on the LAN interface) of your pfSense install and you're good to go. Start the ssh-daemon, login and setup public-key authentication (for the root user). Execute `pkg install rsync` and create a script to upload your changes from your development environment to your pfSense install:
+Disable the dhcp server (on the LAN interface) of your FreeSense install and you're good to go. Start the ssh-daemon, login and setup public-key authentication (for the root user). Execute `pkg install rsync` and create a script to upload your changes from your development environment to your FreeSense install:
 
 ```bash
 #!/bin/sh
@@ -50,7 +50,7 @@ Before diving into a file, clean it with the supplied cleaner (`clean.sh`). This
 
 # Migration conventions
 
-All migrated files (in usr/local/www) are formatted with default [Bootstrap](http://getbootstrap.com/) components. Custom CSS goes into `usr/www/bootstrap/css/pfSense.css`, but try to keep this to a minimum.
+All migrated files (in usr/local/www) are formatted with default [Bootstrap](http://getbootstrap.com/) components. Custom CSS goes into `usr/www/bootstrap/css/FreeSense.css`, but try to keep this to a minimum.
 
 The Bootstrap grid system is used for defining columns. We've chosen the 'small' breakpoint as the default breakpoint to collapse from a horizontal to vertical layout. You should define your column widths with `.col-sm-*`, unless there's a good (and documented ;) ) reason to deviate from this default.
 
@@ -77,7 +77,7 @@ $section->addInput(new Form_Input(
 	'Hostname',
 	'text',
 	$pconfig['hostname'],
-	['placeholder' => 'pfSense']
+	['placeholder' => 'FreeSense']
 ))->setHelp('Name of the firewall host, without domain part');
 
 $section->addInput(new Form_Input(

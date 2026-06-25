@@ -2,7 +2,7 @@
 /*
  * wizard_utils.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -24,7 +24,7 @@
 require_once("config.gui.inc");
 require_once("util.inc");
 require_once("globals.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 // TODO: fix hardcoded interface labels and use of unassigned variables
 // Save all of the parameters changed by the setup wizard

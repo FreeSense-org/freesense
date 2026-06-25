@@ -4196,8 +4196,8 @@ msgstr ""
 #: src/usr/local/www/interfaces.php:1872 src/usr/local/www/interfaces.php:1875
 #: src/usr/local/www/interfaces.php:1898 src/usr/local/www/interfaces.php:1911
 #: src/etc/inc/ipsec.inc:477 src/etc/inc/shaper.inc:4411
-#: src/etc/inc/shaper.inc:4856 src/etc/inc/pfsense-utils.inc:2832
-#: src/etc/inc/pfsense-utils.inc:3306
+#: src/etc/inc/shaper.inc:4856 src/etc/inc/freesense-utils.inc:2832
+#: src/etc/inc/freesense-utils.inc:3306
 msgid "None"
 msgstr "Geen"
 
@@ -4830,7 +4830,7 @@ msgstr "Filter toepassen"
 #: src/usr/local/www/status_logs_vpn.php:412
 #: src/usr/local/www/status_logs_common.inc:321
 #: src/usr/local/www/status_logs_common.inc:541
-#: src/etc/inc/pfsense-utils.inc:342
+#: src/etc/inc/freesense-utils.inc:342
 msgid "Log Filter"
 msgstr "Log filter"
 
@@ -5844,7 +5844,7 @@ msgstr "Om de wizard over te slaan, klik op het %s logo op de eerste pagina."
 msgid "Dashboard"
 msgstr "Dashboard"
 
-#: src/usr/local/www/index.php:323 src/etc/inc/pfsense-utils.inc:335
+#: src/usr/local/www/index.php:323 src/etc/inc/freesense-utils.inc:335
 msgid "Available Widgets"
 msgstr "Beschikbare Widgets"
 
@@ -6100,8 +6100,8 @@ msgstr "Externe gateway"
 #: src/usr/local/www/interfaces_wireless_edit.php:73
 #: src/usr/local/www/interfaces.php:975 src/usr/local/www/interfaces.php:3290
 #: src/usr/local/www/vpn_openvpn_server.php:1704
-#: src/usr/local/www/status_graph.php:207 src/etc/inc/pfsense-utils.inc:3324
-#: src/etc/inc/pfsense-utils.inc:3367
+#: src/usr/local/www/status_graph.php:207 src/etc/inc/freesense-utils.inc:3324
+#: src/etc/inc/freesense-utils.inc:3367
 msgid "Mode"
 msgstr "Mode"
 
@@ -14734,8 +14734,8 @@ msgstr "Succesvol teruggedraaid naar tijdpunt %1$s met omschrijving \"%2$s\"."
 #: src/usr/local/www/diag_confbak.php:56 src/usr/local/www/diag_confbak.php:64
 #: src/usr/local/www/diag_confbak.php:118
 #: src/usr/local/www/diag_confbak.php:227
-#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/pfsense-utils.inc:500
-#: src/etc/inc/pfsense-utils.inc:510 src/etc/inc/config.lib.inc:1023
+#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/freesense-utils.inc:500
+#: src/etc/inc/freesense-utils.inc:510 src/etc/inc/config.lib.inc:1023
 msgid "n/j/y H:i:s"
 msgstr "n/j/y H:i:s"
 
@@ -17685,7 +17685,7 @@ msgstr "Zowel getURL als XMLHttpRequest zijn ongedefineerd"
 msgid "Switch to bits/s"
 msgstr "Schakel om naar bits/s"
 
-#: src/usr/local/www/graph.php:200 src/etc/inc/pfsense-utils.inc:1803
+#: src/usr/local/www/graph.php:200 src/etc/inc/freesense-utils.inc:1803
 msgid "up"
 msgstr "up"
 
@@ -25088,12 +25088,12 @@ msgstr ""
 "De instellingen kunnen niet worden beheerd voor een niet-lokale gebruiker."
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:209
+#: src/etc/inc/freesense-utils.inc:209
 msgid "Theme"
 msgstr "Thema"
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:288
+#: src/etc/inc/freesense-utils.inc:288
 msgid "Dashboard Columns"
 msgstr "Dashboard Kolommen"
 
@@ -33128,10 +33128,10 @@ msgstr "Synchroniseren van XMLRPC data naar %s wordt gestart."
 #, php-format
 msgid ""
 "A communications error occurred while attempting XMLRPC sync with %s "
-"(pfsense.%s)."
+"(freesense.%s)."
 msgstr ""
 "Er is een communicatiefout opgetreden bij het synchroniseren van XMLRPC met "
-"%s (pfsense.%s)."
+"%s (freesense.%s)."
 
 #: src/etc/inc/xmlrpc_client.inc:127
 msgid "Error code received"
@@ -35660,7 +35660,7 @@ msgstr ""
 msgid "limiter"
 msgstr "begrenzer"
 
-#: src/etc/inc/pfsense-utils.inc:212
+#: src/etc/inc/freesense-utils.inc:212
 #, php-format
 msgid ""
 "Choose an alternative css file (if installed) to change the appearance of "
@@ -35669,66 +35669,66 @@ msgstr ""
 "Kies een alternatief css bestand (indien geinstalleerd) om het uiterlijk van "
 "de webConfigurator te wijzigen. css bestanden staan in /usr/local/www/css/%s"
 
-#: src/etc/inc/pfsense-utils.inc:217
+#: src/etc/inc/freesense-utils.inc:217
 msgid "The submitted Theme could not be found. Pick a different theme."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:236
+#: src/etc/inc/freesense-utils.inc:236
 msgid "Scrolls with page"
 msgstr "Scrollt met de pagina"
 
-#: src/etc/inc/pfsense-utils.inc:236
+#: src/etc/inc/freesense-utils.inc:236
 msgid "Fixed (Remains visible at top of page)"
 msgstr "Gefixeerd (Blijft zichtbaar aan de bovenkant van de pagina)"
 
-#: src/etc/inc/pfsense-utils.inc:234
+#: src/etc/inc/freesense-utils.inc:234
 msgid "Top Navigation"
 msgstr "Top Navigatie"
 
-#: src/etc/inc/pfsense-utils.inc:237
+#: src/etc/inc/freesense-utils.inc:237
 msgid "The fixed option is intended for large screens only."
 msgstr "De optie gefixeerd is alleen bedoeld voor grotere schermen."
 
-#: src/etc/inc/pfsense-utils.inc:242
+#: src/etc/inc/freesense-utils.inc:242
 msgid "The submitted Top Navigation value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Default (No hostname)"
 msgstr "Standaard (geen hostnaam)"
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Hostname only"
 msgstr "Alleen een hostnaam"
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Fully Qualified Domain Name"
 msgstr "Volledig Domeinnaam (FQDN)"
 
-#: src/etc/inc/pfsense-utils.inc:259
+#: src/etc/inc/freesense-utils.inc:259
 msgid "Hostname in Menu"
 msgstr "Hostnaam in het Menu"
 
-#: src/etc/inc/pfsense-utils.inc:262
+#: src/etc/inc/freesense-utils.inc:262
 msgid ""
 "Replaces the Help menu title in the Navbar with the system hostname or FQDN."
 msgstr ""
 "Vervangt de Help menu titel in de Navigatiebalk met de hostnaam of "
 "domeinnaam van het systeem."
 
-#: src/etc/inc/pfsense-utils.inc:267
+#: src/etc/inc/freesense-utils.inc:267
 msgid "The submitted Hostname in Menu value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:296
+#: src/etc/inc/freesense-utils.inc:296
 msgid "The submitted Dashboard Columns value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:313
+#: src/etc/inc/freesense-utils.inc:313
 msgid "Interfaces Sort"
 msgstr "Sorteer Interfaces"
 
-#: src/etc/inc/pfsense-utils.inc:316
+#: src/etc/inc/freesense-utils.inc:316
 msgid ""
 "If selected, lists of interfaces will be sorted by description, otherwise "
 "they are listed wan,lan,optn..."
@@ -35736,27 +35736,27 @@ msgstr ""
 "Indien geselecteerd zal de lijst met interfaces worden gesorteerd op "
 "omschrijving, anders worden ze weergegeven als wan, lan, optn..."
 
-#: src/etc/inc/pfsense-utils.inc:330
+#: src/etc/inc/freesense-utils.inc:330
 msgid "Associated Panels Show/Hide"
 msgstr "Verwante Panelen Tonen/Verbergen"
 
-#: src/etc/inc/pfsense-utils.inc:337
+#: src/etc/inc/freesense-utils.inc:337
 msgid "Show the Available Widgets panel on the Dashboard."
 msgstr "Toon het beschikbare widgets paneel op het dashboard."
 
-#: src/etc/inc/pfsense-utils.inc:344
+#: src/etc/inc/freesense-utils.inc:344
 msgid "Show the Log Filter panel in System Logs."
 msgstr "Toon het Log Filter paneel in Systeem Logs."
 
-#: src/etc/inc/pfsense-utils.inc:351
+#: src/etc/inc/freesense-utils.inc:351
 msgid "Show the Manage Log panel in System Logs."
 msgstr "Toon het Beheer Log paneel in Systeem Logs."
 
-#: src/etc/inc/pfsense-utils.inc:358
+#: src/etc/inc/freesense-utils.inc:358
 msgid "Show the Settings panel in Status Monitoring."
 msgstr "Toon het Instellingen paneel in Status Monitoring."
 
-#: src/etc/inc/pfsense-utils.inc:360
+#: src/etc/inc/freesense-utils.inc:360
 msgid ""
 "These options allow certain panels to be automatically hidden on page load. "
 "A control is provided in the title bar to un-hide the panel."
@@ -35765,11 +35765,11 @@ msgstr ""
 "van de pagina. Er is een knop beschikbaar in de titelbalk om het paneel te "
 "tonen."
 
-#: src/etc/inc/pfsense-utils.inc:378
+#: src/etc/inc/freesense-utils.inc:378
 msgid "Left Column Labels"
 msgstr "Linker Kolom Titels"
 
-#: src/etc/inc/pfsense-utils.inc:381
+#: src/etc/inc/freesense-utils.inc:381
 msgid ""
 "If selected, clicking a label in the left column will select/toggle the "
 "first item of the group."
@@ -35777,11 +35777,11 @@ msgstr ""
 "Indien geselecteerd zal bij het klikken op een titel in de linker kolom het "
 "eerste item van de groep worden geselecteerd/omgezet."
 
-#: src/etc/inc/pfsense-utils.inc:397
+#: src/etc/inc/freesense-utils.inc:397
 msgid "Alias Popups"
 msgstr "Alias Popups"
 
-#: src/etc/inc/pfsense-utils.inc:400
+#: src/etc/inc/freesense-utils.inc:400
 msgid ""
 "If selected, the details in alias popups will not be shown, just the alias "
 "description (e.g. in Firewall Rules)."
@@ -35789,11 +35789,11 @@ msgstr ""
 "Indien geselecteerd zullen de details in de alias popup niet getoond worden, "
 "alleen de alias omschrijving (b.v. Firewall Regels)."
 
-#: src/etc/inc/pfsense-utils.inc:416
+#: src/etc/inc/freesense-utils.inc:416
 msgid "Browser tab text"
 msgstr "Browser tab tekst"
 
-#: src/etc/inc/pfsense-utils.inc:419
+#: src/etc/inc/freesense-utils.inc:419
 msgid ""
 "When this is unchecked, the browser tab shows the host name followed by the "
 "current page. Check this box to display the current page followed by the "
@@ -35803,11 +35803,11 @@ msgstr ""
 "daarna de huidige pagina weergeven. Vink dit aan om eerst de huidige pagina "
 "en daarna de hostnaam weer te geven."
 
-#: src/etc/inc/pfsense-utils.inc:463
+#: src/etc/inc/freesense-utils.inc:463
 msgid "Require State Filter"
 msgstr "Vereis State Filter"
 
-#: src/etc/inc/pfsense-utils.inc:466
+#: src/etc/inc/freesense-utils.inc:466
 msgid ""
 "By default, the entire state table is displayed when entering Diagnostics > "
 "States. This option requires a filter to be entered before the states are "
@@ -35818,136 +35818,136 @@ msgstr ""
 "voordat de states worden weergegeven. Nuttig voor systemen met hele grote "
 "state tabellen."
 
-#: src/etc/inc/pfsense-utils.inc:486
+#: src/etc/inc/freesense-utils.inc:486
 msgid "Rule Information"
 msgstr "Regel Informatie"
 
-#: src/etc/inc/pfsense-utils.inc:490
+#: src/etc/inc/freesense-utils.inc:490
 msgid "Tracking ID"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:499 src/etc/inc/pfsense-utils.inc:509
+#: src/etc/inc/freesense-utils.inc:499 src/etc/inc/freesense-utils.inc:509
 #, php-format
 msgid "%1$s by %2$s"
 msgstr "%1$s bij %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:497
+#: src/etc/inc/freesense-utils.inc:497
 msgid "Created"
 msgstr "Aangemaakt"
 
-#: src/etc/inc/pfsense-utils.inc:507
+#: src/etc/inc/freesense-utils.inc:507
 msgid "Updated"
 msgstr "Bijgewerkt"
 
-#: src/etc/inc/pfsense-utils.inc:831
+#: src/etc/inc/freesense-utils.inc:831
 msgid "After synch increase advertising skew"
 msgstr "Na synchronisatie de advertising skew verhogen"
 
-#: src/etc/inc/pfsense-utils.inc:881
+#: src/etc/inc/freesense-utils.inc:881
 msgid "Error creating socket!"
 msgstr "Fout bij het aanmaken van de socket!"
 
-#: src/etc/inc/pfsense-utils.inc:882
+#: src/etc/inc/freesense-utils.inc:882
 #, php-format
 msgid "Error code is '%1$s' - %2$s"
 msgstr "Foutcode is '%1$s' - %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:887
+#: src/etc/inc/freesense-utils.inc:887
 #, php-format
 msgid "setsockopt() failed, error: %s"
 msgstr "setsockopt() mislukt, fout: %s"
 
-#: src/etc/inc/pfsense-utils.inc:891
+#: src/etc/inc/freesense-utils.inc:891
 #, php-format
 msgid "Magic Packet sent (%1$s) to (%2$s) MAC=%3$s"
 msgstr "Magisch Pakket verstuurd (%1$s) naar (%2$s) MAC=%3$s"
 
-#: src/etc/inc/pfsense-utils.inc:970 src/etc/inc/pfsense-utils.inc:990
+#: src/etc/inc/freesense-utils.inc:970 src/etc/inc/freesense-utils.inc:990
 #, php-format
 msgid "Restored %s of config file (maybe from CARP partner)"
 msgstr "%s hersteld uit de config file (mogelijk van CARP partner)"
 
-#: src/etc/inc/pfsense-utils.inc:1077
+#: src/etc/inc/freesense-utils.inc:1077
 msgid "reload_interfaces_sync() is starting."
 msgstr "reload_interfaces_sync() is aan het starten."
 
-#: src/etc/inc/pfsense-utils.inc:1086
+#: src/etc/inc/freesense-utils.inc:1086
 msgid "Enabling system routing"
 msgstr "System routering inschakelen"
 
-#: src/etc/inc/pfsense-utils.inc:1090
+#: src/etc/inc/freesense-utils.inc:1090
 msgid "Cleaning up Interfaces"
 msgstr "Opschonen van Interfaces"
 
-#: src/etc/inc/pfsense-utils.inc:1600
+#: src/etc/inc/freesense-utils.inc:1600
 msgid "No history data found!"
 msgstr "Geen historische data gevonden!"
 
-#: src/etc/inc/pfsense-utils.inc:1733
+#: src/etc/inc/freesense-utils.inc:1733
 msgid "device not present! Is the modem attached to the system?"
 msgstr "apparaat niet aanwezig! Is de modem aangesloten op het systeem?"
 
-#: src/etc/inc/pfsense-utils.inc:1802
+#: src/etc/inc/freesense-utils.inc:1802
 msgid "running"
 msgstr "draaiend"
 
-#: src/etc/inc/pfsense-utils.inc:1848
+#: src/etc/inc/freesense-utils.inc:1848
 msgid "blocking"
 msgstr "blokkerend"
 
-#: src/etc/inc/pfsense-utils.inc:1848
+#: src/etc/inc/freesense-utils.inc:1848
 msgid "check for ethernet loops"
 msgstr "controleer op ethernet lussen"
 
-#: src/etc/inc/pfsense-utils.inc:1851
+#: src/etc/inc/freesense-utils.inc:1851
 msgid "learning"
 msgstr "lerend"
 
-#: src/etc/inc/pfsense-utils.inc:1854
+#: src/etc/inc/freesense-utils.inc:1854
 msgid "forwarding"
 msgstr "doorsturen"
 
-#: src/etc/inc/pfsense-utils.inc:1988
+#: src/etc/inc/freesense-utils.inc:1988
 #, php-format
 msgid "DNSCACHE: Found old IP %1$s and new IP %2$s"
 msgstr "DNSCACHE: Oud IP %1$s en nieuw IP %2$s gevonden"
 
-#: src/etc/inc/pfsense-utils.inc:2010
+#: src/etc/inc/freesense-utils.inc:2010
 #, php-format
 msgid "Loading %s cryptographic accelerator module."
 msgstr "Laden van %s cryptografische acceleratiemodule."
 
-#: src/etc/inc/pfsense-utils.inc:2030
+#: src/etc/inc/freesense-utils.inc:2030
 #, php-format
 msgid "Loading %s thermal monitor module."
 msgstr "Laden van %s temperatuur monitoring module."
 
-#: src/etc/inc/pfsense-utils.inc:2098 src/etc/inc/pfsense-utils.inc:2145
+#: src/etc/inc/freesense-utils.inc:2098 src/etc/inc/freesense-utils.inc:2145
 #, php-format
 msgid "Download file failed with status code %1$s. URL: %2$s"
 msgstr "Ophalen van bestand mislukt met status code %1$s. URL: %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:2364
+#: src/etc/inc/freesense-utils.inc:2364
 #, php-format
 msgid "Could not process non-existent file from alias: %s"
 msgstr "Kon het niet-bestaande bestand niet verwerken van alias: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2369
+#: src/etc/inc/freesense-utils.inc:2369
 #, php-format
 msgid "Could not process empty file from alias: %s"
 msgstr "Kon het lege bestand niet verwerken van alias: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2374
+#: src/etc/inc/freesense-utils.inc:2374
 #, php-format
 msgid "Could not process aliases from alias: %s"
 msgstr "Kon aliasen niet verwerken van alias: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2454
+#: src/etc/inc/freesense-utils.inc:2454
 #, php-format
 msgid "Failed to download alias %s"
 msgstr "Ophalen mislukt van alias %s"
 
-#: src/etc/inc/pfsense-utils.inc:2483
+#: src/etc/inc/freesense-utils.inc:2483
 msgid ""
 "Alias archive is a .tar/tgz file which cannot be decompressed because "
 "utility is missing!"
@@ -35955,170 +35955,170 @@ msgstr ""
 "Alias archief is een .tar/tgz bestand en kon niet worden uitgepakt omdat het "
 "programma mist!"
 
-#: src/etc/inc/pfsense-utils.inc:2493
+#: src/etc/inc/freesense-utils.inc:2493
 #, php-format
 msgid "Could not open %s/aliases for writing!"
 msgstr "Kon %s/aliasen niet openen om te schrijven!"
 
-#: src/etc/inc/pfsense-utils.inc:2499
+#: src/etc/inc/freesense-utils.inc:2499
 #, php-format
 msgid "The following file could not be read %1$s from %2$s"
 msgstr "Het volgende bestand kon niet gelezen worden %1$s van %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:3102
+#: src/etc/inc/freesense-utils.inc:3102
 msgid "Bosnian"
 msgstr "Bosnisch"
 
-#: src/etc/inc/pfsense-utils.inc:3103
+#: src/etc/inc/freesense-utils.inc:3103
 msgid "Chinese"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3104
+#: src/etc/inc/freesense-utils.inc:3104
 msgid "Chinese (Simplified, China)"
 msgstr "Chinees (Eenvoudig, China)"
 
-#: src/etc/inc/pfsense-utils.inc:3105
+#: src/etc/inc/freesense-utils.inc:3105
 msgid "Chinese (Simplified, Hong Kong SAR China)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3106
+#: src/etc/inc/freesense-utils.inc:3106
 msgid "Chinese (Traditional, Taiwan)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3107
+#: src/etc/inc/freesense-utils.inc:3107
 msgid "Dutch"
 msgstr "Nederlands"
 
-#: src/etc/inc/pfsense-utils.inc:3108
+#: src/etc/inc/freesense-utils.inc:3108
 msgid "English"
 msgstr "Engels"
 
-#: src/etc/inc/pfsense-utils.inc:3109
+#: src/etc/inc/freesense-utils.inc:3109
 msgid "French"
 msgstr "Frans"
 
-#: src/etc/inc/pfsense-utils.inc:3110
+#: src/etc/inc/freesense-utils.inc:3110
 msgid "German (Germany)"
 msgstr "Duits (Duitsland)"
 
-#: src/etc/inc/pfsense-utils.inc:3111
+#: src/etc/inc/freesense-utils.inc:3111
 msgid "Italian"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3112
+#: src/etc/inc/freesense-utils.inc:3112
 msgid "Korean"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3113
+#: src/etc/inc/freesense-utils.inc:3113
 msgid "Norwegian Bokmål"
 msgstr "Noorweegse Bokmål"
 
-#: src/etc/inc/pfsense-utils.inc:3114
+#: src/etc/inc/freesense-utils.inc:3114
 msgid "Polish"
 msgstr "Pools"
 
-#: src/etc/inc/pfsense-utils.inc:3115
+#: src/etc/inc/freesense-utils.inc:3115
 msgid "Portuguese"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3116
+#: src/etc/inc/freesense-utils.inc:3116
 msgid "Portuguese (Brazil)"
 msgstr "Portugees (Braziliaans)"
 
-#: src/etc/inc/pfsense-utils.inc:3117
+#: src/etc/inc/freesense-utils.inc:3117
 msgid "Russian"
 msgstr "Russich"
 
-#: src/etc/inc/pfsense-utils.inc:3118
+#: src/etc/inc/freesense-utils.inc:3118
 msgid "Spanish"
 msgstr "Spaans"
 
-#: src/etc/inc/pfsense-utils.inc:3119
+#: src/etc/inc/freesense-utils.inc:3119
 msgid "Spanish (Argentina)"
 msgstr "Spaans (Argentinie)"
 
-#: src/etc/inc/pfsense-utils.inc:3314 src/etc/inc/pfsense-utils.inc:3329
-#: src/etc/inc/pfsense-utils.inc:3355
+#: src/etc/inc/freesense-utils.inc:3314 src/etc/inc/freesense-utils.inc:3329
+#: src/etc/inc/freesense-utils.inc:3355
 msgid "No Service"
 msgstr "Geen Service"
 
-#: src/etc/inc/pfsense-utils.inc:3330
+#: src/etc/inc/freesense-utils.inc:3330
 msgid "Restricted Service"
 msgstr "Beperkte Service"
 
-#: src/etc/inc/pfsense-utils.inc:3331
+#: src/etc/inc/freesense-utils.inc:3331
 msgid "Valid Service"
 msgstr "Geldige Service"
 
-#: src/etc/inc/pfsense-utils.inc:3332
+#: src/etc/inc/freesense-utils.inc:3332
 msgid "Restricted Regional Service"
 msgstr "Beperkte Regionale Service"
 
-#: src/etc/inc/pfsense-utils.inc:3333
+#: src/etc/inc/freesense-utils.inc:3333
 msgid "Powersaving Service"
 msgstr "Zuinige Service"
 
-#: src/etc/inc/pfsense-utils.inc:3334
+#: src/etc/inc/freesense-utils.inc:3334
 msgid "Unknown Service"
 msgstr "Onbekende Service"
 
-#: src/etc/inc/pfsense-utils.inc:3340
+#: src/etc/inc/freesense-utils.inc:3340
 msgid "Invalid SIM/locked State"
 msgstr "Ongeldige SIM/vergrendeld Status"
 
-#: src/etc/inc/pfsense-utils.inc:3341
+#: src/etc/inc/freesense-utils.inc:3341
 msgid "Valid SIM State"
 msgstr "Geldige SIM Status"
 
-#: src/etc/inc/pfsense-utils.inc:3342
+#: src/etc/inc/freesense-utils.inc:3342
 msgid "Invalid SIM CS State"
 msgstr "Ongeldige SIM CS Status"
 
-#: src/etc/inc/pfsense-utils.inc:3343
+#: src/etc/inc/freesense-utils.inc:3343
 msgid "Invalid SIM PS State"
 msgstr "Ongeldige SIM PS Status"
 
-#: src/etc/inc/pfsense-utils.inc:3344
+#: src/etc/inc/freesense-utils.inc:3344
 msgid "Invalid SIM CS/PS State"
 msgstr "Ongeldige SIM CS/PS Status"
 
-#: src/etc/inc/pfsense-utils.inc:3345
+#: src/etc/inc/freesense-utils.inc:3345
 msgid "Missing SIM State"
 msgstr "Ontbrekende SIM Status"
 
-#: src/etc/inc/pfsense-utils.inc:3356
+#: src/etc/inc/freesense-utils.inc:3356
 msgid "Limited Service"
 msgstr "Beperkte Service"
 
-#: src/etc/inc/pfsense-utils.inc:3372
+#: src/etc/inc/freesense-utils.inc:3372
 msgid "Initializing Service"
 msgstr "Initializeren van Service"
 
-#: src/etc/inc/pfsense-utils.inc:3373
+#: src/etc/inc/freesense-utils.inc:3373
 msgid "Network Lock error Service"
 msgstr "Netwerk Vergrendeld fout Service"
 
-#: src/etc/inc/pfsense-utils.inc:3374
+#: src/etc/inc/freesense-utils.inc:3374
 msgid "Network Locked Service"
 msgstr "Netwerk Vergrendeld Service"
 
-#: src/etc/inc/pfsense-utils.inc:3375
+#: src/etc/inc/freesense-utils.inc:3375
 msgid "Unlocked or correct MCC/MNC Service"
 msgstr "Ontgrendeld of correcte MCC/MNC Service"
 
-#: src/etc/inc/pfsense-utils.inc:3381
+#: src/etc/inc/freesense-utils.inc:3381
 msgid "No action State"
 msgstr "Geen actie Status"
 
-#: src/etc/inc/pfsense-utils.inc:3382
+#: src/etc/inc/freesense-utils.inc:3382
 msgid "Network lock State"
 msgstr "Netwerk vergendelstatus"
 
-#: src/etc/inc/pfsense-utils.inc:3383
+#: src/etc/inc/freesense-utils.inc:3383
 msgid "(U)SIM card lock State"
 msgstr "(U)SIM kaart vergrendelstatus"
 
-#: src/etc/inc/pfsense-utils.inc:3384
+#: src/etc/inc/freesense-utils.inc:3384
 msgid "Network Lock and (U)SIM card Lock State"
 msgstr "Netwerk Vergrendel en (U)SIM kaart vergrendel Status"
 
@@ -43151,30 +43151,30 @@ msgstr ""
 msgid "Enable this queue"
 msgstr "Schakel deze wachtrij in"
 
-#: src/etc/inc/pfsense-utils.inc:314
+#: src/etc/inc/freesense-utils.inc:314
 msgid "Sort Alphabetically"
 msgstr "Alfabetisch Sorteren "
 
-#: src/etc/inc/pfsense-utils.inc:349
+#: src/etc/inc/freesense-utils.inc:349
 msgid "Manage Log"
 msgstr "Beheer log"
 
-#: src/etc/inc/pfsense-utils.inc:356
+#: src/etc/inc/freesense-utils.inc:356
 msgid "Monitoring Settings"
 msgstr "Monitorinstellingen"
 
-#: src/etc/inc/pfsense-utils.inc:379
+#: src/etc/inc/freesense-utils.inc:379
 msgid "Active"
 msgstr "Actief"
 
-#: src/etc/inc/pfsense-utils.inc:398
+#: src/etc/inc/freesense-utils.inc:398
 msgid "Disable details in alias popups"
 msgstr "Details uitschakelen in alias popups"
 
-#: src/etc/inc/pfsense-utils.inc:417
+#: src/etc/inc/freesense-utils.inc:417
 msgid "Display page name first in browser tab"
 msgstr "Toon  eerst pagina naam in browser tabblad"
 
-#: src/etc/inc/pfsense-utils.inc:464
+#: src/etc/inc/freesense-utils.inc:464
 msgid "Do not display state table without a filter"
 msgstr "Laat de state tabel niet zien zonder een filter"

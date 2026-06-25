@@ -2,7 +2,7 @@
 /*
  * system_information.widget.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -412,7 +412,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 
 		// Calculate scaling factor
 		$adaptive = false;
-		$maxstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : pfsense_default_state_size();
+		$maxstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
 		$adaptivestart = (config_get_path('system/adaptivestart', 0) > 0) ? config_get_path('system/adaptivestart') : intval($maxstates * 0.6);
 		$adaptiveend = (config_get_path('system/adaptiveend', 0) > 0) ? config_get_path('system/adaptiveend') : intval($maxstates * 1.2);
 		$adaptive_text = "";

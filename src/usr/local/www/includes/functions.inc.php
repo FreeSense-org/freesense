@@ -2,7 +2,7 @@
 /*
  * functions.inc.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2013-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
@@ -25,7 +25,7 @@ if (Connection_Aborted()) {
 }
 
 require_once("config.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 function get_stats($sitems = array()) {
 	$sitems = is_array($sitems) ? $sitems : [];
@@ -92,7 +92,7 @@ function cpu_usage() {
 
 function get_pfstate($percent=false) {
 	$matches = "";
-	$maxstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : pfsense_default_state_size();
+	$maxstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
 	$curentries = `/sbin/pfctl -si |grep current`;
 	if (preg_match("/([0-9]+)/", $curentries, $matches)) {
 		$curentries = $matches[1];

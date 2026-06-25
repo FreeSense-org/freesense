@@ -1,8 +1,8 @@
 <?php
 /*
- * pfsense-utils.inc
+ * freesense-utils.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -45,7 +45,7 @@ function display_isc_warning()
 	print_info_box(sprintf(gettext('ISC DHCP has reached end-of-life and will be removed in a future version of %s. Visit %s to switch DHCP backend.'), g_get('product_label'), sprintf('<a href="%s">%s</a>', 'system_advanced_network.php', 'System > Advanced > Networking')), 'warning', false);
 }
 
-/****f* pfsense-utils/have_natpfruleint_access
+/****f* freesense-utils/have_natpfruleint_access
  * NAME
  *   have_natpfruleint_access
  * INPUTS
@@ -61,7 +61,7 @@ function have_natpfruleint_access($if) {
 	return false;
 }
 
-/****f* pfsense-utils/have_ruleint_access
+/****f* freesense-utils/have_ruleint_access
  * NAME
  *   have_ruleint_access
  * INPUTS
@@ -77,7 +77,7 @@ function have_ruleint_access($if) {
 	return false;
 }
 
-/****f* pfsense-utils/does_url_exist
+/****f* freesense-utils/does_url_exist
  * NAME
  *   does_url_exist
  * INPUTS
@@ -95,7 +95,7 @@ function does_url_exist($url) {
 	}
 }
 
-/****f* pfsense-utils/is_private_ip
+/****f* freesense-utils/is_private_ip
  * NAME
  *   is_private_ip
  * INPUTS
@@ -119,7 +119,7 @@ function is_private_ip($iptocheck) {
 	return $isprivate;
 }
 
-/****f* pfsense-utils/get_tmp_file
+/****f* freesense-utils/get_tmp_file
  * NAME
  *   get_tmp_file
  * INPUTS
@@ -133,12 +133,12 @@ function get_tmp_file() {
 }
 
 /* Stub for deprecated function
- * See https://redmine.pfsense.org/issues/10931 */
+ * See https://redmine.freesense.org/issues/10931 */
 function get_dns_servers() {
 	return get_dns_nameservers(false, true);
 }
 
-/****f* pfsense-utils/FreeSenseHeader
+/****f* freesense-utils/FreeSenseHeader
  * NAME
  *   FreeSenseHeader
  * INPUTS
@@ -169,7 +169,7 @@ function FreeSenseHeader($text) {
 	}
 }
 
-/****f* pfsense-utils/get_css_files
+/****f* freesense-utils/get_css_files
  * NAME
  *   get_css_files - get a list of the available CSS files (themes)
  * INPUTS
@@ -211,7 +211,7 @@ function get_css_files() {
 	return $csslist;
 }
 
-/****f* pfsense-utils/gen_webguicss_field
+/****f* freesense-utils/gen_webguicss_field
  * NAME
  *   gen_webguicss_field
  * INPUTS
@@ -242,7 +242,7 @@ function validate_webguicss_field(&$input_errors, $value) {
 	}
 }
 
-/****f* pfsense-utils/gen_webguifixedmenu_field
+/****f* freesense-utils/gen_webguifixedmenu_field
  * NAME
  *   gen_webguifixedmenu_field
  * INPUTS
@@ -267,7 +267,7 @@ function validate_webguifixedmenu_field(&$input_errors, $value) {
 	}
 }
 
-/****f* pfsense-utils/gen_webguihostnamemenu_field
+/****f* freesense-utils/gen_webguihostnamemenu_field
  * NAME
  *   gen_webguihostnamemenu_field
  * INPUTS
@@ -292,7 +292,7 @@ function validate_webguihostnamemenu_field(&$input_errors, $value) {
 	}
 }
 
-/****f* pfsense-utils/gen_dashboardcolumns_field
+/****f* freesense-utils/gen_dashboardcolumns_field
  * NAME
  *   gen_dashboardcolumns_field
  * INPUTS
@@ -321,7 +321,7 @@ function validate_dashboardcolumns_field(&$input_errors, $value) {
 	}
 }
 
-/****f* pfsense-utils/gen_interfacessort_field
+/****f* freesense-utils/gen_interfacessort_field
  * NAME
  *   gen_interfacessort_field
  * INPUTS
@@ -340,7 +340,7 @@ function gen_interfacessort_field(&$section, $value) {
 	))->setHelp('If selected, lists of interfaces will be sorted by description, otherwise they are listed wan,lan,optn...');
 }
 
-/****f* pfsense-utils/gen_associatedpanels_fields
+/****f* freesense-utils/gen_associatedpanels_fields
  * NAME
  *   gen_associatedpanels_fields
  * INPUTS
@@ -386,7 +386,7 @@ function gen_associatedpanels_fields(&$section, $value1, $value2, $value3, $valu
 	$section->add($group);
 }
 
-/****f* pfsense-utils/gen_webguileftcolumnhyper_field
+/****f* freesense-utils/gen_webguileftcolumnhyper_field
  * NAME
  *   gen_webguileftcolumnhyper_field
  * INPUTS
@@ -405,7 +405,7 @@ function gen_webguileftcolumnhyper_field(&$section, $value) {
 	))->setHelp('If selected, clicking a label in the left column will select/toggle the first item of the group.');
 }
 
-/****f* pfsense-utils/gen_disablealiaspopupdetail_field
+/****f* freesense-utils/gen_disablealiaspopupdetail_field
  * NAME
  *   gen_disablealiaspopupdetail_field
  * INPUTS
@@ -424,7 +424,7 @@ function gen_disablealiaspopupdetail_field(&$section, $value) {
 	))->setHelp('If selected, the details in alias popups will not be shown, just the alias description (e.g. in Firewall Rules).');
 }
 
-/****f* pfsense-utils/gen_pagenamefirst_field
+/****f* freesense-utils/gen_pagenamefirst_field
  * NAME
  *   gen_pagenamefirst_field
  * INPUTS
@@ -445,7 +445,7 @@ function gen_pagenamefirst_field(&$section, $value) {
 		'host name.');
 }
 
-/****f* pfsense-utils/gen_user_settings_fields
+/****f* freesense-utils/gen_user_settings_fields
  * NAME
  *   gen_user_settings_fields
  * INPUTS
@@ -472,7 +472,7 @@ function gen_user_settings_fields(&$section, $pconfig) {
 	gen_pagenamefirst_field($section, $pconfig['pagenamefirst']);
 }
 
-/****f* pfsense-utils/gen_requirestatefilter_field
+/****f* freesense-utils/gen_requirestatefilter_field
  * NAME
  *   gen_requirestatefilter_field
  * INPUTS
@@ -492,7 +492,7 @@ function gen_requirestatefilter_field(&$section, $value) {
 		'before the states are displayed. Useful for systems with large state tables.');
 }
 
-/****f* pfsense-utils/gen_requirefirewallinterface_field
+/****f* freesense-utils/gen_requirefirewallinterface_field
  * NAME
  *   gen_requirefirewallinterface_field
  * INPUTS
@@ -514,7 +514,7 @@ function gen_requirefirewallinterface_field(&$section, $value) {
 		'causing slowness when loading that page.');
 }
 
-/****f* pfsense-utils/gen_created_updated_fields
+/****f* freesense-utils/gen_created_updated_fields
  * NAME
  *   gen_created_updated_fields
  * INPUTS
@@ -619,7 +619,7 @@ function hardware_offloading_applyflags($iface) {
 	FreeSense_interface_capabilities($iface, $flags_on);
 }
 
-/****f* pfsense-utils/enable_hardware_offloading
+/****f* freesense-utils/enable_hardware_offloading
  * NAME
  *   enable_hardware_offloading - Enable a NIC's supported hardware features.
  * INPUTS
@@ -656,7 +656,7 @@ function enable_hardware_offloading($interface) {
 	}
 }
 
-/****f* pfsense-utils/is_alias_inuse
+/****f* freesense-utils/is_alias_inuse
  * NAME
  *   checks to see if an alias is currently in use by a rule
  * INPUTS
@@ -697,7 +697,7 @@ function is_alias_inuse($alias) {
 	return false;
 }
 
-/****f* pfsense-utils/is_schedule_inuse
+/****f* freesense-utils/is_schedule_inuse
  * NAME
  *   checks to see if a schedule is currently in use by a rule
  * INPUTS
@@ -720,7 +720,7 @@ function is_schedule_inuse($schedule) {
 	return false;
 }
 
-/****f* pfsense-utils/setup_microcode
+/****f* freesense-utils/setup_microcode
  * NAME
  *   enumerates all interfaces and calls enable_hardware_offloading which
  *   enables a NIC's supported hardware features.
@@ -741,7 +741,7 @@ function setup_microcode() {
 	unset($iflist);
 }
 
-/****f* pfsense-utils/get_carp_status
+/****f* freesense-utils/get_carp_status
  * NAME
  *   get_carp_status - Return whether CARP is enabled or disabled.
  * RESULT
@@ -836,7 +836,7 @@ function captiveportal_ha_is_node_in_backup_mode($cpzone) {
 	return false;
 }
 
-/****f* pfsense-utils/WakeOnLan
+/****f* freesense-utils/WakeOnLan
  * NAME
  *   WakeOnLan - Wake a machine up using the wake on lan format/protocol
  * RESULT
@@ -912,8 +912,8 @@ function restore_config_section($section_name, $new_contents) {
 	fclose($fout);
 
 	$xml = parse_xml_config(g_get('tmp_path') . "/tmpxml", null);
-	if ($xml['pfsense']) {
-		$xml = $xml['pfsense'];
+	if ($xml['freesense']) {
+		$xml = $xml['freesense'];
 	}
 	if ($xml[$section_name]) {
 		$section_xml = $xml[$section_name];
@@ -1022,7 +1022,7 @@ function get_disk_info() {
 	return explode(' ', $diskout[0]);
 }
 
-/****f* pfsense-utils/strncpy
+/****f* freesense-utils/strncpy
  * NAME
  *   strncpy - copy strings
  * INPUTS
@@ -1038,7 +1038,7 @@ function strncpy(&$dst, $src, $length) {
 	}
 }
 
-/****f* pfsense-utils/reload_interfaces_sync
+/****f* freesense-utils/reload_interfaces_sync
  * NAME
  *   reload_interfaces - reload all interfaces
  * INPUTS
@@ -1070,7 +1070,7 @@ function reload_interfaces_sync() {
 	interfaces_configure();
 }
 
-/****f* pfsense-utils/reload_all
+/****f* freesense-utils/reload_all
  * NAME
  *   reload_all - triggers a reload of all settings
  *   * INPUTS
@@ -1082,7 +1082,7 @@ function reload_all() {
 	send_event("service reload all");
 }
 
-/****f* pfsense-utils/reload_interfaces
+/****f* freesense-utils/reload_interfaces
  * NAME
  *   reload_interfaces - triggers a reload of all interfaces
  * INPUTS
@@ -1094,7 +1094,7 @@ function reload_interfaces() {
 	send_event("interface all reload");
 }
 
-/****f* pfsense-utils/reload_all_sync
+/****f* freesense-utils/reload_all_sync
  * NAME
  *   reload_all - reload all settings
  *   * INPUTS
@@ -1344,7 +1344,7 @@ function setup_loader_settings($path = "", $upgrade = false) {
 	$data[] = 'machdep.hwpstate_pkg_ctrl="' . config_get_path('system/hwpstate_control_level', get_single_sysctl('machdep.hwpstate_pkg_ctrl')) . '"';
 
 	// calculate the size of hash tables that store states - should be power of 2
-	$pf_maximumstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : pfsense_default_state_size();
+	$pf_maximumstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
 	$pf_hashtablesize = pow(2, ceil(log(floor(intval($pf_maximumstates) / 2), 2)));
 	$data[] = "net.pf.states_hashsize=\"{$pf_hashtablesize}\"";
 
@@ -1434,7 +1434,7 @@ function console_configure($when = "save", $path = "") {
 		if ($item == 'console') {
 			$data[] = $console_line;
 		} elseif (($item == 'ttyv0') || ($item == 'xc0')) {
-			/* xc0 - Xen console, see https://redmine.pfsense.org/issues/11402 */
+			/* xc0 - Xen console, see https://redmine.freesense.org/issues/11402 */
 			$data[] = "{$item}\t{$virt_line}";
 		} else {
 			$data[] = "{$item}\t{$ttyu_line}";
@@ -1605,7 +1605,7 @@ function get_ppp_uptime($port) {
 		$sec = 0;
 		foreach ($uptime_data as $upt) {
 			/* Skip blank lines, trim, and cast to int to ensure type matches.
-			 * https://redmine.pfsense.org/issues/14117 */
+			 * https://redmine.freesense.org/issues/14117 */
 			if (!empty($upt)) {
 				$sec += (int) trim(substr($upt, 1 + strpos($upt, " ")));
 			}
@@ -1975,7 +1975,7 @@ function is_fqdn($fqdn) {
 	return (bool) preg_match('/^(?:(?!-)[-_a-z0-9]+(?<!-)\.)*(?!-)[a-z0-9\-]+(?<!-)\.(?:xn--)?[a-z]+[\.]?$/i', $fqdn);
 }
 
-function pfsense_default_state_size() {
+function freesense_default_state_size() {
 	/* get system memory amount */
 	$memory = get_memory();
 	$physmem = $memory[0];
@@ -1992,12 +1992,12 @@ function pfsense_default_state_size() {
 	return $max_states;
 }
 
-function pfsense_current_tables_size() {
+function freesense_current_tables_size() {
 	$current = `pfctl -sm | grep ^tables | awk '{print $4};'`;
 	return $current;
 }
 
-function pfsense_current_table_entries_size() {
+function freesense_current_table_entries_size() {
 	$current = `pfctl -sm | grep table-entries | awk '{print $4};'`;
 	return (trim($current));
 }
@@ -2079,7 +2079,7 @@ function load_thermal_hardware() {
 	}
 }
 
-/****f* pfsense-utils/isvm
+/****f* freesense-utils/isvm
  * NAME
  *   isvm
  * INPUTS
@@ -2589,7 +2589,7 @@ function update_alias_url_data() {
 				}
 				rmdir_recursive($temp_filename);
 			} elseif (is_alias($alias_url)) {
-				/* nested URL alias, see https://redmine.pfsense.org/issues/11863 */
+				/* nested URL alias, see https://redmine.freesense.org/issues/11863 */
 				if (!$aliastable) {
 					alias_make_table();
 				}
@@ -3818,7 +3818,7 @@ function generate_ipv6_from_mac($mac) {
 	return $ipv6;
 }
 
-/****f* pfsense-utils/load_mac_manufacturer_table
+/****f* freesense-utils/load_mac_manufacturer_table
  * NAME
  *   load_mac_manufacturer_table
  * INPUTS
@@ -3846,7 +3846,7 @@ function load_mac_manufacturer_table() {
 
 }
 
-/****f* pfsense-utils/is_ipaddr_configured
+/****f* freesense-utils/is_ipaddr_configured
  * NAME
  *   is_ipaddr_configured
  * INPUTS
@@ -3867,7 +3867,7 @@ function is_ipaddr_configured($ipaddr, $ignore_if = "", $check_localip = false, 
 	return false;
 }
 
-/****f* pfsense-utils/where_is_ipaddr_configured
+/****f* freesense-utils/where_is_ipaddr_configured
  * NAME
  *   where_is_ipaddr_configured
  * INPUTS
@@ -3921,7 +3921,7 @@ function where_is_ipaddr_configured($ipaddr, $ignore_if = "", $check_localip = f
 				$if_ipv6 = get_interface_ipv6($if);
 				$if_snbitsv6 = get_interface_subnetv6($if);
 				/* do not check subnet overlapping on 6rd interfaces,
-				 * see https://redmine.pfsense.org/issues/12371 */
+				 * see https://redmine.freesense.org/issues/12371 */
 				if ($if_ipv6 && $if_snbitsv6 &&
 				    ((config_get_path("interfaces/{$if}/ipaddrv6") != '6rd') || ($cidrprefix > $if_snbitsv6)) &&
 				    check_subnetsv6_overlap($ipaddr, $cidrprefix, $if_ipv6, $if_snbitsv6)) {
@@ -3973,7 +3973,7 @@ function where_is_ipaddr_configured($ipaddr, $ignore_if = "", $check_localip = f
 	return $where_configured;
 }
 
-/****f* pfsense-utils/FreeSense_handle_custom_code
+/****f* freesense-utils/FreeSense_handle_custom_code
  * NAME
  *   FreeSense_handle_custom_code
  * INPUTS
@@ -4117,7 +4117,7 @@ function calculate_ipv6_delegation_length($if) {
 
 function merge_ipv6_delegated_prefix($prefix, $suffix, $len = 64) {
 	/* convert zero-value prefix IPv6 addresses with IPv4 mapping to hex
-	 * see https://redmine.pfsense.org/issues/12440 */
+	 * see https://redmine.freesense.org/issues/12440 */
 	$suffix_list = explode(':', $suffix);
 	if (is_ipaddrv4($suffix_list[count($suffix_list) - 1])) {
 		$hexsuffix = dechex(ip2long($suffix_list[count($suffix_list) - 1]));
@@ -4335,7 +4335,7 @@ function get_pppoes_child_interfaces($ifpattern) {
 
 }
 
-/****f* pfsense-utils/pkg_call_plugins
+/****f* freesense-utils/pkg_call_plugins
  * NAME
  *   pkg_call_plugins
  * INPUTS
@@ -4391,7 +4391,7 @@ function compare_by_name($a, $b) {
 	return strcasecmp($a['name'], $b['name']);
 }
 
-/****f* pfsense-utils/getarraybyref
+/****f* freesense-utils/getarraybyref
  * NAME
  *   getarraybyref
  * INPUTS
@@ -4422,7 +4422,7 @@ function &getarraybyref(&$array) {
 	return $item;
 }
 
-/****f* pfsense-utils/send_download_data
+/****f* freesense-utils/send_download_data
  * NAME
  *   send_download_data - Send content to a user's browser as a file to download
  * INPUTS
@@ -4469,7 +4469,7 @@ function send_user_download($type, $content, $userfilename = "", $contenttype = 
 	}
 
 	/* Ensure output buffering is off so PHP does not consume
-	 * memory in readfile(). https://redmine.pfsense.org/issues/9239 */
+	 * memory in readfile(). https://redmine.freesense.org/issues/9239 */
 	while (ob_get_level()) {
 		@ob_end_clean();
 	}

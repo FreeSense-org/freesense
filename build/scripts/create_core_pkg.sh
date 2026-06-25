@@ -2,7 +2,7 @@
 #
 # create_core_pkg.sh
 #
-# part of pfSense (https://www.pfsense.org)
+# part of FreeSense (https://www.freesense.org)
 # Copyright (c) 2004-2013 BSD Perimeter
 # Copyright (c) 2013-2016 Electric Sheep Fencing
 # Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -49,8 +49,8 @@ Options:
 
 Environment:
 	TMPDIR       -- Temporary directory (default: /tmp)
-	PRODUCT_NAME -- Product name (default: pfSense)
-	PRODUCT_URL  -- Product URL (default: https://www.pfsense.org)
+	PRODUCT_NAME -- Product name (default: FreeSense)
+	PRODUCT_URL  -- Product URL (default: https://www.freesense.org)
 END
 	exit 1
 }
@@ -103,8 +103,8 @@ done
 	&& err "destination path already exists and is not a directory"
 
 : ${TMPDIR=/tmp}
-: ${PRODUCT_NAME=pfSense}
-: ${PRODUCT_URL=http://www.pfsense.org/}
+: ${PRODUCT_NAME=FreeSense}
+: ${PRODUCT_URL=http://www.freesense.org/}
 
 [ -d $destdir ] \
 	|| mkdir -p ${destdir}

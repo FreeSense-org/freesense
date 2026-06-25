@@ -4,7 +4,7 @@ origin: "sysutil/%%PRODUCT_NAME%%-u-boot"
 comment: <<EOD
 %%PRODUCT_NAME%% u-boot%%FLAVOR_DESC%%
 EOD
-maintainer: development@pfsense.org
+maintainer: development@freesense.org
 prefix: /
 vital: true
 deps: {

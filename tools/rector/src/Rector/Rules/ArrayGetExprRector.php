@@ -2,7 +2,7 @@
 /*
  * ArrayGetExprRector.php
  *
- * part of pfSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2022-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *

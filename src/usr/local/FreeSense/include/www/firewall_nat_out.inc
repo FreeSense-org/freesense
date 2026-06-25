@@ -2,7 +2,7 @@
 /*
  * firewall_nat_out.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -24,7 +24,7 @@
 require_once("config.gui.inc");
 require_once("interfaces.inc");
 require_once("util.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("ipsec.inc");
 require_once("filter.inc");
 
@@ -610,7 +610,7 @@ function toggleMultipleoutNATrules($post, $json = false) {
 	    !isset($post['rule']) ||
 	    !is_array($post['rule'])) {
 		/* Nothing to do.
-		 * See https://redmine.pfsense.org/issues/12694 */
+		 * See https://redmine.freesense.org/issues/12694 */
 		return;
 	}
 
@@ -642,7 +642,7 @@ function deleteMultipleoutNATrules($post, $json = false) {
 	    !isset($post['rule']) ||
 	    !is_array($post['rule'])) {
 		/* Nothing to do.
-		 * See https://redmine.pfsense.org/issues/12694 */
+		 * See https://redmine.freesense.org/issues/12694 */
 		return;
 	}
 

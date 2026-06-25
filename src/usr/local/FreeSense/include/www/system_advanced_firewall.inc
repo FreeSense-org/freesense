@@ -2,7 +2,7 @@
 /*
  * system_advanced_firewall.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -25,7 +25,7 @@ require_once("filter.inc");
 require_once("shaper.inc");
 require_once("system.inc");
 require_once("util.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 $state_policy_options = [
 	'if-bound' => gettext('Interface Bound States'),
@@ -192,7 +192,7 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 	if ($post['maximumtableentries']) {
 		$maximumtableentries = $post['maximumtableentries'];
 	} else {
-		$maximumtableentries = pfsense_current_table_entries_size();
+		$maximumtableentries = freesense_current_table_entries_size();
 	}
 	if (!is_numericint($maximumtableentries)) {
 		$input_errors[] = gettext("The Firewall Maximum Table Entries value must be an integer.");
@@ -497,7 +497,7 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 		}
 
 		/* Update net.pf.request_maxcount when necessary
-		 * See https://redmine.pfsense.org/issues/10861 */
+		 * See https://redmine.freesense.org/issues/10861 */
 		if ($setup_sysctl) {
 			system_setup_sysctl();
 		}

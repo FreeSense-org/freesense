@@ -2,11 +2,11 @@
 /*
  * services_unbound_advanced.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
- * Copyright (c) 2014 Warren Baker (warren@pfsense.org)
+ * Copyright (c) 2014 Warren Baker (warren@freesense.org)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

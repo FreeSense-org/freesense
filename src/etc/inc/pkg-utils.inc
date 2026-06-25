@@ -2,7 +2,7 @@
 /*
  * pkg-utils.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2005-2006 Colin Smith (ethethlay@gmail.com)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
@@ -26,7 +26,7 @@ require_once("globals.inc");
 require_once("service-utils.inc");
 require_once("/usr/local/www/includes/functions.inc.php");
 require_once("xmlparse.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 if (!function_exists("pkg_debug")) {
 	/* set up logging if needed */
@@ -487,7 +487,7 @@ function get_pkg_info($pkgs = 'all', $remote_repo_usage_disabled = false,
 
 		/* XXX: Add it to globals.inc? */
 		$pkg_info['changeloglink'] =
-		    "https://github.com/pfsense/FreeBSD-ports/commits/devel/" .
+		    "https://github.com/freesense/FreeBSD-ports/commits/devel/" .
 		    $pkg_info['categories'][0] . '/' . $pkg_info['name'];
 
 		$pkg_is_installed = false;
@@ -735,7 +735,7 @@ function read_package_config($package_name) {
 		return false;
 	}
 
-	$pkg_info = parse_xml_config_pkg($pkg_info_xml, 'pfsensepkgs');
+	$pkg_info = parse_xml_config_pkg($pkg_info_xml, 'freesensepkgs');
 
 	if (empty($pkg_info)) {
 		return false;
@@ -1116,7 +1116,7 @@ function delete_package_xml($package_name, $when = "post-deinstall") {
 	if (is_array($pkg_info['logging']) && !empty($pkg_info['logging']['logfilename'])) {
 		update_status(gettext("Syslog entries... "));
 		/* remove package-related syslog configuration but retain log data,
-		 * see https://redmine.pfsense.org/issues/11846 */
+		 * see https://redmine.freesense.org/issues/11846 */
 		@unlink_if_exists("{$g['varetc_path']}/syslog.d/" . basename($pkg_info['logging']['logfilename']) . ".conf");
 		update_status("done.\n");
 		$need_syslog_restart = true;
@@ -1196,7 +1196,7 @@ function package_reinstall_all() {
 				$found = true;
 			} elseif ($pkg['name'] == $package['name']) {
 				/* some packages use 'name' as the package name,
-				 * see https://redmine.pfsense.org/issues/12766 */
+				 * see https://redmine.freesense.org/issues/12766 */
 				pkg_install(g_get('pkg_prefix') . $package['name'], true);
 				$found = true;
 			}
@@ -1248,7 +1248,7 @@ function stop_packages() {
 	require_once("shaper.inc");
 	require_once("captiveportal.inc");
 	require_once("pkg-utils.inc");
-	require_once("pfsense-utils.inc");
+	require_once("freesense-utils.inc");
 	require_once("service-utils.inc");
 
 	logger(LOG_INFO, localize_text("Stopping all packages."));

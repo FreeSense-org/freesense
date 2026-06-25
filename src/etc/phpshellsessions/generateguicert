@@ -1,7 +1,7 @@
 /*
  * generateguicert
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2016 Electric Sheep Fencing
  * Copyright (c) 2016-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
@@ -21,7 +21,7 @@
 
 require_once("certs.inc");
 require_once("system.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 function usage() {
 	echo "Usage: playback generateguicert [hostname]\n\n";

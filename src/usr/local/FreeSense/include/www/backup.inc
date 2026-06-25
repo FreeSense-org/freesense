@@ -2,7 +2,7 @@
 /*
  * backup.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -202,9 +202,9 @@ function execPost($post, $postfiles, $ui = true) {
 				/* If the config on disk contains any rrddata/sshdata tags, remove them to
 				 * avoid forming invalid XML in the resulting backup.
 				 * See Redmine issues:
-				 * https://redmine.pfsense.org/issues/8994
-				 * https://redmine.pfsense.org/issues/10508
-				 * https://redmine.pfsense.org/issues/13132
+				 * https://redmine.freesense.org/issues/8994
+				 * https://redmine.freesense.org/issues/10508
+				 * https://redmine.freesense.org/issues/13132
 				 */
 				foreach (array('rrd', 'ssh') as $tag) {
 					/* Match across multiple lines for the tags and data within to remove */
@@ -272,9 +272,9 @@ function execPost($post, $postfiles, $ui = true) {
 					/* If the config on disk contains duplicate or empty rrddata/sshdata
 					 * tags, remove them to avoid XML parsing errors.
 					 * See Redmine issues
-					 * https://redmine.pfsense.org/issues/8994
-					 * https://redmine.pfsense.org/issues/10508
-					 * https://redmine.pfsense.org/issues/13132
+					 * https://redmine.freesense.org/issues/8994
+					 * https://redmine.freesense.org/issues/10508
+					 * https://redmine.freesense.org/issues/13132
 					 */
 					foreach (array('rrd', 'ssh') as $tag) {
 						/* Look for empty tags (no data) */

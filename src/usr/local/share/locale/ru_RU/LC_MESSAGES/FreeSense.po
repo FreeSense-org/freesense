@@ -4216,8 +4216,8 @@ msgstr ""
 #: src/usr/local/www/interfaces.php:1872 src/usr/local/www/interfaces.php:1875
 #: src/usr/local/www/interfaces.php:1898 src/usr/local/www/interfaces.php:1911
 #: src/etc/inc/ipsec.inc:477 src/etc/inc/shaper.inc:4411
-#: src/etc/inc/shaper.inc:4856 src/etc/inc/pfsense-utils.inc:2832
-#: src/etc/inc/pfsense-utils.inc:3306
+#: src/etc/inc/shaper.inc:4856 src/etc/inc/freesense-utils.inc:2832
+#: src/etc/inc/freesense-utils.inc:3306
 msgid "None"
 msgstr "Ничего"
 
@@ -4851,7 +4851,7 @@ msgstr "Применить Фильтр"
 #: src/usr/local/www/status_logs_vpn.php:412
 #: src/usr/local/www/status_logs_common.inc:321
 #: src/usr/local/www/status_logs_common.inc:541
-#: src/etc/inc/pfsense-utils.inc:342
+#: src/etc/inc/freesense-utils.inc:342
 msgid "Log Filter"
 msgstr "Фильтр Журнала"
 
@@ -5879,7 +5879,7 @@ msgstr "Чтобы пропустить мастер, нажмите на лог
 msgid "Dashboard"
 msgstr "Приборная панель"
 
-#: src/usr/local/www/index.php:323 src/etc/inc/pfsense-utils.inc:335
+#: src/usr/local/www/index.php:323 src/etc/inc/freesense-utils.inc:335
 msgid "Available Widgets"
 msgstr "Доступные Виджеты"
 
@@ -6141,8 +6141,8 @@ msgstr "Удаленный Шлюз"
 #: src/usr/local/www/interfaces_wireless_edit.php:73
 #: src/usr/local/www/interfaces.php:975 src/usr/local/www/interfaces.php:3290
 #: src/usr/local/www/vpn_openvpn_server.php:1704
-#: src/usr/local/www/status_graph.php:207 src/etc/inc/pfsense-utils.inc:3324
-#: src/etc/inc/pfsense-utils.inc:3367
+#: src/usr/local/www/status_graph.php:207 src/etc/inc/freesense-utils.inc:3324
+#: src/etc/inc/freesense-utils.inc:3367
 msgid "Mode"
 msgstr "Режим"
 
@@ -14856,8 +14856,8 @@ msgstr "Отметка времени %1$s с описанием \"%2$s\"усп�
 #: src/usr/local/www/diag_confbak.php:56 src/usr/local/www/diag_confbak.php:64
 #: src/usr/local/www/diag_confbak.php:118
 #: src/usr/local/www/diag_confbak.php:227
-#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/pfsense-utils.inc:500
-#: src/etc/inc/pfsense-utils.inc:510 src/etc/inc/config.lib.inc:1023
+#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/freesense-utils.inc:500
+#: src/etc/inc/freesense-utils.inc:510 src/etc/inc/config.lib.inc:1023
 msgid "n/j/y H:i:s"
 msgstr "n/j/y H:i:s"
 
@@ -17774,7 +17774,7 @@ msgstr "Функции getURL и XMLHttpRequest не определены"
 msgid "Switch to bits/s"
 msgstr "Переключиться на бит/секунды"
 
-#: src/usr/local/www/graph.php:200 src/etc/inc/pfsense-utils.inc:1803
+#: src/usr/local/www/graph.php:200 src/etc/inc/freesense-utils.inc:1803
 msgid "up"
 msgstr "работает"
 
@@ -25185,12 +25185,12 @@ msgid "The settings cannot be managed for a non-local user."
 msgstr "Нельзя управлять настройками для не локального пользователя."
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:209
+#: src/etc/inc/freesense-utils.inc:209
 msgid "Theme"
 msgstr "Тема"
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:288
+#: src/etc/inc/freesense-utils.inc:288
 msgid "Dashboard Columns"
 msgstr "Колонки Информационной Панели"
 
@@ -33208,10 +33208,10 @@ msgstr "Начинаем синхронизацию данных XMLRPC к %s."
 #, php-format
 msgid ""
 "A communications error occurred while attempting XMLRPC sync with %s "
-"(pfsense.%s)."
+"(freesense.%s)."
 msgstr ""
 "Ошибка коммуникации произошла при попытке синхронизации XMLRPC с  %s "
-"(pfsense.%s)."
+"(freesense.%s)."
 
 #: src/etc/inc/xmlrpc_client.inc:127
 msgid "Error code received"
@@ -35740,7 +35740,7 @@ msgstr ""
 msgid "limiter"
 msgstr "Лимитеры"
 
-#: src/etc/inc/pfsense-utils.inc:212
+#: src/etc/inc/freesense-utils.inc:212
 #, php-format
 msgid ""
 "Choose an alternative css file (if installed) to change the appearance of "
@@ -35750,66 +35750,66 @@ msgstr ""
 "(webConfigurator. css)\n"
 "файлы находятся /usr/local/www/css/%s"
 
-#: src/etc/inc/pfsense-utils.inc:217
+#: src/etc/inc/freesense-utils.inc:217
 msgid "The submitted Theme could not be found. Pick a different theme."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:236
+#: src/etc/inc/freesense-utils.inc:236
 msgid "Scrolls with page"
 msgstr "Прокручивается со страницей"
 
-#: src/etc/inc/pfsense-utils.inc:236
+#: src/etc/inc/freesense-utils.inc:236
 msgid "Fixed (Remains visible at top of page)"
 msgstr "Исправлено (Остается видимым поверх страницы)"
 
-#: src/etc/inc/pfsense-utils.inc:234
+#: src/etc/inc/freesense-utils.inc:234
 msgid "Top Navigation"
 msgstr "Верхняя Навигация"
 
-#: src/etc/inc/pfsense-utils.inc:237
+#: src/etc/inc/freesense-utils.inc:237
 msgid "The fixed option is intended for large screens only."
 msgstr "Исправленная опция предназначена только для больших экранов"
 
-#: src/etc/inc/pfsense-utils.inc:242
+#: src/etc/inc/freesense-utils.inc:242
 msgid "The submitted Top Navigation value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Default (No hostname)"
 msgstr "По умолчанию (Без имени хоста)"
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Hostname only"
 msgstr "Только имя хоста"
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Fully Qualified Domain Name"
 msgstr "Полностью Определенное Доменное Имя"
 
-#: src/etc/inc/pfsense-utils.inc:259
+#: src/etc/inc/freesense-utils.inc:259
 msgid "Hostname in Menu"
 msgstr "Имя хоста в Меню"
 
-#: src/etc/inc/pfsense-utils.inc:262
+#: src/etc/inc/freesense-utils.inc:262
 msgid ""
 "Replaces the Help menu title in the Navbar with the system hostname or FQDN."
 msgstr ""
 "Заменяет заголовок меню Помощь в навигационной панели на имя хоста или "
 "Полностью Определенное Доменное Имя (FQDN)"
 
-#: src/etc/inc/pfsense-utils.inc:267
+#: src/etc/inc/freesense-utils.inc:267
 msgid "The submitted Hostname in Menu value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:296
+#: src/etc/inc/freesense-utils.inc:296
 msgid "The submitted Dashboard Columns value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:313
+#: src/etc/inc/freesense-utils.inc:313
 msgid "Interfaces Sort"
 msgstr "Интерфейсы Сортировка"
 
-#: src/etc/inc/pfsense-utils.inc:316
+#: src/etc/inc/freesense-utils.inc:316
 msgid ""
 "If selected, lists of interfaces will be sorted by description, otherwise "
 "they are listed wan,lan,optn..."
@@ -35817,27 +35817,27 @@ msgstr ""
 "Если выбрано, списки интерфейсов будут отсортированы по описанию, иначе они "
 "будут перечислены wan, lan, optn ..."
 
-#: src/etc/inc/pfsense-utils.inc:330
+#: src/etc/inc/freesense-utils.inc:330
 msgid "Associated Panels Show/Hide"
 msgstr "Связанная панель Показать/Скрыть"
 
-#: src/etc/inc/pfsense-utils.inc:337
+#: src/etc/inc/freesense-utils.inc:337
 msgid "Show the Available Widgets panel on the Dashboard."
 msgstr "Показать доступные виджеты на приборной панели"
 
-#: src/etc/inc/pfsense-utils.inc:344
+#: src/etc/inc/freesense-utils.inc:344
 msgid "Show the Log Filter panel in System Logs."
 msgstr "Показать панель фильтра журнала в системном журнале"
 
-#: src/etc/inc/pfsense-utils.inc:351
+#: src/etc/inc/freesense-utils.inc:351
 msgid "Show the Manage Log panel in System Logs."
 msgstr "Показать панель журнала управления в системном журнале"
 
-#: src/etc/inc/pfsense-utils.inc:358
+#: src/etc/inc/freesense-utils.inc:358
 msgid "Show the Settings panel in Status Monitoring."
 msgstr "Показать панель настроек в Статус Мониторинге"
 
-#: src/etc/inc/pfsense-utils.inc:360
+#: src/etc/inc/freesense-utils.inc:360
 msgid ""
 "These options allow certain panels to be automatically hidden on page load. "
 "A control is provided in the title bar to un-hide the panel."
@@ -35846,11 +35846,11 @@ msgstr ""
 "страницы. Чтобы сделать видимой панель предусмотрена кнопка на заглавной "
 "строке."
 
-#: src/etc/inc/pfsense-utils.inc:378
+#: src/etc/inc/freesense-utils.inc:378
 msgid "Left Column Labels"
 msgstr "Ярлыки левого столбца"
 
-#: src/etc/inc/pfsense-utils.inc:381
+#: src/etc/inc/freesense-utils.inc:381
 msgid ""
 "If selected, clicking a label in the left column will select/toggle the "
 "first item of the group."
@@ -35858,11 +35858,11 @@ msgstr ""
 "Нажатие на ярлык в левом столбце приведет к выбору/переключению на первый "
 "пункт группы"
 
-#: src/etc/inc/pfsense-utils.inc:397
+#: src/etc/inc/freesense-utils.inc:397
 msgid "Alias Popups"
 msgstr "Всплывающие окна Алиас"
 
-#: src/etc/inc/pfsense-utils.inc:400
+#: src/etc/inc/freesense-utils.inc:400
 msgid ""
 "If selected, the details in alias popups will not be shown, just the alias "
 "description (e.g. in Firewall Rules)."
@@ -35870,11 +35870,11 @@ msgstr ""
 "Если выбрано, подробности во всплывающих окнах алиасов не отображаются, "
 "просто описание алиаса (например, в правилах брандмауэра)."
 
-#: src/etc/inc/pfsense-utils.inc:416
+#: src/etc/inc/freesense-utils.inc:416
 msgid "Browser tab text"
 msgstr "Текст вкладки обозревателя"
 
-#: src/etc/inc/pfsense-utils.inc:419
+#: src/etc/inc/freesense-utils.inc:419
 msgid ""
 "When this is unchecked, the browser tab shows the host name followed by the "
 "current page. Check this box to display the current page followed by the "
@@ -35884,11 +35884,11 @@ msgstr ""
 "хоста, сопровождаемая текущей страницей. Выберите данный пункт, чтобы "
 "отобразить страницу, сопровождаемая именем хоста."
 
-#: src/etc/inc/pfsense-utils.inc:463
+#: src/etc/inc/freesense-utils.inc:463
 msgid "Require State Filter"
 msgstr "Требуется фильтр состояний"
 
-#: src/etc/inc/pfsense-utils.inc:466
+#: src/etc/inc/freesense-utils.inc:466
 msgid ""
 "By default, the entire state table is displayed when entering Diagnostics > "
 "States. This option requires a filter to be entered before the states are "
@@ -35898,137 +35898,137 @@ msgstr ""
 "состояний. Данная опция требует применение фильтра до выведения состояний на "
 "экран. Это полезно для систем с большими таблицами состояний."
 
-#: src/etc/inc/pfsense-utils.inc:486
+#: src/etc/inc/freesense-utils.inc:486
 msgid "Rule Information"
 msgstr "Информация о правиле"
 
-#: src/etc/inc/pfsense-utils.inc:490
+#: src/etc/inc/freesense-utils.inc:490
 msgid "Tracking ID"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:499 src/etc/inc/pfsense-utils.inc:509
+#: src/etc/inc/freesense-utils.inc:499 src/etc/inc/freesense-utils.inc:509
 #, php-format
 msgid "%1$s by %2$s"
 msgstr "%1$s by %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:497
+#: src/etc/inc/freesense-utils.inc:497
 msgid "Created"
 msgstr "Создано"
 
-#: src/etc/inc/pfsense-utils.inc:507
+#: src/etc/inc/freesense-utils.inc:507
 msgid "Updated"
 msgstr "Обновлено"
 
-#: src/etc/inc/pfsense-utils.inc:831
+#: src/etc/inc/freesense-utils.inc:831
 msgid "After synch increase advertising skew"
 msgstr "После синхронизации увеличьте анонсируемый размер смещения"
 
-#: src/etc/inc/pfsense-utils.inc:881
+#: src/etc/inc/freesense-utils.inc:881
 msgid "Error creating socket!"
 msgstr "Ошибка создания сокета!"
 
-#: src/etc/inc/pfsense-utils.inc:882
+#: src/etc/inc/freesense-utils.inc:882
 #, php-format
 msgid "Error code is '%1$s' - %2$s"
 msgstr "Код ошибки %1$s' - %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:887
+#: src/etc/inc/freesense-utils.inc:887
 #, php-format
 msgid "setsockopt() failed, error: %s"
 msgstr "Вызов setsockopt() был завершен с ошибкой, ошибка: %s"
 
-#: src/etc/inc/pfsense-utils.inc:891
+#: src/etc/inc/freesense-utils.inc:891
 #, php-format
 msgid "Magic Packet sent (%1$s) to (%2$s) MAC=%3$s"
 msgstr "Magic пакет отправлен (%1$s) к (%2$s) MAC=%3$s"
 
-#: src/etc/inc/pfsense-utils.inc:970 src/etc/inc/pfsense-utils.inc:990
+#: src/etc/inc/freesense-utils.inc:970 src/etc/inc/freesense-utils.inc:990
 #, php-format
 msgid "Restored %s of config file (maybe from CARP partner)"
 msgstr ""
 "Восстановление %s конфигурационного файла (возможно, от CARP партнера)"
 
-#: src/etc/inc/pfsense-utils.inc:1077
+#: src/etc/inc/freesense-utils.inc:1077
 msgid "reload_interfaces_sync() is starting."
 msgstr "Вызов reload_interfaces_sync() запускается."
 
-#: src/etc/inc/pfsense-utils.inc:1086
+#: src/etc/inc/freesense-utils.inc:1086
 msgid "Enabling system routing"
 msgstr "Включаем системную маршрутизацию"
 
-#: src/etc/inc/pfsense-utils.inc:1090
+#: src/etc/inc/freesense-utils.inc:1090
 msgid "Cleaning up Interfaces"
 msgstr "Очистка интерфейсов"
 
-#: src/etc/inc/pfsense-utils.inc:1600
+#: src/etc/inc/freesense-utils.inc:1600
 msgid "No history data found!"
 msgstr "История данных не найдена!"
 
-#: src/etc/inc/pfsense-utils.inc:1733
+#: src/etc/inc/freesense-utils.inc:1733
 msgid "device not present! Is the modem attached to the system?"
 msgstr "Устройство не представлено! Модем подключен к системе?"
 
-#: src/etc/inc/pfsense-utils.inc:1802
+#: src/etc/inc/freesense-utils.inc:1802
 msgid "running"
 msgstr "В процессе..."
 
-#: src/etc/inc/pfsense-utils.inc:1848
+#: src/etc/inc/freesense-utils.inc:1848
 msgid "blocking"
 msgstr "блокировка"
 
-#: src/etc/inc/pfsense-utils.inc:1848
+#: src/etc/inc/freesense-utils.inc:1848
 msgid "check for ethernet loops"
 msgstr "проверка на коммутационное кольцо "
 
-#: src/etc/inc/pfsense-utils.inc:1851
+#: src/etc/inc/freesense-utils.inc:1851
 msgid "learning"
 msgstr "обучение"
 
-#: src/etc/inc/pfsense-utils.inc:1854
+#: src/etc/inc/freesense-utils.inc:1854
 msgid "forwarding"
 msgstr "пересылка"
 
-#: src/etc/inc/pfsense-utils.inc:1988
+#: src/etc/inc/freesense-utils.inc:1988
 #, php-format
 msgid "DNSCACHE: Found old IP %1$s and new IP %2$s"
 msgstr "DNSCACHE:  Найден старый IP %1$s и новый IP %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:2010
+#: src/etc/inc/freesense-utils.inc:2010
 #, php-format
 msgid "Loading %s cryptographic accelerator module."
 msgstr "Загрузка %s  модуля криптографичкеского ускорителя."
 
-#: src/etc/inc/pfsense-utils.inc:2030
+#: src/etc/inc/freesense-utils.inc:2030
 #, php-format
 msgid "Loading %s thermal monitor module."
 msgstr "Загрузка %s модуля термического монитора"
 
-#: src/etc/inc/pfsense-utils.inc:2098 src/etc/inc/pfsense-utils.inc:2145
+#: src/etc/inc/freesense-utils.inc:2098 src/etc/inc/freesense-utils.inc:2145
 #, php-format
 msgid "Download file failed with status code %1$s. URL: %2$s"
 msgstr "Загрузка файла не удалась с кодом статуса %1$s. URL: %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:2364
+#: src/etc/inc/freesense-utils.inc:2364
 #, php-format
 msgid "Could not process non-existent file from alias: %s"
 msgstr "Невозможно обработать несуществующий файл из алиаса: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2369
+#: src/etc/inc/freesense-utils.inc:2369
 #, php-format
 msgid "Could not process empty file from alias: %s"
 msgstr "Невозможно обработать пустой файл из алиаса: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2374
+#: src/etc/inc/freesense-utils.inc:2374
 #, php-format
 msgid "Could not process aliases from alias: %s"
 msgstr "Невозможно обработать алиасы из алиаса: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2454
+#: src/etc/inc/freesense-utils.inc:2454
 #, php-format
 msgid "Failed to download alias %s"
 msgstr "Не удалось загрузить алиас %s"
 
-#: src/etc/inc/pfsense-utils.inc:2483
+#: src/etc/inc/freesense-utils.inc:2483
 msgid ""
 "Alias archive is a .tar/tgz file which cannot be decompressed because "
 "utility is missing!"
@@ -36036,170 +36036,170 @@ msgstr ""
 "Архив алиасов имеет расширение .tar/tgz, и он не может быть распакован по "
 "причине отсутствия  утилиты!"
 
-#: src/etc/inc/pfsense-utils.inc:2493
+#: src/etc/inc/freesense-utils.inc:2493
 #, php-format
 msgid "Could not open %s/aliases for writing!"
 msgstr "Невозможно открыть %s/алиасы на запись!"
 
-#: src/etc/inc/pfsense-utils.inc:2499
+#: src/etc/inc/freesense-utils.inc:2499
 #, php-format
 msgid "The following file could not be read %1$s from %2$s"
 msgstr "Следующий файл не может быть прочтен %1$s из %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:3102
+#: src/etc/inc/freesense-utils.inc:3102
 msgid "Bosnian"
 msgstr "Боснийский"
 
-#: src/etc/inc/pfsense-utils.inc:3103
+#: src/etc/inc/freesense-utils.inc:3103
 msgid "Chinese"
 msgstr "Китайский"
 
-#: src/etc/inc/pfsense-utils.inc:3104
+#: src/etc/inc/freesense-utils.inc:3104
 msgid "Chinese (Simplified, China)"
 msgstr "Китайский (Упрощённый, Китай)"
 
-#: src/etc/inc/pfsense-utils.inc:3105
+#: src/etc/inc/freesense-utils.inc:3105
 msgid "Chinese (Simplified, Hong Kong SAR China)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3106
+#: src/etc/inc/freesense-utils.inc:3106
 msgid "Chinese (Traditional, Taiwan)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3107
+#: src/etc/inc/freesense-utils.inc:3107
 msgid "Dutch"
 msgstr "Голландский"
 
-#: src/etc/inc/pfsense-utils.inc:3108
+#: src/etc/inc/freesense-utils.inc:3108
 msgid "English"
 msgstr "Английский"
 
-#: src/etc/inc/pfsense-utils.inc:3109
+#: src/etc/inc/freesense-utils.inc:3109
 msgid "French"
 msgstr "Французский"
 
-#: src/etc/inc/pfsense-utils.inc:3110
+#: src/etc/inc/freesense-utils.inc:3110
 msgid "German (Germany)"
 msgstr "Немецкий (Германия)"
 
-#: src/etc/inc/pfsense-utils.inc:3111
+#: src/etc/inc/freesense-utils.inc:3111
 msgid "Italian"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3112
+#: src/etc/inc/freesense-utils.inc:3112
 msgid "Korean"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3113
+#: src/etc/inc/freesense-utils.inc:3113
 msgid "Norwegian Bokmål"
 msgstr "Норвежский"
 
-#: src/etc/inc/pfsense-utils.inc:3114
+#: src/etc/inc/freesense-utils.inc:3114
 msgid "Polish"
 msgstr "Польский"
 
-#: src/etc/inc/pfsense-utils.inc:3115
+#: src/etc/inc/freesense-utils.inc:3115
 msgid "Portuguese"
 msgstr "Португальский"
 
-#: src/etc/inc/pfsense-utils.inc:3116
+#: src/etc/inc/freesense-utils.inc:3116
 msgid "Portuguese (Brazil)"
 msgstr "Португальский (Бразильский)"
 
-#: src/etc/inc/pfsense-utils.inc:3117
+#: src/etc/inc/freesense-utils.inc:3117
 msgid "Russian"
 msgstr "Русский"
 
-#: src/etc/inc/pfsense-utils.inc:3118
+#: src/etc/inc/freesense-utils.inc:3118
 msgid "Spanish"
 msgstr "Испанский"
 
-#: src/etc/inc/pfsense-utils.inc:3119
+#: src/etc/inc/freesense-utils.inc:3119
 msgid "Spanish (Argentina)"
 msgstr "Испанский (Аргентина)"
 
-#: src/etc/inc/pfsense-utils.inc:3314 src/etc/inc/pfsense-utils.inc:3329
-#: src/etc/inc/pfsense-utils.inc:3355
+#: src/etc/inc/freesense-utils.inc:3314 src/etc/inc/freesense-utils.inc:3329
+#: src/etc/inc/freesense-utils.inc:3355
 msgid "No Service"
 msgstr "Нет Сервиса"
 
-#: src/etc/inc/pfsense-utils.inc:3330
+#: src/etc/inc/freesense-utils.inc:3330
 msgid "Restricted Service"
 msgstr "Ограниченный Сервис"
 
-#: src/etc/inc/pfsense-utils.inc:3331
+#: src/etc/inc/freesense-utils.inc:3331
 msgid "Valid Service"
 msgstr "Валидный Сервис"
 
-#: src/etc/inc/pfsense-utils.inc:3332
+#: src/etc/inc/freesense-utils.inc:3332
 msgid "Restricted Regional Service"
 msgstr "Ограниченный Региональный Сервис"
 
-#: src/etc/inc/pfsense-utils.inc:3333
+#: src/etc/inc/freesense-utils.inc:3333
 msgid "Powersaving Service"
 msgstr "Сервис сбережения электроэнергии"
 
-#: src/etc/inc/pfsense-utils.inc:3334
+#: src/etc/inc/freesense-utils.inc:3334
 msgid "Unknown Service"
 msgstr "Неизвестный сервис"
 
-#: src/etc/inc/pfsense-utils.inc:3340
+#: src/etc/inc/freesense-utils.inc:3340
 msgid "Invalid SIM/locked State"
 msgstr "Невалидный SIM/заблокированное состояние"
 
-#: src/etc/inc/pfsense-utils.inc:3341
+#: src/etc/inc/freesense-utils.inc:3341
 msgid "Valid SIM State"
 msgstr "Валидное SIM состояние"
 
-#: src/etc/inc/pfsense-utils.inc:3342
+#: src/etc/inc/freesense-utils.inc:3342
 msgid "Invalid SIM CS State"
 msgstr "Валидное SIM CS состояние"
 
-#: src/etc/inc/pfsense-utils.inc:3343
+#: src/etc/inc/freesense-utils.inc:3343
 msgid "Invalid SIM PS State"
 msgstr "Невалидное SIM CS состояние"
 
-#: src/etc/inc/pfsense-utils.inc:3344
+#: src/etc/inc/freesense-utils.inc:3344
 msgid "Invalid SIM CS/PS State"
 msgstr "Невалидное SIM CS/PS состояние"
 
-#: src/etc/inc/pfsense-utils.inc:3345
+#: src/etc/inc/freesense-utils.inc:3345
 msgid "Missing SIM State"
 msgstr "Недостающее SIM состояние"
 
-#: src/etc/inc/pfsense-utils.inc:3356
+#: src/etc/inc/freesense-utils.inc:3356
 msgid "Limited Service"
 msgstr "Ограниченный Сервис"
 
-#: src/etc/inc/pfsense-utils.inc:3372
+#: src/etc/inc/freesense-utils.inc:3372
 msgid "Initializing Service"
 msgstr "Инициализация Сервиса"
 
-#: src/etc/inc/pfsense-utils.inc:3373
+#: src/etc/inc/freesense-utils.inc:3373
 msgid "Network Lock error Service"
 msgstr "Сетевая блокировка ошибка Сервиса"
 
-#: src/etc/inc/pfsense-utils.inc:3374
+#: src/etc/inc/freesense-utils.inc:3374
 msgid "Network Locked Service"
 msgstr "Сервис, заблокированный по сети"
 
-#: src/etc/inc/pfsense-utils.inc:3375
+#: src/etc/inc/freesense-utils.inc:3375
 msgid "Unlocked or correct MCC/MNC Service"
 msgstr "Разблокируйте или поправьте MCC/MNC Сервис"
 
-#: src/etc/inc/pfsense-utils.inc:3381
+#: src/etc/inc/freesense-utils.inc:3381
 msgid "No action State"
 msgstr "Состояние бездействия"
 
-#: src/etc/inc/pfsense-utils.inc:3382
+#: src/etc/inc/freesense-utils.inc:3382
 msgid "Network lock State"
 msgstr "Состояние блокировки по сети"
 
-#: src/etc/inc/pfsense-utils.inc:3383
+#: src/etc/inc/freesense-utils.inc:3383
 msgid "(U)SIM card lock State"
 msgstr "Состояние блокировки (U)SIM карта"
 
-#: src/etc/inc/pfsense-utils.inc:3384
+#: src/etc/inc/freesense-utils.inc:3384
 msgid "Network Lock and (U)SIM card Lock State"
 msgstr "Состояние блокировки (U)SIM карта по сети"
 
@@ -43327,30 +43327,30 @@ msgstr ""
 msgid "Enable this queue"
 msgstr "Включить данную очередь"
 
-#: src/etc/inc/pfsense-utils.inc:314
+#: src/etc/inc/freesense-utils.inc:314
 msgid "Sort Alphabetically"
 msgstr "Сортировать в алфавитном порядке"
 
-#: src/etc/inc/pfsense-utils.inc:349
+#: src/etc/inc/freesense-utils.inc:349
 msgid "Manage Log"
 msgstr "Управлять Журналом"
 
-#: src/etc/inc/pfsense-utils.inc:356
+#: src/etc/inc/freesense-utils.inc:356
 msgid "Monitoring Settings"
 msgstr "Настройки Мониторинга"
 
-#: src/etc/inc/pfsense-utils.inc:379
+#: src/etc/inc/freesense-utils.inc:379
 msgid "Active"
 msgstr "Активный"
 
-#: src/etc/inc/pfsense-utils.inc:398
+#: src/etc/inc/freesense-utils.inc:398
 msgid "Disable details in alias popups"
 msgstr "Выключить подробности во всплывающих окнах алиаса"
 
-#: src/etc/inc/pfsense-utils.inc:417
+#: src/etc/inc/freesense-utils.inc:417
 msgid "Display page name first in browser tab"
 msgstr "Сначала отобразить имя страницы во вкладке обозревателя"
 
-#: src/etc/inc/pfsense-utils.inc:464
+#: src/etc/inc/freesense-utils.inc:464
 msgid "Do not display state table without a filter"
 msgstr "Не отображать таблицу соединений без фильтра"

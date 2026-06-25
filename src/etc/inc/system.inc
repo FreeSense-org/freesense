@@ -2,7 +2,7 @@
 /*
  * system.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -174,7 +174,7 @@ function activate_sysctls() {
 	$sysctls = array_merge($sysctls, $ipsec_filter_sysctl[$ipsec_filtermode]);
 
 	/*
-	 * See https://redmine.pfsense.org/issues/13938
+	 * See https://redmine.freesense.org/issues/13938
 	 *
 	 * We need to disable unmapped mbufs to work around a bug
 	 * that can cause sendfile to crash.
@@ -202,11 +202,11 @@ function activate_sysctls() {
 	}
 
 	/* Set net.pf.request_maxcount via sysctl since it is no longer a loader
-	 *   tunable. See https://redmine.pfsense.org/issues/10861
+	 *   tunable. See https://redmine.freesense.org/issues/10861
 	 *   Set the value dynamically since its default is not static, yet this
 	 *   still could be overridden by a user tunable. */
 	$maximumtableentries = config_get_path('system/maximumtableentries',
-										   pfsense_current_table_entries_size());
+										   freesense_current_table_entries_size());
 
 	/* Set the default when there is no tunable or when the tunable is set
 	 * too low. */
@@ -324,7 +324,7 @@ function system_resolvconf_generate($dynupdate = false) {
 		$dnsserver = $syscfg['dnsserver'][$dnscounter - 1];
 
 		/* Only modify routes for non-interface addresses;
-		 * see https://redmine.pfsense.org/issues/14288 */
+		 * see https://redmine.freesense.org/issues/14288 */
 		if (!empty($dnsserver) && !in_array($dnsserver, $exempt_addresses)) {
 			// specify IP protocol version for correct add/del
 			if (is_ipaddrv4($dnsserver)) {
@@ -372,7 +372,7 @@ function get_searchdomains() {
 }
 
 /* Stub for deprecated function name
- * See https://redmine.pfsense.org/issues/10931 */
+ * See https://redmine.freesense.org/issues/10931 */
 function get_nameservers() {
 	return get_dynamic_nameservers();
 }
@@ -718,7 +718,7 @@ function system_hosts_generate() {
 function system_dhcpleases_configure() {
 	global $g;
 	if (!function_exists('is_dhcp_server_enabled')) {
-		require_once('pfsense-utils.inc');
+		require_once('freesense-utils.inc');
 	}
 
 	if (dhcp_is_backend('kea')) {
@@ -1691,8 +1691,8 @@ function system_staticroutes_configure($interface = "", $update_dns = false) {
 
 		foreach ($static_routes as $rtent) {
 			/* Do not delete disabled routes,
-			 * see https://redmine.pfsense.org/issues/3709
-			 * and https://redmine.pfsense.org/issues/10706 */
+			 * see https://redmine.freesense.org/issues/3709
+			 * and https://redmine.freesense.org/issues/10706 */
 			if (isset($rtent['disabled'])) {
 				continue;
 			}
@@ -1790,7 +1790,7 @@ function system_staticroutes_configure($interface = "", $update_dns = false) {
 		unset($gateways_arr);
 
 		/* keep static routes cache,
-		 * see https://redmine.pfsense.org/issues/11599 */
+		 * see https://redmine.freesense.org/issues/11599 */
 		$id = 0;
 		foreach (config_get_path('staticroutes/route', []) as $sroute) {
 			$targets = array();
@@ -2428,7 +2428,7 @@ function check_gps_speed($device) {
 }
 
 /* Generate list of possible NTP poll values
- * https://redmine.pfsense.org/issues/9439 */
+ * https://redmine.freesense.org/issues/9439 */
 global $ntp_poll_min_value, $ntp_poll_max_value;
 global $ntp_poll_min_default_gps, $ntp_poll_max_default_gps;
 global $ntp_poll_min_default_pps, $ntp_poll_max_default_pps;
@@ -3073,7 +3073,7 @@ function system_reboot_cleanup() {
 
 	require_once("voucher.inc");
 	voucher_save_db_to_config();
-	require_once("pfsense-utils.inc");
+	require_once("freesense-utils.inc");
 	enable_carp(false);
 	require_once("pkg-utils.inc");
 	stop_packages();

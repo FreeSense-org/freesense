@@ -2,7 +2,7 @@
 /*
  * rrd.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2010 Seth Mos <seth.mos@dds.nl>
  * Copyright (c) 2010-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing

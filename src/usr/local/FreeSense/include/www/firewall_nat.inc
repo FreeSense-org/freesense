@@ -2,7 +2,7 @@
 /*
  * firewall_nat.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -24,7 +24,7 @@
 require_once("config.gui.inc");
 require_once("interfaces.inc");
 require_once("util.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("ipsec.inc");
 require_once("filter.inc");
 require_once("itemid.inc");
@@ -539,7 +539,7 @@ function saveNATrule($post, $id, $json = false) {
 
 	}
 
-	/* https://redmine.pfsense.org/issues/12319 */
+	/* https://redmine.freesense.org/issues/12319 */
 	if (($post['ipprotocol'] == 'inet6') && (($post['natreflection'] == 'enable') ||
 	    (($post['natreflection'] == 'default') && !config_path_enabled('system', 'disablenatreflection') &&
 	    !config_path_enabled('system', 'enablenatreflectionpurenat')))) {

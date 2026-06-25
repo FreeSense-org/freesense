@@ -2,7 +2,7 @@
 /*
  * notices.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2005 Colin Smith (ethethlay@gmail.com)
  * Copyright (c) 2005-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
@@ -285,7 +285,7 @@ function notices_sendqueue() {
 			unset($messages);
 		} else {
 			/* Queue does not exist or is not writable, so no action can be taken
-			 * https://redmine.pfsense.org/issues/14031
+			 * https://redmine.freesense.org/issues/14031
 			 */
 			logger(LOG_ERR, localize_text("SMTP queue does not exist or is not writable."), LOG_PREFIX_NOTICE);
 			return;
@@ -336,7 +336,7 @@ function notify_via_queue_add($message, $type='mail') {
 	if (is_file($notice_queue)) {
 		if (!is_writable($notice_queue)) {
 			/* Cannot write to notify queue, so exit early
-			 * https://redmine.pfsense.org/issues/14031
+			 * https://redmine.freesense.org/issues/14031
 			 */
 			logger(LOG_ERR, localize_text("Cannot write to the notify queue."), LOG_PREFIX_NOTICE);
 			return;
@@ -482,7 +482,7 @@ function send_smtp_message($message, $subject = "(no subject)", $force = false) 
 	if (!empty(config_get_path('notifications/smtp/fromaddress'))) {
 		$from = config_get_path('notifications/smtp/fromaddress');
 	} else {
-		$from = "pfsense@" . config_get_path('system/hostname') . '.' . config_get_path('system/domain');
+		$from = "freesense@" . config_get_path('system/hostname') . '.' . config_get_path('system/domain');
 	}
 
 	$to = config_get_path('notifications/smtp/notifyemailaddress');

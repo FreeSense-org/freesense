@@ -2,7 +2,7 @@
 /*
  * services_captiveportal_hasync.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -104,7 +104,7 @@ if ($_POST['save']) {
 
 		$newcp = config_get_path("captiveportal/{$cpzone}", []);
 		if (!empty($newcp['enablebackwardsync'])) {
-			$rpc_client = new pfsense_xmlrpc_client();
+			$rpc_client = new freesense_xmlrpc_client();
 			$rpc_client->setConnectionData($newcp['backwardsyncip'], $port, $newcp['backwardsyncuser'], $newcp['backwardsyncpassword']);
 
 			$resp = $rpc_client->xmlrpc_method('captive_portal_sync', array('op' => 'get_databases', 'zone' => $cpzone));

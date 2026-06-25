@@ -2,7 +2,7 @@
 /*
  * system_advanced_sysctl.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -25,7 +25,7 @@ require_once("filter.inc");
 require_once("shaper.inc");
 require_once("system.inc");
 require_once("util.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 // Functions included by system_advanced_sysctl.php ===========================
 

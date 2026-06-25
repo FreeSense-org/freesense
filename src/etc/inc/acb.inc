@@ -2,7 +2,7 @@
 /*
  * autoconfigbackup.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2008-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -422,13 +422,13 @@ function acb_backup_decrypt($data, $password) {
 		$errors[] = gettext('The fetched backup entry does not appear to contain an encrypted configuration.');
 	}
 	$decrypted = decrypt_data($encrypted, $password);
-	if (!strstr($decrypted, "pfsense") ||
+	if (!strstr($decrypted, "freesense") ||
 	    (strlen($decrypted) < 50)) {
 		$errors[] = gettext('Could not decrypt the fetched configuration backup entry. Check the encryption key and try again.');
 	} else {
-		$pos = stripos($decrypted, "</pfsense>");
+		$pos = stripos($decrypted, "</freesense>");
 		$decrypted = substr($decrypted, 0, $pos);
-		$decrypted .= "</pfsense>\n";
+		$decrypted .= "</freesense>\n";
 	}
 
 	return [$decrypted, $encrypted, $sha256, $errors];

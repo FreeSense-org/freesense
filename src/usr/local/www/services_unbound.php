@@ -2,11 +2,11 @@
 /*
  * services_unbound.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
- * Copyright (c) 2014 Warren Baker (warren@pfsense.org)
+ * Copyright (c) 2014 Warren Baker (warren@freesense.org)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -31,7 +31,7 @@
 
 require_once("guiconfig.inc");
 require_once("unbound.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("system.inc");
 
 $python_files = glob("{$g['unbound_chroot_path']}/*.py");

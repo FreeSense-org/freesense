@@ -2,7 +2,7 @@
 /*
  * services_captiveportal_vouchers_edit.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -120,7 +120,7 @@ if ($_POST['save']) {
 
 			if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport,
 				$syncuser, $syncpass, $carp_loop)) {
-				$rpc_client = new pfsense_xmlrpc_client();
+				$rpc_client = new freesense_xmlrpc_client();
 				$rpc_client->setConnectionData($syncip, $syncport, $syncuser, $syncpass);
 				$rpc_client->set_noticefile("CaptivePortalVouchersSync");
 				$arguments = array('active_and_used_vouchers_bitmasks' => array($rollent['number'] => base64_decode($rollent['used'])),

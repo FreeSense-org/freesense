@@ -2,7 +2,7 @@
 /*
  * services_dhcp_edit.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -491,7 +491,7 @@ if ($_POST['save']) {
 			}
 		}
 
-		/* Configure static ARP entry, or remove ARP entry if this host is dynamic. See https://redmine.pfsense.org/issues/6821 */
+		/* Configure static ARP entry, or remove ARP entry if this host is dynamic. See https://redmine.freesense.org/issues/6821 */
 		if ($mapent['arp_table_static_entry']) {
 			mwexec("/usr/sbin/arp -S " . escapeshellarg($mapent['ipaddr']) . " " . escapeshellarg($mapent['mac']) . " >/dev/null", true);
 		} else {

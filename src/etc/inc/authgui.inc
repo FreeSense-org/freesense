@@ -2,7 +2,7 @@
 /*
  * authgui.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2003-2006 Manuel Kasper <mk@neon1.net>
  * Copyright (c) 2005-2006 Bill Marquette <bill.marquette@gmail.com>
  * Copyright (c) 2006 Paul Taylor <paultaylor@winn-dixie.com>
@@ -31,7 +31,7 @@ include_once("priv.inc");
 if (!function_exists('is_platform_booting')) {
 	require_once('globals.inc');
 }
-require_once('pfsense-utils.inc');
+require_once('freesense-utils.inc');
 
 /* Authenticate user - exit if failed */
 if (!session_auth()) {

@@ -2,7 +2,7 @@
 /*
  * head.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -173,7 +173,7 @@ function return_ext_menu($section) {
 			$colonpos = strpos($addresswithport, ":");
 
 			if ($colonpos !== false) {
-				//my url is actually just the IP address of the pfsense box
+				//my url is actually just the IP address of the freesense box
 				$myurl = substr($addresswithport, 0, $colonpos);
 			} else {
 				$myurl = $addresswithport;

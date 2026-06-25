@@ -2,7 +2,7 @@
 #
 # install_freebsd.sh
 #
-# part of pfSense (https://www.pfsense.org)
+# part of FreeSense (https://www.freesense.org)
 # Copyright (c) 2004-2013 BSD Perimeter
 # Copyright (c) 2013-2016 Electric Sheep Fencing
 # Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -151,7 +151,7 @@ make_cmd="make -C ${srcdir} -s ${j}"
 
 if [ -z "${skip_kernel}" ]; then
 	run "Installing kernel" \
-		"${make_cmd} KERNCONF=${KERNCONF:-pfSense} installkernel"
+		"${make_cmd} KERNCONF=${KERNCONF:-FreeSense} installkernel"
 
 	[ -n "${gzip_kernel}" ] \
 		&& run "Compressing kernel" \

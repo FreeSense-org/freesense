@@ -2,7 +2,7 @@
 /*
  * system_certmanager.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -31,7 +31,7 @@
 
 require_once("guiconfig.inc");
 require_once("certs.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 $cert_methods = array(
 	"internal" => gettext("Create an internal Certificate"),
@@ -334,7 +334,7 @@ if ($_POST['save'] == gettext("Save")) {
 		/* Input validation for subjectAltNames */
 		foreach ($altnames as $idx => $altname) {
 			/* Skip SAN entries with empty values
-			 * https://redmine.pfsense.org/issues/14183
+			 * https://redmine.freesense.org/issues/14183
 			 */
 			if (empty($altname['value'])) {
 				unset($altnames[$idx]);

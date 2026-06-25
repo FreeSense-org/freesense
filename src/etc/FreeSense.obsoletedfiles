@@ -11,7 +11,7 @@
 /boot/pcibios.4th
 /dist
 /etc/apmd.conf
-/etc/ascii-art/pfsense-logo-small.txt
+/etc/ascii-art/freesense-logo-small.txt
 /etc/auth.conf
 /etc/ca_countries
 /etc/casper
@@ -874,7 +874,7 @@
 /usr/local/sbin/pbi_update
 /usr/local/sbin/pbi_update_hashdir
 /usr/local/sbin/FreeSense-upgrade-GUI.sh
-/usr/local/sbin/pfsense-upgrade.sh
+/usr/local/sbin/freesense-upgrade.sh
 /usr/local/sbin/pftpx
 /usr/local/sbin/racoon
 /usr/local/sbin/racoon_watch.sh

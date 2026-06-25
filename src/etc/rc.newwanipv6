@@ -3,7 +3,7 @@
 /*
  * rc.newwanipv6
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2006-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -296,6 +296,6 @@ if (empty(config_get_path("interfaces/{$interface}/ipaddr"))) {
 
 /* Unconditional filter reload to ensure the correct rules and gateways are
  * active after this script has processed all changes.
- * See https://redmine.pfsense.org/issues/13228 */
+ * See https://redmine.freesense.org/issues/13228 */
 filter_configure();
 ?>

@@ -3,7 +3,7 @@
 /*
  * ipsec.auth-user.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2008 Shrew Soft Inc
  * Copyright (c) 2008-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing

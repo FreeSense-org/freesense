@@ -2,7 +2,7 @@
 /*
  * getserviceproviders.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -29,7 +29,7 @@
 ##|*MATCH=getserviceproviders.php*
 ##|-PRIV
 require_once("guiconfig.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 $serviceproviders_xml = "/usr/local/share/mobile-broadband-provider-info/serviceproviders.xml";
 $serviceproviders_contents = file_get_contents($serviceproviders_xml);

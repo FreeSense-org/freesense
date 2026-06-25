@@ -2,7 +2,7 @@
 /*
  * system_usermanager.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -37,7 +37,7 @@
 
 require_once("certs.inc");
 require_once("guiconfig.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 $logging_level = LOG_WARNING;
 $cert_keylens = array("1024", "2048", "3072", "4096", "6144", "7680", "8192", "15360", "16384");
@@ -94,7 +94,7 @@ if ($this_user) {
 /*
  * Check user privileges to test if the user is allowed to make changes.
  * Otherwise users can end up in an inconsistent state where some changes are
- * performed and others denied. See https://redmine.pfsense.org/issues/9259
+ * performed and others denied. See https://redmine.freesense.org/issues/9259
  */
 phpsession_begin();
 $guiuser = getUserEntry($_SESSION['Username']);
@@ -119,7 +119,7 @@ if (($_POST['act'] == "deluser") && !$read_only) {
 		local_user_del(config_get_path("system/user/{$id}"));
 		$userdeleted = config_get_path("system/user/{$id}/name");
 		config_del_path("system/user/{$id}");
-		/* Reindex the array to avoid operating on an incorrect index https://redmine.pfsense.org/issues/7733 */
+		/* Reindex the array to avoid operating on an incorrect index https://redmine.freesense.org/issues/7733 */
 		config_set_path('system/user', array_values(config_get_path('system/user', [])));
 		$savemsg = localize_text("Successfully deleted user: %s", $userdeleted);
 		write_config($savemsg);
@@ -169,7 +169,7 @@ if (isset($_POST['dellall']) && !$read_only) {
 
 		if (count($deleted_users) > 0) {
 			$savemsg = localize_text("Successfully deleted %s: %s", (count($deleted_users) == 1) ? gettext("user") : gettext("users"), implode(', ', $deleted_users));
-			/* Reindex the array to avoid operating on an incorrect index https://redmine.pfsense.org/issues/7733 */
+			/* Reindex the array to avoid operating on an incorrect index https://redmine.freesense.org/issues/7733 */
 			config_set_path('system/user', array_values(config_get_path('system/user', [])));
 			write_config($savemsg);
 			logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);

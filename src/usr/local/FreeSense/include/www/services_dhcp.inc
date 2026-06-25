@@ -2,7 +2,7 @@
 /*
  * services_dhcp.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2024-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -22,7 +22,7 @@
 require_once('config.gui.inc');
 require_once('util.inc');
 require_once('interfaces.inc');
-require_once('pfsense-utils.inc');
+require_once('freesense-utils.inc');
 
 function kea_defaults(string $key): int|string {
 	/* throws an exception if $key isn't matched */

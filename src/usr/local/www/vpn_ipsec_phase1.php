@@ -3,7 +3,7 @@
 /*
  * vpn_ipsec_phase1.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -1151,7 +1151,7 @@ $group->add(new Form_Input(
 $section->add($group);
 
 /* FreeBSD doesn't yet have TFC support. this is ready to go once it does
-https://redmine.pfsense.org/issues/4688
+https://redmine.freesense.org/issues/4688
 
 $section->addInput(new Form_Checkbox(
 	'tfc_enable',

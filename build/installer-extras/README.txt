@@ -1,47 +1,47 @@
-pfSense Software Installation Media
+FreeSense Software Installation Media
 ===================================
 
 Overview
 --------
 
-The pfSense project is a free network firewall distribution, based on the
+The FreeSense project is a free network firewall distribution, based on the
 FreeBSD operating system with a custom kernel and including third party free
-software packages for additional functionality. pfSense software, with the help
+software packages for additional functionality. FreeSense software, with the help
 of the package system, is able to provide the same functionality or more of
 common commercial firewalls, without any of the artificial limitations. It has
 successfully replaced every big name commercial firewall you can imagine in
 numerous installations around the world, including Check Point, Cisco PIX, Cisco
 ASA, Juniper, Sonicwall, Netgear, Watchguard, Astaro, and more.
 
-pfSense software includes a web interface for the configuration of all included
+FreeSense software includes a web interface for the configuration of all included
 components. There is no need for any UNIX knowledge, no need to use the command
 line for anything, and no need to ever manually edit any rule sets. Users
 familiar with commercial firewalls catch on to the web interface quickly, though
 there can be a learning curve for users not familiar with commercial-grade
 firewalls.
 
-pfSense started in 2004 as a fork of the m0n0wall Project which ended
+FreeSense started in 2004 as a fork of the m0n0wall Project which ended
 2015/02/15, though has diverged significantly since.
 
-pfSense is Copyright 2004-2026 Rubicon Communications, LLC (Netgate) and
-published under an open source license. (https://pfsense.org/license)
+FreeSense is Copyright 2004-2026 Rubicon Communications, LLC (Netgate) and
+published under an open source license. (https://freesense.org/license)
 
-Read more at https://pfsense.org/ and support the team by buying bundled
+Read more at https://freesense.org/ and support the team by buying bundled
 hardware appliances or commercial support.
 
 Contribute
 ----------
 
-For information on how to contribute to the pfSense project, see
-https://github.com/pfsense/pfsense/blob/master/.github/CONTRIBUTING.md
+For information on how to contribute to the FreeSense project, see
+https://github.com/freesense/freesense/blob/master/.github/CONTRIBUTING.md
 
-Installing pfSense Software (amd64)
+Installing FreeSense Software (amd64)
 -----------------------------------
 
 The installation media can be inserted into the target device. When booted from
 this disk, the installer will launch automatically. For more information on how
-to install pfSense software, see the installation section of the online
-documentation: https://www.netgate.com/docs/pfsense/book/install/index.html
+to install FreeSense software, see the installation section of the online
+documentation: https://www.netgate.com/docs/freesense/book/install/index.html
 
 Restoring an Existing Firewall Configuration (amd64)
 ----------------------------------------------------
@@ -60,15 +60,15 @@ from the target disk before it formats the drive during the installation
 process.
 
 For more information on these features, see the online documentation at
-https://www.netgate.com/docs/pfsense/backup/automatically-restore-during-install.html
+https://www.netgate.com/docs/freesense/backup/automatically-restore-during-install.html
 
-Installing pfSense Software (ARM)
+Installing FreeSense Software (ARM)
 ---------------------------------
 
 ARM systems use recovery images and not an installation disk. The process is
 similar, however, details of this process may vary by model. View the
 appropriate recovery instructions for each model at
-https://www.netgate.com/docs/pfsense/solutions/
+https://www.netgate.com/docs/freesense/solutions/
 
 Restoring an Existing Firewall Configuration (ARM)
 --------------------------------------------------
@@ -83,4 +83,4 @@ its internal disk but will find the configuration on this FAT partition, then
 restore it to the firewall in place of the default settings.
 
 For more information on these features, see the online documentation at
-https://www.netgate.com/docs/pfsense/backup/automatically-restore-during-install.html
+https://www.netgate.com/docs/freesense/backup/automatically-restore-during-install.html

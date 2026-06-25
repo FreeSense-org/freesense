@@ -2,7 +2,7 @@
 /*
  * firewall_rules.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -267,7 +267,7 @@ if (isset($_POST['del_x'])) {
 	$confiflist = get_configured_interface_list();
 	/* Use this as a starting point and increase as we go, otherwise if the
 	 * loop runs fast there can be duplicates.
-	 * https://redmine.pfsense.org/issues/13507 */
+	 * https://redmine.freesense.org/issues/13507 */
 	$tracker = (int)microtime(true);
 	$new_rules = [];
 	foreach ($_POST['rule'] as $rulei) {
@@ -369,7 +369,7 @@ $rulescnt = FreeSense_get_pf_rules();
 $columns_in_table = 13;
 
 /* Floating rules tab has one extra column
- * https://redmine.pfsense.org/issues/10667 */
+ * https://redmine.freesense.org/issues/10667 */
 if ($if === 'FloatingRules') {
 	$columns_in_table++;
 }
@@ -873,7 +873,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							<?php if (isset($filterent['gateway'])): ?>
 								<?php
 									/* Cache gateway status for this page load.
-									 * See https://redmine.pfsense.org/issues/12174 */
+									 * See https://redmine.freesense.org/issues/12174 */
 									if (!is_array($gw_info)) {
 										$gw_info = array();
 									}

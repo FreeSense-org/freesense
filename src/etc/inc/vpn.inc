@@ -2,7 +2,7 @@
 /*
  * vpn.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -276,7 +276,7 @@ function vpn_pppoe_updatesecret(&$pppoecfg) {
 			foreach ($item as $userdata) {
 				$data = explode(":", $userdata);
 				/* Escape double quotes, do not allow password to start with '!'
-				 * https://redmine.pfsense.org/issues/10275 */
+				 * https://redmine.freesense.org/issues/10275 */
 				$pass = str_replace('"', '\"', ltrim(base64_decode($data[1]), '!'));
 				$mpdsecret .= "{$data[0]} \"{$pass}\" {$data[2]}\n";
 			}
@@ -494,7 +494,7 @@ function vpn_l2tp_updatesecret() {
 			continue;
 		}
 		/* Escape double quotes, do not allow password to start with '!'
-		 * https://redmine.pfsense.org/issues/10275 */
+		 * https://redmine.freesense.org/issues/10275 */
 		$pass = str_replace('"', '\"', ltrim($user['password'], '!'));
 		$mpdsecret .= "{$user['name']} \"{$pass}\" {$user['ip']}\n";
 	}

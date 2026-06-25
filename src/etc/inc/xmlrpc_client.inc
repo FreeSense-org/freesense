@@ -2,7 +2,7 @@
 /*
  * xmlrpc_client.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2016 Electric Sheep Fencing
  * Copyright (c) 2016-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
@@ -22,14 +22,14 @@
 
 require_once("XML/RPC2/Client.php");
 
-class pfsense_xmlrpc_client {
+class freesense_xmlrpc_client {
 
 	private $username, $password, $url, $logurl, $filenotice, $error;
 
 	public function __construct() {
 		$hasync = config_get_path('hasync', []);
 		/* XMLRPC sync is not configured, nothing to do.
-		 * https://redmine.pfsense.org/issues/14182 */
+		 * https://redmine.freesense.org/issues/14182 */
 		if (empty($hasync)) {
 			$this->error = "XMLRPC Synchronization is not configured.";
 			return;
@@ -80,14 +80,14 @@ class pfsense_xmlrpc_client {
 
 	private function xmlrpc_internal($method, $parameter, $timeout = 240) {
 		/* XMLRPC sync is not configured, nothing to do.
-		 * https://redmine.pfsense.org/issues/14182 */
+		 * https://redmine.freesense.org/issues/14182 */
 		if (empty($this->url) ||
 		    empty($this->logurl)) {
 			$this->error = localize_text("XMLRPC Synchronization is not configured.");
 			return;
 		}
 		$options = array(
-			'prefix' => 'pfsense.',
+			'prefix' => 'freesense.',
 			'sslverify' => false,
 			'connectionTimeout' => $timeout
 		);
@@ -101,7 +101,7 @@ class pfsense_xmlrpc_client {
 			logger(LOG_INFO, localize_text("Beginning XMLRPC sync data to %s.", $this->logurl), LOG_PREFIX_HA);
 			$cli = XML_RPC2_Client::create($this->url, $options);
 			if (!is_object($cli)) {
-				$this->error = localize_text("A communications error occurred while attempting XMLRPC sync with %s (%s).", $this->logurl, "pfsense.{$method}");
+				$this->error = localize_text("A communications error occurred while attempting XMLRPC sync with %s (%s).", $this->logurl, "freesense.{$method}");
 			}
 			try {//restore_config_section
 				$REQUEST_URI = $_SERVER['REQUEST_URI'];
@@ -139,7 +139,7 @@ class pfsense_xmlrpc_client {
 				$this->error = localize_text("An authentication failure occurred while trying to access %s (%s).", $this->logurl, $method);
 			}
 			if (empty($this->error)) {
-				logger(LOG_INFO, localize_text("XMLRPC reload data success with %s (%s).", $this->logurl, "pfsense.{$method}"), LOG_PREFIX_HA);
+				logger(LOG_INFO, localize_text("XMLRPC reload data success with %s (%s).", $this->logurl, "freesense.{$method}"), LOG_PREFIX_HA);
 				return $resp;
 			} elseif ($numberofruns < $max_attempts) {
 				logger(LOG_NOTICE, localize_text("Retrying XMLRPC Request due to error: %s", $this->error), LOG_PREFIX_HA);

@@ -2,7 +2,7 @@
 /*
  * interfaces_assign.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -335,7 +335,7 @@ if (isset($_REQUEST['add']) && isset($_REQUEST['if_add'])) {
 			}
 		}
 		/* regenerated ruleset after re-assigning the interface,
-		 * see https://redmine.pfsense.org/issues/12949 */
+		 * see https://redmine.freesense.org/issues/12949 */
 		if ($filter_reload) {
 			filter_configure();
 		}

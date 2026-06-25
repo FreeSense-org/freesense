@@ -2,7 +2,7 @@
 /*
  * services_radvd.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -309,7 +309,7 @@ foreach ($iflist as $ifent => $ifname) {
 	$oc = config_get_path("interfaces/{$ifent}", []);
 	/* We need interfaces configured with a static IPv6 address or track6 for PD.
 	   Also show those configured as none to allow disabling the service. See:
-	   https://redmine.pfsense.org/issues/14967 */
+	   https://redmine.freesense.org/issues/14967 */
 	if (!is_ipaddrv6($oc['ipaddrv6']) && $oc['ipaddrv6'] != "track6" && array_get_path($oc, 'ipaddrv6', 'none') != 'none') {
 		continue;
 	}

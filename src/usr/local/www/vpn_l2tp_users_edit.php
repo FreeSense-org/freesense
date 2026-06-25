@@ -2,7 +2,7 @@
 /*
  * vpn_l2tp_users_edit.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -33,7 +33,7 @@ $pglinks = array("", "vpn_l2tp.php", "vpn_l2tp_users.php", "@self");
 $shortcut_section = "l2tps";
 
 require_once("guiconfig.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("vpn.inc");
 
 if (isset($_REQUEST['id']) && is_numericint($_REQUEST['id'])) {

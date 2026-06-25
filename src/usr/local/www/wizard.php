@@ -2,7 +2,7 @@
 /*
  * wizard.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -22,7 +22,7 @@
  */
 
 ##|+PRIV
-##|*IDENT=page-pfsensewizardsubsystem
+##|*IDENT=page-freesensewizardsubsystem
 ##|*NAME=Wizard Subsystem
 ##|*DESCR=Allow access to the Wizard Subsystem (e.g. Setup Wizard, OpenVPN Wizard).
 ##|*MATCH=wizard.php*
@@ -59,7 +59,7 @@ if (empty($xml)) {
 		die;
 	}
 	if (file_exists($wizard_full_path)) {
-		$pkg = parse_xml_config_pkg($wizard_full_path, "pfsensewizard");
+		$pkg = parse_xml_config_pkg($wizard_full_path, "freesensewizard");
 	} else {
 		print_info_box(sprintf(gettext("Could not open %s."), $xml), 'danger');
 		die;

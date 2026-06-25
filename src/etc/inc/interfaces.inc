@@ -2,7 +2,7 @@
 /*
  * interfaces.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -363,7 +363,7 @@ function interfaces_vlan_configure($parentif = "", $skip_parent_mtu = false) {
 				continue;
 			}
 			/* configure dhcp6 enabled VLAN interfaces later
-			 * see https://redmine.pfsense.org/issues/3965 */
+			 * see https://redmine.freesense.org/issues/3965 */
 			$if = convert_real_interface_to_friendly_interface_name($vlan['vlanif']);
 			if (!empty($if) && config_get_path("interfaces/{$if}/ipaddrv6", "") == "dhcp6") {
 				$dhcp6c_list[$if] = $vlan;
@@ -481,7 +481,7 @@ function interface_vlan_configure(&$vlan, $flush = true, $skip_parent_mtu = fals
 
 /*
  * reconfigure VLAN childs interfaces after MTU changes, see
- * https://redmine.pfsense.org/issues/11035
+ * https://redmine.freesense.org/issues/11035
  */
 function interfaces_vlan_configure_mtu($parentif = "") {
 	foreach (config_get_path('vlans/vlan', []) as $vlan) {
@@ -1591,7 +1591,7 @@ function interface_ipsec_vti_configure($ph1ent) {
 			}
 		}
 		/* Check/set the MTU if the user configured a custom value.
-		 * https://redmine.pfsense.org/issues/9111 */
+		 * https://redmine.freesense.org/issues/9111 */
 		$currentvtimtu = get_interface_mtu($ipsecif);
 		foreach (config_get_path('interfaces', []) as $tmpinterface) {
 			if ($tmpinterface['if'] == $ipsecif) {
@@ -1606,7 +1606,7 @@ function interface_ipsec_vti_configure($ph1ent) {
 			}
 		}
 		/* Add the VTI to the interface cache directly because calling 'get_interface_arr(true)' is expensive.
-		   See: https://redmine.pfsense.org/issues/15449 */
+		   See: https://redmine.freesense.org/issues/15449 */
 		global $interface_arr_cache;
 		if (is_array($interface_arr_cache) && !in_array($ipsecif, $interface_arr_cache)) {
 			$interface_arr_cache[] = $ipsecif;
@@ -1683,8 +1683,8 @@ function interfaces_configure() {
 			$track6_list[$if] = $ifname;
 		} else {
 			/* do not run dhcp6c if track interface does not exists
-			 * see https://redmine.pfsense.org/issues/3965
-			 * and https://redmine.pfsense.org/issues/11633 */
+			 * see https://redmine.freesense.org/issues/3965
+			 * and https://redmine.freesense.org/issues/11633 */
 			if ($ipaddrv6 == "dhcp6") {
 				$tr6list = link_interface_to_track6($if);
 				if (is_array($tr6list) && !empty($tr6list)) {
@@ -1905,7 +1905,7 @@ function interface_bring_down($interface = "wan", $destroy = false, $ifacecfg = 
 	}
 
 	/* check all gateways, including dynamic,
-	 * see https://redmine.pfsense.org/issues/12920 */
+	 * see https://redmine.freesense.org/issues/12920 */
 	foreach (get_gateways(GW_CACHE_DISABLED) as $gw) {
 		if ($gw['friendlyiface'] == $interface) {
 			$restart_gateways_monitor = true;
@@ -3298,8 +3298,8 @@ function interface_carp_configure(&$vip, $maintenancemode_only = false, $ipalias
 	}
 
 	/* reconfigure stacked IP Aliases after CARP VIP changes
-	 * see https://redmine.pfsense.org/issues/12227
-	 * and https://redmine.pfsense.org/issues/12961 */
+	 * see https://redmine.freesense.org/issues/12227
+	 * and https://redmine.freesense.org/issues/12961 */
 	if ($ipalias_reload) {
 		foreach (config_get_path('virtualip/vip', []) as $viface) {
 			if (($viface['mode'] == 'ipalias') &&
@@ -4282,7 +4282,7 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 		 * Some network devices respond to a DHCPv6 Solicit message only when
 		 * the IPv6 source address is consistent with what they expect.
 		 *
-		 * See https://redmine.pfsense.org/issues/12794 */
+		 * See https://redmine.freesense.org/issues/12794 */
 		if ($mac_addr != $current_mac) {
 			mwexec("/sbin/ifconfig " . escapeshellarg($realif) . " inet6 ifdisabled");
 			mwexec("/sbin/ifconfig " . escapeshellarg($realif) . " inet6 " . get_interface_linklocal($interface) . " delete");
@@ -6819,7 +6819,7 @@ function get_interface_ipv6($interface = "wan", $flush = false, $linklocal_fallb
 		}
 	}
 
-	/* try to find track6 address, see https://redmine.pfsense.org/issues/5999 */
+	/* try to find track6 address, see https://redmine.freesense.org/issues/5999 */
 	$checkif = is_array($iface) ? $interface : convert_real_interface_to_friendly_interface_name($interface);
 	if (!empty($checkif) && config_get_path("interfaces/{$checkif}/ipaddrv6", "") == 'track6') {
 		$curip = get_interface_track6ip($checkif);
@@ -6917,7 +6917,7 @@ function get_interface_subnetv6($interface = "wan") {
 		return (NULL);
 	}
 
-	/* try to find track6 address, see https://redmine.pfsense.org/issues/5999 */
+	/* try to find track6 address, see https://redmine.freesense.org/issues/5999 */
 	if (config_get_path("interfaces/{$interface}/ipaddrv6") == 'track6') {
 		$curip = get_interface_track6ip($interface);
 		if ($curip) {
@@ -6969,7 +6969,7 @@ function interface_has_gateway($friendly) {
 	if (!empty($ifname)) {
 		switch ($ifname['ipaddr']) {
 			case "dhcp":
-				/* see https://redmine.pfsense.org/issues/5135 */
+				/* see https://redmine.freesense.org/issues/5135 */
 				if (get_interface_gateway($friendly)) {
 					return true;
 				}
@@ -7295,7 +7295,7 @@ function get_interface_vendor_mac($interface) {
 	return (NULL);
 }
 
-/****f* pfsense-utils/generate_random_mac_address
+/****f* freesense-utils/generate_random_mac_address
  * NAME
  *   generate_random_mac - generates a random mac address
  * INPUTS
@@ -7688,7 +7688,7 @@ function restart_interface_services($interface, $ipv6type = "", $force = false) 
 	ipsec_force_reload($interface);
 
 	/* restart RADVD to announce correct IPv6 prefix
-	 * see https://redmine.pfsense.org/issues/12604 */
+	 * see https://redmine.freesense.org/issues/12604 */
 	if ((is_ipaddrv6($ipv6type) || ($ipv6type == "track6")) &&
 	    (config_get_path("dhcpdv6/{$interface}/ramode", "disabled") != "disabled")) {
 		services_radvd_configure();

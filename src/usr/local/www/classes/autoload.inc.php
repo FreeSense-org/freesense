@@ -2,7 +2,7 @@
 /*
  * autoload.inc.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -21,7 +21,7 @@
  * limitations under the License.
  */
 
-function pfsense_www_class_autoloader($classname) {
+function freesense_www_class_autoloader($classname) {
 	// Convert classname to match filename conventions
 	$filename = str_replace('_', '/', $classname);
 
@@ -31,4 +31,4 @@ function pfsense_www_class_autoloader($classname) {
 		require_once($filepath);
 	}
 }
-spl_autoload_register('pfsense_www_class_autoloader');
+spl_autoload_register('freesense_www_class_autoloader');

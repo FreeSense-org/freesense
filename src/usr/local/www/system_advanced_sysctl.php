@@ -2,7 +2,7 @@
 /*
  * system_advanced_sysctl.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -34,7 +34,7 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("system_advanced_sysctl.inc");
 
 $tunables = getTunables();

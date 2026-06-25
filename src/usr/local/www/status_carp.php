@@ -2,7 +2,7 @@
 /*
  * status_carp.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -70,7 +70,7 @@ if ($_POST['carp_maintenancemode'] != "") {
 	}
 
 	/* allow to switch to Persistent Maintenance Mode if CARP is disabled
-	 * see https://redmine.pfsense.org/issues/11727 */
+	 * see https://redmine.freesense.org/issues/11727 */
 	if (!$errmsg) {
 		interfaces_carp_set_maintenancemode($maintenancemode);
 	}

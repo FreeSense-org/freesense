@@ -2,7 +2,7 @@
 /*
  * index.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -197,7 +197,7 @@ if ($_POST['logout_id']) {
 	if (isset($_POST['auth_voucher'])) {
 		$voucher = trim($_POST['auth_voucher']);
 	} else {
-		/* submit voucher via URL, see https://redmine.pfsense.org/issues/1984 */
+		/* submit voucher via URL, see https://redmine.freesense.org/issues/1984 */
 		$voucher = trim($_GET['voucher']);
 		portal_reply_page($redirurl, "login", null, $clientmac, $clientip, null, null, $voucher);
 		return;

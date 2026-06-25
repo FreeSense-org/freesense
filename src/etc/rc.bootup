@@ -66,7 +66,7 @@ require_once("/etc/inc/captiveportal.inc");
 echo ".";
 require_once("/etc/inc/rrd.inc");
 echo ".";
-require_once("/etc/inc/pfsense-utils.inc");
+require_once("/etc/inc/freesense-utils.inc");
 echo ".";
 require_once("/etc/inc/notices.inc");
 echo ".";
@@ -92,7 +92,7 @@ if (file_exists("/root/firmware.tgz")) {
 }
 
 /* restore RRD, SSH keys and extra data on bsdinstall config restore
- * see https://redmine.pfsense.org/issues/12518 */
+ * see https://redmine.freesense.org/issues/12518 */
 if (file_exists("{$g['conf_path']}/installer_copied_config") &&
     file_exists("{$g['conf_path']}/restore_config_data")) {
 	copy("/cf/conf/config.xml", "{$g['tmp_path']}/config_to_restore.xml");
@@ -139,7 +139,7 @@ if (file_exists("{$g['conf_path']}/trigger_initial_wizard") && !file_exists("{$g
 
 /* Convert configuration
  * This must happen before the interface mismatch test, see
- * https://redmine.pfsense.org/issues/7809 */
+ * https://redmine.freesense.org/issues/7809 */
 echo "Updating configuration...";
 convert_config();
 echo "done.\n";
@@ -224,7 +224,7 @@ interfaces_loopback_configure();
 ca_setup_trust_store();
 
 /* If the system uses ZFS and has compression enabled for /var/log, disable log
- * compression by default. See https://redmine.pfsense.org/issues/12011
+ * compression by default. See https://redmine.freesense.org/issues/12011
  */
 $varlog_compression_state = 'off';
 if (is_module_loaded('zfs.ko')) {
@@ -499,7 +499,7 @@ if ($ipsec_dynamic_hosts) {
 	ipsec_configure();
 
 	/* restart dpinger if PH1 remote gateway == fqdn and PH2 mode == VTI
-	 * see https://redmine.pfsense.org/issues/12763 */
+	 * see https://redmine.freesense.org/issues/12763 */
 	foreach (config_get_path('ipsec/phase1', []) as $p1) {
 		if (!isset($p1['mobile']) && !isset($p1['disabled']) && is_fqdn($p1['remote-gateway'])) {
 			foreach (config_get_path('ipsec/phase2', []) as $p2) {

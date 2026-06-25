@@ -4095,8 +4095,8 @@ msgstr ""
 #: src/usr/local/www/interfaces.php:1872 src/usr/local/www/interfaces.php:1875
 #: src/usr/local/www/interfaces.php:1898 src/usr/local/www/interfaces.php:1911
 #: src/etc/inc/ipsec.inc:477 src/etc/inc/shaper.inc:4411
-#: src/etc/inc/shaper.inc:4856 src/etc/inc/pfsense-utils.inc:2832
-#: src/etc/inc/pfsense-utils.inc:3306
+#: src/etc/inc/shaper.inc:4856 src/etc/inc/freesense-utils.inc:2832
+#: src/etc/inc/freesense-utils.inc:3306
 msgid "None"
 msgstr "None"
 
@@ -4696,7 +4696,7 @@ msgstr "필터 적용"
 #: src/usr/local/www/status_logs_vpn.php:412
 #: src/usr/local/www/status_logs_common.inc:321
 #: src/usr/local/www/status_logs_common.inc:541
-#: src/etc/inc/pfsense-utils.inc:342
+#: src/etc/inc/freesense-utils.inc:342
 msgid "Log Filter"
 msgstr "로그 필터"
 
@@ -5672,7 +5672,7 @@ msgstr "마법사를 건너 뛰려면 초기 페이지에서 %s 로고를 클릭
 msgid "Dashboard"
 msgstr "대시보드"
 
-#: src/usr/local/www/index.php:323 src/etc/inc/pfsense-utils.inc:335
+#: src/usr/local/www/index.php:323 src/etc/inc/freesense-utils.inc:335
 msgid "Available Widgets"
 msgstr "사용 가능한 위젯"
 
@@ -5930,8 +5930,8 @@ msgstr "원격 게이트웨이"
 #: src/usr/local/www/interfaces_wireless_edit.php:73
 #: src/usr/local/www/interfaces.php:975 src/usr/local/www/interfaces.php:3290
 #: src/usr/local/www/vpn_openvpn_server.php:1704
-#: src/usr/local/www/status_graph.php:207 src/etc/inc/pfsense-utils.inc:3324
-#: src/etc/inc/pfsense-utils.inc:3367
+#: src/usr/local/www/status_graph.php:207 src/etc/inc/freesense-utils.inc:3324
+#: src/etc/inc/freesense-utils.inc:3367
 msgid "Mode"
 msgstr "모드"
 
@@ -14127,8 +14127,8 @@ msgstr "성공적으로 \"%2$s\"이라는 설명이 포함된 %1$s 시간 스탬
 #: src/usr/local/www/diag_confbak.php:56 src/usr/local/www/diag_confbak.php:64
 #: src/usr/local/www/diag_confbak.php:118
 #: src/usr/local/www/diag_confbak.php:227
-#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/pfsense-utils.inc:500
-#: src/etc/inc/pfsense-utils.inc:510 src/etc/inc/config.lib.inc:1023
+#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/freesense-utils.inc:500
+#: src/etc/inc/freesense-utils.inc:510 src/etc/inc/config.lib.inc:1023
 msgid "n/j/y H:i:s"
 msgstr "n/j/y H:i:s"
 
@@ -16836,7 +16836,7 @@ msgstr "GetURL 및 XMLHttpRequest가 모두 정의되지 않았습니다."
 msgid "Switch to bits/s"
 msgstr "비트/s로 전환"
 
-#: src/usr/local/www/graph.php:200 src/etc/inc/pfsense-utils.inc:1803
+#: src/usr/local/www/graph.php:200 src/etc/inc/freesense-utils.inc:1803
 msgid "up"
 msgstr "위로"
 
@@ -23810,12 +23810,12 @@ msgid "The settings cannot be managed for a non-local user."
 msgstr "로컬이 아닌 사용자에 대해서는 설정을 관리할 수 없습니다."
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:209
+#: src/etc/inc/freesense-utils.inc:209
 msgid "Theme"
 msgstr "주제"
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:288
+#: src/etc/inc/freesense-utils.inc:288
 msgid "Dashboard Columns"
 msgstr "대시보드 열"
 
@@ -31409,8 +31409,8 @@ msgstr "%s(으)로 XMLRPC 동기화 데이터를 시작하는 중입니다."
 #, php-format
 msgid ""
 "A communications error occurred while attempting XMLRPC sync with %s "
-"(pfsense.%s)."
-msgstr "%s (pfsense.%s)과(와) XMLRPC를 동기화 시도를하는 동안 통신 오류가 발생했습니다."
+"(freesense.%s)."
+msgstr "%s (freesense.%s)과(와) XMLRPC를 동기화 시도를하는 동안 통신 오류가 발생했습니다."
 
 #: src/etc/inc/xmlrpc_client.inc:127
 msgid "Error code received"
@@ -33838,7 +33838,7 @@ msgstr "아래쪽의 버튼은 %s 작업을 나타내며 그에 따라 활성화
 msgid "limiter"
 msgstr "제한자"
 
-#: src/etc/inc/pfsense-utils.inc:212
+#: src/etc/inc/freesense-utils.inc:212
 #, php-format
 msgid ""
 "Choose an alternative css file (if installed) to change the appearance of "
@@ -33847,90 +33847,90 @@ msgstr ""
 "대안 css 파일(설치된 경우)을 선택하여 webConfigurator의 모양을 변경합니다. css파일은 /usr/local/www/"
 "css/%s에 위치합니다."
 
-#: src/etc/inc/pfsense-utils.inc:217
+#: src/etc/inc/freesense-utils.inc:217
 msgid "The submitted Theme could not be found. Pick a different theme."
 msgstr "제출된 테마를 찾을 수 없습니다. 다른 테마를 선택하십시오."
 
-#: src/etc/inc/pfsense-utils.inc:236
+#: src/etc/inc/freesense-utils.inc:236
 msgid "Scrolls with page"
 msgstr "페이지를 스크롤합니다."
 
-#: src/etc/inc/pfsense-utils.inc:236
+#: src/etc/inc/freesense-utils.inc:236
 msgid "Fixed (Remains visible at top of page)"
 msgstr "고정 (페이지 맨 위에 계속 표시)"
 
-#: src/etc/inc/pfsense-utils.inc:234
+#: src/etc/inc/freesense-utils.inc:234
 msgid "Top Navigation"
 msgstr "상단 탐색"
 
-#: src/etc/inc/pfsense-utils.inc:237
+#: src/etc/inc/freesense-utils.inc:237
 msgid "The fixed option is intended for large screens only."
 msgstr "고정 옵션은 큰 화면에만 적용됩니다."
 
-#: src/etc/inc/pfsense-utils.inc:242
+#: src/etc/inc/freesense-utils.inc:242
 msgid "The submitted Top Navigation value is invalid."
 msgstr "제출된 상단 탐색 값이 잘못되었습니다."
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Default (No hostname)"
 msgstr "기본 값 (호스트 이름 없음)"
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Hostname only"
 msgstr "호스트 이름만"
 
-#: src/etc/inc/pfsense-utils.inc:261
+#: src/etc/inc/freesense-utils.inc:261
 msgid "Fully Qualified Domain Name"
 msgstr "정규화된 도메인 이름"
 
-#: src/etc/inc/pfsense-utils.inc:259
+#: src/etc/inc/freesense-utils.inc:259
 msgid "Hostname in Menu"
 msgstr "메뉴의 호스트 이름"
 
-#: src/etc/inc/pfsense-utils.inc:262
+#: src/etc/inc/freesense-utils.inc:262
 msgid ""
 "Replaces the Help menu title in the Navbar with the system hostname or FQDN."
 msgstr "Navbar의 도움말 메뉴 제목을 시스템 호스트 이름 또는 FQDN으로 바꿉니다."
 
-#: src/etc/inc/pfsense-utils.inc:267
+#: src/etc/inc/freesense-utils.inc:267
 msgid "The submitted Hostname in Menu value is invalid."
 msgstr "메뉴 값의 제출된 호스트 이름이 잘못되었습니다."
 
-#: src/etc/inc/pfsense-utils.inc:296
+#: src/etc/inc/freesense-utils.inc:296
 msgid "The submitted Dashboard Columns value is invalid."
 msgstr "제출된 대시보드 열 값이 잘못되었습니다."
 
-#: src/etc/inc/pfsense-utils.inc:313
+#: src/etc/inc/freesense-utils.inc:313
 msgid "Interfaces Sort"
 msgstr "인터페이스 정렬"
 
-#: src/etc/inc/pfsense-utils.inc:316
+#: src/etc/inc/freesense-utils.inc:316
 msgid ""
 "If selected, lists of interfaces will be sorted by description, otherwise "
 "they are listed wan,lan,optn..."
 msgstr "선택하면 인터페이스 목록이 설명별로 정렬되고, 그렇지 않으면 wan, lan, optn ...으로 표시됩니다."
 
-#: src/etc/inc/pfsense-utils.inc:330
+#: src/etc/inc/freesense-utils.inc:330
 msgid "Associated Panels Show/Hide"
 msgstr "연결된 패널 표시 / 숨기기"
 
-#: src/etc/inc/pfsense-utils.inc:337
+#: src/etc/inc/freesense-utils.inc:337
 msgid "Show the Available Widgets panel on the Dashboard."
 msgstr "대시보드에 사용 가능한 위젯 패널을 표시합니다."
 
-#: src/etc/inc/pfsense-utils.inc:344
+#: src/etc/inc/freesense-utils.inc:344
 msgid "Show the Log Filter panel in System Logs."
 msgstr "시스템 로그에 로그 필터 창을 표시합니다."
 
-#: src/etc/inc/pfsense-utils.inc:351
+#: src/etc/inc/freesense-utils.inc:351
 msgid "Show the Manage Log panel in System Logs."
 msgstr "시스템 로그에 로그 관리 패널을 표시합니다."
 
-#: src/etc/inc/pfsense-utils.inc:358
+#: src/etc/inc/freesense-utils.inc:358
 msgid "Show the Settings panel in Status Monitoring."
 msgstr "상태 모니터링에 설정 패널을 표시합니다."
 
-#: src/etc/inc/pfsense-utils.inc:360
+#: src/etc/inc/freesense-utils.inc:360
 msgid ""
 "These options allow certain panels to be automatically hidden on page load. "
 "A control is provided in the title bar to un-hide the panel."
@@ -33938,31 +33938,31 @@ msgstr ""
 "이 옵션을 사용하면 페이지 로드 시 특정 패널을 자동으로 숨길 수 있게 해줍니다. 제목 표시줄에 패널을 숨김을 취소하도록 컨트롤이 "
 "제공됩니다."
 
-#: src/etc/inc/pfsense-utils.inc:378
+#: src/etc/inc/freesense-utils.inc:378
 msgid "Left Column Labels"
 msgstr "왼쪽 열 레이블"
 
-#: src/etc/inc/pfsense-utils.inc:381
+#: src/etc/inc/freesense-utils.inc:381
 msgid ""
 "If selected, clicking a label in the left column will select/toggle the "
 "first item of the group."
 msgstr "선택할 경우 왼쪽 열에서 레이블을 클릭하면 그룹의 첫 번째 항목이 선택/토글됩니다."
 
-#: src/etc/inc/pfsense-utils.inc:397
+#: src/etc/inc/freesense-utils.inc:397
 msgid "Alias Popups"
 msgstr "별칭 팝업"
 
-#: src/etc/inc/pfsense-utils.inc:400
+#: src/etc/inc/freesense-utils.inc:400
 msgid ""
 "If selected, the details in alias popups will not be shown, just the alias "
 "description (e.g. in Firewall Rules)."
 msgstr "이 옵션을 선택하면 별칭 팝업의 세부 정보가 표시되지 않고, 별칭 설명만 표시됩니다(예: 방화벽 규칙)."
 
-#: src/etc/inc/pfsense-utils.inc:416
+#: src/etc/inc/freesense-utils.inc:416
 msgid "Browser tab text"
 msgstr "브라우저 탭 텍스트"
 
-#: src/etc/inc/pfsense-utils.inc:419
+#: src/etc/inc/freesense-utils.inc:419
 msgid ""
 "When this is unchecked, the browser tab shows the host name followed by the "
 "current page. Check this box to display the current page followed by the "
@@ -33971,11 +33971,11 @@ msgstr ""
 "이 옵션을 선택하지 않으면 브라우저 탭에 호스트 이름과 뒤이어 현재 페이지가 표시됩니다. 현재 페이지 다음에 호스트 이름을 표시하려면 이 "
 "확인란을 선택하십시오."
 
-#: src/etc/inc/pfsense-utils.inc:463
+#: src/etc/inc/freesense-utils.inc:463
 msgid "Require State Filter"
 msgstr "상태 필터 필요"
 
-#: src/etc/inc/pfsense-utils.inc:466
+#: src/etc/inc/freesense-utils.inc:466
 msgid ""
 "By default, the entire state table is displayed when entering Diagnostics > "
 "States. This option requires a filter to be entered before the states are "
@@ -33984,305 +33984,305 @@ msgstr ""
 "기본적으로 진단 > 상태 입력 시 전체 상태 테이블이 표시됩니다. 이 옵션을 사용하려면 상태가 표시되기 전에 필터를 입력해야 합니다. 큰 "
 "상태 테이블이 있는 시스템에 유용합니다."
 
-#: src/etc/inc/pfsense-utils.inc:486
+#: src/etc/inc/freesense-utils.inc:486
 msgid "Rule Information"
 msgstr "규칙 정보"
 
-#: src/etc/inc/pfsense-utils.inc:490
+#: src/etc/inc/freesense-utils.inc:490
 msgid "Tracking ID"
 msgstr " ID 트래킹"
 
-#: src/etc/inc/pfsense-utils.inc:499 src/etc/inc/pfsense-utils.inc:509
+#: src/etc/inc/freesense-utils.inc:499 src/etc/inc/freesense-utils.inc:509
 #, php-format
 msgid "%1$s by %2$s"
 msgstr "% 2 $ s로 인한 % 1 $ s"
 
-#: src/etc/inc/pfsense-utils.inc:497
+#: src/etc/inc/freesense-utils.inc:497
 msgid "Created"
 msgstr "Created"
 
-#: src/etc/inc/pfsense-utils.inc:507
+#: src/etc/inc/freesense-utils.inc:507
 msgid "Updated"
 msgstr "Updated"
 
-#: src/etc/inc/pfsense-utils.inc:831
+#: src/etc/inc/freesense-utils.inc:831
 msgid "After synch increase advertising skew"
 msgstr "동기화 후 광고업 스큐(skew) 증가"
 
-#: src/etc/inc/pfsense-utils.inc:881
+#: src/etc/inc/freesense-utils.inc:881
 msgid "Error creating socket!"
 msgstr "소켓을 만드는 동안 오류가 발생했습니다."
 
-#: src/etc/inc/pfsense-utils.inc:882
+#: src/etc/inc/freesense-utils.inc:882
 #, php-format
 msgid "Error code is '%1$s' - %2$s"
 msgstr "에러 코드는  '%1$s' - %2$s 입니다."
 
-#: src/etc/inc/pfsense-utils.inc:887
+#: src/etc/inc/freesense-utils.inc:887
 #, php-format
 msgid "setsockopt() failed, error: %s"
 msgstr "setsockopt() 실패, 오류: %s"
 
-#: src/etc/inc/pfsense-utils.inc:891
+#: src/etc/inc/freesense-utils.inc:891
 #, php-format
 msgid "Magic Packet sent (%1$s) to (%2$s) MAC=%3$s"
 msgstr "매직 패킷이  (%2$s) MAC=%3$s로 (%1$s)을 보냈습니다."
 
-#: src/etc/inc/pfsense-utils.inc:970 src/etc/inc/pfsense-utils.inc:990
+#: src/etc/inc/freesense-utils.inc:970 src/etc/inc/freesense-utils.inc:990
 #, php-format
 msgid "Restored %s of config file (maybe from CARP partner)"
 msgstr "구성 파일의 %s이(가) 복원되었습니다(CARP 파트너에서 온것일 수도 있습니다)"
 
-#: src/etc/inc/pfsense-utils.inc:1077
+#: src/etc/inc/freesense-utils.inc:1077
 msgid "reload_interfaces_sync() is starting."
 msgstr "reload_interfaces_sync() 가 시작합니다."
 
-#: src/etc/inc/pfsense-utils.inc:1086
+#: src/etc/inc/freesense-utils.inc:1086
 msgid "Enabling system routing"
 msgstr "시스템 라우팅 사용"
 
-#: src/etc/inc/pfsense-utils.inc:1090
+#: src/etc/inc/freesense-utils.inc:1090
 msgid "Cleaning up Interfaces"
 msgstr "인터페이스 정리"
 
-#: src/etc/inc/pfsense-utils.inc:1600
+#: src/etc/inc/freesense-utils.inc:1600
 msgid "No history data found!"
 msgstr "기록 데이터를 찾을 수 없습니다!"
 
-#: src/etc/inc/pfsense-utils.inc:1733
+#: src/etc/inc/freesense-utils.inc:1733
 msgid "device not present! Is the modem attached to the system?"
 msgstr "장치가 없습니다! 모뎀이 시스템에 연결되어 있습니까?"
 
-#: src/etc/inc/pfsense-utils.inc:1802
+#: src/etc/inc/freesense-utils.inc:1802
 msgid "running"
 msgstr "실행 중"
 
-#: src/etc/inc/pfsense-utils.inc:1848
+#: src/etc/inc/freesense-utils.inc:1848
 msgid "blocking"
 msgstr "차단 중"
 
-#: src/etc/inc/pfsense-utils.inc:1848
+#: src/etc/inc/freesense-utils.inc:1848
 msgid "check for ethernet loops"
 msgstr "이더넷(ethernet) 루프 검사"
 
-#: src/etc/inc/pfsense-utils.inc:1851
+#: src/etc/inc/freesense-utils.inc:1851
 msgid "learning"
 msgstr "learning"
 
-#: src/etc/inc/pfsense-utils.inc:1854
+#: src/etc/inc/freesense-utils.inc:1854
 msgid "forwarding"
 msgstr "전송중"
 
-#: src/etc/inc/pfsense-utils.inc:1988
+#: src/etc/inc/freesense-utils.inc:1988
 #, php-format
 msgid "DNSCACHE: Found old IP %1$s and new IP %2$s"
 msgstr "DNSCACHE: 예전 IP %1$s와 새로운 IP %2$s를 찾았습니다"
 
-#: src/etc/inc/pfsense-utils.inc:2010
+#: src/etc/inc/freesense-utils.inc:2010
 #, php-format
 msgid "Loading %s cryptographic accelerator module."
 msgstr "%s 암호화 가속기 모듈을 로드하는 중입니다."
 
-#: src/etc/inc/pfsense-utils.inc:2030
+#: src/etc/inc/freesense-utils.inc:2030
 #, php-format
 msgid "Loading %s thermal monitor module."
 msgstr "%s 열 모니터 모듈을 로드하는 중입니다."
 
-#: src/etc/inc/pfsense-utils.inc:2098 src/etc/inc/pfsense-utils.inc:2145
+#: src/etc/inc/freesense-utils.inc:2098 src/etc/inc/freesense-utils.inc:2145
 #, php-format
 msgid "Download file failed with status code %1$s. URL: %2$s"
 msgstr "다운로드가 상태 코드 %1$s로 실패했습니다. URL: %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:2364
+#: src/etc/inc/freesense-utils.inc:2364
 #, php-format
 msgid "Could not process non-existent file from alias: %s"
 msgstr "별칭에서 존재하지 않는 파일을 처리할 수 없습니다: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2369
+#: src/etc/inc/freesense-utils.inc:2369
 #, php-format
 msgid "Could not process empty file from alias: %s"
 msgstr "별칭에서 빈 파일을 처리할 수 없습니다: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2374
+#: src/etc/inc/freesense-utils.inc:2374
 #, php-format
 msgid "Could not process aliases from alias: %s"
 msgstr "별칭에서 별칭들을 처리할 수 없습니다: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2454
+#: src/etc/inc/freesense-utils.inc:2454
 #, php-format
 msgid "Failed to download alias %s"
 msgstr "%s 별칭 다운로드를 실패했습니다."
 
-#: src/etc/inc/pfsense-utils.inc:2483
+#: src/etc/inc/freesense-utils.inc:2483
 msgid ""
 "Alias archive is a .tar/tgz file which cannot be decompressed because "
 "utility is missing!"
 msgstr "별칭 아카이브는 유틸리티가 없으므로 압축을 풀 수 없는 .tar/tgz  파일입니다!"
 
-#: src/etc/inc/pfsense-utils.inc:2493
+#: src/etc/inc/freesense-utils.inc:2493
 #, php-format
 msgid "Could not open %s/aliases for writing!"
 msgstr "%s/별칭을 쓰기 위해 열 수 없습니다!"
 
-#: src/etc/inc/pfsense-utils.inc:2499
+#: src/etc/inc/freesense-utils.inc:2499
 #, php-format
 msgid "The following file could not be read %1$s from %2$s"
 msgstr "다음 파일을 %2$s에서 %1$s읽을 수 없습니다."
 
-#: src/etc/inc/pfsense-utils.inc:3102
+#: src/etc/inc/freesense-utils.inc:3102
 msgid "Bosnian"
 msgstr "보스니아어"
 
-#: src/etc/inc/pfsense-utils.inc:3103
+#: src/etc/inc/freesense-utils.inc:3103
 msgid "Chinese"
 msgstr "중국어"
 
-#: src/etc/inc/pfsense-utils.inc:3104
+#: src/etc/inc/freesense-utils.inc:3104
 msgid "Chinese (Simplified, China)"
 msgstr "중국어(간체, 중국)"
 
-#: src/etc/inc/pfsense-utils.inc:3105
+#: src/etc/inc/freesense-utils.inc:3105
 msgid "Chinese (Simplified, Hong Kong SAR China)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3106
+#: src/etc/inc/freesense-utils.inc:3106
 msgid "Chinese (Traditional, Taiwan)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3107
+#: src/etc/inc/freesense-utils.inc:3107
 msgid "Dutch"
 msgstr "네덜란드어"
 
-#: src/etc/inc/pfsense-utils.inc:3108
+#: src/etc/inc/freesense-utils.inc:3108
 msgid "English"
 msgstr "영어"
 
-#: src/etc/inc/pfsense-utils.inc:3109
+#: src/etc/inc/freesense-utils.inc:3109
 msgid "French"
 msgstr "프랑스어"
 
-#: src/etc/inc/pfsense-utils.inc:3110
+#: src/etc/inc/freesense-utils.inc:3110
 msgid "German (Germany)"
 msgstr "독일어"
 
-#: src/etc/inc/pfsense-utils.inc:3111
+#: src/etc/inc/freesense-utils.inc:3111
 msgid "Italian"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3112
+#: src/etc/inc/freesense-utils.inc:3112
 msgid "Korean"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3113
+#: src/etc/inc/freesense-utils.inc:3113
 msgid "Norwegian Bokmål"
 msgstr "노르웨이어 부크몰"
 
-#: src/etc/inc/pfsense-utils.inc:3114
+#: src/etc/inc/freesense-utils.inc:3114
 msgid "Polish"
 msgstr "폴란드어"
 
-#: src/etc/inc/pfsense-utils.inc:3115
+#: src/etc/inc/freesense-utils.inc:3115
 msgid "Portuguese"
 msgstr "포르투갈어"
 
-#: src/etc/inc/pfsense-utils.inc:3116
+#: src/etc/inc/freesense-utils.inc:3116
 msgid "Portuguese (Brazil)"
 msgstr "포르투갈어(브라질)"
 
-#: src/etc/inc/pfsense-utils.inc:3117
+#: src/etc/inc/freesense-utils.inc:3117
 msgid "Russian"
 msgstr "러시안어"
 
-#: src/etc/inc/pfsense-utils.inc:3118
+#: src/etc/inc/freesense-utils.inc:3118
 msgid "Spanish"
 msgstr "스페인어"
 
-#: src/etc/inc/pfsense-utils.inc:3119
+#: src/etc/inc/freesense-utils.inc:3119
 msgid "Spanish (Argentina)"
 msgstr "스페인어(아르헨티나)"
 
-#: src/etc/inc/pfsense-utils.inc:3314 src/etc/inc/pfsense-utils.inc:3329
-#: src/etc/inc/pfsense-utils.inc:3355
+#: src/etc/inc/freesense-utils.inc:3314 src/etc/inc/freesense-utils.inc:3329
+#: src/etc/inc/freesense-utils.inc:3355
 msgid "No Service"
 msgstr "서비스 없음"
 
-#: src/etc/inc/pfsense-utils.inc:3330
+#: src/etc/inc/freesense-utils.inc:3330
 msgid "Restricted Service"
 msgstr "제한된 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3331
+#: src/etc/inc/freesense-utils.inc:3331
 msgid "Valid Service"
 msgstr "유효한 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3332
+#: src/etc/inc/freesense-utils.inc:3332
 msgid "Restricted Regional Service"
 msgstr "제한된 지역 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3333
+#: src/etc/inc/freesense-utils.inc:3333
 msgid "Powersaving Service"
 msgstr "절전형 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3334
+#: src/etc/inc/freesense-utils.inc:3334
 msgid "Unknown Service"
 msgstr "알 수 없는 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3340
+#: src/etc/inc/freesense-utils.inc:3340
 msgid "Invalid SIM/locked State"
 msgstr "인식 불가능한 SIM/잠금 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3341
+#: src/etc/inc/freesense-utils.inc:3341
 msgid "Valid SIM State"
 msgstr "유효한 SIM 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3342
+#: src/etc/inc/freesense-utils.inc:3342
 msgid "Invalid SIM CS State"
 msgstr "인식 불가능한 SIM CS 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3343
+#: src/etc/inc/freesense-utils.inc:3343
 msgid "Invalid SIM PS State"
 msgstr "인식 불가능한 SIM PS 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3344
+#: src/etc/inc/freesense-utils.inc:3344
 msgid "Invalid SIM CS/PS State"
 msgstr "잘못된 SIM CS/PS 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3345
+#: src/etc/inc/freesense-utils.inc:3345
 msgid "Missing SIM State"
 msgstr "SIM 상태 누락"
 
-#: src/etc/inc/pfsense-utils.inc:3356
+#: src/etc/inc/freesense-utils.inc:3356
 msgid "Limited Service"
 msgstr "제한된 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3372
+#: src/etc/inc/freesense-utils.inc:3372
 msgid "Initializing Service"
 msgstr "서비스 초기화 중"
 
-#: src/etc/inc/pfsense-utils.inc:3373
+#: src/etc/inc/freesense-utils.inc:3373
 msgid "Network Lock error Service"
 msgstr "네트워크 잠금 오류 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3374
+#: src/etc/inc/freesense-utils.inc:3374
 msgid "Network Locked Service"
 msgstr "네트워크 잠금 서비스"
 
-#: src/etc/inc/pfsense-utils.inc:3375
+#: src/etc/inc/freesense-utils.inc:3375
 msgid "Unlocked or correct MCC/MNC Service"
 msgstr "MCC/MCC 서비스 잠금 해제 또는 수정"
 
-#: src/etc/inc/pfsense-utils.inc:3381
+#: src/etc/inc/freesense-utils.inc:3381
 msgid "No action State"
 msgstr "작업 상태 없음"
 
-#: src/etc/inc/pfsense-utils.inc:3382
+#: src/etc/inc/freesense-utils.inc:3382
 msgid "Network lock State"
 msgstr "네트워크 잠금 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3383
+#: src/etc/inc/freesense-utils.inc:3383
 msgid "(U)SIM card lock State"
 msgstr "(U)SIM 카드 잠금 상태"
 
-#: src/etc/inc/pfsense-utils.inc:3384
+#: src/etc/inc/freesense-utils.inc:3384
 msgid "Network Lock and (U)SIM card Lock State"
 msgstr "Network Lock 및 (U)SIM 카드 잠금 상태"
 
@@ -40965,30 +40965,30 @@ msgstr "명시적 정체 알림(ECN) 사용"
 msgid "Enable this queue"
 msgstr "이 큐(Queue) 사용"
 
-#: src/etc/inc/pfsense-utils.inc:314
+#: src/etc/inc/freesense-utils.inc:314
 msgid "Sort Alphabetically"
 msgstr "알파벳순 정렬"
 
-#: src/etc/inc/pfsense-utils.inc:349
+#: src/etc/inc/freesense-utils.inc:349
 msgid "Manage Log"
 msgstr "로그 관리"
 
-#: src/etc/inc/pfsense-utils.inc:356
+#: src/etc/inc/freesense-utils.inc:356
 msgid "Monitoring Settings"
 msgstr "모니터링 설정"
 
-#: src/etc/inc/pfsense-utils.inc:379
+#: src/etc/inc/freesense-utils.inc:379
 msgid "Active"
 msgstr "활성의"
 
-#: src/etc/inc/pfsense-utils.inc:398
+#: src/etc/inc/freesense-utils.inc:398
 msgid "Disable details in alias popups"
 msgstr "별칭 팝업에서 세부 정보 사용 안 함"
 
-#: src/etc/inc/pfsense-utils.inc:417
+#: src/etc/inc/freesense-utils.inc:417
 msgid "Display page name first in browser tab"
 msgstr "브라우저 탭에서 페이지 이름 먼저 표시"
 
-#: src/etc/inc/pfsense-utils.inc:464
+#: src/etc/inc/freesense-utils.inc:464
 msgid "Do not display state table without a filter"
 msgstr "필터 없이 상태 테이블 표시 안 함"

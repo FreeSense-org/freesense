@@ -1291,11 +1291,11 @@ $priv_list['page-openvpn-server']['descr'] = gettext("Allow access to the 'OpenV
 $priv_list['page-openvpn-server']['match'] = array();
 $priv_list['page-openvpn-server']['match'][] = "vpn_openvpn_server.php*";
 
-$priv_list['page-pfsensewizardsubsystem'] = array();
-$priv_list['page-pfsensewizardsubsystem']['name'] = gettext("WebCfg - Wizard Subsystem");
-$priv_list['page-pfsensewizardsubsystem']['descr'] = gettext("Allow access to the Wizard Subsystem (e.g. Setup Wizard, OpenVPN Wizard).");
-$priv_list['page-pfsensewizardsubsystem']['match'] = array();
-$priv_list['page-pfsensewizardsubsystem']['match'][] = "wizard.php*";
+$priv_list['page-freesensewizardsubsystem'] = array();
+$priv_list['page-freesensewizardsubsystem']['name'] = gettext("WebCfg - Wizard Subsystem");
+$priv_list['page-freesensewizardsubsystem']['descr'] = gettext("Allow access to the Wizard Subsystem (e.g. Setup Wizard, OpenVPN Wizard).");
+$priv_list['page-freesensewizardsubsystem']['match'] = array();
+$priv_list['page-freesensewizardsubsystem']['match'][] = "wizard.php*";
 
 $priv_list['page-xmlrpclibrary'] = array();
 $priv_list['page-xmlrpclibrary']['name'] = gettext("WebCfg - XMLRPC Library");

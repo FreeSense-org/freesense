@@ -3,7 +3,7 @@
 /*
  * captiveportal_gather_stats.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2011 Warren Baker
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2013-2026 Rubicon Communications, LLC (Netgate)

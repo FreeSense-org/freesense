@@ -2,7 +2,7 @@
 /*
  * firewall_rules_edit.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -1041,7 +1041,7 @@ if ($_POST['save']) {
 		if (empty($outoftcpflags) && !empty($settcpflags)) {
 			$input_errors[] = gettext("If TCP flags that should be set is specified, then out of which flags should be specified as well.");
 		} else {
-			/* https://redmine.pfsense.org/issues/11762 */
+			/* https://redmine.freesense.org/issues/11762 */
 			foreach ($settcpflags as $tcpflag) {
 				if (!in_array($tcpflag, $outoftcpflags)) {
 					$input_errors[] = sprintf(gettext("The TCP flag %s must be checked in 'out of' list."), strtoupper($tcpflag));

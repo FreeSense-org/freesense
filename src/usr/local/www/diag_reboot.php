@@ -2,7 +2,7 @@
 /*
  * diag_reboot.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -54,7 +54,7 @@ if (isset($_POST['rebootmode'])):
 		switch ($_POST['rebootmode']) {
 			case 'fsckreboot':
 				if ((php_uname('m') != 'arm') && !is_module_loaded("zfs.ko")) {
-					mwexec('/sbin/nextboot -e "pfsense.fsck.force=5"');
+					mwexec('/sbin/nextboot -e "freesense.fsck.force=5"');
 					notify_all_remote(sprintf(gettext("%s is rebooting for a filesystem check now."), g_get('product_label')));
 					system_reboot();
 				}

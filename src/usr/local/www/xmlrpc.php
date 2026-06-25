@@ -2,7 +2,7 @@
 /*
  * xmlrpc.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -40,7 +40,7 @@ require_once("captiveportal.inc");
 require_once("shaper.inc");
 require_once("XML/RPC2/Server.php");
 
-class pfsense_xmlrpc_server {
+class freesense_xmlrpc_server {
 
 	private $loop_detected = false;
 	private $remote_addr;
@@ -250,7 +250,7 @@ class pfsense_xmlrpc_server {
 
 		$group_config = config_get_path('system/group', []);
 		/* Only touch users if users are set to synchronize from the primary node
-		 * See https://redmine.pfsense.org/issues/8450
+		 * See https://redmine.freesense.org/issues/8450
 		 */
 		if ($sections['system']['user'] && $sections['system']['group']) {
 			$g2add = array();
@@ -659,7 +659,7 @@ class pfsense_xmlrpc_server {
 					if (does_vip_exist($vip) && isset($oldvips[$key]['vhid']) &&
 					    ($oldvips[$key]['vhid'] ^ $vip['vhid'])) {
 						/* properly remove the old VHID
-						 * see https://redmine.pfsense.org/issues/12202 */
+						 * see https://redmine.freesense.org/issues/12202 */
 						$realif = get_real_interface($vip['interface']);
 						mwexec("/sbin/ifconfig {$realif} " .
 							escapeshellarg($vip['subnet']) . " -alias");
@@ -780,7 +780,7 @@ class pfsense_xmlrpc_server {
 		setup_gateways_monitor();
 
 		/* do not restart unchanged services on XMLRPC sync,
-		 * see https://redmine.pfsense.org/issues/11082 
+		 * see https://redmine.freesense.org/issues/11082 
 		 */
 		if (is_array(config_get_path('openvpn')) || is_array($old_config['openvpn'])) {
 			foreach (array("server", "client") as $type) {
@@ -826,7 +826,7 @@ class pfsense_xmlrpc_server {
 			openvpn_resync_csc_all();
 		}
 
-		/* run ipsec_configure() on any IPsec change, see https://redmine.pfsense.org/issues/12075 */
+		/* run ipsec_configure() on any IPsec change, see https://redmine.freesense.org/issues/12075 */
 		if (((is_array(config_get_path('ipsec')) || is_array($old_config['ipsec'])) &&
 		    (config_get_path('ipsec') != $old_config['ipsec'])) ||
 		    $force) {
@@ -1039,12 +1039,12 @@ XML_RPC2_Backend::setBackend('php');
 $HTTP_RAW_POST_DATA = file_get_contents('php://input');
 
 $options = array(
-	'prefix' => 'pfsense.',
+	'prefix' => 'freesense.',
 	'encoding' => 'utf-8',
 	'autoDocument' => false,
 );
 
-$server = XML_RPC2_Server::create(new pfsense_xmlrpc_server(), $options);
+$server = XML_RPC2_Server::create(new freesense_xmlrpc_server(), $options);
 $server->handleCall();
 
 unlock($xmlrpclockkey);

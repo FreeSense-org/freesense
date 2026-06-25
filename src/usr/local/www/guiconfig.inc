@@ -2,7 +2,7 @@
 /*
  * guiconfig.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -39,7 +39,7 @@ if (!$nocsrf) {
 	function csrf_startup() {
 		csrf_conf('rewrite-js', '/csrf/csrf-magic.js');
 		/* Loading the configuration to get this value breaks other
-		 * functions. See https://redmine.pfsense.org/issues/13757 */
+		 * functions. See https://redmine.freesense.org/issues/13757 */
 		// $timeout_minutes = config_get_path('system/webgui/session_timeout', 240);
 		$timeout_minutes = 240;
 		csrf_conf('expires', $timeout_minutes * 60);
@@ -60,7 +60,7 @@ if (!$omit_nocacheheaders) {
 
 require_once("authgui.inc");
 /* Load config.inc after authgui.inc
- * See https://redmine.pfsense.org/issues/13757 */
+ * See https://redmine.freesense.org/issues/13757 */
 include_once('config.inc');
 include_once('config.lib.inc');
 
@@ -78,7 +78,7 @@ $mandfldhtml = "";		/* display this before mandatory input fields */
 $mandfldhtmlspc = "";	/* same as above, but with spacing */
 
 if (!function_exists('set_language')) {
-	require_once("pfsense-utils.inc");
+	require_once("freesense-utils.inc");
 }
 
 set_language();
@@ -813,7 +813,7 @@ function echo_array($array, $return_me = false) {
 	}
 }
 
-/****f* pfsense-utils/display_top_tabs
+/****f* freesense-utils/display_top_tabs
  * NAME
  *	 display_top_tabs - display tabs with rounded edges
  * INPUTS

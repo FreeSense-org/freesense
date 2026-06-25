@@ -2,7 +2,7 @@
 /*
  * config.lib.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -61,7 +61,7 @@ function encrypted_configxml(string $file_name = null) {
 			echo "\nEnter the password to decrypt config.xml: ";
 			$decrypt_password = chop(fgets($fp));
 			$data = decrypt_data($configtxt, $decrypt_password);
-			if (!strstr($data, "<pfsense>")) {
+			if (!strstr($data, "<freesense>")) {
 				$data = "";
 			}
 			if ($data) {
@@ -118,7 +118,7 @@ function discover_last_backup() {
 	// check newest file first
 	foreach (array_reverse($backup_files) as $file_name) {
 		/* checking multiple backups when detecting invalid configuration
-		 * https://redmine.pfsense.org/issues/11748 */
+		 * https://redmine.freesense.org/issues/11748 */
 		if (empty(filesize($file_name))) {
 			continue;
 		}
@@ -205,9 +205,9 @@ function restore_backup(string|array $backup) {
 }
 
 /* If the config on disk had rrddata/xmldata tags already, remove that section first.
- * See https://redmine.pfsense.org/issues/8994,
- *     https://redmine.pfsense.org/issues/10508,
- *     https://redmine.pfsense.org/issues/11050 */
+ * See https://redmine.freesense.org/issues/8994,
+ *     https://redmine.freesense.org/issues/10508,
+ *     https://redmine.freesense.org/issues/11050 */
 function clear_tagdata($tag, $data) {
 	$data = preg_replace("/[[:blank:]]*<{$tag}data>.*<\\/{$tag}data>[[:blank:]]*\n*/s", "", $data);
 	$data = preg_replace("/[[:blank:]]*<{$tag}data\\/>[[:blank:]]*\n*/", "", $data);
@@ -888,7 +888,7 @@ function cleanup_backupcache($lock = false) {
 				echo ".";
 			}
 			try {
-				$newxml = parse_xml_config($backup, array(g_get('xml_rootobj'), 'pfsense'));
+				$newxml = parse_xml_config($backup, array(g_get('xml_rootobj'), 'freesense'));
 			} catch (Exception $exc) {
 				logger(LOG_ERR, localize_text("The backup cache file %s is corrupted. Parser error message: %s", $backup, $exc->getMessage()), LOG_PREFIX_CONFIG);
 				$newxml = "-1";

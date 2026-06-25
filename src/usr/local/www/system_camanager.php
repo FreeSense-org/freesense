@@ -2,7 +2,7 @@
 /*
  * system_camanager.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -31,7 +31,7 @@
 
 require_once("guiconfig.inc");
 require_once("certs.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 $ca_methods = array(
 	"internal" => gettext("Create an internal Certificate Authority"),
@@ -159,7 +159,7 @@ if ($_POST['save']) {
 				$input_errors[] = gettext("The submitted private key does not match the submitted certificate data.");
 			}
 			/* we must ensure the certificate is capable of acting as a CA
-			 * https://redmine.pfsense.org/issues/7885
+			 * https://redmine.freesense.org/issues/7885
 			 */
 			if (!$input_errors) {
 				$purpose = cert_get_purpose($_POST['cert'], false);

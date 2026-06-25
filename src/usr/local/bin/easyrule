@@ -3,7 +3,7 @@
 /*
  * easyrule
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2010-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -22,7 +22,7 @@
  * limitations under the License.
  */
 
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("easyrule.inc");
 require_once("filter.inc");
 require_once("shaper.inc");

@@ -2,7 +2,7 @@
 /*
  * util.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -1253,7 +1253,7 @@ function ip_range_to_address_array($startip, $endip, $max_size = 5000) {
  * Convert an IPv4 or IPv6 IP range to an array of subnets which can contain the range.
  * Algorithm and embodying code PD'ed by Stilez - enjoy as you like :-)
  *
- * Documented on pfsense dev list 19-20 May 2013. Summary:
+ * Documented on freesense dev list 19-20 May 2013. Summary:
  *
  * The algorithm looks at patterns of 0's and 1's in the least significant bit(s), whether IPv4 or IPv6.
  * These are all that needs checking to identify a _guaranteed_ correct, minimal and optimal subnet array.
@@ -1422,7 +1422,7 @@ function is_ipaddrv6($ipaddr) {
 	/*
 	 * Net_IPv6::checkIPv6 does not reject multiple attempts at compression
 	 * so we must check it beforehand.
-	 * https://redmine.pfsense.org/issues/13069
+	 * https://redmine.freesense.org/issues/13069
 	 */
 	if (substr_count($ipaddr, '::') > 1) {
 		return false;
@@ -1430,7 +1430,7 @@ function is_ipaddrv6($ipaddr) {
 	/*
 	 * Net_IPv6::checkIPv6 does not properly handle addresses with extra segments
 	 * when compression is also used.
-	 * https://redmine.pfsense.org/issues/16005
+	 * https://redmine.freesense.org/issues/16005
 	 */
 	try {
 		return Net_IPv6::checkIPv6($ipaddr);
@@ -1441,7 +1441,7 @@ function is_ipaddrv6($ipaddr) {
 
 function is_ipaddrv6_v4map($ipaddr) {
 	/* check RFC4291 par 2.2.2 format, ex: fd00::1.2.3.4
-	 * see https://redmine.pfsense.org/issues/11446 */
+	 * see https://redmine.freesense.org/issues/11446 */
 	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/i', $ipaddr)) {
 		return true;
 	}
@@ -1877,7 +1877,7 @@ function get_v6_ptr_zones($subnet, $bits) {
 function ip_in_subnet($addr, $subnet) {
 	if (is_ipaddrv6($addr) && is_subnetv6($subnet)) {
 		/* Normalize IPv6 prefix to its start address to avoid PHP errors
-		 * https://redmine.pfsense.org/issues/14256
+		 * https://redmine.freesense.org/issues/14256
 		 */
 		list($prefix, $length) = explode("/", $subnet);
 		$prefix = gen_subnetv6($prefix, $length);
@@ -3400,7 +3400,7 @@ function get_sysctl($names) {
 		$name_list = array(escapeshellarg($names));
 	}
 
-	/* https://redmine.pfsense.org/issues/14648
+	/* https://redmine.freesense.org/issues/14648
 	 * exec()'ing sysctl must never fail and valid output is expected, except
 	 * when the OID is absent for the system. Retry up to 2 times and log sysctl
 	 * failure for troubleshooting */
@@ -3662,7 +3662,7 @@ function is_interface_mismatch() {
 	}
 
 	/* VLAN/QinQ-only interface mismatch detection
-	 * see https://redmine.pfsense.org/issues/12170 */
+	 * see https://redmine.freesense.org/issues/12170 */
 	foreach (config_get_path('vlans/vlan', []) as $vlan) {
 		if (!does_interface_exist($vlan['if']) &&
 		    !preg_match("/^enc|^cua|^tun|^tap|^l2tp|^pptp|^ppp|^ovpn|^ipsec|^gif|^gre|^lagg|^bridge|vlan|_wlan|_\d{0,4}_\d{0,4}$/i", $vlan['if'])) {
@@ -3934,7 +3934,7 @@ function is_dynamic_route(string $target, string $ipprotocol = ''): bool {
 	}
 
 	/* check for the PROTO* flag instead of STATIC
-	 * see https://redmine.pfsense.org/issues/14717
+	 * see https://redmine.freesense.org/issues/14717
 	 * mwexec() returns false if the flag exists, so invert it */
 	if (!mwexec("/sbin/route -n{$inet} get " . escapeshellarg($target) . " 2>/dev/null | /usr/bin/egrep 'flags: <.*PROTO.*>'", true)) {
 		return true;
@@ -4103,7 +4103,7 @@ function route_add_or_change($target, $gw, $iface = '', $args = '',
 		return false;
 	}
 
-	/* use '-host' for IPv6 /128 routes, see https://redmine.pfsense.org/issues/11594 */
+	/* use '-host' for IPv6 /128 routes, see https://redmine.freesense.org/issues/11594 */
 	if (is_subnetv4($target) || (is_subnetv6($target) && (subnet_size($target) > 1))) {
 		$target_prefix = '-net';
 	} else if (is_ipaddr($target)) {
@@ -4127,8 +4127,8 @@ function route_add_or_change($target, $gw, $iface = '', $args = '',
 	}
 	if (is_ipaddr($gw)) {
 		/* set correct linklocal gateway address,
-		 * see https://redmine.pfsense.org/issues/11713
-		 * and https://redmine.pfsense.org/issues/11806 */
+		 * see https://redmine.freesense.org/issues/11713
+		 * and https://redmine.freesense.org/issues/11806 */
 		if (is_ipaddrv6($gw) && is_linklocal($gw) && empty(get_ll_scope($gw))) {
 			$routeget = route_get($gw, 'inet6', true);
 			$gw .= "%" . $routeget[0]['interface-name'];
@@ -4295,7 +4295,7 @@ function get_alias_list($type = '') {
 
 /* Returns the current alias contents sorted by name in case insensitive and
  * natural order.
- * https://redmine.pfsense.org/issues/14015 */
+ * https://redmine.freesense.org/issues/14015 */
 function get_sorted_aliases() {
 	$aliases = config_get_path('aliases/alias', []);
 	uasort($aliases, function ($a, $b) { return strnatcasecmp($a['name'], $b['name']); });
@@ -4357,7 +4357,7 @@ function get_drive_list(bool $check_controller = true) {
 	$drive_list = [];
 
 	/* SMART supports some disks directly, and some controllers directly,
-	 * See https://redmine.pfsense.org/issues/9042 */
+	 * See https://redmine.freesense.org/issues/9042 */
 	$supported_controllers = [
 		'nvme'
 	];
@@ -5291,7 +5291,7 @@ function pconfig_to_address(&$adr, $padr, $pmask, $pnot = false, $pbeginport = 0
 	/*
 	 * If the port is still unset, then it must not be numeric, but could
 	 * be an alias or a well-known/registered service.
-	 * See https://redmine.pfsense.org/issues/8410
+	 * See https://redmine.freesense.org/issues/8410
 	 */
 	if (!isset($adr['port']) && is_port_or_alias($pbeginport)) {
 		$adr['port'] = $pbeginport;

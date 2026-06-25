@@ -2,7 +2,7 @@
 /*
  * firewall_aliases.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -180,7 +180,7 @@ endif;
 <?php
 	/* Ensure aliases are presented in natural sort order so they are easier to locate.
 	 * and preserve keys so that the IDs match in the config and the list.
-	 * https://redmine.pfsense.org/issues/14015 */
+	 * https://redmine.freesense.org/issues/14015 */
 	$aliases = get_sorted_aliases();
 
 	foreach ($aliases as $i => $alias):

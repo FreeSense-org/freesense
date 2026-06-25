@@ -2,7 +2,7 @@
 /*
  * status_logs_filter.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -332,7 +332,7 @@ events.push(function() {
 
 <div class="infoblock">
 <?php
-print_info_box('<a href="https://docs.netgate.com/pfsense/en/latest/firewall/configure.html#tcp-flags">' .
+print_info_box('<a href="https://docs.netgate.com/freesense/en/latest/firewall/configure.html#tcp-flags">' .
 	gettext("TCP Flags") . '</a>: F - FIN, S - SYN, A or . - ACK, R - RST, P - PSH, U - URG, E - ECE, C - CWR.' . '<br />' .
 	'<i class="fa-regular fa-square-minus"></i> = ' . gettext('Add to block list') . ', <i class="fa-regular fa-square-plus"></i> = ' . gettext('Pass traffic') . ', <i class="fa-solid fa-info"></i> = ' . gettext('Resolve'), 'info', false);
 ?>

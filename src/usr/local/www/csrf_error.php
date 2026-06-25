@@ -2,7 +2,7 @@
 /*
  * csrf_error.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2019-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *

@@ -1,7 +1,7 @@
 /*
  * FreeSenseHelpers.js
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -468,7 +468,7 @@ $('[id^="showinfo"]').click(function() {
 // ------------------------------------------------------------------------------------------------
 
 // Put a dummy row into any empty table to keep IE happy
-// Commented out due to https://redmine.pfsense.org/issues/7504
+// Commented out due to https://redmine.freesense.org/issues/7504
 //$('tbody').each(function(){
 //	$(this).html($.trim($(this).html()))
 //});

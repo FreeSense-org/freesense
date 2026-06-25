@@ -19,7 +19,7 @@ return static function (RectorConfig $rectorConfig): void {
 
     // while skipping third-pary code that isn't our concern.
     $rectorConfig->skip([
-        __DIR__ . '/src/usr/local/pfSense/include/vendor/*',
+        __DIR__ . '/src/usr/local/FreeSense/include/vendor/*',
     	__DIR__ . '/src/etc/inc/priv.defs.inc',
     ]);
 

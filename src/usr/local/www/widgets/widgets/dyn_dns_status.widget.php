@@ -2,7 +2,7 @@
 /*
  * dyn_dns_status.widget.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2013 Stanley P. Miller \ stan-qaz
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
@@ -25,7 +25,7 @@
 global $dyndns_split_domain_types;
 
 require_once("guiconfig.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("functions.inc");
 require_once("/usr/local/www/widgets/include/dyn_dns_status.inc");
 

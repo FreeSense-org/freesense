@@ -2,7 +2,7 @@
 /*
  * captiveportal.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -211,7 +211,7 @@ function captiveportal_configure() {
 			}
 		}
 		if (!$keep_online_users) {
-			/* see https://redmine.pfsense.org/issues/12455 */
+			/* see https://redmine.freesense.org/issues/12455 */
 			unlink_if_exists("{$g['vardb_path']}/captiveportal_online_users");
 		}
 		foreach ($cp_config as $cpkey => $cp) {
@@ -394,7 +394,7 @@ EOD;
 					echo "done\n";
 				}
 			} else {
-				/* reset database on unclean shutdown, see https://redmine.pfsense.org/issues/12355 */
+				/* reset database on unclean shutdown, see https://redmine.freesense.org/issues/12355 */
 				unlink_if_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db");
 			}
 		}
@@ -890,7 +890,7 @@ function captiveportal_disconnect($dbent, $term_cause = 1, $stop_time = null, $c
 	// XMLRPC Call over to the backup node if necessary
 	if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport,
 	    $syncuser, $syncpass, $carp_loop)) {
-		$rpc_client = new pfsense_xmlrpc_client();
+		$rpc_client = new freesense_xmlrpc_client();
 		$rpc_client->setConnectionData($syncip, $syncport, $syncuser, $syncpass);
 		$rpc_client->set_noticefile("CaptivePortalUserSync");
 		$arguments = array(
@@ -933,7 +933,7 @@ function captiveportal_disconnect_all($term_cause = 6, $logoutReason = "DISCONNE
 	global $g, $cpzone, $cpzoneid;
 
 	if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport, $syncuser, $syncpass, $carp_loop)) {
-		$rpc_client = new pfsense_xmlrpc_client();
+		$rpc_client = new freesense_xmlrpc_client();
 		$rpc_client->setConnectionData($syncip, $syncport, $syncuser, $syncpass);
 		$rpc_client->set_noticefile("CaptivePortalUserSync");
 		$arguments = array(
@@ -1469,7 +1469,7 @@ function captiveportal_remove_entries($remove, $carp_loop = false) {
 	captiveportal_write_db($query);
 
 	if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport, $syncuser, $syncpass, $carp_loop)) {
-		$rpc_client = new pfsense_xmlrpc_client();
+		$rpc_client = new freesense_xmlrpc_client();
 		$rpc_client->setConnectionData($syncip, $syncport, $syncuser, $syncpass);
 		$rpc_client->set_noticefile("CaptivePortalUserSync");
 		$rpc_client->xmlrpc_method('captive_portal_sync',
@@ -2171,7 +2171,7 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $redir
 			if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport, $syncuser, $syncpass, isset($existing_sessionid))) {
 				// $existing_sessionid prevent carp loop : only forward
 				// the connection to the other node if we generated the sessionid by ourselves
-				$rpc_client = new pfsense_xmlrpc_client();
+				$rpc_client = new freesense_xmlrpc_client();
 				$rpc_client->setConnectionData($syncip, $syncport, $syncuser, $syncpass);
 				$rpc_client->set_noticefile("CaptivePortalUserSync");
 				$arguments = array(
@@ -2329,7 +2329,7 @@ function xmlrpc_sync_usedmacs($usedmacs) {
 	// XMLRPC Call over to the other node
 	if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport,
 	    $syncuser, $syncpass)) {
-		$rpc_client = new pfsense_xmlrpc_client();
+		$rpc_client = new freesense_xmlrpc_client();
 		$rpc_client->setConnectionData($syncip, $syncport, $syncuser, $syncpass);
 		$rpc_client->set_noticefile("CaptivePortalUsedmacsSync");
 		$arguments = array(

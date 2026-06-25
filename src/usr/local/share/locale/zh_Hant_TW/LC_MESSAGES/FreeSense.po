@@ -3954,8 +3954,8 @@ msgstr ""
 #: src/usr/local/www/interfaces.php:1786 src/usr/local/www/interfaces.php:1787
 #: src/usr/local/www/interfaces.php:1810 src/usr/local/www/interfaces.php:1823
 #: src/etc/inc/ipsec.inc:470 src/etc/inc/shaper.inc:4319
-#: src/etc/inc/shaper.inc:4764 src/etc/inc/pfsense-utils.inc:2837
-#: src/etc/inc/pfsense-utils.inc:3311
+#: src/etc/inc/shaper.inc:4764 src/etc/inc/freesense-utils.inc:2837
+#: src/etc/inc/freesense-utils.inc:3311
 msgid "None"
 msgstr "None"
 
@@ -4533,7 +4533,7 @@ msgstr "應用過濾器"
 #: src/usr/local/www/status_logs_vpn.php:412
 #: src/usr/local/www/status_logs_common.inc:321
 #: src/usr/local/www/status_logs_common.inc:541
-#: src/etc/inc/pfsense-utils.inc:360
+#: src/etc/inc/freesense-utils.inc:360
 msgid "Log Filter"
 msgstr "日誌過濾器"
 
@@ -5302,13 +5302,13 @@ msgstr "嵌入式平台的用戶：請耐心等待，嚮導將比正常的GUI運
 #: src/usr/local/www/index.php:206
 #, php-format
 msgid "To bypass the wizard, click on the %s logo on the initial page."
-msgstr "繞過嚮導，單擊 %s 的初始頁面上的pfsense圖標。"
+msgstr "繞過嚮導，單擊 %s 的初始頁面上的freesense圖標。"
 
 #: src/usr/local/www/index.php:327 src/usr/local/www/head.inc:352
 msgid "Dashboard"
 msgstr "系統面板"
 
-#: src/usr/local/www/index.php:340 src/etc/inc/pfsense-utils.inc:353
+#: src/usr/local/www/index.php:340 src/etc/inc/freesense-utils.inc:353
 msgid "Available Widgets"
 msgstr "可用的小工具"
 
@@ -5556,8 +5556,8 @@ msgstr "遠端閘道"
 #: src/usr/local/www/firewall_nat_out.php:229
 #: src/usr/local/www/interfaces_wireless_edit.php:73
 #: src/usr/local/www/interfaces.php:933 src/usr/local/www/interfaces.php:3173
-#: src/usr/local/www/status_graph.php:200 src/etc/inc/pfsense-utils.inc:3329
-#: src/etc/inc/pfsense-utils.inc:3372
+#: src/usr/local/www/status_graph.php:200 src/etc/inc/freesense-utils.inc:3329
+#: src/etc/inc/freesense-utils.inc:3372
 msgid "Mode"
 msgstr "模式"
 
@@ -12355,9 +12355,9 @@ msgstr "兩次輸入密碼必須一致。"
 #: src/usr/local/www/services_captiveportal_vouchers.php:320
 #, php-format
 msgid ""
-"The Captive Portal voucher database has been synchronized with %s (pfsense."
+"The Captive Portal voucher database has been synchronized with %s (freesense."
 "exec_php)."
-msgstr "網頁認證憑單資料庫已與%s（pfsense.exec_php）同步。"
+msgstr "網頁認證憑單資料庫已與%s（freesense.exec_php）同步。"
 
 #: src/usr/local/www/services_captiveportal_vouchers.php:352
 #, php-format
@@ -13553,8 +13553,8 @@ msgstr "已成功還原描述為\"%2$s\"的時間戳 %1$s 。"
 #: src/usr/local/www/diag_confbak.php:56 src/usr/local/www/diag_confbak.php:64
 #: src/usr/local/www/diag_confbak.php:118
 #: src/usr/local/www/diag_confbak.php:227
-#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/pfsense-utils.inc:518
-#: src/etc/inc/pfsense-utils.inc:528
+#: src/usr/local/www/diag_confbak.php:238 src/etc/inc/freesense-utils.inc:518
+#: src/etc/inc/freesense-utils.inc:528
 msgid "n/j/y H:i:s"
 msgstr "n/j/y H:i:s"
 
@@ -14757,17 +14757,17 @@ msgstr "必須提供並確認解密密碼。"
 
 #: src/usr/local/www/diag_backup.php:239
 msgid ""
-"The uploaded file does not appear to contain an encrypted pfsense "
+"The uploaded file does not appear to contain an encrypted freesense "
 "configuration."
-msgstr "上傳的文件似乎不包含加密的pfsense配置。"
+msgstr "上傳的文件似乎不包含加密的freesense配置。"
 
 #: src/usr/local/www/diag_backup.php:243
 msgid "File decryption failed. Incorrect password or file is invalid."
 msgstr ""
 
 #: src/usr/local/www/diag_backup.php:248
-msgid "Upgrading m0n0wall configuration to pfsense."
-msgstr "將m0n0wall配置升級到pfsense。"
+msgid "Upgrading m0n0wall configuration to freesense."
+msgstr "將m0n0wall配置升級到freesense。"
 
 #: src/usr/local/www/diag_backup.php:263 src/usr/local/www/diag_backup.php:266
 msgid ""
@@ -14863,7 +14863,7 @@ msgstr "防火牆配置已更改。"
 
 #: src/usr/local/www/diag_backup.php:507
 msgid "The firewall is now rebooting."
-msgstr "pfsense防火牆正在重新啟動"
+msgstr "freesense防火牆正在重新啟動"
 
 #: src/usr/local/www/diag_backup.php:521
 msgid "Backup Configuration"
@@ -16295,7 +16295,7 @@ msgstr "getURL和XMLHttpRequest都是未定義的"
 msgid "Switch to bits/s"
 msgstr "切換到 bits/s"
 
-#: src/usr/local/www/graph.php:200 src/etc/inc/pfsense-utils.inc:1792
+#: src/usr/local/www/graph.php:200 src/etc/inc/freesense-utils.inc:1792
 msgid "up"
 msgstr "up"
 
@@ -23031,7 +23031,7 @@ msgstr "NDP表"
 
 #: src/usr/local/www/head.inc:406 src/usr/local/www/diag_pf_info.php:33
 msgid "pfInfo"
-msgstr "pfsense信息"
+msgstr "freesense信息"
 
 #: src/usr/local/www/head.inc:410 src/usr/local/www/diag_smart.php:38
 #: src/usr/local/www/widgets/include/smart_status.inc:25
@@ -23145,12 +23145,12 @@ msgid "The settings cannot be managed for a non-local user."
 msgstr "不能為非本地用戶管理設定。"
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:227
+#: src/etc/inc/freesense-utils.inc:227
 msgid "Theme"
 msgstr "主題 "
 
 #: src/usr/local/www/system_user_settings.php:67
-#: src/etc/inc/pfsense-utils.inc:306
+#: src/etc/inc/freesense-utils.inc:306
 msgid "Dashboard Columns"
 msgstr "系統面板顯示列數"
 
@@ -30222,8 +30222,8 @@ msgstr ""
 #, php-format
 msgid ""
 "A communications error occurred while attempting XMLRPC sync with %s "
-"(pfsense.%s)."
-msgstr "嘗試與%s (pfsense.%s)進行XMLRPC同步時發生通信錯誤。"
+"(freesense.%s)."
+msgstr "嘗試與%s (freesense.%s)進行XMLRPC同步時發生通信錯誤。"
 
 #: src/etc/inc/xmlrpc_client.inc:127
 msgid "Error code received"
@@ -30329,8 +30329,8 @@ msgid "Upgrading m0n0wall configuration to FreeSense... "
 msgstr "將m0n0wall配置升級到FreeSense ..."
 
 #: src/etc/inc/config.inc:79
-msgid "ERROR!  Could not convert m0n0wall -> pfsense in config.xml"
-msgstr "錯誤！無法轉換m0n0wall - > pfsense在config.xml"
+msgid "ERROR!  Could not convert m0n0wall -> freesense in config.xml"
+msgstr "錯誤！無法轉換m0n0wall - > freesense在config.xml"
 
 #: src/etc/inc/config.inc:107 src/etc/inc/config.inc:125
 #, php-format
@@ -31871,443 +31871,443 @@ msgstr "底部的按鈕代表%s動作，並相應的激活。"
 msgid "limiter"
 msgstr "限制器"
 
-#: src/etc/inc/pfsense-utils.inc:230
+#: src/etc/inc/freesense-utils.inc:230
 #, php-format
 msgid ""
 "Choose an alternative css file (if installed) to change the appearance of "
 "the webConfigurator. css files are located in /usr/local/www/css/%s"
 msgstr "可以選擇其他主題更改Web配置界面的外觀。主題文件位於/ usr / local / www / css /%s"
 
-#: src/etc/inc/pfsense-utils.inc:235
+#: src/etc/inc/freesense-utils.inc:235
 msgid "The submitted Theme could not be found. Pick a different theme."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:254
+#: src/etc/inc/freesense-utils.inc:254
 msgid "Scrolls with page"
 msgstr "隨頁面滾動"
 
-#: src/etc/inc/pfsense-utils.inc:254
+#: src/etc/inc/freesense-utils.inc:254
 msgid "Fixed (Remains visible at top of page)"
 msgstr "固定（保持顯示在頁面頂部）"
 
-#: src/etc/inc/pfsense-utils.inc:252
+#: src/etc/inc/freesense-utils.inc:252
 msgid "Top Navigation"
 msgstr "頂部導航"
 
-#: src/etc/inc/pfsense-utils.inc:255
+#: src/etc/inc/freesense-utils.inc:255
 msgid "The fixed option is intended for large screens only."
 msgstr "固定選項僅適用於大屏幕。"
 
-#: src/etc/inc/pfsense-utils.inc:260
+#: src/etc/inc/freesense-utils.inc:260
 msgid "The submitted Top Navigation value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:279
+#: src/etc/inc/freesense-utils.inc:279
 msgid "Default (No hostname)"
 msgstr "預設 (非主機名)"
 
-#: src/etc/inc/pfsense-utils.inc:279
+#: src/etc/inc/freesense-utils.inc:279
 msgid "Hostname only"
 msgstr "僅主機名"
 
-#: src/etc/inc/pfsense-utils.inc:279
+#: src/etc/inc/freesense-utils.inc:279
 msgid "Fully Qualified Domain Name"
 msgstr "完全合格域名"
 
-#: src/etc/inc/pfsense-utils.inc:277
+#: src/etc/inc/freesense-utils.inc:277
 msgid "Hostname in Menu"
 msgstr "選單顯示主機名"
 
-#: src/etc/inc/pfsense-utils.inc:280
+#: src/etc/inc/freesense-utils.inc:280
 msgid ""
 "Replaces the Help menu title in the Navbar with the system hostname or FQDN."
 msgstr "將導航條中的「幫助」菜單標題替換為系統主機名或FQDN。"
 
-#: src/etc/inc/pfsense-utils.inc:285
+#: src/etc/inc/freesense-utils.inc:285
 msgid "The submitted Hostname in Menu value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:314
+#: src/etc/inc/freesense-utils.inc:314
 msgid "The submitted Dashboard Columns value is invalid."
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:331
+#: src/etc/inc/freesense-utils.inc:331
 msgid "Interfaces Sort"
 msgstr "介面排序"
 
-#: src/etc/inc/pfsense-utils.inc:334
+#: src/etc/inc/freesense-utils.inc:334
 msgid ""
 "If selected, lists of interfaces will be sorted by description, otherwise "
 "they are listed wan,lan,optn..."
 msgstr "如果選擇，介面列表將按描述排序，否則列出為wan，lan，optn ..."
 
-#: src/etc/inc/pfsense-utils.inc:348
+#: src/etc/inc/freesense-utils.inc:348
 msgid "Associated Panels Show/Hide"
 msgstr "面板顯示/隱藏"
 
-#: src/etc/inc/pfsense-utils.inc:355
+#: src/etc/inc/freesense-utils.inc:355
 msgid "Show the Available Widgets panel on the Dashboard."
 msgstr "顯示系統面板上的可用小部件。"
 
-#: src/etc/inc/pfsense-utils.inc:362
+#: src/etc/inc/freesense-utils.inc:362
 msgid "Show the Log Filter panel in System Logs."
 msgstr "在系統日誌中顯示日誌過濾器面板。"
 
-#: src/etc/inc/pfsense-utils.inc:369
+#: src/etc/inc/freesense-utils.inc:369
 msgid "Show the Manage Log panel in System Logs."
 msgstr "在系統日誌中顯示管理日誌面板。"
 
-#: src/etc/inc/pfsense-utils.inc:376
+#: src/etc/inc/freesense-utils.inc:376
 msgid "Show the Settings panel in Status Monitoring."
 msgstr "在狀態監視中顯示設定面板。"
 
-#: src/etc/inc/pfsense-utils.inc:378
+#: src/etc/inc/freesense-utils.inc:378
 msgid ""
 "These options allow certain panels to be automatically hidden on page load. "
 "A control is provided in the title bar to un-hide the panel."
 msgstr "這些選項允許某些面板在頁面載入時自動隱藏。 在標題欄中提供了一個控制項來取消隱藏面板。"
 
-#: src/etc/inc/pfsense-utils.inc:396
+#: src/etc/inc/freesense-utils.inc:396
 msgid "Left Column Labels"
 msgstr "左列標籤"
 
-#: src/etc/inc/pfsense-utils.inc:399
+#: src/etc/inc/freesense-utils.inc:399
 msgid ""
 "If selected, clicking a label in the left column will select/toggle the "
 "first item of the group."
 msgstr "如果選中，單擊左側列中的標籤將選擇/切換組的第一個項目。"
 
-#: src/etc/inc/pfsense-utils.inc:415
+#: src/etc/inc/freesense-utils.inc:415
 msgid "Alias Popups"
 msgstr "別名彈窗"
 
-#: src/etc/inc/pfsense-utils.inc:418
+#: src/etc/inc/freesense-utils.inc:418
 msgid ""
 "If selected, the details in alias popups will not be shown, just the alias "
 "description (e.g. in Firewall Rules)."
 msgstr "如果選擇，則不會顯示別名彈出窗口中的詳細信息，僅顯示別名描述（例如，在防火牆規則中）。"
 
-#: src/etc/inc/pfsense-utils.inc:434
+#: src/etc/inc/freesense-utils.inc:434
 msgid "Browser tab text"
 msgstr "瀏覽器標籤"
 
-#: src/etc/inc/pfsense-utils.inc:437
+#: src/etc/inc/freesense-utils.inc:437
 msgid ""
 "When this is unchecked, the browser tab shows the host name followed by the "
 "current page. Check this box to display the current page followed by the "
 "host name."
 msgstr "不選中此選項時，瀏覽器選項卡將顯示主機名，後跟現在頁。 選中此框以顯示現在頁面，然後顯示主機名。"
 
-#: src/etc/inc/pfsense-utils.inc:481
+#: src/etc/inc/freesense-utils.inc:481
 msgid "Require State Filter"
 msgstr "狀態過濾器"
 
-#: src/etc/inc/pfsense-utils.inc:484
+#: src/etc/inc/freesense-utils.inc:484
 msgid ""
 "By default, the entire state table is displayed when entering Diagnostics > "
 "States. This option requires a filter to be entered before the states are "
 "displayed. Useful for systems with large state tables."
 msgstr "默認情況下，進入診斷>狀態時將顯示整個狀態表。 此選項需要在顯示狀態之前輸入過濾器。 適用於具有大狀態表的系統。"
 
-#: src/etc/inc/pfsense-utils.inc:504
+#: src/etc/inc/freesense-utils.inc:504
 msgid "Rule Information"
 msgstr "規則信息"
 
-#: src/etc/inc/pfsense-utils.inc:508
+#: src/etc/inc/freesense-utils.inc:508
 msgid "Tracking ID"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:517 src/etc/inc/pfsense-utils.inc:527
+#: src/etc/inc/freesense-utils.inc:517 src/etc/inc/freesense-utils.inc:527
 #, php-format
 msgid "%1$s by %2$s"
 msgstr "%1$s by %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:515
+#: src/etc/inc/freesense-utils.inc:515
 msgid "Created"
 msgstr "創建"
 
-#: src/etc/inc/pfsense-utils.inc:525
+#: src/etc/inc/freesense-utils.inc:525
 msgid "Updated"
 msgstr "更新"
 
-#: src/etc/inc/pfsense-utils.inc:821
+#: src/etc/inc/freesense-utils.inc:821
 msgid "After synch increase advertising skew"
 msgstr "同步增加廣播偏離"
 
-#: src/etc/inc/pfsense-utils.inc:871
+#: src/etc/inc/freesense-utils.inc:871
 msgid "Error creating socket!"
 msgstr "創建通訊端點時出錯！"
 
-#: src/etc/inc/pfsense-utils.inc:872
+#: src/etc/inc/freesense-utils.inc:872
 #, php-format
 msgid "Error code is '%1$s' - %2$s"
 msgstr "錯誤代碼是 '%1$s' - %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:877
+#: src/etc/inc/freesense-utils.inc:877
 #, php-format
 msgid "setsockopt() failed, error: %s"
 msgstr "setsockopt() 失敗, 錯誤: %s"
 
-#: src/etc/inc/pfsense-utils.inc:881
+#: src/etc/inc/freesense-utils.inc:881
 #, php-format
 msgid "Magic Packet sent (%1$s) to (%2$s) MAC=%3$s"
 msgstr "魔術包發送 (%1$s) 到 (%2$s) MAC=%3$s"
 
-#: src/etc/inc/pfsense-utils.inc:963 src/etc/inc/pfsense-utils.inc:983
+#: src/etc/inc/freesense-utils.inc:963 src/etc/inc/freesense-utils.inc:983
 #, php-format
 msgid "Restored %s of config file (maybe from CARP partner)"
 msgstr "已還原 %s的配置文件（可能來自CARP合作夥伴）。"
 
-#: src/etc/inc/pfsense-utils.inc:1070
+#: src/etc/inc/freesense-utils.inc:1070
 msgid "reload_interfaces_sync() is starting."
 msgstr "reload_interfaces_sync（）正在啟動。"
 
-#: src/etc/inc/pfsense-utils.inc:1079
+#: src/etc/inc/freesense-utils.inc:1079
 msgid "Enabling system routing"
 msgstr "啟用系統路由"
 
-#: src/etc/inc/pfsense-utils.inc:1083
+#: src/etc/inc/freesense-utils.inc:1083
 msgid "Cleaning up Interfaces"
 msgstr "清理介面"
 
-#: src/etc/inc/pfsense-utils.inc:1589
+#: src/etc/inc/freesense-utils.inc:1589
 msgid "No history data found!"
 msgstr "沒有找到歷史數據！"
 
-#: src/etc/inc/pfsense-utils.inc:1722
+#: src/etc/inc/freesense-utils.inc:1722
 msgid "device not present! Is the modem attached to the system?"
 msgstr "裝置不存在！數據機是否連接到系統？"
 
-#: src/etc/inc/pfsense-utils.inc:1791
+#: src/etc/inc/freesense-utils.inc:1791
 msgid "running"
 msgstr "正在運行"
 
-#: src/etc/inc/pfsense-utils.inc:1837
+#: src/etc/inc/freesense-utils.inc:1837
 msgid "blocking"
 msgstr "阻塞"
 
-#: src/etc/inc/pfsense-utils.inc:1837
+#: src/etc/inc/freesense-utils.inc:1837
 msgid "check for ethernet loops"
 msgstr "檢查網路環路"
 
-#: src/etc/inc/pfsense-utils.inc:1840
+#: src/etc/inc/freesense-utils.inc:1840
 msgid "learning"
 msgstr "學習"
 
-#: src/etc/inc/pfsense-utils.inc:1843
+#: src/etc/inc/freesense-utils.inc:1843
 msgid "forwarding"
 msgstr "正在轉發"
 
-#: src/etc/inc/pfsense-utils.inc:1977
+#: src/etc/inc/freesense-utils.inc:1977
 #, php-format
 msgid "DNSCACHE: Found old IP %1$s and new IP %2$s"
 msgstr "DNS緩存：找到舊IP %1$s和新IP％ %2$s"
 
-#: src/etc/inc/pfsense-utils.inc:1999
+#: src/etc/inc/freesense-utils.inc:1999
 #, php-format
 msgid "Loading %s cryptographic accelerator module."
 msgstr "載入%s加密模塊。"
 
-#: src/etc/inc/pfsense-utils.inc:2017
+#: src/etc/inc/freesense-utils.inc:2017
 #, php-format
 msgid "Loading %s thermal monitor module."
 msgstr "載入 %s 熱監控模塊。"
 
-#: src/etc/inc/pfsense-utils.inc:2094 src/etc/inc/pfsense-utils.inc:2150
+#: src/etc/inc/freesense-utils.inc:2094 src/etc/inc/freesense-utils.inc:2150
 #, php-format
 msgid "Download file failed with status code %1$s. URL: %2$s"
 msgstr "下載狀態代碼文件%1$s文件。 網址：%2$s"
 
-#: src/etc/inc/pfsense-utils.inc:2369
+#: src/etc/inc/freesense-utils.inc:2369
 #, php-format
 msgid "Could not process non-existent file from alias: %s"
 msgstr "無法從別名處理不存在的文件： %s"
 
-#: src/etc/inc/pfsense-utils.inc:2374
+#: src/etc/inc/freesense-utils.inc:2374
 #, php-format
 msgid "Could not process empty file from alias: %s"
 msgstr "無法從別名處理空文件: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2379
+#: src/etc/inc/freesense-utils.inc:2379
 #, php-format
 msgid "Could not process aliases from alias: %s"
 msgstr "無法處理別名中的別名: %s"
 
-#: src/etc/inc/pfsense-utils.inc:2459
+#: src/etc/inc/freesense-utils.inc:2459
 #, php-format
 msgid "Failed to download alias %s"
 msgstr "下載別名 %s出錯"
 
-#: src/etc/inc/pfsense-utils.inc:2488
+#: src/etc/inc/freesense-utils.inc:2488
 msgid ""
 "Alias archive is a .tar/tgz file which cannot be decompressed because "
 "utility is missing!"
 msgstr "別名歸檔是一個.tar / tgz文件，它不能解壓縮，因為實用程序丟失！"
 
-#: src/etc/inc/pfsense-utils.inc:2498
+#: src/etc/inc/freesense-utils.inc:2498
 #, php-format
 msgid "Could not open %s/aliases for writing!"
 msgstr "無法打開別名%s進行寫入!"
 
-#: src/etc/inc/pfsense-utils.inc:2504
+#: src/etc/inc/freesense-utils.inc:2504
 #, php-format
 msgid "The following file could not be read %1$s from %2$s"
 msgstr "無法從%2$s讀取%1$s的以下文件"
 
-#: src/etc/inc/pfsense-utils.inc:3107
+#: src/etc/inc/freesense-utils.inc:3107
 msgid "Bosnian"
 msgstr "波斯尼亞"
 
-#: src/etc/inc/pfsense-utils.inc:3108
+#: src/etc/inc/freesense-utils.inc:3108
 msgid "Chinese"
 msgstr "中文"
 
-#: src/etc/inc/pfsense-utils.inc:3109
+#: src/etc/inc/freesense-utils.inc:3109
 msgid "Chinese (Simplified, China)"
 msgstr "簡體中文"
 
-#: src/etc/inc/pfsense-utils.inc:3110
+#: src/etc/inc/freesense-utils.inc:3110
 msgid "Chinese (Simplified, Hong Kong SAR China)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3111
+#: src/etc/inc/freesense-utils.inc:3111
 msgid "Chinese (Traditional, Taiwan)"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3112
+#: src/etc/inc/freesense-utils.inc:3112
 msgid "Dutch"
 msgstr "荷蘭語"
 
-#: src/etc/inc/pfsense-utils.inc:3113
+#: src/etc/inc/freesense-utils.inc:3113
 msgid "English"
 msgstr "英語"
 
-#: src/etc/inc/pfsense-utils.inc:3114
+#: src/etc/inc/freesense-utils.inc:3114
 msgid "French"
 msgstr "法語"
 
-#: src/etc/inc/pfsense-utils.inc:3115
+#: src/etc/inc/freesense-utils.inc:3115
 msgid "German (Germany)"
 msgstr "德語"
 
-#: src/etc/inc/pfsense-utils.inc:3116
+#: src/etc/inc/freesense-utils.inc:3116
 msgid "Italian"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3117
+#: src/etc/inc/freesense-utils.inc:3117
 msgid "Korean"
 msgstr ""
 
-#: src/etc/inc/pfsense-utils.inc:3118
+#: src/etc/inc/freesense-utils.inc:3118
 msgid "Norwegian Bokmål"
 msgstr "挪威博克馬爾"
 
-#: src/etc/inc/pfsense-utils.inc:3119
+#: src/etc/inc/freesense-utils.inc:3119
 msgid "Polish"
 msgstr "波蘭語"
 
-#: src/etc/inc/pfsense-utils.inc:3120
+#: src/etc/inc/freesense-utils.inc:3120
 msgid "Portuguese"
 msgstr "葡萄牙語"
 
-#: src/etc/inc/pfsense-utils.inc:3121
+#: src/etc/inc/freesense-utils.inc:3121
 msgid "Portuguese (Brazil)"
 msgstr "葡萄牙語"
 
-#: src/etc/inc/pfsense-utils.inc:3122
+#: src/etc/inc/freesense-utils.inc:3122
 msgid "Russian"
 msgstr "俄語"
 
-#: src/etc/inc/pfsense-utils.inc:3123
+#: src/etc/inc/freesense-utils.inc:3123
 msgid "Spanish"
 msgstr "西班牙"
 
-#: src/etc/inc/pfsense-utils.inc:3124
+#: src/etc/inc/freesense-utils.inc:3124
 msgid "Spanish (Argentina)"
 msgstr "西班牙語（阿根廷）"
 
-#: src/etc/inc/pfsense-utils.inc:3319 src/etc/inc/pfsense-utils.inc:3334
-#: src/etc/inc/pfsense-utils.inc:3360
+#: src/etc/inc/freesense-utils.inc:3319 src/etc/inc/freesense-utils.inc:3334
+#: src/etc/inc/freesense-utils.inc:3360
 msgid "No Service"
 msgstr "無服務"
 
-#: src/etc/inc/pfsense-utils.inc:3335
+#: src/etc/inc/freesense-utils.inc:3335
 msgid "Restricted Service"
 msgstr "受限服務"
 
-#: src/etc/inc/pfsense-utils.inc:3336
+#: src/etc/inc/freesense-utils.inc:3336
 msgid "Valid Service"
 msgstr "有效服務"
 
-#: src/etc/inc/pfsense-utils.inc:3337
+#: src/etc/inc/freesense-utils.inc:3337
 msgid "Restricted Regional Service"
 msgstr "受限區域服務"
 
-#: src/etc/inc/pfsense-utils.inc:3338
+#: src/etc/inc/freesense-utils.inc:3338
 msgid "Powersaving Service"
 msgstr "節能服務"
 
-#: src/etc/inc/pfsense-utils.inc:3339
+#: src/etc/inc/freesense-utils.inc:3339
 msgid "Unknown Service"
 msgstr "未知服務"
 
-#: src/etc/inc/pfsense-utils.inc:3345
+#: src/etc/inc/freesense-utils.inc:3345
 msgid "Invalid SIM/locked State"
 msgstr "無效的 SIM/處於鎖定狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3346
+#: src/etc/inc/freesense-utils.inc:3346
 msgid "Valid SIM State"
 msgstr "有效的SIM卡狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3347
+#: src/etc/inc/freesense-utils.inc:3347
 msgid "Invalid SIM CS State"
 msgstr "無效的 SIM CS 狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3348
+#: src/etc/inc/freesense-utils.inc:3348
 msgid "Invalid SIM PS State"
 msgstr "無效的 SIM PS 狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3349
+#: src/etc/inc/freesense-utils.inc:3349
 msgid "Invalid SIM CS/PS State"
 msgstr "無效的 SIM CS/PS 狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3350
+#: src/etc/inc/freesense-utils.inc:3350
 msgid "Missing SIM State"
 msgstr "缺少SIM狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3361
+#: src/etc/inc/freesense-utils.inc:3361
 msgid "Limited Service"
 msgstr "有限服務"
 
-#: src/etc/inc/pfsense-utils.inc:3377
+#: src/etc/inc/freesense-utils.inc:3377
 msgid "Initializing Service"
 msgstr "初始化服務"
 
-#: src/etc/inc/pfsense-utils.inc:3378
+#: src/etc/inc/freesense-utils.inc:3378
 msgid "Network Lock error Service"
 msgstr "網路鎖定錯誤服務"
 
-#: src/etc/inc/pfsense-utils.inc:3379
+#: src/etc/inc/freesense-utils.inc:3379
 msgid "Network Locked Service"
 msgstr "網路鎖定服務"
 
-#: src/etc/inc/pfsense-utils.inc:3380
+#: src/etc/inc/freesense-utils.inc:3380
 msgid "Unlocked or correct MCC/MNC Service"
 msgstr "已解鎖或正確的MCC / MNC服務"
 
-#: src/etc/inc/pfsense-utils.inc:3386
+#: src/etc/inc/freesense-utils.inc:3386
 msgid "No action State"
 msgstr "無操作狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3387
+#: src/etc/inc/freesense-utils.inc:3387
 msgid "Network lock State"
 msgstr "網路鎖狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3388
+#: src/etc/inc/freesense-utils.inc:3388
 msgid "(U)SIM card lock State"
 msgstr "(U)SIM卡鎖定狀態"
 
-#: src/etc/inc/pfsense-utils.inc:3389
+#: src/etc/inc/freesense-utils.inc:3389
 msgid "Network Lock and (U)SIM card Lock State"
 msgstr "網路鎖定和SIM卡鎖定狀態"
 
@@ -36609,14 +36609,14 @@ msgid ""
 "<p align=\"center\"><font size=\"3\">Copyright &copy; 2004-2019. Electric "
 "Sheep Fencing LLC (\"ESF\"). All Rights Reserved.</p>\n"
 "\t\t\t\t\t<p align=\"center\"><strong>NO COMMERCIAL DISTRIBUTION OF THE "
-"PFSENSE&reg; CE SOFTWARE IS ALLOWED.</strong>\n"
+"FREESENSE&reg; CE SOFTWARE IS ALLOWED.</strong>\n"
 "\t\t\t\t\t</p>\n"
 "\t\t\t\t\t<p>FreeSense&reg; is a federally and internationally registered "
 "trademark and service mark of ESF, and is exclusively licensed to Rubicon "
 "Communications, LLC (d/b/a Netgate) (\"Netgate\").</p>\n"
 "\t\t\t\t\t<p>Any unauthorized use of the FreeSense&reg; mark is prohibited by "
 "United States and international law. Please refer to the Netgate <a href="
-"\"https://www.pfsense.org/trademarks.html\" target=\"_blank\"> Trademark "
+"\"https://www.freesense.org/trademarks.html\" target=\"_blank\"> Trademark "
 "Usage Guidelines</a> for how to properly use the mark.</p>\n"
 "\t\t\t\t\t</div>\n"
 "\t\t\t\t\t<div class=\"modal-footer\" style=\"background-color:#1e3f75; "
@@ -38875,30 +38875,30 @@ msgstr ""
 msgid "Enable this queue"
 msgstr "啟用此隊列"
 
-#: src/etc/inc/pfsense-utils.inc:332
+#: src/etc/inc/freesense-utils.inc:332
 msgid "Sort Alphabetically"
 msgstr "按字母排序"
 
-#: src/etc/inc/pfsense-utils.inc:367
+#: src/etc/inc/freesense-utils.inc:367
 msgid "Manage Log"
 msgstr "管理日誌"
 
-#: src/etc/inc/pfsense-utils.inc:374
+#: src/etc/inc/freesense-utils.inc:374
 msgid "Monitoring Settings"
 msgstr "監視設定"
 
-#: src/etc/inc/pfsense-utils.inc:397
+#: src/etc/inc/freesense-utils.inc:397
 msgid "Active"
 msgstr "啟用 "
 
-#: src/etc/inc/pfsense-utils.inc:416
+#: src/etc/inc/freesense-utils.inc:416
 msgid "Disable details in alias popups"
 msgstr "禁用別名彈出窗口中的詳細信息"
 
-#: src/etc/inc/pfsense-utils.inc:435
+#: src/etc/inc/freesense-utils.inc:435
 msgid "Display page name first in browser tab"
 msgstr "在瀏覽器選項卡中首先顯示頁面名稱"
 
-#: src/etc/inc/pfsense-utils.inc:482
+#: src/etc/inc/freesense-utils.inc:482
 msgid "Do not display state table without a filter"
 msgstr "不顯示沒有過濾器的狀態表"

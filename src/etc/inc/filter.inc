@@ -2,7 +2,7 @@
 /*
  * filter.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2005 Bill Marquette
  * Copyright (c) 2006 Peter Allgeyer
  * Copyright (c) 2008-2013 BSD Perimeter
@@ -29,7 +29,7 @@
 
 require_once("openvpn.inc");
 require_once("captiveportal.inc");
-require_once('/etc/inc/pfsense-utils.inc');
+require_once('/etc/inc/freesense-utils.inc');
 
 /* holds the items that will be executed *AFTER* the filter is fully loaded */
 $after_filter_configure_run = array();
@@ -649,7 +649,7 @@ if (!isset($PFConfig) || !($PFConfig instanceof PFConfig)) {
 /*
  * Interfaces that can be assigned but do not directly support filtering in pf.
  * Specify the driver prefix to match (from the left)
- * https://redmine.pfsense.org/issues/8685
+ * https://redmine.freesense.org/issues/8685
  */
 global $filter_interface_remove;
 $filter_interface_remove = array();
@@ -834,7 +834,7 @@ function filter_delete_states_for_down_gateways() {
 			list($gateway_status) = get_gateway_status($gateway);
 			if ($gateway_status == GW_STATUS_UNKNOWN) {
 				/* Handle a pending gateway on static interface configuration.
-				 * See https://redmine.pfsense.org/issues/15225 */
+				 * See https://redmine.freesense.org/issues/15225 */
 				$last_gw = $gateway['gateway'];
 				if (!is_ipaddr($last_gw)) {
 					continue;
@@ -1038,7 +1038,7 @@ function filter_configure_sync($delete_states_if_needed = true) {
 	}
 
 	/* User defined maximum states in Advanced menu. */
-	$max_states = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : pfsense_default_state_size();
+	$max_states = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
 	$limitrules .= "set limit states {$max_states}\n";
 	$limitrules .= "set limit src-nodes {$max_states}\n";
 
@@ -1304,7 +1304,7 @@ function filter_generate_scrubbing() {
 	global $PFConfig, $FilterIflist;
 	$scrubrules = "";
 
-	/* see https://redmine.pfsense.org/issues/7801 */
+	/* see https://redmine.freesense.org/issues/7801 */
 	if (config_path_enabled('system','vpn_scrubnodf')) {
 		$scrubnodf = "no-df";
 	} else {
@@ -1367,9 +1367,9 @@ function filter_generate_scrubbing() {
 
 		/* set up MSS clamping */
 		if ($mss) {
-			/* different size of IPv4/IPv6 header, https://redmine.pfsense.org/issues/11409 */
+			/* different size of IPv4/IPv6 header, https://redmine.freesense.org/issues/11409 */
 			$mssclamp4 = "max-mss " . ($mss - 40);
-			/* additional 20B header on v6 tunnel types https://redmine.pfsense.org/issues/16243 */
+			/* additional 20B header on v6 tunnel types https://redmine.freesense.org/issues/16243 */
 			if (($scrubcfg['type6'] == '6rd') || ($scrubcfg['type6'] == '6to4')) {
 				$mssclamp6 = "max-mss " . ($mss - 80);
 			} else {
@@ -1788,7 +1788,7 @@ function filter_generate_gateways() {
 			}
 		}
 		/* see "Load balancing fails when one gateway has a weight of 1
-		* and another gateway has a weight >1", https://redmine.pfsense.org/issues/6025 */
+		* and another gateway has a weight >1", https://redmine.freesense.org/issues/6025 */
 		foreach ($members as $member) {
 			if ((int) $member['weight'] == 1) {
 				$weight1 = true;
@@ -1817,7 +1817,7 @@ function filter_generate_gateways() {
 				}
 				/* Only repeat the gateway string if the gateway is weighted
 				 * and there is more than one gateway involved
-				 * See https://redmine.pfsense.org/issues/12660
+				 * See https://redmine.freesense.org/issues/12660
 				 */
 				if (((int) $member['weight'] > 0) &&
 				    (count($members) > 1)) {
@@ -2070,7 +2070,7 @@ function filter_get_vpns_list() {
 	}
 	if (ipsec_enabled()) {
 		/* Include mobile IPsec client subnet in the VPN network list.
-		   See https://redmine.pfsense.org/issues/7005 */
+		   See https://redmine.freesense.org/issues/7005 */
 		$pool_address = config_get_path('ipsec/client/pool_address');
 		$pool_netbits = config_get_path('ipsec/client/pool_netbits');
 		$pool_address_v6 = config_get_path('ipsec/client/pool_address_v6');
@@ -2518,7 +2518,7 @@ function filter_generate_reflection_nat($rule, &$route_table, $nat_ifs, $protoco
 					$subnet = "{ " . implode(" ", $subnets) . " }";
 				}
 				/* Do not generate a rule with an interface source if that interface has no IP address.
-				 * See https://redmine.pfsense.org/issues/8604 */
+				 * See https://redmine.freesense.org/issues/8604 */
 				if ((!empty(get_interface_ip($subnet_if)) && is_ipaddrv4($target)) ||
 				    (!empty(get_interface_ipv6($subnet_if)) && is_ipaddrv6($target))) {
 					$natrules .= "no nat on {$subnet_if}{$protocol_text} from ({$subnet_if}) to {$target}\n";
@@ -2545,7 +2545,7 @@ function filter_generate_reflection_proxy($rule, $nordr, $rdr_ifs, $srcaddr, $ds
 	$natrules = "";
 	$reflection_rules = array();
 
-	/* https://redmine.pfsense.org/issues/12319 */
+	/* https://redmine.freesense.org/issues/12319 */
 	if ($rule['ipprotocol'] == 'inet6') {
 		return "";
 	}
@@ -3003,7 +3003,7 @@ function filter_nat_rules_generate_if ($if, $descr = "", $ipprotocol = "", $src 
 			$ifip = get_interface_ipv6($if);
 			if (is_ipaddrv6($ifip)) {
 				/* remove link-local scope (%realif) from IPv6 address
-				 * see https://redmine.pfsense.org/issues/11984 */
+				 * see https://redmine.freesense.org/issues/11984 */
 				preg_match('/^([0-9a-fA-F:]+)%?.*$/', $ifip, $matches);
 				$tgt6 = "{$matches[1]}/128";
 			} else {
@@ -3273,7 +3273,7 @@ function filter_nat_rules_generate() {
 		}
 
 		/* Do not form an invalid NPt rule.
-		 * See https://redmine.pfsense.org/issues/8575 */
+		 * See https://redmine.freesense.org/issues/8575 */
 		if (!(is_subnetv6($srcaddr) || is_ipaddrv6($srcaddr)) ||
 			!(is_subnetv6($dstaddr) || is_ipaddrv6($dstaddr))) {
 			continue;
@@ -3820,7 +3820,7 @@ function filter_nat_rules_generate() {
 					$nonatnet = $rule_subnet . '/' . $rule_interface_subnet;
 					$natrules .= "\n";
 					/* Do not generate a rule with an interface source if that interface has no IP address.
-					 * See https://redmine.pfsense.org/issues/8604 */
+					 * See https://redmine.freesense.org/issues/8604 */
 					if (((($ipproto == 'inet') && !empty(get_interface_ip($natif))) ||
 					    (($ipproto == 'inet6') && !empty(get_interface_ipv6($natif)))) &&
 					    (!$nonatrule[$natif])) {
@@ -4245,7 +4245,7 @@ function filter_generate_address(& $rule, $target = "source", $isnat = false) {
 			filter_address_add_vips_subnets($src, $rule[$target]['network'], isset($rule[$target]['not']));
 		}
 	} else if ($rule[$target]['address']) {
-		/* static host portion of IPv6, see https://redmine.pfsense.org/issues/6626 */
+		/* static host portion of IPv6, see https://redmine.freesense.org/issues/6626 */
 		if (substr($rule[$target]['address'], 0, 2) == '::') {
 			$expsrc = merge_ipv6_delegated_prefix(get_interface_ipv6($rule['interface']),
 			    $rule[$target]['address'], get_interface_subnetv6($rule['interface']));
@@ -4313,7 +4313,7 @@ function filter_generate_user_rule($rule) {
 			} else {
 				/* This rule specifies interface(s), but none of those were
 				 * found in the enabled list, so just ignore the rule.
-				 * See https://redmine.pfsense.org/issues/11688.
+				 * See https://redmine.freesense.org/issues/11688.
 				 */
 				return "# rule " . $rule['descr'] . " has no enabled interfaces";
 			}
@@ -4697,7 +4697,7 @@ function filter_generate_user_rule($rule) {
 	}
 	if ($rule['dnpipe'] <> "") {
 		if (!empty($dummynet_name_list[$rule['dnpipe']])) {
-			/* https://redmine.pfsense.org/issues/11636 */
+			/* https://redmine.freesense.org/issues/11636 */
 			foreach (config_get_path('dnshaper/queue', []) as $queue) {
 				if (($queue['name'] == $rule['dnpipe']) &&
 				    is_array($queue['bandwidth']['item'])) {
@@ -5062,7 +5062,7 @@ function filter_rules_generate() {
 		}
 
 		if (config_path_enabled('system','ipv6allow') && ($oc['type6'] == "slaac" || $oc['type6'] == "dhcp6")) {
-			// The DHCPv6 client rules ***MUST BE ABOVE BOGONSV6!***  https://redmine.pfsense.org/issues/3395
+			// The DHCPv6 client rules ***MUST BE ABOVE BOGONSV6!***  https://redmine.freesense.org/issues/3395
 			$vlantag = '';
 			if (is_array($vlanprio_values)) {
 				$vlantag = array_get_path($vlanprio_values, config_get_path("interfaces/{$on}/dhcp6cvpt", ''), '');
@@ -5902,7 +5902,7 @@ function filter_process_carp_rules() {
 	$make_rule_label_string = 'make_rule_label_string';
 	$lines = "";
 	/* Only add CARP rules if there are CARP VIPs
-	 * https://redmine.pfsense.org/issues/13908 */
+	 * https://redmine.freesense.org/issues/13908 */
 	foreach (config_get_path('virtualip/vip', []) as $vip) {
 		if (!empty($vip) &&
 		    is_array($vip) &&

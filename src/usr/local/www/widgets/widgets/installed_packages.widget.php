@@ -2,7 +2,7 @@
 /*
  * installed_packages.widget.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) Scott Dale
  * Copyright (c) 2004-2005 T. Lechat <dev@lechat.org>
  * Copyright (c) Jonathan Watt <jwatt@jwatt.org>
@@ -29,7 +29,7 @@
  */
 
 require_once("guiconfig.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 require_once("functions.inc");
 require_once("/usr/local/www/widgets/include/installed_packages.inc");
 require_once("pkg-utils.inc");

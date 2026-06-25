@@ -51,12 +51,12 @@ if [ -n "${IP}" ] && [ "$(/usr/bin/basename ${IP})" = "${IP}" ]; then
 				) > "${TMPSRV}"
 
 				/bin/chmod 644 "${TMPCONF}" "${TMPSRV}"
-				# set the working directory for unbound-checkconf; see https://redmine.pfsense.org/issues/15723
+				# set the working directory for unbound-checkconf; see https://redmine.freesense.org/issues/15723
 				(
 					cd "${DIR}" && /usr/local/sbin/unbound-checkconf "${TMPSRV}"
 				) && /bin/mv "${TMPCONF}" "${CONF}"
 
-				# do not restart unbound on connect, see https://redmine.pfsense.org/issues/11129
+				# do not restart unbound on connect, see https://redmine.freesense.org/issues/11129
 				/usr/bin/su -m unbound -c "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data ${CN}.${DOMAIN} ${ARECORD} ${IP}"
 				/usr/bin/su -m unbound -c "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data ${CN} ${ARECORD} ${IP}"
 				/usr/bin/su -m unbound -c "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data ${PTRRECORD} PTR ${CN}.${DOMAIN}"

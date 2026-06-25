@@ -2,7 +2,7 @@
 /*
  * syslog.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -128,7 +128,7 @@ function rsort_log_filename($a, $b) {
 	 * Compressed:   /var/log/<name>.log.<number>.<compressed extension>
 	 * Uncompressed: /var/log/<name>.log.<number>
 	 *
-	 * See: https://redmine.pfsense.org/issues/11639
+	 * See: https://redmine.freesense.org/issues/11639
 	 */
 	$aparts = explode('.', $a);
 	/* If the last part is not a number, it's a compressed log extension,
@@ -177,7 +177,7 @@ function clear_all_log_files($restart = false) {
 	}
 
 	/* Combine list of syslog and non-syslog log files */
-	/* exclude dmesg.boot, see https://redmine.pfsense.org/issues/11428 */
+	/* exclude dmesg.boot, see https://redmine.freesense.org/issues/11428 */
 	foreach (array_merge(system_syslogd_get_all_logfilenames(true), array_diff($system_log_non_syslog_files, array('dmesg.boot'))) as $lfile) {
 		clear_log_file("{$g['varlog_path']}/{$lfile}", false);
 	}

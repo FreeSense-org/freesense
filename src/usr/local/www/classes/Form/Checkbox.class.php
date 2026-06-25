@@ -2,7 +2,7 @@
 /*
  * Checkbox.class.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2015 Sjon Hortensius
  * Copyright (c) 2015-2016 Electric Sheep Fencing
  * Copyright (c) 2015-2026 Rubicon Communications, LLC (Netgate)

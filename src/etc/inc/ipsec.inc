@@ -2,7 +2,7 @@
 /*
  * ipsec.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2008 Shrew Soft Inc.
  * Copyright (c) 2007-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
@@ -474,7 +474,7 @@ function ipsec_get_phase1_src(& $ph1ent) {
 
 	if (in_array($ph1ent['protocol'], array('inet6', 'both'))) {
 		/* get correct interface name for 6RD/6to4 interfaces
-		 * see https://redmine.pfsense.org/issues/11643 */
+		 * see https://redmine.freesense.org/issues/11643 */
 		if (is_stf_interface($ph1ent['interface'])) {
 			$ip6 = get_interface_ipv6($ph1ent['interface'], false, false);
 		} else {
@@ -1134,7 +1134,7 @@ function ipsec_fixup_id($type, $data) {
 	$quote_types = array('keyid', 'asn1dn', 'auto');
 
 	/* If the first character of asn1dn type data is not #, then rely on
-	 * automatic parsing https://redmine.pfsense.org/issues/4792 */
+	 * automatic parsing https://redmine.freesense.org/issues/4792 */
 	if (($type == 'asn1dn') && !empty($data) && ($data[0] != '#')) {
 		$auto_types[] = 'asn1dn';
 	}
@@ -1677,7 +1677,7 @@ function ipsec_setup_strongswan() {
 		$ssconf['charon']['port_nat_t'] = config_get_path('ipsec/port_nat_t');
 	}
 
-	/* IKEv2 retransmit options, see https://redmine.pfsense.org/issues/12184 */
+	/* IKEv2 retransmit options, see https://redmine.freesense.org/issues/12184 */
 	if (!empty(config_get_path('ipsec/ikev2_retransmit_tries'))) {
 		$ssconf['charon']['retransmit_tries'] = config_get_path('ipsec/ikev2_retransmit_tries');
 	}
@@ -1746,7 +1746,7 @@ function ipsec_setup_strongswan() {
 			$ssconf['charon']['plugins']['eap-radius']['accounting_close_on_timeout'] = "no";
 			$ssconf['charon']['plugins']['eap-radius']['accounting_requires_vip'] = "yes";
 		}
-		/* advanced parameters, see https://redmine.pfsense.org/issues/11211 */
+		/* advanced parameters, see https://redmine.freesense.org/issues/11211 */
 		if (config_get_path('ipsec/client/radius_retransmit_base')) {
 			$ssconf['charon']['plugins']['eap-radius']['retransmit_base'] = config_get_path('ipsec/client/radius_retransmit_base');
 		}
@@ -1881,7 +1881,7 @@ function ipsec_setup_pools() {
 
 	/* Keep the comment in the array to ensure the entry makes it into the
 	 * config in all cases.
-	 * See https://redmine.pfsense.org/issues/11891 */
+	 * See https://redmine.freesense.org/issues/11891 */
 	$scconf['mobile-pool'] = array("# Mobile pool settings template");
 	$scconf['pools'] = array();
 	$pool_common =& $scconf['mobile-pool'];
@@ -2513,7 +2513,7 @@ function ipsec_setup_tunnels() {
 			$conn['dpd_delay'] = "{$ph1ent['dpd_delay']}s";
 			if ($ph1ent['iketype'] == 'ikev1') {
 				/* in IKEv2 the default retransmission timeout applies,
-				 * see https://redmine.pfsense.org/issues/12184 */
+				 * see https://redmine.freesense.org/issues/12184 */
 				$conn['dpd_timeout'] =  $ph1ent['dpd_delay'] * ($ph1ent['dpd_maxfail'] + 1) . "s";
 			}
 
@@ -2709,7 +2709,7 @@ function ipsec_setup_tunnels() {
 					foreach ($ph2ent['encryption-algorithm-option'] as $ealg) {
 						if (strpos($ealg['name'], "gcm")) {
 							/* put AEAD ciphers on top, 
-							*  see https://redmine.pfsense.org/issues/11078 */
+							*  see https://redmine.freesense.org/issues/11078 */
 							$ph2ent_ealgos_aead[] = $ealg;
 						} else {
 							$ph2ent_ealgos[] = $ealg;
@@ -2825,7 +2825,7 @@ function ipsec_setup_tunnels() {
 				foreach ($ealgoAHsp2arr as $halg) {
 					if (strstr($halg, "sha")) {
 						/* put SHA ciphers on top, 
-						*  see https://redmine.pfsense.org/issues/12323 */
+						*  see https://redmine.freesense.org/issues/12323 */
 						$halgos_sha[] = $halg;
 					} else {
 						$halgos[] = $halg;
@@ -3154,7 +3154,7 @@ function ipsec_configure($restart = false, $filterdns_restart = false) {
 	$ifacesuse = array();
 	$natfilterrules = false;
 
-	/* Configure asynchronous crypto. See https://redmine.pfsense.org/issues/8772 */
+	/* Configure asynchronous crypto. See https://redmine.freesense.org/issues/8772 */
 	set_sysctl(array('net.inet.ipsec.async_crypto' => (int) (isset($ipseccfg['async_crypto']) && ($ipseccfg['async_crypto'] == "enabled"))));
 
 	/* Build a list of all IPsec interfaces configured on the firewall at the OS level */

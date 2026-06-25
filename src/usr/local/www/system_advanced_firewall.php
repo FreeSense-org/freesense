@@ -2,7 +2,7 @@
 /*
  * system_advanced_firewall.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -157,18 +157,18 @@ $section->addInput(new Form_Input(
 	'Firewall Maximum States',
 	'number',
 	$pconfig['maximumstates'],
-	['min' => 1, 'placeholder' => pfsense_default_state_size()]
+	['min' => 1, 'placeholder' => freesense_default_state_size()]
 ))->setHelp('Maximum number of connections to hold in the firewall state table. ' .
 	'Leave this blank for the system-dependent default (%1$d). Note: Changing ' .
 	'this value affects the state hash tables size which requires a reboot to ' .
-	'take effect.', pfsense_default_state_size());
+	'take effect.', freesense_default_state_size());
 
 $section->addInput(new Form_Input(
 	'maximumtableentries',
 	'Firewall Maximum Table Entries',
 	'text',
 	$pconfig['maximumtableentries'],
-	['placeholder' => pfsense_current_table_entries_size()]
+	['placeholder' => freesense_current_table_entries_size()]
 ))->setHelp('Maximum number of table entries for systems such as aliases, '.
 	'sshguard, snort, etc, combined.%1$sNote: Leave this blank for the '.
 	'default.',

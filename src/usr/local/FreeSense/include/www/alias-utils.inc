@@ -2,7 +2,7 @@
 /*
  * alias-utils.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -458,7 +458,7 @@ function saveAlias($post, $id) {
 				rmdir_recursive($temp_filename);
 			} elseif (is_alias($post['address' . $x]) &&
 			    in_array(alias_get_type($post['address' . $x]), array('url', 'url_ports'))) {
-				/* nested URL alias, see https://redmine.pfsense.org/issues/11863 */
+				/* nested URL alias, see https://redmine.freesense.org/issues/11863 */
 				if (!$aliastable) {
 					alias_make_table();
 				}
@@ -628,8 +628,8 @@ function saveAlias($post, $id) {
 			if (is_alias($input_address)) {
 				if (!alias_same_type($input_address, $post['type'])) {
 					/* alias type network can include alias type URL/URLTable.
-					 * see https://redmine.pfsense.org/issues/1603
-					 * and https://redmine.pfsense.org/issues/11863 */
+					 * see https://redmine.freesense.org/issues/1603
+					 * and https://redmine.freesense.org/issues/11863 */
 					if (!($post['type'] == 'network' &&
 					    preg_match("/url/i", alias_get_type($input_address)))) {
 						$wrongaliases .= " " . $input_address;
@@ -714,8 +714,8 @@ function saveAlias($post, $id) {
 		// uses $aliastable such as system_staticroutes_configure().
 		alias_make_table();
 
-		/* restart related OpenVPN instances, see https://redmine.pfsense.org/issues/2668
-		 * reload related static routes, see https://redmine.pfsense.org/issues/7547 */
+		/* restart related OpenVPN instances, see https://redmine.freesense.org/issues/2668
+		 * reload related static routes, see https://redmine.freesense.org/issues/7547 */
 		if (in_array($alias['type'], array('host', 'network', 'url'))) {
 			$ovpnnets = array(
 				'tunnel_network',

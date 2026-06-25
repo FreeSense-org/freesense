@@ -2,7 +2,7 @@
 #
 # build_freebsd.sh
 #
-# part of pfSense (https://www.pfsense.org)
+# part of FreeSense (https://www.freesense.org)
 # Copyright (c) 2004-2013 BSD Perimeter
 # Copyright (c) 2013-2016 Electric Sheep Fencing
 # Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -109,7 +109,7 @@ j="-j${njobs}"
 		"make -C ${srcdir} -s ${j} buildworld"
 
 if [ -z "${skip_kernel}" ]; then
-	for kernel in ${KERNCONF:-pfSense}; do
+	for kernel in ${KERNCONF:-FreeSense}; do
 		run "Building kernel (${kernel})" \
 			"make -C ${srcdir} -s ${j} KERNCONF=${kernel} buildkernel"
 	done

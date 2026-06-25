@@ -2,7 +2,7 @@
 /*
  * system_usermanager_settings.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -103,7 +103,7 @@ $pconfig['session_timeout'] = config_get_path('system/webgui/session_timeout');
 $pconfig['authmode'] = config_get_path('system/webgui/authmode', "Local Database");
 
 /* Default to bcrypt hashing if unset.
- * See https://redmine.pfsense.org/issues/12855
+ * See https://redmine.freesense.org/issues/12855
  */
 $pconfig['pwhash'] = config_get_path('system/webgui/pwhash', 'bcrypt');
 
@@ -217,9 +217,9 @@ $tab_array[] = array(gettext("Change Password"), false, "system_usermanager_pass
 $tab_array[] = array(gettext("Authentication Servers"), false, "system_authservers.php");
 display_top_tabs($tab_array);
 
-/* Default to pfsense backend type if none is defined */
+/* Default to freesense backend type if none is defined */
 if (!$pconfig['backend']) {
-	$pconfig['backend'] = "pfsense";
+	$pconfig['backend'] = "freesense";
 }
 
 $form = new Form;

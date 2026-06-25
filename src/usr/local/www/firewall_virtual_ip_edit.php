@@ -2,7 +2,7 @@
 /*
  * firewall_virtual_ip_edit.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -246,7 +246,7 @@ print($form);
 	    'VIP for these roles.%1$s' .
 	    'For more information, visit the %2$s book section on %3$s'),
 		'<br />', g_get('product_label'),
-		'<a href="https://docs.netgate.com/pfsense/en/latest/firewall/virtual-ip-addresses.html">Virtual IP Addresses</a>.'),
+		'<a href="https://docs.netgate.com/freesense/en/latest/firewall/virtual-ip-addresses.html">Virtual IP Addresses</a>.'),
 	    'info', false);
 	?>
 </div>

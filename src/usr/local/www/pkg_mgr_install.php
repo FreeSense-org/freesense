@@ -2,7 +2,7 @@
 /*
  * pkg_mgr_install.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -65,7 +65,7 @@ $guiretry = 20;		// Seconds to try again if $guitimeout was not long enough
 $gui_pidfile = g_get('varrun_path') . '/' . g_get('product_name') . '-upgrade-GUI.pid';
 $gui_mode = g_get('varrun_path') . '/' . g_get('product_name') . '-upgrade-GUI.mode';
 $sock_file = "{$g['tmp_path']}/{$g['product_name']}-upgrade.sock";
-$pfsense_upgrade = "/usr/local/sbin/{$g['product_name']}-upgrade";
+$freesense_upgrade = "/usr/local/sbin/{$g['product_name']}-upgrade";
 $repos = pkg_list_repos();
 
 $pkgname = '';
@@ -463,7 +463,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 					<label class="col-sm-2 control-label">
 					</label>
 					<div class="col-sm-10" id="release_info">
-						<a target="_blank" href="https://docs.netgate.com/pfsense/en/latest/releases/versions.html"><?=gettext("Release notes and version information")?></a>
+						<a target="_blank" href="https://docs.netgate.com/freesense/en/latest/releases/versions.html"><?=gettext("Release notes and version information")?></a>
 					</div>
 				</div>
 <?php
@@ -652,7 +652,7 @@ if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
 	} elseif (isset($params)) {
 		$another_instance = true;
 		$log = array();
-		$upgrade_script = "{$pfsense_upgrade} -y -l {$logfilename}.txt -p {$sock_file}";
+		$upgrade_script = "{$freesense_upgrade} -y -l {$logfilename}.txt -p {$sock_file}";
 
 		for ($idx = 0; $idx < 30; $idx++) {
 			unlink_if_exists($sock_file);

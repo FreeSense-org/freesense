@@ -2,7 +2,7 @@
 /*
  * firewall_virtual_ip.inc.inc
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  *
@@ -22,7 +22,7 @@
 require_once("config.gui.inc");
 require_once("util.inc");
 require_once("interfaces.inc");
-require_once("pfsense-utils.inc");
+require_once("freesense-utils.inc");
 
 // Functions included by firewall_virtual_ip.php =============================
 function find_last_used_vhid() {
@@ -456,7 +456,7 @@ function deleteVIP($id, $json = false) {
 		/*
 		 * If gateways for this subnet are only reachable via VIPs,
 		 * make sure this is not the last VIP through which that gateway
-		 * can be reached. See https://redmine.pfsense.org/issues/4438
+		 * can be reached. See https://redmine.freesense.org/issues/4438
 		 */
 		foreach ($viponlygws as $vgw) {
 			$numrefs = 0;
@@ -544,7 +544,7 @@ function deleteVIP($id, $json = false) {
 			}
 
 			/* Reload filter since removed address may trigger changes in rules
-			 * https://redmine.pfsense.org/issues/13908 */
+			 * https://redmine.freesense.org/issues/13908 */
 			filter_configure();
 
 			if (!$json) {

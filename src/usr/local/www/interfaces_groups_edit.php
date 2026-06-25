@@ -2,7 +2,7 @@
 /*
  * interfaces_groups_edit.php
  *
- * part of FreeSense (https://www.pfsense.org)
+ * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2013 BSD Perimeter
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -40,7 +40,7 @@ $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
 $interface_list = get_configured_interface_with_descr(true);
 $interface_list_disabled = get_configured_interface_with_descr(true);
-/* hide VTI interfaces, see https://redmine.pfsense.org/issues/11134 */
+/* hide VTI interfaces, see https://redmine.freesense.org/issues/11134 */
 foreach ($interface_list as $if => $ifdescr) {
 	if (substr(get_real_interface($if), 0, 5) == "ipsec") {
 		unset($interface_list[$if]);
@@ -50,7 +50,7 @@ foreach ($interface_list as $if => $ifdescr) {
 $this_ifgroup_config = isset($id) ? config_get_path("ifgroups/ifgroupentry/{$id}") : null;
 if ($this_ifgroup_config) {
 	/* Cleanup invalid group members (Deleted interfaces, etc.)
-	 * https://redmine.pfsense.org/issues/15778 */
+	 * https://redmine.freesense.org/issues/15778 */
 	$validmembers = [];
 	foreach (explode(" ", array_get_path($this_ifgroup_config, 'members', "")) as $ifname) {
 		if (array_key_exists($ifname, $interface_list)) {
@@ -126,7 +126,7 @@ if ($_POST['save']) {
 
 	/* Ensure submitted interfaces exist in the configuration, filter
 	 * invalid entries from selected interface list.
-	 * https://redmine.pfsense.org/issues/15778 */
+	 * https://redmine.freesense.org/issues/15778 */
 	$validmembers = [];
 	foreach ($_POST['members'] as $ifname) {
 		if (array_key_exists($ifname, $interface_list)) {
@@ -267,7 +267,7 @@ $section->addInput(new Form_Select(
 ))->setWidth(6)->setHelp('NOTE: Rules for WAN type '.
 	'interfaces in groups do not contain the reply-to mechanism upon which '.
 	'Multi-WAN typically relies. %1$sMore Information%2$s',
-	'<a href="https://docs.netgate.com/pfsense/en/latest/interfaces/groups.html">', '</a>');
+	'<a href="https://docs.netgate.com/freesense/en/latest/interfaces/groups.html">', '</a>');
 
 if ($this_ifgroup_config) {
 	$form->addGlobal(new Form_Input(
