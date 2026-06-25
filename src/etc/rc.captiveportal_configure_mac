@@ -1,0 +1,40 @@
+#!/usr/local/bin/php-cgi -f
+<?php
+/*
+ * rc.captiveportal_configure_mac
+ *
+ * part of FreeSense (https://www.pfsense.org)
+ * Copyright (c) 2015-2016 Electric Sheep Fencing
+ * Copyright (c) 2015-2026 Rubicon Communications, LLC (Netgate)
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+require_once("config.inc");
+require_once("functions.inc");
+require_once("filter.inc");
+require_once("shaper.inc");
+require_once("captiveportal.inc");
+
+global $cpzone;
+
+$cpzone = isset($_GET['cpzone']) ? $_GET['cpzone'] : trim($argv[1]);
+$startidx = isset($_GET['startidx']) ? $_GET['startidx'] : trim($argv[2]);
+$stopidx = isset($_GET['cpzone']) ? $_GET['stopidx'] : trim($argv[3]);
+
+$cpzoneidx = config_get_path("captiveportal/{$cpzone}/zoneid");
+
+captiveportal_passthrumac_configure($startidx, $stopidx);
+
+?>

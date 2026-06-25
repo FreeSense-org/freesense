@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# rc.gateway_alarm
+#
+# Copyright (c) 2015-2016 Electric Sheep Fencing
+# Copyright (c) 2015-2026 Rubicon Communications, LLC (Netgate)
+# All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+GW="$1"
+alarm_addr="$2"
+alarm_flag="$3"
+alarm_rtt="$4"
+alarm_rttsd="$5"
+alarm_loss="$6"
+LOG_PREFIX_GWMON="Gateway Monitoring"
+
+if [ -z "$GW" ]; then
+	exit 1
+fi
+
+print_rtt() {
+	usec=$1
+	usec_to_ms=$( echo "scale=3; ${usec}/1000" | bc -l )
+	echo "${usec_to_ms}ms"
+}
+
+echo "INFO [${LOG_PREFIX_GWMON}] >>> Gateway alarm: ${GW} (Addr:${alarm_addr} Alarm:${alarm_flag} RTT:$( print_rtt ${alarm_rtt} ) RTTsd:$( print_rtt ${alarm_rttsd} ) Loss:${alarm_loss}%)" | /usr/bin/logger -p daemon.info -i -t rc.gateway_alarm
+
+/usr/local/sbin/pfSctl \
+	-c "service reload dyndns ${GW}" \
+	-c "service reload ipsec ${GW}" \
+	-c "service reload openvpn ${GW}" \
+	-c "filter reload" >/dev/null 2>&1
+
+# after above signal the check_reload_status process calls the following scripts simultaneously.:
+# - "/etc/rc.dyndns.update", "dyndns=%s"
+# - "/etc/rc.ipsec", "interface=%s"
+# - "/etc/rc.openvpn", "interface=%s"
+# - "/etc/rc.filter_configure_sync"
+
+exit $?

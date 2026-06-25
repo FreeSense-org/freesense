@@ -1,0 +1,97 @@
+#!/usr/local/bin/php-cgi -q
+<?php
+/*
+ * rc.update_urltables
+ *
+ * part of FreeSense (https://www.pfsense.org)
+ * Copyright (c) 2010-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+require_once("config.inc");
+require_once("config.lib.inc");
+require_once("util.inc");
+require_once("pfsense-utils.inc");
+
+$aliases = config_get_path('aliases/alias');
+if (!is_array($aliases)) {
+	// No aliases
+	return;
+}
+
+// Gather list of urltable aliases
+$todo = array();
+foreach ($aliases as $alias) {
+	if (preg_match('/urltable/i', $alias['type'])) {
+		$tmp = array();
+		$tmp['type'] = $alias['type'];
+		$tmp['name'] = $alias['name'];
+		$tmp['url']  = $alias['url'];
+		$tmp['freq'] = $alias['updatefreq'];
+		$todo[] = $tmp;
+	}
+}
+
+if (count($todo) > 0) {
+	logger(LOG_INFO, localize_text("%s Starting up.", "{$argv[0]}:"));
+
+	if ($argv[1] != "now") {
+		// Wait a little before updating.
+		$wait = mt_rand(5, 60);
+		logger(LOG_INFO, localize_text("%s Sleeping for %d seconds.", "{$argv[0]}:", $wait));
+		sleep($wait);
+	}
+
+	// Set whether or not to force the table update before it's time.
+	if (!empty($argv[2]) && ($argv[2] == "forceupdate")) {
+		$forceupdate = true;
+	} else {
+		$forceupdate = false;
+	}
+
+	logger(LOG_INFO, localize_text("%s Starting URL table alias updates", "{$argv[0]}:"));
+
+	$filter_reload = false;
+	foreach ($todo as $t) {
+
+		// Update a specifically named URL table only.
+		if (!empty($argv[3]) && ($argv[3] != $t['name'])) {
+			continue;
+		}
+
+		$r = process_alias_urltable($t['name'], $t['type'], $t['url'], $t['freq'], $forceupdate);
+		if ($r == 1) {
+			$result = "";
+			// TODO: Change it when pf supports tables with ports
+			if ($t['type'] == "urltable") {
+				exec("/sbin/pfctl -t " . escapeshellarg($t['name']) . " -T replace -f /var/db/aliastables/" . escapeshellarg($t['name']) . ".txt 2>&1", $result);
+			} else {
+				$filter_reload = true;
+			}
+			logger(LOG_NOTICE, localize_text("%s Updated %s content from %s: %s", "{$argv[0]}:", $t['name'], $t['url'], $result[0]));
+		} elseif ($r == -1) {
+			logger(LOG_INFO, localize_text("%s %s does not need updating.", "{$argv[0]}:", $t['name']));
+		} else {
+			logger(LOG_ERR, localize_text("%s could not update %s content from %s", "{$argv[0]}:", $t['name'], $t['url']));
+		}
+	}
+
+	if ($filter_reload) {
+		send_event("filter reload");
+	}
+}
+?>

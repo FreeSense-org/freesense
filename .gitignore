@@ -1,0 +1,23 @@
+.DS_Store
+_notes/
+/tmp/
+/logs/
+/build.conf
+.vscode/
+# Ignore Vim swap files
+.*.swp
+upload.sh
+# eclipse
+.buildpath
+.project
+.settings/
+# PhpStorm
+.idea
+*.php-e
+.zanata-cache
+# Composer
+src/usr/local/pfSense/include/vendor/
+src/usr/local/pfSense/include/www/vendor/
+# vi and emacs autosaves
+\#*\#
+*~

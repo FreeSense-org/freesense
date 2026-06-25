@@ -1,0 +1,18 @@
+# -*- text -*-
+##############################################################################
+#
+#	FreeSense Captive Portal
+#
+#	$Id$
+#
+##############################################################################
+
+VENDOR		FreeSense				13644
+
+BEGIN-VENDOR	FreeSense
+
+ATTRIBUTE	FreeSense-Bandwidth-Max-Up		1	integer
+ATTRIBUTE	FreeSense-Bandwidth-Max-Down		2	integer
+ATTRIBUTE	FreeSense-Max-Total-Octets		3	integer
+
+END-VENDOR	FreeSense

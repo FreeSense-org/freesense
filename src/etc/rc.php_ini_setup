@@ -1,0 +1,436 @@
+#!/bin/sh
+#
+# rc.php_ini_setup
+#
+# part of FreeSense (https://www.pfsense.org)
+# Copyright (c) 2014-2016 Electric Sheep Fencing
+# Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+# All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Set our operating platform
+VERSION=$(/bin/cat /etc/version)
+MIN_REALMEM_FOR_OPCACHE=512
+
+if /usr/local/sbin/pkg-static info -e php85; then
+	EXTENSIONSDIR="/usr/local/lib/php/20250925/"
+elif /usr/local/sbin/pkg-static info -e php84; then
+	EXTENSIONSDIR="/usr/local/lib/php/20240924/"
+elif /usr/local/sbin/pkg-static info -e php83; then
+	EXTENSIONSDIR="/usr/local/lib/php/20230831/"
+elif /usr/local/sbin/pkg-static info -e php82; then
+	EXTENSIONSDIR="/usr/local/lib/php/20220829/"
+elif /usr/local/sbin/pkg-static info -e php81; then
+	EXTENSIONSDIR="/usr/local/lib/php/20210902/"
+elif /usr/local/sbin/pkg-static info -e php74; then
+	EXTENSIONSDIR="/usr/local/lib/php/20190902/"
+elif /usr/local/sbin/pkg-static info -e php73; then
+	EXTENSIONSDIR="/usr/local/lib/php/20180731/"
+elif /usr/local/sbin/pkg-static info -e php72; then
+	EXTENSIONSDIR="/usr/local/lib/php/20170718/"
+fi
+
+# Grab amount of memory that is detected
+if [ -f /var/log/dmesg.boot ]; then
+	AVAILMEM=$(/usr/bin/awk '/avail memory/ { memory=($4 / 1048576); printf("%0.0f\n", memory); exit}' < /var/log/dmesg.boot)
+else
+	AVAILMEM=$(/sbin/dmesg -a |/usr/bin/awk '/avail memory/ { memory=($4 / 1048576); printf("%0.0f\n", memory); exit}')
+fi
+
+# Use hw.physmem if $AVAILMEM is zero
+if [ -z "$AVAILMEM" ]; then
+	AVAILMEM=$(/sbin/sysctl -qn hw.physmem | /usr/bin/awk '{print $1/1048576}' | /usr/bin/awk -F '.' '{print $1}')
+fi
+
+# Get amount of ram installed on this system
+REALMEM=$(/sbin/sysctl -qn hw.realmem | /usr/bin/awk '{print $1/1048576}' | /usr/bin/awk -F '.' '{print $1}')
+if [ -z "$REALMEM" ] || [ "$REALMEM" = "0" ]; then
+	REALMEM="$AVAILMEM"
+fi
+export REALMEM
+export LOWMEM
+
+if [ "${REALMEM}" -lt "$MIN_REALMEM_FOR_OPCACHE" ]; then
+	LOWMEM="TRUE"
+	echo ">>> Under $MIN_REALMEM_FOR_OPCACHE megabytes of ram detected.  Not enabling opcache"
+	echo "INFO >>> Under $MIN_REALMEM_FOR_OPCACHE megabytes of ram detected.  Not enabling opcache" | /usr/bin/logger -p daemon.info -i -t rc.php_ini_setup
+else
+
+	# Calculate opcache memory size according
+	# to detected memory values
+	if [ "$AVAILMEM" -gt "135" ]; then
+		OPCACHEMEMSIZE="10"
+	fi
+	if [ "$AVAILMEM" -gt "256" ]; then
+		OPCACHEMEMSIZE="20"
+	fi
+	if [ "$AVAILMEM" -gt "384" ]; then
+		OPCACHEMEMSIZE="25"
+	fi
+	if [ "$AVAILMEM" -gt "512" ]; then
+		OPCACHEMEMSIZE="30"
+	fi
+	if [ "$AVAILMEM" -gt "784" ]; then
+		OPCACHEMEMSIZE="50"
+	fi
+fi
+
+PCRE_JIT=1
+
+# Set upload directory
+UPLOADTMPDIR="/tmp"
+
+# Define php modules.  Do not add .so, it will
+# be done automatically by the script below.
+PHPMODULES="standard"
+# Config read/write
+PHPMODULES="$PHPMODULES xml libxml dom"
+PHPMODULES="$PHPMODULES SimpleXML xmlreader xmlwriter"
+# Downloading via HTTP/FTP (pkg mgr, etc)
+PHPMODULES="$PHPMODULES curl date"
+# Internationalization
+PHPMODULES="$PHPMODULES gettext"
+# User manager
+PHPMODULES="$PHPMODULES ldap openssl pcntl"
+PHPMODULES="$PHPMODULES mcrypt"
+# Regexs, PERL style!
+PHPMODULES="$PHPMODULES pcre"
+# The mighty posix!
+PHPMODULES="$PHPMODULES posix"
+PHPMODULES="$PHPMODULES readline"
+# Login sessions
+PHPMODULES="$PHPMODULES session"
+# Firewall rules edit
+PHPMODULES="$PHPMODULES ctype"
+# firewall_rules_edit.php
+PHPMODULES="$PHPMODULES mbstring"
+# Synchronization primitives
+PHPMODULES="$PHPMODULES shmop"
+# Page compression
+PHPMODULES="$PHPMODULES zlib"
+# SQLlite & Database
+PHPMODULES="$PHPMODULES spl"
+PHPMODULES="$PHPMODULES PDO"
+PHPMODULES="$PHPMODULES sqlite3"
+# RADIUS
+PHPMODULES="$PHPMODULES radius"
+# FreeSense extensions
+PHPMODULES="$PHPMODULES FreeSense"
+# json
+PHPMODULES="$PHPMODULES json"
+# bcmath
+PHPMODULES="$PHPMODULES bcmath"
+# filter
+PHPMODULES="$PHPMODULES filter"
+# rrd
+PHPMODULES="$PHPMODULES rrd"
+
+PHP_ZEND_MODULES=""
+
+# Modules previously included.
+# can be turned on by touching
+# /etc/php_dynamodules/$modulename
+#	sysvmsg \
+#	sysvsem \
+#	sysvshm \
+#	bcmath \
+#	tokenizer \
+#	uploadprogress \
+#	sockets \
+#	Reflection \
+#	mysql \
+#	bz2	\
+
+# Clear the .ini file to make sure we are clean
+if [ -f /usr/local/etc/php.ini ]; then
+	/bin/rm /usr/local/etc/php.ini
+fi
+LOADED_MODULES=$(/usr/local/bin/php-cgi -m | /usr/bin/grep -v "\[")
+
+unset TIMEZONE
+# Fetch the timezone from /var/db/zoneinfo if present
+if [ -f /var/db/zoneinfo ]; then
+	TIMEZONE=$(cat /var/db/zoneinfo)
+fi
+
+if [ -z "${TIMEZONE}" ]; then
+	# Second option is from config.xml
+	TIMEZONE=$(/usr/local/sbin/read_xml_tag.sh string system/timezone)
+fi
+
+if [ -z "${TIMEZONE}" ]; then
+	# Last option, use default value from $g or Etc/UTC
+	TIMEZONE=$(/usr/local/sbin/read_global_var default_timezone "Etc/UTC")
+fi
+
+if echo "${VERSION}" | grep -q RELEASE; then
+	# On release versions, reduce error reporting and don't print function arguments.
+	error_reporting="error_reporting = E_ERROR | E_PARSE"
+	exception_ignore_args="zend.exception_ignore_args=1"
+else
+	# On development versions, increase error reporting and print function arguments.
+	error_reporting="error_reporting = E_ALL ^ (E_WARNING | E_NOTICE | E_DEPRECATED)"
+	exception_ignore_args="zend.exception_ignore_args=0"
+fi
+
+# Get a loaded module list in the stock php
+# Populate a dummy php.ini to avoid
+# the file being clobbered and the firewall
+# not being able to boot back up.
+/bin/cat >/usr/local/etc/php.ini <<EOF
+; File generated from /etc/rc.php_ini_setup
+output_buffering = "0"
+expose_php = Off
+implicit_flush = true
+magic_quotes_gpc = Off
+max_execution_time = 900
+request_terminate_timeout = 900
+max_input_time = 1800
+max_input_vars = 5000
+register_argc_argv = On
+register_long_arrays = Off
+variables_order = "GPCS"
+request_order = "GP"
+file_uploads = On
+upload_tmp_dir = ${UPLOADTMPDIR}
+upload_max_filesize = 200M
+post_max_size = 200M
+html_errors = Off
+zlib.output_compression = Off
+zlib.output_compression_level = 1
+include_path = ".:/etc/inc:/usr/local/FreeSense/include:/usr/local/FreeSense/include/www:/usr/local/www:/usr/local/captiveportal:/usr/local/pkg:/usr/local/www/classes:/usr/local/www/classes/Form:/usr/local/share/pear:/usr/local/share/openssl_x509_crl/"
+display_startup_errors=off
+; No need to display errors directly, they are handled in etc/inc/config.lib.inc by FreeSense_clear_globals()
+display_errors=off
+log_errors=on
+error_log=/tmp/PHP_errors.log
+extension_dir=${EXTENSIONSDIR}
+date.timezone="${TIMEZONE}"
+session.hash_bits_per_character = 5
+session.hash_function = 1
+${error_reporting}
+${exception_ignore_args}
+
+[Pcre]
+pcre.jit=${PCRE_JIT}
+
+; Extensions
+
+EOF
+
+# Loop through and generate modules to load.
+# Take into account modules built into php.
+for EXT in $PHPMODULES; do
+	SHOULDADD="true"
+	# Check to see if module is compiled into php statically
+	for LM in $LOADED_MODULES; do
+		if [ "$EXT" = "$LM" ]; then
+			SHOULDADD="false"
+		fi
+	done
+	if [ "$SHOULDADD" = "true" ]; then
+		# Ensure extension exists before adding.
+		if [ -f "${EXTENSIONSDIR}${EXT}.so" ]; then
+			echo "extension=${EXT}.so" >> /usr/local/etc/php.ini
+		fi
+	fi
+done
+
+# Zend modules
+for EXT in $PHP_ZEND_MODULES; do
+	# Ensure extension exists before adding.
+	if [ -f "${EXTENSIONSDIR}${EXT}.so" ]; then
+		echo "zend_extension=${EXT}.so" >> /usr/local/etc/php.ini
+	fi
+done
+
+if [ "$LOWMEM" != "TRUE" ]; then
+
+	/bin/cat >>/usr/local/etc/php.ini <<EOF
+
+; opcache Settings
+opcache.enabled="1"
+opcache.enable_cli="0"
+opcache.memory_consumption="${OPCACHEMEMSIZE}"
+
+EOF
+else
+	/bin/cat >>/usr/local/etc/php.ini <<EOF
+; opcache Settings
+opcache.enabled="0"
+EOF
+fi
+
+# Memory limits 128M to calculated max
+PHP_MEMORY_LIMIT="$(read_xml_tag.sh number system/php_memory_limit)"
+
+# Set local variable for available memory to match the PHP code which always pulls from sysctl
+MEM=$(( $( /sbin/sysctl -n hw.physmem ) / 1048576 ))
+
+# Calculate MAX memory in the same fashion as get_php_max_memory() in /etc/inc/util.inc
+PHP_MAX_LIMIT="$(( MEM - 512 ))"
+
+if [ "${PHP_MAX_LIMIT}" -le "0" ]; then
+	PHP_MAX_LIMIT=$(( MEM - 128 ))
+
+	if [ "${PHP_MAX_LIMIT}" -lt "128" ]; then
+		PHP_MAX_LIMIT=128
+	fi
+fi
+
+# If outside of limits, revert to default in same fashion as get_php_default_memory() in /etc/inc/util.inc
+if ! { [ -n "${PHP_MEMORY_LIMIT}" ] && [ "${PHP_MEMORY_LIMIT}" -ge "128" ] && [ "${PHP_MEMORY_LIMIT}" -le "${PHP_MAX_LIMIT}" ]; }; then
+	if [ "$(uname -m)" = "amd64" ]; then
+		PHP_MEMORY_LIMIT=512
+	else
+		PHP_MEMORY_LIMIT=128
+	fi
+
+	if [ ${PHP_MEMORY_LIMIT} -ge "${MEM}" ]; then
+		PHP_MEMORY_LIMIT=$(( MEM / 2 ))
+		if [ "${PHP_MEMORY_LIMIT}" -lt "128" ]; then
+			PHP_MEMORY_LIMIT=128
+		fi
+	fi
+fi
+
+/bin/cat >>/usr/local/etc/php.ini <<EOF
+memory_limit="${PHP_MEMORY_LIMIT}M"
+EOF
+
+PHPFPMMAX=3
+PHPFPMIDLE=30
+PHPFPMSTART=1
+PHPFPMSPARE=2
+PHPFPMREQ=500
+if [ "$REALMEM" -lt 250 ]; then
+	PHPFPMMAX=2
+	PHPFPMIDLE=5
+	PHPFPMSTART=1
+	PHPFPMSPARE=1
+	PHPFPMREQ=500
+elif [ "${REALMEM}" -gt 1000 ]; then
+	PHPFPMMAX=8
+	PHPFPMIDLE=3600
+	PHPFPMSTART=2
+	PHPFPMSPARE=7
+	PHPFPMREQ=5000
+fi
+
+/bin/cat > /usr/local/lib/php-fpm.conf <<EOF
+
+[global]
+pid = run/php-fpm.pid
+error_log=syslog
+syslog.facility = daemon
+syslog.ident = system
+log_level = error
+daemonize = yes
+events.mechanism = kqueue
+process.max = ${PHPFPMMAX}
+
+[nginx]
+user = root
+group = wheel
+;mode = 0600
+
+listen = /var/run/php-fpm.socket
+listen.owner = root
+listen.group = wheel
+listen.mode = 0600
+
+security.limit_extensions =
+
+; Pass environment variables
+env[PATH] = /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+env[LOGNAME] = root
+
+EOF
+
+if [ "$REALMEM" -lt 350 ]; then
+	/bin/cat >> /usr/local/lib/php-fpm.conf <<EOF
+
+pm = ondemand
+pm.process_idle_timeout = $PHPFPMIDLE
+pm.max_children = $PHPFPMMAX
+pm.max_requests = $PHPFPMREQ
+EOF
+
+elif [ "$REALMEM" -gt 1000 ]; then
+	/bin/cat >> /usr/local/lib/php-fpm.conf <<EOF
+
+pm = dynamic
+pm.process_idle_timeout = $PHPFPMIDLE
+pm.max_children = $PHPFPMMAX
+pm.start_servers = $PHPFPMSTART
+pm.max_requests = $PHPFPMREQ
+pm.min_spare_servers=1
+pm.max_spare_servers= $PHPFPMSPARE
+
+EOF
+else
+
+	/bin/cat >> /usr/local/lib/php-fpm.conf <<EOF
+
+pm = static
+pm.max_children = $PHPFPMMAX
+pm.max_requests = $PHPFPMREQ
+EOF
+
+fi
+
+# Add status url for php-fpm this will only be made available from localhost through nginx 'allow 127.0.0.1'
+	/bin/cat >> /usr/local/lib/php-fpm.conf <<EOF
+pm.status_path = /status
+
+EOF
+
+# Remove old log file if it exists.
+if [ -f /var/run/php_modules_load_errors.txt ]; then
+	/bin/rm /var/run/php_modules_load_errors.txt
+fi
+
+for EXT in $PHPMODULES; do
+	PHPMODULESLC="$PHPMODULESLC $(echo "$EXT" | /usr/bin/tr '[:upper:]' '[:lower:]')"
+done
+
+# Check loaded modules and remove anything that did not load correctly
+LOADED_MODULES=$(/usr/local/bin/php-cgi -m | /usr/bin/tr '[:upper:]' '[:lower:]' 2>/dev/null | /usr/bin/grep -v "\[")
+for EXT in $PHPMODULESLC; do
+	SHOULDREMOVE="true"
+	for LM in $LOADED_MODULES; do
+		if [ "$EXT" = "$LM" ]; then
+			SHOULDREMOVE="false"
+			break
+		fi
+	done
+	# Handle low memory situations
+	if [ "$LOWMEM" = "TRUE" ]; then
+		if [ "$EXT" = "opcache" ]; then
+			SHOULDREMOVE="true"
+		fi
+		if [ "$EXT" = "xcache" ]; then
+			SHOULDREMOVE="true"
+		fi
+	fi
+	if [ "$SHOULDREMOVE" = "true" ]; then
+		if [ -f "${EXTENSIONSDIR}${EXT}.so" ]; then
+			echo ">>> ${EXT} did not load correctly.  Removing from php.ini..." >> /var/run/php_modules_load_errors.txt
+			/usr/bin/grep -v "$EXT" /usr/local/etc/php.ini > /tmp/php.ini
+			/bin/rm -f /usr/local/etc/php.ini
+			/bin/mv /tmp/php.ini /usr/local/etc/php.ini
+		fi
+	fi
+done

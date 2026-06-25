@@ -1,0 +1,532 @@
+#!/usr/local/bin/php-cgi -f
+<?php
+/*
+ * rc.bootup
+ *
+ * originally based on m0n0wall (http://m0n0.ch/wall)
+ * Copyright (c) 2003-2004 Manuel Kasper <mk@neon1.net>.
+ * Copyright (c) 2009 Erik Kristensen
+ * Copyright (c) 2005-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+require_once("pkg-utils.inc");
+
+echo " done.\n";
+
+echo "Initializing...";
+echo ".";
+require_once("/etc/inc/globals.inc");
+echo ".";
+require_once("/etc/inc/led.inc");
+led_normalize();
+echo ".";
+if (led_count() >= 3) {
+	led_kitt();
+}
+
+/* let the other functions know we're booting */
+$pkg_interface = 'console';
+$g['booting'] = true;
+
+/* parse the configuration and include all functions used below */
+require_once("/etc/inc/config.inc");
+echo ".";
+require_once("/etc/inc/config.console.inc");
+echo ".";
+require_once("/etc/inc/auth.inc");
+echo ".";
+require_once("/etc/inc/functions.inc");
+echo ".";
+require_once("/etc/inc/filter.inc");
+echo ".";
+require_once("/etc/inc/shaper.inc");
+echo ".";
+require_once("/etc/inc/ipsec.inc");
+echo ".";
+require_once("/etc/inc/vpn.inc");
+echo ".";
+require_once("/etc/inc/openvpn.inc");
+echo ".";
+require_once("/etc/inc/captiveportal.inc");
+echo ".";
+require_once("/etc/inc/rrd.inc");
+echo ".";
+require_once("/etc/inc/pfsense-utils.inc");
+echo ".";
+require_once("/etc/inc/notices.inc");
+echo ".";
+/* Setup notice queues */
+notices_setup();
+
+/* get system memory amount */
+$memory = get_memory();
+$physmem = $memory[0];
+$realmem = $memory[1];
+echo " done.\n";
+
+
+/* save dmesg output to file */
+system_dmesg_save();
+
+/* check whether config reset is desired (via hardware button on WRAP/ALIX) */
+system_check_reset_button();
+
+/* remove previous firmware upgrade if present */
+if (file_exists("/root/firmware.tgz")) {
+	unlink("/root/firmware.tgz");
+}
+
+/* restore RRD, SSH keys and extra data on bsdinstall config restore
+ * see https://redmine.pfsense.org/issues/12518 */
+if (file_exists("{$g['conf_path']}/installer_copied_config") &&
+    file_exists("{$g['conf_path']}/restore_config_data")) {
+	copy("/cf/conf/config.xml", "{$g['tmp_path']}/config_to_restore.xml");
+	restore_backup("{$g['tmp_path']}/config_to_restore.xml");
+	@unlink("{$g['tmp_path']}/config_to_restore.xml");
+	@unlink("{$g['conf_path']}/installer_copied_config");
+	@unlink("{$g['conf_path']}/restore_config_data");
+}
+
+/* Triggering of the initial setup wizard after reboot has been requested */
+if (file_exists("{$g['conf_path']}/trigger_initial_wizard_after_reboot")) {
+	touch("{$g['conf_path']}/trigger_initial_wizard");
+	@unlink("{$g['conf_path']}/trigger_initial_wizard_after_reboot");
+}
+
+/* start devd (dhclient now uses it) */
+echo "Starting device manager (devd)...";
+mute_kernel_msgs();
+start_devd();
+set_device_perms();
+unmute_kernel_msgs();
+echo "done.\n";
+
+echo "Loading configuration...";
+parse_config_bootup();
+echo "done.\n";
+
+mwexec("/usr/sbin/gnid > {$g['vardb_path']}/uniqueid 2>/dev/null");
+
+/* Import the Installer network settings. */
+if (file_exists("{$g['conf_path']}/trigger_initial_wizard") &&
+    file_exists("{$g['conf_path']}/installer-settings.json")) {
+	echo "Importing the network settings from the Netgate Installer...";
+	installer_settings_import();
+	echo "done.\n";
+}
+
+// Only do the alternate interface checks if:
+// 1) The user has not yet run the initial wizard; and
+// 2) The user has not used the console menu to setup interface assignments
+if (file_exists("{$g['conf_path']}/trigger_initial_wizard") && !file_exists("{$g['conf_path']}/assign_complete")) {
+	check_for_alternate_interfaces();
+}
+
+/* Convert configuration
+ * This must happen before the interface mismatch test, see
+ * https://redmine.pfsense.org/issues/7809 */
+echo "Updating configuration...";
+convert_config();
+echo "done.\n";
+
+/*
+ *	Determine if we need to throw a interface exception
+ *	and ask the user to reassign interfaces.  This will
+ *	avoid a reboot and that is a good thing.
+ */
+while (is_interface_mismatch() == true) {
+	led_assigninterfaces();
+	if (config_get_path('revision') !== null) {
+		if (file_exists("{$g['tmp_path']}/missing_interfaces")) {
+			echo "Warning: Configuration references interfaces that do not exist: " . file_get_contents("{$g['tmp_path']}/missing_interfaces") . "\n";
+		}
+		echo "\nNetwork interface mismatch -- Running interface assignment option.\n";
+	} else {
+		echo "\nDefault interfaces not found -- Running interface assignment option.\n";
+	}
+	$ifaces = get_interface_list();
+	if (is_array($ifaces)) {
+		foreach ($ifaces as $iface => $ifdata) {
+			interfaces_bring_up($iface);
+		}
+	}
+	if (set_networking_interfaces_ports() == -1) {
+		echo "\nFreeSense cannot continue without at least one Network Interface Card.\n";
+		echo "\nHalting the system.\n";
+		system("/sbin/shutdown -h now");
+		exit(0);
+	}
+	reload_interfaces_sync();
+	led_kitt();
+}
+
+/* enable optional crypto modules */
+echo "Loading cryptographic accelerator drivers...";
+load_crypto();
+echo "done.\n";
+
+echo "Checking config backups consistency...";
+cleanup_backupcache(true);
+echo "done.\n";
+
+/* set additional sysctls not defined in loader.conf */
+echo "Setting up extended sysctls...";
+system_setup_sysctl();
+echo "done.\n";
+
+$file = '/deferred_pkg_install';
+if (file_exists($file)) {
+	echo "Executing deferred package installation scripts...";
+	register_all_installed_packages(true);
+	unlink($file);
+	echo "done.\n";
+}
+
+/* run any early shell commands specified in config.xml */
+echo "Executing early shell commands...";
+system_do_shell_commands(1);
+echo "done.\n";
+
+/* enable optional thermal sensor modules */
+load_thermal_hardware();
+
+/* set up our timezone */
+system_timezone_configure();
+
+/* set up our hostname */
+system_hostname_configure();
+
+/* make hosts file */
+system_hosts_generate();
+
+/* disable CARP prior to configuring interfaces */
+enable_carp(false);
+
+/* configure loopback interface */
+interfaces_loopback_configure();
+
+/* Setup Local CA Trust Store */
+ca_setup_trust_store();
+
+/* If the system uses ZFS and has compression enabled for /var/log, disable log
+ * compression by default. See https://redmine.pfsense.org/issues/12011
+ */
+$varlog_compression_state = 'off';
+if (is_module_loaded('zfs.ko')) {
+	exec("/sbin/zfs get -H compression /var/log | /usr/bin/awk '{print $3;}'", $varlog_compression_state);
+	$varlog_compression_state = $varlog_compression_state[0];
+}
+if (file_exists("{$g['conf_path']}/trigger_initial_wizard") &&
+    (trim($varlog_compression_state) != 'off')) {
+	touch("{$g['conf_path']}/syslog_default_uncompressed");
+}
+/* start syslogd */
+system_syslogd_start();
+
+/* set pam shell authentication backend */
+set_pam_auth();
+
+/* Log the RAM disk restore messages. */
+if (file_exists("/var/log/restore_ramdisk_store.boot")) {
+	exec("/usr/bin/logger -p user.info -f /var/log/restore_ramdisk_store.boot");
+}
+
+/* setup interface microcode which improves tcp/ip speed */
+echo "Setting up interfaces microcode...";
+setup_microcode();
+echo "done.\n";
+
+if (strlen(config_get_path('system/mds_disable', '')) > 0) {
+	set_single_sysctl("hw.mds_disable" , (int)config_get_path('system/mds_disable'));
+}
+
+/* remove leftover dhcp6c lock file if it exist */
+if (file_exists("/tmp/dhcp6c_lock")) {
+	@unlink("/tmp/dhcp6c_lock");
+	echo("Removed leftover dhcp6c lock file: /tmp/dhcp6c_lock\n");
+}
+if (file_exists("/tmp/dhcp6c_ifs")) {
+	@unlink("/tmp/dhcp6c_ifs");
+}
+
+/* set up interfaces */
+if (!g_get('debug')) {
+	mute_kernel_msgs();
+}
+interfaces_configure();
+interfaces_sync_setup();
+if (!g_get('debug')) {
+	unmute_kernel_msgs();
+}
+
+/* re-make hosts file after configuring interfaces */
+system_hosts_generate();
+
+/* start sshd */
+if (config_path_enabled('system/ssh')) {
+	echo "Starting Secure Shell Services...";
+	send_event("service reload sshd");
+	echo "done.\n";
+}
+
+/* start OpenVPN server & clients */
+echo "Syncing OpenVPN settings...";
+openvpn_resync_all();
+echo "done.\n";
+
+/* generate resolv.conf */
+system_resolvconf_generate();
+
+/* setup altq + pf */
+filter_configure_sync();
+
+/* start pflog */
+echo "Starting PFLOG...";
+filter_pflog_start();
+echo "done.\n";
+
+/* reconfigure our gateway monitor */
+setup_gateways_monitor();
+
+/* set up static routes */
+echo "Setting up static routes...";
+system_routing_configure();
+echo "done.\n";
+
+if (config_path_enabled('unbound') ||
+    config_path_enabled('dnsmasq')) {
+	echo "Setting up DNSs...\n";
+	/* start dnsmasq service */
+	services_dnsmasq_configure();
+
+	/* start unbound service */
+	services_unbound_configure();
+}
+
+echo "Synchronizing user settings...";
+local_reset_accounts();
+echo "done.\n";
+
+/* configure cron service */
+echo "Configuring CRON...";
+configure_cron();
+echo "done.\n";
+
+/* enable routing */
+system_routing_enable();
+
+/* Set initial time by using IP addresses in case DNS is not available
+ * This works around issues with DNSSEC and gives the firewall a better chance
+ * of having a highly accurate clock at boot.
+ * NG 7352, NG 7447
+ */
+
+/* Default to Google Public NTP servers */
+$ntp_boot_time_servers = '216.239.35.0 216.239.35.4 216.239.35.8 216.239.35.12';
+/* File to allow users to override default behavior.
+ * Servers must be a single line with space-separated IP address entries ONLY as
+ * DNS may not be functional. */
+$ntp_boot_time_servers_override = '/conf/ntp-boot-time-servers';
+
+/* Handle user override of NTP bootstrap behavior */
+if (file_exists($ntp_boot_time_servers_override)) {
+	if (filesize($ntp_boot_time_servers_override) > 0) {
+		/* Read servers from file if the file is not empty. */
+		$servers = file_get_contents($ntp_boot_time_servers_override);
+		$checkservers = explode(' ', trim($servers));
+		$goodservers = array();
+		/* Only add entries which are valid IP addresses. */
+		foreach ($checkservers as $ntpserver) {
+			if (is_ipaddr($ntpserver)) {
+				$goodservers[] = escapeshellarg($ntpserver);
+			}
+		}
+		$ntp_boot_time_servers = implode(' ', $goodservers);
+	} else {
+		/* Disable check if the file exists but is empty. */
+		$ntp_boot_time_servers = '';
+	}
+}
+
+if (!empty($ntp_boot_time_servers)) {
+	echo gettext("Bootstrapping clock...");
+	mwexec("/usr/bin/timeout -k 45 30 /usr/local/sbin/ntpd -g -q -c /dev/null {$ntp_boot_time_servers}");
+	echo gettext("done.") . "\n";
+}
+
+/* Enable ntpd */
+system_ntp_configure();
+
+if ($realmem > 0 and $realmem < 65) {
+	echo "System has less than 65 megabytes of ram {$realmem}.  Delaying webConfigurator startup.\n";
+	/* start webConfigurator up on final pass */
+	mwexec("/usr/local/sbin/pfSctl -c 'service restart webgui'");
+} else {
+	/* start web server */
+	system_webgui_start();
+}
+
+/* Configure console (and serial port - if necessary). */
+console_configure();
+
+/* start DHCP service */
+services_dhcpd_configure();
+
+/* start dhcpleases dhcp hosts leases program */
+system_dhcpleases_configure();
+
+/* start DHCP relay */
+services_dhcrelay_configure();
+
+/* start DHCP6 relay */
+services_dhcrelay6_configure();
+
+/* dyndns service updates */
+send_event("service reload dyndnsall");
+
+/* Run a filter configure now that most all services have started */
+filter_configure_sync();
+
+/* setup pppoe and pptp */
+vpn_setup();
+
+/* start the captive portal */
+captiveportal_configure();
+
+/* start Voucher support */
+voucher_configure();
+
+/* run any shell commands specified in config.xml */
+system_do_shell_commands();
+
+/* start IPsec tunnels */
+$ipsec_dynamic_hosts = ipsec_configure();
+
+/* start SNMP service */
+services_snmpd_configure();
+
+/* power down hard drive if needed/set */
+system_set_harddisk_standby();
+
+/* lock down console if necessary */
+reload_ttys();
+
+/* load graphing functions */
+enable_rrd_graphing();
+
+/* enable watchdog if supported */
+enable_watchdog();
+
+/* if <system><afterbootupshellcmd> exists, execute the command */
+$afterbootupshellcmd = config_get_path('system/afterbootupshellcmd', '');
+if (!empty($afterbootupshellcmd)) {
+	echo "Running afterbootupshellcmd {$afterbootupshellcmd}\n";
+	mwexec($afterbootupshellcmd);
+}
+
+if ($physmem < $g['minimum_ram_warning']) {
+	file_notice("{$g['product_label']}MemoryRequirements", "{$g['product_label']} requires at least {$g['minimum_ram_warning_text']} of RAM.  Expect unusual performance.  This platform is not supported.", "Memory", "", 1);
+	set_sysctl(array(
+		"net.inet.tcp.recvspace" => "4096",
+		"net.inet.tcp.sendspace" => "4096"
+	));
+}
+
+if (file_exists("/conf/ram_disks_failed")) {
+	file_notice("RAM Disks", "RAM disk creation failed. Reverted to traditional storage. Check RAM disk sizes.", "RAM Disks");
+}
+
+/* if we are operating at 1000 then increase timeouts.
+   this was never accounted for after moving to 1000 hz */
+$kern_hz = get_single_sysctl('kern.clockrate');
+$kern_hz = substr($kern_hz, strpos($kern_hz, "hz = ") + 5);
+$kern_hz = substr($kern_hz, 0, strpos($kern_hz, ","));
+if ($kern_hz == "1000") {
+	set_single_sysctl("net.inet.tcp.rexmit_min" , "30");
+}
+
+/* start the igmpproxy daemon */
+services_igmpproxy_configure();
+
+/* start the upnp daemon if it is enabled */
+upnp_start();
+
+/* If powerd is enabled, lets launch it */
+activate_powerd();
+
+/* Set preferred protocol */
+prefer_ipv4_or_ipv6();
+
+/* Resync / Reinstall packages if need be */
+if (file_exists("{$g['conf_path']}/needs_package_sync")) {
+	echo "Triggering packages reinstallation in background\n";
+	mwexec_bg("{$g['etc_path']}/rc.package_reinstall_all");
+} else {
+	/* Detect installed binary pkgs that are not registered in the system */
+	register_all_installed_packages();
+}
+
+/* Give syslogd a kick after everything else has been initialized, otherwise it can occasionally
+   fail to route syslog messages properly on both IPv4 and IPv6 */
+system_sshguard_stop();
+system_syslogd_start();
+
+/* done */
+$g['booting'] = false;
+@unlink("{$g['varrun_path']}/booting");
+
+/* re-enable CARP */
+enable_carp();
+
+/* If there are ipsec dynamic hosts try again to reload the tunnels as rc.newipsecdns does */
+if ($ipsec_dynamic_hosts) {
+	echo gettext("Configuring IPsec VPN for dynamic hosts... ");
+	ipsec_configure();
+
+	/* restart dpinger if PH1 remote gateway == fqdn and PH2 mode == VTI
+	 * see https://redmine.pfsense.org/issues/12763 */
+	foreach (config_get_path('ipsec/phase1', []) as $p1) {
+		if (!isset($p1['mobile']) && !isset($p1['disabled']) && is_fqdn($p1['remote-gateway'])) {
+			foreach (config_get_path('ipsec/phase2', []) as $p2) {
+				if (!isset($p2['disabled']) && ($p2['mode'] == 'vti')) {
+					setup_gateways_monitor();
+					break 2;
+				}
+			}
+		}
+	}
+
+	echo gettext("done") . "\n";
+}
+if ($ipsec_dynamic_hosts || !empty($filterdns)) {
+	echo gettext("Configuring filter for dynamic IPsec VPN hosts... ");
+	filter_configure();
+	echo gettext("done") . "\n";
+}
+
+/* Dynamically-configured system aliases may only be ready after the
+ * earlier filter reload calls. Hence alias issues with ruleset
+ * generation will only trigger alerts once the system has finished
+ * booting. Now that bootup is complete, reload the filter to alert of
+ * any alias issues. */
+filter_configure_sync();
+
+led_normalize();
+
+notify_all_remote("Bootup complete");
+?>

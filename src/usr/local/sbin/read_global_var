@@ -1,0 +1,51 @@
+#!/usr/local/bin/php -d display_startup_errors=0
+<?php
+/*
+ * read_global_var
+ *
+ * part of FreeSense (https://www.pfsense.org)
+ * Copyright (c) 2015-2016 Electric Sheep Fencing
+ * Copyright (c) 2015-2026 Rubicon Communications, LLC (Netgate)
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+if (empty(ini_get("date.timezone"))) {
+	ini_set("date.timezone", "Etc/UTC");
+}
+
+require_once("/etc/inc/globals.inc");
+
+global $g;
+
+if (!isset($argv[1]) || empty($argv[1])) {
+	exit;
+}
+
+if (isset($g[$argv[1]])) {
+	if (is_bool($g[$argv[1]])) {
+		if ($g[$argv[1]] == true) {
+			echo "true\n";
+		} else {
+			echo "false\n";
+		}
+	} else {
+		echo $g[$argv[1]] . "\n";
+	}
+} else if (isset($argv[2]) && !empty($argv[2])) {
+	// Print default value
+	echo "$argv[2]\n";
+}
+
+?>

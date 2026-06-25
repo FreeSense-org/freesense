@@ -1,0 +1,464 @@
+<?php
+/*
+ * status_openvpn.php
+ *
+ * part of FreeSense (https://www.pfsense.org)
+ * Copyright (c) 2004-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2008 Shrew Soft Inc.
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+##|+PRIV
+##|*IDENT=page-status-openvpn
+##|*NAME=Status: OpenVPN
+##|*DESCR=Allow access to the 'Status: OpenVPN' page.
+##|*MATCH=status_openvpn.php*
+##|-PRIV
+
+$pgtitle = array(gettext("Status"), gettext("OpenVPN"));
+$shortcut_section = "openvpn";
+
+require_once("guiconfig.inc");
+require_once("openvpn.inc");
+require_once("shortcuts.inc");
+require_once("service-utils.inc");
+
+$servers = openvpn_get_active_servers();
+$sk_servers = openvpn_get_active_servers("p2p");
+$clients = openvpn_get_active_clients();
+
+/* Handle AJAX */
+if ($_POST['action']) {
+	if ($_POST['action'] == "kill") {
+		$port      = $_POST['port'];
+		$remipp    = $_POST['remipp'];
+		$client_id = $_POST['client_id'];
+		$error     = false;
+
+		/* Validate remote IP address and port. */
+		if (!is_ipaddrwithport($remipp)) {
+			$error = true;
+		}
+		/* Validate submitted server ID */
+		$found_server = false;
+		foreach ($servers as $server) {
+			if ($port == $server['mgmt']) {
+				$found_server = true;
+			} else {
+				continue;
+			}
+		}
+
+		if (!$error && $found_server) {
+			$retval = openvpn_kill_client($port, $remipp, $client_id);
+			echo htmlentities("|{$port}|{$remipp}|{$retval}|");
+		} else {
+			echo gettext("invalid input");
+		}
+		exit;
+	}
+}
+if ($_POST['action']) {
+	if (($_POST['action'] == "showrule") && is_numeric($_POST['vpnid']) &&
+	    !preg_match("/[^a-zA-Z0-9\.\-_]/", $_POST['username']) && is_port($_POST['port'])) {
+		$rulesfile = "{$g['tmp_path']}/ovpn_ovpns{$_POST['vpnid']}_{$_POST['username']}_{$_POST['port']}.rules";
+		if (file_exists($rulesfile)) {
+			$rule_text = base64_encode(file_get_contents($rulesfile));
+			echo $rule_text;
+		}
+		exit;
+	}
+}
+
+include("head.inc"); ?>
+
+<form action="status_openvpn.php" method="get" name="iform">
+<script type="text/javascript">
+//<![CDATA[
+	function killClient(mport, remipp, client_id) {
+		if (client_id === '') {
+			$('a[id="i:' + mport + ":" + remipp + '"]').first().children('i').removeClass().addClass('fa-solid fa-cog fa-spin text-danger');
+		} else {
+			$('a[id="i:' + mport + ":" + remipp + '"]').last().children('i').removeClass().addClass('fa-solid fa-cog fa-spin text-danger');
+		}
+
+		$.ajax(
+			"<?=$_SERVER['SCRIPT_NAME'];?>",
+			{
+				type: "post",
+				data: {
+					action:           "kill",
+					port:		  mport,
+					remipp:		  remipp,
+					client_id:	  client_id
+				},
+				complete: killComplete
+			}
+		);
+	}
+
+	function killComplete(req) {
+		var values = req.responseText.split("|");
+		if (values[3] != "0") {
+	//		alert('<?=gettext("An error occurred.");?>' + ' (' + values[3] + ')');
+			return;
+		}
+
+		$('tr[id="r:' + values[1] + ":" + values[2] + '"]').each(
+			function(index,row) { $(row).fadeOut(1000); }
+		);
+	}
+
+	function showRuleContents(vpnid, username, port) {
+			$('#rulesviewer_text').text("...Loading...");
+			$('#rulesviewer').modal('show');
+
+			$.ajax(
+				"<?=$_SERVER['SCRIPT_NAME'];?>",
+				{
+					type: 'post',
+					data: {
+						vpnid:           vpnid,
+						username:     username,
+						port:             port,
+						action:      'showrule'
+					},
+					complete: ruleComplete
+				}
+			);
+	}
+
+	function ruleComplete(req) {
+			$('#rulesviewer_text').text(atob(req.responseText));
+			$('#rulesviewer_text').attr('readonly', true);
+	}
+
+//]]>
+</script>
+
+<?php
+	$i = 0;
+	foreach ($servers as $server):
+?>
+
+<div class="panel panel-default">
+		<div class="panel-heading"><h2 class="panel-title">ovpns<?= htmlspecialchars($server['vpnid']) ?>: <?=htmlspecialchars($server['name']);?> / <?=gettext('Client Connections') . ": " . ($server['conns'][0]['common_name'] != '[error]' ? sizeof($server['conns']) : '0');?></h2></div>
+		<div class="panel-body table-responsive">
+			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+				<thead>
+					<tr>
+						<th><?=gettext("Common Name")?></th>
+						<th><?=gettext("Real Address")?></th>
+						<th><?=gettext("Virtual Address"); ?></th>
+						<th><?=gettext("Last Change"); ?></th>
+						<th><?=gettext("Bytes Sent")?></th>
+						<th><?=gettext("Bytes Received")?></th>
+						<th><?=gettext("Cipher")?></th>
+						<th><?=gettext("Actions")?></th>
+					</tr>
+				</thead>
+				<tbody>
+
+					<?php
+							foreach ($server['conns'] as $conn):
+								$remote_port = substr($conn['remote_host'], strpos($conn['remote_host'], ':') + 1);
+								$rulesfile = "{$g['tmp_path']}/ovpn_ovpns{$server['vpnid']}_{$conn['user_name']}_{$remote_port}.rules";
+					?>
+					<tr id="<?php echo htmlspecialchars("r:{$server['mgmt']}:{$conn['remote_host']}"); ?>">
+						<td>
+							<?=htmlspecialchars($conn['common_name']);?>
+					<?php if (!empty($conn['common_name']) && !empty($conn['user_name']) && ($conn['user_name'] != "UNDEF")): ?>
+							<br />
+					<?php endif; ?>
+					<?php if (!empty($conn['user_name']) && ($conn['user_name'] != "UNDEF")): ?>
+							<?=htmlspecialchars($conn['user_name']);?>
+					<?php endif; ?>
+						</td>
+						<td><?=htmlspecialchars($conn['remote_host']);?></td>
+						<td>
+							<?=htmlspecialchars($conn['virtual_addr']);?>
+					<?php if (!empty($conn['virtual_addr']) && !empty($conn['virtual_addr6'])): ?>
+							<br />
+					<?php endif; ?>
+							<?=htmlspecialchars($conn['virtual_addr6']);?>
+						</td>
+						<td><?=$conn['connect_time'];?></td>
+						<td data-value="<?=htmlspecialchars(trim($conn['bytes_sent']))?>"><?=htmlspecialchars(format_bytes($conn['bytes_sent']));?></td>
+						<td data-value="<?=htmlspecialchars(trim($conn['bytes_recv']))?>"><?=htmlspecialchars(format_bytes($conn['bytes_recv']));?></td>
+						<td data-value="<?=htmlspecialchars(trim($conn['cipher']))?>"><?=htmlspecialchars($conn['cipher']);?></td>
+						<td>
+
+					<?php if (file_exists($rulesfile)): ?>
+							<a
+							onclick='showRuleContents(<?=json_encode(htmlspecialchars($server['vpnid']));?>, <?=json_encode(htmlspecialchars($conn['user_name']));?>, <?=json_encode(htmlspecialchars($remote_port));?>);' style="cursor:pointer;"
+							   title="<?php echo gettext("Show RADIUS ACL generated ruleset"); ?>">
+							<i class="fa-solid fa-info"></i>
+							</a>&nbsp;
+					<?php endif; ?>
+							<a
+							   onclick='killClient(<?=json_encode(htmlspecialchars($server['mgmt']));?>, <?=json_encode(htmlspecialchars($conn['remote_host']));?>, "");' style="cursor:pointer;"
+							   id="<?php echo htmlspecialchars("i:{$server['mgmt']}:{$conn['remote_host']}"); ?>"
+							   title="<?php echo sprintf(gettext("Kill client connection from %s"), htmlspecialchars($conn['remote_host'])); ?>">
+							<i class="fa-solid fa-times"></i>
+							</a>&nbsp;
+							<a
+							   onclick='killClient(<?=json_encode(htmlspecialchars($server['mgmt']));?>, <?=json_encode(htmlspecialchars($conn['remote_host']));?>, <?=json_encode(htmlspecialchars($conn['client_id']));?>);' style="cursor:pointer;"
+							   id="<?php echo htmlspecialchars("i:{$server['mgmt']}:{$conn['remote_host']}"); ?>"
+							   title="<?php echo sprintf(gettext("Halt client connection from %s"), htmlspecialchars($conn['remote_host'])); ?>">
+							<i class="fa-solid fa-times-circle text-danger"></i>
+							</a>
+						</td>
+					</tr>
+					<?php
+							endforeach;
+					?>
+				</tbody>
+				<tfoot>
+					<tr>
+						<td colspan="7">
+						</td>
+						<td colspan="1">
+							<?php $ssvc = find_service_by_openvpn_vpnid($server['vpnid']); ?>
+							<?= get_service_status_icon($ssvc, false, true, false, "service_state"); ?>
+							<?= get_service_control_links($ssvc); ?>
+						</td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+</div>
+<?php
+		if (is_array($server['routes']) && count($server['routes'])):
+?>
+<div id="shroutebut-<?= $i ?>">
+	<button type="button" class="btn btn-info" onClick="show_routes('tabroute-<?= $i ?>','shroutebut-<?= $i ?>')" value="<?php echo gettext("Show Routing Table"); ?>">
+		<i class="fa-solid fa-plus-circle icon-embed-btn"></i>
+		<?php echo gettext("Show Routing Table"); ?>
+	</button>
+	- <?= gettext("Display OpenVPN's internal routing table for this server.") ?>
+	<br /><br />
+</div>
+<div class="panel panel-default" id="tabroute-<?=$i?>" style="display: none;">
+		<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($server['name']);?> <?=gettext("Routing Table"); ?></h2></div>
+		<div class="panel-body table-responsive">
+			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+				<thead>
+					<tr>
+						<th><?=gettext("Common Name"); ?></th>
+						<th><?=gettext("Real Address"); ?></th>
+						<th><?=gettext("Target Network"); ?></th>
+						<th><?=gettext("Last Used"); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+
+<?php
+			foreach ($server['routes'] as $conn):
+?>
+					<tr id="<?php echo htmlspecialchars("r:{$server['mgmt']}:{$conn['remote_host']}"); ?>">
+						<td><?=htmlspecialchars($conn['common_name']);?></td>
+						<td><?=htmlspecialchars($conn['remote_host']);?></td>
+						<td><?=htmlspecialchars($conn['virtual_addr']);?></td>
+						<td><?=htmlspecialchars($conn['last_time']);?></td>
+					</tr>
+<?php
+			endforeach;
+?>
+				</tbody>
+				<tfoot>
+					<tr>
+						<td colspan="4"><?= gettext("An IP address followed by C indicates a host currently connected through the VPN.") ?></td>
+					</tr>
+				</tfoot>
+			</table>
+		</div>
+</div>
+<?php
+		endif;
+?>
+<br />
+<?php
+		$i++;
+	endforeach;
+?>
+<br />
+
+<?php
+	if (!empty($sk_servers)) {
+?>
+<div class="panel panel-default">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Peer to Peer Server Instance Statistics"); ?></h2></div>
+		<div class="panel-body table-responsive">
+			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+				<thead>
+					<tr>
+						<th><?=gettext("Name"); ?></th>
+						<th><?=gettext("Status"); ?></th>
+						<th><?=gettext("Last Change"); ?></th>
+						<th><?=gettext("Virtual Address"); ?></th>
+						<th><?=gettext("Remote Host"); ?></th>
+						<th><?=gettext("Bytes Sent"); ?></th>
+						<th><?=gettext("Bytes Received"); ?></th>
+						<th><?=gettext("Service"); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+
+<?php
+		foreach ($sk_servers as $sk_server):
+?>
+					<tr id="<?php echo htmlspecialchars("r:{$sk_server['port']}:{$sk_server['vpnid']}"); ?>">
+						<td>
+							ovpns<?=htmlspecialchars($sk_server['vpnid']);?><br/>
+							<?=htmlspecialchars($sk_server['name']);?>
+						</td>
+						<td><?=htmlspecialchars($sk_server['status']);?></td>
+						<td><?=htmlspecialchars($sk_server['connect_time']);?></td>
+						<td>
+							<?=htmlspecialchars($sk_server['virtual_addr']);?>
+					<?php if (!empty($sk_server['virtual_addr']) && !empty($sk_server['virtual_addr6'])): ?>
+							<br />
+					<?php endif; ?>
+							<?=htmlspecialchars($sk_server['virtual_addr6']);?>
+						</td>
+						<td><?=htmlspecialchars($sk_server['remote_host']);?></td>
+						<td data-value="<?=htmlspecialchars(trim($sk_server['bytes_sent']))?>"><?=htmlspecialchars(format_bytes($sk_server['bytes_sent']));?></td>
+						<td data-value="<?=htmlspecialchars(trim($sk_server['bytes_recv']))?>"><?=htmlspecialchars(format_bytes($sk_server['bytes_recv']));?></td>
+						<td>
+							<?php $ssvc = find_service_by_openvpn_vpnid($sk_server['vpnid']); ?>
+							<?= get_service_status_icon($ssvc, false, true); ?>
+							<?= get_service_control_links($ssvc, true); ?>
+						</td>
+					</tr>
+<?php
+		endforeach;
+?>
+				</tbody>
+			</table>
+		</div>
+</div>
+
+<?php
+	}
+?>
+<br />
+<?php
+	if (!empty($clients)) {
+?>
+<div class="panel panel-default">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Client Instance Statistics"); ?></h2></div>
+		<div class="panel-body table-responsive">
+			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+				<thead>
+					<tr>
+						<th><?=gettext("Name"); ?></th>
+						<th><?=gettext("Status"); ?></th>
+						<th><?=gettext("Last Change"); ?></th>
+						<th><?=gettext("Local Address"); ?></th>
+						<th><?=gettext("Virtual Address"); ?></th>
+						<th><?=gettext("Remote Host"); ?></th>
+						<th><?=gettext("Bytes Sent"); ?></th>
+						<th><?=gettext("Bytes Received"); ?></th>
+						<th><?=gettext("Service"); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+
+<?php
+		foreach ($clients as $client):
+?>
+					<tr id="<?php echo htmlspecialchars("r:{$client['port']}:{$client['vpnid']}"); ?>">
+						<td>
+							ovpnc<?= htmlspecialchars($client['vpnid']) ?><br/>
+							<?=htmlspecialchars($client['name']);?>
+						</td>
+						<td><?=htmlspecialchars($client['status']);?></td>
+						<td><?=htmlspecialchars($client['connect_time']);?></td>
+						<td>
+					<?php if (empty($client['local_host']) && empty($client['local_port'])): ?>
+							(pending)
+					<?php else: ?>
+							<?=htmlspecialchars($client['local_host']);?>:<?=htmlspecialchars($client['local_port']);?>
+					<?php endif; ?>
+						</td>
+						<td>
+							<?=htmlspecialchars($client['virtual_addr']);?>
+					<?php if (!empty($client['virtual_addr']) && !empty($client['virtual_addr6'])): ?>
+							<br />
+					<?php endif; ?>
+							<?=htmlspecialchars($client['virtual_addr6']);?>
+						</td>
+						<td>
+					<?php if (empty($client['remote_host']) && empty($client['remote_port'])): ?>
+							(pending)
+					<?php else: ?>
+							<?=htmlspecialchars($client['remote_host']);?>:<?=htmlspecialchars($client['remote_port']);?>
+					<?php endif; ?>
+						</td>
+						<td data-value="<?=htmlspecialchars(trim($client['bytes_sent']))?>"><?=htmlspecialchars(format_bytes($client['bytes_sent']));?></td>
+						<td data-value="<?=htmlspecialchars(trim($client['bytes_recv']))?>"><?=htmlspecialchars(format_bytes($client['bytes_recv']));?></td>
+						<td>
+							<?php $ssvc = find_service_by_openvpn_vpnid($client['vpnid']); ?>
+							<?= get_service_status_icon($ssvc, false, true); ?>
+							<?= get_service_control_links($ssvc, true); ?>
+						</td>
+					</tr>
+<?php
+		endforeach;
+?>
+				</tbody>
+			</table>
+		</div>
+	</div>
+
+<?php
+}
+
+if ($DisplayNote) {
+ 	print_info_box(gettext("If there are custom options that override the management features of OpenVPN on a client or server, they will cause that OpenVPN instance to not work correctly with this status page."));
+}
+
+if ((empty($clients)) && (empty($servers)) && (empty($sk_servers))) {
+	print_info_box(gettext("No OpenVPN instances defined."));
+}
+
+// Create a Modal object to display RADIUS ACL generated ruleset
+$form = new Form(FALSE);
+$modal = new Modal('RADIUS ACL Generated Ruleset', 'rulesviewer', 'large', 'Close');
+$modal->addInput(new Form_Textarea (
+	'rulesviewer_text',
+	null,
+	'...Loading...'
+))->removeClass('form-control')->addClass('row-fluid col-sm-11')->setAttribute('rows', '10')->setAttribute('wrap', 'soft');
+$form->add($modal);
+print($form);
+?>
+</form>
+
+<script type="text/javascript">
+//<![CDATA[
+
+function show_routes(id, buttonid) {
+	document.getElementById(buttonid).innerHTML='';
+	aodiv = document.getElementById(id);
+	aodiv.style.display = "block";
+}
+
+//]]>
+</script>
+
+<?php include("foot.inc"); ?>

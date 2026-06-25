@@ -1,0 +1,36 @@
+/*
+ * restartallwans
+ *
+ * This script looks for all WAN interfaces by checking which of them has gateways
+ * and then it simply disable / enable them
+ * useful for testing configuration
+ *
+ */
+
+config_read_file(true);
+
+refresh_gateways(); // make sure we're working on a current gateway list
+$a_gateways = get_gateways(GW_CACHE_INDEXED);
+$names_restart = array_unique(array_column($a_gateways, 'friendlyiface'));
+
+foreach ($names_restart as $id) {
+	interface_bring_down($id, true, config_get_path("interfaces/{$id}"));
+	if (config_path_enabled("dhcpd/{$id}") || 
+	    config_path_enabled("dhcpdv6/{$id}")) {
+		services_dhcpd_configure();
+	}
+	printf("Interface %s is disabled\n", $id);
+}
+
+sleep (1);
+
+foreach ($names_restart as $id) {
+	interface_bring_down($id, false, config_get_path("interfaces/{$id}"));
+	interface_configure($id, true);
+	if (config_get_path("interfaces/{$id}/ipaddrv6") == 'track6') {
+		$wancfg = config_get_path("interfaces/{$id}");
+		interface_track6_configure($id, $wancfg, true);
+	}
+	printf("Interface %s is enabled\n", $id);
+}
+echo "\n";

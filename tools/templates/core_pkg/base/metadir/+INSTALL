@@ -1,0 +1,56 @@
+#!/bin/sh
+
+if [ "${2}" != "POST-INSTALL" ]; then
+	exit 0
+fi
+
+if [ ! -f ${PKG_ROOTDIR}/usr/local/share/%%PRODUCT_NAME%%/base.txz ]; then
+	echo "===> ERROR: base tarball not found!"
+	exit 1
+fi
+
+echo "===> Removing schg flag from base files"
+
+# Cleanup schg flags
+chflags -R noschg \
+	${PKG_ROOTDIR}/boot \
+	${PKG_ROOTDIR}/bin \
+	${PKG_ROOTDIR}/sbin \
+	${PKG_ROOTDIR}/usr/bin \
+	${PKG_ROOTDIR}/usr/sbin \
+	${PKG_ROOTDIR}/libexec \
+	${PKG_ROOTDIR}/lib \
+	${PKG_ROOTDIR}/usr/lib >/dev/null 2>&1
+
+echo "===> Extracting new base tarball"
+
+# Install new base files
+tar -C ${PKG_ROOTDIR}/ --exclude ./var/empty -xJPUf \
+	${PKG_ROOTDIR}/usr/local/share/%%PRODUCT_NAME%%/base.txz
+
+echo "===> Removing static obsoleted files"
+
+# Set IFS to \n to deal with filenames containing spaces
+oIFS=${IFS}
+IFS="
+"
+
+# Process obsolete files
+if [ -f ${PKG_ROOTDIR}/etc/%%PRODUCT_NAME%%.obsoletedfiles ]; then
+	for f in $(cat ${PKG_ROOTDIR}/etc/%%PRODUCT_NAME%%.obsoletedfiles); do
+		if [ -n "${f}" -a -d "${PKG_ROOTDIR}${f}" ]; then
+			chflags -R noschg "${PKG_ROOTDIR}${f}"
+			rm -rf "${PKG_ROOTDIR}${f}"
+		elif [ -n "${f}" -a -f "${PKG_ROOTDIR}${f}" ]; then
+			chflags noschg "${PKG_ROOTDIR}${f}"
+			rm -f "${PKG_ROOTDIR}${f}"
+		elif [ -n "${f}" -a -L "${PKG_ROOTDIR}${f}" ]; then
+			rm -f "${PKG_ROOTDIR}${f}"
+		fi
+	done
+fi
+
+# Restore IFS
+IFS=${oIFS}
+
+exit 0
