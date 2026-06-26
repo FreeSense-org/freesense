@@ -106,6 +106,15 @@ if [ -f "${_trusted}" ]; then
 	fi
 fi
 
+# ---- 4b. stage the source distfile the -system port consumes ----
+# security/<PRODUCT>-system has DISTFILES=freesense-src.tar.gz (our rewire); create it from
+# the just-cloned SRC_DIR. Without this the -system fetch fails -> core port skipped -> no
+# signed repo. (sync-freesense.sh excludes tmp/.git so the distfile stays ~source-sized.)
+log "staging source distfile (freesense-src.tar.gz) for the -system port"
+SRC_DIR="${SRC_DIR}" DISTFILES_DIR=/usr/ports/distfiles sh "${SRC_DIR}/tools/ci/sync-freesense.sh" \
+	|| { _p=$(dirname "${SRC_DIR}"); _n=$(basename "${SRC_DIR}"); mkdir -p /usr/ports/distfiles; \
+	     tar czf /usr/ports/distfiles/freesense-src.tar.gz -C "${_p}" --exclude="${_n}/.git" --exclude="${_n}/tmp" --exclude="${_n}/logs" "${_n}"; }
+
 # ---- 5. clone the ports overlay ----
 log "cloning ports overlay -> ${OVERLAY_DIR}"
 if [ -d "${OVERLAY_DIR}/.git" ]; then
