@@ -19,10 +19,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Name of the product you are building, beware that only Netgate is legally
-# authorized to build and distribute FreeSense® software
-export PRODUCT_NAME="nonSense"
-export PRODUCT_URL="https://PRODUCT_URL/"
+# Name of the product you are building. FreeSense is an Apache-2.0 community
+# rebuild/rebrand of pfSense CE; build it under whatever name you like, but only
+# repos signed with the FreeSense key (fingerprint shipped in the OS) are "official".
+export PRODUCT_NAME="FreeSense"
+export PRODUCT_NAME_SUFFIX="-CE"
+export PRODUCT_URL="https://github.com/clausdk/FreeSense"
+export PRODUCT_EMAIL="dev@freesense.local"
+export FREEBSD_BRANCH="devel-main"
+export POUDRIERE_PORTS_GIT_BRANCH="devel"
+
+# Repo signing: sign.sh shells out to openssl dgst -sign with this private key.
+# In CI the key comes from the FREESENSE_REPO_SIGNING_KEY secret (written to a
+# temp file); on the build VM it lives at /root/sign/repo.key.
+export PKG_REPO_SIGNING_COMMAND="/root/sign/sign.sh /root/sign/repo.key"
 
 # Define FreeBSD repository, branch and specific commit
 #export FREEBSD_REPO_BASE=https://github.com/freebsd/freebsd.git
@@ -43,9 +53,13 @@ export PRODUCT_URL="https://PRODUCT_URL/"
 #export PKG_RSYNC_SSH_PORT="22"
 #export PKG_RSYNC_DESTDIR="/usr/local/www/beta/packages"
 
-# pkg repo URL
-#export PKG_REPO_SERVER_DEVEL="pkg+http://packages-beta.netgate.com/packages"
-#export PKG_REPO_SERVER_RELEASE="pkg+http://packages.netgate.com"
+# pkg repo URL — the self-hosted FreeSense repo (Cloudflare R2 static HTTPS).
+# Both DEVEL and RELEASE point at the same repo; a -DEVELOPMENT build resolves the
+# installed box's repo conf from _DEVEL (builder_common.sh gates on _IS_RELEASE).
+# Use the 'pkg+' prefix with http-mirror semantics (mirror_type=http); the default
+# srv mirror type needs DNS SRV records that R2 does not serve.
+export PKG_REPO_SERVER_DEVEL="pkg+https://pkg.freesense.org"
+export PKG_REPO_SERVER_RELEASE="pkg+https://pkg.freesense.org"
 #export PKG_REPO_SERVER_STAGING="pkg+http://release-staging.netgate.com/ce/packages"
 
 # Branch to replace pkg.conf template, defaults to $GIT_REPO_BRANCH_OR_TAG
