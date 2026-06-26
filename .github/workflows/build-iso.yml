@@ -70,16 +70,29 @@ jobs:
         id: iso
         run: |
           ISO=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "ls -t /usr/obj*/FreeSense/installer/*.iso /root/freesense-src/tmp/*/installer/*.iso 2>/dev/null | head -1" || true)
+            "ls -t /root/freesense-src/tmp/FreeSense/installer/*.iso.gz /root/freesense-src/tmp/FreeSense/installer/*.iso 2>/dev/null | head -1" || true)
           if [ -z "$ISO" ]; then
-            # Fall back: search common scratch roots for the freshest ISO.
             ISO=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-              "find /usr /root -name '*.iso' -path '*installer*' 2>/dev/null | xargs ls -t 2>/dev/null | head -1" || true)
+              "find /root /usr -path '*installer*' \\( -name '*.iso.gz' -o -name '*.iso' \\) 2>/dev/null | xargs ls -t 2>/dev/null | head -1" || true)
           fi
           [ -n "$ISO" ] || { echo "::error::no ISO produced"; exit 1; }
           SIZE=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" "ls -lh '$ISO' | awk '{print \$5}'")
           echo "Built ISO: $ISO ($SIZE)"
           echo "iso_path=$ISO" >> "$GITHUB_OUTPUT"
+          echo "iso_name=$(basename "$ISO")" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch ISO to the runner
+        run: |
+          scp -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes \
+            "${VM}:${{ steps.iso.outputs.iso_path }}" "./${{ steps.iso.outputs.iso_name }}"
+          ls -lh "./${{ steps.iso.outputs.iso_name }}"
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: freesense-iso
+          path: ${{ steps.iso.outputs.iso_name }}
+          retention-days: 14
 
       - name: Publish to R2 (optional)
         if: ${{ inputs.publish_after }}
