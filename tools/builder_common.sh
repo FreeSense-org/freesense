@@ -1043,6 +1043,19 @@ setup_pkg_repo() {
 		local _pkg_repo_branch_release=${PKG_REPO_BRANCH_RELEASE}
 	fi
 
+	# FreeSense: bake in %%OSVERSION%% and %%VERSION%% here. pfSense's repo conf leaves these
+	# as placeholders for its PATCHED pkg-static to resolve at runtime; we use UPSTREAM FreeBSD
+	# pkg, which fetches them LITERALLY -> the box requests FreeSense_%%OSVERSION%%_amd64-... and
+	# 404s. Resolve them now to match the FreeSense-repo Makefile: a -DEVELOPMENT build uses
+	# OSVERSION=master + VERSION=<prefix>devel; a release build uses the release branch for both.
+	if [ -n "${_IS_RELEASE}" ]; then
+		local _pkg_repo_osversion="${_pkg_repo_branch_release}"
+		local _pkg_repo_version="${REPO_PATH_PREFIX}${_pkg_repo_branch_release}"
+	else
+		local _pkg_repo_osversion="master"
+		local _pkg_repo_version="${REPO_PATH_PREFIX}${_pkg_repo_branch_devel}"
+	fi
+
 	mkdir -p $(dirname ${_target}) >/dev/null 2>&1
 
 	sed \
@@ -1056,6 +1069,8 @@ setup_pkg_repo() {
 		-e "s/%%PRODUCT_NAME%%/${PRODUCT_NAME}/g" \
 		-e "s/%%REPO_BRANCH_PREFIX%%/${REPO_PATH_PREFIX}/g" \
 		-e "s/%%SIGNATURE_TYPE%%/${_signature_type}/" \
+		-e "s/%%OSVERSION%%/${_pkg_repo_osversion}/g" \
+		-e "s/%%VERSION%%/${_pkg_repo_version}/g" \
 		${_template} \
 		> ${_target}
 
