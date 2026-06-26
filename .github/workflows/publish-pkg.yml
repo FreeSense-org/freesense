@@ -1,0 +1,80 @@
+name: Publish pkg repo to R2
+
+# Publishes the signed poudriere package repo to pkg.freesense.org (Cloudflare R2).
+# Runs on the self-hosted runner (Debian host); the repo lives in the FreeBSD builder VM,
+# so we SSH into the VM and run rclone there, passing R2 creds via env (no rclone.conf).
+#
+# Manual trigger only (self-hosted runner = code exec on the host; never expose to PRs).
+on:
+  workflow_dispatch:
+    inputs:
+      repo_path_segment:
+        description: "Bucket path segment (must match the box's FreeSense-repo.conf URL tail, e.g. FreeSense_v2_9_0_amd64-FreeSense_v2_9_0). Leave blank to auto-detect from the poudriere meta."
+        required: false
+        default: ""
+
+concurrency:
+  group: publish-pkg
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, freesense-publish]
+    env:
+      VM: root@192.168.122.155
+      VMKEY: /home/runner/.ssh/vmkey
+      R2_BUCKET: freesense-pkg
+      # poudriere repo on the VM (signed by the build)
+      POUDRIERE_REPO: /usr/local/poudriere/data/packages/FreeSense_main_amd64-FreeSense_devel
+    steps:
+      - name: Sanity — reach the builder VM
+        run: |
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "test -f ${POUDRIERE_REPO}/.latest/packagesite.pkg && echo 'repo present + signed' || { echo 'ERROR: no signed packagesite.pkg — build/sign the repo first'; exit 1; }"
+
+      - name: Ensure rclone on the VM
+        run: |
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "which rclone >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y rclone >/dev/null 2>&1; rclone version | head -1"
+
+      - name: Determine repo path segment
+        id: seg
+        run: |
+          SEG="${{ github.event.inputs.repo_path_segment }}"
+          if [ -z "$SEG" ]; then
+            # derive from the installed-box repo conf tail the build generated
+            SEG=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+              "grep -oE 'FreeSense_[^/\"]+-FreeSense_[^/\"]+' /usr/local/poudriere/ports/FreeSense_devel/sysutils/FreeSense-repo/files/FreeSense-repo.conf 2>/dev/null | head -1")
+          fi
+          echo "Using repo path segment: $SEG"
+          echo "segment=$SEG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to R2 (rclone sync)
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          RCLONE_CONFIG_R2_ACL: private
+        run: |
+          SEG="${{ steps.seg.outputs.segment }}"
+          [ -n "$SEG" ] || { echo "ERROR: empty repo path segment"; exit 1; }
+          DEST="R2:${R2_BUCKET}/${SEG}"
+          echo ">>> Publishing ${POUDRIERE_REPO}/  ->  ${DEST}"
+          # Pass the rclone R2 env through to the VM and sync the resolved-symlink repo.
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes \
+            -o SendEnv=RCLONE_CONFIG_R2_TYPE -o SendEnv=RCLONE_CONFIG_R2_PROVIDER \
+            -o SendEnv=RCLONE_CONFIG_R2_ACCESS_KEY_ID -o SendEnv=RCLONE_CONFIG_R2_SECRET_ACCESS_KEY \
+            -o SendEnv=RCLONE_CONFIG_R2_ENDPOINT -o SendEnv=RCLONE_CONFIG_R2_ACL \
+            "$VM" \
+            "env \
+               RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+               RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+               RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+               RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+               RCLONE_CONFIG_R2_ENDPOINT='$RCLONE_CONFIG_R2_ENDPOINT' \
+               RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+               rclone sync --copy-links --checksum --fast-list --transfers 16 \
+                 '${POUDRIERE_REPO}/.latest/' '${DEST}/'"
+          echo ">>> Done. Smoke test from a FreeSense box: pkg update -f && pkg search -q FreeSense"
