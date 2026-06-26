@@ -36,7 +36,12 @@ jobs:
         run: |
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "cd ${SRC} && git fetch --quiet origin && git reset --hard origin/main && \
-             echo 'HEAD now:' && git log -1 --oneline"
+             echo 'freesense-src HEAD:' && git log -1 --oneline"
+          # The ports overlay (freesense-ports) is copied onto the poudriere tree by
+          # freesense-ports-overlay.sh but never pulled — refresh it here too.
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "cd /root/freesense-ports && git fetch --quiet origin && git reset --hard origin/main && \
+             echo 'freesense-ports HEAD:' && git log -1 --oneline"
 
       - name: Launch build (detached)
         run: |

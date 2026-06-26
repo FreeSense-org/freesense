@@ -78,10 +78,11 @@ export FREEBSD_REPO_BASE="https://github.com/FreeSense-org/freebsd-src.git"
 # pkg repo URL — the self-hosted FreeSense repo (Cloudflare R2 static HTTPS).
 # Both DEVEL and RELEASE point at the same repo; a -DEVELOPMENT build resolves the
 # installed box's repo conf from _DEVEL (builder_common.sh gates on _IS_RELEASE).
-# Use the 'pkg+' prefix with http-mirror semantics (mirror_type=http); the default
-# srv mirror type needs DNS SRV records that R2 does not serve.
-export PKG_REPO_SERVER_DEVEL="pkg+https://pkg.freesense.org"
-export PKG_REPO_SERVER_RELEASE="pkg+https://pkg.freesense.org"
+# Plain https:// (NO 'pkg+' prefix): R2 is a single flat static bucket, so pkg must
+# fetch <url>/meta.conf directly. The 'pkg+' scheme triggers mirror resolution (SRV
+# DNS lookup) which R2 does not serve -> "pkg+:// implies SRV mirror type" errors.
+export PKG_REPO_SERVER_DEVEL="https://pkg.freesense.org"
+export PKG_REPO_SERVER_RELEASE="https://pkg.freesense.org"
 #export PKG_REPO_SERVER_STAGING="pkg+http://release-staging.netgate.com/ce/packages"
 
 # Branch to replace pkg.conf template, defaults to $GIT_REPO_BRANCH_OR_TAG

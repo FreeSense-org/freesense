@@ -1020,10 +1020,10 @@ setup_pkg_repo() {
 	local _target_arch="${4}"
 	local _staging="${5}"
 	local _pkg_conf="${6}"
-	# FreeSense: 'http' not 'srv'. srv makes pkg do a DNS SRV lookup for mirrors, which
-	# Cloudflare R2 (flat static HTTPS at pkg.freesense.org) does not answer. http fetches
-	# the repo directly from the URL.
-	local _mirror_type="http"
+	# FreeSense: 'none' — the repo URL is a plain https:// single static bucket (R2), so pkg
+	# fetches <url>/meta.conf directly with no mirror resolution. (srv would do a failing DNS
+	# SRV lookup; http would treat the URL as a mirror-list. none = use the URL as-is.)
+	local _mirror_type="none"
 	local _signature_type="fingerprints"
 
 	if [ -z "${_template}" -o ! -f "${_template}" ]; then
