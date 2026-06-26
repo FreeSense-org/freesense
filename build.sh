@@ -2,7 +2,7 @@
 #
 # build.sh
 #
-# part of FreeSense (https://www.freesense.org)
+# part of pfSense (https://www.pfsense.org)
 # Copyright (c) 2004-2013 BSD Perimeter
 # Copyright (c) 2013-2016 Electric Sheep Fencing
 # Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -362,6 +362,8 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	clone_to_staging_area
 
 	# Install packages needed for Product
+	. /root/freesense-bootpkg.sh
+	core_pkg_create_repo # FreeSense: finalize before install
 	install_pkg_install_ports
 
 	# Create core repo

@@ -1,0 +1,13 @@
+name: "%%PRODUCT_NAME%%-rc"
+version: "%%VERSION%%"
+origin: "security/%%PRODUCT_NAME%%-rc"
+comment: <<EOD
+%%PRODUCT_NAME%% rc files
+EOD
+maintainer: dev@freesense.local
+prefix: /
+vital: true
+categories [ security,  ]
+licenselogic: single
+licenses: [ APACHE20,  ]
+options: {  }

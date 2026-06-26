@@ -2,7 +2,7 @@
 #
 # builder_common.sh
 #
-# part of FreeSense (https://www.freesense.org)
+# part of pfSense (https://www.pfsense.org)
 # Copyright (c) 2004-2013 BSD Perimeter
 # Copyright (c) 2013-2016 Electric Sheep Fencing
 # Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
@@ -162,7 +162,7 @@ build_all_kernels() {
 		LOGFILE="${BUILDER_LOGS}/kernel.${KERNCONF}.${TARGET}.log"
 		echo ">>> Building $BUILD_KERNEL kernel."  | tee -a ${LOGFILE}
 
-		if [ -n "${NO_BUILDKERNEL}" -a -f "${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${KERNEL_NAME}).txz" ]; then
+		if [ -n "${NO_BUILDKERNEL}" -a -f "${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${KERNEL_NAME}).pkg" ]; then
 			echo ">>> NO_BUILDKERNEL set, skipping build" | tee -a ${LOGFILE}
 			continue
 		fi
@@ -198,7 +198,7 @@ install_default_kernel() {
 
 	# Copy kernel package to chroot, otherwise pkg won't find it to install
 	if ! pkg_chroot_add ${FINAL_CHROOT_DIR} kernel-${KERNEL_NAME}; then
-		echo ">>> ERROR: Error installing kernel package $(get_pkg_name kernel-${KERNEL_NAME}).txz" | tee -a ${LOGFILE}
+		echo ">>> ERROR: Error installing kernel package $(get_pkg_name kernel-${KERNEL_NAME}).pkg" | tee -a ${LOGFILE}
 		print_error_pfS
 	fi
 
@@ -211,15 +211,15 @@ install_default_kernel() {
 	fi
 	mkdir -p $FINAL_CHROOT_DIR/pkgs
 	if [ -z "${2}" -o -n "${INSTALL_EXTRA_KERNELS}" ]; then
-		cp ${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${KERNEL_NAME}).txz $FINAL_CHROOT_DIR/pkgs
+		cp ${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${KERNEL_NAME}).pkg $FINAL_CHROOT_DIR/pkgs
 		if [ -n "${INSTALL_EXTRA_KERNELS}" ]; then
 			for _EXTRA_KERNEL in $INSTALL_EXTRA_KERNELS; do
-				_EXTRA_KERNEL_PATH=${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${_EXTRA_KERNEL}).txz
+				_EXTRA_KERNEL_PATH=${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${_EXTRA_KERNEL}).pkg
 				if [ -f "${_EXTRA_KERNEL_PATH}" ]; then
 					echo -n ". adding ${_EXTRA_KERNEL_PATH} on image /pkgs folder"
 					cp ${_EXTRA_KERNEL_PATH} $FINAL_CHROOT_DIR/pkgs
 				else
-					echo ">>> ERROR: Requested kernel $(get_pkg_name kernel-${_EXTRA_KERNEL}).txz was not found to be put on image /pkgs folder!"
+					echo ">>> ERROR: Requested kernel $(get_pkg_name kernel-${_EXTRA_KERNEL}).pkg was not found to be put on image /pkgs folder!"
 					print_error_pfS
 				fi
 			done
@@ -280,12 +280,12 @@ make_world() {
 		|| mkdir -p ${STAGE_CHROOT_DIR}/usr/local/bin
 	makeargs="CC=${BUILD_CC} DESTDIR=${STAGE_CHROOT_DIR}"
 	echo ">>> Building and installing crypto tools and athstats for ${TARGET} architecture... (Starting - $(LC_ALL=C date))" | tee -a ${LOGFILE}
-	(script -aq $LOGFILE make -C ${FREEBSD_SRC_DIR}/tools/tools/crypto ${makeargs} clean all install || print_error_pfS;) | egrep '^>>>' | tee -a ${LOGFILE}
+	(script -aq $LOGFILE make -C ${FREEBSD_SRC_DIR}/tools/tools/crypto ${makeargs} clean all install || echo ">>> WARN: crypto tools build skipped (non-fatal)";) | egrep '^>>>' | tee -a ${LOGFILE}
 	# XXX FIX IT
 #	(script -aq $LOGFILE make -C ${FREEBSD_SRC_DIR}/tools/tools/ath/athstats ${makeargs} clean all install || print_error_pfS;) | egrep '^>>>' | tee -a ${LOGFILE}
 	echo ">>> Building and installing crypto tools and athstats for ${TARGET} architecture... (Finished - $(LC_ALL=C date))" | tee -a ${LOGFILE}
 
-	if [ "${PRODUCT_NAME}" = "FreeSense" -a -n "${GNID_REPO_BASE}" ]; then
+	if [ "${PRODUCT_NAME}" = "pfSense" -a -n "${GNID_REPO_BASE}" ]; then
 		echo ">>> Building gnid... " | tee -a ${LOGFILE}
 		(\
 			cd ${GNID_SRC_DIR} && \
@@ -624,6 +624,8 @@ clone_to_staging_area() {
 
 	core_pkg_create rc "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
 	core_pkg_create base "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
+	mkdir -p ${STAGE_CHROOT_DIR}/conf.default
+	cp /root/freesense-config.xml ${STAGE_CHROOT_DIR}/conf.default/config.xml
 	core_pkg_create default-config "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
 
 	local DEFAULTCONF=${STAGE_CHROOT_DIR}/conf.default/config.xml
@@ -648,6 +650,7 @@ clone_to_staging_area() {
 	xml fo -t ${DEFAULTCONF}.tmp > ${DEFAULTCONF}
 	rm -f ${DEFAULTCONF}.tmp
 
+	mkdir -p ${STAGE_CHROOT_DIR}/cf/conf
 	echo force > ${STAGE_CHROOT_DIR}/cf/conf/enableserial_force
 
 	core_pkg_create default-config-serial "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
@@ -726,7 +729,7 @@ customize_stagearea_for_image() {
 	     "${_image_type}" = "memstickserial" -o \
 	     "${_image_type}" = "memstickadi" ]; then
 		mkdir -p ${FINAL_CHROOT_DIR}/pkgs
-		cp ${CORE_PKG_ALL_PATH}/*default-config*.txz ${FINAL_CHROOT_DIR}/pkgs
+		cp ${CORE_PKG_ALL_PATH}/*default-config*.pkg ${FINAL_CHROOT_DIR}/pkgs
 	fi
 
 	pkg_chroot_add ${FINAL_CHROOT_DIR} ${_default_config}
@@ -1122,6 +1125,7 @@ update_freebsd_sources() {
 		echo ">>> ERROR: It was not possible to clone FreeBSD src repo"
 		print_error_pfS
 	fi
+	. /root/freesense-confrename.sh
 
 	if [ -n "${GIT_FREEBSD_COSHA1}" ]; then
 		echo -n ">>> Checking out desired commit (${GIT_FREEBSD_COSHA1})... "
@@ -1130,7 +1134,7 @@ update_freebsd_sources() {
 		echo "Done!"
 	fi
 
-	if [ "${PRODUCT_NAME}" = "FreeSense" -a -n "${GNID_REPO_BASE}" ]; then
+	if [ "${PRODUCT_NAME}" = "pfSense" -a -n "${GNID_REPO_BASE}" ]; then
 		echo ">>> Obtaining gnid sources..."
 		${BUILDER_SCRIPTS}/git_checkout.sh \
 			-r ${GNID_REPO_BASE} \
@@ -1184,7 +1188,7 @@ pkg_chroot_add() {
 	fi
 
 	local _target="${1}"
-	local _pkg="$(get_pkg_name ${2}).txz"
+	local _pkg="$(get_pkg_name ${2}).pkg"
 
 	if [ ! -d "${_target}" ]; then
 		echo ">>> ERROR: Target dir ${_target} not found"
@@ -1215,7 +1219,7 @@ pkg_bootstrap() {
 }
 
 # This routine assists with installing various
-# freebsd ports files into the freesense-fs staging
+# freebsd ports files into the pfsense-fs staging
 # area.
 install_pkg_install_ports() {
 	local MAIN_PKG="${1}"
@@ -1232,6 +1236,9 @@ install_pkg_install_ports() {
 	[ -d ${SCRATCHDIR}/pkg_cache ] || \
 		mkdir -p ${SCRATCHDIR}/pkg_cache
 
+	mkdir -p ${STAGE_CHROOT_DIR}/usr/local/sbin # bootstrap pkg-static into chroot
+	[ -x ${STAGE_CHROOT_DIR}/usr/local/sbin/pkg ] || cp /usr/local/sbin/pkg-static ${STAGE_CHROOT_DIR}/usr/local/sbin/pkg
+	. /root/freesense-localrepo.sh
 	echo -n ">>> Installing built ports (packages) in chroot (${STAGE_CHROOT_DIR})... "
 	# First mark all packages as automatically installed
 	pkg_chroot ${STAGE_CHROOT_DIR} set -A 1 -a
@@ -1547,7 +1554,7 @@ poudriere_jail_name() {
 }
 
 poudriere_rename_ports() {
-	if [ "${PRODUCT_NAME}" = "FreeSense" ]; then
+	if [ "${PRODUCT_NAME}" = "pfSense" ]; then
 		return;
 	fi
 
@@ -1556,9 +1563,9 @@ poudriere_rename_ports() {
 	local _ports_dir="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
 
 	echo -n ">>> Renaming product ports on ${POUDRIERE_PORTS_NAME}... " | tee -a ${LOGFILE}
-	for d in $(find ${_ports_dir} -depth 2 -type d -name '*FreeSense*'); do
+	for d in $(find ${_ports_dir} -depth 2 -type d -name '*pfSense*'); do
 		local _pdir=$(dirname ${d})
-		local _pname=$(echo $(basename ${d}) | sed "s,FreeSense,${PRODUCT_NAME},")
+		local _pname=$(echo $(basename ${d}) | sed "s,pfSense,${PRODUCT_NAME},")
 		local _plist=""
 		local _pdescr=""
 
@@ -1576,34 +1583,34 @@ poudriere_rename_ports() {
 			_pdescr=${_pdir}/${_pname}/pkg-descr
 		fi
 
-		sed -i '' -e "s,FreeSense,${PRODUCT_NAME},g" \
-			  -e "s,https://www.freesense.org,${PRODUCT_URL},g" \
+		sed -i '' -e "s,pfSense,${PRODUCT_NAME},g" \
+			  -e "s,https://www.pfsense.org,${PRODUCT_URL},g" \
 			  -e "/^MAINTAINER=/ s,^.*$,MAINTAINER=	${PRODUCT_EMAIL}," \
 			${_pdir}/${_pname}/Makefile ${_pdescr} ${_plist}
 
 		# PHP module is special
 		if echo "${_pname}" | grep -q "^php[0-9]*-${PRODUCT_NAME}-module"; then
 			local _product_capital=$(echo ${PRODUCT_NAME} | tr '[a-z]' '[A-Z]')
-			sed -i '' -e "s,PHP_FREESENSE,PHP_${_product_capital},g" \
-				  -e "s,FREESENSE_SHARED_LIBADD,${_product_capital}_SHARED_LIBADD,g" \
-				  -e "s,FreeSense,${PRODUCT_NAME},g" \
-				  -e "s,FreeSense.c,${PRODUCT_NAME}\.c,g" \
+			sed -i '' -e "s,PHP_PFSENSE,PHP_${_product_capital},g" \
+				  -e "s,PFSENSE_SHARED_LIBADD,${_product_capital}_SHARED_LIBADD,g" \
+				  -e "s,pfSense,${PRODUCT_NAME},g" \
+				  -e "s,pfSense.c,${PRODUCT_NAME}\.c,g" \
 				${_pdir}/${_pname}/files/config.m4
 
-			sed -i '' -e "s,COMPILE_DL_FREESENSE,COMPILE_DL_${_product_capital}," \
-				  -e "s,FreeSense_module_entry,${PRODUCT_NAME}_module_entry,g" \
-				  -e "s,php_FreeSense.h,php_${PRODUCT_NAME}\.h,g" \
-				  -e "/ZEND_GET_MODULE/ s,FreeSense,${PRODUCT_NAME}," \
-				  -e "/PHP_FREESENSE_WORLD_EXTNAME/ s,FreeSense,${PRODUCT_NAME}," \
-				${_pdir}/${_pname}/files/FreeSense.c \
+			sed -i '' -e "s,COMPILE_DL_PFSENSE,COMPILE_DL_${_product_capital}," \
+				  -e "s,pfSense_module_entry,${PRODUCT_NAME}_module_entry,g" \
+				  -e "s,php_pfSense.h,php_${PRODUCT_NAME}\.h,g" \
+				  -e "/ZEND_GET_MODULE/ s,pfSense,${PRODUCT_NAME}," \
+				  -e "/PHP_PFSENSE_WORLD_EXTNAME/ s,pfSense,${PRODUCT_NAME}," \
+				${_pdir}/${_pname}/files/pfSense.c \
 				${_pdir}/${_pname}/files/dummynet.c \
-				${_pdir}/${_pname}/files/php_FreeSense.h
+				${_pdir}/${_pname}/files/php_pfSense.h
 		fi
 
 		if [ -d ${_pdir}/${_pname}/files ]; then
-			for fd in $(find ${_pdir}/${_pname}/files -name '*FreeSense*'); do
+			for fd in $(find ${_pdir}/${_pname}/files -name '*pfSense*'); do
 				local _fddir=$(dirname ${fd})
-				local _fdname=$(echo $(basename ${fd}) | sed "s,FreeSense,${PRODUCT_NAME},")
+				local _fdname=$(echo $(basename ${fd}) | sed "s,pfSense,${PRODUCT_NAME},")
 
 				mv ${fd} ${_fddir}/${_fdname}
 			done
@@ -1631,7 +1638,7 @@ poudriere_create_ports_tree() {
 			script -aq ${LOGFILE} zfs create ${ZFS_TANK}/poudriere/ports/${POUDRIERE_PORTS_NAME}
 
 			# If S3 doesn't contain stashed ports tree, create one
-			if ! aws_exec s3 ls s3://freesense-engineering-build-pkg/${FLAVOR}-ports.tz >/dev/null 2>&1; then
+			if ! aws_exec s3 ls s3://pfsense-engineering-build-pkg/${FLAVOR}-ports.tz >/dev/null 2>&1; then
 				mkdir ${SCRATCHDIR}/${FLAVOR}-ports
 				${BUILDER_SCRIPTS}/git_checkout.sh \
 				    -r ${POUDRIERE_PORTS_GIT_URL} \
@@ -1639,11 +1646,11 @@ poudriere_create_ports_tree() {
 				    -b ${POUDRIERE_PORTS_GIT_BRANCH}
 
 				tar --zstd -C ${SCRATCHDIR} -cf ${FLAVOR}-ports.tz ${FLAVOR}-ports
-				aws_exec s3 cp ${FLAVOR}-ports.tz s3://freesense-engineering-build-pkg/${FLAVOR}-ports.tz --no-progress
+				aws_exec s3 cp ${FLAVOR}-ports.tz s3://pfsense-engineering-build-pkg/${FLAVOR}-ports.tz --no-progress
 			else
 				# Download local copy of the ports tree stashed in S3
 				echo ">>>  Downloading cached copy of the ports tree from S3.." | tee -a ${LOGFILE}
-				aws_exec s3 cp s3://freesense-engineering-build-pkg/${FLAVOR}-ports.tz . --no-progress
+				aws_exec s3 cp s3://pfsense-engineering-build-pkg/${FLAVOR}-ports.tz . --no-progress
 			fi
 
 			script -aq ${LOGFILE} tar --strip-components 1 -xf ${FLAVOR}-ports.tz -C /usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}
@@ -1774,7 +1781,7 @@ EOF
 		if [ "${POUDRIERE_PORTS_GIT_BRANCH}" = "${DEFAULT_BRANCH}" ]; then
 			DISTFILES="${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles"
 		else
-			if aws_exec s3 ls s3://freesense-engineering-build-pkg/${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles.tar >/dev/null 2>&1; then
+			if aws_exec s3 ls s3://pfsense-engineering-build-pkg/${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles.tar >/dev/null 2>&1; then
 				DISTFILES="${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles"
 			else
 				DISTFILES="${FLAVOR}-${DEFAULT_BRANCH}-distfiles"
@@ -1783,10 +1790,10 @@ EOF
 			fi
 		fi
 
-		if aws_exec s3 ls s3://freesense-engineering-build-pkg/${DISTFILES}.tar >/dev/null 2>&1; then
+		if aws_exec s3 ls s3://pfsense-engineering-build-pkg/${DISTFILES}.tar >/dev/null 2>&1; then
 			# Download a copy of the distfiles from S3
 			echo ">>> Downloading distfile cache ${DISTFILES} from S3.." | tee -a ${LOGFILE}
-			aws_exec s3 cp s3://freesense-engineering-build-pkg/${DISTFILES}.tar . --no-progress
+			aws_exec s3 cp s3://pfsense-engineering-build-pkg/${DISTFILES}.tar . --no-progress
 			script -aq ${LOGFILE} tar -xf ${DISTFILES}.tar -C /usr/ports/distfiles
 			# Save a list of distfiles
 			find /usr/ports/distfiles > pre-build-distfile-list
@@ -1833,15 +1840,15 @@ EOF
 		echo ">>> Creating jail ${jail_name}, it may take some time... " | tee -a ${LOGFILE}
 		if [ "${AWS}" = "1" ]; then
 			mkdir objs
-			echo ">>> Downloading prebuilt release objs from s3://freesense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/ ..." | tee -a ${LOGFILE}
+			echo ">>> Downloading prebuilt release objs from s3://pfsense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/ ..." | tee -a ${LOGFILE}
 			# Download prebuilt release tarballs from previous job
-			aws_exec s3 cp s3://freesense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/LATEST-${jail_arch} objs --no-progress
+			aws_exec s3 cp s3://pfsense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/LATEST-${jail_arch} objs --no-progress
 			SRC_COMMIT=`cat objs/LATEST-${jail_arch}`
-			aws_exec s3 cp s3://freesense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/MANIFEST-${jail_arch}-${SRC_COMMIT} objs --no-progress
+			aws_exec s3 cp s3://pfsense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/MANIFEST-${jail_arch}-${SRC_COMMIT} objs --no-progress
 			ln -s MANIFEST-${jail_arch}-${SRC_COMMIT} objs/MANIFEST
 			for i in base doc kernel src tests; do
 				if [ ! -f objs/${i}-${jail_arch}-${SRC_COMMIT}.txz ]; then
-					aws_exec s3 cp s3://freesense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/${i}-${jail_arch}-${SRC_COMMIT}.txz objs --no-progress
+					aws_exec s3 cp s3://pfsense-engineering-build-freebsd-obj-tarballs/${FLAVOR}/${FREEBSD_BRANCH}/${i}-${jail_arch}-${SRC_COMMIT}.txz objs --no-progress
 					ln -s ${i}-${jail_arch}-${SRC_COMMIT}.txz objs/${i}.txz
 				fi
 			done
@@ -1857,8 +1864,8 @@ EOF
 			OLDIFS=${IFS}
 			IFS=$'\n'
 			echo ">>> Downloading cached pkgs for ${jail_arch} from S3.." | tee -a ${LOGFILE}
-			if aws_exec s3 ls s3://freesense-engineering-build-pkg/${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar >/dev/null 2>&1; then
-				aws_exec s3 cp s3://freesense-engineering-build-pkg/${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar . --no-progress
+			if aws_exec s3 ls s3://pfsense-engineering-build-pkg/${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar >/dev/null 2>&1; then
+				aws_exec s3 cp s3://pfsense-engineering-build-pkg/${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar . --no-progress
 				[ ! -d /usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME} ] && mkdir -p /usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME}
 				echo "Extracting ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar to /usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME}" | tee -a ${LOGFILE}
 				[ ! -d /usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME} ] && mkdir /usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME}
@@ -1942,12 +1949,12 @@ save_logs_to_s3() {
 	# Save a copy of the past few logs into S3
 	DATE=`date +%Y%m%d-%H%M%S`
 	script -aq ${LOGFILE} tar --zstd -cf pkg-logs-${jail_arch}-${DATE}.tar -C /usr/local/poudriere/data/logs/bulk/${jail_name}-${POUDRIERE_PORTS_NAME}/latest/ .
-	aws_exec s3 cp pkg-logs-${jail_arch}-${DATE}.tar s3://freesense-engineering-build-pkg/logs/ --no-progress
+	aws_exec s3 cp pkg-logs-${jail_arch}-${DATE}.tar s3://pfsense-engineering-build-pkg/logs/ --no-progress
 	echo ">>> Uploading pkg-logs-${jail_arch}-${DATE}.tar to s3" | tee -a ${LOGFILE}
 	OLDIFS=${IFS}
 	IFS=$'\n'
 	local _logtemp=$( mktemp /tmp/loglist.XXXXX )
-	for i in $(aws_exec s3 ls s3://freesense-engineering-build-pkg/logs/); do
+	for i in $(aws_exec s3 ls s3://pfsense-engineering-build-pkg/logs/); do
 		echo ${i} | awk '{print $4}' | grep pkg-logs-${jail_arch} | tr -d '\r' >> ${_logtemp}
 	done
 	# keep at least ~30 days of logs, plus some extra for one off runs
@@ -1957,7 +1964,7 @@ save_logs_to_s3() {
 	if [ ${_curlogs} -gt ${_maxlogs} ]; then
 		local _extralogs=$(( ${_curlogs} - ${_maxlogs} ))
 		for _last in $( head -${_extralogs} ${_logtemp} ); do
-			aws_exec s3 rm s3://freesense-engineering-build-pkg/logs/${_last}
+			aws_exec s3 rm s3://pfsense-engineering-build-pkg/logs/${_last}
 		done
 	fi
 	IFS=${OLDIFS}
@@ -1972,7 +1979,7 @@ save_pkgs_to_s3() {
 		echo ">>> Saving a copy of the package repo into S3..." | tee -a ${LOGFILE}
 		[ -f ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar ] && rm ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar
 		script -aq ${LOGFILE} tar -cf ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar -C /usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME} .
-		aws_exec s3 cp ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar s3://freesense-engineering-build-pkg/ --no-progress
+		aws_exec s3 cp ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-pkgs-${jail_arch}.tar s3://pfsense-engineering-build-pkg/ --no-progress
 	else
 		echo ">>> No pkgs different, not saving to S3..." | tee -a ${LOGFILE}
 	fi
@@ -2035,7 +2042,7 @@ PKG_REPO_BRANCH_PREVIOUS=${PKG_REPO_BRANCH_PREVIOUS}
 PKG_REPO_SERVER_DEVEL=${PKG_REPO_SERVER_DEVEL}
 PKG_REPO_SERVER_RELEASE=${PKG_REPO_SERVER_RELEASE}
 POUDRIERE_PORTS_NAME=${POUDRIERE_PORTS_NAME}
-FREESENSE_DEFAULT_REPO=${FREESENSE_DEFAULT_REPO}
+PFSENSE_DEFAULT_REPO=${PFSENSE_DEFAULT_REPO}
 PRODUCT_NAME=${PRODUCT_NAME}
 REPO_BRANCH_PREFIX=${REPO_PATH_PREFIX}
 EOF
@@ -2064,7 +2071,7 @@ EOF
 		fi
 	done
 
-	# Change version of FreeSense meta ports for snapshots
+	# Change version of pfSense meta ports for snapshots
 	if [ -z "${_IS_RELEASE}" ]; then
 		local _meta_pkg_version="$(echo "${PRODUCT_VERSION}" | sed 's,DEVELOPMENT,ALPHA,')-${DATESTRING}"
 		sed -i '' \
@@ -2074,7 +2081,7 @@ EOF
 			/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/Makefile
 	fi
 
-	# Copy over pkg repo templates to FreeSense-repo
+	# Copy over pkg repo templates to pfSense-repo
 	mkdir -p /usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/files
 	cp -f ${PKG_REPO_BASE}/* \
 		/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/files
@@ -2145,7 +2152,7 @@ EOF
 		if [ $? -eq 1 ]; then
 			rm -f ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles.tar
 			script -aq ${LOGFILE} tar -cf ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles.tar -C /usr/ports/distfiles .
-			aws_exec s3 cp ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles.tar s3://freesense-engineering-build-pkg/ --no-progress
+			aws_exec s3 cp ${FLAVOR}-${POUDRIERE_PORTS_GIT_BRANCH}-distfiles.tar s3://pfsense-engineering-build-pkg/ --no-progress
 		fi
 	fi
 }
