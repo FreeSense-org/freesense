@@ -42,6 +42,12 @@ jobs:
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "cd /root/freesense-ports && git fetch --quiet origin && git reset --hard origin/main && \
              echo 'freesense-ports HEAD:' && git log -1 --oneline"
+          # build.conf is generated from build.conf.sample by the provisioner and is gitignored,
+          # so git reset can't update it. Keep the repo-server URL in sync with the sample
+          # (idempotent: only rewrites a stale pkg+https:// prefix).
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "sed -i '' 's,pkg+https://,https://,g' ${SRC}/build.conf && \
+             echo 'build.conf repo servers:' && grep PKG_REPO_SERVER ${SRC}/build.conf | grep -v '^#'"
 
       - name: Launch build (detached)
         run: |
