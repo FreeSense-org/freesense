@@ -292,7 +292,13 @@ export PKG_FINAL_RSYNC_SSH_PORT=${PKG_FINAL_RSYNC_SSH_PORT:-"22"}
 export SKIP_FINAL_RSYNC=${SKIP_FINAL_RSYNC:-}
 
 # pkg repo variables
-export USE_PKG_REPO_STAGING="1"
+# FreeSense: disabled. Netgate's build installs packages from a STAGING server then rewrites
+# the installed box's repo conf to the release server. We have no staging server — with this
+# on, setup_pkg_repo writes PKG_REPO_SERVER_STAGING (release-staging.netgate.com) into the
+# box's FreeSense-repo.conf instead of PKG_REPO_SERVER_RELEASE (pkg.freesense.org). Empty =
+# the box conf uses _RELEASE/_DEVEL directly. (Chroot pkg-install uses the local :8081 repo,
+# not staging, so this is safe.)
+export USE_PKG_REPO_STAGING=""
 export PKG_REPO_SERVER_DEVEL=${PKG_REPO_SERVER_DEVEL:-"pkg+https://packages-beta.netgate.com/packages"}
 export PKG_REPO_SERVER_RELEASE=${PKG_REPO_SERVER_RELEASE:-"pkg+https://packages.netgate.com"}
 export PKG_REPO_SERVER_STAGING=${PKG_REPO_SERVER_STAGING:-"pkg+http://${STAGING_HOSTNAME}/ce/packages"}
