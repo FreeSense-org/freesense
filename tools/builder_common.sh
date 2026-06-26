@@ -625,7 +625,7 @@ clone_to_staging_area() {
 	core_pkg_create rc "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
 	core_pkg_create base "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
 	mkdir -p ${STAGE_CHROOT_DIR}/conf.default
-	cp /root/freesense-config.xml ${STAGE_CHROOT_DIR}/conf.default/config.xml
+	cp ${BUILDER_TOOLS}/ci/freesense-config.xml ${STAGE_CHROOT_DIR}/conf.default/config.xml
 	core_pkg_create default-config "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
 
 	local DEFAULTCONF=${STAGE_CHROOT_DIR}/conf.default/config.xml
@@ -1125,7 +1125,7 @@ update_freebsd_sources() {
 		echo ">>> ERROR: It was not possible to clone FreeBSD src repo"
 		print_error_pfS
 	fi
-	. /root/freesense-confrename.sh
+	. ${BUILDER_TOOLS}/ci/freesense-confrename.sh
 
 	if [ -n "${GIT_FREEBSD_COSHA1}" ]; then
 		echo -n ">>> Checking out desired commit (${GIT_FREEBSD_COSHA1})... "
@@ -1238,7 +1238,7 @@ install_pkg_install_ports() {
 
 	mkdir -p ${STAGE_CHROOT_DIR}/usr/local/sbin # bootstrap pkg-static into chroot
 	[ -x ${STAGE_CHROOT_DIR}/usr/local/sbin/pkg ] || cp /usr/local/sbin/pkg-static ${STAGE_CHROOT_DIR}/usr/local/sbin/pkg
-	. /root/freesense-localrepo.sh
+	. ${BUILDER_TOOLS}/ci/freesense-localrepo.sh
 	echo -n ">>> Installing built ports (packages) in chroot (${STAGE_CHROOT_DIR})... "
 	# First mark all packages as automatically installed
 	pkg_chroot ${STAGE_CHROOT_DIR} set -A 1 -a

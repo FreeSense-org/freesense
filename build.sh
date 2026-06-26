@@ -362,7 +362,7 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	clone_to_staging_area
 
 	# Install packages needed for Product
-	. /root/freesense-bootpkg.sh
+	. ${BUILDER_TOOLS}/ci/freesense-bootpkg.sh
 	core_pkg_create_repo # FreeSense: finalize before install
 	install_pkg_install_ports
 
