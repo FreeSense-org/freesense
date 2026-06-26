@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       repo_path_segment:
-        description: "Bucket path segment (must match the box's FreeSense-repo.conf URL tail, e.g. FreeSense_v2_9_0_amd64-FreeSense_v2_9_0). Leave blank to auto-detect from the poudriere meta."
+        description: "Bucket path segment (must match the box's FreeSense-repo.conf URL tail). Auto-detect first, then this default if detection fails."
         required: false
-        default: ""
+        default: "FreeSense_master_amd64-FreeSense_devel"
 
 concurrency:
   group: publish-pkg
@@ -40,11 +40,12 @@ jobs:
       - name: Determine repo path segment
         id: seg
         run: |
-          SEG="${{ github.event.inputs.repo_path_segment }}"
+          # Try to auto-detect from the box's generated repo conf; ignore %%PLACEHOLDER%% (unresolved) hits.
+          SEG=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "grep -ohE 'FreeSense_[^/\"%]+-FreeSense_[^/\"%]+' /usr/local/poudriere/ports/FreeSense_devel/sysutils/FreeSense-repo/files/FreeSense-repo.conf 2>/dev/null | head -1" || true)
           if [ -z "$SEG" ]; then
-            # derive from the installed-box repo conf tail the build generated
-            SEG=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-              "grep -oE 'FreeSense_[^/\"]+-FreeSense_[^/\"]+' /usr/local/poudriere/ports/FreeSense_devel/sysutils/FreeSense-repo/files/FreeSense-repo.conf 2>/dev/null | head -1")
+            SEG="${{ github.event.inputs.repo_path_segment }}"
+            echo "auto-detect empty; using input/default segment"
           fi
           echo "Using repo path segment: $SEG"
           echo "segment=$SEG" >> "$GITHUB_OUTPUT"
