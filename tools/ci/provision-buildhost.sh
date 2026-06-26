@@ -56,7 +56,8 @@ pkg install -y git nginx poudriere-devel rsync sudo curl gtar xmlstarlet pkgconf
 # ---- 3. signing key ----
 log "setting up signing key in ${SIGN_DIR}"
 mkdir -p "${SIGN_DIR}"
-if [ -n "${FREESENSE_SIGN_KEY}" ] && [ -f "${FREESENSE_SIGN_KEY}" ]; then
+if [ -n "${FREESENSE_SIGN_KEY}" ] && [ -f "${FREESENSE_SIGN_KEY}" ] \
+	&& [ "$(realpath "${FREESENSE_SIGN_KEY}")" != "$(realpath "${SIGN_DIR}/repo.key" 2>/dev/null)" ]; then
 	cp "${FREESENSE_SIGN_KEY}" "${SIGN_DIR}/repo.key"
 fi
 if [ ! -f "${SIGN_DIR}/repo.key" ]; then
