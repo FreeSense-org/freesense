@@ -24,7 +24,7 @@
 # repos signed with the FreeSense key (fingerprint shipped in the OS) are "official".
 export PRODUCT_NAME="FreeSense"
 export PRODUCT_NAME_SUFFIX="-CE"
-export PRODUCT_URL="https://github.com/clausdk/FreeSense"
+export PRODUCT_URL="https://freesense.org"
 export PRODUCT_EMAIL="dev@freesense.local"
 export FREEBSD_BRANCH="devel-main"
 export POUDRIERE_PORTS_GIT_BRANCH="devel"
