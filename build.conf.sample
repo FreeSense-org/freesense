@@ -34,6 +34,24 @@ export POUDRIERE_PORTS_GIT_BRANCH="devel"
 # temp file); on the build VM it lives at /root/sign/repo.key.
 export PKG_REPO_SIGNING_COMMAND="/root/sign/sign.sh /root/sign/repo.key"
 
+# Build-host package deps: upstream list MINUS emulators/qemu-user-static (removed as a
+# pkg on FreeBSD 16; only needed for cross-arch). Overrides the hard-coded list in
+# builder_defaults.sh which is not otherwise overridable.
+export BUILDER_PKG_DEPENDENCIES="devel/git ftp/curl net/rsync sysutils/screen sysutils/vmdktool security/sudo www/nginx archivers/gtar textproc/xmlstarlet"
+
+# FreeBSD-src build config. devel-main split pfSense_src.conf into build_src.conf +
+# install_src.conf; SRCCONF must point at our renamed build_src.conf inside the
+# checked-out FreeBSD-src tree (under <repo>/tmp/FreeBSD-src, re-fetched each build).
+# provision-buildhost.sh rewrites the leading path to match ${SRC_DIR}.
+export SRCCONF="/root/freesense-src/tmp/FreeBSD-src/release/conf/FreeSense_build_src.conf"
+
+# Kernel modules to build. Drops drm2 + ndis (removed in FreeBSD 16). Overridable because
+# builder_defaults sets it only if unset.
+export MODULES_OVERRIDE="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc/cc_htcp cc/cc_vegas cryptodev dummynet fdescfs hwpmc i2c if_stf ipdivert ipfw ipfw_nat64 opensolaris usb/cdce usb/ipheth usb/ure usb/urndis zfs aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom ipmi ix ixv nmdm qlnx sfxge vmm"
+
+# Core packages baked into the image (base system + kernel + factory config).
+export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-default-config"
+
 # Define FreeBSD repository, branch and specific commit
 #export FREEBSD_REPO_BASE=https://github.com/freebsd/freebsd.git
 #export FREEBSD_BRANCH=stable/10

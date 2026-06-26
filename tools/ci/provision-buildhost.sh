@@ -85,6 +85,8 @@ else
 fi
 # write build.conf from the tracked sample (build.conf is gitignored)
 cp "${SRC_DIR}/build.conf.sample" "${SRC_DIR}/build.conf"
+# fix SRCCONF's leading path to the actual SRC_DIR (sample hardcodes /root/freesense-src)
+sed -i '' "s,^export SRCCONF=\"/root/freesense-src/,export SRCCONF=\"${SRC_DIR}/," "${SRC_DIR}/build.conf"
 # point poudriere at UPSTREAM FreeBSD ports (NOT pfSense's fork) + our overlay name
 {
 	echo "export POUDRIERE_PORTS_GIT_URL=\"${FREEBSD_PORTS_URL}\""
