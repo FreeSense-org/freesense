@@ -734,6 +734,15 @@ customize_stagearea_for_image() {
 
 	pkg_chroot_add ${FINAL_CHROOT_DIR} ${_default_config}
 
+	# FreeSense boot hook: FreeBSD base /etc/rc (from base.txz) hardcodes
+	# `if [ -f /etc/pfSense-rc ]; then . /etc/pfSense-rc; exit 0; fi` to hand boot to the
+	# product rc. Our rebrand renamed that script to /etc/${PRODUCT_NAME}-rc, so without a
+	# matching /etc/pfSense-rc the box falls through to RAW FreeBSD (Amnesiac, no console
+	# menu/GUI). Symlink pfSense-rc -> ${PRODUCT_NAME}-rc so the base hook resolves it.
+	# (Cheap + reproducible; avoids rebuilding base.txz just to rebrand the hook string.)
+	ln -sf ${PRODUCT_NAME}-rc ${FINAL_CHROOT_DIR}/etc/pfSense-rc
+	ln -sf ${PRODUCT_NAME}-rc.shutdown ${FINAL_CHROOT_DIR}/etc/pfSense-rc.shutdown
+
 	# XXX: Workaround to avoid pkg to complain regarding release
 	#      repo on first boot since packages are installed from
 	#      staging server during build phase
