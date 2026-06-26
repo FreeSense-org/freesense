@@ -138,6 +138,18 @@ chmod +x /usr/local/etc/rc.d/freesense_localrepo
 sysrc freesense_localrepo_enable=YES >/dev/null
 service freesense_localrepo restart || service freesense_localrepo start || true
 
+# ---- 6b. poudriere make.conf: cap lang/rust parallelism ----
+# rust races and fails at high -j ("failed to read .fingerprint" during dist --jobs=N),
+# which blocks the rust-dependent ports (suricata, clamav, squid, squidGuard, c-icap).
+# This GLOBAL poudriere make.conf survives build.sh's poudriere.conf regen.
+log "capping lang/rust build parallelism in poudriere make.conf"
+install -d /usr/local/etc/poudriere.d
+cat > /usr/local/etc/poudriere.d/make.conf <<'MK'
+.if ${.CURDIR:M*/lang/rust}
+MAKE_JOBS_NUMBER=6
+.endif
+MK
+
 # ---- 7. poudriere dashboard (nginx, optional — watch builds at http://<host>/) ----
 log "configuring poudriere nginx dashboard"
 cat > /usr/local/etc/nginx/nginx.conf <<'NGINX'
