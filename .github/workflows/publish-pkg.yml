@@ -55,25 +55,27 @@ jobs:
           RCLONE_CONFIG_R2_PROVIDER: Cloudflare
           RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          RCLONE_CONFIG_R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCOUNT_ID_RAW: ${{ secrets.R2_ACCOUNT_ID }}
+          RCLONE_CONFIG_R2_REGION: auto
           RCLONE_CONFIG_R2_ACL: private
         run: |
           SEG="${{ steps.seg.outputs.segment }}"
           [ -n "$SEG" ] || { echo "ERROR: empty repo path segment"; exit 1; }
+          # Normalize the account id: accept a bare id OR a full endpoint/S3 URL, strip whitespace.
+          ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
+                 | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
+          ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
           DEST="R2:${R2_BUCKET}/${SEG}"
-          echo ">>> Publishing ${POUDRIERE_REPO}/  ->  ${DEST}"
-          # Pass the rclone R2 env through to the VM and sync the resolved-symlink repo.
-          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes \
-            -o SendEnv=RCLONE_CONFIG_R2_TYPE -o SendEnv=RCLONE_CONFIG_R2_PROVIDER \
-            -o SendEnv=RCLONE_CONFIG_R2_ACCESS_KEY_ID -o SendEnv=RCLONE_CONFIG_R2_SECRET_ACCESS_KEY \
-            -o SendEnv=RCLONE_CONFIG_R2_ENDPOINT -o SendEnv=RCLONE_CONFIG_R2_ACL \
-            "$VM" \
+          echo ">>> Publishing ${POUDRIERE_REPO}/.latest/  ->  ${DEST}  (endpoint host: ${ACCT}.r2...)"
+          # Run rclone on the VM (where the repo lives); pass R2 creds inline via env.
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "env \
                RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
                RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
                RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
                RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
-               RCLONE_CONFIG_R2_ENDPOINT='$RCLONE_CONFIG_R2_ENDPOINT' \
+               RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+               RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
                RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
                rclone sync --copy-links --checksum --fast-list --transfers 16 \
                  '${POUDRIERE_REPO}/.latest/' '${DEST}/'"
