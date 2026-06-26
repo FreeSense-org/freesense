@@ -1603,8 +1603,15 @@ poudriere_rename_ports() {
 				  -e "/ZEND_GET_MODULE/ s,pfSense,${PRODUCT_NAME}," \
 				  -e "/PHP_PFSENSE_WORLD_EXTNAME/ s,pfSense,${PRODUCT_NAME}," \
 				${_pdir}/${_pname}/files/pfSense.c \
-				${_pdir}/${_pname}/files/dummynet.c \
-				${_pdir}/${_pname}/files/php_pfSense.h
+				${_pdir}/${_pname}/files/php_pfSense.h 2>/dev/null
+
+			# FreeSense: blanket-rewrite EVERY pfSense* token in all C sources/headers so
+			# #include lines (pfSense_arginfo.h, pfSense_private.h, etc.) match the files
+			# that get renamed below. The hardcoded list above misses some headers and
+			# references a dummynet.c that newer port versions don't ship.
+			for _src in $(find ${_pdir}/${_pname}/files \( -name '*.c' -o -name '*.h' \) 2>/dev/null); do
+				sed -i '' -e "s,pfSense,${PRODUCT_NAME},g" "${_src}"
+			done
 		fi
 
 		if [ -d ${_pdir}/${_pname}/files ]; then
