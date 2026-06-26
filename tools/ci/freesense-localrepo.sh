@@ -5,6 +5,17 @@ FreeBSD-kmods: { enabled: no }
 FreeSense-core: { url: "http://127.0.0.1:8081/core", enabled: yes, signature_type: "none", priority: 10 }
 FreeSense: { url: "http://127.0.0.1:8081/bulk", enabled: yes, signature_type: "none", priority: 5 }
 EOF
+
+# Populate the :8081 docroot so the chroot can actually fetch packages. The repo.conf above
+# points at /core (the base/kernel/rc/default-config built by build.sh into tmp/<jail>-core)
+# and /bulk (the full signed poudriere repo). Symlink both into the docroot the
+# freesense_localrepo http.server serves (/tmp/freesense-repos). Without this the docroot is
+# empty -> 'Installing built ports in chroot... Failed!'.
+_lr_docroot="${FREESENSE_LOCALREPO_DOCROOT:-/tmp/freesense-repos}"
+_lr_core="${PRODUCT_NAME}_${POUDRIERE_BRANCH}_amd64-core"
+mkdir -p "${_lr_docroot}"
+[ -d "${SCRATCHDIR}/${_lr_core}" ] && ln -sfn "${SCRATCHDIR}/${_lr_core}" "${_lr_docroot}/core"
+ln -sfn "/usr/local/poudriere/data/packages/$(poudriere_jail_name amd64 2>/dev/null || echo ${PRODUCT_NAME}_${POUDRIERE_BRANCH}_amd64)-${POUDRIERE_PORTS_NAME}" "${_lr_docroot}/bulk"
 # seed a nobody user so pkg can drop privileges (chroot starts ~empty; base pkg replaces these)
 printf 'root:*:0:0::0:0:Charlie &:/root:/bin/sh\nnobody:*:65534:65534::0:0:Unprivileged user:/nonexistent:/usr/sbin/nologin\n' > ${STAGE_CHROOT_DIR}/etc/master.passwd
 printf 'wheel:*:0:root\nnobody:*:65534:\nnogroup:*:65533:\n' > ${STAGE_CHROOT_DIR}/etc/group
