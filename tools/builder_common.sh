@@ -1670,6 +1670,10 @@ poudriere_create_ports_tree() {
 			fi
 		fi
 		echo "Done!" | tee -a ${LOGFILE}
+		# FreeSense: the ports tree above is UPSTREAM FreeBSD ports (no pfSense-* dirs).
+		# Overlay our vendored pfSense-* port recipes (FreeSense-org/freesense-ports) BEFORE
+		# poudriere_rename_ports turns them into FreeSense-*. No pfSense-fork dependency.
+		. ${BUILDER_TOOLS}/ci/freesense-ports-overlay.sh
 		poudriere_rename_ports
 	fi
 }
@@ -1941,6 +1945,9 @@ poudriere_update_ports() {
 		echo -n ">>> Updating ports tree ${POUDRIERE_PORTS_NAME}... " | tee -a ${LOGFILE}
 		script -aq ${LOGFILE} poudriere ports -u -p "${POUDRIERE_PORTS_NAME}" >/dev/null 2>&1
 		echo "Done!" | tee -a ${LOGFILE}
+		# FreeSense: the reset/clean/update above wipes our overlaid pfSense-* dirs and
+		# pulls upstream FreeBSD ports (which have none); re-apply the overlay before rename.
+		. ${BUILDER_TOOLS}/ci/freesense-ports-overlay.sh
 		poudriere_rename_ports
 	fi
 }
