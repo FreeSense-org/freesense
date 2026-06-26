@@ -9,6 +9,9 @@
 # Logs to /root/build-ci.log; writes the final exit code to /root/build-ci.rc.
 set -e
 
+# Send ALL output to the log the build-iso workflow polls/tails.
+exec > /root/build-ci.log 2>&1
+
 SRC_DIR=${SRC_DIR:-/root/freesense-src}
 cd "${SRC_DIR}"
 
