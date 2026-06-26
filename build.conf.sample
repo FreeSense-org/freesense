@@ -27,7 +27,9 @@ export PRODUCT_NAME_SUFFIX="-CE"
 export PRODUCT_URL="https://freesense.org"
 export PRODUCT_EMAIL="dev@freesense.local"
 export FREEBSD_BRANCH="devel-main"
-export POUDRIERE_PORTS_GIT_BRANCH="devel"
+# Upstream FreeBSD ports uses 'main' (the old 'devel' was a pfSense-fork branch name;
+# it does not exist in github.com/freebsd/freebsd-ports).
+export POUDRIERE_PORTS_GIT_BRANCH="main"
 
 # Repo signing: sign.sh shells out to openssl dgst -sign with this private key.
 # In CI the key comes from the FREESENSE_REPO_SIGNING_KEY secret (written to a
