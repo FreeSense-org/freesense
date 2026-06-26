@@ -58,7 +58,10 @@ net/%%PRODUCT_NAME%%-pkg-WireGuard
 net/dhcpcd
 net/hping3
 net/intel-em-kmod
-net/intel-igb-kmod
+# net/intel-igb-kmod — out-of-tree Intel igb driver fails to build on FreeBSD 16-CURRENT
+# (kmod build, Error code 1). Non-core leaf port; FreeBSD ships an in-kernel igb(4).
+# Excluded so the poudriere run is clean (a non-zero exit blocks repo signing). Re-enable
+# if/when it builds against the target FreeBSD again.
 net/kea
 net/kea-devel
 net/keama
