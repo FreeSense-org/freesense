@@ -78,5 +78,7 @@ jobs:
                RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
                RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
                rclone sync --copy-links --checksum --fast-list --transfers 16 \
+                 --exclude 'logs/**' --exclude 'logs' \
+                 --exclude '.building/**' --exclude '.real_*/**' --exclude '.cache/**' \
                  '${POUDRIERE_REPO}/.latest/' '${DEST}/'"
           echo ">>> Done. Smoke test from a FreeSense box: pkg update -f && pkg search -q FreeSense"
