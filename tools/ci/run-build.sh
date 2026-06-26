@@ -24,8 +24,9 @@ echo ">>> freesense-src HEAD: $(git rev-parse --short HEAD) ($(git log -1 --form
 echo ">>> ./build.sh --update-pkg-repo"
 ./build.sh --update-pkg-repo
 
-# Stage 2: build the installer images (ISO + memstick) from the staged repo.
-echo ">>> ./build.sh (images)"
-./build.sh
+# Stage 2: build the installer ISO from the staged repo.
+# (build.sh requires an explicit image type: iso | ova | memstick | all)
+echo ">>> ./build.sh iso"
+./build.sh iso
 
 echo "=== run-build done: $(date) ==="
