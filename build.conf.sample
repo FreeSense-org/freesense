@@ -52,9 +52,11 @@ export MODULES_OVERRIDE="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc
 # Core packages baked into the image (base system + kernel + factory config).
 export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-default-config"
 
-# Define FreeBSD repository, branch and specific commit
-#export FREEBSD_REPO_BASE=https://github.com/freebsd/freebsd.git
-#export FREEBSD_BRANCH=stable/10
+# FreeBSD source repo: our org's fork of pfSense's FreeBSD-src (carries the kernel conf
+# + bsdinstall customizations our confrename/installer-rebrand scripts expect; rebranded
+# to FreeSense at build time). Set explicitly so it doesn't get derived from the repo
+# remote (which would point at a nonexistent FreeSense-org/freebsd-src casing/path).
+export FREEBSD_REPO_BASE="https://github.com/FreeSense-org/freebsd-src.git"
 #export GIT_FREEBSD_COSHA1=##HASH##
 
 # Do not clean FreeBSD obj dirs
