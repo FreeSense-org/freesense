@@ -72,6 +72,23 @@ jobs:
              grep -q '^export POUDRIERE_BRANCH=' ${SRC}/build.conf || echo 'export POUDRIERE_BRANCH=main' >> ${SRC}/build.conf && \
              echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH' ${SRC}/build.conf | grep -v '^#'"
 
+      - name: Force-clean the FreeSense core packages
+        run: |
+          # poudriere caches packages by version. A RELEASE build's core version is
+          # clean (e.g. 1.0.0, no timestamp), so an unchanged version would REUSE a
+          # stale cached package even though the source (de-netgate/GUI) changed.
+          # Delete the cached CORE packages (built from the freesense-src distfile) so
+          # they recompile from the fresh source. FreeSense-pkg-* plugins (upstream
+          # source) are deliberately NOT touched, so they stay cached/fast.
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "rm -f /usr/local/poudriere/data/packages/*/All/FreeSense-system-*.pkg \
+                   /usr/local/poudriere/data/packages/*/All/FreeSense-ce-*.pkg \
+                   /usr/local/poudriere/data/packages/*/All/FreeSense-repo-*.pkg \
+                   /usr/local/poudriere/data/packages/*/All/FreeSense-default-config*.pkg \
+                   /usr/local/poudriere/data/packages/*/All/php*-FreeSense-module-*.pkg \
+                   /usr/local/poudriere/data/packages/*/All/FreeSense-[0-9]*.pkg 2>/dev/null; \
+             echo 'core packages cleared (plugins kept)'"
+
       - name: Launch build (detached)
         run: |
           # gh run cancel kills the workflow job but NOT a nohup'd build on the VM, so
