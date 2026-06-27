@@ -88,6 +88,9 @@
 	<unbound>
 		<enable></enable>
 	</unbound>
+	<widgets>
+		<sequence>system_information:col1:open:0,traffic_graphs:col1:open:0,interfaces:col2:open:0,gateways:col2:open:0,services_status:col2:open:0</sequence>
+	</widgets>
 	<revision>
 		<description>Factory default FreeSense</description>
 		<username>admin</username>
