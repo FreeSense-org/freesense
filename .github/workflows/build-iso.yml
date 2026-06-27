@@ -44,13 +44,15 @@ jobs:
           # Check out the requested branch in BOTH repos (same branch name in each:
           # main = devel channel, RELENG_1_0 = stable channel). -B resets the local
           # branch to origin, so switching channels is clean and idempotent.
+          # Fetch the specific ref by name (the VM clones are single-branch, so a bare
+          # 'git fetch origin' won't pull other branches). FETCH_HEAD = the fetched tip.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "cd ${SRC} && git fetch --quiet origin && git checkout -B '${REF}' 'origin/${REF}' && \
+            "cd ${SRC} && git fetch --quiet origin '${REF}' && git checkout -B '${REF}' FETCH_HEAD && \
              echo 'freesense-src:' && git log -1 --oneline && echo 'version:' && cat src/etc/version"
           # The ports overlay (freesense-ports) is copied onto the poudriere tree by
           # freesense-ports-overlay.sh but never pulled — refresh it to the same branch.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "cd /root/freesense-ports && git fetch --quiet origin && git checkout -B '${REF}' 'origin/${REF}' && \
+            "cd /root/freesense-ports && git fetch --quiet origin '${REF}' && git checkout -B '${REF}' FETCH_HEAD && \
              echo 'freesense-ports:' && git log -1 --oneline"
           # build.conf is generated from build.conf.sample by the provisioner and is gitignored,
           # so git reset can't update it. Keep the repo-server URL in sync with the sample
