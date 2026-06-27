@@ -49,6 +49,16 @@ jobs:
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "cd ${SRC} && git fetch --quiet origin '${REF}' && git checkout -B '${REF}' FETCH_HEAD && \
              echo 'freesense-src:' && git log -1 --oneline && echo 'version:' && cat src/etc/version"
+          # CRITICAL: security/FreeSense-system builds from the freesense-src.tar.gz DISTFILE,
+          # not the live checkout. Re-tar it from the freshly-checked-out source so source
+          # changes (version, GUI, de-netgate) actually reach the built system package.
+          # (Exclude tmp/ build-obj — GBs — and .git/logs.)
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "rm -f /usr/ports/distfiles/freesense-src.tar.gz && \
+             tar czf /usr/ports/distfiles/freesense-src.tar.gz -C $(dirname ${SRC}) \
+               --exclude='$(basename ${SRC})/.git' --exclude='$(basename ${SRC})/tmp' --exclude='$(basename ${SRC})/logs' \
+               '$(basename ${SRC})' && \
+             echo 'distfile refreshed:' && ls -lh /usr/ports/distfiles/freesense-src.tar.gz"
           # The ports overlay (freesense-ports) is copied onto the poudriere tree by
           # freesense-ports-overlay.sh but never pulled — refresh it to the same branch.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
