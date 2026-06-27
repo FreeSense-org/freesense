@@ -53,11 +53,14 @@ if [ -f ${BUILD_CONF} ]; then
 	. ${BUILD_CONF}
 fi
 
-# Define pfSense versions
+# Define FreeSense versions (repo-path segments). DEVEL = rolling 'devel' path.
+# RELEASE points at the next release this devel line will cut (1.1.0); it is
+# unused by -DEVELOPMENT builds (those use the 'devel' path) and is set per
+# release branch (RELENG_1_0 uses v1_0_0).
 PKG_REPO_BRANCH_DEVEL="devel"
-#PKG_REPO_BRANCH_NEXT="v2_7_0"
-PKG_REPO_BRANCH_RELEASE="v2_6_0"
-PKG_REPO_BRANCH_PREVIOUS="v2_5_2"
+#PKG_REPO_BRANCH_NEXT="v1_2_0"
+PKG_REPO_BRANCH_RELEASE="v1_1_0"
+PKG_REPO_BRANCH_PREVIOUS="v1_0_0"
 
 # Make sure pkg will not be interactive
 export ASSUME_ALWAYS_YES=true
