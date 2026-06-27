@@ -69,8 +69,9 @@ jobs:
           # (idempotent: only rewrites a stale pkg+https:// prefix).
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "sed -i '' 's,pkg+https://,https://,g' ${SRC}/build.conf && \
+             sed -i '' 's,^export PRODUCT_NAME_SUFFIX=.*,export PRODUCT_NAME_SUFFIX=\"\",' ${SRC}/build.conf && \
              grep -q '^export POUDRIERE_BRANCH=' ${SRC}/build.conf || echo 'export POUDRIERE_BRANCH=main' >> ${SRC}/build.conf && \
-             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH' ${SRC}/build.conf | grep -v '^#'"
+             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX' ${SRC}/build.conf | grep -v '^#'"
 
       - name: Force-clean the FreeSense core packages
         run: |

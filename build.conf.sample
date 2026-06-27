@@ -23,7 +23,8 @@
 # rebuild/rebrand of pfSense CE; build it under whatever name you like, but only
 # repos signed with the FreeSense key (fingerprint shipped in the OS) are "official".
 export PRODUCT_NAME="FreeSense"
-export PRODUCT_NAME_SUFFIX="-CE"
+# No edition suffix — one open-source edition (was "-CE").
+export PRODUCT_NAME_SUFFIX=""
 export PRODUCT_URL="https://freesense.org"
 export PRODUCT_EMAIL="dev@freesense.local"
 export FREEBSD_BRANCH="devel-main"
