@@ -2112,15 +2112,22 @@ EOF
 		fi
 	done
 
-	# Change version of pfSense meta ports for snapshots
+	# Set the meta-port (security/FreeSense, sysutils/FreeSense-repo) version.
+	# devel  -> <ver>-ALPHA-<datestamp>  (becomes <ver>.a.<datestamp>)
+	# release -> clean <ver> with the -RELEASE suffix stripped (1.0.0-RELEASE -> 1.0.0).
+	# Always sed it: the Makefiles ship DISTVERSION=${PRODUCT_VERSION}, but PRODUCT_VERSION
+	# is NOT defined in the poudriere build env (the make.conf only sets
+	# FREESENSE_PKG_SET_VERSION), so an un-sed'd release build produced an EMPTY version.
 	if [ -z "${_IS_RELEASE}" ]; then
 		local _meta_pkg_version="$(echo "${PRODUCT_VERSION}" | sed 's,DEVELOPMENT,ALPHA,')-${DATESTRING}"
-		sed -i '' \
-			-e "/^DISTVERSION/ s,^.*,DISTVERSION=	${_meta_pkg_version}," \
-			-e "/^PORTREVISION=/d" \
-			/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/security/${PRODUCT_NAME}/Makefile \
-			/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/Makefile
+	else
+		local _meta_pkg_version="${PRODUCT_VERSION%%-*}"
 	fi
+	sed -i '' \
+		-e "/^DISTVERSION/ s,^.*,DISTVERSION=	${_meta_pkg_version}," \
+		-e "/^PORTREVISION=/d" \
+		/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/security/${PRODUCT_NAME}/Makefile \
+		/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/Makefile
 
 	# Copy over pkg repo templates to pfSense-repo
 	mkdir -p /usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/files

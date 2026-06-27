@@ -64,6 +64,11 @@ jobs:
 
       - name: Launch build (detached)
         run: |
+          # gh run cancel kills the workflow job but NOT a nohup'd build on the VM, so
+          # first kill any stale build/poudriere from a previous run to avoid a
+          # concurrent-build collision (poudriere cleans its own stale mounts on start).
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "pkill -f tools/ci/run-build.sh 2>/dev/null; pkill -f /build.sh 2>/dev/null; pkill -f poudriere 2>/dev/null; sleep 3; echo 'stale build processes cleared'"
           # Clear any stale sentinel, then launch the driver detached on the VM.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "rm -f /root/build-ci.rc /root/build-ci.log; \
