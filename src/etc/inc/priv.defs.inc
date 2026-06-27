@@ -526,30 +526,6 @@ $priv_list['page-system-packagemanager-installed']['descr'] = gettext("Allow acc
 $priv_list['page-system-packagemanager-installed']['match'] = array();
 $priv_list['page-system-packagemanager-installed']['match'][] = "pkg_mgr_installed.php*";
 
-$priv_list['page-services-acb'] = array();
-$priv_list['page-services-acb']['name'] = gettext("WebCfg - Services: Auto Config Backup: Restore");
-$priv_list['page-services-acb']['descr'] = gettext("Restore from auto config backup.");
-$priv_list['page-services-acb']['match'] = array();
-$priv_list['page-services-acb']['match'][] = "services_acb.php*";
-
-$priv_list['page-services-acb-backup'] = array();
-$priv_list['page-services-acb-backup']['name'] = gettext("WebCfg - Services: Auto Config Backup: Backup Now");
-$priv_list['page-services-acb-backup']['descr'] = gettext("Create a new auto config backup entry.");
-$priv_list['page-services-acb-backup']['match'] = array();
-$priv_list['page-services-acb-backup']['match'][] = "services_acb_backup.php*";
-
-$priv_list['page-services-acb-changekey'] = array();
-$priv_list['page-services-acb-changekey']['name'] = gettext("WebCfg - Services: Auto Config Backup: Change Device Key");
-$priv_list['page-services-acb-changekey']['descr'] = gettext("Change the auto config backup device key.");
-$priv_list['page-services-acb-changekey']['match'] = array();
-$priv_list['page-services-acb-changekey']['match'][] = "services_acb_changekey.php*";
-
-$priv_list['page-services-acb-settings'] = array();
-$priv_list['page-services-acb-settings']['name'] = gettext("WebCfg - Services: Auto Config Backup: Settings");
-$priv_list['page-services-acb-settings']['descr'] = gettext("Configure the auto config backup system.");
-$priv_list['page-services-acb-settings']['match'] = array();
-$priv_list['page-services-acb-settings']['match'][] = "services_acb_settings.php*";
-
 $priv_list['page-services-captiveportal'] = array();
 $priv_list['page-services-captiveportal']['name'] = gettext("WebCfg - Services: Captive Portal");
 $priv_list['page-services-captiveportal']['descr'] = gettext("Allow access to the 'Services: Captive Portal' page.");

@@ -6397,13 +6397,11 @@ function upgrade_218_to_219() {
 }
 
 /*
- * Ensure the ACB cron job is installed after upgrade if ACB is enabled
- * If the cron job already exists, no harm is done
+ * FreeSense: AutoConfigBackup removed (Netgate-cloud only). This migration is
+ * now a no-op; the cron job it installed ran acbupload.php, which no longer exists.
  */
 function upgrade_219_to_220() {
-	if (config_get_path('system/acb/enable') == "yes" && file_exists("/usr/local/sbin/acbupload.php")) {
-		install_cron_job("/usr/bin/nice -n20 /usr/local/bin/php /usr/local/sbin/acbupload.php", true, "*");
-	}
+	/* no-op: ACB removed in FreeSense */
 }
 
 /*
