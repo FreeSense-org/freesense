@@ -53,14 +53,15 @@ if [ -f ${BUILD_CONF} ]; then
 	. ${BUILD_CONF}
 fi
 
-# Define FreeSense versions (repo-path segments). DEVEL = rolling 'devel' path.
-# RELEASE points at the next release this devel line will cut (1.1.0); it is
-# unused by -DEVELOPMENT builds (those use the 'devel' path) and is set per
-# release branch (RELENG_1_0 uses v1_0_0).
+# Define FreeSense versions (repo-path segments) -> also the Update > branch
+# selector entries. DEVEL = rolling 'devel' path; RELEASE = the current published
+# stable (v1_0_0) so users can switch the package channel devel <-> stable.
+# (-DEVELOPMENT builds still install from the 'devel' path; RELEASE here just
+# populates the branch list + the path a release build would publish to.)
 PKG_REPO_BRANCH_DEVEL="devel"
 #PKG_REPO_BRANCH_NEXT="v1_2_0"
-PKG_REPO_BRANCH_RELEASE="v1_1_0"
-PKG_REPO_BRANCH_PREVIOUS="v1_0_0"
+PKG_REPO_BRANCH_RELEASE="v1_0_0"
+PKG_REPO_BRANCH_PREVIOUS=""
 
 # Make sure pkg will not be interactive
 export ASSUME_ALWAYS_YES=true
