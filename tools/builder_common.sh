@@ -2112,22 +2112,28 @@ EOF
 		fi
 	done
 
-	# Set the meta-port (security/FreeSense, sysutils/FreeSense-repo) version.
-	# devel  -> <ver>-ALPHA-<datestamp>  (becomes <ver>.a.<datestamp>)
+	# Stamp a clean version on EVERY core port that ships DISTVERSION=${PRODUCT_VERSION}
+	# (security/FreeSense + -system + -ce, sysutils/FreeSense-repo + -default-config[-serial],
+	# devel/php-FreeSense-module). PRODUCT_VERSION is NOT defined in the poudriere build env
+	# (the make.conf only sets FREESENSE_PKG_SET_VERSION), so without this they build with an
+	# EMPTY version -> "unwanted unversioned dependency" failures. Find them dynamically so a
+	# new such port is covered automatically.
+	# devel  -> <ver>-ALPHA-<datestamp>  (ports framework renders it <ver>.a.<datestamp>)
 	# release -> clean <ver> with the -RELEASE suffix stripped (1.0.0-RELEASE -> 1.0.0).
-	# Always sed it: the Makefiles ship DISTVERSION=${PRODUCT_VERSION}, but PRODUCT_VERSION
-	# is NOT defined in the poudriere build env (the make.conf only sets
-	# FREESENSE_PKG_SET_VERSION), so an un-sed'd release build produced an EMPTY version.
 	if [ -z "${_IS_RELEASE}" ]; then
 		local _meta_pkg_version="$(echo "${PRODUCT_VERSION}" | sed 's,DEVELOPMENT,ALPHA,')-${DATESTRING}"
 	else
 		local _meta_pkg_version="${PRODUCT_VERSION%%-*}"
 	fi
-	sed -i '' \
-		-e "/^DISTVERSION/ s,^.*,DISTVERSION=	${_meta_pkg_version}," \
-		-e "/^PORTREVISION=/d" \
-		/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/security/${PRODUCT_NAME}/Makefile \
-		/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/Makefile
+	local _pdir="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
+	grep -rlE 'DISTVERSION=[[:space:]]*\$\{PRODUCT_VERSION\}|PORTVERSION=[[:space:]]*\$\{PRODUCT_VERSION\}' \
+		"${_pdir}" --include=Makefile 2>/dev/null | while read -r _mf; do
+		sed -i '' \
+			-e "/^DISTVERSION/ s,^.*,DISTVERSION=	${_meta_pkg_version}," \
+			-e "/^PORTVERSION/ s,^.*,PORTVERSION=	${_meta_pkg_version}," \
+			-e "/^PORTREVISION=/d" \
+			"${_mf}"
+	done
 
 	# Copy over pkg repo templates to pfSense-repo
 	mkdir -p /usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/sysutils/${PRODUCT_NAME}-repo/files
