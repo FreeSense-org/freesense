@@ -81,6 +81,7 @@ security/snort3
 shells/zsh
 sysutils/%%PRODUCT_NAME%%-default-config
 sysutils/%%PRODUCT_NAME%%-default-config-serial
+sysutils/%%PRODUCT_NAME%%-repoc
 security/%%PRODUCT_NAME%%-pkg-acme
 security/%%PRODUCT_NAME%%-pkg-nmap
 security/%%PRODUCT_NAME%%-pkg-openvpn-client-export
