@@ -49,28 +49,33 @@ jobs:
                rclone"
           run() { ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" "$1"; }
 
-          echo "===== TOP-LEVEL PREFIXES ====="
-          run "$RC lsf 'R2:${R2_BUCKET}' --dirs-only"
+          BASE="R2:${R2_BUCKET}/${KEEP_PREFIX}"
+          # Real repo dirs to KEEP inside the prefix; everything else is recursion junk.
+          # (All = packages, Latest = pkg bootstrap. Top-level metadata files are kept too.)
           echo "===== TOTAL BUCKET SIZE ====="
           run "$RC size 'R2:${R2_BUCKET}'"
-          echo "===== REAL REPO SIZE (${KEEP_PREFIX}) ====="
-          run "$RC size 'R2:${R2_BUCKET}/${KEEP_PREFIX}'"
-          echo "===== INCOMPLETE MULTIPART UPLOADS ====="
-          run "$RC backend list-multipart-uploads 'R2:${R2_BUCKET}' 2>/dev/null | head -40 || echo '(none / not supported)'"
+          echo "===== SUBDIRS INSIDE ${KEEP_PREFIX} (this is where the junk lives) ====="
+          run "$RC lsf '${BASE}' --dirs-only"
+          echo "===== TOP-LEVEL FILES INSIDE PREFIX (metadata — keep) ====="
+          run "$RC lsf '${BASE}' --files-only"
+          echo "===== SIZE of All/ and Latest/ (the real payload) ====="
+          run "$RC size '${BASE}/All' 2>/dev/null || echo '(no All/)'"
+          run "$RC size '${BASE}/Latest' 2>/dev/null || echo '(no Latest/)'"
 
           if [ "$ACTION" = "clean" ]; then
-            echo "===== CLEAN: purge every top-level prefix EXCEPT ${KEEP_PREFIX} ====="
-            for d in $(run "$RC lsf 'R2:${R2_BUCKET}' --dirs-only" | tr -d '\r'); do
+            echo "===== CLEAN: purge junk subdirs inside the prefix (keep All, Latest) ====="
+            for d in $(run "$RC lsf '${BASE}' --dirs-only" | tr -d '\r'); do
               name="${d%/}"
-              if [ "$name" = "${KEEP_PREFIX}" ]; then
-                echo "  KEEP  ${name}/"
-              else
-                echo "  PURGE ${name}/"
-                run "$RC purge 'R2:${R2_BUCKET}/${name}'"
-              fi
+              case "$name" in
+                All|Latest)
+                  echo "  KEEP  ${name}/" ;;
+                *)
+                  echo "  PURGE ${name}/"
+                  run "$RC purge '${BASE}/${name}'" ;;
+              esac
             done
-            echo "===== CLEAN: abort incomplete multipart uploads ====="
-            run "$RC cleanup 'R2:${R2_BUCKET}'" || echo "(cleanup not supported; aborting via backend)"
+            echo "===== CLEAN: abort any incomplete multipart uploads ====="
+            run "$RC cleanup 'R2:${R2_BUCKET}'" || echo "(cleanup not supported)"
             echo "===== POST-CLEAN TOTAL SIZE ====="
             run "$RC size 'R2:${R2_BUCKET}'"
           fi
