@@ -55,12 +55,20 @@ jobs:
       - name: Determine repo path segment
         id: seg
         run: |
-          # Try to auto-detect from the box's generated repo conf; ignore %%PLACEHOLDER%% (unresolved) hits.
+          # Auto-detect from the RESOLVED box repo conf the build stages (setup_pkg_repo
+          # writes it to STAGE_CHROOT_DIR/PRODUCT_SHARE_DIR with %% placeholders resolved:
+          # devel -> FreeSense_master_amd64-FreeSense_devel, release -> FreeSense_v1_0_0_...).
+          # The regex skips any line still containing % (unresolved template).
           SEG=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "grep -ohE 'FreeSense_[^/\"%]+-FreeSense_[^/\"%]+' /usr/local/poudriere/ports/FreeSense_devel/sysutils/FreeSense-repo/files/FreeSense-repo.conf 2>/dev/null | head -1" || true)
+            "grep -hoE 'FreeSense_[^/\"%]+-FreeSense_[^/\"%]+' /root/freesense-src/tmp/stage-dir/usr/local/share/FreeSense/FreeSense-repo.conf 2>/dev/null | head -1" || true)
+          if [ -z "$SEG" ]; then
+            # Fallback: any resolved FreeSense.conf under the staged image.
+            SEG=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+              "grep -rhoE 'FreeSense_[^/\"%]+-FreeSense_[^/\"%]+' /root/freesense-src/tmp/stage-dir/usr/local/etc/pkg/repos/ /root/freesense-src/tmp/stage-dir/usr/local/share/FreeSense/ 2>/dev/null | sort -u | head -1" || true)
+          fi
           if [ -z "$SEG" ]; then
             SEG="${{ github.event.inputs.repo_path_segment }}"
-            echo "auto-detect empty; using input/default segment"
+            echo "auto-detect empty; using input segment (blank = will fail below)"
           fi
           echo "Using repo path segment: $SEG"
           echo "segment=$SEG" >> "$GITHUB_OUTPUT"
