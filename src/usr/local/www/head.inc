@@ -477,7 +477,6 @@ if (are_notices_pending()) {
 			</button>
 			<a class="navbar-brand" href="/">
 				<?php include("/usr/local/www/logo.svg"); ?>
-				<span style="color:white;font-size:.5em;text-transform:uppercase;letter-spacing:1px;">Community Edition</span>
 			</a>
 		</div>
 		<div class="collapse navbar-collapse" id="pf-navbar">
