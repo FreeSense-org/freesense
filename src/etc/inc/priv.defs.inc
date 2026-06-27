@@ -1150,12 +1150,6 @@ $priv_list['page-system-hasync']['descr'] = gettext("Allow access to the 'System
 $priv_list['page-system-hasync']['match'] = array();
 $priv_list['page-system-hasync']['match'][] = "system_hasync.php*";
 
-$priv_list['page-system-register'] = array();
-$priv_list['page-system-register']['name'] = gettext("WebCfg - System: Register");
-$priv_list['page-system-register']['descr'] = gettext("Allow access to the 'System: Register' page.");
-$priv_list['page-system-register']['match'] = array();
-$priv_list['page-system-register']['match'][] = "system_register.php*";
-
 $priv_list['page-system-staticroutes'] = array();
 $priv_list['page-system-staticroutes']['name'] = gettext("WebCfg - System: Static Routes");
 $priv_list['page-system-staticroutes']['descr'] = gettext("Allow access to the 'System: Static Routes' page.");

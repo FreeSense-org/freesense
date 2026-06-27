@@ -33,9 +33,10 @@ $idfile = "/var/db/uniqueid";
 $FQDN = "https://ews.netgate.com/copyright";
 $refreshinterval = (24 * 3600);	// 24 hours
 
-// Poll the Netgate server to obtain the JSON/HTML formatted support information
-// and write it to the JSON file
+// FreeSense: disabled. This used to POST the device unique id to
+// ews.netgate.com/copyright on every dashboard load. We do not phone home.
 function updatecopyright() {
+	return;
 	global $g, $copyrightfile, $tmpfile, $idfile, $FQDN;
 
 	if (file_exists($idfile)) {
@@ -72,13 +73,12 @@ function updatecopyright() {
 	}
 }
 
-// Retrieve the copyright data from Netgate.com if
-// the support data file does not exist, or
-// if it is more than a day old and the URL seems resolvable
-if ((!file_exists($copyrightfile) || (filesize($copyrightfile) == 0) ||
-    ((time()-filemtime($copyrightfile) > $refreshinterval))) && resolve_address($FQDN)) {
-	updateCopyright();
-}
+// FreeSense: auto-fetch disabled (no phone-home to Netgate). The block below
+// previously polled ews.netgate.com (and did a DNS lookup of it) on each load.
+// if ((!file_exists($copyrightfile) || (filesize($copyrightfile) == 0) ||
+//     ((time()-filemtime($copyrightfile) > $refreshinterval))) && resolve_address($FQDN)) {
+// 	updateCopyright();
+// }
 
 // Compare the copyright text contained in the first HTML <DIV>
 function compare_copytext ($new, $old) {

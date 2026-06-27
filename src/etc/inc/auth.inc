@@ -2348,10 +2348,9 @@ function print_credit() {
 	global $g;
 
 	return  '<a target="_blank" href="https://freesense.org">' . g_get('product_label') . '</a>' .
-			gettext(' is developed and maintained by ') .
-			'<a target="_blank" href="https://netgate.com">Netgate. </a>' . ' &copy; ESF ' . g_get('product_copyright_years') .
+			gettext(' is a community fork of pfSense&reg; CE.') . ' &copy; ESF ' . g_get('product_copyright_years') . '. ' .
 			'<a target="_blank" href="https://freesense.org/license">' .
-			gettext(' View license.') . '</a>';
+			gettext('View license.') . '</a>';
 }
 
 function set_pam_auth() {

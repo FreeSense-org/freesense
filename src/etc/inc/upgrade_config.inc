@@ -5203,45 +5203,16 @@ function upgrade_165_to_166() {
 	}
 }
 
-/* Force the Netgate Services and Support widget to be active on upgrade.
-   New widget is added at the top of column 2 */
+/* FreeSense: the "Netgate Services and Support" widget is removed (it phones
+   home to ews.netgate.com). These two migrations used to force it into the
+   dashboard on upgrade; they are now no-ops, kept only to preserve the config
+   version sequence. */
 function upgrade_166_to_167() {
-	if (strpos(config_get_path('widgets/sequence'),
-	    'netgate_services_and_support') === false) {
-		$widgets = array_filter(explode(",", config_get_path('widgets/sequence')));
-		$cnt = count($widgets);
-		$col2 = $cnt;
-		$newsequence = array();
-
-		// Locate the firt column 2 widget
-		for ($idx=0;$idx<$cnt;$idx++) {
-			if (strpos($widgets[$idx], 'col2') !== false) {
-				$col2 = $idx;
-				break;
-			}
-		}
-
-		/*
-		 * Loop through the widgets inserting the new widget before
-		 * the first col2 widget
-		 */
-		for ($old=0,$new=0;$old<$cnt;$old++,$new++) {
-			$newsequence[$new] = $widgets[$old];
-
-			if ($old != ($col2 - 1)) {
-				continue;
-			}
-			$new++;
-			$newsequence[$new] =
-			    "netgate_services_and_support:col2:open:0";
-		}
-
-		config_set_path('widgets/sequence', implode(",", $newsequence));
-	}
+	/* no-op: Netgate Services/Support widget removed in FreeSense */
 }
 
 function upgrade_167_to_168() {
-	upgrade_166_to_167();
+	/* no-op: see upgrade_166_to_167 */
 }
 
 function upgrade_168_to_169() {

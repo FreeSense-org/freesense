@@ -251,8 +251,6 @@ if (isAllowedPage("system_camanager.php")) {
 	$system_menu[] = array(gettext("Certificates"), "/system_crlmanager.php");
 }
 
-$system_menu[] = array(gettext("Register"), "/system_register.php");
-
 if (isAllowedPage("system_usermanager.php")) {
 	$system_menu[] = array(gettext("User Manager"), "/system_usermanager.php");
 }
