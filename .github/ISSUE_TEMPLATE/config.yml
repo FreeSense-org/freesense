@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & community
+    url: https://github.com/FreeSense-org/freesense/discussions
+    about: Ask questions, get help, and discuss FreeSense with the community.
+  - name: FreeSense website
+    url: https://freesense.org
+    about: Project home, downloads, and documentation.

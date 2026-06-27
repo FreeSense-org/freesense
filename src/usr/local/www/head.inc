@@ -428,18 +428,14 @@ $diagnostics_menu = msort(array_merge($diagnostics_menu, return_ext_menu("Diagno
 if (!g_get('disablehelpmenu')) {
 	$help_menu = array();
 	$help_menu[] = array(gettext("About this Page"), $helpurl);
-	if (g_get('product_name') == "FreeSense") {
-		$help_menu[] = array(gettext("Bug Database"), "https://redirects.netgate.com/issues");
-	}
-
-	$help_menu[] = array(gettext("User Forum"), "https://redirects.netgate.com/forum");
+	// FreeSense: bug reports + source on GitHub; community on Discussions.
+	$help_menu[] = array(gettext("Bug Database"), "https://github.com/FreeSense-org/freesense/issues");
+	$help_menu[] = array(gettext("Source Code"), "https://github.com/FreeSense-org/freesense");
+	$help_menu[] = array(gettext("User Forum"), "https://github.com/FreeSense-org/freesense/discussions");
+	// Documentation links left on Netgate redirects for now (docs not yet rehosted).
 	$help_menu[] = array(gettext("Documentation"), "https://redirects.netgate.com/docs");
-	$help_menu[] = array(gettext("Paid Support"), "https://redirects.netgate.com/support");
 	$help_menu[] = array(gettext("FreeSense Book"), "https://redirects.netgate.com/book");
 	$help_menu[] = array(gettext("FreeBSD Handbook"), "https://redirects.netgate.com/fbsdhandbook");
-	if  (strpos(g_get('product_label'), 'Plus') === false) {
-		$help_menu[] = array(gettext("Upgrade to FreeSense Plus"), "https://redirects.netgate.com/upgrade");
-	}
 	$help_menu = msort(array_merge($help_menu, return_ext_menu("Help")), 0);
 }
 

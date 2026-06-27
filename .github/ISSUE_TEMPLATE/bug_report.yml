@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a problem with FreeSense
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve FreeSense. Please search existing issues first to avoid duplicates.
+        For general questions or help, use [Discussions](https://github.com/FreeSense-org/freesense/discussions) instead.
+  - type: input
+    id: version
+    attributes:
+      label: FreeSense version
+      description: Shown on the dashboard / console (e.g. 1.0.0-RELEASE or 1.1.0-DEVELOPMENT).
+      placeholder: "1.0.0-RELEASE"
+    validations:
+      required: true
+  - type: dropdown
+    id: channel
+    attributes:
+      label: Channel
+      options:
+        - stable
+        - devel
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / crash output
+      description: Relevant logs (Status > System Logs, or the Crash Reporter output). Redact secrets first.
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware / platform
+      placeholder: "amd64 VM (VMware), 4 vCPU / 4 GB"
+    validations:
+      required: false
