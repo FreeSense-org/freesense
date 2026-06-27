@@ -18,9 +18,17 @@ cd "${SRC_DIR}"
 echo "=== run-build start: $(date) ==="
 echo ">>> freesense-src HEAD: $(git rev-parse --short HEAD) ($(git log -1 --format=%s))"
 
-# Stage 1: rebuild ports as needed + regenerate/sign the pkg repo.
-# (All 562 pkgs are cached in poudriere; only changed ports — e.g. the
-#  FreeSense-repo config pkg — rebuild, then metadata is re-signed.)
+# Stage 1: refresh the poudriere ports tree (git reset + re-apply our overlay +
+# rebrand rename). REQUIRED on every build: poudriere_create_ports_tree only
+# overlays on first creation, so without this the tree keeps the PREVIOUS build's
+# version/channel — e.g. a stale DISTVERSION (security/FreeSense would build as the
+# old 2.9.0.a.<ts> instead of tracking src/etc/version). This reset lets DISTVERSION
+# resolve to ${PRODUCT_VERSION} (1.0.0 for a -RELEASE branch, 1.1.0 for devel).
+echo ">>> ./build.sh --update-poudriere-ports"
+./build.sh --update-poudriere-ports
+
+# Stage 2: rebuild ports as needed + regenerate/sign the pkg repo.
+# (Cached poudriere packages are reused; only changed ports rebuild, then signed.)
 echo ">>> ./build.sh --update-pkg-repo"
 ./build.sh --update-pkg-repo
 
