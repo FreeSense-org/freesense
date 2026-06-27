@@ -82,7 +82,8 @@ jobs:
              grep -q '^export POUDRIERE_BRANCH=' ${SRC}/build.conf || echo 'export POUDRIERE_BRANCH=main' >> ${SRC}/build.conf && \
              grep -q 'FreeSense-repoc' ${SRC}/build.conf || sed -i '' 's,^\(export custom_package_list=\".*\)\",\1 FreeSense-repoc\",' ${SRC}/build.conf && \
              grep -q '^export FREEBSD_SRC_PATCHES_DIR=' ${SRC}/build.conf || echo 'export FREEBSD_SRC_PATCHES_DIR=\"/root/freesense-freebsd-patches\"' >> ${SRC}/build.conf && \
-             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX|custom_package_list|FREEBSD_SRC_PATCHES_DIR' ${SRC}/build.conf | grep -v '^#'"
+             grep -q '^export NO_CLEAN_FREEBSD_OBJ=' ${SRC}/build.conf || echo 'export NO_CLEAN_FREEBSD_OBJ=YES' >> ${SRC}/build.conf && \
+             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX|custom_package_list|FREEBSD_SRC_PATCHES_DIR|NO_CLEAN_FREEBSD_OBJ' ${SRC}/build.conf | grep -v '^#'"
 
       - name: Force-clean the FreeSense core packages
         run: |

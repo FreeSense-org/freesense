@@ -1224,6 +1224,28 @@ update_freebsd_sources() {
 			print_error_pfS
 		fi
 		sh ${FREEBSD_SRC_PATCHES_DIR}/apply.sh ${FREEBSD_SRC_DIR} || print_error_pfS
+
+		# NO_CLEAN safeguard: if the freebsd source identity (pinned commit + the
+		# applied patch set) changed since the last build, force a one-time clean of
+		# the FreeBSD obj so an incremental world can't reuse stale objects. Unchanged
+		# identity => keep the obj (the whole point of NO_CLEAN_FREEBSD_OBJ).
+		if [ -n "${NO_CLEAN_FREEBSD_OBJ}" ]; then
+			local _phash=$(cat ${FREEBSD_SRC_PATCHES_DIR}/patches/*.patch 2>/dev/null | sha256 -q 2>/dev/null)
+			local _fbsd_id="${UPSTREAM_REF} ${_phash}"
+			local _stamp="${FREEBSD_SRC_DIR}/../.freesense-fbsd-src-id"
+			if [ ! -f "${_stamp}" ] || [ "$(cat ${_stamp} 2>/dev/null)" != "${_fbsd_id}" ]; then
+				echo ">>> FreeBSD source identity changed (pin/patches) — forcing a clean obj this build."
+				local _objtree=$(make -C ${FREEBSD_SRC_DIR} -V OBJTREE 2>/dev/null)
+				if [ -n "${_objtree}" -a -d "${_objtree}" ]; then
+					chflags -R noschg ${_objtree} 2>/dev/null
+					rm -rf ${_objtree}/*
+				fi
+				[ -d "${KERNEL_BUILD_PATH}" ] && rm -rf ${KERNEL_BUILD_PATH}/*
+				echo "${_fbsd_id}" > "${_stamp}"
+			else
+				echo ">>> FreeBSD source identity unchanged — reusing obj (NO_CLEAN_FREEBSD_OBJ)."
+			fi
+		fi
 	else
 		echo ">>> Obtaining FreeBSD sources (${FREEBSD_BRANCH})..."
 		${BUILDER_SCRIPTS}/git_checkout.sh \

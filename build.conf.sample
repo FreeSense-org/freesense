@@ -69,8 +69,12 @@ export FREEBSD_SRC_PATCHES_DIR="/root/freesense-freebsd-patches"
 export FREEBSD_REPO_BASE="https://github.com/FreeSense-org/freebsd-src.git"
 #export GIT_FREEBSD_COSHA1=##HASH##
 
-# Do not clean FreeBSD obj dirs
-#export NO_CLEAN_FREEBSD_OBJ=YES
+# Reuse the FreeBSD world/kernel obj across builds (incremental buildworld) instead
+# of a full rebuild every run. Safe now that the freebsd-src tree is reproducible
+# (pinned upstream + fixed patch series): an unchanged tree recompiles almost nothing.
+# update_freebsd_sources() force-cleans the obj once whenever the source identity
+# (UPSTREAM_REF + patch set) changes, so a pin bump can't reuse a stale obj.
+export NO_CLEAN_FREEBSD_OBJ=YES
 
 # rsync data to upload snapshots
 #export RSYNCIP="your.snapshot.server"
