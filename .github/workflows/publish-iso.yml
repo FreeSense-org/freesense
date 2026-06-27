@@ -1,0 +1,70 @@
+name: Publish ISO to R2 (downloads)
+
+# Uploads the built installer ISO(s) to the downloads R2 bucket (downloads.freesense.org).
+# Runs on the self-hosted runner; the ISO lives in the FreeBSD builder VM, so we SSH in
+# and rclone from there (same pattern + creds as publish-pkg). Manual trigger only.
+on:
+  workflow_dispatch:
+    inputs:
+      bucket:
+        description: "R2 bucket for downloads"
+        required: false
+        default: "freesense-downloads"
+
+concurrency:
+  group: publish-iso
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, freesense-publish]
+    env:
+      VM: root@192.168.122.155
+      VMKEY: /home/runner/.ssh/vmkey
+      INSTALLER_DIR: /root/freesense-src/tmp/FreeSense/installer
+    steps:
+      - name: Sanity — an ISO exists on the VM
+        run: |
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "ls -1 ${INSTALLER_DIR}/*.iso.gz >/dev/null 2>&1 && echo 'iso present' || { echo 'ERROR: no .iso.gz in ${INSTALLER_DIR}'; exit 1; }"
+
+      - name: Ensure rclone on the VM
+        run: |
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "which rclone >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y rclone >/dev/null 2>&1; rclone version | head -1"
+
+      - name: Generate SHA256SUMS on the VM
+        run: |
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "cd ${INSTALLER_DIR} && sha256 -r *.iso.gz > SHA256SUMS.txt 2>/dev/null || sha256sum *.iso.gz > SHA256SUMS.txt; cat SHA256SUMS.txt"
+
+      - name: Upload ISO(s) to R2
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID_RAW: ${{ secrets.R2_ACCOUNT_ID }}
+          RCLONE_CONFIG_R2_REGION: auto
+          RCLONE_CONFIG_R2_ACL: private
+        run: |
+          BUCKET="${{ github.event.inputs.bucket }}"
+          ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
+                 | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
+          ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
+          echo ">>> Uploading ${INSTALLER_DIR}/*.iso.gz (+ SHA256SUMS.txt) -> R2:${BUCKET}/"
+          # copy (not sync) so older releases stay available; only the .iso.gz + checksums.
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "env \
+               RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+               RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+               RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+               RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+               RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+               RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
+               RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+               rclone copy --checksum --transfers 4 \
+                 --include '*.iso.gz' --include 'SHA256SUMS.txt' \
+                 '${INSTALLER_DIR}/' 'R2:${BUCKET}/'"
+          echo ">>> Done. After binding downloads.freesense.org to this bucket:"
+          echo ">>>   https://downloads.freesense.org/<iso-name>.iso.gz"
