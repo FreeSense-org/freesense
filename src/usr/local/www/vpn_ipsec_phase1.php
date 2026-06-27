@@ -1151,7 +1151,7 @@ $group->add(new Form_Input(
 $section->add($group);
 
 /* FreeBSD doesn't yet have TFC support. this is ready to go once it does
-https://redmine.freesense.org/issues/4688
+upstream issue 4688
 
 $section->addInput(new Form_Checkbox(
 	'tfc_enable',

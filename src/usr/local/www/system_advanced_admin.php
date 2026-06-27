@@ -382,7 +382,7 @@ exec('/bin/kenv -q console 2>/dev/null', $current_consoles);
 $current_consoles = explode(',', $current_consoles[0]);
 /* The first console in the list is the current active primary console.
  * Use this as the default value if the user has not stored their own preference.
- * See https://redmine.freesense.org/issues/12960
+ * See upstream issue 12960
  */
 $active_primary = ($current_consoles[0] == 'comconsole') ? 'serial' : 'video';
 

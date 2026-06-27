@@ -1116,7 +1116,7 @@ function delete_package_xml($package_name, $when = "post-deinstall") {
 	if (is_array($pkg_info['logging']) && !empty($pkg_info['logging']['logfilename'])) {
 		update_status(gettext("Syslog entries... "));
 		/* remove package-related syslog configuration but retain log data,
-		 * see https://redmine.freesense.org/issues/11846 */
+		 * see upstream issue 11846 */
 		@unlink_if_exists("{$g['varetc_path']}/syslog.d/" . basename($pkg_info['logging']['logfilename']) . ".conf");
 		update_status("done.\n");
 		$need_syslog_restart = true;
@@ -1196,7 +1196,7 @@ function package_reinstall_all() {
 				$found = true;
 			} elseif ($pkg['name'] == $package['name']) {
 				/* some packages use 'name' as the package name,
-				 * see https://redmine.freesense.org/issues/12766 */
+				 * see upstream issue 12766 */
 				pkg_install(g_get('pkg_prefix') . $package['name'], true);
 				$found = true;
 			}

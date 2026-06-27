@@ -313,7 +313,7 @@ function services_radvd_configure($blacklist = array()) {
 					 * The value of Lifetime SHOULD by default be at least
 					 * 3 * MaxRtrAdvInterval, where MaxRtrAdvInterval is the
 					 * maximum RA interval as defined in [RFC4861].
-					 * see https://redmine.freesense.org/issues/11105
+					 * see upstream issue 11105
 					 */
 					$radvdconf .= "\tRDNSS {$dnsstring} {\n";
 					$radvdconf .= "\t\tAdvRDNSSLifetime {$raadvdnsslifetime};\n";
@@ -338,7 +338,7 @@ function services_radvd_configure($blacklist = array()) {
 			if (!empty($dhcpv6ifconf['domain'])) {
 				/*
 				 * Lifetime SHOULD by default be at least 3 * MaxRtrAdvInterval
-				 * see https://redmine.freesense.org/issues/12173
+				 * see upstream issue 12173
 				 */
 				$radvdconf .= "\tDNSSL {$dhcpv6ifconf['domain']} {$searchliststring} {\n";
 				$radvdconf .= "\t\tAdvDNSSLLifetime {$raadvdnsslifetime};\n";
@@ -619,7 +619,7 @@ function services_kea6_configure(bool $with_custom = true) {
 		],
 	];
 
-	/* See https://redmine.freesense.org/issues/15328 */
+	/* See upstream issue 15328 */
 	$keaconf['Dhcp6']['sanity-checks'] = [
 		'lease-checks' => 'fix-del'
 	];
@@ -1297,11 +1297,11 @@ function services_dhcpd_kill_all($family = 'all') {
 
 	if (($family === 'all') || ($family === 'inet')) {
 		$pids = array_merge($pids, $pids4);
-		killbyname('kea-dhcp4'); /* See https://redmine.freesense.org/issues/16019 */
+		killbyname('kea-dhcp4'); /* See upstream issue 16019 */
 	}
 	if (($family === 'all') || ($family === 'inet6')) {
 		$pids = array_merge($pids, $pids6);
-		killbyname('kea-dhcp6'); /* See https://redmine.freesense.org/issues/16019 */
+		killbyname('kea-dhcp6'); /* See upstream issue 16019 */
 	}
 
 	foreach ($pids as $pid) {
@@ -1455,7 +1455,7 @@ function services_kea4_configure(bool $with_custom = true) {
 		],
 	];
 
-	/* See https://redmine.freesense.org/issues/15328 */
+	/* See upstream issue 15328 */
 	$keaconf['Dhcp4']['sanity-checks'] = [
 		'lease-checks' => 'fix-del'
 	];
@@ -1637,8 +1637,8 @@ EOD;
 	}
 
 	/* take these settings from the first DHCP configured interface,
-	 * see https://redmine.freesense.org/issues/10270
-	 * TODO: Global Settings tab, see https://redmine.freesense.org/issues/5080 */
+	 * see upstream issue 10270
+	 * TODO: Global Settings tab, see upstream issue 5080 */
 	foreach ($dhcpdcfg as $dhcpif => $dhcpifconf) {
 		if (empty($dhcpifconf)) {
 			continue;
@@ -1920,7 +1920,7 @@ EOD;
 			if (!empty($poolconf['tftp'])) {
 				$keapool['option-data'][] = [
 					'name' => 'tftp-server-name',
-					'code' => 66, /* See: https://redmine.freesense.org/issues/15518 */
+					'code' => 66, /* See: upstream issue 15518 */
 					'data' => $poolconf['tftp']
 				];
 			}
@@ -2363,7 +2363,7 @@ EOD;
 				if (!empty($sm['tftp']) && ($sm['tftp'] != $dhcpifconf['tftp'])) {
 					$keares['option-data'][] = [
 						'name' => 'tftp-server-name',
-						'code' => 66, /* See: https://redmine.freesense.org/issues/15518 */
+						'code' => 66, /* See: upstream issue 15518 */
 						'data' => $sm['tftp']
 					];
 				}
@@ -2762,8 +2762,8 @@ update-conflict-detection false;
 EOD;
 
 	/* take these settings from the first DHCP configured interface,
-	 * see https://redmine.freesense.org/issues/10270
-	 * TODO: Global Settings tab, see https://redmine.freesense.org/issues/5080 */
+	 * see upstream issue 10270
+	 * TODO: Global Settings tab, see upstream issue 5080 */
 	foreach ($dhcpdcfg as $dhcpif => $dhcpifconf) {
 		if (empty($dhcpifconf)) {
 			continue;
@@ -4867,7 +4867,7 @@ function services_dnsmasq_configure($restart_dhcp = true) {
 		}
 
 		/* avoid 127.0.0.1 dns loop,
-		 * see https://redmine.freesense.org/issues/12902 */
+		 * see upstream issue 12902 */
 		$args .= ' --no-resolv';
 		if (!config_path_enabled('dnsmasq', 'no_system_dns')) {
 			foreach (get_dns_nameservers(false, true) as $dns) {
@@ -5124,7 +5124,7 @@ function services_snmpd_configure($interface='') {
 			echo gettext("Starting SNMP daemon... ");
 		}
 
-		/* Make sure a printcap file exists or else bsnmpd will log errors. See https://redmine.freesense.org/issues/6838 */
+		/* Make sure a printcap file exists or else bsnmpd will log errors. See upstream issue 6838 */
 		if (!file_exists('/etc/printcap')) {
 			@file_put_contents('/etc/printcap', "# Empty file to prevent bsnmpd from logging errors.\n");
 		}

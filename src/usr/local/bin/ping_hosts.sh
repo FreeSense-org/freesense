@@ -32,7 +32,7 @@
 
 # Read in ipsec ping hosts and check the CARP status
 # Only perform this check if there are IPsec hosts to ping, see
-#   https://redmine.freesense.org/issues/8172
+#   upstream issue 8172
 if [ -s /var/db/ipsecpinghosts ]; then
 	IPSECHOSTS="/var/db/ipsecpinghosts"
 	CURRENTIPSECHOSTS="/var/db/currentipsecpinghosts"

@@ -51,7 +51,7 @@ uasort($spriv_list, "compare_by_name");
 /*
  * Check user privileges to test if the user is allowed to make changes.
  * Otherwise users can end up in an inconsistent state where some changes are
- * performed and others denied. See https://redmine.freesense.org/issues/9259
+ * performed and others denied. See upstream issue 9259
  */
 phpsession_begin();
 $guiuser = getUserEntry($_SESSION['Username']);

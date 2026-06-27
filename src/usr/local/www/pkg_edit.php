@@ -85,8 +85,8 @@ if ($pkg['custom_php_global_functions'] != "") {
 
 /* If the first entry in the array is an empty <config/> tag, kill it.
  * See the following tickets for more:
- *  https://redmine.freesense.org/issues/7624
- *  https://redmine.freesense.org/issues/476
+ *  upstream issue 7624
+ *  upstream issue 476
  */
 
 $pkg_config_path = 'installedpackages/' . xml_safe_fieldname($pkg['name']) . '/config';
@@ -210,7 +210,7 @@ if ($_POST) {
 
 			/* If the user supplied an ID and it exists, or if id=0
 			 * and the settings are invalid, overwrite.
-			 * See https://redmine.freesense.org/issues/7624
+			 * See upstream issue 7624
 			 */
 			if (isset($id) && (config_get_path("{$pkg_config_path}/{$id}") ||
 			   (($id == 0) && !is_array(config_get_path("{$pkg_config_path}/{$id}"))) )) {

@@ -610,7 +610,7 @@ function toggleMultipleoutNATrules($post, $json = false) {
 	    !isset($post['rule']) ||
 	    !is_array($post['rule'])) {
 		/* Nothing to do.
-		 * See https://redmine.freesense.org/issues/12694 */
+		 * See upstream issue 12694 */
 		return;
 	}
 
@@ -642,7 +642,7 @@ function deleteMultipleoutNATrules($post, $json = false) {
 	    !isset($post['rule']) ||
 	    !is_array($post['rule'])) {
 		/* Nothing to do.
-		 * See https://redmine.freesense.org/issues/12694 */
+		 * See upstream issue 12694 */
 		return;
 	}
 

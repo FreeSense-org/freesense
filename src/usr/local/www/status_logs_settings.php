@@ -90,7 +90,7 @@ if (!$pconfig['nentries']) {
 function is_valid_syslog_server($target) {
 	$parts = explode(":", $target);
 	if (is_numericint($parts[0])) {
-		/* OS interprets numeric value as decimal IP address, see https://redmine.freesense.org/issues/12000 */
+		/* OS interprets numeric value as decimal IP address, see upstream issue 12000 */
 		return false;
 	}
 	return (is_ipaddr($target)

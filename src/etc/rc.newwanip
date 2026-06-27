@@ -132,7 +132,7 @@ array_walk($gre, 'interface_gre_configure');
 $gif = link_interface_to_tunnelif($interface, 'gif', 'inet');
 array_walk($gif, 'interface_gif_configure');
 
-/* reconfigure L2TP/PPTP tunnels, see https://redmine.freesense.org/issues/12072 */ 
+/* reconfigure L2TP/PPTP tunnels, see upstream issue 12072 */ 
 $ppp = link_interface_to_ppp_tunnelif($interface);
 
 $grouptmp = link_interface_to_group($interface);
@@ -200,7 +200,7 @@ if (is_platform_booting() && !in_array(substr($interface_real, 0, 3), array("ppp
 	// unlike dhcp interfaces which wait until they get an ip, a ppp connection lets the boot continue while 
 	// trying to acquire a ip address so to avoid a race condition where it would be possible that the default
 	// route would not be set, this script must continue to use the new assigned ip even while booting
-	// https://redmine.freesense.org/issues/8561
+	// upstream issue 8561
 	
 	// avoid race conditions in many of the below functions that occur during boot
 	// setting up gateways monitor doesn't seem to have issues here, and fixes the
@@ -210,7 +210,7 @@ if (is_platform_booting() && !in_array(substr($interface_real, 0, 3), array("ppp
 	setup_gateways_monitor();
 
 	// Make sure the default gateway is set up after DHCP succeeds. See:
-	// https://redmine.freesense.org/issues/15791
+	// upstream issue 15791
 	system_routing_configure($interface);
 	exit;
 }
@@ -291,6 +291,6 @@ if (!is_ipaddr($oldip) || ($curwanip != $oldip) || file_exists("{$g['tmp_path']}
 
 /* Unconditional filter reload to ensure the correct rules and gateways are
  * active after this script has processed all changes.
- * See https://redmine.freesense.org/issues/13228 */
+ * See upstream issue 13228 */
 filter_configure();
 ?>

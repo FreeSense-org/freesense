@@ -1641,7 +1641,7 @@ function fixup_default_gateway($ipprotocol, $gateways_status, $gateways_arr) {
 		$gwdefault = config_get_path('gateways/defaultgw6', "");
 	}
 	/* do not delete dynamic (frr/bgp/ospf) route
-	 * see https://redmine.freesense.org/issues/12536 */
+	 * see upstream issue 12536 */
 	if ($gwdefault == "-") {
 		if (!is_dynamic_route('default', $ipprotocol)) {
 			route_del('default', $ipprotocol);
@@ -1886,7 +1886,7 @@ function get_gwgroup_members_inner($group, $gateways_status, $gateways_arr, $vip
 						$groupmember['int'] = $int;
 						$groupmember['gwip'] = $gatewayip;
 						/* set correct linklocal gateway address,
-						 * see https://redmine.freesense.org/issues/12721 */
+						 * see upstream issue 12721 */
 						if (is_ipaddrv6($gatewayip) && is_linklocal($gatewayip) && empty(get_ll_scope($gatewayip))) {
 							$groupmember['gwip'] .= '%' . $int;
 						}
@@ -2188,7 +2188,7 @@ function validate_address_family($ipaddr, $gwname, $disabled = false) {
 
 	/* Check gateways including disabled gateways and gateways for disabled
 	 * interfaces.
-	 * https://redmine.freesense.org/issues/8846
+	 * upstream issue 8846
 	 */
 	$gw_array = get_gateways(GW_CACHE_DISABLED | GW_CACHE_INACTIVE);
 	if (is_array($gw_array[$gwname])) {
@@ -2721,7 +2721,7 @@ function save_gateway($gateway_settings, $realid = "", $json = false) {
 	if (is_numericint($realid)) {
 		$a_gateway_item = config_get_path("gateways/gateway_item/{$realid}");
 		/* reload IPsec and OpenVPN on gateway IP, 'Mark Gateway as Down', or 'Disabled' option change
-		 * see https://redmine.freesense.org/issues/13076 */
+		 * see upstream issue 13076 */
 		if (!empty($a_gateway_item) &&
 		    (isset($gateway['disabled']) ^ isset($a_gateway_item['disabled'])) ||
 		    (!isset($a_gateway_item['disabled']) &&

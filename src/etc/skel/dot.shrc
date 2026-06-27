@@ -35,7 +35,7 @@ if [ "${HTTP_PROXY_AUTH_USER}" != "" ] && [ "${HTTP_PROXY_AUTH_PASS}" != "" ]; t
 fi
 
 # Define CA Path for local globally trusted CAs
-# https://redmine.freesense.org/issues/12737
+# upstream issue 12737
 SSL_CERT_DIR=/etc/ssl/certs/
 export SSL_CERT_DIR
 

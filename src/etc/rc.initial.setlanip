@@ -427,7 +427,7 @@ function console_configure_dhcpd($version = 4) {
 			config_del_path("{$dhcpd}/{$interface}/enable");
 			$restart_dhcpd = true;
 		}
-		/* disable RA mode, see https://redmine.freesense.org/issues/11609 */
+		/* disable RA mode, see upstream issue 11609 */
 		if ((config_get_path("{$dhcpd}/{$interface}/ramode") !== null) &&
 		    (config_get_path("{$dhcpd}/{$interface}/ramode") != 'disabled')) {
 			config_set_path("{$dhcpd}/{$interface}/ramode", 'disabled');

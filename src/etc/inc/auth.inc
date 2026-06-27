@@ -38,7 +38,7 @@ if (!$do_not_include_config_gui_inc) {
 $security_passed = true;
 
 /* Possible user password hash types.
- * See https://redmine.freesense.org/issues/12855
+ * See upstream issue 12855
  */
 global $auth_password_hash_types;
 $auth_password_hash_types = array(
@@ -75,7 +75,7 @@ if (function_exists("display_error_form")) {
 }
 
 if (function_exists("display_error_form") && !config_path_enabled('system/webgui', 'nodnsrebindcheck')) {
-	/* DNS ReBinding attack prevention.  https://redmine.freesense.org/issues/708 */
+	/* DNS ReBinding attack prevention.  upstream issue 708 */
 	$found_host = false;
 
 	/* Either a IPv6 address with or without a alternate port */
@@ -240,7 +240,7 @@ if (function_exists("display_error_form") && !config_path_enabled('system/webgui
 
 			/* Fall back to probing active interface addresses rather than config.xml to allow
 			 * changed addresses that have not yet been applied.
-			 * See https://redmine.freesense.org/issues/8822
+			 * See upstream issue 8822
 			 */
 			if (!$found_host) {
 				$refifs = get_interface_arr();
@@ -421,7 +421,7 @@ function userHasPrivilege($userent, $privid = false) {
 	/* If someone is in admins group or is admin, do not honor the
 	 * user-config-readonly privilege to prevent foot-shooting due to a
 	 * bad privilege config.
-	 * https://redmine.freesense.org/issues/10492 */
+	 * upstream issue 10492 */
 	$userGroups = getUserGroups($userent['name'],
 			auth_get_authserver(config_get_path('system/webgui/authmode')),
 			$_SESSION['user_radius_attributes']);
@@ -457,7 +457,7 @@ function local_backed($username, $passwd) {
 		}
 	}
 
-	// FreeSense < 2.3 password hashing, see https://redmine.freesense.org/issues/4120
+	// FreeSense < 2.3 password hashing, see upstream issue 4120
 	if ($user['password']) {
 		if (hash_equals($user['password'], crypt($passwd, $user['password']))) {
 			return true;
@@ -886,7 +886,7 @@ function local_user_set_password(&$user_item_config, $password) {
 	unset($user['bcrypt-hash']);
 
 	/* Default to bcrypt hashing if unset.
-	 * See https://redmine.freesense.org/issues/12855
+	 * See upstream issue 12855
 	 */
 	$hashalgo = config_get_path('system/webgui/pwhash', 'bcrypt');
 
@@ -974,7 +974,7 @@ function local_user_set_groups($user, $new_groups = NULL) {
 		}
 	}
 	/* Clear $ngroup reference.
-	 * https://redmine.freesense.org/issues/14363 */
+	 * upstream issue 14363 */
 	unset($ngroup);
 
 	/* determine which memberships to remove */
@@ -993,7 +993,7 @@ function local_user_set_groups($user, $new_groups = NULL) {
 		}
 	}
 	/* Clear $cgroup reference.
-	 * https://redmine.freesense.org/issues/14363 */
+	 * upstream issue 14363 */
 	unset($cgroup);
 
 	config_set_path('system/group', $groups);
@@ -1916,7 +1916,7 @@ function nasip_fallback($ip) {
 
 		if (!is_ipaddr($nasip)) {
 			/* use first interface with IP as fallback for NAS-IP-Address
-			 * see https://redmine.freesense.org/issues/11109 */
+			 * see upstream issue 11109 */
 			foreach (get_configured_interface_list() as $if) {
 				$nasip = get_interface_ip($if);
 				if (is_ipaddr($nasip)) {

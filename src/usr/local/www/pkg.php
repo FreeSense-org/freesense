@@ -158,7 +158,7 @@ if ($pkg['custom_php_command_before_form'] != "") {
 
 // Breadcrumb
 if ($pkg['title'] != "") {
-	/*if (!$only_edit) {						// Is any package still making use of this?? Is this something that is still wanted, considering the breadcrumb policy https://redmine.freesense.org/issues/5527
+	/*if (!$only_edit) {						// Is any package still making use of this?? Is this something that is still wanted, considering the breadcrumb policy upstream issue 5527
  		$pkg['title'] = $pkg['title'] . '/Edit';		// If this needs to live on, then it has to be moved to run AFTER "foreach ($pkg['tabs']['tab'] as $tab)"-loop. This due to $pgtitle[] = $tab['text'];
 	}*/
 	if (strpos($pkg['title'], '/')) {

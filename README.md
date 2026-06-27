@@ -21,7 +21,7 @@ outside of the original vendor's build infrastructure.
 ## Attribution & License
 
 FreeSense is a derivative work of **pfSense® CE**, which is
-Copyright 2004–2026 [Rubicon Communications, LLC (Netgate)](https://www.netgate.com/)
+Copyright 2004–2026 Rubicon Communications, LLC (Netgate)
 and was originally published under the Apache License, Version 2.0.
 
 This project remains under the **Apache License 2.0** (see [`LICENSE`](LICENSE)).

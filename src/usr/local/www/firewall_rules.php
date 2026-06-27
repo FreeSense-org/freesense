@@ -267,7 +267,7 @@ if (isset($_POST['del_x'])) {
 	$confiflist = get_configured_interface_list();
 	/* Use this as a starting point and increase as we go, otherwise if the
 	 * loop runs fast there can be duplicates.
-	 * https://redmine.freesense.org/issues/13507 */
+	 * upstream issue 13507 */
 	$tracker = (int)microtime(true);
 	$new_rules = [];
 	foreach ($_POST['rule'] as $rulei) {
@@ -369,7 +369,7 @@ $rulescnt = FreeSense_get_pf_rules();
 $columns_in_table = 13;
 
 /* Floating rules tab has one extra column
- * https://redmine.freesense.org/issues/10667 */
+ * upstream issue 10667 */
 if ($if === 'FloatingRules') {
 	$columns_in_table++;
 }
@@ -873,7 +873,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							<?php if (isset($filterent['gateway'])): ?>
 								<?php
 									/* Cache gateway status for this page load.
-									 * See https://redmine.freesense.org/issues/12174 */
+									 * See upstream issue 12174 */
 									if (!is_array($gw_info)) {
 										$gw_info = array();
 									}

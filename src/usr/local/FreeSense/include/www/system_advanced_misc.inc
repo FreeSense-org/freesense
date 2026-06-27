@@ -63,7 +63,7 @@ function ramdisk_available_memory($includeswap = true) {
 	$free = (int) get_single_sysctl("vm.stats.vm.v_free_count") * (int) get_single_sysctl("vm.stats.vm.v_page_size");
 
 	/* Adjust available memory to account for existing RAM disk contents
-	 * https://redmine.freesense.org/issues/10420 */
+	 * upstream issue 10420 */
 	if (config_path_enabled('system','use_mfs_tmpvar')) {
 		$free += ramdisk_current_usage(['/var', '/tmp'], true);
 	}
@@ -200,7 +200,7 @@ function saveSystemAdvancedMisc($post, $json = false) {
 	}
 
 	/* Do not check that size would exceed RAM unless RAM disks would be enabled.
-	 * https://redmine.freesense.org/issues/13479 */
+	 * upstream issue 13479 */
 	if ($post['use_mfs_tmpvar'] == "yes") {
 		if (is_numericint($post['use_mfs_tmp_size']) && is_numericint($post['use_mfs_var_size']) &&
 		    ((($post['use_mfs_tmp_size'] + $post['use_mfs_var_size']) * 1024 * 1024) > ramdisk_available_memory())) {

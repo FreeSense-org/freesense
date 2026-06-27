@@ -250,7 +250,7 @@ class freesense_xmlrpc_server {
 
 		$group_config = config_get_path('system/group', []);
 		/* Only touch users if users are set to synchronize from the primary node
-		 * See https://redmine.freesense.org/issues/8450
+		 * See upstream issue 8450
 		 */
 		if ($sections['system']['user'] && $sections['system']['group']) {
 			$g2add = array();
@@ -659,7 +659,7 @@ class freesense_xmlrpc_server {
 					if (does_vip_exist($vip) && isset($oldvips[$key]['vhid']) &&
 					    ($oldvips[$key]['vhid'] ^ $vip['vhid'])) {
 						/* properly remove the old VHID
-						 * see https://redmine.freesense.org/issues/12202 */
+						 * see upstream issue 12202 */
 						$realif = get_real_interface($vip['interface']);
 						mwexec("/sbin/ifconfig {$realif} " .
 							escapeshellarg($vip['subnet']) . " -alias");
@@ -780,7 +780,7 @@ class freesense_xmlrpc_server {
 		setup_gateways_monitor();
 
 		/* do not restart unchanged services on XMLRPC sync,
-		 * see https://redmine.freesense.org/issues/11082 
+		 * see upstream issue 11082 
 		 */
 		if (is_array(config_get_path('openvpn')) || is_array($old_config['openvpn'])) {
 			foreach (array("server", "client") as $type) {
@@ -826,7 +826,7 @@ class freesense_xmlrpc_server {
 			openvpn_resync_csc_all();
 		}
 
-		/* run ipsec_configure() on any IPsec change, see https://redmine.freesense.org/issues/12075 */
+		/* run ipsec_configure() on any IPsec change, see upstream issue 12075 */
 		if (((is_array(config_get_path('ipsec')) || is_array($old_config['ipsec'])) &&
 		    (config_get_path('ipsec') != $old_config['ipsec'])) ||
 		    $force) {

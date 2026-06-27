@@ -103,7 +103,7 @@ $pconfig['session_timeout'] = config_get_path('system/webgui/session_timeout');
 $pconfig['authmode'] = config_get_path('system/webgui/authmode', "Local Database");
 
 /* Default to bcrypt hashing if unset.
- * See https://redmine.freesense.org/issues/12855
+ * See upstream issue 12855
  */
 $pconfig['pwhash'] = config_get_path('system/webgui/pwhash', 'bcrypt');
 

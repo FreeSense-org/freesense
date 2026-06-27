@@ -131,7 +131,7 @@ function test_unbound_config($unboundcfg, &$output) {
 	}
 
 	$rv = 0;
-	// set the working directory for unbound-checkconf; see https://redmine.freesense.org/issues/15723
+	// set the working directory for unbound-checkconf; see upstream issue 15723
 	exec("cd {$cfgdir} && /usr/local/sbin/unbound-checkconf {$cfgdir}/unbound.conf 2>&1",
 	    $output, $rv);
 
@@ -323,7 +323,7 @@ EOF;
 	} else {
 		foreach ($active_interfaces as $ubif) {
 			/* Do not bind to disabled/nocarrier interfaces,
-			 * see https://redmine.freesense.org/issues/11087 */
+			 * see upstream issue 11087 */
 			$ifinfo = get_interface_info($ubif);
 			if ($ifinfo && (($ifinfo['status'] != 'up') || !$ifinfo['enable'])) {
 				continue;
@@ -481,7 +481,7 @@ EOD;
 				$forward_conf .= "\tforward-tls-upstream: yes\n";
 			}
 
-			/* Build DNS server hostname list. See https://redmine.freesense.org/issues/8602 */
+			/* Build DNS server hostname list. See upstream issue 8602 */
 			$dns_hostnames = array();
 			$dnshost_counter = 1;
 			while (config_get_path('system/dns' . $dnshost_counter . 'host')) {
@@ -514,7 +514,7 @@ EOD;
 	// Size of the RRset cache == 2 * msg-cache-size per Unbound's recommendations
 	$rrset_cache_size = $msg_cache_size * 2;
 
-	/* QNAME Minimization. https://redmine.freesense.org/issues/8028
+	/* QNAME Minimization. upstream issue 8028
 	 * Unbound uses the British style in the option name so the internal option
 	 * name follows that, but the user-visible descriptions follow US English.
 	 */
@@ -680,7 +680,7 @@ function sync_unbound_service() {
 	// Configure our Unbound service
 	if (config_path_enabled('unbound', 'dnssec')) {
 		/* do not sync root.key file if DNSSEC is not enabled,
-		 * see https://redmine.freesense.org/issues/12985 */
+		 * see upstream issue 12985 */
 		do_as_unbound_user("unbound-anchor");
 	}
 	unbound_remote_control_setup();
@@ -883,7 +883,7 @@ function unbound_add_host_entries($cfgsubdir = "") {
 		}
 	}
 	/* disable recursion if the selected outgoing interfaces are available,
-	 * see https://redmine.freesense.org/issues/12460 */
+	 * see upstream issue 12460 */
 	if ($nooutifs && config_path_enabled('unbound', 'strictout')) {
 		$unbound_entries = "local-zone: \".\" refuse\n";
 	}
@@ -1069,7 +1069,7 @@ function unbound_acls_config($cfgsubdir = "") {
 		$aclnets = array_merge($aclnets, filter_nat_rules_automatic_tonathosts());
 
 		/* Automatic ACL networks deduplication and sorting
-		 * https://redmine.freesense.org/issues/11309 */
+		 * upstream issue 11309 */
 		$aclnets4 = array();
 		$aclnets6 = array();
 		foreach (array_unique($aclnets) as $acln) {

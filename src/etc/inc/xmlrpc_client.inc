@@ -29,7 +29,7 @@ class freesense_xmlrpc_client {
 	public function __construct() {
 		$hasync = config_get_path('hasync', []);
 		/* XMLRPC sync is not configured, nothing to do.
-		 * https://redmine.freesense.org/issues/14182 */
+		 * upstream issue 14182 */
 		if (empty($hasync)) {
 			$this->error = "XMLRPC Synchronization is not configured.";
 			return;
@@ -80,7 +80,7 @@ class freesense_xmlrpc_client {
 
 	private function xmlrpc_internal($method, $parameter, $timeout = 240) {
 		/* XMLRPC sync is not configured, nothing to do.
-		 * https://redmine.freesense.org/issues/14182 */
+		 * upstream issue 14182 */
 		if (empty($this->url) ||
 		    empty($this->logurl)) {
 			$this->error = localize_text("XMLRPC Synchronization is not configured.");

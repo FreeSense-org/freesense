@@ -263,7 +263,7 @@ if /sbin/kldstat -qm zfs; then
 		fi
 		/sbin/zfs mount -a
 		# If /bootpool is present, then there is an additional zfs pool to import
-		# See https://redmine.freesense.org/issues/8063
+		# See upstream issue 8063
 		if [ -d /bootpool ]; then
 			/sbin/zpool import -f bootpool
 		fi

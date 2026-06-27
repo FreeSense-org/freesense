@@ -884,7 +884,7 @@ function openvpn_reconfigure($mode, $settings) {
 		$iface_ipv6 = $ipaddr;
 	} elseif (!empty($interface) && strcmp($interface, "any")) {
 		/* get correct interface name for 6RD/6to4 interfaces
-		 * see https://redmine.freesense.org/issues/11674 */
+		 * see upstream issue 11674 */
 		if (is_stf_interface($settings['interface'])) {
 			$iface_ipv6=get_interface_ipv6($settings['interface']);
 		} else {
@@ -1531,7 +1531,7 @@ function openvpn_reconfigure($mode, $settings) {
 
 	openvpn_add_custom($settings, $conf);
 
-	/* add nopull option after custom options, see https://redmine.freesense.org/issues/11448 */
+	/* add nopull option after custom options, see upstream issue 11448 */
 	if (($mode == "client") && $settings['route_no_pull']) {
 		// Dont pull routes checkbox
 		$conf .= "route-nopull\n";
@@ -1609,7 +1609,7 @@ function openvpn_restart($mode, $settings) {
 	if (strstr($settings['interface'], "_vip")) {
 	       	$carpstatus = get_carp_bind_status($settings['interface']);
 		/* Do not start an instance if vip aliased to BACKUP CARP
-		 * see https://redmine.freesense.org/issues/11793 */ 
+		 * see upstream issue 11793 */ 
 		if (in_array($carpstatus, array('BACKUP', 'INIT'))) {
 			unlock($lockhandle);
 			return;
@@ -1941,14 +1941,14 @@ function openvpn_resync_all($interface = "", $protocol = "", $force = false) {
 		openvpn_resync_csc_all();
 
 		/* configure OpenVPN-parent QinQ interfaces after creating OpenVPN interfaces
-		 * see https://redmine.freesense.org/issues/11662 */
+		 * see upstream issue 11662 */
 		if (is_platform_booting()) {
 			/* Refresh the cache; the parent interface may not yet exist in the cache. */
 			get_interface_arr(true);
 			interfaces_qinq_configure(true);
 			/* Configure all qinq interface addresses and add them to their
-			 * bridges. See https://redmine.freesense.org/issues/13225,
-			 * https://redmine.freesense.org/issues/13666 */
+			 * bridges. See upstream issue 13225,
+			 * upstream issue 13666 */
 			foreach (config_get_path('interfaces', []) as $ifname => $iface) {
 				$qinq = interface_is_qinq($iface['if']);
 				if ($qinq && strstr($qinq['if'], "ovpn")) {
@@ -2284,7 +2284,7 @@ function openvpn_kill_client($port, $remipp, $client_id) {
 	if ($fp) {
 		stream_set_timeout($fp, 1);
 		if (is_numeric($client_id)) {
-			/* terminate remote client, see https://redmine.freesense.org/issues/12416 */
+			/* terminate remote client, see upstream issue 12416 */
 			fputs($fp, "client-kill {$client_id} HALT\n");
 		} else {
 			fputs($fp, "kill {$remipp}\n");
@@ -2430,7 +2430,7 @@ function openvpn_gen_routes($value, $ipproto = "ipv4", $push = false, $iroute = 
 
 	/* Remove empty entries from network array, which otherwise may lead to
 	 * invalid route statements.
-	 * https://redmine.freesense.org/issues/14919
+	 * upstream issue 14919
 	 */
 	$tmpnetworks = array_filter($tmpnetworks, function ($tnet) {
 		return !empty(trim($tnet));
@@ -2576,7 +2576,7 @@ function openvpn_tunnel_network_fix($tunnel_network) {
 	$tunnel_network = trim($tunnel_network);
 	if (is_subnet($tunnel_network)) {
 		/* convert to correct network address,
-		 * see https://redmine.freesense.org/issues/11416 */
+		 * see upstream issue 11416 */
 		list($tunnel_ip, $tunnel_netmask) = explode('/', $tunnel_network);
 		$tunnel_network = gen_subnet($tunnel_ip, $tunnel_netmask) . '/' . $tunnel_netmask;
 	}

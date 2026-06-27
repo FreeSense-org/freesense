@@ -133,7 +133,7 @@ function get_tmp_file() {
 }
 
 /* Stub for deprecated function
- * See https://redmine.freesense.org/issues/10931 */
+ * See upstream issue 10931 */
 function get_dns_servers() {
 	return get_dns_nameservers(false, true);
 }
@@ -1434,7 +1434,7 @@ function console_configure($when = "save", $path = "") {
 		if ($item == 'console') {
 			$data[] = $console_line;
 		} elseif (($item == 'ttyv0') || ($item == 'xc0')) {
-			/* xc0 - Xen console, see https://redmine.freesense.org/issues/11402 */
+			/* xc0 - Xen console, see upstream issue 11402 */
 			$data[] = "{$item}\t{$virt_line}";
 		} else {
 			$data[] = "{$item}\t{$ttyu_line}";
@@ -1605,7 +1605,7 @@ function get_ppp_uptime($port) {
 		$sec = 0;
 		foreach ($uptime_data as $upt) {
 			/* Skip blank lines, trim, and cast to int to ensure type matches.
-			 * https://redmine.freesense.org/issues/14117 */
+			 * upstream issue 14117 */
 			if (!empty($upt)) {
 				$sec += (int) trim(substr($upt, 1 + strpos($upt, " ")));
 			}
@@ -2589,7 +2589,7 @@ function update_alias_url_data() {
 				}
 				rmdir_recursive($temp_filename);
 			} elseif (is_alias($alias_url)) {
-				/* nested URL alias, see https://redmine.freesense.org/issues/11863 */
+				/* nested URL alias, see upstream issue 11863 */
 				if (!$aliastable) {
 					alias_make_table();
 				}
@@ -3921,7 +3921,7 @@ function where_is_ipaddr_configured($ipaddr, $ignore_if = "", $check_localip = f
 				$if_ipv6 = get_interface_ipv6($if);
 				$if_snbitsv6 = get_interface_subnetv6($if);
 				/* do not check subnet overlapping on 6rd interfaces,
-				 * see https://redmine.freesense.org/issues/12371 */
+				 * see upstream issue 12371 */
 				if ($if_ipv6 && $if_snbitsv6 &&
 				    ((config_get_path("interfaces/{$if}/ipaddrv6") != '6rd') || ($cidrprefix > $if_snbitsv6)) &&
 				    check_subnetsv6_overlap($ipaddr, $cidrprefix, $if_ipv6, $if_snbitsv6)) {
@@ -4117,7 +4117,7 @@ function calculate_ipv6_delegation_length($if) {
 
 function merge_ipv6_delegated_prefix($prefix, $suffix, $len = 64) {
 	/* convert zero-value prefix IPv6 addresses with IPv4 mapping to hex
-	 * see https://redmine.freesense.org/issues/12440 */
+	 * see upstream issue 12440 */
 	$suffix_list = explode(':', $suffix);
 	if (is_ipaddrv4($suffix_list[count($suffix_list) - 1])) {
 		$hexsuffix = dechex(ip2long($suffix_list[count($suffix_list) - 1]));
@@ -4469,7 +4469,7 @@ function send_user_download($type, $content, $userfilename = "", $contenttype = 
 	}
 
 	/* Ensure output buffering is off so PHP does not consume
-	 * memory in readfile(). https://redmine.freesense.org/issues/9239 */
+	 * memory in readfile(). upstream issue 9239 */
 	while (ob_get_level()) {
 		@ob_end_clean();
 	}

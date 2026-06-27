@@ -37,7 +37,7 @@ if ($_POST['act'] == "del") {
 	/*
 	 * Check user privileges to test if the user is allowed to make changes.
 	 * Otherwise users can end up in an inconsistent state where some changes are
-	 * performed and others denied. See https://redmine.freesense.org/issues/15318
+	 * performed and others denied. See upstream issue 15318
 	 */
 	phpsession_begin();
 	$guiuser = getUserEntry($_SESSION['Username']);

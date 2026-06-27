@@ -24,7 +24,7 @@
 require_once("guiconfig.inc");
 
 # Docs redirect base URL
-$redirect_base = "https://docs.netgate.com/freesense/help";
+$redirect_base = "https://docs.freesense.org/help";
 
 $pagename = "";
 /* Check for parameter "page". */

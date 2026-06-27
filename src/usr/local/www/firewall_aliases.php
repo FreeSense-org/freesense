@@ -180,7 +180,7 @@ endif;
 <?php
 	/* Ensure aliases are presented in natural sort order so they are easier to locate.
 	 * and preserve keys so that the IDs match in the config and the list.
-	 * https://redmine.freesense.org/issues/14015 */
+	 * upstream issue 14015 */
 	$aliases = get_sorted_aliases();
 
 	foreach ($aliases as $i => $alias):

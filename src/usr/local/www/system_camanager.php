@@ -159,7 +159,7 @@ if ($_POST['save']) {
 				$input_errors[] = gettext("The submitted private key does not match the submitted certificate data.");
 			}
 			/* we must ensure the certificate is capable of acting as a CA
-			 * https://redmine.freesense.org/issues/7885
+			 * upstream issue 7885
 			 */
 			if (!$input_errors) {
 				$purpose = cert_get_purpose($_POST['cert'], false);

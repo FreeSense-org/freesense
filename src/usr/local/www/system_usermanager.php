@@ -94,7 +94,7 @@ if ($this_user) {
 /*
  * Check user privileges to test if the user is allowed to make changes.
  * Otherwise users can end up in an inconsistent state where some changes are
- * performed and others denied. See https://redmine.freesense.org/issues/9259
+ * performed and others denied. See upstream issue 9259
  */
 phpsession_begin();
 $guiuser = getUserEntry($_SESSION['Username']);
@@ -119,7 +119,7 @@ if (($_POST['act'] == "deluser") && !$read_only) {
 		local_user_del(config_get_path("system/user/{$id}"));
 		$userdeleted = config_get_path("system/user/{$id}/name");
 		config_del_path("system/user/{$id}");
-		/* Reindex the array to avoid operating on an incorrect index https://redmine.freesense.org/issues/7733 */
+		/* Reindex the array to avoid operating on an incorrect index upstream issue 7733 */
 		config_set_path('system/user', array_values(config_get_path('system/user', [])));
 		$savemsg = localize_text("Successfully deleted user: %s", $userdeleted);
 		write_config($savemsg);
@@ -169,7 +169,7 @@ if (isset($_POST['dellall']) && !$read_only) {
 
 		if (count($deleted_users) > 0) {
 			$savemsg = localize_text("Successfully deleted %s: %s", (count($deleted_users) == 1) ? gettext("user") : gettext("users"), implode(', ', $deleted_users));
-			/* Reindex the array to avoid operating on an incorrect index https://redmine.freesense.org/issues/7733 */
+			/* Reindex the array to avoid operating on an incorrect index upstream issue 7733 */
 			config_set_path('system/user', array_values(config_get_path('system/user', [])));
 			write_config($savemsg);
 			logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);

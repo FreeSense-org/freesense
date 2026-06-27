@@ -68,7 +68,7 @@ function admin_groups_sort() {
 /*
  * Check user privileges to test if the user is allowed to make changes.
  * Otherwise users can end up in an inconsistent state where some changes are
- * performed and others denied. See https://redmine.freesense.org/issues/9259
+ * performed and others denied. See upstream issue 9259
  */
 phpsession_begin();
 $guiuser = getUserEntry($_SESSION['Username']);
@@ -94,7 +94,7 @@ if (($_POST['act'] == "delgroup") && !$read_only) {
 	config_del_path("system/group/{$id}");
 	/*
 	 * Reindex the array to avoid operating on an incorrect index
-	 * https://redmine.freesense.org/issues/7733
+	 * upstream issue 7733
 	 */
 	config_set_path("system/group", array_values(config_get_path('system/group', [])));
 
@@ -170,7 +170,7 @@ if (isset($_POST['dellall_x']) && !$read_only) {
 		    implode(', ', $deleted_groups));
 		/*
 		 * Reindex the array to avoid operating on an incorrect index
-		 * https://redmine.freesense.org/issues/7733
+		 * upstream issue 7733
 		 */
 		config_set_path("system/group", array_values(config_get_path('system/group', [])));
 		write_config($savemsg);

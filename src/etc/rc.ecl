@@ -68,7 +68,7 @@ function get_disks() {
 function discover_config($mountpoint) {
 	global $g;
 	/* List of locations to check. Requires trailing slash.
-	 * See https://redmine.freesense.org/issues/9066 */
+	 * See upstream issue 9066 */
 	$locations_to_check = array("/", "/config/");
 	foreach ($locations_to_check as $ltc) {
 		$tocheck = "/tmp/mnt/cf{$ltc}config.xml";

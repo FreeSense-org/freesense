@@ -60,7 +60,7 @@ if [ -f "/tmp/${IF}_router" ]; then
 	/bin/mv "/tmp/${IF}_router" "/tmp/${IF}_router.last"
 fi
 
-# cleanup all VIPs, see https://redmine.freesense.org/issues/11629
+# cleanup all VIPs, see upstream issue 11629
 if [ "${PROTOCOL}" != "inet6" ]; then
 	while
 		aliases=$(/sbin/ifconfig "${IF}" | /usr/bin/grep netmask)

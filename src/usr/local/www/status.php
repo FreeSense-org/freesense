@@ -316,8 +316,8 @@ include("head.inc"); ?>
 <?php print_info_box(status_get_firewall_info(), 'info', false);
 
 /* Call any registeredd package plugins which define status output to include
- * See https://redmine.freesense.org/issues/14777 and
- *     https://redmine.freesense.org/issues/1458
+ * See upstream issue 14777 and
+ *     upstream issue 1458
  */
 $pluginparams = array();
 $pluginparams['type'] = 'statusoutput';

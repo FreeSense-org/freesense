@@ -54,7 +54,7 @@ if [ -f "/tmp/${1}_routerv6" ]; then
 	/bin/rm -f "/tmp/${1}_routerv6.last"
 fi
 
-# use OpenVPN provided DNS, see https://redmine.freesense.org/issues/11140
+# use OpenVPN provided DNS, see upstream issue 11140
 /bin/rm -f "/var/etc/nameserver_${1}"
 /bin/rm -f "/var/etc/nameserver_v6${1}"
 /bin/rm -f "/var/etc/searchdomain_${1}"

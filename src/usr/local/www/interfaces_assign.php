@@ -335,7 +335,7 @@ if (isset($_REQUEST['add']) && isset($_REQUEST['if_add'])) {
 			}
 		}
 		/* regenerated ruleset after re-assigning the interface,
-		 * see https://redmine.freesense.org/issues/12949 */
+		 * see upstream issue 12949 */
 		if ($filter_reload) {
 			filter_configure();
 		}

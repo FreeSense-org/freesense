@@ -285,7 +285,7 @@ function notices_sendqueue() {
 			unset($messages);
 		} else {
 			/* Queue does not exist or is not writable, so no action can be taken
-			 * https://redmine.freesense.org/issues/14031
+			 * upstream issue 14031
 			 */
 			logger(LOG_ERR, localize_text("SMTP queue does not exist or is not writable."), LOG_PREFIX_NOTICE);
 			return;
@@ -336,7 +336,7 @@ function notify_via_queue_add($message, $type='mail') {
 	if (is_file($notice_queue)) {
 		if (!is_writable($notice_queue)) {
 			/* Cannot write to notify queue, so exit early
-			 * https://redmine.freesense.org/issues/14031
+			 * upstream issue 14031
 			 */
 			logger(LOG_ERR, localize_text("Cannot write to the notify queue."), LOG_PREFIX_NOTICE);
 			return;

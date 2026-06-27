@@ -70,7 +70,7 @@ if ($_POST['carp_maintenancemode'] != "") {
 	}
 
 	/* allow to switch to Persistent Maintenance Mode if CARP is disabled
-	 * see https://redmine.freesense.org/issues/11727 */
+	 * see upstream issue 11727 */
 	if (!$errmsg) {
 		interfaces_carp_set_maintenancemode($maintenancemode);
 	}

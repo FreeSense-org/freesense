@@ -276,7 +276,7 @@ function vpn_pppoe_updatesecret(&$pppoecfg) {
 			foreach ($item as $userdata) {
 				$data = explode(":", $userdata);
 				/* Escape double quotes, do not allow password to start with '!'
-				 * https://redmine.freesense.org/issues/10275 */
+				 * upstream issue 10275 */
 				$pass = str_replace('"', '\"', ltrim(base64_decode($data[1]), '!'));
 				$mpdsecret .= "{$data[0]} \"{$pass}\" {$data[2]}\n";
 			}
@@ -494,7 +494,7 @@ function vpn_l2tp_updatesecret() {
 			continue;
 		}
 		/* Escape double quotes, do not allow password to start with '!'
-		 * https://redmine.freesense.org/issues/10275 */
+		 * upstream issue 10275 */
 		$pass = str_replace('"', '\"', ltrim($user['password'], '!'));
 		$mpdsecret .= "{$user['name']} \"{$pass}\" {$user['ip']}\n";
 	}

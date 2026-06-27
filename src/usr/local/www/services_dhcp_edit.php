@@ -491,7 +491,7 @@ if ($_POST['save']) {
 			}
 		}
 
-		/* Configure static ARP entry, or remove ARP entry if this host is dynamic. See https://redmine.freesense.org/issues/6821 */
+		/* Configure static ARP entry, or remove ARP entry if this host is dynamic. See upstream issue 6821 */
 		if ($mapent['arp_table_static_entry']) {
 			mwexec("/usr/sbin/arp -S " . escapeshellarg($mapent['ipaddr']) . " " . escapeshellarg($mapent['mac']) . " >/dev/null", true);
 		} else {

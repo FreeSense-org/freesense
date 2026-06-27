@@ -249,7 +249,7 @@ if ($_POST['save']) {
 		$input_errors[] = gettext("The selected Fallback Data Encryption Algorithm is not valid.");
 	}
 
-	/* Maximum option line length = 256, see https://redmine.freesense.org/issues/11559 */
+	/* Maximum option line length = 256, see upstream issue 11559 */
 	if (!empty($pconfig['data_ciphers']) && (strlen("data-ciphers " . implode(",", $pconfig['data_ciphers'])) > 254)) {
 		$input_errors[] = gettext("Too many Data Encryption Algorithms have been selected.");
 	}

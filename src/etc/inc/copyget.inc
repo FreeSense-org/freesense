@@ -30,7 +30,7 @@ require_once("guiconfig.inc");
 $copyrightfile = "{$g['cf_conf_path']}/copyright";
 $tmpfile = "{$g['cf_conf_path']}/copyright.tmp";
 $idfile = "/var/db/uniqueid";
-$FQDN = "https://ews.netgate.com/copyright";
+$FQDN = "";	// FreeSense: was ews.netgate.com/copyright; phone-home disabled
 $refreshinterval = (24 * 3600);	// 24 hours
 
 // FreeSense: disabled. This used to POST the device unique id to

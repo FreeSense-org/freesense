@@ -68,7 +68,7 @@ if ($_POST['apply']) {
     is_array($_POST['rule'])) {
 	if (isset($_POST['del_x'])) {
 		/* Delete selected rules, but only when given valid data
-		 * See https://redmine.freesense.org/issues/12694 */
+		 * See upstream issue 12694 */
 		deleteMultipleoutNATrules($_POST);
 	} elseif (isset($_POST['toggle_x'])) {
 		toggleMultipleoutNATrules($_POST);

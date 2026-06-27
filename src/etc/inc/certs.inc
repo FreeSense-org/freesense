@@ -1025,7 +1025,7 @@ function cert_usedby_description($refid, $certificates_used_by_packages) {
 }
 
 /* Detect a rollover at 2038 on some platforms (e.g. ARM)
- * See: https://redmine.freesense.org/issues/9098 */
+ * See: upstream issue 9098 */
 function cert_get_max_lifetime() {
 	global $cert_max_lifetime;
 	$max = $cert_max_lifetime;
@@ -1038,7 +1038,7 @@ function cert_get_max_lifetime() {
 }
 
 /* Detect a rollover at 2050 with UTCTime
- * See: https://redmine.freesense.org/issues/9098 */
+ * See: upstream issue 9098 */
 function crl_get_max_lifetime() {
 	$now = new DateTime("now");
 	$utctime_before_roll = DateTime::createFromFormat('Ymd', '20491231');
@@ -1664,8 +1664,8 @@ function is_cert_locally_renewable($cert) {
 }
 
 /* Strict certificate requirements based on
- * https://redmine.freesense.org/issues/9825
- * https://redmine.freesense.org/issues/16606
+ * upstream issue 9825
+ * upstream issue 16606
  * https://cabforum.org/working-groups/server/baseline-requirements/requirements/#632-certificate-operational-periods-and-key-pair-usage-periods
  */
 global $cert_strict_values;
@@ -1689,12 +1689,12 @@ $cert_strict_values = array(
  *      false: Generate a new key based on current (or enforced minimum) parameters
  *   $strictsecurity : Whether or not to enforce stricter security for specific attributes
  *      true: Enforce maximum lifetime for server certs, minimum digest type, and
- *            minimum private key size. See https://redmine.freesense.org/issues/9825
+ *            minimum private key size. See upstream issue 9825
  *      false: Use existing values as-is (Default).
  * RESULT
  *   true if successful, false if failure.
  * NOTES
- *   See https://redmine.freesense.org/issues/9842 for more information on behavior.
+ *   See upstream issue 9842 for more information on behavior.
  *   Does NOT run write_config(), that must be performed by the caller.
  ******/
 
@@ -1791,7 +1791,7 @@ function cert_renew(& $cert_config, $reusekey = true, $strictsecurity = false, $
 	$digest_alg = strtolower($cert_details['signatureTypeSN']);
 
 	/* Check for and remove unnecessary ECDSA digest prefix
-	 * See https://redmine.freesense.org/issues/13437 */
+	 * See upstream issue 13437 */
 	$ecdsa_prefix = 'ecdsa-with-';
 	if (substr($digest_alg, 0, strlen($ecdsa_prefix)) == $ecdsa_prefix) {
 		$digest_alg = substr($digest_alg, strlen($ecdsa_prefix));
@@ -2423,7 +2423,7 @@ function cert_print_infoblock($cert) {
 	/* Distinguished name (DN) */
 	if (!empty($cert_details['name'])) {
 		$certextinfo .= '<b>' . gettext("DN: ") . '</b> ';
-		/* UTF8 DN support, see https://redmine.freesense.org/issues/12041 */
+		/* UTF8 DN support, see upstream issue 12041 */
 		$certdnstring = preg_replace_callback('/\\\\x([0-9A-F]{2})/', function ($a) { return pack('H*', $a[1]); }, $cert_details['name']);
 		$certextinfo .= htmlspecialchars(cert_escape_x509_chars($certdnstring, true));
 		$certextinfo .= '<br/>';
@@ -2699,7 +2699,7 @@ $cert_curve_compatible = array(
 	'HTTPS' => array('prime256v1', 'secp384r1'),
 	/* IPsec/EAP/TLS list per strongSwan docs/issues */
 	'IPsec' => array('prime256v1', 'secp384r1', 'secp521r1'),
-	/* OpenVPN bug limits usable curves, see https://redmine.freesense.org/issues/9744 */
+	/* OpenVPN bug limits usable curves, see upstream issue 9744 */
 	'OpenVPN' => array('prime256v1', 'secp384r1', 'secp521r1'),
 );
 $curve_compatible_list = array_unique(call_user_func_array('array_merge', array_values($cert_curve_compatible)));
@@ -2972,7 +2972,7 @@ function cert_pkcs12_export($cert, $encryption = 'high', $passphrase = '', $add_
 function is_weak_digest($digest_alg) {
 	global $cert_strict_values;
 	/* Check for and remove unnecessary ECDSA digest prefix
-	 * See https://redmine.freesense.org/issues/13437 */
+	 * See upstream issue 13437 */
 	$ecdsa_prefix = 'ecdsa-with-';
 	if (substr(strtolower($digest_alg), 0, strlen($ecdsa_prefix)) == $ecdsa_prefix) {
 		$digest_alg = substr($digest_alg, strlen($ecdsa_prefix));
@@ -3060,7 +3060,7 @@ function cert_create_selfsigned($descr = '', $hostname = '', $log = true) {
 	$cert['refid'] = uniqid();
 	$cert['descr'] = "{$descr} ({$cert['refid']})";
 	/* Enable auto-renew for all self-signed certs.
-	 * See https://redmine.freesense.org/issues/16607 */
+	 * See upstream issue 16607 */
 	$cert['autorenew'] = 'enabled';
 
 	if (empty($hostname)) {

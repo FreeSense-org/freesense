@@ -118,7 +118,7 @@ function discover_last_backup() {
 	// check newest file first
 	foreach (array_reverse($backup_files) as $file_name) {
 		/* checking multiple backups when detecting invalid configuration
-		 * https://redmine.freesense.org/issues/11748 */
+		 * upstream issue 11748 */
 		if (empty(filesize($file_name))) {
 			continue;
 		}
@@ -205,9 +205,9 @@ function restore_backup(string|array $backup) {
 }
 
 /* If the config on disk had rrddata/xmldata tags already, remove that section first.
- * See https://redmine.freesense.org/issues/8994,
- *     https://redmine.freesense.org/issues/10508,
- *     https://redmine.freesense.org/issues/11050 */
+ * See upstream issue 8994,
+ *     upstream issue 10508,
+ *     upstream issue 11050 */
 function clear_tagdata($tag, $data) {
 	$data = preg_replace("/[[:blank:]]*<{$tag}data>.*<\\/{$tag}data>[[:blank:]]*\n*/s", "", $data);
 	$data = preg_replace("/[[:blank:]]*<{$tag}data\\/>[[:blank:]]*\n*/", "", $data);

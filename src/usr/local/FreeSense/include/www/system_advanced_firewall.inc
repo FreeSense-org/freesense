@@ -497,7 +497,7 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 		}
 
 		/* Update net.pf.request_maxcount when necessary
-		 * See https://redmine.freesense.org/issues/10861 */
+		 * See upstream issue 10861 */
 		if ($setup_sysctl) {
 			system_setup_sysctl();
 		}

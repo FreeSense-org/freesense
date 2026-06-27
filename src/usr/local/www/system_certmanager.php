@@ -334,7 +334,7 @@ if ($_POST['save'] == gettext("Save")) {
 		/* Input validation for subjectAltNames */
 		foreach ($altnames as $idx => $altname) {
 			/* Skip SAN entries with empty values
-			 * https://redmine.freesense.org/issues/14183
+			 * upstream issue 14183
 			 */
 			if (empty($altname['value'])) {
 				unset($altnames[$idx]);

@@ -81,6 +81,4 @@ failover peer "Failover-2GETHER" state {
 }</code></pre>
 
 ## Defect reports
-https://github.com/al-right/FreeSense-dhcpv6-gui-leases-patch<br/>
-https://redmine.freesense.org/<br/>
-, but if in doubt first try https://forum.netgate.com/
+https://github.com/FreeSense-org/freesense/issues

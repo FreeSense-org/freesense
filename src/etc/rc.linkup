@@ -80,7 +80,7 @@ function handle_argument_group($iface, $action) {
 				logger(LOG_NOTICE, localize_text("DEVD Ethernet detached event for %s", $iface));
 				/* Restart unbound on interface down (static),
 				 * only when this interface is referenced in resolver configuration.
-				 * https://redmine.freesense.org/issues/13254
+				 * upstream issue 13254
 				 */
 				if (config_path_enabled('unbound')) {
 					services_unbound_configure(true, $iface);
@@ -112,7 +112,7 @@ function handle_argument_group($iface, $action) {
 
 				/* Tear down interface for dynamic types except if the only
 				 * dynamic part is track6
-				 * https://redmine.freesense.org/issues/14756
+				 * upstream issue 14756
 				 */
 				if (!($staticv4 && ($ip6addr == 'track6'))) {
 					interface_bring_down($iface);
@@ -128,8 +128,8 @@ function handle_argument_group($iface, $action) {
 						}
 
 						/* Force a gateway alarm since dpinger isn't in a state to do so
-						 * https://redmine.freesense.org/issues/14829
-						 * https://redmine.freesense.org/issues/14626
+						 * upstream issue 14829
+						 * upstream issue 14626
 						 */
 						mwexec_bg("/etc/rc.gateway_alarm " .
 								escapeshellarg($gw4) . " " .
@@ -146,8 +146,8 @@ function handle_argument_group($iface, $action) {
 							$gw6ip = get_interface_gateway_last($iface, 'inet6');
 						}
 						/* Force a gateway alarm since dpinger isn't in a state to do so
-						 * https://redmine.freesense.org/issues/14829
-						 * https://redmine.freesense.org/issues/14626
+						 * upstream issue 14829
+						 * upstream issue 14626
 						 */
 						mwexec_bg("/etc/rc.gateway_alarm " .
 								escapeshellarg($gw6) . " " .
@@ -157,8 +157,8 @@ function handle_argument_group($iface, $action) {
 				}
 				/* Restart unbound on interface down (dynamic),
 				 * only when this interface is referenced in resolver configuration.
-				 * https://redmine.freesense.org/issues/11547
-				 * https://redmine.freesense.org/issues/13254
+				 * upstream issue 11547
+				 * upstream issue 13254
 				 */
 				if (config_path_enabled('unbound')) {
 					services_unbound_configure(true, $iface);
@@ -168,7 +168,7 @@ function handle_argument_group($iface, $action) {
 				logger(LOG_NOTICE, localize_text("DEVD Ethernet attached event for %s", $iface));
 				logger(LOG_NOTICE, localize_text("HOTPLUG: Configuring interface %s", $iface));
 				/* trigger services restart
-				 * see https://redmine.freesense.org/issues/11570 */
+				 * see upstream issue 11570 */
 				if (!$staticv4) {
 					touch("{$g['tmp_path']}/{$iface}_upstart4");
 					touch("{$g['tmp_path']}/{$iface}_upstart6");

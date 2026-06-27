@@ -456,7 +456,7 @@ function deleteVIP($id, $json = false) {
 		/*
 		 * If gateways for this subnet are only reachable via VIPs,
 		 * make sure this is not the last VIP through which that gateway
-		 * can be reached. See https://redmine.freesense.org/issues/4438
+		 * can be reached. See upstream issue 4438
 		 */
 		foreach ($viponlygws as $vgw) {
 			$numrefs = 0;
@@ -544,7 +544,7 @@ function deleteVIP($id, $json = false) {
 			}
 
 			/* Reload filter since removed address may trigger changes in rules
-			 * https://redmine.freesense.org/issues/13908 */
+			 * upstream issue 13908 */
 			filter_configure();
 
 			if (!$json) {

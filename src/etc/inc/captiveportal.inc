@@ -211,7 +211,7 @@ function captiveportal_configure() {
 			}
 		}
 		if (!$keep_online_users) {
-			/* see https://redmine.freesense.org/issues/12455 */
+			/* see upstream issue 12455 */
 			unlink_if_exists("{$g['vardb_path']}/captiveportal_online_users");
 		}
 		foreach ($cp_config as $cpkey => $cp) {
@@ -394,7 +394,7 @@ EOD;
 					echo "done\n";
 				}
 			} else {
-				/* reset database on unclean shutdown, see https://redmine.freesense.org/issues/12355 */
+				/* reset database on unclean shutdown, see upstream issue 12355 */
 				unlink_if_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db");
 			}
 		}

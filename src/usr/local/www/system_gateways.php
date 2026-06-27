@@ -111,7 +111,7 @@ function can_delete_disable_gateway_item($id, $disable = false) {
 	}
 
 	/* prevent removing a gateway if it's still in use by DNS servers
-	 * see https://redmine.freesense.org/issues/8390 */
+	 * see upstream issue 8390 */
 	$dnsgw_counter = 1;
 	foreach (config_get_path('system/dnsserver', []) as $dnsserver) {
 		if (config_path_enabled("system", "dns{$dnsgw_counter}gw") &&

@@ -197,7 +197,7 @@ if ($_POST['logout_id']) {
 	if (isset($_POST['auth_voucher'])) {
 		$voucher = trim($_POST['auth_voucher']);
 	} else {
-		/* submit voucher via URL, see https://redmine.freesense.org/issues/1984 */
+		/* submit voucher via URL, see upstream issue 1984 */
 		$voucher = trim($_GET['voucher']);
 		portal_reply_page($redirurl, "login", null, $clientmac, $clientip, null, null, $voucher);
 		return;

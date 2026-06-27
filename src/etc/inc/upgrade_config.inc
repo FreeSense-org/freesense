@@ -5172,7 +5172,7 @@ function upgrade_163_to_164() {
 	convert_widget_164('wol', 'wake_on_lan-0', array('filter' => ''));
 }
 
-/* Work around broken wizard rules. See https://redmine.freesense.org/issues/7434 */
+/* Work around broken wizard rules. See upstream issue 7434 */
 function upgrade_164_to_165() {
 	$filter_rule_config = get_filter_rules_list();
 	foreach ($filter_rule_config as & $rule) {
@@ -5242,7 +5242,7 @@ function upgrade_168_to_169() {
 
 /* Upgrade wireless interfaces to the format required for 2.4
  * Each wireless interface now needs to be a cloned instance, the card itself
- * Can no longer be assigned. https://redmine.freesense.org/issues/6770 */
+ * Can no longer be assigned. upstream issue 6770 */
 function upgrade_169_to_170() {
 	foreach (config_get_path('interfaces', []) as $friendly => $iface) {
 		if (is_array($iface['wireless']) && !empty($iface['wireless']['mode'])) {
@@ -5599,7 +5599,7 @@ function upgrade_181_to_182() {
 }
 
 /* Correct gateway group trigger level values.
- * See https://redmine.freesense.org/issues/8586
+ * See upstream issue 8586
  */
 function upgrade_182_to_183() {
 	$gateways_config = config_get_path('gateways/gateway_item');
@@ -5803,13 +5803,13 @@ function upgrade_188_to_189() {
 		config_del_path('system/enablesshd');
 	}
 	/* Remove accidentally duplicated ssh config
-	 * See https://redmine.freesense.org/issues/8974 */
+	 * See upstream issue 8974 */
 	config_del_path('system/sshd');
 }
 
 /* Older preexisting IPsec P1 entries may not have had the protocol explicitly
  * defined. Fill in the default value of 'inet'.
- * https://redmine.freesense.org/issues/9207 */
+ * upstream issue 9207 */
 function upgrade_189_to_190() {
 	$ipsec_phase1_config = config_get_path('ipsec/phase1', []);
 	foreach ($ipsec_phase1_config as & $ph1ent) {
@@ -5824,14 +5824,14 @@ function upgrade_189_to_190() {
 }
 
 /* sshguard cron jobs are not necessary.
- * See https://redmine.freesense.org/issues/9223 */
+ * See upstream issue 9223 */
 function upgrade_190_to_191() {
 	install_cron_job("/usr/bin/nice -n20 /usr/local/sbin/expiretable -v -t 3600 sshguard", false, null, null, null, null, null, null, false);
 	install_cron_job("/usr/bin/nice -n20 /usr/local/sbin/expiretable -v -t 3600 webConfiguratorlockout", false, null, null, null, null, null, null, false);
 }
 
 /* Deprecate relayd Load Balancer
- * See https://redmine.freesense.org/issues/9386 */
+ * See upstream issue 9386 */
 function upgrade_191_to_192() {
 	/* Backup LB config */
 	$backup_file = "/conf/deprecated_load_balancer.xml";
@@ -5893,7 +5893,7 @@ function upgrade_193_to_194() {
  * Reset all log files, including package logs, on upgrade since old logs are in
  * binary clog format.
  * Conversion is not possible since the clog binary will not be present.
- * https://redmine.freesense.org/issues/8350
+ * upstream issue 8350
  */
 function upgrade_194_to_195() {
 	global $g;
@@ -5909,7 +5909,7 @@ function upgrade_194_to_195() {
 	}
 }
 
-/* Skipped. See https://redmine.freesense.org/issues/9730 */
+/* Skipped. See upstream issue 9730 */
 function upgrade_195_to_196() {
 }
 
@@ -5930,7 +5930,7 @@ function upgrade_197_to_198() {
 }
 
 /* Update IPsec authentication method names
- * https://redmine.freesense.org/issues/9903 */
+ * upstream issue 9903 */
 function upgrade_198_to_199() {
 	/* "RSA" methods changed to the more generic "cert" since they are not only RSA. */
 	$namechanges = array(
@@ -5948,7 +5948,7 @@ function upgrade_198_to_199() {
 	config_set_path('ipsec/phase1', $ipsec_phase1_config);
 }
 
-/* Superceded. See https://redmine.freesense.org/issues/11219 and upgrade_212_to_213() */
+/* Superceded. See upstream issue 11219 and upgrade_212_to_213() */
 function upgrade_199_to_200() {
 }
 
@@ -6002,7 +6002,7 @@ function upgrade_202_to_203() {
 
 /*
  * Change IPsec close_action values
- * See https://redmine.freesense.org/issues/10632
+ * See upstream issue 10632
  */
 
 function upgrade_203_to_204() {
@@ -6073,7 +6073,7 @@ function upgrade_207_to_208() {
 }
 
 /* Update IPsec VTI to new VTIMAP format
- * https://redmine.freesense.org/issues/9592
+ * upstream issue 9592
  */
 function upgrade_208_to_209() {
 	require_once("interfaces.inc");
@@ -6118,7 +6118,7 @@ function upgrade_209_to_210() {
 }
 
 /* OpenVPN Data Cipher changes
- * https://redmine.freesense.org/issues/10919 */
+ * upstream issue 10919 */
 function upgrade_210_to_211() {
 	foreach(array('server', 'client') as $mode) {
 		$openvpn_config = config_get_path("openvpn/openvpn-{$mode}", []);
@@ -6162,8 +6162,8 @@ function upgrade_211_to_212() {
 }
 
 /* IPsec Expiration and Replacement values which need updated for swanctl format
- * https://redmine.freesense.org/issues/11219
- * https://redmine.freesense.org/issues/9983
+ * upstream issue 11219
+ * upstream issue 9983
  */
 function upgrade_212_to_213() {
 	$ipsec_phase1_config = config_get_path('ipsec/phase1', []);
@@ -6287,7 +6287,7 @@ function upgrade_215_to_216() {
 /*
  * Child SA Start Action has replaced the Responder Only option. Update P1
  * to match.
- * https://redmine.freesense.org/issues/11576
+ * upstream issue 11576
  */
 function upgrade_216_to_217() {
 	$ipsec_phase1_config = config_get_path('ipsec/phase1', []);
@@ -6305,7 +6305,7 @@ function upgrade_216_to_217() {
 
 /*
  * Disable PC/SC Smart Card Daemon if PKCS#11 authentication is not used
- * https://redmine.freesense.org/issues/11933
+ * upstream issue 11933
  */
 function upgrade_217_to_218() {
 	foreach (config_get_path('ipsec/phase1', []) as $ph1ent) {
@@ -6467,7 +6467,7 @@ function upgrade_224_to_225() {
 	$if_config = config_get_path('interfaces', []);
 
 	/* DHCP6 now uses single config for all interfaces
-	 * see https://redmine.freesense.org/issues/6880 */
+	 * see upstream issue 6880 */
 	foreach ($if_config as & $inf) {
 		if (isset($inf['dhcp6debug'])) {
 			config_set_path('system/dhcp6debug', true);
@@ -6483,7 +6483,7 @@ function upgrade_224_to_225() {
 
 function upgrade_225_to_226() {
 	/* Update value of state killing on gateway failure.
-	 * https://redmine.freesense.org/issues/12092
+	 * upstream issue 12092
 	 */
 	if (config_path_enabled('system', 'gw_down_kill_states')) {
 		config_set_path('system/gw_down_kill_states', 'all');
@@ -6492,7 +6492,7 @@ function upgrade_225_to_226() {
 
 function upgrade_226_to_227() {
 	/* Convert dnsmasq (forwarder) custom options to base64.
-	 * https://redmine.freesense.org/issues/13105
+	 * upstream issue 13105
 	 */
 	if (!empty(config_get_path('dnsmasq/custom_options'))) {
 		config_set_path('dnsmasq/custom_options', base64_encode(config_get_path('dnsmasq/custom_options')));
@@ -6600,7 +6600,7 @@ function upgrade_227_to_228() {
 function upgrade_228_to_229() {
 	global $g;
 	/* Update System Memory RRD file with new data sources
-	 * https://redmine.freesense.org/issues/14011
+	 * upstream issue 14011
 	 */
 	$rrddbpath = "/var/db/rrd/";
 	$database = "system-memory.rrd";
@@ -6698,8 +6698,8 @@ function upgrade_229_to_230() {
 /*
  * Check OpenVPN instances for deprecated algorithms and weak certificate
  * digests.
- * https://redmine.freesense.org/issues/14677
- * https://redmine.freesense.org/issues/14686
+ * upstream issue 14677
+ * upstream issue 14686
  */
 function upgrade_230_to_231() {
 	/* Load lists of current usable algorithms */
@@ -6778,7 +6778,7 @@ function upgrade_230_to_231() {
 
 /*
  * Check GUI and Captive Portal zones for certs with weak digests
- * https://redmine.freesense.org/issues/14672
+ * upstream issue 14672
  */
 function upgrade_231_to_232() {
 	/* Check GUI if it is set for HTTPS */
@@ -6837,7 +6837,7 @@ function upgrade_231_to_232() {
 
 /* Update language internal IDs to match OS Locales where possible
  * Some languages do not have direct equivalents.
- * https://redmine.freesense.org/issues/13776 */
+ * upstream issue 13776 */
 function upgrade_232_to_233() {
 	$lang_changes= [
 		"nl" => "nl_NL",
@@ -6860,7 +6860,7 @@ function upgrade_232_to_233() {
 }
 
 /* OpenVPN Client-Specific Override options have changed.
- * https://redmine.freesense.org/issues/12522 */
+ * upstream issue 12522 */
  function upgrade_233_to_234() {
 	$openvpn_csc_config = config_get_path('openvpn/openvpn-csc', []);
 	if (empty($openvpn_csc_config)) {
@@ -6960,7 +6960,7 @@ function upgrade_239_to_240() {
 function upgrade_240_to_241() {
 	/**
 	 * The DH 1024 option has beeen removed. See:
-	 * https://redmine.freesense.org/issues/16421
+	 * upstream issue 16421
 	 */
 	$changed = false;
 	$openvpn_servers_config = config_get_path('openvpn/openvpn-server', []);
@@ -6978,7 +6978,7 @@ function upgrade_240_to_241() {
 	/**
 	 * Special characters in PPP passwords are now handled correctly.
 	 * Trim spaces that were previously ignored. See:
-	 * https://redmine.freesense.org/issues/16128
+	 * upstream issue 16128
 	 */
 	foreach (config_get_path('ppps/ppp', []) as $pppid => $ppp) {
 		if (!isset($ppp['password']) || !is_string($ppp['password']) || ($ppp['password']) < 1) {
@@ -6989,7 +6989,7 @@ function upgrade_240_to_241() {
 
 	/**
 	 * Configuration related to NAT64 has changed. See:
-	 * https://redmine.freesense.org/issues/16241
+	 * upstream issue 16241
 	 */
 	$override_nat64_prefix = false;
 
@@ -7141,7 +7141,7 @@ function upgrade_241_to_242() {
 	/**
 	 * "match quick" rules did not work correctly. Remove "quick" from
 	 * existing "match" rules to retain the expected behavior. See:
-	 * https://redmine.freesense.org/issues/16475
+	 * upstream issue 16475
 	 */
 	$changes = [];
 	$rules_list = get_filter_rules_list();
@@ -7293,7 +7293,7 @@ function upgrade_243_to_244() {
  * config.xml file have changed which has resulted in unexpected behavior.
  * Now that these flags are consistent use the previous decode flags to
  * decode old configuration values and re-save them as ENT_XML1. See:
- * https://redmine.freesense.org/issues/16661
+ * upstream issue 16661
  */
 function migrate_config_encoding_244_to_245(&$array) {
 	foreach ($array as &$value) {

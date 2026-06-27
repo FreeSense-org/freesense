@@ -309,7 +309,7 @@ foreach ($iflist as $ifent => $ifname) {
 	$oc = config_get_path("interfaces/{$ifent}", []);
 	/* We need interfaces configured with a static IPv6 address or track6 for PD.
 	   Also show those configured as none to allow disabling the service. See:
-	   https://redmine.freesense.org/issues/14967 */
+	   upstream issue 14967 */
 	if (!is_ipaddrv6($oc['ipaddrv6']) && $oc['ipaddrv6'] != "track6" && array_get_path($oc, 'ipaddrv6', 'none') != 'none') {
 		continue;
 	}

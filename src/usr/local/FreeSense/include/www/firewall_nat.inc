@@ -539,7 +539,7 @@ function saveNATrule($post, $id, $json = false) {
 
 	}
 
-	/* https://redmine.freesense.org/issues/12319 */
+	/* upstream issue 12319 */
 	if (($post['ipprotocol'] == 'inet6') && (($post['natreflection'] == 'enable') ||
 	    (($post['natreflection'] == 'default') && !config_path_enabled('system', 'disablenatreflection') &&
 	    !config_path_enabled('system', 'enablenatreflectionpurenat')))) {

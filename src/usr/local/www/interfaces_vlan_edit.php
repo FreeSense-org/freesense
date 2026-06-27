@@ -56,7 +56,7 @@ foreach ($lagglist as $lagg) {
 }
 
 /* Do not allow OpenVPN TUN interfaces to be used for QinQ
- * https://redmine.freesense.org/issues/11675 */
+ * upstream issue 11675 */
 foreach ($portlist as $portname => $port) {
 	if (strstr($portname, "ovpn")) {
 		preg_match('/ovpn([cs])([1-9]+)/', $portname, $m);
@@ -91,7 +91,7 @@ if ($_POST['save']) {
 	/*
 	 * Check user privileges to test if the user is allowed to make changes.
 	 * Otherwise users can end up in an inconsistent state where some changes are
-	 * performed and others denied. See https://redmine.freesense.org/issues/15282
+	 * performed and others denied. See upstream issue 15282
 	 */
 	phpsession_begin();
 	$guiuser = getUserEntry($_SESSION['Username']);

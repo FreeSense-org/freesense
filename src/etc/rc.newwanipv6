@@ -296,6 +296,6 @@ if (empty(config_get_path("interfaces/{$interface}/ipaddr"))) {
 
 /* Unconditional filter reload to ensure the correct rules and gateways are
  * active after this script has processed all changes.
- * See https://redmine.freesense.org/issues/13228 */
+ * See upstream issue 13228 */
 filter_configure();
 ?>

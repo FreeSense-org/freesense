@@ -29,7 +29,7 @@ require_once("auth_func.inc");
 function session_read_single_var($varname) {
 	@phpsession_begin();
 	$result = $_SESSION[$varname];
-	// Perform a commit to avoid the session timing out prematurely. See https://redmine.freesense.org/issues/8116
+	// Perform a commit to avoid the session timing out prematurely. See upstream issue 8116
 	@phpsession_end(true);
 	return $result;
 }

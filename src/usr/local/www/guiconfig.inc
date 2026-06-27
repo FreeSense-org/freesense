@@ -39,7 +39,7 @@ if (!$nocsrf) {
 	function csrf_startup() {
 		csrf_conf('rewrite-js', '/csrf/csrf-magic.js');
 		/* Loading the configuration to get this value breaks other
-		 * functions. See https://redmine.freesense.org/issues/13757 */
+		 * functions. See upstream issue 13757 */
 		// $timeout_minutes = config_get_path('system/webgui/session_timeout', 240);
 		$timeout_minutes = 240;
 		csrf_conf('expires', $timeout_minutes * 60);
@@ -60,7 +60,7 @@ if (!$omit_nocacheheaders) {
 
 require_once("authgui.inc");
 /* Load config.inc after authgui.inc
- * See https://redmine.freesense.org/issues/13757 */
+ * See upstream issue 13757 */
 include_once('config.inc');
 include_once('config.lib.inc');
 

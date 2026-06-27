@@ -468,7 +468,7 @@ $('[id^="showinfo"]').click(function() {
 // ------------------------------------------------------------------------------------------------
 
 // Put a dummy row into any empty table to keep IE happy
-// Commented out due to https://redmine.freesense.org/issues/7504
+// Commented out due to upstream issue 7504
 //$('tbody').each(function(){
 //	$(this).html($.trim($(this).html()))
 //});

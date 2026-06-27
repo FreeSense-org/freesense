@@ -1,36 +1,43 @@
 ## Contributing to FreeSense
 
-The FreeSense project welcomes contributions, big or small. Members of the FreeSense community frequently contribute bug fixes, enhancements, and documentation changes to improve the functionality and usability of the software.
+FreeSense welcomes contributions, big or small — bug fixes, enhancements, and
+documentation improvements.
 
-All of the FreeSense project source code is on GitHub. We recommend potential contributors familiarize themselves with [the FreeSense project git repositories](https://github.com/freesense) and [GitHub in general](https://help.github.com).
+All FreeSense source lives on GitHub under the
+[FreeSense-org](https://github.com/FreeSense-org) organization. If you're new to
+GitHub, see [GitHub's documentation](https://docs.github.com).
 
-If you want to contribute but do not have a specific topic in mind, review the [list of open bug reports and other issues that are in need of attention](https://redmine.freesense.org/projects/freesense/issues).
+If you want to help but don't have a specific topic in mind, browse the
+[open issues](https://github.com/FreeSense-org/freesense/issues).
 
-Contact [coreteam@freesense.org](mailto:coreteam@freesense.org "Mail to coreteam@freesense.org") with any additional questions or concerns.
+For general questions, use
+[Discussions](https://github.com/FreeSense-org/freesense/discussions).
 
-Before submitting changes, please take a few moments to review our submission guidelines below.
+### Security submissions
 
-### **Security Submissions**
+We prefer
+[responsible disclosure](https://en.wikipedia.org/wiki/Responsible_disclosure)
+for security concerns.
 
-We prefer [responsible disclosure](https://en.wikipedia.org/wiki/Responsible_disclosure) for security concerns.
+If you discover a security issue, **do not** open a public issue or pull
+request. Instead, report it privately via a
+[GitHub security advisory](https://github.com/FreeSense-org/freesense/security/advisories/new).
 
-If you have discovered a security issue, **do not** create a pull request or open a public bug report. Instead, disclose the details of the potential problem to us privately.
+### Bug reports and feature requests
 
-See https://www.freesense.org/security/ for information on how to submit security issues, including information on our PGP key for encrypting messages.
+Bug reports and feature requests are tracked in
+[GitHub Issues](https://github.com/FreeSense-org/freesense/issues). Please search
+existing issues first, then open a new one using the **Bug report** or
+**Feature request** template.
 
-### **Bug Reports and Feature Requests**
+### Submitting changes
 
-Bug reports and feature requests are tracked at https://redmine.freesense.org
+The best way to contribute code is a pull request on GitHub:
 
-Please search for existing issues before opening a new report. Before opening a new issue, read the [guidelines for submitting bug reports](https://doc.freesense.org/index.php/Bug_reporting).
+1. Fork the repo and create a topic branch off `main` (the development branch;
+   stable releases live on `RELENG_x_y` branches).
+2. Make your change, keeping the surrounding code style.
+3. Open a pull request against `main`. Reference any related issue with
+   `Fixes #NNN`.
 
-If you are submitting a pull request, locate or create a corresponding Redmine entry first and provide a link to the issue in the pull request.
-
-### **Submitting Changes**
-
-The easiest and best way to contribute code changes to the project is through pull requests on GitHub.
-
-For an outline of the process and guidelines to follow, see [Submitting a Pull Request via GitHub](https://docs.netgate.com/freesense/en/latest/development/pull-request.html#submitting-a-pull-request-via-github)
-
-Contributed code must conform to the [FreeSense project Developer Style Guide](https://doc.freesense.org/index.php/Developer_Style_Guide).
-
+Keep PRs focused and describe what changed and why.

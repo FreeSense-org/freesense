@@ -246,7 +246,7 @@ print($form);
 	    'VIP for these roles.%1$s' .
 	    'For more information, visit the %2$s book section on %3$s'),
 		'<br />', g_get('product_label'),
-		'<a href="https://docs.netgate.com/freesense/en/latest/firewall/virtual-ip-addresses.html">Virtual IP Addresses</a>.'),
+		'<a href="https://docs.freesense.org/en/latest/firewall/virtual-ip-addresses.html">Virtual IP Addresses</a>.'),
 	    'info', false);
 	?>
 </div>
