@@ -188,12 +188,7 @@ function status_get_firewall_info() {
 		$firewall_info .= "<br/>Platform: " . htmlspecialchars($platform['descr']);
 	}
 
-	if (file_exists('/var/db/uniqueid')) {
-		$ngid = file_get_contents('/var/db/uniqueid');
-		if (!empty($ngid)) {
-			$firewall_info .= "<br/>Netgate Device ID: " . htmlspecialchars($ngid);
-		}
-	}
+	/* FreeSense: removed the "Netgate Device ID" line (Netgate-only). */
 
 	$serial = system_get_serial();
 	if (!empty($serial)) {

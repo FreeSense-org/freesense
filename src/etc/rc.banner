@@ -52,13 +52,18 @@ if (is_writable("/etc")) {
 
 $platform = system_identify_specific_platform();
 $serial = system_get_serial();
+// FreeSense: dropped the "Netgate Device ID" line (it shelled out to the
+// removed Netgate gnid binary -> "gnid: not found"). Show platform + serial only.
+$banner_parts = array();
 if (isset($platform['descr'])) {
-	printf("%s - ", $platform['descr']);
+	$banner_parts[] = $platform['descr'];
 }
 if (!empty($serial)) {
-	printf("%s: %s - ", gettext("Serial"), $serial);
+	$banner_parts[] = sprintf("%s: %s", gettext("Serial"), $serial);
 }
-printf("%s: %s\n\n", gettext("Netgate Device ID"), system_get_uniqueid());
+if (!empty($banner_parts)) {
+	printf("%s\n\n", implode(" - ", $banner_parts));
+}
 
 print "*** Welcome to {$g['product_label']} {$g['product_version_string']} ({$machine}) on {$hostname} ***\n";
 
