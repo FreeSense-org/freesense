@@ -73,6 +73,29 @@ jobs:
           echo "Using repo path segment: $SEG"
           echo "segment=$SEG" >> "$GITHUB_OUTPUT"
 
+      - name: Merge core OS packages (base/kernel/rc) into the repo + re-sign
+        run: |
+          # The OS-update packages (FreeSense-base, -kernel-*, -rc) are CORE packages
+          # built by build.sh (core_pkg_create), not poudriere, so they are not in the
+          # poudriere repo publish-pkg syncs — which is why System > Update couldn't
+          # find a remote base/kernel version. Copy them into the poudriere repo's
+          # All/ and re-run `pkg repo` (re-catalog + re-sign with our key) so the
+          # published catalog lists them. default-config is already a poudriere port,
+          # so it is intentionally NOT copied (avoid a duplicate).
+          REPO_DIR="${{ steps.repo.outputs.dir }}"
+          SIGN="/root/sign/sign.sh /root/sign/repo.key"
+          [ -n "$REPO_DIR" ] || { echo "ERROR: empty repo dir"; exit 1; }
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "set -e; \
+             core=\$(ls -d /root/freesense-src/tmp/*-core 2>/dev/null | head -1); \
+             [ -n \"\$core\" ] || { echo 'ERROR: no core pkg dir'; exit 1; }; \
+             echo \">>> core: \$core  ->  ${REPO_DIR}/.latest/All/\"; \
+             cp \"\$core\"/All/FreeSense-base-*.pkg \"\$core\"/All/FreeSense-kernel-*.pkg \"\$core\"/All/FreeSense-rc-*.pkg ${REPO_DIR}/.latest/All/; \
+             echo '>>> re-cataloging + signing repo (incl. core OS packages)...'; \
+             pkg repo ${REPO_DIR}/.latest/ signing_command: ${SIGN} >/dev/null; \
+             echo '>>> core OS packages now in repo All/:'; \
+             ls ${REPO_DIR}/.latest/All/ | grep -iE 'FreeSense-(base|kernel|rc)-'"
+
       - name: Publish to R2 (rclone sync)
         env:
           RCLONE_CONFIG_R2_TYPE: s3
