@@ -1,0 +1,136 @@
+name: Build OS base (GitHub)
+
+# Builds ONLY the FreeSense OS base + kernel core packages (FreeBSD world+kernel)
+# on a GitHub-hosted runner, inside a FreeBSD VM (vmactions). This is the heavy,
+# INFREQUENT part of the build — it only needs to re-run when the freebsd-src pin
+# (UPSTREAM_REF) or the freesense-freebsd-patches change. The normal self-hosted
+# build then DOWNLOADS these prebuilt core packages instead of compiling world.
+#
+# Output: FreeSense-base / -kernel-* / -rc core packages, uploaded as a workflow
+# artifact (Phase 1) and (Phase 1.5) published to a per-channel GitHub Release.
+#
+# Versioning: the core packages take their version from src/etc/version via
+# CORE_PKG_VERSION — ref=main => 1.1.0.a.<datestamp> (devel), ref=RELENG_1_0 =>
+# 1.0.0 (release). The Release tag is a per-CHANNEL moving pointer (os-base-devel
+# / os-base-v1_0_0) so the consuming build always grabs the current base for its
+# channel; the Release notes record the exact pkg version + UPSTREAM_REF + patch hash.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "freesense branch: main (devel) or RELENG_1_0 (stable)"
+        type: choice
+        options: [main, RELENG_1_0]
+        default: main
+      freebsd_release:
+        description: "vmactions FreeBSD host release used to build world (newer host can build the pinned 16-CURRENT src)"
+        required: false
+        default: "15.0"
+      publish_release:
+        description: "Publish the core packages to a per-channel GitHub Release (os-base-<channel>)"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: base-build-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  base:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350   # under GitHub's 6h cap; base-only world+kernel should fit
+    permissions:
+      contents: write      # to create/update the GitHub Release
+    steps:
+      - name: Free up runner disk (FreeBSD src+obj is large)
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/.ghcup \
+                      /opt/hostedtoolcache/CodeQL "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: Checkout freesense (build framework + source)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Map ref -> channel
+        id: ch
+        run: |
+          case "${{ inputs.ref }}" in
+            RELENG_1_0) echo "channel=v1_0_0" >> "$GITHUB_OUTPUT" ;;
+            *)          echo "channel=devel"  >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Build OS core packages in a FreeBSD VM
+        uses: vmactions/freebsd-vm@v1
+        with:
+          release: ${{ inputs.freebsd_release }}
+          usesh: true
+          copyback: true
+          mem: 12288
+          prepare: |
+            pkg install -y git archivers/gtar textproc/xmlstarlet ftp/curl
+          run: |
+            set -e
+            SRC="$(pwd)"
+            echo ">>> building in ${SRC}"
+            # Minimal build.conf from the sample (the heavy provisioner is not needed
+            # for a base-only build: no poudriere, no signing, no nginx).
+            cp build.conf.sample build.conf
+            # SRCCONF path in the sample is hardcoded to /root/freesense-src — repoint
+            # it (and any other such path) at this checkout.
+            sed -i '' "s,/root/freesense-src,${SRC},g" build.conf
+            # Clone the freebsd-src change-set to the sample's default location so
+            # update_freebsd_sources takes the patch path (stock upstream @ pin + patches).
+            rm -rf /root/freesense-freebsd-patches
+            git clone --depth 1 https://github.com/FreeSense-org/freesense-freebsd-patches.git /root/freesense-freebsd-patches
+            # Predictable core dir name + no edition suffix (sample already "" but be safe).
+            grep -q '^export POUDRIERE_BRANCH=' build.conf || echo 'export POUDRIERE_BRANCH=main' >> build.conf
+            sed -i '' 's,^export PRODUCT_NAME_SUFFIX=.*,export PRODUCT_NAME_SUFFIX="",' build.conf
+            echo '>>> build.conf key vars:'
+            grep -E 'FREEBSD_SRC_PATCHES_DIR|SRCCONF|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX|NO_CLEAN_FREEBSD_OBJ' build.conf | grep -v '^#'
+            echo '>>> starting --build-core (world + kernel + core packages)...'
+            ./build.sh --build-core
+
+      - name: Locate core packages
+        id: core
+        run: |
+          DIR=$(ls -d tmp/*-core/All 2>/dev/null | head -1)
+          [ -n "$DIR" ] || { echo "::error::no core package dir produced"; exit 1; }
+          echo "Core packages in $DIR:"
+          ls -1 "$DIR"
+          mkdir -p out
+          cp "$DIR"/FreeSense-base-*.pkg "$DIR"/FreeSense-kernel-*.pkg "$DIR"/FreeSense-rc-*.pkg out/
+          # Record the base version + identity for the Release notes / consumer.
+          VER=$(ls out/FreeSense-base-*.pkg | sed -E 's,.*/FreeSense-base-(.+)\.pkg,\1,')
+          PIN=$(grep -E '^UPSTREAM_REF=' /root/freesense-freebsd-patches/manifest.env 2>/dev/null | cut -d'"' -f2 || echo unknown)
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "pin=$PIN" >> "$GITHUB_OUTPUT"
+          ls -lh out/
+
+      - name: Upload core packages (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: freesense-os-base-${{ steps.ch.outputs.channel }}
+          path: out/*.pkg
+          retention-days: 14
+
+      - name: Publish core packages to per-channel Release
+        if: ${{ inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          CH="${{ steps.ch.outputs.channel }}"
+          TAG="os-base-${CH}"
+          NOTES="FreeSense OS base for channel ${CH}.
+          base version: ${{ steps.core.outputs.version }}
+          freebsd pin (UPSTREAM_REF): ${{ steps.core.outputs.pin }}
+          built from ref: ${{ inputs.ref }} on FreeBSD ${{ inputs.freebsd_release }}.
+          Consumed by the self-hosted build (USE_PREBUILT_BASE) — unsigned here; the
+          publish step re-signs the repo with the FreeSense key."
+          # Moving per-channel release: recreate so assets are always the latest base.
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" out/*.pkg --title "OS base ($CH)" --notes "$NOTES" --latest=false
+          echo ">>> published $TAG"

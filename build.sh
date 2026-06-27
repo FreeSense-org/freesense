@@ -95,6 +95,11 @@ while test "$1" != ""; do
 		--build-kernels)
 			BUILDACTION="buildkernels"
 			;;
+		--build-core)
+			# FreeSense: build ONLY the OS base + kernel core packages (world+kernel),
+			# no poudriere ports and no ISO. For the GitHub base-build workflow.
+			BUILDACTION="build_core"
+			;;
 		--install-extra-kernels)
 			shift
 			if [ $# -eq 0 ]; then
@@ -254,6 +259,24 @@ case $BUILDACTION in
 			exit 1
 		fi
 		poudriere_bulk
+	;;
+	build_core)
+		# FreeSense: build ONLY the OS base + kernel core packages — world + kernel +
+		# core_pkg_create (base/kernel/kernel-debug/rc + default-config) + the core
+		# repo catalog. NO poudriere ports, NO ISO assembly. The GitHub base-build
+		# workflow runs this; the normal build then downloads these prebuilt core
+		# packages instead of compiling world. Output: ${CORE_PKG_ALL_PATH}/*.pkg.
+		[ -n "${CORE_PKG_PATH}" -a -d "${CORE_PKG_PATH}" ] \
+			&& rm -rf ${CORE_PKG_PATH}
+		clean_builder
+		update_freebsd_sources
+		git_last_commit
+		make_world
+		build_all_kernels
+		clone_to_staging_area
+		core_pkg_create_repo
+		echo ">>> FreeSense: core OS packages built:"
+		ls -1 ${CORE_PKG_ALL_PATH}/ 2>/dev/null | grep -iE 'FreeSense-(base|kernel|rc)-' || true
 	;;
 	*)
 		usage
