@@ -57,10 +57,15 @@ export MODULES_OVERRIDE="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc
 # branch selector and keeps each box's channel (devel/release) pinned.
 export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-default-config FreeSense-repoc"
 
-# FreeBSD source repo: our org's fork of pfSense's FreeBSD-src (carries the kernel conf
-# + bsdinstall customizations our confrename/installer-rebrand scripts expect; rebranded
-# to FreeSense at build time). Set explicitly so it doesn't get derived from the repo
-# remote (which would point at a nonexistent FreeSense-org/freebsd-src casing/path).
+# FreeBSD source: FreeSense applies a small CHANGE-SET to STOCK freebsd/freebsd-src
+# rather than carrying a full fork. FREEBSD_SRC_PATCHES_DIR points at a checkout of
+# FreeSense-org/freesense-freebsd-patches (cloned by provision-buildhost.sh); when
+# present, update_freebsd_sources() clones stock upstream @ the manifest's pinned
+# commit and applies patches/*.patch, then confrename/installer-rebrand run as usual.
+# Unset it to fall back to the legacy full fork below.
+export FREEBSD_SRC_PATCHES_DIR="/root/freesense-freebsd-patches"
+
+# Legacy full fork (fallback, used only when FREEBSD_SRC_PATCHES_DIR is unset/missing).
 export FREEBSD_REPO_BASE="https://github.com/FreeSense-org/freebsd-src.git"
 #export GIT_FREEBSD_COSHA1=##HASH##
 

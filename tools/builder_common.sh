@@ -1195,15 +1195,46 @@ update_freebsd_sources() {
 		return
 	fi
 
-	echo ">>> Obtaining FreeBSD sources (${FREEBSD_BRANCH})..."
-	${BUILDER_SCRIPTS}/git_checkout.sh \
-		-r ${FREEBSD_REPO_BASE} \
-		-d ${FREEBSD_SRC_DIR} \
-		-b ${FREEBSD_BRANCH}
+	if [ -n "${FREEBSD_SRC_PATCHES_DIR}" -a -f "${FREEBSD_SRC_PATCHES_DIR}/manifest.env" ]; then
+		# FreeSense patch-based flow: stock freebsd/freebsd-src @ a pinned commit
+		# + our small change-set (FreeSense-org/freesense-freebsd-patches), instead
+		# of a full fork. Incremental like git_checkout.sh: reset+clean the existing
+		# tree, (re-)fetch the pin if missing, apply the series. Re-inits the tree if
+		# it currently points at a different remote (e.g. the old fork).
+		. ${FREEBSD_SRC_PATCHES_DIR}/manifest.env
+		echo ">>> Obtaining stock FreeBSD sources (${UPSTREAM_REF}) + FreeSense change-set..."
+		if [ -d "${FREEBSD_SRC_DIR}/.git" ] && \
+		   [ "$(git -C ${FREEBSD_SRC_DIR} config --get remote.origin.url 2>/dev/null)" = "${UPSTREAM_URL}" ]; then
+			git -C ${FREEBSD_SRC_DIR} reset -q --hard
+			git -C ${FREEBSD_SRC_DIR} clean -qfd
+		else
+			rm -rf ${FREEBSD_SRC_DIR}
+			mkdir -p ${FREEBSD_SRC_DIR}
+			git -C ${FREEBSD_SRC_DIR} init -q
+			git -C ${FREEBSD_SRC_DIR} remote add origin ${UPSTREAM_URL}
+		fi
+		if ! git -C ${FREEBSD_SRC_DIR} cat-file -e "${UPSTREAM_REF}^{commit}" 2>/dev/null; then
+			git -C ${FREEBSD_SRC_DIR} fetch -q --depth 1 origin ${UPSTREAM_REF} \
+				|| git -C ${FREEBSD_SRC_DIR} fetch -q origin ${UPSTREAM_REF}
+		fi
+		git -C ${FREEBSD_SRC_DIR} checkout -q -f ${UPSTREAM_REF}
+		git -C ${FREEBSD_SRC_DIR} clean -qfd
+		if [ ! -d "${FREEBSD_SRC_DIR}/.git" ]; then
+			echo ">>> ERROR: could not obtain stock FreeBSD src @ ${UPSTREAM_REF}"
+			print_error_pfS
+		fi
+		sh ${FREEBSD_SRC_PATCHES_DIR}/apply.sh ${FREEBSD_SRC_DIR} || print_error_pfS
+	else
+		echo ">>> Obtaining FreeBSD sources (${FREEBSD_BRANCH})..."
+		${BUILDER_SCRIPTS}/git_checkout.sh \
+			-r ${FREEBSD_REPO_BASE} \
+			-d ${FREEBSD_SRC_DIR} \
+			-b ${FREEBSD_BRANCH}
 
-	if [ $? -ne 0 -o ! -d "${FREEBSD_SRC_DIR}/.git" ]; then
-		echo ">>> ERROR: It was not possible to clone FreeBSD src repo"
-		print_error_pfS
+		if [ $? -ne 0 -o ! -d "${FREEBSD_SRC_DIR}/.git" ]; then
+			echo ">>> ERROR: It was not possible to clone FreeBSD src repo"
+			print_error_pfS
+		fi
 	fi
 	. ${BUILDER_TOOLS}/ci/freesense-confrename.sh
 

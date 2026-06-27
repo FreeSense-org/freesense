@@ -124,6 +124,19 @@ else
 	git clone --depth 1 "${PORTS_OVERLAY_REPO}" "${OVERLAY_DIR}"
 fi
 
+# FreeBSD-src change-set (replaces the full freebsd-src fork): build.conf's
+# FREEBSD_SRC_PATCHES_DIR points here; update_freebsd_sources applies patches/*.patch
+# onto stock upstream @ the manifest pin.
+FBSD_PATCHES_REPO="${FBSD_PATCHES_REPO:-https://github.com/FreeSense-org/freesense-freebsd-patches.git}"
+FBSD_PATCHES_DIR="${FBSD_PATCHES_DIR:-/root/freesense-freebsd-patches}"
+log "cloning freebsd-src patches -> ${FBSD_PATCHES_DIR}"
+if [ -d "${FBSD_PATCHES_DIR}/.git" ]; then
+	git -C "${FBSD_PATCHES_DIR}" fetch --depth 1 origin && git -C "${FBSD_PATCHES_DIR}" reset --hard origin/main
+else
+	rm -rf "${FBSD_PATCHES_DIR}"
+	git clone --depth 1 "${FBSD_PATCHES_REPO}" "${FBSD_PATCHES_DIR}"
+fi
+
 # ---- 6. local chroot-install repo server (the :8081 the build's freesense-localrepo.sh expects) ----
 # freesense-localrepo.sh writes a chroot repo.conf pointing at http://127.0.0.1:8081/{core,bulk}.
 # poudriere publishes its built repo under /usr/local/poudriere/data/packages; we serve that.

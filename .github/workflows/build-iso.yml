@@ -64,6 +64,15 @@ jobs:
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "cd /root/freesense-ports && git fetch --quiet origin '${REF}' && git checkout -B '${REF}' FETCH_HEAD && \
              echo 'freesense-ports:' && git log -1 --oneline"
+          # freebsd-src change-set repo (FreeSense-org/freesense-freebsd-patches). The FreeBSD
+          # base is identical across channels (shared jail), so it stays on main for all refs.
+          # Clone if missing (first patch-flow build on a VM provisioned before this), else pull.
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "if [ -d /root/freesense-freebsd-patches/.git ]; then \
+               cd /root/freesense-freebsd-patches && git fetch --quiet origin main && git reset --hard origin/main; \
+             else \
+               git clone --depth 1 https://github.com/FreeSense-org/freesense-freebsd-patches.git /root/freesense-freebsd-patches; \
+             fi && echo 'freebsd-patches:' && git -C /root/freesense-freebsd-patches log -1 --oneline"
           # build.conf is generated from build.conf.sample by the provisioner and is gitignored,
           # so git reset can't update it. Keep the repo-server URL in sync with the sample
           # (idempotent: only rewrites a stale pkg+https:// prefix).
@@ -72,7 +81,8 @@ jobs:
              sed -i '' 's,^export PRODUCT_NAME_SUFFIX=.*,export PRODUCT_NAME_SUFFIX=\"\",' ${SRC}/build.conf && \
              grep -q '^export POUDRIERE_BRANCH=' ${SRC}/build.conf || echo 'export POUDRIERE_BRANCH=main' >> ${SRC}/build.conf && \
              grep -q 'FreeSense-repoc' ${SRC}/build.conf || sed -i '' 's,^\(export custom_package_list=\".*\)\",\1 FreeSense-repoc\",' ${SRC}/build.conf && \
-             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX|custom_package_list' ${SRC}/build.conf | grep -v '^#'"
+             grep -q '^export FREEBSD_SRC_PATCHES_DIR=' ${SRC}/build.conf || echo 'export FREEBSD_SRC_PATCHES_DIR=\"/root/freesense-freebsd-patches\"' >> ${SRC}/build.conf && \
+             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX|custom_package_list|FREEBSD_SRC_PATCHES_DIR' ${SRC}/build.conf | grep -v '^#'"
 
       - name: Force-clean the FreeSense core packages
         run: |
