@@ -39,6 +39,31 @@ jobs:
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "which rclone >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y rclone >/dev/null 2>&1; rclone version | head -1"
 
+      - name: Determine ISO + destination folder
+        id: dest
+        if: ${{ !inputs.prune_only }}
+        run: |
+          # Version/channel folder layout (downloads.freesense.org):
+          #   release/<version>/      e.g. release/1.0.0/      (+ release/latest/ mirror)
+          #   devel/<version>-<stamp>/ e.g. devel/1.1.0-20260627-1712/
+          # so each build has its own folder + its own SHA256SUMS.txt (no collisions).
+          NAME=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "ls -t ${INSTALLER_DIR}/*.iso.gz 2>/dev/null | head -1 | xargs -r basename")
+          [ -n "$NAME" ] || { echo "::error::no .iso.gz in ${INSTALLER_DIR}"; exit 1; }
+          base=${NAME%.iso.gz}
+          case "$base" in
+            *-RELEASE-*)     ch=release ;;
+            *-DEVELOPMENT-*) ch=devel ;;
+            *)               ch=other ;;
+          esac
+          ver=$(printf '%s' "$base" | sed -E 's/^[^-]+-([0-9][^-]*)-(RELEASE|DEVELOPMENT).*/\1/')
+          stamp=$(printf '%s' "$base" | sed -E 's/.*-amd64-?//')
+          if [ "$ch" = release ]; then dest="release/${ver}"; else dest="${ch}/${ver}${stamp:+-${stamp}}"; fi
+          echo "Resolved: $NAME -> ${dest}/ (channel ${ch})"
+          echo "name=$NAME"   >> "$GITHUB_OUTPUT"
+          echo "channel=$ch"  >> "$GITHUB_OUTPUT"
+          echo "dest=$dest"   >> "$GITHUB_OUTPUT"
+
       - name: Generate SHA256SUMS on the VM
         if: ${{ !inputs.prune_only }}
         run: |
@@ -57,13 +82,13 @@ jobs:
           RCLONE_CONFIG_R2_ACL: private
         run: |
           BUCKET="${{ github.event.inputs.bucket }}"
+          DEST="${{ steps.dest.outputs.dest }}"
+          CH="${{ steps.dest.outputs.channel }}"
+          [ -n "$DEST" ] || { echo "ERROR: empty dest"; exit 1; }
           ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
                  | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
           ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
-          echo ">>> Uploading ${INSTALLER_DIR}/*.iso.gz (+ SHA256SUMS.txt) -> R2:${BUCKET}/"
-          # copy (not sync) so older releases stay available; only the .iso.gz + checksums.
-          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "env \
+          RCENV="env \
                RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
                RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
                RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
@@ -71,13 +96,23 @@ jobs:
                RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
                RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
                RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
-               rclone copy --checksum --transfers 4 \
+               rclone"
+          echo ">>> Uploading -> R2:${BUCKET}/${DEST}/"
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "${RCENV} copy --checksum --transfers 4 \
                  --include '*.iso.gz' --include 'SHA256SUMS.txt' \
-                 '${INSTALLER_DIR}/' 'R2:${BUCKET}/'"
-          echo ">>> Done. After binding downloads.freesense.org to this bucket:"
-          echo ">>>   https://downloads.freesense.org/<iso-name>.iso.gz"
+                 '${INSTALLER_DIR}/' 'R2:${BUCKET}/${DEST}/'"
+          # For a release, mirror it to a stable 'latest' URL.
+          if [ "$CH" = "release" ]; then
+            echo ">>> Mirroring -> R2:${BUCKET}/release/latest/"
+            ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+              "${RCENV} sync --checksum 'R2:${BUCKET}/${DEST}/' 'R2:${BUCKET}/release/latest/'"
+          fi
+          echo ">>> Done:"
+          echo ">>>   https://downloads.freesense.org/${DEST}/${{ steps.dest.outputs.name }}"
+          [ "$CH" = "release" ] && echo ">>>   https://downloads.freesense.org/release/latest/${{ steps.dest.outputs.name }}"
 
-      - name: Prune de-branded (-CE) ISOs from R2
+      - name: Prune stale artifacts (-CE + old flat root layout)
         env:
           RCLONE_CONFIG_R2_TYPE: s3
           RCLONE_CONFIG_R2_PROVIDER: Cloudflare
@@ -87,16 +122,16 @@ jobs:
           RCLONE_CONFIG_R2_REGION: auto
           RCLONE_CONFIG_R2_ACL: private
         run: |
-          # Remove leftover de-branded artifacts (e.g. FreeSense-CE-*.iso.gz from before
-          # the -CE drop). These are the SAME release under an old name, not a distinct
-          # version, so it is safe to delete them. Legit older releases are untouched.
+          # Two cleanups, both safe (versioned folders live at depth >= 2, untouched):
+          #  1) de-branded -CE artifacts anywhere (same release, old name).
+          #  2) the OLD flat root-level layout (*.iso.gz + SHA256SUMS.txt at the bucket
+          #     root) — superseded by release/<ver>/ + devel/<ver>-<stamp>/. --max-depth 1
+          #     restricts this to the root so versioned folders are never affected.
           BUCKET="${{ github.event.inputs.bucket }}"
           ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
                  | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
           ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
-          echo ">>> Pruning '*-CE-*.iso.gz' from R2:${BUCKET}/"
-          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "env \
+          RCENV="env \
                RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
                RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
                RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
@@ -104,15 +139,13 @@ jobs:
                RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
                RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
                RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
-               rclone delete --include '*-CE-*.iso.gz' 'R2:${BUCKET}/' -v"
-          echo ">>> Remaining objects:"
+               rclone"
+          echo ">>> Pruning de-branded -CE artifacts (any depth)"
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "env \
-               RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
-               RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
-               RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
-               RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
-               RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
-               RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
-               RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
-               rclone lsf 'R2:${BUCKET}/'"
+            "${RCENV} delete --include '*-CE-*.iso.gz' 'R2:${BUCKET}/' -v"
+          echo ">>> Pruning old flat root-level files (migration to versioned folders)"
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "${RCENV} delete --max-depth 1 --include '*.iso.gz' --include 'SHA256SUMS.txt' 'R2:${BUCKET}/' -v"
+          echo ">>> Remaining objects (recursive):"
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "${RCENV} lsf -R 'R2:${BUCKET}/'"
