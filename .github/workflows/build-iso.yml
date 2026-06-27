@@ -8,6 +8,11 @@ name: Build ISO
 on:
   workflow_dispatch:
     inputs:
+      ref:
+        description: "Branch to build: main (devel channel) or RELENG_1_0 (stable channel)"
+        type: choice
+        options: [main, RELENG_1_0]
+        default: main
       publish_after:
         description: "Run the publish-pkg sync to R2 after a successful build"
         type: boolean
@@ -33,21 +38,27 @@ jobs:
             "test -d ${SRC}/.git && echo 'builder VM + src checkout present'"
 
       - name: Update source on the VM
+        env:
+          REF: ${{ inputs.ref }}
         run: |
+          # Check out the requested branch in BOTH repos (same branch name in each:
+          # main = devel channel, RELENG_1_0 = stable channel). -B resets the local
+          # branch to origin, so switching channels is clean and idempotent.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "cd ${SRC} && git fetch --quiet origin && git reset --hard origin/main && \
-             echo 'freesense-src HEAD:' && git log -1 --oneline"
+            "cd ${SRC} && git fetch --quiet origin && git checkout -B '${REF}' 'origin/${REF}' && \
+             echo 'freesense-src:' && git log -1 --oneline && echo 'version:' && cat src/etc/version"
           # The ports overlay (freesense-ports) is copied onto the poudriere tree by
-          # freesense-ports-overlay.sh but never pulled — refresh it here too.
+          # freesense-ports-overlay.sh but never pulled — refresh it to the same branch.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "cd /root/freesense-ports && git fetch --quiet origin && git reset --hard origin/main && \
-             echo 'freesense-ports HEAD:' && git log -1 --oneline"
+            "cd /root/freesense-ports && git fetch --quiet origin && git checkout -B '${REF}' 'origin/${REF}' && \
+             echo 'freesense-ports:' && git log -1 --oneline"
           # build.conf is generated from build.conf.sample by the provisioner and is gitignored,
           # so git reset can't update it. Keep the repo-server URL in sync with the sample
           # (idempotent: only rewrites a stale pkg+https:// prefix).
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "sed -i '' 's,pkg+https://,https://,g' ${SRC}/build.conf && \
-             echo 'build.conf repo servers:' && grep PKG_REPO_SERVER ${SRC}/build.conf | grep -v '^#'"
+             grep -q '^export POUDRIERE_BRANCH=' ${SRC}/build.conf || echo 'export POUDRIERE_BRANCH=main' >> ${SRC}/build.conf && \
+             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH' ${SRC}/build.conf | grep -v '^#'"
 
       - name: Launch build (detached)
         run: |

@@ -112,7 +112,11 @@ else
 fi
 # Use vX_Y instead of RELENG_X_Y for poudriere to make it shorter
 # Replace . by _ to make tag names look correct
-POUDRIERE_BRANCH=$(echo "${GIT_REPO_BRANCH_OR_TAG}" | sed 's,RELENG_,v,; s,\.,_,g')
+# FreeSense: overridable so all channels can SHARE one poudriere jail (set
+# POUDRIERE_BRANCH=main in build.conf). The FreeBSD base is identical across
+# channels, so a per-branch jail would mean a needless from-scratch rebuild;
+# the stable/devel split is expressed by the published repo path, not the jail.
+POUDRIERE_BRANCH=${POUDRIERE_BRANCH:-$(echo "${GIT_REPO_BRANCH_OR_TAG}" | sed 's,RELENG_,v,; s,\.,_,g')}
 
 GIT_REPO_BASE=$(git -C ${BUILDER_ROOT} config --get remote.$(git -C ${BUILDER_ROOT} remote).url | sed -e 's,/[^/]*$,,')
 

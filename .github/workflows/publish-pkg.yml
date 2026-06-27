@@ -8,10 +8,14 @@ name: Publish pkg repo to R2
 on:
   workflow_dispatch:
     inputs:
-      repo_path_segment:
-        description: "Bucket path segment (must match the box's FreeSense-repo.conf URL tail). Auto-detect first, then this default if detection fails."
+      poudriere_repo:
+        description: "Poudriere repo dir name on the VM (blank = newest signed build, devel or stable)"
         required: false
-        default: "FreeSense_master_amd64-FreeSense_devel"
+        default: ""
+      repo_path_segment:
+        description: "Bucket path segment (blank = auto-detect from the box's FreeSense-repo.conf)"
+        required: false
+        default: ""
 
 concurrency:
   group: publish-pkg
@@ -24,13 +28,24 @@ jobs:
       VM: root@192.168.122.155
       VMKEY: /home/runner/.ssh/vmkey
       R2_BUCKET: freesense-pkg
-      # poudriere repo on the VM (signed by the build)
-      POUDRIERE_REPO: /usr/local/poudriere/data/packages/FreeSense_main_amd64-FreeSense_devel
+      PACKAGES_ROOT: /usr/local/poudriere/data/packages
     steps:
-      - name: Sanity — reach the builder VM
+      - name: Determine poudriere repo (newest signed build, or override)
+        id: repo
         run: |
+          REPO="${{ github.event.inputs.poudriere_repo }}"
+          if [ -n "$REPO" ]; then
+            DIR="${PACKAGES_ROOT}/${REPO}"
+          else
+            # newest repo dir that has a signed packagesite (handles devel + stable jails)
+            DIR=$(ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+              "ls -td ${PACKAGES_ROOT}/*/ 2>/dev/null | while read d; do [ -f \"\${d}.latest/packagesite.pkg\" ] && { echo \"\${d%/}\"; break; }; done")
+          fi
+          [ -n "$DIR" ] || { echo "::error::no signed poudriere repo found"; exit 1; }
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "test -f ${POUDRIERE_REPO}/.latest/packagesite.pkg && echo 'repo present + signed' || { echo 'ERROR: no signed packagesite.pkg — build/sign the repo first'; exit 1; }"
+            "test -f '${DIR}/.latest/packagesite.pkg'" || { echo "::error::no signed packagesite.pkg in $DIR"; exit 1; }
+          echo "Publishing poudriere repo: $DIR"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
       - name: Ensure rclone on the VM
         run: |
@@ -61,13 +76,15 @@ jobs:
           RCLONE_CONFIG_R2_ACL: private
         run: |
           SEG="${{ steps.seg.outputs.segment }}"
+          REPO_DIR="${{ steps.repo.outputs.dir }}"
           [ -n "$SEG" ] || { echo "ERROR: empty repo path segment"; exit 1; }
+          [ -n "$REPO_DIR" ] || { echo "ERROR: empty poudriere repo dir"; exit 1; }
           # Normalize the account id: accept a bare id OR a full endpoint/S3 URL, strip whitespace.
           ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
                  | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
           ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
           DEST="R2:${R2_BUCKET}/${SEG}"
-          echo ">>> Publishing ${POUDRIERE_REPO}/.latest/  ->  ${DEST}  (endpoint host: ${ACCT}.r2...)"
+          echo ">>> Publishing ${REPO_DIR}/.latest/  ->  ${DEST}  (endpoint host: ${ACCT}.r2...)"
           # Run rclone on the VM (where the repo lives); pass R2 creds inline via env.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "env \
@@ -81,5 +98,5 @@ jobs:
                rclone sync --copy-links --checksum --fast-list --transfers 16 \
                  --exclude 'logs/**' --exclude 'logs' \
                  --exclude '.building/**' --exclude '.real_*/**' --exclude '.cache/**' \
-                 '${POUDRIERE_REPO}/.latest/' '${DEST}/'"
+                 '${REPO_DIR}/.latest/' '${DEST}/'"
           echo ">>> Done. Smoke test from a FreeSense box: pkg update -f && pkg search -q FreeSense"
