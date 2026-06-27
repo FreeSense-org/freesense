@@ -71,7 +71,8 @@ jobs:
             "sed -i '' 's,pkg+https://,https://,g' ${SRC}/build.conf && \
              sed -i '' 's,^export PRODUCT_NAME_SUFFIX=.*,export PRODUCT_NAME_SUFFIX=\"\",' ${SRC}/build.conf && \
              grep -q '^export POUDRIERE_BRANCH=' ${SRC}/build.conf || echo 'export POUDRIERE_BRANCH=main' >> ${SRC}/build.conf && \
-             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX' ${SRC}/build.conf | grep -v '^#'"
+             grep -q 'FreeSense-repoc' ${SRC}/build.conf || sed -i '' 's,^\(export custom_package_list=\".*\)\",\1 FreeSense-repoc\",' ${SRC}/build.conf && \
+             echo 'build.conf:' && grep -E 'PKG_REPO_SERVER|POUDRIERE_BRANCH|PRODUCT_NAME_SUFFIX|custom_package_list' ${SRC}/build.conf | grep -v '^#'"
 
       - name: Force-clean the FreeSense core packages
         run: |
@@ -85,6 +86,7 @@ jobs:
             "rm -f /usr/local/poudriere/data/packages/*/All/FreeSense-system-*.pkg \
                    /usr/local/poudriere/data/packages/*/All/FreeSense-ce-*.pkg \
                    /usr/local/poudriere/data/packages/*/All/FreeSense-repo-*.pkg \
+                   /usr/local/poudriere/data/packages/*/All/FreeSense-repoc-*.pkg \
                    /usr/local/poudriere/data/packages/*/All/FreeSense-default-config*.pkg \
                    /usr/local/poudriere/data/packages/*/All/php*-FreeSense-module-*.pkg \
                    /usr/local/poudriere/data/packages/*/All/FreeSense-[0-9]*.pkg 2>/dev/null; \

@@ -53,7 +53,9 @@ export SRCCONF="/root/freesense-src/tmp/FreeBSD-src/release/conf/FreeSense_build
 export MODULES_OVERRIDE="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc/cc_htcp cc/cc_vegas cryptodev dummynet fdescfs hwpmc i2c if_stf ipdivert ipfw ipfw_nat64 opensolaris usb/cdce usb/ipheth usb/ure usb/urndis zfs aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom ipmi ix ixv nmdm qlnx sfxge vmm"
 
 # Core packages baked into the image (base system + kernel + factory config).
-export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-default-config"
+# FreeSense-repoc is our static repo client — it populates the System > Update
+# branch selector and keeps each box's channel (devel/release) pinned.
+export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-default-config FreeSense-repoc"
 
 # FreeBSD source repo: our org's fork of pfSense's FreeBSD-src (carries the kernel conf
 # + bsdinstall customizations our confrename/installer-rebrand scripts expect; rebranded

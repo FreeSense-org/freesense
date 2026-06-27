@@ -108,3 +108,37 @@ jobs:
                  --exclude '.building/**' --exclude '.real_*/**' --exclude '.cache/**' \
                  '${REPO_DIR}/.latest/' '${DEST}/'"
           echo ">>> Done. Smoke test from a FreeSense box: pkg update -f && pkg search -q FreeSense"
+
+      - name: Publish channel manifest to R2 (repos.manifest)
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID_RAW: ${{ secrets.R2_ACCOUNT_ID }}
+          RCLONE_CONFIG_R2_REGION: auto
+          RCLONE_CONFIG_R2_ACL: private
+        run: |
+          # The build stages the authoritative channel manifest here; serve it at
+          # the bucket root so FreeSense-repoc can fetch pkg.freesense.org/repos.manifest
+          # and discover channels (incl. ones added after a box was installed).
+          MANIFEST="/root/freesense-src/tmp/stage-dir/usr/local/share/FreeSense/repos.manifest"
+          if ! ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" "test -f '$MANIFEST'"; then
+            echo "::warning::no staged repos.manifest ($MANIFEST) — skipping manifest publish"
+            exit 0
+          fi
+          ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
+                 | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
+          ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
+          echo ">>> Publishing ${MANIFEST}  ->  R2:${R2_BUCKET}/repos.manifest"
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "env \
+               RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+               RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+               RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+               RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+               RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+               RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
+               RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+               rclone copyto --checksum '${MANIFEST}' 'R2:${R2_BUCKET}/repos.manifest'"
+          echo ">>> Manifest published."

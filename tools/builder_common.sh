@@ -610,6 +610,10 @@ clone_to_staging_area() {
 		${TARGET} \
 		${TARGET_ARCH}
 
+	# FreeSense: seed the channel manifest + per-branch repo confs so the
+	# System > Update branch selector is populated on a fresh install.
+	stage_repo_channels ${STAGE_CHROOT_DIR}
+
 	mtree \
 		-c \
 		-k uid,gid,mode,size,flags,sha256digest \
@@ -1085,6 +1089,55 @@ setup_pkg_repo() {
 		mkdir -p $(dirname ${_pkg_conf})
 		echo "ABI=${ABI}" > ${_pkg_conf}
 		echo "ALTABI=${ALTABI}" >> ${_pkg_conf}
+	fi
+}
+
+# FreeSense: write the public channel manifest and seed the per-branch repo confs
+# into the image, so System > Update's branch selector is populated out of the box
+# (even offline). FreeSense-repoc refreshes these from pkg.freesense.org at runtime.
+# The box's OWN channel is marked default so an un-chosen box upgrades in-channel.
+stage_repo_channels() {
+	local _root="${1}"
+	local _share="${_root}${PRODUCT_SHARE_DIR}"
+	local _repos="${_root}/usr/local/etc/${PRODUCT_NAME}/pkg/repos"
+
+	local _abi=$(cat ${PKG_REPO_BASE}/${PRODUCT_NAME}-repo-devel.abi 2>/dev/null \
+	    | sed -e "s/%%ARCH%%/${TARGET_ARCH}/g")
+	local _altabi=$(cat ${PKG_REPO_BASE}/${PRODUCT_NAME}-repo-devel.altabi 2>/dev/null \
+	    | sed -e "s/%%ARCH%%/$(get_altabi_arch ${TARGET_ARCH})/g")
+	[ -n "${_abi}" ] || _abi="FreeBSD:16:${TARGET_ARCH}"
+	[ -n "${_altabi}" ] || _altabi="freebsd:16:x86:64"
+
+	mkdir -p "${_share}" "${_repos}"
+
+	# Authoritative channel manifest (pipe-delimited). Stable is the global default;
+	# the per-box default marker (below) overrides it for devel images.
+	# name|descr|server|osversion|version|abi|altabi|default
+	cat > "${_share}/repos.manifest" <<EOF
+# FreeSense repo channel manifest
+# name|descr|server|osversion|version|abi|altabi|default
+${PKG_REPO_BRANCH_RELEASE}|Latest stable version (${PKG_REPO_BRANCH_RELEASE})|${PKG_REPO_SERVER_RELEASE}|${PKG_REPO_BRANCH_RELEASE}|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_RELEASE}|${_abi}|${_altabi}|yes
+devel|Development version|${PKG_REPO_SERVER_DEVEL}|master|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_DEVEL}|${_abi}|${_altabi}|no
+EOF
+
+	# Seed the per-branch confs offline from that manifest, reusing FreeSense-repoc
+	# itself (from the ports overlay) so the conf-writing logic lives in one place.
+	local _repoc="${OVERLAY_DIR:-/root/freesense-ports}/sysutils/pfSense-repoc/files/pfSense-repoc"
+	if [ -r "${_repoc}" ]; then
+		PRODUCT="${PRODUCT_NAME}" REPOS_DIR="${_repos}" SHARE_DIR="${_share}" \
+		ARCH="${TARGET_ARCH}" MANIFEST_LOCAL="${_share}/repos.manifest" \
+		    sh "${_repoc}" -l || echo ">>> WARNING: FreeSense channel seed failed"
+	else
+		echo ">>> WARNING: FreeSense-repoc not found at ${_repoc}; branch selector will seed at runtime only"
+	fi
+
+	# Pin the box's OWN channel as default (devel images track devel; release images
+	# track the release branch), overriding the manifest's global default.
+	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null
+	if [ -n "${_IS_RELEASE}" ]; then
+		: > "${_repos}/${PRODUCT_NAME}-repo-${PKG_REPO_BRANCH_RELEASE}.default"
+	else
+		: > "${_repos}/${PRODUCT_NAME}-repo-devel.default"
 	fi
 }
 
