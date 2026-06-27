@@ -10,6 +10,11 @@ on:
         description: "R2 bucket for downloads"
         required: false
         default: "freesense-downloads"
+      prune_only:
+        description: "Only prune stale/de-branded (-CE) ISOs; skip the upload"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: publish-iso
@@ -24,6 +29,7 @@ jobs:
       INSTALLER_DIR: /root/freesense-src/tmp/FreeSense/installer
     steps:
       - name: Sanity — an ISO exists on the VM
+        if: ${{ !inputs.prune_only }}
         run: |
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "ls -1 ${INSTALLER_DIR}/*.iso.gz >/dev/null 2>&1 && echo 'iso present' || { echo 'ERROR: no .iso.gz in ${INSTALLER_DIR}'; exit 1; }"
@@ -34,11 +40,13 @@ jobs:
             "which rclone >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y rclone >/dev/null 2>&1; rclone version | head -1"
 
       - name: Generate SHA256SUMS on the VM
+        if: ${{ !inputs.prune_only }}
         run: |
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "cd ${INSTALLER_DIR} && sha256 -r *.iso.gz > SHA256SUMS.txt 2>/dev/null || sha256sum *.iso.gz > SHA256SUMS.txt; cat SHA256SUMS.txt"
 
       - name: Upload ISO(s) to R2
+        if: ${{ !inputs.prune_only }}
         env:
           RCLONE_CONFIG_R2_TYPE: s3
           RCLONE_CONFIG_R2_PROVIDER: Cloudflare
@@ -68,3 +76,43 @@ jobs:
                  '${INSTALLER_DIR}/' 'R2:${BUCKET}/'"
           echo ">>> Done. After binding downloads.freesense.org to this bucket:"
           echo ">>>   https://downloads.freesense.org/<iso-name>.iso.gz"
+
+      - name: Prune de-branded (-CE) ISOs from R2
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID_RAW: ${{ secrets.R2_ACCOUNT_ID }}
+          RCLONE_CONFIG_R2_REGION: auto
+          RCLONE_CONFIG_R2_ACL: private
+        run: |
+          # Remove leftover de-branded artifacts (e.g. FreeSense-CE-*.iso.gz from before
+          # the -CE drop). These are the SAME release under an old name, not a distinct
+          # version, so it is safe to delete them. Legit older releases are untouched.
+          BUCKET="${{ github.event.inputs.bucket }}"
+          ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
+                 | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
+          ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
+          echo ">>> Pruning '*-CE-*.iso.gz' from R2:${BUCKET}/"
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "env \
+               RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+               RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+               RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+               RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+               RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+               RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
+               RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+               rclone delete --include '*-CE-*.iso.gz' 'R2:${BUCKET}/' -v"
+          echo ">>> Remaining objects:"
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "env \
+               RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+               RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+               RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+               RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+               RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+               RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
+               RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+               rclone lsf 'R2:${BUCKET}/'"
