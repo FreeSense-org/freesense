@@ -63,6 +63,7 @@ jobs:
           echo "name=$NAME"   >> "$GITHUB_OUTPUT"
           echo "channel=$ch"  >> "$GITHUB_OUTPUT"
           echo "dest=$dest"   >> "$GITHUB_OUTPUT"
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
 
       - name: Generate SHA256SUMS on the VM
         if: ${{ !inputs.prune_only }}
@@ -111,6 +112,65 @@ jobs:
           echo ">>> Done:"
           echo ">>>   https://downloads.freesense.org/${DEST}/${{ steps.dest.outputs.name }}"
           [ "$CH" = "release" ] && echo ">>>   https://downloads.freesense.org/release/latest/${{ steps.dest.outputs.name }}"
+
+      - name: Update releases.json manifest (powers the website download page)
+        if: ${{ !inputs.prune_only && steps.dest.outputs.channel != 'other' }}
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID_RAW: ${{ secrets.R2_ACCOUNT_ID }}
+          RCLONE_CONFIG_R2_REGION: auto
+          RCLONE_CONFIG_R2_ACL: private
+        run: |
+          BUCKET="${{ github.event.inputs.bucket }}"
+          DEST="${{ steps.dest.outputs.dest }}"
+          CH="${{ steps.dest.outputs.channel }}"
+          NAME="${{ steps.dest.outputs.name }}"
+          VER="${{ steps.dest.outputs.version }}"
+          ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
+                 | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
+          ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
+          # The merge script reads the existing manifest from R2, updates THIS channel's
+          # entry, and writes it back. Written to a FILE + run with </dev/null (poudriere/
+          # ssh otherwise swallow the heredoc as stdin and truncate the rest of the step).
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" "cat > /root/mk-releases.sh" <<'REMOTE'
+          set -e
+          which jq >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y jq >/dev/null 2>&1
+          cd "$INSTALLER_DIR"
+          if [ "$CH" = release ]; then
+            KEY=stable; URL="https://downloads.freesense.org/release/latest/${NAME}"; DISP="${VER}-RELEASE"
+          else
+            KEY=devel;  URL="https://downloads.freesense.org/${DEST}/${NAME}";        DISP="${VER}"
+          fi
+          SIZE=$(stat -f %z "$NAME" 2>/dev/null || stat -c %s "$NAME")
+          SHA=$(grep "$NAME" SHA256SUMS.txt | awk '{print $1; exit}')
+          DATE=$(date -u +%Y-%m-%d)
+          ENTRY=$(jq -n --arg v "$DISP" --arg iso "$NAME" --arg url "$URL" \
+                        --argjson size "${SIZE:-0}" --arg sha "$SHA" --arg date "$DATE" \
+                        '{version:$v, iso:$iso, url:$url, size:$size, sha256:$sha, date:$date}')
+          # start from the existing manifest if it's valid JSON, else {}
+          rclone cat "R2:${BUCKET}/releases.json" 2>/dev/null | jq '.' > /tmp/cur.json 2>/dev/null || echo '{}' > /tmp/cur.json
+          [ -s /tmp/cur.json ] || echo '{}' > /tmp/cur.json
+          jq --arg k "$KEY" --argjson e "$ENTRY" --arg date "$DATE" \
+             '.channels = ((.channels // {}) + {($k): $e}) | .generated = $date' \
+             /tmp/cur.json > /tmp/releases.json
+          echo "--- releases.json ---"; cat /tmp/releases.json
+          rclone copyto --s3-no-check-bucket --header-upload "Content-Type: application/json" \
+            /tmp/releases.json "R2:${BUCKET}/releases.json"
+          echo ">>> manifest published: https://downloads.freesense.org/releases.json"
+          REMOTE
+          ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+             RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+             RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+             RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+             RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+             RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
+             RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+             BUCKET='$BUCKET' DEST='$DEST' CH='$CH' NAME='$NAME' VER='$VER' INSTALLER_DIR='$INSTALLER_DIR' \
+             sh /root/mk-releases.sh < /dev/null"
 
       - name: Prune stale artifacts (-CE + old flat root layout)
         env:
