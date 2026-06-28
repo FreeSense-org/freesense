@@ -1,0 +1,324 @@
+/*
+ * _freesense-core.css
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * Shared FreeSense GUI styling for Bootstrap 5. Carries the brand look (coral
+ * accent, ink chrome) from freesense.org into the webConfigurator. Built on
+ * Bootstrap's --bs-* semantic variables plus FreeSense --fs-* brand tokens, so
+ * the two theme files (FreeSense.css = light, FreeSense-dark.css = dark) only
+ * need to set a small palette of variables.
+ *
+ * Partial (leading underscore) -> excluded from the theme picker. Imported by
+ * each theme after bootstrap + _freesense-bs5-shim.css.
+ */
+
+/* ============================ Brand tokens / BS overrides =============== */
+:root {
+	/* brand accent (the website "S" coral) */
+	--fs-coral:      #ea4f2d;
+	--fs-coral-hi:   #ff6b4a;
+	--fs-coral-down: #c93d25;
+
+	/* always-dark chrome (navbar + footer), independent of light/dark mode */
+	--fs-chrome-bg:     #14181f;
+	--fs-chrome-fg:     #9aa4b2;
+	--fs-chrome-fg-hi:  #e8ecf1;
+	--fs-chrome-border: rgba(255, 255, 255, 0.07);
+
+	/* page background sits behind the surfaces (overridden per theme) */
+	--fs-page-bg: #eceff3;
+
+	/* route Bootstrap's primary through the brand accent */
+	--bs-primary:     #ea4f2d;
+	--bs-primary-rgb: 234, 79, 45;
+
+	--bs-border-radius:    .5rem;
+	--bs-border-radius-sm: .35rem;
+	--bs-border-radius-lg: .75rem;
+
+	--bs-body-font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html { position: relative; min-height: 100%; }
+
+body {
+	margin-bottom: 70px;
+	background-color: var(--fs-page-bg);
+	-webkit-font-smoothing: antialiased;
+	touch-action: manipulation;
+}
+
+a { text-decoration: none; }
+a:hover { text-decoration: none; }
+
+a.fa-solid, i.fa-solid, a.fa-regular, i.fa-regular, a.fa-brands, i.fa-brands { font-size: 17px; }
+
+/* Accent the primary button + interactive accents with brand coral */
+.btn-primary {
+	--bs-btn-bg: var(--fs-coral);
+	--bs-btn-border-color: var(--fs-coral);
+	--bs-btn-hover-bg: var(--fs-coral-down);
+	--bs-btn-hover-border-color: var(--fs-coral-down);
+	--bs-btn-active-bg: var(--fs-coral-down);
+	--bs-btn-active-border-color: var(--fs-coral-down);
+	--bs-btn-disabled-bg: var(--fs-coral);
+	--bs-btn-disabled-border-color: var(--fs-coral);
+	--bs-btn-focus-shadow-rgb: 234, 79, 45;
+}
+.btn { border-radius: var(--bs-border-radius-sm); }
+form .btn + .btn { margin-left: 5px; }
+
+.progress-bar { background-color: var(--fs-coral); }
+.progress { height: 1rem; }
+
+/* ============================ Top navbar (always dark) ================= */
+.navbar {
+	margin-bottom: 1rem;
+	padding-top: 0;
+	padding-bottom: 0;
+	background-color: var(--fs-chrome-bg);
+	border-bottom: 1px solid var(--fs-chrome-border);
+}
+.navbar .container { align-items: stretch; }
+
+.navbar-brand {
+	display: flex;
+	align-items: center;
+	padding: .55rem .85rem;
+}
+.navbar-brand svg#logo {
+	width: 188px;
+	height: auto;
+	display: block;
+	color: #fff;            /* drives currentColor for the "F" + "FreeSense" wordmark */
+}
+.navbar-brand > img { max-height: 40px; width: auto; }
+
+.navbar .navbar-nav { align-items: stretch; }
+.navbar .navbar-nav .nav-link {
+	display: flex;
+	align-items: center;
+	color: var(--fs-chrome-fg);
+	font-size: .875rem;
+	padding: 1.2rem .8rem 1.05rem;
+	border-bottom: 3px solid transparent;
+	transition: color .12s ease, border-color .12s ease;
+}
+.navbar .navbar-nav .nav-link:hover,
+.navbar .navbar-nav .nav-link:focus { color: var(--fs-chrome-fg-hi); }
+.navbar .navbar-nav .nav-item.show > .nav-link,
+.navbar .navbar-nav .nav-link.active {
+	color: #fff;
+	border-bottom-color: var(--fs-coral);
+}
+.navbar-toggler { border-color: rgba(255, 255, 255, 0.18); }
+
+/* top-menu icons — brand coral, identical in both themes (navbar is always dark) */
+.navbar .navbar-nav .nav-link .fs-menu-icon {
+	margin-right: .4rem;
+	font-size: .9em;
+	width: 1em;
+	text-align: center;
+	color: var(--fs-coral);
+	transition: color .12s ease;
+}
+.navbar .navbar-nav .nav-link:hover .fs-menu-icon,
+.navbar .navbar-nav .nav-link:focus .fs-menu-icon,
+.navbar .navbar-nav .nav-item.show > .nav-link .fs-menu-icon,
+.navbar .navbar-nav .nav-link.active .fs-menu-icon {
+	color: var(--fs-coral-hi);
+}
+
+/* navbar dropdowns inherit data-bs-theme="dark" from <nav>; add brand hover */
+.navbar .dropdown-menu {
+	border-color: rgba(255, 255, 255, 0.08);
+	box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+	border-radius: var(--bs-border-radius);
+	padding: .35rem;
+}
+.navbar .dropdown-item { border-radius: var(--bs-border-radius-sm); padding: .35rem .8rem; font-size: .82rem; }
+.navbar .dropdown-item:hover,
+.navbar .dropdown-item:focus { background-color: rgba(234, 79, 45, 0.18); color: #fff; }
+.navbar .dropdown-item.active,
+.navbar .dropdown-item:active { background-color: var(--fs-coral); color: #fff; }
+.navbar .dropdown-menu .divider {
+	height: 1px;
+	margin: .35rem .25rem;
+	background-color: rgba(255, 255, 255, 0.1);
+	overflow: hidden;
+}
+.dropdown-menu-fixed { max-height: calc(98vh - 35px); overflow-y: auto; }
+
+/* ============================ Settings tabs (li>a markup) ============== */
+.nav-tabs, .nav-pills {
+	margin-bottom: 1.1rem;
+	border-bottom: 1px solid var(--bs-border-color);
+	flex-wrap: wrap;
+}
+.nav-tabs > li, .nav-pills > li { margin-bottom: -1px; }
+.nav-tabs > li > a, .nav-pills > li > a {
+	display: block;
+	padding: .55rem 1rem;
+	color: var(--bs-secondary-color);
+	border: 0;
+	border-bottom: 3px solid transparent;
+	background: none;
+}
+.nav-tabs > li > a:hover, .nav-pills > li > a:hover { color: var(--bs-emphasis-color); }
+.nav-tabs > li.active > a, .nav-pills > li.active > a,
+.nav-tabs > li > a.active, .nav-pills > li > a.active {
+	color: var(--fs-coral);
+	border-bottom-color: var(--fs-coral);
+	font-weight: 600;
+}
+
+/* ============================ Page header / breadcrumb ================= */
+.header {
+	position: relative;
+	margin: 0 0 1.25rem;
+	padding: .8rem 1rem;
+	background-color: var(--bs-secondary-bg);
+	border: 1px solid var(--bs-border-color);
+	border-left: 3px solid var(--fs-coral);
+	border-radius: var(--bs-border-radius);
+}
+.header .context-links { position: absolute; right: 1rem; top: 1rem; margin: 0; padding: 0; }
+.header .context-links li { display: inline-block; margin-left: .65rem; }
+ul.context-links li a { color: var(--fs-coral); }
+
+.breadcrumb {
+	display: flex;
+	flex-wrap: wrap;
+	margin: 0;
+	padding: 0;
+	background: transparent;
+	font-size: 1.3rem;
+	font-weight: 500;
+	list-style: none;
+	color: var(--bs-emphasis-color);
+}
+.breadcrumb > li { display: inline-flex; align-items: center; }
+.breadcrumb > li + li::before {
+	content: "/";
+	padding: 0 .55rem;
+	color: var(--fs-coral);
+}
+.breadcrumb a { color: var(--bs-emphasis-color); }
+.breadcrumb a:hover { color: var(--fs-coral); }
+
+/* ============================ Panels (card look) ====================== */
+.panel {
+	margin-bottom: 1rem;
+	background-color: var(--bs-body-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+}
+.panel-heading {
+	background-color: var(--bs-tertiary-bg);
+	color: var(--bs-emphasis-color);
+	border-bottom: 1px solid var(--bs-border-color);
+	padding: .6rem 1rem;
+}
+.panel-title { font-size: 1rem; font-weight: 600; letter-spacing: .2px; }
+.panel-heading a:link, .panel-heading a:visited { color: var(--bs-emphasis-color); }
+.panel-body { padding: 0; }
+.panel-body > .content { padding: 1rem; }
+
+.content { padding: 1rem; }
+
+/* dashboard widget heading accents */
+.widget-heading-icon { display: block; float: right; }
+.widget-heading-icon .fa-solid,
+.widget-heading-icon i.fa-regular,
+.widget-heading-icon i.fa-brands { color: var(--bs-secondary-color); }
+.widget-heading-icon .fa-solid:hover { color: var(--fs-coral); }
+[id^="widgets-col"] { min-height: 300px; }
+.panel-body.collapse.show { overflow-x: auto; }
+
+/* ============================ Forms =================================== */
+.form-control, .form-select {
+	font-size: .9rem;
+	background-color: var(--bs-body-bg);
+}
+.form-control:focus, .form-select:focus {
+	border-color: var(--fs-coral);
+	box-shadow: 0 0 0 .2rem rgba(234, 79, 45, 0.18);
+}
+.form-check-input:checked { background-color: var(--fs-coral); border-color: var(--fs-coral); }
+.form-check-input:focus { border-color: var(--fs-coral); box-shadow: 0 0 0 .2rem rgba(234, 79, 45, 0.18); }
+
+.form-horizontal { margin-bottom: .5rem; }
+.form-horizontal .control-label { padding-top: .45rem; }
+.form-group {
+	margin: 0;
+	padding: .55rem .25rem;
+	border-bottom: 1px solid var(--bs-border-color);
+}
+.form-group:last-child { border-bottom: none; }
+.form-group.no-separator, .no-separator { border-bottom: 0 !important; }
+.form-listitem { border-top: 3px solid var(--bs-border-color); }
+.form-listitem:first-child { border-top: none; }
+
+.action-buttons { text-align: right; margin: 1rem 0 1.25rem; }
+.input-errors ul { margin-top: 1.25rem; }
+.element-required { box-shadow: inset 0 0 0 white, inset 0 -1px 0 currentColor; }
+
+/* combo select+input (e.g. address/mask) */
+div.inputselectcombo { display: table; font-size: 0; }
+div.inputselectcombo select {
+	display: table-cell; width: auto; max-width: 95px; margin-bottom: 0 !important;
+	border-top-right-radius: 0; border-bottom-right-radius: 0;
+}
+div.inputselectcombo span { display: table-cell; width: 100%; }
+div.inputselectcombo span input {
+	display: table-cell; width: 100%; margin-bottom: 0 !important;
+	border-top-left-radius: 0; border-bottom-left-radius: 0;
+}
+
+/* ============================ Tables ================================== */
+.table { margin-bottom: 0; }
+.table > tbody > tr > td { padding: .45rem .35rem .45rem .65rem; vertical-align: middle; }
+.contains-table table { border: 1px solid var(--bs-border-color); }
+.table-responsive { clear: both; margin-bottom: 0; }
+tr.disabled i.fa-solid, tr.disabled i.fa-regular, tr.disabled i.fa-brands,
+tr.disabled a { opacity: .5; }
+
+/* ============================ Footer ================================== */
+.footer {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	padding: .65rem 0;
+	background-color: var(--fs-chrome-bg);
+	text-align: center;
+}
+.footer, .footer a, .footer .text-muted, .footer p { color: var(--fs-chrome-fg) !important; }
+.footer a:hover { color: var(--fs-coral-hi) !important; }
+
+/* ============================ Misc =================================== */
+.popover { max-width: none; }
+.help-block { margin-bottom: 0; }
+.icon-pointer { cursor: pointer; }
+textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; -moz-tab-size: 4; tab-size: 4; }
+svg { display: block; }
+.button-icon { color: var(--fs-coral); background: none; border: 0; }
+
+/* keep the jQuery-UI widgets legible against the theme */
+.ui-widget { font-family: var(--bs-body-font-family); }
+.ui-sortable-handle { cursor: move; }
+
+/* login page tweaks (uses #login) */
+#login .form-control { height: auto; }
+#login .panel-heading { padding: .75rem 1rem; }
+
+@media (max-width: 1199px) {
+	.navbar .navbar-nav .nav-link { padding-left: .7rem; padding-right: .7rem; }
+}
+@media (max-width: 767px) {
+	.header { margin-bottom: .75rem; }
+	.breadcrumb { font-size: 1.05rem; }
+}

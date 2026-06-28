@@ -1,0 +1,279 @@
+/*
+ * _freesense-bs5-shim.css
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * Bootstrap 3 -> Bootstrap 5 compatibility shim (CSS half; the JS half is
+ * freesense-bs5-compat.js). Recreates the BS3 classes that BS5 removed/renamed,
+ * built on BS5's --bs-* semantic variables so everything follows the active
+ * color mode (data-bs-theme). This lets the legacy Form framework, the 29
+ * dashboard widgets, and ~200 pages keep rendering on BS5 while they are
+ * migrated to native markup one page at a time.
+ *
+ * Imported by every theme right after bootstrap, before _freesense-core.css.
+ * Partial file (leading underscore) -> excluded from the theme picker.
+ */
+
+/* ============================ Panels -> cards ============================ */
+.panel {
+	position: relative;
+	margin-bottom: 1rem;
+	background-color: var(--bs-body-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+}
+.panel > .panel-heading,
+.panel-heading {
+	padding: .5rem 1rem;
+	border-bottom: 1px solid var(--bs-border-color);
+	border-top-left-radius: inherit;
+	border-top-right-radius: inherit;
+}
+.panel-title { margin: 0; font-size: 1rem; line-height: 1.5; }
+.panel-body { padding: 1rem; }
+.panel-footer {
+	padding: .5rem 1rem;
+	background-color: var(--bs-tertiary-bg);
+	border-top: 1px solid var(--bs-border-color);
+	border-bottom-left-radius: inherit;
+	border-bottom-right-radius: inherit;
+}
+.panel-group { margin-bottom: 1rem; }
+.panel-group .panel + .panel { margin-top: 5px; }
+.panel-collapse { border: 0; }
+
+/* ============================ Forms ===================================== */
+.form-group { margin-bottom: 1rem; }
+.form-horizontal .form-group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	margin-right: 0;
+	margin-left: 0;
+}
+.control-label { font-weight: 600; margin-bottom: 0; }
+.help-block {
+	display: block;
+	margin-top: .35rem;
+	color: var(--bs-secondary-color);
+	font-size: .875em;
+}
+.checkbox, .radio { position: relative; display: block; margin-top: .25rem; margin-bottom: .25rem; }
+.checkbox label, .radio label { padding-left: .25rem; margin-bottom: 0; }
+.has-error .form-control { border-color: var(--bs-danger); }
+.has-error .control-label,
+.has-error .help-block { color: var(--bs-danger); }
+.has-success .form-control { border-color: var(--bs-success); }
+.has-warning .form-control { border-color: var(--bs-warning); }
+
+/* BS3 input groups: addon/btn -> input-group-text behaviour */
+.input-group-addon {
+	display: flex;
+	align-items: center;
+	padding: .375rem .75rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: var(--bs-body-color);
+	text-align: center;
+	white-space: nowrap;
+	background-color: var(--bs-tertiary-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+}
+.input-group-btn { display: flex; }
+.input-group-btn > .btn { height: 100%; }
+
+/* ============================ Grid: col-xs-* (== BS5 col-*) ============= */
+.col-xs-1,.col-xs-2,.col-xs-3,.col-xs-4,.col-xs-5,.col-xs-6,
+.col-xs-7,.col-xs-8,.col-xs-9,.col-xs-10,.col-xs-11,.col-xs-12 {
+	position: relative;
+	width: 100%;
+	padding-right: 15px;
+	padding-left: 15px;
+	float: left;
+}
+.col-xs-1  { width: 8.333333%; }
+.col-xs-2  { width: 16.66667%; }
+.col-xs-3  { width: 25%; }
+.col-xs-4  { width: 33.33333%; }
+.col-xs-5  { width: 41.66667%; }
+.col-xs-6  { width: 50%; }
+.col-xs-7  { width: 58.33333%; }
+.col-xs-8  { width: 66.66667%; }
+.col-xs-9  { width: 75%; }
+.col-xs-10 { width: 83.33333%; }
+.col-xs-11 { width: 91.66667%; }
+.col-xs-12 { width: 100%; }
+
+/* BS3 offsets used by the Form framework (label/input column math) */
+@media (min-width: 768px) {
+	.col-sm-offset-0  { margin-left: 0; }
+	.col-sm-offset-1  { margin-left: 8.333333%; }
+	.col-sm-offset-2  { margin-left: 16.66667%; }
+	.col-sm-offset-3  { margin-left: 25%; }
+	.col-sm-offset-4  { margin-left: 33.33333%; }
+	.col-sm-offset-5  { margin-left: 41.66667%; }
+	.col-sm-offset-6  { margin-left: 50%; }
+	.col-sm-offset-7  { margin-left: 58.33333%; }
+	.col-sm-offset-8  { margin-left: 66.66667%; }
+	.col-sm-offset-9  { margin-left: 75%; }
+	.col-sm-offset-10 { margin-left: 83.33333%; }
+	.col-sm-offset-11 { margin-left: 91.66667%; }
+}
+
+/* ============================ Utilities ================================= */
+.pull-right { float: right !important; }
+.pull-left  { float: left  !important; }
+.center-block { display: block; margin-right: auto; margin-left: auto; }
+.hidden { display: none !important; }
+.text-right { text-align: right !important; }
+.text-left  { text-align: left  !important; }
+.img-responsive { display: block; max-width: 100%; height: auto; }
+.clearfix::after { display: block; clear: both; content: ""; }
+
+.well {
+	min-height: 20px;
+	padding: 1rem;
+	margin-bottom: 1rem;
+	background-color: var(--bs-secondary-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+}
+.well-sm { padding: .5rem; }
+.well-lg { padding: 1.5rem; }
+
+.thumbnail {
+	display: block;
+	padding: 4px;
+	margin-bottom: 1rem;
+	background-color: var(--bs-body-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+}
+
+.page-header {
+	padding-bottom: 9px;
+	margin: 40px 0 20px;
+	border-bottom: 1px solid var(--bs-border-color);
+}
+
+.list-inline { padding-left: 0; margin-left: -5px; list-style: none; }
+.list-inline > li { display: inline-block; padding-right: 5px; padding-left: 5px; }
+
+/* BS3 dropdown caret (BS5 draws its own via ::after on .dropdown-toggle, but
+   keep this for stray markup that still emits an explicit caret span) */
+.caret {
+	display: inline-block;
+	width: 0;
+	height: 0;
+	margin-left: 2px;
+	vertical-align: middle;
+	border-top: 4px dashed;
+	border-right: 4px solid transparent;
+	border-left: 4px solid transparent;
+}
+
+/* ============================ Buttons / labels ========================== */
+.btn-default {
+	color: var(--bs-body-color);
+	background-color: var(--bs-secondary-bg);
+	border-color: var(--bs-border-color);
+}
+.btn-default:hover,
+.btn-default:focus {
+	color: var(--bs-body-color);
+	background-color: var(--bs-tertiary-bg);
+	border-color: var(--bs-border-color);
+}
+.btn-xs {
+	padding: .1rem .4rem;
+	font-size: .75rem;
+	line-height: 1.4;
+	border-radius: .2rem;
+}
+
+/* BS3 .label == BS5 .badge */
+.label {
+	display: inline-block;
+	padding: .35em .6em;
+	font-size: 75%;
+	font-weight: 700;
+	line-height: 1;
+	color: #fff;
+	text-align: center;
+	white-space: nowrap;
+	vertical-align: baseline;
+	border-radius: .375rem;
+}
+.label-default { background-color: var(--bs-secondary); }
+.label-primary { background-color: var(--bs-primary); }
+.label-success { background-color: var(--bs-success); }
+.label-info    { background-color: var(--bs-info); }
+.label-warning { background-color: var(--bs-warning); color: #000; }
+.label-danger  { background-color: var(--bs-danger); }
+
+/* ============================ Tables ==================================== */
+.table-condensed > :not(caption) > * > * { padding: .25rem; }
+
+/* ============================ Definition lists ========================= */
+/* BS5 removed .dl-horizontal. Status/Diagnostics pages render label/value
+   pairs with it; without this they collapse flush-left into the panel border. */
+dl.dl-horizontal { margin: 0; padding: .85rem 1rem; }
+.dl-horizontal dt { font-weight: 700; }
+.dl-horizontal dd { margin-bottom: .5rem; margin-left: 0; }
+.dl-horizontal dd:last-child { margin-bottom: 0; }
+@media (min-width: 768px) {
+	.dl-horizontal dt {
+		float: left;
+		width: 200px;
+		clear: left;
+		text-align: left;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		padding-right: 1rem;
+	}
+	.dl-horizontal dd { margin-left: 200px; }
+}
+
+/* Any other bare content dropped straight into a panel body shouldn't touch
+   the border (forms/tables bring their own padding, so scope to direct text). */
+.panel-body > p,
+.panel-body > pre,
+.panel-body > ul:not(.nav),
+.panel-body > ol { padding-left: 1rem; padding-right: 1rem; }
+
+/* ============================ Close buttons (legacy .close) ============ */
+/* BS5 removed .close (now .btn-close). pfSense still emits <button class="close">&times;</button>
+   in alerts and some modals; without this they render as a default bordered button (an "X box"). */
+.close {
+	float: right;
+	padding: 0;
+	margin: 0 0 0 .5rem;
+	font-size: 1.4rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--bs-body-color);
+	background: transparent;
+	border: 0;
+	opacity: .55;
+	cursor: pointer;
+}
+.close:hover { opacity: 1; }
+.close span { pointer-events: none; }
+.modal-header .close { margin: -.5rem -.5rem -.5rem auto; }
+.alert-dismissible .close, .alert .close { position: relative; top: -.1rem; }
+
+/* ============================ Responsive visibility ==================== */
+.hidden-xs { }
+@media (max-width: 767px)  { .hidden-xs { display: none !important; } }
+@media (min-width: 768px) and (max-width: 991px)  { .hidden-sm { display: none !important; } }
+@media (min-width: 992px) and (max-width: 1199px) { .hidden-md { display: none !important; } }
+@media (min-width: 1200px) { .hidden-lg { display: none !important; } }
+
+.visible-xs, .visible-sm, .visible-md, .visible-lg { display: none !important; }
+@media (max-width: 767px)  { .visible-xs { display: block !important; } }
+@media (min-width: 768px) and (max-width: 991px)  { .visible-sm { display: block !important; } }
+@media (min-width: 992px) and (max-width: 1199px) { .visible-md { display: block !important; } }
+@media (min-width: 1200px) { .visible-lg { display: block !important; } }

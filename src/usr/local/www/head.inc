@@ -38,13 +38,16 @@ if ($user_settings['webgui']['pagenamefirst']) {
 	$tabtitle = htmlspecialchars($system_url) . " - " . $pagetitle;
 }
 
-$cssfile = "/css/FreeSense.css";
+$cssfile = "/css/FreeSense-dark.css";
 
 if (isset($user_settings['webgui']['webguicss'])) {
 	if (file_exists("/usr/local/www/css/" . $user_settings['webgui']['webguicss'])) {
 		$cssfile = "/css/" . $user_settings['webgui']['webguicss'];
 	}
 }
+
+// Bootstrap 5 color mode: dark themes carry "dark" in the filename.
+$fs_colormode = (stripos($cssfile, 'dark') !== false) ? 'dark' : 'light';
 
 // set default columns to two if unset
 if (config_get_path('system/webgui/dashboardcolumns') === null) {
@@ -53,7 +56,7 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="<?=$fs_colormode?>">
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 <? include('includes/iconheaders.html') ?>
@@ -207,7 +210,7 @@ function output_menu($arrayitem, $target = null, $section = "") {
 				$attr .= sprintf(" target=\"%s\"", htmlentities($target));
 			}
 
-			$class = "navlnk";
+			$class = "dropdown-item navlnk";
 
 			if ($item['class']) {
 				$class .= " {$item['class']}";
@@ -221,7 +224,7 @@ function output_menu($arrayitem, $target = null, $section = "") {
 
 
 			if ($item[0] == '-DIVIDER-') {
-				$output .= ' <li class="divider"></li>';
+				$output .= ' <li><hr class="dropdown-divider"></li>';
 			} else {
 				$output .= "<li>". sprintf("<a %s %s>%s</a>", $attr, ($item[1] == "/index.php?logout") ? "usepost":"",$item[0]) . "</li>\n";
 			}
@@ -466,21 +469,16 @@ if (are_notices_pending()) {
 }
 ?>
 <body id="<?=$numColumns?>">
-<nav id="topmenu" class="navbar navbar-<?=$menuclass?>-top navbar-inverse">
+<nav id="topmenu" class="navbar navbar-expand-lg<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
 	<div class="container">
-		<div class="navbar-header">
-			<button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#pf-navbar">
-				<span class="sr-only">Toggle navigation</span>
-				<span class="icon-bar"></span>
-				<span class="icon-bar"></span>
-				<span class="icon-bar"></span>
-			</button>
-			<a class="navbar-brand" href="/">
-				<?php include("/usr/local/www/logo.svg"); ?>
-			</a>
-		</div>
+		<a class="navbar-brand" href="/">
+			<?php include("/usr/local/www/logo.svg"); ?>
+		</a>
+		<button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#pf-navbar" aria-controls="pf-navbar" aria-expanded="false" aria-label="<?=gettext('Toggle navigation')?>">
+			<span class="navbar-toggler-icon"></span>
+		</button>
 		<div class="collapse navbar-collapse" id="pf-navbar">
-			<ul class="nav navbar-nav">
+			<ul class="navbar-nav me-auto">
 			<?php
                 if ($user_settings['webgui']['webguihostnamemenu'] == 'hostonly') {
                     $help_menu_title = htmlspecialchars(config_get_path('system/hostname'));
@@ -492,14 +490,14 @@ if (are_notices_pending()) {
                     $help_menu_title = 'Help';
                 }
                 foreach ([
-					['name' => 'System',	     'menu' => $system_menu,	  'href' => null],
-					['name' => 'Interfaces',     'menu' => $interfaces_menu,  'href' => null],
-					['name' => 'Firewall',	     'menu' => $firewall_menu,	  'href' => null],
-					['name' => 'Services',	     'menu' => $services_menu,	  'href' => null],
-					['name' => 'VPN',		     'menu' => $vpn_menu,		  'href' => null],
-					['name' => 'Status',	     'menu' => $status_menu,	  'href' => null],
-					['name' => 'Diagnostics',    'menu' => $diagnostics_menu, 'href' => null],
-                    ['name' => $help_menu_title, 'menu' => $help_menu,		  'href' => '_blank']
+					['name' => 'System',	     'menu' => $system_menu,	  'href' => null, 'icon' => 'fa-gear'],
+					['name' => 'Interfaces',     'menu' => $interfaces_menu,  'href' => null, 'icon' => 'fa-network-wired'],
+					['name' => 'Firewall',	     'menu' => $firewall_menu,	  'href' => null, 'icon' => 'fa-shield-halved'],
+					['name' => 'Services',	     'menu' => $services_menu,	  'href' => null, 'icon' => 'fa-server'],
+					['name' => 'VPN',		     'menu' => $vpn_menu,		  'href' => null, 'icon' => 'fa-lock'],
+					['name' => 'Status',	     'menu' => $status_menu,	  'href' => null, 'icon' => 'fa-chart-line'],
+					['name' => 'Diagnostics',    'menu' => $diagnostics_menu, 'href' => null, 'icon' => 'fa-stethoscope'],
+                    ['name' => $help_menu_title, 'menu' => $help_menu,		  'href' => '_blank', 'icon' => 'fa-circle-question']
 				] as $item):
 					if ($item['name'] == 'Help' && g_get('disablehelpmenu')) {
 						continue;
@@ -509,23 +507,22 @@ if (are_notices_pending()) {
 
 					if (strlen($menu_output) > 0):
 ?>
-				<li class="dropdown">
-					<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">
-						<?=gettext($item['name'])?>
-						<span class="caret"></span>
+				<li class="nav-item dropdown">
+					<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+						<i class="fa-solid <?=$item['icon']?> fs-menu-icon"></i><?=gettext($item['name'])?>
 					</a>
-					<ul class="dropdown-menu<?=$menuclass_dropdown?>" role="menu"><?=$menu_output?></ul>
+					<ul class="dropdown-menu<?=$menuclass_dropdown?>"><?=$menu_output?></ul>
 				</li>
 
 <?php
 					endif;
 			 	endforeach?>
 			</ul>
-			<ul class="nav navbar-nav navbar-right">
+			<ul class="navbar-nav">
 				<?php if ($display_notices):?>
 					<?php $notices = get_notices()?>
-					<li class="dropdown">
-						<a href="#" data-toggle="modal" data-target="#notices" role="button" aria-expanded="false">
+					<li class="nav-item">
+						<a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#notices" role="button" aria-expanded="false">
 							<i class="fa-solid fa-bell text-danger" title="<?=gettext("Notices")?>"></i>
 							<span class="badge bg-danger"><?=count($notices)?></span>
 						</a>
@@ -533,8 +530,8 @@ if (are_notices_pending()) {
 				<?php
 					endif;
 				?>
-					<li class="dropdown">
-						<a href="/index.php?logout" usepost>
+					<li class="nav-item">
+						<a class="nav-link" href="/index.php?logout" usepost>
 							<i class="fa-solid fa-right-from-bracket" title="<?=gettext("Logout") . " (" . $_SESSION['Username'] . "@" . htmlspecialchars($system_url) . ")"?>"></i>
 						</a>
 					</li>

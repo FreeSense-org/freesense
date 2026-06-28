@@ -1,197 +1,193 @@
+/*
+ * login.css  —  FreeSense login + error pages
+ *
+ * Modern split layout: brand panel on the left, sign-in form on the right.
+ * Self-contained (loads Bootstrap 5 + this file only); colors are the
+ * freesense.org "ink" palette so the login matches the dark default GUI.
+ */
+
 @import url("/css/logo.css");
 
-body, html {
-    height: 100%;
-    padding: 0;
-    margin: 0;
+:root {
+	--fs-coral:    #ea4f2d;
+	--fs-coral-hi: #ff6b4a;
+	--fs-ink:      #14181f;
+	--fs-ink-2:    #1a1f29;
+	--fs-ink-3:    #222a36;
+	--fs-border:   #2a3340;
+	--fs-text:     #e8ecf1;
+	--fs-muted:    #9aa4b2;
 }
 
-body {
-    width: 100%;
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body#login, body#error {
+	margin: 0;
+	font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	background: var(--fs-ink);
+	color: var(--fs-text);
 }
 
-header {
+/* logo: force the wordmark white on the dark panels (logo.css defaults it to
+   ink for light contexts); the coral "S" is a fixed fill and stays coral. */
+.fs-login__brand svg [class^="logo-st"],
+.fs-login__logo-sm svg [class^="logo-st"],
+#error #logodiv svg [class^="logo-st"] { fill: #fff; }
+
+/* ===================== split container ===================== */
+.fs-login { display: flex; min-height: 100vh; }
+
+/* ----- left brand panel ----- */
+.fs-login__brand {
+	flex: 1 1 52%;
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 3rem;
+	overflow: hidden;
+	border-right: 1px solid var(--fs-border);
+	background:
+		radial-gradient(1200px 600px at 18% 18%, rgba(234, 79, 45, 0.22), transparent 60%),
+		radial-gradient(900px 520px at 92% 88%, rgba(234, 79, 45, 0.10), transparent 60%),
+		linear-gradient(160deg, #11151c 0%, #161b24 60%, #0e1218 100%);
+}
+.fs-login__brand::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background-image:
+		linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+	background-size: 38px 38px;
+	-webkit-mask-image: radial-gradient(circle at 35% 40%, black, transparent 78%);
+	mask-image: radial-gradient(circle at 35% 40%, black, transparent 78%);
+	pointer-events: none;
+}
+.fs-login__brand-inner { position: relative; z-index: 1; max-width: 480px; }
+.fs-login__logo svg { width: 330px; max-width: 100%; height: auto; color: #fff; }
+.fs-login__tag {
+	margin: 1.6rem 0 0;
+	font-size: 1.5rem;
+	line-height: 1.3;
+	font-weight: 600;
+	color: var(--fs-text);
+}
+.fs-login__tag-accent { color: var(--fs-coral); }
+.fs-login__sub2 {
+	margin: 1.4rem 0 0;
+	font-family: ui-monospace, 'JetBrains Mono', monospace;
+	font-size: .78rem;
+	letter-spacing: .3em;
+	color: var(--fs-muted);
 }
 
-#headerrow {
-    position: fixed;
-    height: 90px;
-    top: 0;
-    width: 100%;
-    background-color: white;
+/* ----- right form panel ----- */
+.fs-login__panel {
+	flex: 1 1 48%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 2rem;
+	background: var(--fs-ink-2);
+}
+.fs-login__card { width: 100%; max-width: 360px; }
+.fs-login__logo-sm { display: none; text-align: center; margin-bottom: 1.5rem; }
+.fs-login__logo-sm svg { width: 220px; height: auto; color: #fff; }
+.fs-login__title { margin: 0; font-size: 1.65rem; font-weight: 700; color: #fff; }
+.fs-login__host { margin: .35rem 0 1.85rem; color: var(--fs-muted); font-size: .95rem; }
+
+.fs-login__label {
+	display: block;
+	margin: 0 0 .35rem;
+	font-size: .8rem;
+	font-weight: 600;
+	color: var(--fs-muted);
+}
+.fs-login__form .form-control {
+	width: 100%;
+	margin-bottom: 1.1rem;
+	padding: .65rem .85rem;
+	background: #131820;
+	border: 1px solid var(--fs-border);
+	border-radius: 10px;
+	color: var(--fs-text);
+	font-size: .95rem;
+}
+.fs-login__form .form-control::placeholder { color: #5c6675; }
+.fs-login__form .form-control:focus {
+	outline: none;
+	border-color: var(--fs-coral);
+	box-shadow: 0 0 0 3px rgba(234, 79, 45, 0.22);
+}
+.fs-login__submit {
+	width: 100%;
+	margin-top: .25rem;
+	padding: .7rem 1rem;
+	border: 0;
+	border-radius: 10px;
+	background: var(--fs-coral);
+	color: #fff;
+	font-weight: 600;
+	font-size: 1rem;
+	cursor: pointer;
+	transition: background .12s ease, transform .02s ease;
+}
+.fs-login__submit:hover { background: var(--fs-coral-hi); color: #fff; }
+.fs-login__submit:active { transform: translateY(1px); }
+
+.fs-login__error {
+	margin-bottom: 1.1rem;
+	padding: .7rem .9rem;
+	background: rgba(224, 103, 90, 0.12);
+	border: 1px solid rgba(224, 103, 90, 0.4);
+	border-radius: 10px;
+	color: #ff8a78;
+	font-size: .9rem;
+}
+.fs-login__warn {
+	margin-bottom: 1.1rem;
+	padding: .7rem .9rem;
+	background: rgba(224, 179, 74, 0.10);
+	border: 1px solid rgba(224, 179, 74, 0.35);
+	border-radius: 10px;
+	color: #e0b34a;
+	font-size: .85rem;
+	line-height: 1.4;
+}
+.fs-login__footer { margin-top: 2.25rem; font-size: .8rem; color: var(--fs-muted); text-align: center; }
+.fs-login__footer a { color: var(--fs-muted); }
+.fs-login__footer a:hover { color: var(--fs-coral-hi); }
+
+/* ----- responsive: collapse to single column ----- */
+@media (max-width: 800px) {
+	.fs-login__brand { display: none; }
+	.fs-login__logo-sm { display: block; }
+	.fs-login__panel { flex: 1 1 100%; }
 }
 
-.pagebody {
-    position: absolute;
-    top:90px;
-    bottom:25px;
-    width: 100%;
-    color: white;
-    overflow: scroll;
+/* ===================== error page (body#error) ===================== */
+#error #total { min-height: 100vh; display: flex; flex-direction: column; }
+#error header { padding: 2.5rem 1rem 1rem; text-align: center; }
+#error #logodiv svg { width: 240px; height: auto; color: #fff; }
+#error .pagebody, #error .pagebodywarn {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1rem;
 }
-
-.pagebodywarn {
-    position: absolute;
-    top:140px;
-    bottom:25px;
-    width: 100%;
-    color: white;
+#error .pagebody .col-sm-2, #error .pagebodywarn .col-sm-2 { display: none; }
+#error .loginCont, #error .error-panel {
+	width: 100%;
+	max-width: 560px;
+	padding: 1.5rem 1.75rem;
+	background: var(--fs-ink-2);
+	border: 1px solid var(--fs-border);
+	border-left: 3px solid var(--fs-coral);
+	border-radius: 12px;
 }
-
-.nowarning {
-	height: 80px;
-	padding-top: 10px;
-}
-
-#hostspan {
-	text-align: right;
-}
-
-.msgbox {
-	padding-right: 60px;
-	padding-top: 25px;
-}
-
-@media only screen and (max-width : 768px) {
-    /* only size 'xs' and below */
-    #headerrow {
-        height: 100px;
-    }
-
-    .pagebody {
-    	top: 100px;
-    }
-
-    .pagebody2 {
-		top: 250px;
-    }
-
-    .nowarning {
-		height: 60px;
-	}
-
-	.msgbox {
-		padding-right: 0px;
-		padding-top: 0px;
-	}
-
-	#hostspan {
-		text-align: center;
-	}
-}
-
-#footertext {
-    position: fixed;
-    height: 25px;
-    bottom: 0;
-    width: 100%;
-    background-color: #212121;
-    color: white;
-    text-align: center;
-}
-
-.loginCont {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    height: 55%;
-    width: 80%;
-}
-
-.error-panel a {
-	color: white;
-}
-p.form-title
-{
-    font-family: 'Open Sans' , sans-serif;
-    font-size: 20px;
-    font-weight: 500;
-    text-align: center;
-    color: #FFFFFF;
-    margin-top: 5%;
-    text-transform: uppercase;
-    letter-spacing: 4px;
-}
-
-form.login
-{
-    max-width: 270px;
-    margin: 0 auto 20px auto;
-}
-
-form.login input[type="text"], form.login input[type="password"]
-{
-    width: 100%;
-    margin: 0;
-    padding: 10px 10px;
-    background: 0;
-    border: 0;
-    border-bottom: 1px solid #FFFFFF;
-    outline: 0;
-    font-style: italic;
-    font-size: 18px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    margin-bottom: 5px;
-    color: #FFFFFF;
-    outline: 0;
-}
-
-form.login input[type="submit"]
-{
-    width: 60%;
-    font-size: 14px;
-    text-transform: uppercase;
-    font-weight: 500;
-    margin-top: 36px;
-    outline: 0;
-    cursor: pointer;
-    letter-spacing: 1px;
-    display: block;
-    margin : 0 auto;
-    margin-top: 36px;
-}
-
-form.login input[type="submit"]:hover
-{
-    transition: background-color 0.5s ease;
-}
-
-form.login label, form.login a
-{
-    font-size: 12px;
-    font-weight: 400;
-    color: #FFFFFF;
-}
-
-form.login a
-{
-    transition: color 0.5s ease;
-}
-
-form.login a:hover
-{
-    color: #2ecc71;
-}
-
-.logoCol {
-    height: 100%;
-}
-
-#logodiv svg#logo {
-    width: 240px;
-    height: 100%;
-}
-
-/** Re-style web-kit browser autocomplete boxes (Fixes Chrome's ugly yellow background) **/
-@-webkit-keyframes autofill {
-    to {
-        color: white;
-        background: transparent;
-    }
-}
-
-input:-webkit-autofill {
-    -webkit-animation-name: autofill;
-    -webkit-animation-fill-mode: both;
-}
+#error .error-panel a, #error .loginCont a { color: var(--fs-coral-hi); }
+#error #footertext { padding: 1rem; text-align: center; color: var(--fs-muted); }
+#error #footertext a { color: var(--fs-muted); }

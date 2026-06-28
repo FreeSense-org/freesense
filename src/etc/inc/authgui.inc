@@ -297,77 +297,39 @@ function display_login_form() {
 		</script>
 	</head>
 
-	<body id="login" >
-		<div id="total">
-			<header>
-				<div id="headerrow">
-					<div class="row">
-						<!-- Header left logo box -->
-						<div class="col-sm-4">
-							<div id="logodiv" style="text-align:center" class="nowarning">
-								<?php include("/usr/local/www/logo.svg"); ?>
-							</div>
-						</div>
+	<body id="login">
+		<div class="fs-login">
+			<aside class="fs-login__brand">
+				<div class="fs-login__brand-inner">
+					<div class="fs-login__logo"><?php include("/usr/local/www/logo.svg"); ?></div>
+					<p class="fs-login__tag"><?=gettext('The open-source firewall,')?> <span class="fs-login__tag-accent"><?=gettext('rebuilt in the open.')?></span></p>
+					<p class="fs-login__sub2">OPEN FIREWALL DISTRO</p>
+				</div>
+			</aside>
 
-						<!-- Header center message box -->
-						<div class="col-sm-4 nowarning msgbox text-center text-danger">
-<?php
-						if (!empty($_POST['usernamefld'])) {
-							print("<h4>" . $_SESSION['Login_Error'] . "</h4>");
-						}
-?>
-						</div>
-
-						<!-- Header right message box (hostname or msg)-->
-						<div class="col-sm-4 nowarning msgbox text-center">
-							<span id="hostspan">
-								<h4><?=$loginbannerstr?></h4>
-							</span>
-						</div>
-					</div>
-<?php
-	if ($warnclass == "pagebodywarn") {
-?>
-					<div class="row">
-						<div class="col-sm-12">
-							<div class="alert alert-warning <?=$warnclass?>">
-								<?=gettext("The IP address being used to access this router is not configured locally, which may be forwarded by NAT or other means.
-								If this forwarding is unexpected, it should be verified that a man-in-the-middle attack is not taking place.")?>
-							</div>
-						</div>
-					</div>
-<?php
-	}
-?>
-	            </div>
-	        </header>
-
-	        <div style="background: <?=$logincssfile?>;" class="<?=$warnclass?>">
-				<?=(empty($login_message) ? '' : $login_message)?>
-	        	<div class="col-sm-4"></div>
-
-	        	<div class="col-sm-4 offset-md-4 <?=(empty($login_message) ? 'logoCol' : '')?>">
-					<div class="loginCont center-block">
-		                <form method="post" <?=$loginautocomplete?> class="login">
-			                <p class="form-title">Sign In</p>
-			                <input name="usernamefld" id="usernamefld" type="text" placeholder="Username" autocorrect="off" autocapitalize="none"/>
-			                <input name="passwordfld" id="passwordfld" type="password" placeholder="Password" />
-			                <input type="submit" name="login" value="Sign In" class="btn btn-success btn-sm" />
-		                </form>
-					</div>
-	            </div>
-
-	        	<div class="col-sm-4"></div>
-	        </div>
-
-	        <footer id="3">
-	            <div id="footertext">
-					<p class="text-muted">
-						<?=print_credit()?>
-					</p>
-	            </div>
-	        </footer>
-	    </div>
+			<main class="fs-login__panel">
+				<div class="fs-login__card">
+					<div class="fs-login__logo-sm"><?php include("/usr/local/www/logo.svg"); ?></div>
+					<h1 class="fs-login__title"><?=gettext('Sign in')?></h1>
+					<p class="fs-login__host"><?=$loginbannerstr?></p>
+<?php if (!empty($_POST['usernamefld']) && !empty($_SESSION['Login_Error'])): ?>
+					<div class="fs-login__error"><?=$_SESSION['Login_Error']?></div>
+<?php endif; ?>
+<?php if ($warnclass == "pagebodywarn"): ?>
+					<div class="fs-login__warn"><?=gettext("The IP address being used to access this router is not configured locally, which may be forwarded by NAT or other means. If this forwarding is unexpected, it should be verified that a man-in-the-middle attack is not taking place.")?></div>
+<?php endif; ?>
+					<?=(empty($login_message) ? '' : $login_message)?>
+					<form method="post" <?=$loginautocomplete?> class="fs-login__form login">
+						<label class="fs-login__label" for="usernamefld"><?=gettext('Username')?></label>
+						<input name="usernamefld" id="usernamefld" type="text" class="form-control" placeholder="<?=gettext('Username')?>" autocorrect="off" autocapitalize="none" autofocus />
+						<label class="fs-login__label" for="passwordfld"><?=gettext('Password')?></label>
+						<input name="passwordfld" id="passwordfld" type="password" class="form-control" placeholder="<?=gettext('Password')?>" />
+						<button type="submit" name="login" value="Sign In" class="btn btn-primary fs-login__submit"><?=gettext('Sign In')?></button>
+					</form>
+					<footer class="fs-login__footer"><?=print_credit()?></footer>
+				</div>
+			</main>
+		</div>
 
 		<script type="text/javascript">
 		//<![CDATA[
@@ -388,7 +350,8 @@ function display_login_form() {
 		</script>
 
 	    <script src="/vendor/jquery/jquery-3.7.1.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery/jquery-3.7.1.min.js')?>"></script>
-		<script src="/vendor/bootstrap/js/bootstrap.min.js?v=<?=filemtime('/usr/local/www/vendor/bootstrap/js/bootstrap.min.js')?>"></script>
+		<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js?v=<?=filemtime('/usr/local/www/vendor/bootstrap/js/bootstrap.bundle.min.js')?>"></script>
+		<script src="/js/freesense-bs5-compat.js?v=<?=filemtime('/usr/local/www/js/freesense-bs5-compat.js')?>"></script>
 		<script src="/js/FreeSense.js?v=<?=filemtime('/usr/local/www/js/FreeSense.js')?>"></script>
 
 		<script type="text/javascript">

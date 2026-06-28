@@ -38,9 +38,9 @@ $(function() {
 				if ($(this).val() == selectedValue)
 					return;
 
-				targets = $('.toggle-'+ $(this).val() +'.in:not(.toggle-'+ selectedValue +')');
+				targets = $('.toggle-'+ $(this).val() +'.show:not(.toggle-'+ selectedValue +')');
 
-				// Hide related collapsables which are visible (.in)
+				// Hide related collapsables which are visible (BS5 .show)
 				targets.collapse('hide');
 
 				// Disable all invisible inputs
@@ -245,41 +245,50 @@ $(function() {
 		$('.auto-advanced').parents('.form-group').collapse({toggle: true});
 	}
 
-	var originalLeave = $.fn.popover.Constructor.prototype.leave;
-	$.fn.popover.Constructor.prototype.leave = function(obj){
-	  var self = obj instanceof this.constructor ?
-	    obj : $(obj.currentTarget)[this.type](this.getDelegateOptions()).data('bs.' + this.type)
-	  var container, timeout;
+	// Enable popovers globally + allow table markup through the sanitizer.
+	// Bootstrap-version aware: BS3 exposed its internals via $.fn.popover.Constructor;
+	// Bootstrap 5 configures the allow-list per instance and has no jQuery Constructor.
+	if ($.fn.popover && $.fn.popover.Constructor && $.fn.popover.Constructor.DEFAULTS) {
+		// ---- Bootstrap 3 (legacy) ----
+		var originalLeave = $.fn.popover.Constructor.prototype.leave;
+		$.fn.popover.Constructor.prototype.leave = function(obj){
+		  var self = obj instanceof this.constructor ?
+		    obj : $(obj.currentTarget)[this.type](this.getDelegateOptions()).data('bs.' + this.type)
+		  var container, timeout;
 
-	  originalLeave.call(this, obj);
+		  originalLeave.call(this, obj);
 
-	  if (self.$tip && self.$tip.length) {
-	    container = self.$tip;
-	    timeout = self.timeout;
-	    container.one('mouseenter', function(){
-	      //We entered the actual popover - call off the dogs
-	      clearTimeout(timeout);
-	      //Let's monitor popover content instead
-	      container.one('mouseleave', function(){
-	        $.fn.popover.Constructor.prototype.leave.call(self, self);
-	      });
-	    })
-	  }
-	};
+		  if (self.$tip && self.$tip.length) {
+		    container = self.$tip;
+		    timeout = self.timeout;
+		    container.one('mouseenter', function(){
+		      clearTimeout(timeout);
+		      container.one('mouseleave', function(){
+		        $.fn.popover.Constructor.prototype.leave.call(self, self);
+		      });
+		    })
+		  }
+		};
 
-	// Bootstrap 3.4.1 sanitizes the contents of popovers even when data-html is specified
-	// Add table tags to the list of elements permitted by the sanitizer
-	var defaultWhiteList = $.fn.tooltip.Constructor.DEFAULTS.whiteList
+		var defaultWhiteList = $.fn.tooltip.Constructor.DEFAULTS.whiteList
+		defaultWhiteList.table = []
+		defaultWhiteList.thead = []
+		defaultWhiteList.tr = ["class"]
+		defaultWhiteList.th = ["style"]
+		defaultWhiteList.tbody = []
+		defaultWhiteList.td = ["style"]
 
-	defaultWhiteList.table = []
-	defaultWhiteList.thead = []
-	defaultWhiteList.tr = ["class"]
-	defaultWhiteList.th = ["style"]
-	defaultWhiteList.tbody = []
-	defaultWhiteList.td = ["style"]
+		$('[data-toggle="popover"]').popover({ delay: {show: 50, hide: 400} });
+	} else if (window.bootstrap && window.bootstrap.Popover) {
+		// ---- Bootstrap 5 ----
+		var allow = window.bootstrap.Tooltip.Default.allowList;
+		allow.table = []; allow.thead = []; allow.tbody = [];
+		allow.tr = ['class']; allow.th = ['style']; allow.td = ['style'];
 
-	// Enable popovers globally
-	$('[data-toggle="popover"]').popover({ delay: {show: 50, hide: 400} });
+		document.querySelectorAll('[data-toggle="popover"], [data-bs-toggle="popover"]').forEach(function(el){
+			window.bootstrap.Popover.getOrCreateInstance(el, { delay: {show: 50, hide: 400}, html: true });
+		});
+	}
 
 	// Force correct initial state for toggleable checkboxes
 	$('input[type=checkbox][data-toggle="collapse"]:not(:checked)').each(function() {
