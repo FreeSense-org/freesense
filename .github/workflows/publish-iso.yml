@@ -137,6 +137,7 @@ jobs:
           # ssh otherwise swallow the heredoc as stdin and truncate the rest of the step).
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" "cat > /root/mk-releases.sh" <<'REMOTE'
           set -e
+          export LC_ALL=C.UTF-8 LANG=C.UTF-8   # so jq treats commit messages as UTF-8 (em dashes etc.)
           which jq >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y jq >/dev/null 2>&1
           cd "$INSTALLER_DIR"
           # build-stamp from the ISO name (e.g. 20260628-1558); empty for RELEASE images
