@@ -737,6 +737,16 @@ function read_package_config($package_name) {
 
 	$pkg_info = parse_xml_config_pkg($pkg_info_xml, 'freesensepkgs');
 
+	/*
+	 * Third-party packages (and rebuilt pfSense packages) ship info.xml with
+	 * the upstream <pfsensepkgs> root element. Fall back to it so those
+	 * packages can still be registered (menus, services, tabs); otherwise the
+	 * parse returns empty and the package never appears in the GUI.
+	 */
+	if (empty($pkg_info) || empty($pkg_info['package'])) {
+		$pkg_info = parse_xml_config_pkg($pkg_info_xml, 'pfsensepkgs');
+	}
+
 	if (empty($pkg_info)) {
 		return false;
 	}
