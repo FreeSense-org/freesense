@@ -65,8 +65,9 @@ export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-
 # Unset it to fall back to the legacy full fork below.
 export FREEBSD_SRC_PATCHES_DIR="/root/freesense-freebsd-patches"
 
-# Legacy full fork (fallback, used only when FREEBSD_SRC_PATCHES_DIR is unset/missing).
-export FREEBSD_REPO_BASE="https://github.com/FreeSense-org/freebsd-src.git"
+# Legacy fallback only (used when FREEBSD_SRC_PATCHES_DIR is unset/missing). FreeSense
+# keeps NO freebsd-src fork — base = stock upstream + the pinned patch series above.
+export FREEBSD_REPO_BASE="https://github.com/freebsd/freebsd-src.git"
 #export GIT_FREEBSD_COSHA1=##HASH##
 
 # Reuse the FreeBSD world/kernel obj across builds (incremental buildworld) instead

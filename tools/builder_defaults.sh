@@ -123,8 +123,10 @@ POUDRIERE_BRANCH=${POUDRIERE_BRANCH:-$(echo "${GIT_REPO_BRANCH_OR_TAG}" | sed 's
 
 GIT_REPO_BASE=$(git -C ${BUILDER_ROOT} config --get remote.$(git -C ${BUILDER_ROOT} remote).url | sed -e 's,/[^/]*$,,')
 
-# This is used for using svn for retrieving src
-export FREEBSD_REPO_BASE=${FREEBSD_REPO_BASE:-"${GIT_REPO_BASE}/freebsd-src.git"}
+# Legacy fallback only (used when FREEBSD_SRC_PATCHES_DIR is unset). FreeSense no
+# longer maintains a freebsd-src fork — the base is stock upstream + the pinned
+# patch series (freesense-freebsd-patches), so default this at upstream too.
+export FREEBSD_REPO_BASE=${FREEBSD_REPO_BASE:-"https://github.com/freebsd/freebsd-src.git"}
 export FREEBSD_BRANCH=${FREEBSD_BRANCH:-"${REPO_BRANCH_PREFIX}devel-12"}
 export FREEBSD_SRC_DIR=${FREEBSD_SRC_DIR:-"${SCRATCHDIR}/FreeBSD-src"}
 
