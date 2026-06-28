@@ -139,26 +139,55 @@ jobs:
           set -e
           which jq >/dev/null 2>&1 || env ASSUME_ALWAYS_YES=yes pkg install -y jq >/dev/null 2>&1
           cd "$INSTALLER_DIR"
+          # build-stamp from the ISO name (e.g. 20260628-1558); empty for RELEASE images
+          STAMP=$(printf '%s' "$NAME" | sed -E 's/.*-amd64-?//; s/\.iso\.gz$//')
           if [ "$CH" = release ]; then
             KEY=stable; URL="https://downloads.freesense.org/release/latest/${NAME}"; DISP="${VER}-RELEASE"
           else
-            KEY=devel;  URL="https://downloads.freesense.org/${DEST}/${NAME}";        DISP="${VER}"
+            KEY=devel;  URL="https://downloads.freesense.org/${DEST}/${NAME}";        DISP="${VER}${STAMP:+-$STAMP}"
           fi
           SIZE=$(stat -f %z "$NAME" 2>/dev/null || stat -c %s "$NAME")
           SHA=$(grep "$NAME" SHA256SUMS.txt | awk '{print $1; exit}')
           DATE=$(date -u +%Y-%m-%d)
+
+          # ---- changelog: commits in freesense-src since the last published ISO (this channel) ----
+          CUR_SHA=$(git -C "$SRC" rev-parse HEAD 2>/dev/null || echo "")
+          LAST_SHA=$(rclone cat "R2:${BUCKET}/iso-meta/last-sha-${KEY}" 2>/dev/null | tr -dc 0-9a-f)
+          if [ -n "$CUR_SHA" ] && [ -n "$LAST_SHA" ] && git -C "$SRC" cat-file -e "${LAST_SHA}^{commit}" 2>/dev/null; then
+            RANGE="${LAST_SHA}..${CUR_SHA}"
+          else
+            RANGE="-25"   # first run / unknown baseline: last 25 commits
+          fi
+          git -C "$SRC" log $RANGE --no-merges --pretty=format:'%s' 2>/dev/null \
+            | grep -viE '^(merge|bump version|ci:|\[ci\]|wip\b)' | head -40 > /tmp/cl.txt || true
+          CHANGELOG=$(jq -R -s 'split("\n") | map(select(length>0))' /tmp/cl.txt 2>/dev/null)
+          [ -n "$CHANGELOG" ] || CHANGELOG='[]'
+
           ENTRY=$(jq -n --arg v "$DISP" --arg iso "$NAME" --arg url "$URL" \
                         --argjson size "${SIZE:-0}" --arg sha "$SHA" --arg date "$DATE" \
-                        '{version:$v, iso:$iso, url:$url, size:$size, sha256:$sha, date:$date}')
+                        --argjson changelog "$CHANGELOG" \
+                        '{version:$v, iso:$iso, url:$url, size:$size, sha256:$sha, date:$date, changelog:$changelog}')
+
           # start from the existing manifest if it's valid JSON, else {}
           rclone cat "R2:${BUCKET}/releases.json" 2>/dev/null | jq '.' > /tmp/cur.json 2>/dev/null || echo '{}' > /tmp/cur.json
           [ -s /tmp/cur.json ] || echo '{}' > /tmp/cur.json
-          jq --arg k "$KEY" --argjson e "$ENTRY" --arg date "$DATE" \
-             '.channels = ((.channels // {}) + {($k): $e}) | .generated = $date' \
-             /tmp/cur.json > /tmp/releases.json
+
+          # set new latest; push the PREVIOUS latest into this channel's history
+          # (slim entries, dedup by version, newest first, cap 12).
+          jq --arg k "$KEY" --argjson e "$ENTRY" --arg date "$DATE" '
+            (.channels[$k]) as $old
+            | .channels = (.channels // {})
+            | (if ($old != null and (($old.version // "") != $e.version))
+                 then ([ ($old | {version,iso,url,size,sha256,date}) ] + ($old.history // []))
+                 else ($old.history // []) end) as $hist
+            | .channels[$k] = ($e + {history: ($hist | unique_by(.version) | reverse | .[0:12])})
+            | .generated = $date
+          ' /tmp/cur.json > /tmp/releases.json
           echo "--- releases.json ---"; cat /tmp/releases.json
           rclone copyto --s3-no-check-bucket --header-upload "Content-Type: application/json" \
             /tmp/releases.json "R2:${BUCKET}/releases.json"
+          # remember this commit as the baseline for the next changelog
+          [ -n "$CUR_SHA" ] && printf '%s' "$CUR_SHA" | rclone rcat --s3-no-check-bucket "R2:${BUCKET}/iso-meta/last-sha-${KEY}" || true
           echo ">>> manifest published: https://downloads.freesense.org/releases.json"
           REMOTE
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
@@ -169,7 +198,7 @@ jobs:
              RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
              RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
              RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
-             BUCKET='$BUCKET' DEST='$DEST' CH='$CH' NAME='$NAME' VER='$VER' INSTALLER_DIR='$INSTALLER_DIR' \
+             BUCKET='$BUCKET' DEST='$DEST' CH='$CH' NAME='$NAME' VER='$VER' INSTALLER_DIR='$INSTALLER_DIR' SRC='/root/freesense-src' \
              sh /root/mk-releases.sh < /dev/null"
 
       - name: Prune stale artifacts (-CE + old flat root layout)
