@@ -122,16 +122,27 @@ if ! find_source; then
 	exit 1
 fi
 
-ROOT=$(/usr/bin/grep -m1 -oE '<(pfsense|opnsense)>' "${SRC}" | /usr/bin/tr -d '<>')
+# Identify the config by its root element. A FreeSense config is <freesense>;
+# pfSense is <pfsense>; OPNsense is <opnsense>. Importing the WRONG brand is a hard
+# error (no silent "import anyway") so a mismatched/corrupt file can't be applied.
+ROOT=$(/usr/bin/grep -m1 -oE '<(pfsense|opnsense|freesense)>' "${SRC}" | /usr/bin/tr -d '<>')
 case "${BRAND}" in
 pfSense)
-	if [ "${ROOT}" != "pfsense" ]; then
-		yesno "This file's root element is <${ROOT:-unknown}>, not <pfsense>. Import it as pfSense anyway?" || exit 1
+	if [ "${ROOT}" = "freesense" ]; then
+		msg "Error: this is already a FreeSense config (<freesense>), not a pfSense config.\n\nUse \"Recover config.xml\" to restore a FreeSense backup. Nothing was imported."
+		exit 1
+	elif [ "${ROOT}" != "pfsense" ]; then
+		msg "Error: not a valid pfSense config.\n\nThe file's root element is <${ROOT:-unknown}>, but a pfSense config must be <pfsense>. Nothing was imported."
+		exit 1
 	fi
 	convert_pfsense ;;
 OPNsense)
-	if [ "${ROOT}" != "opnsense" ]; then
-		yesno "This file's root element is <${ROOT:-unknown}>, not <opnsense>. Import it as OPNsense anyway?" || exit 1
+	if [ "${ROOT}" = "freesense" ]; then
+		msg "Error: this is already a FreeSense config (<freesense>), not an OPNsense config.\n\nUse \"Recover config.xml\" to restore a FreeSense backup. Nothing was imported."
+		exit 1
+	elif [ "${ROOT}" != "opnsense" ]; then
+		msg "Error: not a valid OPNsense config.\n\nThe file's root element is <${ROOT:-unknown}>, but an OPNsense config must be <opnsense>. Nothing was imported."
+		exit 1
 	fi
 	convert_opnsense ;;
 esac
