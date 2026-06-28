@@ -111,7 +111,7 @@ jobs:
           fi
           echo ">>> Done:"
           echo ">>>   https://downloads.freesense.org/${DEST}/${{ steps.dest.outputs.name }}"
-          [ "$CH" = "release" ] && echo ">>>   https://downloads.freesense.org/release/latest/${{ steps.dest.outputs.name }}"
+          if [ "$CH" = "release" ]; then echo ">>>   https://downloads.freesense.org/release/latest/${{ steps.dest.outputs.name }}"; fi
 
       - name: Update releases.json manifest (powers the website download page)
         if: ${{ !inputs.prune_only && steps.dest.outputs.channel != 'other' }}
