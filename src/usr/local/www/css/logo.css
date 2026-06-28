@@ -1,18 +1,17 @@
-.logo-st0 {
-fill:#2B40B5;
-}
-.logo-st1 {
-fill:#1475CF;
-}
-.logo-st2 {
-fill:#1C1275;
-}
-.logo-st3 {
-  fill:#357cd1;
-}
-.logo-st4 {
-  fill:#2753c0;
-}
+/*
+ * FreeSense logo colors.
+ *
+ * logo-st0 is the *themeable* fill for the wordmark + the monogram "F". Themes
+ * override it for their context — e.g. the dark navbar (FreeSense.css) forces it
+ * white. The default below (brand ink) is what light contexts like the login
+ * page use. The coral "S" accent is a fixed fill inside logo.svg and is
+ * intentionally NOT themed here so it stays coral on every background.
+ */
+.logo-st0,
+.logo-st1,
+.logo-st2,
+.logo-st3,
+.logo-st4,
 .logo-st5 {
-  fill:#061f7a;
+  fill: #14181F;
 }
