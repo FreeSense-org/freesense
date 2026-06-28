@@ -27,9 +27,9 @@ on:
         type: boolean
         required: false
         default: false
-  schedule:
-    # Mondays 06:47 UTC — after base (03:11) and ports (05:23) package builds.
-    - cron: "47 6 * * 1"
+  # NOTE: weekly schedule MOVED to the GitHub-hosted build (freesense-os-base
+  # build-iso.yml). This self-hosted workflow is kept as a MANUAL fallback only,
+  # until the GitHub-hosted ISO build is proven green for both channels.
 
 concurrency:
   group: freesense-build
