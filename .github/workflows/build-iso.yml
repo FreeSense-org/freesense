@@ -4,7 +4,11 @@ name: Build ISO
 # The runner lives on the Debian host; the build happens in the FreeBSD builder
 # VM, so we git-pull + launch the build there (detached) and poll a sentinel.
 #
-# Manual trigger only (self-hosted runner = code exec on the host; never PRs).
+# Manual trigger, plus a weekly schedule for the DEVEL channel only (Mondays, after
+# the package builds). The scheduled run is change-gated: it only builds if the
+# source actually changed since the last ISO. Self-hosted runner = code exec on the
+# host; never PRs. NOTE: the weekly run only fires when the builder VM + runner are
+# online (unlike the GitHub-hosted package builds).
 on:
   workflow_dispatch:
     inputs:
@@ -18,13 +22,54 @@ on:
         type: boolean
         required: false
         default: false
+      force_build:
+        description: "Build even if nothing changed since the last ISO"
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    # Mondays 06:47 UTC — after base (03:11) and ports (05:23) package builds.
+    - cron: "47 6 * * 1"
 
 concurrency:
   group: freesense-build
   cancel-in-progress: false
 
 jobs:
+  # Gate: a scheduled run only proceeds if freesense / freesense-ports / the freebsd
+  # patch series changed since the last successful ISO. Manual/forced always builds.
+  decide:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.g.outputs.build }}
+      sha: ${{ steps.g.outputs.sha }}
+      ref: ${{ steps.g.outputs.ref }}
+    steps:
+      - id: g
+        run: |
+          REF='${{ inputs.ref || 'main' }}'
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          S1=$(git ls-remote https://github.com/FreeSense-org/freesense "$REF" | awk '{print $1}')
+          S2=$(git ls-remote https://github.com/FreeSense-org/freesense-ports "$REF" | awk '{print $1}')
+          [ -n "$S2" ] || S2=$(git ls-remote https://github.com/FreeSense-org/freesense-ports main | awk '{print $1}')
+          S3=$(git ls-remote https://github.com/FreeSense-org/freesense-freebsd-patches main | awk '{print $1}')
+          CUR="$S1 $S2 $S3"
+          echo "sha=$CUR" >> "$GITHUB_OUTPUT"
+          echo "current SHAs: $CUR"
+          if [ "${{ github.event_name }}" != "schedule" ] || [ "${{ inputs.force_build }}" = "true" ]; then
+            echo "manual/forced -> build"; echo "build=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          LAST=$(curl -fsSL "https://downloads.freesense.org/iso-meta/built-iso-sha-${REF}" 2>/dev/null || echo "")
+          echo "last built:  ${LAST:-<none>}"
+          if [ "$CUR" != "$LAST" ]; then
+            echo ">>> source changed -> build"; echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo ">>> no change since last ISO -> skip"; echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: decide
+    if: ${{ needs.decide.outputs.build == 'true' }}
     runs-on: [self-hosted, freesense-publish]
     timeout-minutes: 300
     env:
@@ -39,7 +84,7 @@ jobs:
 
       - name: Update source on the VM
         env:
-          REF: ${{ inputs.ref }}
+          REF: ${{ needs.decide.outputs.ref }}
         run: |
           # Check out the requested branch in BOTH repos (same branch name in each:
           # main = devel channel, RELENG_1_0 = stable channel). -B resets the local
@@ -164,6 +209,31 @@ jobs:
           path: ${{ steps.iso.outputs.iso_name }}
           retention-days: 14
 
-      - name: Publish to R2 (optional)
-        if: ${{ inputs.publish_after }}
-        run: echo "publish_after requested — run the 'Publish pkg repo to R2' workflow to sync."
+      - name: Record built source SHA (gates the weekly auto-build)
+        env:
+          RCLONE_CONFIG_R2_TYPE: s3
+          RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+          RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID_RAW: ${{ secrets.R2_ACCOUNT_ID }}
+          RCLONE_CONFIG_R2_REGION: auto
+          RCLONE_CONFIG_R2_ACL: private
+        run: |
+          REF='${{ needs.decide.outputs.ref }}'
+          ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
+                 | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
+          ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
+          # printf (no trailing newline) so it matches the curl read in the decide gate exactly.
+          printf '%s' '${{ needs.decide.outputs.sha }}' | ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
+            "RCLONE_CONFIG_R2_TYPE='$RCLONE_CONFIG_R2_TYPE' \
+             RCLONE_CONFIG_R2_PROVIDER='$RCLONE_CONFIG_R2_PROVIDER' \
+             RCLONE_CONFIG_R2_ACCESS_KEY_ID='$RCLONE_CONFIG_R2_ACCESS_KEY_ID' \
+             RCLONE_CONFIG_R2_SECRET_ACCESS_KEY='$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY' \
+             RCLONE_CONFIG_R2_ENDPOINT='$ENDPOINT' \
+             RCLONE_CONFIG_R2_REGION='$RCLONE_CONFIG_R2_REGION' \
+             RCLONE_CONFIG_R2_ACL='$RCLONE_CONFIG_R2_ACL' \
+             rclone rcat --s3-no-check-bucket 'R2:freesense-downloads/iso-meta/built-iso-sha-${REF}'"
+          echo "recorded built-iso-sha-${REF}"
+
+      - name: Note on publishing
+        run: echo "ISO built + artifact uploaded. publish-iso runs automatically (workflow_run) to push it to downloads + releases.json."

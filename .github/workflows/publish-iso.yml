@@ -15,6 +15,10 @@ on:
         type: boolean
         required: false
         default: false
+  # Auto-publish the freshly built ISO whenever Build ISO finishes successfully.
+  workflow_run:
+    workflows: ["Build ISO"]
+    types: [completed]
 
 concurrency:
   group: publish-iso
@@ -22,6 +26,8 @@ concurrency:
 
 jobs:
   publish:
+    # Run on manual dispatch, or after a SUCCESSFUL Build ISO run.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: [self-hosted, freesense-publish]
     env:
       VM: root@192.168.122.155
@@ -82,7 +88,7 @@ jobs:
           RCLONE_CONFIG_R2_REGION: auto
           RCLONE_CONFIG_R2_ACL: private
         run: |
-          BUCKET="${{ github.event.inputs.bucket }}"
+          BUCKET="${{ github.event.inputs.bucket || 'freesense-downloads' }}"
           DEST="${{ steps.dest.outputs.dest }}"
           CH="${{ steps.dest.outputs.channel }}"
           [ -n "$DEST" ] || { echo "ERROR: empty dest"; exit 1; }
@@ -124,7 +130,7 @@ jobs:
           RCLONE_CONFIG_R2_REGION: auto
           RCLONE_CONFIG_R2_ACL: private
         run: |
-          BUCKET="${{ github.event.inputs.bucket }}"
+          BUCKET="${{ github.event.inputs.bucket || 'freesense-downloads' }}"
           DEST="${{ steps.dest.outputs.dest }}"
           CH="${{ steps.dest.outputs.channel }}"
           NAME="${{ steps.dest.outputs.name }}"
@@ -217,7 +223,7 @@ jobs:
           #  2) the OLD flat root-level layout (*.iso.gz + SHA256SUMS.txt at the bucket
           #     root) — superseded by release/<ver>/ + devel/<ver>-<stamp>/. --max-depth 1
           #     restricts this to the root so versioned folders are never affected.
-          BUCKET="${{ github.event.inputs.bucket }}"
+          BUCKET="${{ github.event.inputs.bucket || 'freesense-downloads' }}"
           ACCT=$(printf '%s' "$R2_ACCOUNT_ID_RAW" | tr -d '[:space:]' \
                  | sed -e 's#^https\?://##' -e 's#\.r2\.cloudflarestorage\.com.*##' -e 's#/.*##')
           ENDPOINT="https://${ACCT}.r2.cloudflarestorage.com"
