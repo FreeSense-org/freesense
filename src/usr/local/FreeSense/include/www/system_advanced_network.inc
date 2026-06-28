@@ -32,7 +32,6 @@ function getAdvancedNetwork($json = false) {
 	$pconfig['ipv6allow'] = config_path_enabled('system', 'ipv6allow');
 	$pconfig['ipv6dontcreatelocaldns'] = config_path_enabled('system', 'ipv6dontcreatelocaldns');
 	$pconfig['radvddebug'] = config_path_enabled('system', 'radvddebug');
-	$pconfig['ignoreiscwarning'] = config_path_enabled('system', 'ignoreiscwarning');
 	$pconfig['dhcp6debug'] = config_path_enabled('system', 'dhcp6debug');
 	$pconfig['dhcp6norelease'] = config_path_enabled('system', 'dhcp6norelease');
 	$pconfig['global-v6duid'] = config_path_enabled('system', 'global-v6duid') ? config_get_path('system/global-v6duid') : null;
@@ -48,8 +47,6 @@ function getAdvancedNetwork($json = false) {
 	$pconfig['duid'] = get_duid_from_file();
 
 	/* not kea means isc */
-	$dhcpbackend = config_get_path('dhcpbackend', 'isc');
-	$pconfig['dhcpbackend'] = (in_array($dhcpbackend, ['isc', 'kea']) ? $dhcpbackend : 'isc');
 
 	return $json ? json_encode($pconfig) : $pconfig;
 }
@@ -122,8 +119,7 @@ function saveAdvancedNetworking($post, $json = false) {
 			}
 		}
 
-		$dhcpd_restart = (!dhcp_is_backend($post['dhcpbackend']));
-		config_set_path('dhcpbackend', $post['dhcpbackend']);
+		$dhcpd_restart = false; // FreeSense: Kea-only — no DHCP backend switching
 
 		if ($post['ipv6allow'] == "yes") {
 			config_set_path('system/ipv6allow', true);
@@ -142,12 +138,6 @@ function saveAdvancedNetworking($post, $json = false) {
 			config_set_path('system/radvddebug', true);
 		} else {
 			config_del_path('system/radvddebug');
-		}
-
-		if ($post['ignoreiscwarning'] === 'yes') {
-			config_set_path('system/ignoreiscwarning', true);
-		} else {
-			config_del_path('system/ignoreiscwarning');
 		}
 
 		if ($post['dhcp6debug'] == "yes") {

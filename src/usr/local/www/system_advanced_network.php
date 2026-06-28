@@ -84,29 +84,8 @@ display_top_tabs($tab_array);
 $form = new Form;
 $section = new Form_Section(gettext('DHCP Options'));
 
-$group = new Form_Group(gettext('Server Backend'));
-$group->add(new Form_Checkbox(
-	'dhcpbackend',
-	null,
-	gettext('Kea DHCP'),
-	($pconfig['dhcpbackend'] === 'kea'),
-	'kea'
-))->displayAsRadio();
-$group->add(new Form_Checkbox(
-	'dhcpbackend',
-	null,
-	gettext('ISC DHCP (Deprecated)'),
-	($pconfig['dhcpbackend'] === 'isc'),
-	'isc'
-))->displayAsRadio();
-$group->setHelp(gettext('ISC DHCP has reached end-of-life and will be removed from a future version of %s. Kea DHCP is the newer, modern DHCP distribution from ISC that includes the most-requested features.'), g_get('product_label'));
-$group->add(new Form_Checkbox(
-	'ignoreiscwarning',
-	 null,
-	 gettext('Ignore Deprecation Warning'),
-	 $pconfig['ignoreiscwarning']
-));
-$section->add($group);
+// FreeSense is Kea-only — the ISC/Kea backend selector has been removed
+// (Kea is the single DHCP backend; ISC DHCP is end-of-life and not shipped).
 
 $section->addInput(new Form_Checkbox(
 	'radvddebug',

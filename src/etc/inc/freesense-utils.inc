@@ -31,8 +31,10 @@ function dhcp_is_backend($dhcpbackend)
 
 function dhcp_get_backend()
 {
-	$dhcpbackend = config_get_path('dhcpbackend');
-	return (in_array($dhcpbackend, ['isc', 'kea']) ? $dhcpbackend : 'isc');
+	// FreeSense is Kea-only: ISC DHCP has reached end-of-life and is not used.
+	// All dhcp_is_backend() checks route through here, so forcing 'kea' makes the
+	// ISC code paths unreachable and Kea the single, default DHCP backend.
+	return 'kea';
 }
 
 function display_isc_warning()
