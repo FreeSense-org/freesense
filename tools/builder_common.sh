@@ -1755,6 +1755,17 @@ poudriere_rename_ports() {
 				mv ${fd} ${_fddir}/${_fdname}
 			done
 		fi
+
+		# FreeSense: the package metadata info.xml uses the all-lowercase upstream
+		# root element <pfsensepkgs>, which the case-sensitive pfSense->FreeSense
+		# renames above never match. Rewrite it (open + close tag) to
+		# <freesensepkgs> so the GUI — which parses freesensepkgs — can register
+		# the package's menus, services and tabs. The package <name> and other
+		# fields contain no "pfsensepkgs" token, so they are left untouched.
+		_lcprod=$(echo ${PRODUCT_NAME} | tr 'A-Z' 'a-z')
+		for _info in $(find ${_pdir}/${_pname}/files -name 'info.xml' 2>/dev/null); do
+			sed -i '' -e "s,pfsensepkgs,${_lcprod}pkgs,g" "${_info}"
+		done
 	done
 	echo "Done!" | tee -a ${LOGFILE}
 }

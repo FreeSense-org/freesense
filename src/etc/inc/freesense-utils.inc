@@ -182,28 +182,31 @@ function FreeSenseHeader($text) {
 function get_css_files() {
 	$csslist = array();
 
-	// List FreeSense files, then any BETA files followed by any user-contributed files
+	// List the official FreeSense themes first, then any user-contributed files.
 	$cssfiles = glob("/usr/local/www/css/*.css");
 
 	if (is_array($cssfiles)) {
-		arsort($cssfiles);
-		$usrcss = $pfscss = $betacss = array();
+		sort($cssfiles);
+		$pfscss = $usrcss = array();
 
 		foreach ($cssfiles as $css) {
-			// Don't display any login/logo page related CSS files
-			if (strpos($css, "login") == 0 &&
-			    strpos($css, "logo") == 0) {
-				if (strpos($css, "BETA") != 0) {
-					array_push($betacss, $css);
-				} else if (strpos($css, "FreeSense") != 0) {
-					array_push($pfscss, $css);
-				} else {
-					array_push($usrcss, $css);
-				}
+			$base = basename($css);
+
+			// Skip login/logo helpers and the BS5 theme partials (_*.css);
+			// these are not selectable themes.
+			if ($base === "login.css" || $base === "logo.css" ||
+			    substr($base, 0, 1) === "_") {
+				continue;
+			}
+
+			if (strpos($base, "FreeSense") === 0) {
+				array_push($pfscss, $css);
+			} else {
+				array_push($usrcss, $css);
 			}
 		}
 
-		$css = array_merge($pfscss, $betacss, $usrcss);
+		$css = array_merge($pfscss, $usrcss);
 
 		foreach ($css as $file) {
 			$file = basename($file);

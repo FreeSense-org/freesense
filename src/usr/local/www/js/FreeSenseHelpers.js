@@ -489,7 +489,7 @@ $('.container .panel-heading a[data-toggle="collapse"]').each(function (idx, el)
 		return true;
 	}
 	var body = $(el).parents('.panel').children('.panel-body')
-	var isOpen = body.hasClass('in');
+	var isOpen = body.hasClass('show');
 
 	$(el).children('i').toggleClass('fa-plus-circle', !isOpen);
 	$(el).children('i').toggleClass('fa-minus-circle', isOpen);

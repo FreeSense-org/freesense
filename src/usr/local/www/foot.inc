@@ -41,7 +41,8 @@
 
 	<script src="/vendor/jquery/jquery-3.7.1.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery/jquery-3.7.1.min.js')?>"></script>
  	<script src="/vendor/jquery-ui/jquery-ui-1.13.2.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery-ui/jquery-ui-1.13.2.min.js')?>"></script>
-	<script src="/vendor/bootstrap/js/bootstrap.min.js?v=<?=filemtime('/usr/local/www/vendor/bootstrap/js/bootstrap.min.js')?>"></script>
+	<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js?v=<?=filemtime('/usr/local/www/vendor/bootstrap/js/bootstrap.bundle.min.js')?>"></script>
+	<script src="/js/freesense-bs5-compat.js?v=<?=filemtime('/usr/local/www/js/freesense-bs5-compat.js')?>"></script>
 	<script src="/js/FreeSense.js?v=<?=filemtime('/usr/local/www/js/FreeSense.js')?>"></script>
 	<script src="/js/FreeSenseHelpers.js?v=<?=filemtime('/usr/local/www/js/FreeSenseHelpers.js')?>"></script>
 	<script src="/js/polyfills.js?v=<?=filemtime('/usr/local/www/js/polyfills.js')?>"></script>

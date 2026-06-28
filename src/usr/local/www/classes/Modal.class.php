@@ -30,6 +30,7 @@ class Modal extends Form_Section
 			'modal' => true,
 			'fade' => true,
 		),
+		'tabindex' => '-1',
 		'role' => 'dialog',
 		'aria-labelledby' => null,
 		'aria-hidden' => 'true',
@@ -47,7 +48,7 @@ class Modal extends Form_Section
 			$submit = (new Form_Button(
 				'save',
 				$submit
-			))->setAttribute('data-dismiss', 'modal');
+			))->setAttribute('data-bs-dismiss', 'modal');
 
 		if (false !== $submit)
 			array_push($this->_global, $submit);
@@ -66,10 +67,8 @@ class Modal extends Form_Section
 		<div class="modal-dialog {$modalClass}">
 			<div class="modal-content">
 				<div class="modal-header">
-					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-						<span aria-hidden="true">&times;</span>
-					</button>
 					<h3 class="modal-title">{$title}</h3>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
 <!--				<form class="form-horizontal" action="" method="post"> -->
 					<div class="modal-body">

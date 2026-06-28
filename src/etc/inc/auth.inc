@@ -2348,7 +2348,7 @@ function print_credit() {
 	global $g;
 
 	return  '<a target="_blank" href="https://freesense.org">' . g_get('product_label') . '</a>' .
-			gettext(' is a community fork of pfSense&reg; CE.') . ' &copy; ESF ' . g_get('product_copyright_years') . '. ' .
+			' &copy; ' . g_get('product_copyright_years') . '. ' .
 			'<a target="_blank" href="https://freesense.org/license">' .
 			gettext('View license.') . '</a>';
 }

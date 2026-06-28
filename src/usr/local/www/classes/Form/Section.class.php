@@ -110,9 +110,9 @@ class Form_Section extends Form_Element
 			'</span>';
 			$bodyclass = '<div id="' . $id . '_panel-body" class="panel-body collapse ';
 			if (($this->_collapsible & SEC_CLOSED)) {
-				$bodyclass .= 'out">';
+				$bodyclass .= '">';
 			} else {
-				$bodyclass .= 'in">';
+				$bodyclass .= 'show">';
 			}
 		}
 
