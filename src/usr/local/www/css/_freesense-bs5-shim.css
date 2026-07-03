@@ -213,6 +213,16 @@
 .label-warning { background-color: var(--bs-warning); color: #000; }
 .label-danger  { background-color: var(--bs-danger); }
 
+/* ============================ Progress bars ============================= */
+/* BS5 dropped the color variants (now utility bg-*) and renamed .active to
+   .progress-bar-animated. Without these, the dashboard RAM/disk/state bars
+   all render brand-coral regardless of their semantic state. */
+.progress-bar-success { background-color: var(--bs-success) !important; }
+.progress-bar-info    { background-color: var(--bs-info) !important; }
+.progress-bar-warning { background-color: var(--bs-warning) !important; }
+.progress-bar-danger  { background-color: var(--bs-danger) !important; }
+.progress-bar.active  { animation: progress-bar-stripes 1s linear infinite; }
+
 /* ============================ Tables ==================================== */
 .table-condensed > :not(caption) > * > * { padding: .25rem; }
 

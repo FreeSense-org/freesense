@@ -109,6 +109,15 @@
 				}
 			});
 		});
+		// BS3 tooltip text attr: BS5 reads title / data-bs-original-title
+		root.querySelectorAll("[data-original-title]").forEach(function (el) {
+			if (!el.hasAttribute("data-bs-original-title")) {
+				el.setAttribute("data-bs-original-title", el.getAttribute("data-original-title"));
+			}
+			if (!el.hasAttribute("title")) {
+				el.setAttribute("title", el.getAttribute("data-original-title"));
+			}
+		});
 		// BS3 shown-collapse class .in -> BS5 .show
 		root.querySelectorAll(".collapse.in").forEach(function (el) {
 			el.classList.add("show");
@@ -119,9 +128,38 @@
 	// Expose so dynamically-injected markup can be re-upgraded if needed.
 	window.fsBs5Upgrade = upgradeMarkup;
 
+	// Dynamic content: widgets and pkg pages inject markup via ajax AFTER the
+	// initial pass, so their data-toggle/... attributes were never upgraded and
+	// tooltips/collapses in refreshed fragments went dead. Re-run the upgrade
+	// (scoped to the added subtree) whenever elements are inserted.
+	function watchDynamicMarkup() {
+		if (!window.MutationObserver || !document.body) { return; }
+		var pending = [];
+		var scheduled = false;
+		var observer = new MutationObserver(function (mutations) {
+			mutations.forEach(function (m) {
+				for (var i = 0; i < m.addedNodes.length; i++) {
+					if (m.addedNodes[i].nodeType === 1) { pending.push(m.addedNodes[i]); }
+				}
+			});
+			if (pending.length && !scheduled) {
+				scheduled = true;
+				requestAnimationFrame(function () {
+					var batch = pending; pending = []; scheduled = false;
+					batch.forEach(function (el) { upgradeMarkup(el); });
+				});
+			}
+		});
+		observer.observe(document.body, { childList: true, subtree: true });
+	}
+
 	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", function () { upgradeMarkup(document); });
+		document.addEventListener("DOMContentLoaded", function () {
+			upgradeMarkup(document);
+			watchDynamicMarkup();
+		});
 	} else {
 		upgradeMarkup(document);
+		watchDynamicMarkup();
 	}
 })(window.jQuery);
