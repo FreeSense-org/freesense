@@ -62,9 +62,17 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 <? include('includes/iconheaders.html') ?>
 	<meta name="theme-color" content="#ffffff">
 
+	<!-- full stylesheet chain, each with its own cache-buster (the themes carry
+	     no @imports: imported files have separate cache entries that touching
+	     the parent never invalidates, so deploys kept serving stale partials) -->
+	<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css?v=<?=filemtime('/usr/local/www/vendor/bootstrap/css/bootstrap.min.css')?>">
+	<link rel="stylesheet" href="/css/fonts/roboto.css?v=<?=filemtime('/usr/local/www/css/fonts/roboto.css')?>">
+	<link rel="stylesheet" href="/vendor/jquery-ui/jquery-ui-1.13.2.min.css?v=<?=filemtime('/usr/local/www/vendor/jquery-ui/jquery-ui-1.13.2.min.css')?>">
 	<link rel="stylesheet" href="/vendor/font-awesome/css/all.min.css?v=<?=filemtime('/usr/local/www/vendor/font-awesome/css/all.min.css')?>">
 	<link rel="stylesheet" href="/vendor/sortable/sortable-theme-bootstrap.css?v=<?=filemtime('/usr/local/www/vendor/sortable/sortable-theme-bootstrap.css')?>">
 	<link rel="stylesheet" href="/vendor/jquery-treegrid/css/jquery.treegrid.css?v=<?=filemtime('/usr/local/www/vendor/jquery-treegrid/css/jquery.treegrid.css')?>">
+	<link rel="stylesheet" href="/css/_freesense-bs5-shim.css?v=<?=filemtime('/usr/local/www/css/_freesense-bs5-shim.css')?>">
+	<link rel="stylesheet" href="/css/_freesense-core.css?v=<?=filemtime('/usr/local/www/css/_freesense-core.css')?>">
 	<link rel="stylesheet" href="<?=$cssfile?>?v=<?=filemtime('/usr/local/www/' . $cssfile)?>" />
 
 	<title><?=$tabtitle?></title>

@@ -23,11 +23,9 @@
  * palette. The dark theme (FreeSense-dark.css) is the same with a dark palette.
  */
 
-@import url("/vendor/bootstrap/css/bootstrap.min.css");
-@import url("/css/fonts/roboto.css");
-@import url("/vendor/jquery-ui/jquery-ui-1.13.2.min.css");
-@import url("/css/_freesense-bs5-shim.css");
-@import url("/css/_freesense-core.css");
+/* NOTE: no @imports here — head.inc links the full stylesheet chain
+   (bootstrap -> vendor -> shim -> core -> this theme) with per-file
+   cache-busters; @imports kept going stale in browsers on deploys. */
 
 /* ---- Light palette ---- */
 :root {
