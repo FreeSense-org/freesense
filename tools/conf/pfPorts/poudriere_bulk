@@ -64,7 +64,9 @@ net/mcjoin
 net/mosh
 net/mrouted
 net/py-speedtest-cli
-net/realtek-re-kmod
+# net/realtek-re-kmod — out-of-tree Realtek driver fails to build against the
+# 2026-06-29 16-CURRENT snapshot (kernel API drift; same disease as intel-igb-kmod
+# above). FreeBSD ships an in-kernel re(4). Re-enable when the port catches up.
 net/speedtest-go
 net/trafshow
 net/trafshow3
