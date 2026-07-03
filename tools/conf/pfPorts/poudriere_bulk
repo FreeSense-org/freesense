@@ -14,7 +14,9 @@ editors/vim
 emulators/%%PRODUCT_NAME%%-pkg-Open-VM-Tools
 emulators/qemu-guest-agent
 ftp/%%PRODUCT_NAME%%-pkg-tftpd
-graphics/drm-61-kmod
+# graphics/drm-61-kmod - out-of-tree kmod fails vs the pinned 16-CURRENT snapshot
+# (kernel API drift); FreeSense-ce dep dropped, console falls back to efifb.
+# graphics/drm-61-kmod
 net-mgmt/%%PRODUCT_NAME%%-pkg-ANDwatch
 net-mgmt/%%PRODUCT_NAME%%-pkg-arpwatch
 net-mgmt/%%PRODUCT_NAME%%-pkg-collectd
@@ -51,7 +53,8 @@ net/%%PRODUCT_NAME%%-pkg-udpbroadcastrelay
 net/%%PRODUCT_NAME%%-pkg-WireGuard
 net/dhcpcd
 net/hping3
-net/intel-em-kmod
+# net/intel-em-kmod - same kmod-vs-CURRENT drift; in-kernel em(4) covers it.
+# net/intel-em-kmod
 # net/intel-igb-kmod — out-of-tree Intel igb driver fails to build on FreeBSD 16-CURRENT
 # (kmod build, Error code 1). Non-core leaf port; FreeBSD ships an in-kernel igb(4).
 # Excluded so the poudriere run is clean (a non-zero exit blocks repo signing). Re-enable
