@@ -179,7 +179,6 @@ $shortcut_section = "trafficshaper";
 include("head.inc");
 ?>
 
-<script type="text/javascript" src="./vendor/tree/tree.js"></script>
 
 <?php
 if ($input_errors) {

@@ -373,7 +373,6 @@ $tab_array[] = array(gettext("Wizards"), false, "firewall_shaper_wizards.php");
 display_top_tabs($tab_array);
 
 ?>
-<script type="text/javascript" src="./vendor/tree/tree.js"></script>
 
 <div class="table-responsive">
 	<table class="table">

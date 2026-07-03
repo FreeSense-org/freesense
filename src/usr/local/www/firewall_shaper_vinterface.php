@@ -356,7 +356,6 @@ $output = "<table summary=\"output form\">";
 $output .= $output_form;
 include("head.inc");
 ?>
-<script type="text/javascript" src="./vendor/tree/tree.js"></script>
 
 <script type="text/javascript">
 //<![CDATA[

@@ -289,6 +289,38 @@ $(function() {
 		$(this).css('height', 78);
 	});
 
+	// Modern queue-tree (replaces vendor/tree/tree.js, retired 2026-07):
+	// carets on nodes with children, a leaf dot otherwise, current node marked.
+	document.querySelectorAll('ul.tree').forEach(function(tree) {
+		tree.querySelectorAll('li').forEach(function(li) {
+			var childList = li.querySelector(':scope > ul');
+			var link = li.querySelector(':scope > a');
+			if (link && link.getAttribute('href') ===
+			    (window.location.pathname.split('/').pop() + window.location.search)) {
+				li.classList.add('active');
+			}
+			var marker;
+			if (childList) {
+				li.classList.add('has-children');
+				marker = document.createElement('button');
+				marker.type = 'button';
+				marker.className = 'tree-caret';
+				marker.setAttribute('aria-label', 'Toggle branch');
+				marker.setAttribute('aria-expanded', 'true');
+				marker.addEventListener('click', function(e) {
+					e.preventDefault();
+					e.stopPropagation();
+					li.classList.toggle('closed');
+					marker.setAttribute('aria-expanded', String(!li.classList.contains('closed')));
+				});
+			} else {
+				marker = document.createElement('span');
+				marker.className = 'tree-leaf';
+			}
+			li.insertBefore(marker, li.firstChild);
+		});
+	});
+
 	// Run in-page defined events
 	while (func = window.events.shift())
 		func();
