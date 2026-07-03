@@ -643,3 +643,18 @@ a:focus-visible, [tabindex]:focus-visible {
 		padding: .4rem .4rem .1rem;
 	}
 }
+
+/* base-select closed control: .form-control's display:block stacks the
+   <selectedcontent> and the picker icon as two lines (tall control, arrow
+   bottom-left). Flex restores one line: text left, icon pinned right. */
+@supports selector(::picker(select)) {
+	select:where(.form-control, .form-select):not([multiple]):not([size]) {
+		display: flex;
+		align-items: center;
+		height: auto;
+	}
+	select:where(.form-control, .form-select):not([multiple]):not([size])::picker-icon {
+		margin-inline-start: auto;
+		padding-inline-start: .5rem;
+	}
+}
