@@ -1122,7 +1122,7 @@ EOF
 
 	# Seed the per-branch confs offline from that manifest, reusing FreeSense-repoc
 	# itself (from the ports overlay) so the conf-writing logic lives in one place.
-	local _repoc="${OVERLAY_DIR:-/root/freesense-ports}/sysutils/pfSense-repoc/files/pfSense-repoc"
+	local _repoc="${OVERLAY_DIR:-/root/freesense-ports}/sysutils/${PRODUCT_NAME}-repoc/files/${PRODUCT_NAME}-repoc"
 	if [ -r "${_repoc}" ]; then
 		PRODUCT="${PRODUCT_NAME}" REPOS_DIR="${_repos}" SHARE_DIR="${_share}" \
 		ARCH="${TARGET_ARCH}" MANIFEST_LOCAL="${_share}/repos.manifest" \
@@ -1687,6 +1687,10 @@ poudriere_jail_name() {
 }
 
 poudriere_rename_ports() {
+	# NOTE (2026-07-03): the freesense-ports overlay is now FreeSense-named IN GIT,
+	# so this function is normally a no-op. It is kept as a SAFETY NET: if a
+	# pfSense-* port dir is ever re-imported from upstream, it still gets renamed
+	# here before the bulk build.
 	if [ "${PRODUCT_NAME}" = "pfSense" ]; then
 		return;
 	fi
@@ -2200,7 +2204,7 @@ PKG_REPO_BRANCH_PREVIOUS=${PKG_REPO_BRANCH_PREVIOUS}
 PKG_REPO_SERVER_DEVEL=${PKG_REPO_SERVER_DEVEL}
 PKG_REPO_SERVER_RELEASE=${PKG_REPO_SERVER_RELEASE}
 POUDRIERE_PORTS_NAME=${POUDRIERE_PORTS_NAME}
-PFSENSE_DEFAULT_REPO=${PFSENSE_DEFAULT_REPO}
+FREESENSE_DEFAULT_REPO=${FREESENSE_DEFAULT_REPO}
 PRODUCT_NAME=${PRODUCT_NAME}
 REPO_BRANCH_PREFIX=${REPO_PATH_PREFIX}
 EOF

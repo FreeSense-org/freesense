@@ -3,12 +3,13 @@
 # poudriere ports tree (which is UPSTREAM FreeBSD ports).
 #
 # Sourced by builder_common.sh's poudriere_create_ports_tree() and update_poudriere_ports()
-# right BEFORE poudriere_rename_ports() (which turns pfSense-* into FreeSense-*). Idempotent.
+# right BEFORE poudriere_rename_ports() (now a no-op safety net — the overlay is
+# FreeSense-named in git since 2026-07-03). Idempotent.
 #
 # Two kinds of overlay entries, both handled by a file-level merge (copy each overlay file
 # into the corresponding port dir, overwriting only the files we ship):
-#   * FULL vendored ports — the 82 pfSense-* dirs that do NOT exist in upstream FreeBSD ports
-#     (security/pfSense-system, the plugins, etc.). The whole dir lands.
+#   * FULL vendored ports — the FreeSense-* dirs that do NOT exist in upstream FreeBSD ports
+#     (security/FreeSense-system, the plugins, etc.). The whole dir lands.
 #   * PARTIAL patches to STOCK ports — e.g. net/kea ships only Makefile+distinfo to replace
 #     the upstream port's (de-Netgate); upstream's pkg-plist/files/ MUST be preserved.
 # A file-level merge does the right thing for both: we never blow away upstream files we
