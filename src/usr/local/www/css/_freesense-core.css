@@ -548,3 +548,98 @@ a:focus-visible, [tabindex]:focus-visible {
 	background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover { background-color: var(--fs-coral); }
+
+/* ---- Buttons: icon + label spacing (lost in the BS5 rewrite) ------------ */
+.icon-embed-btn { margin-right: .45rem; }
+
+/* ===========================================================================
+   Customizable <select> pickers (Select2 look, zero JS)
+   Chromium supports styling the REAL select popup via appearance: base-select
+   + the ::picker(select) pseudo-element. Everything below is scoped in
+   @supports, so Firefox/Safari simply keep the native picker until they ship
+   support — no fallback code needed, the <select> semantics/events are
+   untouched either way. Single-selects only (multiple/size keep list UI).
+   ======================================================================== */
+@supports selector(::picker(select)) {
+	select:where(.form-control, .form-select):not([multiple]):not([size]),
+	select:where(.form-control, .form-select):not([multiple]):not([size])::picker(select) {
+		appearance: base-select;
+	}
+
+	/* closed control: keep the input look; swap the bg-image chevron for the
+	   styleable picker icon so we never render two arrows */
+	select:where(.form-control, .form-select):not([multiple]):not([size]) {
+		background-image: none;
+		border-radius: var(--bs-border-radius-sm);
+		transition: border-color .12s ease, box-shadow .12s ease;
+	}
+	select:where(.form-control, .form-select):not([multiple]):not([size])::picker-icon {
+		color: var(--fs-coral);
+		transition: rotate .15s ease;
+	}
+	select:where(.form-control, .form-select):not([multiple]):not([size]):open::picker-icon {
+		rotate: 180deg;
+	}
+	select:where(.form-control, .form-select):not([multiple]):not([size]):open {
+		border-color: var(--fs-coral);
+		box-shadow: 0 0 0 .2rem rgba(234, 79, 45, 0.18);
+	}
+
+	/* the popup itself — same design language as .dropdown-menu */
+	select:where(.form-control, .form-select)::picker(select) {
+		background-color: var(--bs-body-bg);
+		color: var(--bs-body-color);
+		border: 1px solid var(--bs-border-color);
+		border-radius: var(--bs-border-radius);
+		box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12);
+		padding: .35rem;
+		margin-block-start: .3rem;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		select:where(.form-control, .form-select)::picker(select) {
+			opacity: 0;
+			transform: translateY(-4px);
+			transition: opacity .14s ease-out, transform .14s ease-out,
+				overlay .14s ease-out allow-discrete, display .14s ease-out allow-discrete;
+		}
+		select:where(.form-control, .form-select):open::picker(select) {
+			opacity: 1;
+			transform: none;
+		}
+		@starting-style {
+			select:where(.form-control, .form-select):open::picker(select) {
+				opacity: 0;
+				transform: translateY(-4px);
+			}
+		}
+	}
+
+	/* options styled like dropdown items */
+	select:where(.form-control, .form-select) option {
+		padding: .4rem .8rem;
+		border-radius: var(--bs-border-radius-sm);
+		font-size: .9rem;
+		transition: background-color .1s ease;
+	}
+	select:where(.form-control, .form-select) option:not(:disabled):hover,
+	select:where(.form-control, .form-select) option:not(:disabled):focus {
+		background-color: rgba(234, 79, 45, 0.14);
+		color: var(--bs-emphasis-color);
+	}
+	select:where(.form-control, .form-select) option:checked {
+		background-color: rgba(234, 79, 45, 0.22);
+		font-weight: 500;
+	}
+	select:where(.form-control, .form-select) option::checkmark {
+		color: var(--fs-coral);
+		margin-inline-end: .45rem;
+	}
+	select:where(.form-control, .form-select) optgroup {
+		font-size: .68rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: .06em;
+		color: var(--bs-secondary-color);
+		padding: .4rem .4rem .1rem;
+	}
+}
