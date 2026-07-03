@@ -685,3 +685,67 @@ table[data-sortable].sortable-theme-bootstrap th[data-sorted="true"] {
 	color: var(--fs-coral) !important;
 	border-bottom-color: var(--fs-coral) !important;
 }
+
+/* ---- Tree widget (vendor/tree — Traffic Shaper pages) --------------------
+   The 2005 SilverStripe tree relied on gif sprites (plus/minus/t/l/i-repeater)
+   wired up in the old theme; the rewrite dropped them, leaving a bare bullet
+   list with no expanders. Same selector contract (the JS toggles li.closed +
+   span.a/.b/.c), modern rendering: FA carets, indent guides, coral accents. */
+ul.tree, ul.tree ul { padding-left: 0; list-style: none; }
+ul.tree { margin: 0 0 .5rem; }
+ul.tree ul {
+	margin-left: .55rem;
+	padding-left: .55rem;
+	border-left: 1px solid var(--bs-border-color);
+}
+ul.tree li { list-style: none; display: block; background: none !important; }
+ul.tree li.closed > ul { display: none; }
+
+/* node row */
+ul.tree span.a {
+	display: flex;
+	align-items: center;
+	gap: .3rem;
+	padding: .22rem .4rem;
+	border-radius: var(--bs-border-radius-sm);
+	background: none !important;
+}
+ul.tree span.a:hover { background-color: rgba(234, 79, 45, 0.08); }
+
+/* expander (span.b): FA caret — right when closed, down when open */
+ul.tree span.b {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.05rem;
+	height: 1.05rem;
+	flex: 0 0 auto;
+	background: none !important;
+}
+ul.tree span.a.children span.b { cursor: pointer; }
+ul.tree span.a.children span.b::before {
+	font-family: "Font Awesome 6 Free";
+	font-weight: 900;
+	content: "\f0d7";               /* caret-down (open) */
+	font-size: .72rem;
+	line-height: 1;
+	color: var(--fs-coral);
+}
+ul.tree li.closed span.a.children span.b::before {
+	content: "\f0da";               /* caret-right (closed) */
+}
+/* leaf nodes: a quiet dot keeps the labels aligned with expandable siblings */
+ul.tree span.a:not(.children) span.b::before {
+	font-family: "Font Awesome 6 Free";
+	font-weight: 900;
+	content: "\f111";               /* circle */
+	font-size: .3rem;
+	line-height: 1;
+	color: var(--bs-border-color);
+}
+
+/* label (span.c) */
+ul.tree span.c { margin-left: 0; background: none !important; }
+ul.tree li a { color: var(--bs-body-color); }
+ul.tree li a:hover { color: var(--fs-coral); }
+ul.tree li a:link, ul.tree li a:visited { color: var(--bs-body-color); }
