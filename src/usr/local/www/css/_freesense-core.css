@@ -329,9 +329,6 @@ svg { display: block; }
    themes and were lost in the BS5 rewrite — without the explicit heights the
    chart svgs collapse to 0 and the Monitoring page renders empty.
    Colors ride the BS5 theme variables so light + dark both work. */
-svg {
-    display: block;
-}
 .d3-chart, .d3-chart svg {
     margin: 0;
     padding: 10px 0;
@@ -369,3 +366,185 @@ g.nv-axis text, g.nv-legend text {
 .nvtooltip table td.legend-color-guide div {
     border: 1px solid var(--bs-border-color);
 }
+
+/* ===========================================================================
+   Component overhaul — "industrial precision"
+   Full BS5-native styling for the interaction layer: dropdowns, form controls,
+   tables, tooltips/popovers, modals, alerts, badges, pagination, scrollbars,
+   focus + selection. Coral is reserved for interaction (hover/focus/active);
+   surfaces stay ink + 1px borders. One motion moment (dropdown open), guarded
+   by prefers-reduced-motion.
+   ======================================================================== */
+
+/* ---- Dropdown menus: EVERY dropdown, not just the navbar ---------------- */
+.dropdown-menu {
+	--bs-dropdown-border-color: var(--bs-border-color);
+	--bs-dropdown-link-hover-bg: rgba(234, 79, 45, 0.14);
+	--bs-dropdown-link-active-bg: var(--fs-coral);
+	border-radius: var(--bs-border-radius);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12);
+	padding: .35rem;
+	font-size: .85rem;
+	min-width: 11rem;
+}
+.dropdown-item {
+	border-radius: var(--bs-border-radius-sm);
+	padding: .4rem .8rem;
+	transition: background-color .1s ease, color .1s ease;
+}
+.dropdown-item:hover, .dropdown-item:focus { color: var(--bs-emphasis-color); }
+.dropdown-item.active, .dropdown-item:active { color: #fff; }
+.dropdown-item i.fa-solid, .dropdown-item i.fa-regular {
+	width: 1.15em;
+	margin-right: .45rem;
+	font-size: .95em;
+	text-align: center;
+	color: var(--fs-coral);
+}
+.dropdown-header {
+	padding: .4rem .8rem .2rem;
+	font-size: .68rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .06em;
+	color: var(--bs-secondary-color);
+}
+.dropdown-divider { border-color: var(--bs-border-color); opacity: 1; }
+/* legacy BS3 markup still emits <span class="caret"> inside .dropdown-toggle;
+   BS5 draws its own ::after caret — hide the old one so we never show two */
+.dropdown-toggle .caret { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+	.dropdown-menu.show { animation: fs-drop-in .14s ease-out; }
+	@keyframes fs-drop-in {
+		from { opacity: 0; transform: translateY(-4px); }
+		to   { opacity: 1; transform: none; }
+	}
+}
+
+/* ---- Native form controls (legacy BS3 markup, no .form-check classes) --- */
+input[type="checkbox"], input[type="radio"] {
+	accent-color: var(--fs-coral);
+	width: 1.05em;
+	height: 1.05em;
+	vertical-align: -0.13em;
+}
+input[type="range"], progress { accent-color: var(--fs-coral); }
+.checkbox label, .radio label { cursor: pointer; }
+
+/* selects: brand chevron (BS5's stock arrow, recolored) */
+.form-select:not([multiple]):not([size]) {
+	background-image: url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23ea4f2d%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e");
+}
+select[multiple] option:checked {
+	background: linear-gradient(0deg, rgba(234, 79, 45, .35), rgba(234, 79, 45, .35));
+}
+
+/* input groups: legacy addons square off inside the group like BS5 text slots */
+.input-group > .input-group-addon:not(:first-child) { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+.input-group > .input-group-addon:not(:last-child)  { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+
+/* ---- Tables: micro-caps headers, quiet hover, sortable affordance ------- */
+.table > thead > tr > th {
+	font-size: .72rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: .05em;
+	color: var(--bs-secondary-color);
+	border-bottom: 2px solid var(--bs-border-color);
+	padding: .5rem .35rem .45rem .65rem;
+	vertical-align: bottom;
+}
+.table > thead > tr > th a { color: var(--bs-secondary-color); }
+.table > thead > tr > th a:hover { color: var(--fs-coral); }
+.table-hover > tbody > tr:hover > * { background-color: rgba(234, 79, 45, 0.045); }
+.table-striped > tbody > tr:nth-of-type(odd) > * { background-color: var(--fs-stripe, rgba(0, 0, 0, 0.015)); }
+
+/* ---- Tooltips + popovers ------------------------------------------------ */
+.tooltip-inner {
+	background-color: var(--fs-chrome-bg);
+	color: var(--fs-chrome-fg-hi);
+	border: 1px solid var(--fs-chrome-border);
+	border-radius: var(--bs-border-radius-sm);
+	font-size: .78rem;
+	padding: .35rem .6rem;
+}
+.popover {
+	border-color: var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+	font-size: .85rem;
+}
+.popover-header {
+	background-color: var(--bs-tertiary-bg);
+	border-bottom: 1px solid var(--bs-border-color);
+	font-size: .85rem;
+	font-weight: 600;
+}
+
+/* ---- Modals ------------------------------------------------------------- */
+.modal-content {
+	background-color: var(--bs-body-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius-lg);
+	box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
+}
+.modal-header {
+	border-bottom: 1px solid var(--bs-border-color);
+	padding: .8rem 1rem;
+}
+.modal-title { font-size: 1rem; font-weight: 600; }
+.modal-backdrop.show { opacity: .55; }
+
+/* ---- Alerts: left voltage bar ------------------------------------------ */
+.alert {
+	border-left: 4px solid var(--bs-alert-border-color);
+	border-radius: var(--bs-border-radius);
+}
+.alert .btn-close, .alert .close { float: right; }
+
+/* ---- Badges / legacy labels --------------------------------------------- */
+.badge, .label { font-weight: 600; letter-spacing: .02em; }
+
+/* ---- Pagination ---------------------------------------------------------- */
+.pagination {
+	--bs-pagination-color: var(--bs-body-color);
+	--bs-pagination-active-bg: var(--fs-coral);
+	--bs-pagination-active-border-color: var(--fs-coral);
+	--bs-pagination-hover-color: var(--fs-coral);
+	--bs-pagination-focus-color: var(--fs-coral);
+	--bs-pagination-focus-box-shadow: 0 0 0 .2rem rgba(234, 79, 45, 0.18);
+}
+
+/* ---- Buttons: press feedback + coral focus ring ------------------------- */
+.btn { transition: background-color .1s ease, border-color .1s ease, color .1s ease, transform .05s ease; }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible {
+	outline: 2px solid var(--fs-coral);
+	outline-offset: 2px;
+	box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+	.btn, .dropdown-item { transition: none; }
+	.btn:active { transform: none; }
+}
+
+/* ---- Focus + selection: the coral voltage everywhere -------------------- */
+::selection { background: rgba(234, 79, 45, 0.3); }
+a:focus-visible, [tabindex]:focus-visible {
+	outline: 2px solid var(--fs-coral);
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* ---- Scrollbars (themed; the default white rails glare in dark mode) ---- */
+* { scrollbar-width: thin; scrollbar-color: var(--fs-scroll-thumb, rgba(128, 128, 128, .45)) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+	background-color: var(--fs-scroll-thumb, rgba(128, 128, 128, .45));
+	border-radius: 6px;
+	border: 2px solid transparent;
+	background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--fs-coral); }
