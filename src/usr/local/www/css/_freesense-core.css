@@ -749,3 +749,25 @@ ul.tree span.c { margin-left: 0; background: none !important; }
 ul.tree li a { color: var(--bs-body-color); }
 ul.tree li a:hover { color: var(--fs-coral); }
 ul.tree li a:link, ul.tree li a:visited { color: var(--bs-body-color); }
+
+/* ---- Traffic Shaper layout rows (tr.tabcont) -----------------------------
+   firewall_shaper*.php lay out tree-left / form-right with a <table class=
+   "table"> — scaffolding, not data. Kill the data-table chrome (cell
+   backgrounds + borders painted them as floating boxes) and give the tree
+   column sane width. */
+.table > tbody > tr.tabcont > td {
+	background-color: transparent !important;
+	box-shadow: none !important;
+	border: 0 !important;
+	vertical-align: top;
+}
+tr.tabcont > td.col-md-1 {
+	width: auto;
+	min-width: 200px;
+	white-space: nowrap;
+	padding-right: 1.25rem;
+}
+tr.tabcont ul.tree a {
+	display: block;
+	padding: .1rem .2rem;
+}
