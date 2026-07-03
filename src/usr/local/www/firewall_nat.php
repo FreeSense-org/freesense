@@ -214,15 +214,15 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 
 						<td>
 							<?php if (isset($alias['src'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['src']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['src'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['src']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['src'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['source'], $rdr_srctype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['source']['network'], $system_alias_specialnet)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtoupper($natent['source']['network']) . '__NETWORK', true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtoupper($natent['source']['network']) . '__NETWORK', true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['source'], $rdr_srctype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['source']['address'], $system_aliases_hosts)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($natent['source']['address']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($natent['source']['address']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['source'])))?>
 								</a>
 							<?php else: ?>
@@ -231,11 +231,11 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 						</td>
 						<td>
 						<?php if (isset($alias['srcport'])): ?>
-							<a href="/firewall_aliases_edit.php?id=<?=$alias['srcport']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['srcport'])?>" data-html="true">
+							<a href="/firewall_aliases_edit.php?id=<?=$alias['srcport']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['srcport'])?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($natent['source']['port'])))?>
 							</a>
 						<?php elseif ($show_system_alias_popup && array_key_exists($natent['source']['port'], $system_aliases_ports)): ?>
-							<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($natent['source']['port']), true)?>" data-html="true">
+							<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($natent['source']['port']), true)?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($natent['source']['port'])))?>
 							</a>
 						<?php else: ?>
@@ -245,15 +245,15 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 
 						<td>
 							<?php if (isset($alias['dst'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['dst']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['dst'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['dst']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['dst'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['destination'], $rdr_dsttype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['destination']['network'], $system_alias_specialnet)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtoupper($natent['destination']['network']) . '__NETWORK', true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtoupper($natent['destination']['network']) . '__NETWORK', true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['destination'], $rdr_dsttype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['destination']['address'], $system_aliases_hosts)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($natent['destination']['address']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($natent['destination']['address']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['destination'])))?>
 								</a>
 							<?php else: ?>
@@ -262,11 +262,11 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 						</td>
 						<td>
 						<?php if (isset($alias['dstport'])): ?>
-							<a href="/firewall_aliases_edit.php?id=<?=$alias['dstport']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['dstport'])?>" data-html="true">
+							<a href="/firewall_aliases_edit.php?id=<?=$alias['dstport']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['dstport'])?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($natent['destination']['port'])))?>
 							</a>
 						<?php elseif ($show_system_alias_popup && array_key_exists($natent['destination']['port'], $system_aliases_ports)): ?>
-							<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($natent['destination']['port']), true)?>" data-html="true">
+							<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($natent['destination']['port']), true)?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($natent['destination']['port'])))?>
 							</a>
 						<?php else: ?>
@@ -275,11 +275,11 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 						</td>
 						<td>
 							<?php if (isset($alias['target'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['target']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['target'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['target']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['target'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address(['network' => $natent['target']], $rdr_lcltype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['target'], $system_aliases_hosts)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($natent['target']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($natent['target']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address(['address' => $natent['target']])))?>
 								</a>
 							<?php else: ?>
@@ -288,11 +288,11 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 						</td>
 						<td>
 						<?php if (isset($alias['targetport'])): ?>
-							<a href="/firewall_aliases_edit.php?id=<?=$alias['targetport']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['targetport'])?>" data-html="true">
+							<a href="/firewall_aliases_edit.php?id=<?=$alias['targetport']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['targetport'])?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($localport)))?>
 							</a>
 						<?php elseif ($show_system_alias_popup && array_key_exists($localport, $system_aliases_ports)): ?>
-							<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($localport), true)?>" data-html="true">
+							<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($localport), true)?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($localport)))?>
 							</a>
 						<?php else: ?>

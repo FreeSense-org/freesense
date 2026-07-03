@@ -114,14 +114,14 @@ function print_states($tracker_start, $tracker_end = -1) {
 	$title = (gettext('States details'));
 	$href = ('diag_dump_states.php?ruleid=' . $rulesid);
 	printf("<a href=\"%s\" " .
-	    "data-toggle=\"popover\" data-trigger=\"hover focus\" " .
+	    "data-toggle=\"popover\" data-bs-trigger=\"hover focus\" " .
 	    "title=\"%s\" ", $href, $title);
-	printf("data-content=\"{$trackertext}evaluations: %s<br />packets: " .
+	printf("data-bs-content=\"{$trackertext}evaluations: %s<br />packets: " .
 	    "%s<br />bytes: %s<br />", format_number($evaluations), format_number($packets),
 	    format_bytes($bytes));
 	printf("states: %s<br />state creations: %s", format_number($states),
 	    format_number($stcreations));
-	printf("\" data-html=\"true\" usepost>");
+	printf("\" data-bs-html=\"true\" usepost>");
 	printf("%s/%s</a><br />", format_number($states), format_bytes($bytes));
 }
 
@@ -670,8 +670,8 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 					}
 					#FIXME
 					$sched_caption_escaped = str_replace("'", "\'", $schedule['descr']);
-					$schedule_span_begin = '<a href="/firewall_schedule_edit.php?id=' . $idx . '" data-toggle="popover" data-trigger="hover focus" title="' . $schedule['name'] . '" data-content="' .
-						$sched_caption_escaped . '" data-html="true">';
+					$schedule_span_begin = '<a href="/firewall_schedule_edit.php?id=' . $idx . '" data-bs-toggle="popover" data-bs-trigger="hover focus" title="' . $schedule['name'] . '" data-bs-content="' .
+						$sched_caption_escaped . '" data-bs-html="true">';
 					$schedule_span_end = "</a>";
 				}
 				$idx++;
@@ -811,15 +811,15 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 						</td>
 						<td>
 							<?php if (isset($alias['src'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['src']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['src'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['src']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['src'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($filterent['source'])))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($filterent['source']['network'], $system_alias_specialnet)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtoupper($filterent['source']['network']) . '__NETWORK', true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtoupper($filterent['source']['network']) . '__NETWORK', true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($filterent['source'], $filter_srcdsttype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($filterent['source']['address'], $system_aliases_hosts)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($filterent['source']['address']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($filterent['source']['address']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($filterent['source'])))?>
 								</a>
 							<?php else: ?>
@@ -828,11 +828,11 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 						</td>
 						<td>
 							<?php if (isset($alias['srcport'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['srcport']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['srcport'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['srcport']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['srcport'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($filterent['source']['port'])))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($filterent['source']['port'], $system_aliases_ports)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($filterent['source']['port']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($filterent['source']['port']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($filterent['source']['port'])))?>
 								</a>
 							<?php else: ?>
@@ -841,15 +841,15 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 						</td>
 						<td>
 							<?php if (isset($alias['dst'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['dst']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['dst'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['dst']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['dst'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($filterent['destination'])))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($filterent['destination']['network'], $system_alias_specialnet)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtoupper($filterent['destination']['network']) . '__NETWORK', true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtoupper($filterent['destination']['network']) . '__NETWORK', true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($filterent['destination'], $filter_srcdsttype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($filterent['destination']['address'], $system_aliases_hosts)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($filterent['destination']['address']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($filterent['destination']['address']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($filterent['destination'])))?>
 								</a>
 							<?php else: ?>
@@ -858,11 +858,11 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 						</td>
 						<td>
 							<?php if (isset($alias['dstport'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['dstport']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['dstport'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['dstport']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['dstport'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($filterent['destination']['port'])))?>
 								</a>
 								<?php elseif ($show_system_alias_popup && array_key_exists($filterent['destination']['port'], $system_aliases_ports)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtolower($filterent['destination']['port']), true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($filterent['destination']['port']), true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($filterent['destination']['port'])))?>
 								</a>
 							<?php else: ?>
@@ -989,7 +989,7 @@ foreach ($seprows as $idx => $sep) {
 			<?=gettext("Toggle"); ?>
 		</button>
 		<?php if ($if !== 'FloatingRules'):?>
-		<button id="copy_x" name="copy_x" type="button" class="btn btn-primary btn-sm" value="<?=gettext("Copy selected rules"); ?>" disabled title="<?=gettext('Copy selected rules')?>" data-toggle="modal" data-target="#rulescopy">
+		<button id="copy_x" name="copy_x" type="button" class="btn btn-primary btn-sm" value="<?=gettext("Copy selected rules"); ?>" disabled title="<?=gettext('Copy selected rules')?>" data-bs-toggle="modal" data-bs-target="#rulescopy">
 			<i class="fa-regular fa-clone icon-embed-btn"></i>
 			<?=gettext("Copy"); ?>
 		</button>
@@ -1236,14 +1236,14 @@ events.push(function() {
 	});
 
 	$("#copyr").click(function() {
-		$("#rulescopy").modal('hide');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('rulescopy')).hide();
 		$("#dstif").val($("#copyr_dstif").val());
 		$("#convertif").val($("#copyr_convertif").prop('checked'));
 		document.getElementById('mainform').submit();
 	});
 
 	$("#cancel_copyr").click(function() {
-		$("#rulescopy").modal('hide');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('rulescopy')).hide();
 	});
 
 });

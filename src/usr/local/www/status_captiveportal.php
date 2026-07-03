@@ -68,7 +68,7 @@ function multiple_auth_server_type() {
 function print_details($cpent) {
 	global $cpzone, $cpzoneid;
 
-	printf("<a data-toggle=\"popover\" data-trigger=\"hover focus\" title=\"%s\" data-content=\" ", gettext("Session details"));
+	printf("<a data-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"%s\" data-bs-content=\" ", gettext("Session details"));
 
 	/* print the duration of the session */
 	$session_time = time() - $cpent[0];
@@ -106,9 +106,9 @@ function print_details($cpent) {
 	$volume = getVolume($cpent[2]);
 	$reverse = config_path_enabled("captiveportal/{$cpzone}", 'reverseacct') ? true : false;
 	if ($reverse) {
-		printf(gettext("Bytes sent: %s") . "<br>" . gettext("Bytes received: %s") . "\" data-html=\"true\">", format_bytes($volume['output_bytes']), format_bytes($volume['input_bytes']));
+		printf(gettext("Bytes sent: %s") . "<br>" . gettext("Bytes received: %s") . "\" data-bs-html=\"true\">", format_bytes($volume['output_bytes']), format_bytes($volume['input_bytes']));
 	} else {
-		printf(gettext("Bytes sent: %s") . "<br>" . gettext("Bytes received: %s") . "\" data-html=\"true\">", format_bytes($volume['input_bytes']), format_bytes($volume['output_bytes']));
+		printf(gettext("Bytes sent: %s") . "<br>" . gettext("Bytes received: %s") . "\" data-bs-html=\"true\">", format_bytes($volume['input_bytes']), format_bytes($volume['output_bytes']));
 	}
 
 	/* print username */

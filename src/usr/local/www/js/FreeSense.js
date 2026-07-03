@@ -28,7 +28,7 @@ $(function() {
 	// Attach collapsable behaviour to select options
 	(function()
 	{
-		var selects = $('select[data-toggle="collapse"]');
+		var selects = $('select[data-bs-toggle="collapse"]');
 
 		selects.on('change', function(){
 			var options = $(this).find('option');
@@ -41,13 +41,19 @@ $(function() {
 				targets = $('.toggle-'+ $(this).val() +'.show:not(.toggle-'+ selectedValue +')');
 
 				// Hide related collapsables which are visible (BS5 .show)
-				targets.collapse('hide');
+				targets.each(function() {
+					bootstrap.Collapse.getOrCreateInstance(this, {toggle: false}).hide();
+				});
 
 				// Disable all invisible inputs
 				targets.find(':input').prop('disabled', true);
 			});
 
-			$('.toggle-' + selectedValue).collapse('show').find(':input').prop('disabled', false);
+			var shownTargets = $('.toggle-' + selectedValue);
+			shownTargets.each(function() {
+				bootstrap.Collapse.getOrCreateInstance(this, {toggle: false}).show();
+			});
+			shownTargets.find(':input').prop('disabled', false);
 		});
 
 		// Trigger change to open currently selected item
@@ -237,50 +243,22 @@ $(function() {
 	{
 		var advButt = $('<a id="toggle-advanced" class="btn btn-default">toggle advanced options</a>');
 		advButt.on('click', function() {
-			$('.advanced').parents('.form-group').collapse('toggle');
+			$('.advanced').parents('.form-group').each(function() {
+				bootstrap.Collapse.getOrCreateInstance(this, {toggle: false}).toggle();
+			});
 		});
 
 		advButt.insertAfter($('#save'));
 
-		$('.auto-advanced').parents('.form-group').collapse({toggle: true});
+		$('.auto-advanced').parents('.form-group').each(function() {
+			bootstrap.Collapse.getOrCreateInstance(this, {toggle: true});
+		});
 	}
 
-	// Enable popovers globally + allow table markup through the sanitizer.
-	// Bootstrap-version aware: BS3 exposed its internals via $.fn.popover.Constructor;
-	// Bootstrap 5 configures the allow-list per instance and has no jQuery Constructor.
-	if ($.fn.popover && $.fn.popover.Constructor && $.fn.popover.Constructor.DEFAULTS) {
-		// ---- Bootstrap 3 (legacy) ----
-		var originalLeave = $.fn.popover.Constructor.prototype.leave;
-		$.fn.popover.Constructor.prototype.leave = function(obj){
-		  var self = obj instanceof this.constructor ?
-		    obj : $(obj.currentTarget)[this.type](this.getDelegateOptions()).data('bs.' + this.type)
-		  var container, timeout;
-
-		  originalLeave.call(this, obj);
-
-		  if (self.$tip && self.$tip.length) {
-		    container = self.$tip;
-		    timeout = self.timeout;
-		    container.one('mouseenter', function(){
-		      clearTimeout(timeout);
-		      container.one('mouseleave', function(){
-		        $.fn.popover.Constructor.prototype.leave.call(self, self);
-		      });
-		    })
-		  }
-		};
-
-		var defaultWhiteList = $.fn.tooltip.Constructor.DEFAULTS.whiteList
-		defaultWhiteList.table = []
-		defaultWhiteList.thead = []
-		defaultWhiteList.tr = ["class"]
-		defaultWhiteList.th = ["style"]
-		defaultWhiteList.tbody = []
-		defaultWhiteList.td = ["style"]
-
-		$('[data-toggle="popover"]').popover({ delay: {show: 50, hide: 400} });
-	} else if (window.bootstrap && window.bootstrap.Popover) {
-		// ---- Bootstrap 5 ----
+	// Enable popovers globally + allow table markup through the sanitizer
+	// (native Bootstrap 5). The [data-toggle=...] legacy selector is kept only
+	// for package pages that still ship pre-sweep BS3 markup.
+	if (window.bootstrap && window.bootstrap.Popover) {
 		var allow = window.bootstrap.Tooltip.Default.allowList;
 		allow.table = []; allow.thead = []; allow.tbody = [];
 		allow.tr = ['class']; allow.th = ['style']; allow.td = ['style'];
@@ -291,8 +269,8 @@ $(function() {
 	}
 
 	// Force correct initial state for toggleable checkboxes
-	$('input[type=checkbox][data-toggle="collapse"]:not(:checked)').each(function() {
-		$( $(this).data('target') ).addClass('collapse');
+	$('input[type=checkbox][data-bs-toggle="collapse"]:not(:checked)').each(function() {
+		$( $(this).data('bs-target') ).addClass('collapse');
 	});
 
 	$('input[type=checkbox][data-toggle="disable"]:not(:checked)').each(function() {

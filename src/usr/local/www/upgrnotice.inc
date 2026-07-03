@@ -50,7 +50,7 @@ if (isset($user_settings['webgui']['logincss']) && strlen($user_settings['webgui
 ?>
 			</div>
 			<div class="modal-footer" style="background-color:<?=$logincssfile?>; color:white;">
-				<button type="button" class="btn btn-xs btn-success" data-dismiss="modal" aria-label="Close">
+				<button type="button" class="btn btn-xs btn-success" data-bs-dismiss="modal" aria-label="Close">
 					<span aria-hidden="true">Accept</span>
 				</button>
 			</div>
@@ -62,8 +62,7 @@ if (isset($user_settings['webgui']['logincss']) && strlen($user_settings['webgui
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-	$('#upgrnotice').modal({backdrop: 'static', keyboard: false});
-	$('#upgrnotice').modal('show');
+	bootstrap.Modal.getOrCreateInstance(document.getElementById('upgrnotice'), {backdrop: 'static', keyboard: false}).show();
 });
 //]]>
 </script>

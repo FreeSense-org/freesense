@@ -513,7 +513,7 @@ $i = 0; foreach (config_get_path('ipsec/phase1', []) as $ph1ent):
 <?php if (($ph2ent['mode'] == "tunnel") or ($ph2ent['mode'] == "tunnel6") or ($ph2ent['mode'] == "vti")): ?>
 											<td id="<?=$fr_d?>" onclick="fr_toggle('<?=$j?>', '<?=$fr_prefix?>')">
 												<?php if ($show_alias_popup && !empty($ph2ent['localid']) && array_key_exists($ph2ent['localid']['type'], $ipsec_specialnet)): ?>
-													<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Subnet details')?>" data-content="<?=ipsec_idinfo_to_cidr($ph2ent['localid'], false, $ph2ent['mode'])?>" data-html="true">
+													<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Subnet details')?>" data-bs-content="<?=ipsec_idinfo_to_cidr($ph2ent['localid'], false, $ph2ent['mode'])?>" data-bs-html="true">
 														<?=str_replace('_', '_<wbr>', htmlspecialchars($ipsec_specialnet[$ph2ent['localid']['type']]))?>
 													</a>
 												<?php else: ?>

@@ -125,7 +125,7 @@ include("head.inc"); ?>
 
 	function showRuleContents(vpnid, username, port) {
 			$('#rulesviewer_text').text("...Loading...");
-			$('#rulesviewer').modal('show');
+			bootstrap.Modal.getOrCreateInstance(document.getElementById('rulesviewer')).show();
 
 			$.ajax(
 				"<?=$_SERVER['SCRIPT_NAME'];?>",

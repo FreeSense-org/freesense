@@ -178,13 +178,13 @@ endif; /* dhcp_is_backend('isc') */
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon pull-right">
-				<a data-toggle="collapse" href="#search-panel_panel-body">
+				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
 			</span>
 		</h2>
 	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse in">
+	<div id="search-panel_panel-body" class="panel-body collapse show">
 		<div class="form-group">
 			<label class="col-sm-2 control-label">
 				<?=gettext('Search Term')?>
@@ -307,7 +307,7 @@ foreach ($leases['lease'] as $data):
 					</td>
 					<td><?=htmlspecialchars($data['ip'])?></td>
 <?php if ($data['cid']): ?>
-					<td style="cursor: help;" data-toggle="popover" data-container="body" data-trigger="hover focus" data-content="<?=gettext('Client ID')?>: <span class=&quot;cid&quot;><?=htmlspecialchars($data['cid'])?></span>" data-html="true" data-original-title="<?=gettext('DHCP Client Information')?>">
+					<td style="cursor: help;" data-bs-toggle="popover" data-bs-container="body" data-bs-trigger="hover focus" data-bs-content="<?=gettext('Client ID')?>: <span class=&quot;cid&quot;><?=htmlspecialchars($data['cid'])?></span>" data-bs-html="true" data-bs-title="<?=gettext('DHCP Client Information')?>">
 <?php else: ?>
 					<td>
 <?php endif; ?>

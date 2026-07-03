@@ -572,7 +572,7 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 				<div class="modal-body" id="noticebody" name="noticebody" style="background-color:#1e3f75; color:white;">
 				</div>
 				<div class="modal-footer" style="background-color:#1e3f75; color:white;">
-					<button type="button" id="modalbtn" name="modalbtn" class="btn btn-xs btn-success" data-dismiss="modal" aria-label="Close">
+					<button type="button" id="modalbtn" name="modalbtn" class="btn btn-xs btn-success" data-bs-dismiss="modal" aria-label="Close">
 						<span aria-hidden="true">Accept</span>
 					</button>
 				</div>
@@ -924,7 +924,7 @@ function getLogsStatus() {
 					var modalheader = "<div align=\"center\" style=\"font-size:24px;\"><strong>NOTICE</strong></div><br>";
 
 					$('#noticebody').html(modalheader + json.notice);
-					$('#notice').modal('show');
+					bootstrap.Modal.getOrCreateInstance(document.getElementById('notice')).show();
 				} else {
 					$('form').submit();
 				}

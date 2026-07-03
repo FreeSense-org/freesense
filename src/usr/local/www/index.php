@@ -316,7 +316,7 @@ FreeSense_handle_custom_code("/usr/local/pkg/dashboard/pre_dashboard");
 	<div class="panel-heading">
 		<h2 class="panel-title"><?=gettext("Available Widgets"); ?>
 			<span class="widget-heading-icon">
-				<a data-toggle="collapse" href="#widget-available_panel-body" id="widgets-available">
+				<a data-bs-toggle="collapse" href="#widget-available_panel-body" id="widgets-available">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
 			</span>
@@ -398,10 +398,10 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 						<h2 class="panel-title">
 							<?=$wtitle?>
 							<span class="widget-heading-icon">
-								<a data-toggle="collapse" href="#<?=$widget_panel_footer_id?>" class="config hidden">
+								<a data-bs-toggle="collapse" href="#<?=$widget_panel_footer_id?>" class="config hidden">
 									<i class="fa-solid fa-wrench"></i>
 								</a>
-								<a data-toggle="collapse" href="#<?=$widget_panel_body_id?>">
+								<a data-bs-toggle="collapse" href="#<?=$widget_panel_body_id?>">
 									<!--  actual icon is determined in css based on state of body -->
 									<i class="fa-solid fa-plus-circle"></i>
 								</a>

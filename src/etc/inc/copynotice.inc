@@ -83,7 +83,7 @@ $copyrightfile = "{$g['cf_conf_path']}/copyright";
 			</div>
 
 			<div id="f1" class="modal-footer modal-lg" style="background-color:#1e3f75; color:white;">
-				<button type="button" class="btn btn-xs btn-success" aria-label="Close" onClick="$('.modal').modal('hide');">
+				<button type="button" class="btn btn-xs btn-success" aria-label="Close" onClick="document.querySelectorAll('.modal.show').forEach(function(m){bootstrap.Modal.getOrCreateInstance(m).hide();});">
 					<span aria-hidden="true">
 						Accept
 					</span>
@@ -106,8 +106,7 @@ if (!file_exists("/tmp/nofile")) :
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-	$('#usage').modal({backdrop: 'static', keyboard: false});
-	$('#usage').modal('show');
+	bootstrap.Modal.getOrCreateInstance(document.getElementById('usage'), {backdrop: 'static', keyboard: false}).show();
 });
 //]]>
 </script>

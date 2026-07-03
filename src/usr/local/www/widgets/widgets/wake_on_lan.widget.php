@@ -121,16 +121,16 @@ if (count($wolcomputers) > 0):
 			</td>
 			<td>
 		<?php if ($status == 'expires'): ?>
-				<i class="fa-solid fa-arrow-up text-success" data-toggle="tooltip" title="<?= gettext("Online") ?>"></i>
+				<i class="fa-solid fa-arrow-up text-success" data-bs-toggle="tooltip" title="<?= gettext("Online") ?>"></i>
 		<?php elseif ($status == 'permanent'): ?>
-				<i class="fa-solid fa-arrow-up text-success" data-toggle="tooltip" title="<?= gettext("Static ARP") ?>"></i>
+				<i class="fa-solid fa-arrow-up text-success" data-bs-toggle="tooltip" title="<?= gettext("Static ARP") ?>"></i>
 		<?php else: ?>
-				<i class="fa-solid fa-arrow-down text-danger" data-toggle="tooltip" title="<?= gettext("Offline") ?>"></i>
+				<i class="fa-solid fa-arrow-down text-danger" data-bs-toggle="tooltip" title="<?= gettext("Offline") ?>"></i>
 		<?php endif; ?>
 			</td>
 			<td>
 				<a href="services_wol.php?mac=<?= $wolent['mac'] ?>&amp;if=<?= urlencode($wolent['interface']) ?>" usepost>
-				<i class="fa-solid fa-power-off" data-toggle="tooltip" title="<?= gettext("Wake up!") ?>"></i>
+				<i class="fa-solid fa-power-off" data-bs-toggle="tooltip" title="<?= gettext("Wake up!") ?>"></i>
 				</a>
 			</td>
 		</tr>

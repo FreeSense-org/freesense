@@ -422,7 +422,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 <?php
 				print(gettext("State table size"));
 				// If adaptive state handling is enabled, display the % and provide a tooltip with more details
-				print('<span id="scaledstates"><br /><a href="#" data-toggle="tooltip" title="" data-placement="right" data-original-title="' .
+				print('<span id="scaledstates"><br /><a href="#" data-bs-toggle="tooltip" title="" data-bs-placement="right" data-bs-title="' .
 					$state_tt . $scalingfactor . '%">' .
 					gettext("Scaling ") . $scalingfactor . '%</a></span>');
 
@@ -724,7 +724,7 @@ function updateState(x) {
 
 		if (x > adaptivestart) {
 			var scalingfactor = Math.round((adaptiveend - x) / (adaptiveend - adaptivestart) * 100);
-			var disphtml = 	'<br /><a href="#" data-toggle="tooltip" title="" data-placement="right" data-original-title="' +
+			var disphtml = 	'<br /><a href="#" data-bs-toggle="tooltip" title="" data-bs-placement="right" data-bs-title="' +
 				state_tt +  scalingfactor + '%">' +
 				'Scaling ' + scalingfactor + '%</a>';
 
@@ -735,7 +735,7 @@ function updateState(x) {
 
 			// Renable the tooltip
 			$(function () {
-				$('[data-toggle="tooltip"]').tooltip()
+				document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); })
 			})
 
 			$('#statePB').addClass('progress-bar-warning');
@@ -785,7 +785,7 @@ events.push(function() {
 
 	// Enable tooltips
 	$(function () {
-		$('[data-toggle="tooltip"]').tooltip()
+		document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); })
 	})
 
 	// --------------------- Centralized widget refresh system ------------------------------

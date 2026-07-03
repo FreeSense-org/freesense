@@ -326,7 +326,7 @@ events.push(function() {
 		});
 	}
 
-	$('#testresults').modal('show');
+	bootstrap.Modal.getOrCreateInstance(document.getElementById('testresults')).show();
 
 	test_LDAP();
 });

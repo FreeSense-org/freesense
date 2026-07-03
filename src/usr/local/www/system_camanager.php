@@ -367,13 +367,13 @@ if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_error
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon pull-right">
-				<a data-toggle="collapse" href="#search-panel_panel-body">
+				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
 			</span>
 		</h2>
 	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse in">
+	<div id="search-panel_panel-body" class="panel-body collapse show">
 		<div class="form-group">
 			<label class="col-sm-2 control-label">
 				<?=gettext("Search term")?>

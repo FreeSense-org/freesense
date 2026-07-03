@@ -339,7 +339,7 @@ function update_table_rows(data) {
 	var rowCount = $('#filter-log-entries>tr').length;
 	$("#count").html(rowCount);
 
-	$('.fa').tooltip();
+	document.querySelectorAll('.fa').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); });
 }
 
 function toggle_pause() {
@@ -498,7 +498,7 @@ if (!$system_logs_manage_log_form_hidden) {
 //<![CDATA[
 events.push(function() {
 	$(document).ready(function() {
-	    $('.fa').tooltip();
+	    document.querySelectorAll('.fa').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); });
 	});
 });
 //]]>

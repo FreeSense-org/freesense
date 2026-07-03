@@ -483,7 +483,7 @@ $('.container .panel-heading a.config').each(function (idx, el){
 });
 
 // Initial state & toggle icons of collapsed panel
-$('.container .panel-heading a[data-toggle="collapse"]').each(function (idx, el){
+$('.container .panel-heading a[data-bs-toggle="collapse"]').each(function (idx, el){
 	// Avoid modifying configuration button
 	if ($(el).hasClass('config')) {
 		return true;

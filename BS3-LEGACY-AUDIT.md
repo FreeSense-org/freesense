@@ -14,6 +14,24 @@ progress.
 | `data-toggle`/`data-*` in **ajax-injected** fragments | any refreshed widget / pkg page | the attr upgrade ran once at DOMContentLoaded — tooltips/collapses inside re-rendered fragments went dead | MutationObserver in the compat bridge re-upgrades added subtrees |
 | `data-original-title` | 4 | BS5 reads `title`/`data-bs-original-title`; tooltip text ignored | mapped in `upgradeMarkup()` |
 
+## A2. Base system de-bridged (2026-07-03, same day)
+
+The BASE system no longer depends on `freesense-bs5-compat.js` at all:
+
+- all Bootstrap-valued `data-*` attrs swept to `data-bs-*` across 26 files
+  (incl. popover option attrs `data-content/container/trigger/html/placement/
+  original-title` — 49 popovers whose options BS5 was silently ignoring);
+  custom namespaces (`data-toggle="close|disable"`) deliberately untouched
+- every jQuery plugin call (`.modal()/.collapse()/.tooltip()/.popover()`)
+  rewritten to native `bootstrap.*` API (12 files, 28 call sites); FreeSense.js
+  BS3 popover monkey-patch branch deleted
+- static `collapse in` → `collapse show` (7 pages)
+
+**The bridge is now loaded ONLY for package-provided pages** (freesense-ports
+`files/`: 12 files with `data-toggle=`, 14 with jQuery plugin calls). Sweep
+those the same way, then delete `freesense-bs5-compat.js` + its loader lines
+(foot.inc, csrf_error.php, 50x/404) + the pkg-plist entry.
+
 ## B. Legacy but WORKING via the compat layer (migration roadmap)
 
 | Pattern | Files | Covered by |

@@ -302,7 +302,7 @@ function sprint_info_box($msg, $class="alert-warning", $btnname = "close", $btnt
 	$msg = '<div class="pull-left">' . $msg . '</div>';
 
 	if ($btnname === "close") {
-		$msg = '<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' . $msg;
+		$msg = '<button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' . $msg;
 	} else if ($btnname != "") {
 		if (empty($btntext)) {
 			$btntext = $btnname;
@@ -1121,7 +1121,7 @@ function gateway_info_popup($showgw) {
 		return;
 	}
 
-	return "<a href=\"{$link}\" data-toggle=\"popover\" data-trigger=\"hover focus\" title=\"" . gettext('Gateway details') . "\" data-content=\"{$content}\" data-html=\"true\">";
+	return "<a href=\"{$link}\" data-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"" . gettext('Gateway details') . "\" data-bs-content=\"{$content}\" data-bs-html=\"true\">";
 }
 
 function rule_columns_with_alias($src, $srcport, $dst, $dstport, $target="", $targetport="") {

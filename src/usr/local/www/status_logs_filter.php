@@ -419,7 +419,7 @@ if (typeof getURL == 'undefined') {
 }
 
 events.push(function() {
-    $('.fa').tooltip();
+    document.querySelectorAll('.fa').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); });
 });
 //]]>
 </script>

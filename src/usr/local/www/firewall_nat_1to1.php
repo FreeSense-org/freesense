@@ -157,11 +157,11 @@ $system_alias_specialnet = get_specialnet('', [SPECIALNET_IFNET, SPECIALNET_GROU
 						</td>
 						<td>
 							<?php if (isset($alias['src'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['src']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['src'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['src']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['src'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['source'], $binat_srctype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['source']['network'], $system_alias_specialnet)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtoupper($natent['source']['network']) . '__NETWORK', true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtoupper($natent['source']['network']) . '__NETWORK', true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['source'], $binat_srctype_flags)))?>
 								</a>
 							<?php else: ?>
@@ -170,11 +170,11 @@ $system_alias_specialnet = get_specialnet('', [SPECIALNET_IFNET, SPECIALNET_GROU
 						</td>
 						<td>
 							<?php if (isset($alias['dst'])): ?>
-								<a href="/firewall_aliases_edit.php?id=<?=$alias['dst']?>" data-toggle="popover" data-trigger="hover focus" title="<?=gettext('Alias details')?>" data-content="<?=alias_info_popup($alias['dst'])?>" data-html="true">
+								<a href="/firewall_aliases_edit.php?id=<?=$alias['dst']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['dst'])?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['destination'], $binat_dsttype_flags)))?>
 								</a>
 							<?php elseif ($show_system_alias_popup && array_key_exists($natent['destination']['network'], $system_alias_specialnet)): ?>
-								<a data-toggle="popover" data-trigger="hover focus" title="<?=gettext('System alias details')?>" data-content="<?=alias_info_popup(strtoupper($natent['destination']['network']) . '__NETWORK', true)?>" data-html="true">
+								<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtoupper($natent['destination']['network']) . '__NETWORK', true)?>" data-bs-html="true">
 									<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_address($natent['destination'], $binat_dsttype_flags)))?>
 								</a>
 							<?php else: ?>

@@ -4209,7 +4209,7 @@ events.push(function() {
 
 	$("#add4").click(function() {
 		addOption_v4();
-		$("#newgateway4").modal('hide');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('newgateway4')).hide();
 	});
 
 	$("#cnx4").click(function() {
@@ -4217,12 +4217,12 @@ events.push(function() {
 		$("#gatewayip4").val('');
 		$("#gatewaydescr4").val('');
 		$("#defaultgw4").prop("checked", false);
-		$("#newgateway4").modal('hide');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('newgateway4')).hide();
 	});
 
 	$("#add6").click(function() {
 		addOption_v6();
-		$("#newgateway6").modal('hide');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('newgateway6')).hide();
 	});
 
 	$("#cnx6").click(function() {
@@ -4230,7 +4230,7 @@ events.push(function() {
 		$("#gatewayip6").val('');
 		$("#gatewaydescr6").val('');
 		$("#defaultgw6").prop("checked", false);
-		$("#newgateway6").modal('hide');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('newgateway6')).hide();
 	});
 
 	$('#country').on('change', function() {

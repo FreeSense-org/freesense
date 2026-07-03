@@ -949,7 +949,7 @@ events.push(function() {
 			cert = '';
 <?php endif; ?>
 /*
-		$('#containers').modal('show');
+		bootstrap.Modal.getOrCreateInstance(document.getElementById('containers')).show();
 		$('#serverlist').parent('div').prev('label').remove();
 		$('#serverlist').parent('div').removeClass("col-sm-10");
 		$('#serverlist').parent('div').addClass("col-sm-12");
@@ -978,7 +978,7 @@ events.push(function() {
 		ajaxRequest.done(function (response, textStatus, jqXHR) {
 			$('#containers').replaceWith(response);
 
-			$('#containers').modal('show');
+			bootstrap.Modal.getOrCreateInstance(document.getElementById('containers')).show();
 
 			// The button handler needs to be here because until the modal has been populated
 			// the controls we need to attach handlers to do not exist
@@ -1001,7 +1001,7 @@ events.push(function() {
 					}
 				}
 
-				$('#containers').modal('hide');
+				bootstrap.Modal.getOrCreateInstance(document.getElementById('containers')).hide();
 			});
 		});
 

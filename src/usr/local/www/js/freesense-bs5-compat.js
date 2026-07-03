@@ -13,11 +13,11 @@
 /*
  * Bootstrap 3 -> Bootstrap 5 compatibility shim.
  *
- * The FreeSense GUI was written against Bootstrap 3 (markup in classes/Form/*,
- * 200+ pages and 29 dashboard widgets). Bootstrap 5 removed the jQuery plugin
- * interface and renamed the data-api attributes. This shim bridges the gap so
- * legacy markup keeps working while pages are migrated to native BS5 one at a
- * time:
+ * NOTE (2026-07-03): the BASE system is fully native BS5 — its markup carries
+ * data-bs-* attributes and its JS calls window.bootstrap directly; nothing in
+ * freesense-src depends on this bridge anymore. It is retained ONLY for
+ * PACKAGE-provided pages (pfBlockerNG, HAProxy, ... ship their own BS3-era
+ * markup/JS). Delete it once the freesense-ports files/ sweep lands:
  *
  *   1. A jQuery plugin bridge so $(el).modal('show') / .collapse('toggle') /
  *      .tab('show') / .tooltip() / .popover() / .dropdown() call the vanilla
@@ -96,7 +96,15 @@
 		"data-slide-to": "data-bs-slide-to",
 		"data-backdrop": "data-bs-backdrop",
 		"data-keyboard": "data-bs-keyboard",
-		"data-spy":      "data-bs-spy"
+		"data-spy":      "data-bs-spy",
+		/* tooltip/popover option attrs (BS5 only reads the data-bs-* forms) */
+		"data-placement":      "data-bs-placement",
+		"data-container":      "data-bs-container",
+		"data-trigger":        "data-bs-trigger",
+		"data-content":        "data-bs-content",
+		"data-html":           "data-bs-html",
+		"data-delay":          "data-bs-delay",
+		"data-original-title": "data-bs-title"
 	};
 
 	function upgradeMarkup(root) {
@@ -108,15 +116,6 @@
 					el.setAttribute(bsAttr, el.getAttribute(oldAttr));
 				}
 			});
-		});
-		// BS3 tooltip text attr: BS5 reads title / data-bs-original-title
-		root.querySelectorAll("[data-original-title]").forEach(function (el) {
-			if (!el.hasAttribute("data-bs-original-title")) {
-				el.setAttribute("data-bs-original-title", el.getAttribute("data-original-title"));
-			}
-			if (!el.hasAttribute("title")) {
-				el.setAttribute("title", el.getAttribute("data-original-title"));
-			}
 		});
 		// BS3 shown-collapse class .in -> BS5 .show
 		root.querySelectorAll(".collapse.in").forEach(function (el) {

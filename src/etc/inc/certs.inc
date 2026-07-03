@@ -2316,7 +2316,7 @@ function cert_print_dates($cert) {
 	<small>
 	<?=gettext("Valid From")?>: <b><?=$startdate ?></b><br />
 	<?=gettext("Valid Until")?>:
-	<span class="text-<?=$lrclass?>" data-toggle="tooltip" data-placement="bottom" title="<?= $expstring ?>">
+	<span class="text-<?=$lrclass?>" data-bs-toggle="tooltip" data-bs-placement="bottom" title="<?= $expstring ?>">
 	<b><?=$enddate ?></b>
 	</span>
 	</small>
@@ -2355,7 +2355,7 @@ function cert_print_infoblock($cert) {
 		$certextinfo .= '<b>' . gettext("Signature Digest: ") . '</b> ';
 		$is_weak = is_weak_digest($certsig['shortname']);
 		$csgclass = ($is_weak) ? 'warning' : 'normal';
-		$certextinfo .= '<span class="text-' . $csgclass . '" data-placement="bottom">';
+		$certextinfo .= '<span class="text-' . $csgclass . '" data-bs-placement="bottom">';
 		$certextinfo .= htmlspecialchars(cert_escape_x509_chars($certsig['shortname'], true));
 		if ($is_weak) {
 			$certextinfo .= ' (' . gettext("Weak Digest") . ')';

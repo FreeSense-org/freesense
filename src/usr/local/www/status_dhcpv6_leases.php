@@ -265,13 +265,13 @@ endif; /* dhcp_is_backend('kea') */
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon pull-right">
-				<a data-toggle="collapse" href="#search-panel_panel-body">
+				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
 			</span>
 		</h2>
 	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse in">
+	<div id="search-panel_panel-body" class="panel-body collapse show">
 		<div class="form-group">
 			<label class="col-sm-2 control-label">
 				<?=gettext('Search Term')?>
@@ -395,7 +395,7 @@ foreach ($leases as $data):
 <?php endif; ?>
 					</td>
 					<td><?=$data['ip']?></td>
-					<td style="cursor: context-menu;" data-toggle="popover" data-container="body" data-trigger="hover focus" data-content="<?=gettext('DUID')?>: <span class=&quot;duid&quot;><?=htmlspecialchars($data['duid'])?></span><?php if ($data['iaid']): ?><br /><?=gettext('IAID')?>: <span class=&quot;iaid&quot;><?=htmlspecialchars($data['iaid'])?></span><?php endif; if ($mac): ?><br /><?=gettext('MAC Address')?>: <span class=&quot;mac&quot;><?=htmlspecialchars($mac)?><?php if (isset($mac_man[$mac_hi])):?><br /><small>(<?=$mac_man[$mac_hi]?>)</small><?php endif; ?></span><?php endif; ?>" data-html="true" data-original-title="<?=gettext('DHCPv6 Client Information')?>"><?=htmlspecialchars($data['duid'])?></td>
+					<td style="cursor: context-menu;" data-bs-toggle="popover" data-bs-container="body" data-bs-trigger="hover focus" data-bs-content="<?=gettext('DUID')?>: <span class=&quot;duid&quot;><?=htmlspecialchars($data['duid'])?></span><?php if ($data['iaid']): ?><br /><?=gettext('IAID')?>: <span class=&quot;iaid&quot;><?=htmlspecialchars($data['iaid'])?></span><?php endif; if ($mac): ?><br /><?=gettext('MAC Address')?>: <span class=&quot;mac&quot;><?=htmlspecialchars($mac)?><?php if (isset($mac_man[$mac_hi])):?><br /><small>(<?=$mac_man[$mac_hi]?>)</small><?php endif; ?></span><?php endif; ?>" data-bs-html="true" data-bs-title="<?=gettext('DHCPv6 Client Information')?>"><?=htmlspecialchars($data['duid'])?></td>
 					<td>
 <?php if ($data['hostname'] && $data['dnsreg']): ?>
 						<i class="fa-solid fa-globe" title="<?=gettext('Registered with the DNS Resolver')?>"></i>
@@ -549,7 +549,7 @@ foreach ($prefixes as $data):
 <?php endif; ?>
 				</td>
 				<td><?=$data['ip']?></td>
-				<td style="cursor: context-menu;" data-toggle="popover" data-container="body" data-trigger="hover focus" data-content="<?=gettext('DUID')?>: <span class=&quot;duid&quot;><?=htmlspecialchars($data['duid'])?></span><?php if ($data['iaid']): ?><br /><?=gettext('IAID')?>: <span class=&quot;iaid&quot;><?=htmlspecialchars($data['iaid'])?></span><?php endif; if ($mac): ?><br /><?=gettext('MAC Address')?>: <span class=&quot;mac&quot;><?=htmlspecialchars($mac)?><?php if (isset($mac_man[$mac_hi])):?><br /><small>(<?=$mac_man[$mac_hi]?>)</small><?php endif; ?></span><?php endif; ?>" data-html="true" data-original-title="<?=gettext('DHCPv6 Client Information')?>"><?=htmlspecialchars($data['duid'])?></td>
+				<td style="cursor: context-menu;" data-bs-toggle="popover" data-bs-container="body" data-bs-trigger="hover focus" data-bs-content="<?=gettext('DUID')?>: <span class=&quot;duid&quot;><?=htmlspecialchars($data['duid'])?></span><?php if ($data['iaid']): ?><br /><?=gettext('IAID')?>: <span class=&quot;iaid&quot;><?=htmlspecialchars($data['iaid'])?></span><?php endif; if ($mac): ?><br /><?=gettext('MAC Address')?>: <span class=&quot;mac&quot;><?=htmlspecialchars($mac)?><?php if (isset($mac_man[$mac_hi])):?><br /><small>(<?=$mac_man[$mac_hi]?>)</small><?php endif; ?></span><?php endif; ?>" data-bs-html="true" data-bs-title="<?=gettext('DHCPv6 Client Information')?>"><?=htmlspecialchars($data['duid'])?></td>
 				<td><?=htmlspecialchars($data['routed-to'])?></td>
 				<td><?=htmlspecialchars($data['descr'])?></td>
 <?php if ($data['type'] != $static_string):?>

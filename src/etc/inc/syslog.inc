@@ -1569,9 +1569,9 @@ function print_syslog_rule_action($rule) {
 		default => 'fa-solid fa-filter'
 	};
 
-	return '<a data-toggle="popover" data-trigger="hover focus" title="' . gettext('Rule details') . '" data-content="' .
+	return '<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="' . gettext('Rule details') . '" data-bs-content="' .
 		htmlspecialchars("Action: {$action}<br />Reason: {$reason}<br />Tracker ID: {$tracker}<br />{$rules_text}") .
-		'" data-html="true"><i style="margin-left:' . $margin . '" class="' . $icon_class . ' icon-pointer"></i></a>';
+		'" data-bs-html="true"><i style="margin-left:' . $margin . '" class="' . $icon_class . ' icon-pointer"></i></a>';
 }
 
 /* Compatibility stubs for old clog functions until packages catch up.

@@ -1935,7 +1935,7 @@ if (!is_numeric($pool) && !($act == "newpool")) {
 					<td>
 						<?=htmlspecialchars($mapent['hostname'])?>
 					</td>
-					<td <?php if ($mapent['cid']): ?>style="cursor: help;" data-toggle="popover" data-container="body" data-trigger="hover focus" data-content="<?=gettext('Client ID')?>: <span class=&quot;cid&quot;><?=htmlspecialchars($mapent['cid'])?></span>" data-html="true" data-original-title="<?=gettext('DHCP Client Information')?>"<?php endif; ?>>
+					<td <?php if ($mapent['cid']): ?>style="cursor: help;" data-bs-toggle="popover" data-bs-container="body" data-bs-trigger="hover focus" data-bs-content="<?=gettext('Client ID')?>: <span class=&quot;cid&quot;><?=htmlspecialchars($mapent['cid'])?></span>" data-bs-html="true" data-bs-title="<?=gettext('DHCP Client Information')?>"<?php endif; ?>>
 						<?=htmlspecialchars($mapent['mac'])?>
 					</td>
 					<td>
