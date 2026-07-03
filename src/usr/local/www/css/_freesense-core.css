@@ -780,12 +780,16 @@ ul.tree .tree-leaf {
 .fs-infoblock-toggle {
 	display: inline-flex;
 	align-items: center;
-	margin: .3rem 0 .75rem;
-	padding: .22rem .55rem;
+	gap: .35rem;
+	appearance: none;
+	-webkit-appearance: none;
+	margin: .5rem 0 1rem;
+	padding: .28rem .7rem;
 	border: 1px solid var(--bs-border-color);
 	border-radius: 999px;
-	background: var(--bs-body-bg);
+	background-color: var(--bs-body-bg);
 	color: var(--bs-secondary-color);
+	font-size: .78rem;
 	line-height: 1;
 	cursor: pointer;
 	transition: color .1s ease, border-color .1s ease;
@@ -794,5 +798,6 @@ ul.tree .tree-leaf {
 .fs-infoblock-toggle[aria-expanded="true"] {
 	color: var(--fs-coral);
 	border-color: var(--fs-coral);
+	background-color: var(--bs-body-bg);
 }
-.fs-infoblock-toggle i { font-size: .85rem; }
+.fs-infoblock-toggle i { font-size: .85rem; color: inherit; }

@@ -453,7 +453,7 @@ $('.infoblock').each(function() {
 	}
 
 	// Add the toggle before the infoblock, incrementing the id for each block (in case there are multiple infoblocks on a page)
-	$(this).before('<button type="button" class="fs-infoblock-toggle" id="showinfo' + sfx.toString() + '" title="More information" aria-expanded="false"><i class="fa-solid fa-circle-info"></i></button>');
+	$(this).before('<button type="button" class="fs-infoblock-toggle" id="showinfo' + sfx.toString() + '" aria-expanded="false"><i class="fa-solid fa-circle-info"></i><span>More information</span></button>');
 	$(this).removeClass("infoblock");
 	$(this).addClass("infoblock" + sfx.toString());
 	sfx++;
