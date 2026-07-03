@@ -52,7 +52,8 @@ jobs:
           S1=$(git ls-remote https://github.com/FreeSense-org/freesense "$REF" | awk '{print $1}')
           S2=$(git ls-remote https://github.com/FreeSense-org/freesense-ports "$REF" | awk '{print $1}')
           [ -n "$S2" ] || S2=$(git ls-remote https://github.com/FreeSense-org/freesense-ports main | awk '{print $1}')
-          S3=$(git ls-remote https://github.com/FreeSense-org/freesense-freebsd-patches main | awk '{print $1}')
+          # OS definition (manifest.env + patches/) lives on freesense-os-base's os-base/* branch
+          S3=$(git ls-remote https://github.com/FreeSense-org/freesense-os-base "refs/heads/os-base/freebsd-16.0" | awk '{print $1}')
           CUR="$S1 $S2 $S3"
           echo "sha=$CUR" >> "$GITHUB_OUTPUT"
           echo "current SHAs: $CUR"
@@ -109,15 +110,20 @@ jobs:
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
             "cd /root/freesense-ports && git fetch --quiet origin '${REF}' && git checkout -B '${REF}' FETCH_HEAD && \
              echo 'freesense-ports:' && git log -1 --oneline"
-          # freebsd-src change-set repo (FreeSense-org/freesense-freebsd-patches). The FreeBSD
-          # base is identical across channels (shared jail), so it stays on main for all refs.
-          # Clone if missing (first patch-flow build on a VM provisioned before this), else pull.
+          # OS definition (manifest.env + patches/) = os-base/freebsd-16.0 branch of
+          # freesense-os-base (absorbed the old freesense-freebsd-patches repo; checkout
+          # dir keeps its name for build.conf compat). The FreeBSD base is identical
+          # across channels (shared jail), so all refs use the same definition branch.
+          # Re-clone if the existing checkout still points at the retired repo.
           ssh -i "$VMKEY" -o StrictHostKeyChecking=no -o BatchMode=yes "$VM" \
-            "if [ -d /root/freesense-freebsd-patches/.git ]; then \
-               cd /root/freesense-freebsd-patches && git fetch --quiet origin main && git reset --hard origin/main; \
+            "DEF_URL=https://github.com/FreeSense-org/freesense-os-base.git; DEF_REF=os-base/freebsd-16.0; \
+             if [ -d /root/freesense-freebsd-patches/.git ] && \
+                [ \"\$(git -C /root/freesense-freebsd-patches config remote.origin.url)\" = \"\$DEF_URL\" ]; then \
+               cd /root/freesense-freebsd-patches && git fetch --quiet origin \"\$DEF_REF\" && git reset --hard FETCH_HEAD; \
              else \
-               git clone --depth 1 https://github.com/FreeSense-org/freesense-freebsd-patches.git /root/freesense-freebsd-patches; \
-             fi && echo 'freebsd-patches:' && git -C /root/freesense-freebsd-patches log -1 --oneline"
+               rm -rf /root/freesense-freebsd-patches && \
+               git clone --depth 1 -b \"\$DEF_REF\" \"\$DEF_URL\" /root/freesense-freebsd-patches; \
+             fi && echo 'os definition:' && git -C /root/freesense-freebsd-patches log -1 --oneline"
           # build.conf is generated from build.conf.sample by the provisioner and is gitignored,
           # so git reset can't update it. Keep the repo-server URL in sync with the sample
           # (idempotent: only rewrites a stale pkg+https:// prefix).

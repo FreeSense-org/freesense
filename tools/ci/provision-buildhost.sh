@@ -126,15 +126,20 @@ fi
 
 # FreeBSD-src change-set (replaces the full freebsd-src fork): build.conf's
 # FREEBSD_SRC_PATCHES_DIR points here; update_freebsd_sources applies patches/*.patch
-# onto stock upstream @ the manifest pin.
-FBSD_PATCHES_REPO="${FBSD_PATCHES_REPO:-https://github.com/FreeSense-org/freesense-freebsd-patches.git}"
+# onto stock upstream @ the manifest pin. The definition lives on the os-base/* branch
+# of freesense-os-base (absorbed the retired freesense-freebsd-patches repo; the
+# checkout dir keeps its old name for build.conf compatibility).
+FBSD_PATCHES_REPO="${FBSD_PATCHES_REPO:-https://github.com/FreeSense-org/freesense-os-base.git}"
+FBSD_PATCHES_BRANCH="${FBSD_PATCHES_BRANCH:-os-base/freebsd-16.0}"
 FBSD_PATCHES_DIR="${FBSD_PATCHES_DIR:-/root/freesense-freebsd-patches}"
-log "cloning freebsd-src patches -> ${FBSD_PATCHES_DIR}"
-if [ -d "${FBSD_PATCHES_DIR}/.git" ]; then
-	git -C "${FBSD_PATCHES_DIR}" fetch --depth 1 origin && git -C "${FBSD_PATCHES_DIR}" reset --hard origin/main
+log "cloning OS definition (${FBSD_PATCHES_BRANCH}) -> ${FBSD_PATCHES_DIR}"
+if [ -d "${FBSD_PATCHES_DIR}/.git" ] && \
+   [ "$(git -C "${FBSD_PATCHES_DIR}" config remote.origin.url)" = "${FBSD_PATCHES_REPO}" ]; then
+	git -C "${FBSD_PATCHES_DIR}" fetch --depth 1 origin "${FBSD_PATCHES_BRANCH}" && \
+		git -C "${FBSD_PATCHES_DIR}" reset --hard FETCH_HEAD
 else
 	rm -rf "${FBSD_PATCHES_DIR}"
-	git clone --depth 1 "${FBSD_PATCHES_REPO}" "${FBSD_PATCHES_DIR}"
+	git clone --depth 1 -b "${FBSD_PATCHES_BRANCH}" "${FBSD_PATCHES_REPO}" "${FBSD_PATCHES_DIR}"
 fi
 
 # ---- 6. local chroot-install repo server (the :8081 the build's freesense-localrepo.sh expects) ----

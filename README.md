@@ -32,7 +32,7 @@ buildable outside any vendor's private infrastructure.
 - 🛠️ **Self-buildable end to end.** `build.sh` builds the FreeBSD world+kernel, the core packages
   (`base`/`kernel`/`rc`), the ports, and the installer ISO — no dependency on a private build farm.
 - 📦 **Reproducible from source.** OS base = stock upstream FreeBSD + a small
-  [auditable patch series](https://github.com/FreeSense-org/freesense-freebsd-patches), not an opaque fork.
+  [auditable patch series](https://github.com/FreeSense-org/freesense-os-base/tree/os-base/freebsd-16.0), not an opaque fork.
 - 🔑 **Own your trust root.** Rebuild under Apache 2.0 with your own signing key and run an
   independent, equally-official distribution.
 - 🧭 **Release &amp; devel channels** with clean cross-version upgrades, straight from the web UI.

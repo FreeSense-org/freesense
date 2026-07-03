@@ -59,7 +59,8 @@ export custom_package_list="FreeSense-base FreeSense-kernel-FreeSense FreeSense-
 
 # FreeBSD source: FreeSense applies a small CHANGE-SET to STOCK freebsd/freebsd-src
 # rather than carrying a full fork. FREEBSD_SRC_PATCHES_DIR points at a checkout of
-# FreeSense-org/freesense-freebsd-patches (cloned by provision-buildhost.sh); when
+# the os-base/freebsd-16.0 branch of FreeSense-org/freesense-os-base (manifest.env +
+# patches/; cloned by provision-buildhost.sh — dir keeps its legacy name); when
 # present, update_freebsd_sources() clones stock upstream @ the manifest's pinned
 # commit and applies patches/*.patch, then confrename/installer-rebrand run as usual.
 # Unset it to fall back to the legacy full fork below.
