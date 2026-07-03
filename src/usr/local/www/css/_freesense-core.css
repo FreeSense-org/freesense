@@ -658,3 +658,30 @@ a:focus-visible, [tabindex]:focus-visible {
 		padding-inline-start: .5rem;
 	}
 }
+
+/* ---- sortable.js tables --------------------------------------------------
+   vendor/sortable/sortable-theme-bootstrap.css hardcodes white/#f9f9f9
+   backgrounds (and loads after the theme), so status pages using
+   <table data-sortable class="sortable-theme-bootstrap"> rendered white-on-
+   white in dark mode. Ride the theme variables instead; striping comes from
+   the normal .table-striped rule. */
+table[data-sortable].sortable-theme-bootstrap {
+	color: var(--bs-body-color) !important;
+	background-color: transparent !important;
+}
+table[data-sortable].sortable-theme-bootstrap thead th {
+	background-color: transparent !important;
+	color: var(--bs-secondary-color) !important;
+}
+table[data-sortable].sortable-theme-bootstrap tbody tr:nth-child(odd),
+table[data-sortable].sortable-theme-bootstrap tbody tr:nth-child(even) {
+	background-color: transparent !important;
+}
+table[data-sortable].sortable-theme-bootstrap tbody td {
+	border-top: 1px solid var(--bs-border-color) !important;
+}
+table[data-sortable].sortable-theme-bootstrap th[data-sorted="true"] {
+	background-color: var(--bs-tertiary-bg) !important;
+	color: var(--fs-coral) !important;
+	border-bottom-color: var(--fs-coral) !important;
+}
