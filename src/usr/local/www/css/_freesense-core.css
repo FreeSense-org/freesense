@@ -322,3 +322,50 @@ svg { display: block; }
 	.header { margin-bottom: .75rem; }
 	.breadcrumb { font-size: 1.05rem; }
 }
+
+/* ---------------------------------------------------------------------------
+   Charts (d3 / nvd3): dashboard Traffic Graphs widget, Status > Monitoring,
+   Status > Traffic Graph. These structural rules existed in the original
+   themes and were lost in the BS5 rewrite — without the explicit heights the
+   chart svgs collapse to 0 and the Monitoring page renders empty.
+   Colors ride the BS5 theme variables so light + dark both work. */
+svg {
+    display: block;
+}
+.d3-chart, .d3-chart svg {
+    margin: 0;
+    padding: 10px 0;
+    height: 445px;
+    width: 100%;
+}
+.traffic-widget-chart, .traffic-widget-chart svg {
+    padding: 0;
+    height: 250px;
+}
+.traffic-widget-chart:not(:last-child) {
+    border-bottom: 2px solid var(--bs-border-color);
+}
+svg text {
+    fill: var(--bs-body-color) !important;
+}
+g.nv-axis text, g.nv-legend text {
+    fill: var(--bs-body-color);
+}
+.nvd3 .nv-axis line, .nvd3 .nv-axis path {
+    fill: var(--bs-border-color) !important;
+    stroke: var(--bs-border-color) !important;
+}
+.nvtooltip {
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--bs-border-color);
+}
+.nvtooltip > h3 {
+    background-color: var(--bs-secondary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
+    font-size: 14px;
+}
+.nvtooltip table td.legend-color-guide div {
+    border: 1px solid var(--bs-border-color);
+}
