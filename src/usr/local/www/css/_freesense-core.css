@@ -773,3 +773,26 @@ ul.tree .tree-leaf {
 	background: var(--bs-secondary-color);
 	opacity: .55;
 }
+
+/* ---- infoblock toggle (injected by FreeSenseHelpers.js) ------------------
+   was a raw fa icon with a hardcoded BS3-blue inline style floating under the
+   content; now a quiet themed pill that lights coral when open/hovered. */
+.fs-infoblock-toggle {
+	display: inline-flex;
+	align-items: center;
+	margin: .3rem 0 .75rem;
+	padding: .22rem .55rem;
+	border: 1px solid var(--bs-border-color);
+	border-radius: 999px;
+	background: var(--bs-body-bg);
+	color: var(--bs-secondary-color);
+	line-height: 1;
+	cursor: pointer;
+	transition: color .1s ease, border-color .1s ease;
+}
+.fs-infoblock-toggle:hover,
+.fs-infoblock-toggle[aria-expanded="true"] {
+	color: var(--fs-coral);
+	border-color: var(--fs-coral);
+}
+.fs-infoblock-toggle i { font-size: .85rem; }

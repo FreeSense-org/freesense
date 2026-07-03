@@ -452,8 +452,8 @@ $('.infoblock').each(function() {
 		$(this).removeClass("blockopen");
 	}
 
-	// Add the "i" icon before the infoblock, incrementing the icon id for each block (in case there are multiple infoblocks on a page)
-	$(this).before('<i class="fa-solid fa-info-circle icon-pointer" style="color: #337AB7; font-size:20px; margin-left: 10px; margin-bottom: 10px;" id="showinfo' + sfx.toString() + '" title="More information"></i>');
+	// Add the toggle before the infoblock, incrementing the id for each block (in case there are multiple infoblocks on a page)
+	$(this).before('<button type="button" class="fs-infoblock-toggle" id="showinfo' + sfx.toString() + '" title="More information" aria-expanded="false"><i class="fa-solid fa-circle-info"></i></button>');
 	$(this).removeClass("infoblock");
 	$(this).addClass("infoblock" + sfx.toString());
 	sfx++;
@@ -462,7 +462,9 @@ $('.infoblock').each(function() {
 // Show the help on clicking the info icon
 $('[id^="showinfo"]').click(function() {
 	var id = $(this).attr("id");
-	$('.' + "infoblock" + id.substr(8)).toggle();
+	var block = $('.' + "infoblock" + id.substr(8));
+	block.toggle();
+	$(this).attr('aria-expanded', block.is(':visible') ? 'true' : 'false');
 	document.getSelection().removeAllRanges();		// Ensure the text is un-selected (Chrome browser quirk)
 });
 // ------------------------------------------------------------------------------------------------
