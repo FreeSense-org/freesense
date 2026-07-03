@@ -57,3 +57,29 @@
 	background-color: #131820;
 	border-color: var(--bs-border-color);
 }
+
+/* infoblock toggle — duplicated from _freesense-core.css into the theme file
+   (the one URL every browser demonstrably re-fetches) after a cache-staleness
+   goose chase; element-level specificity + !important beats any UA default. */
+button.fs-infoblock-toggle {
+	display: inline-flex !important;
+	align-items: center;
+	gap: .35rem;
+	appearance: none !important;
+	-webkit-appearance: none !important;
+	margin: .5rem 0 1rem;
+	padding: .28rem .7rem;
+	border: 1px solid var(--bs-border-color) !important;
+	border-radius: 999px !important;
+	background-color: var(--bs-body-bg) !important;
+	color: var(--bs-secondary-color) !important;
+	font-size: .78rem;
+	line-height: 1;
+	cursor: pointer;
+}
+button.fs-infoblock-toggle:hover,
+button.fs-infoblock-toggle[aria-expanded="true"] {
+	color: var(--fs-coral) !important;
+	border-color: var(--fs-coral) !important;
+}
+button.fs-infoblock-toggle i { font-size: .85rem; color: inherit; }
