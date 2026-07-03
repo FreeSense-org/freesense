@@ -20,4 +20,5 @@ src/usr/local/FreeSense/include/vendor/
 src/usr/local/FreeSense/include/www/vendor/
 # vi and emacs autosaves
 \#*\#
-*~
+*~cj.txt
+*.html.bak
