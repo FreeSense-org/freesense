@@ -89,7 +89,9 @@ security/%%PRODUCT_NAME%%-pkg-stunnel
 security/%%PRODUCT_NAME%%-pkg-sudo
 security/%%PRODUCT_NAME%%-pkg-suricata
 security/%%PRODUCT_NAME%%-pkg-Tailscale
-security/%%PRODUCT_NAME%%-pkg-zeek
+# security/%%PRODUCT_NAME%%-pkg-zeek - zeek alone compiles for 3-4h+ on the 4-core
+# GitHub runners and its batch kept hitting the 6h job cap; excluded until it can
+# ride a faster/self-hosted builder.
 sysutils/%%PRODUCT_NAME%%-pkg-apcupsd
 sysutils/%%PRODUCT_NAME%%-pkg-Backup
 sysutils/%%PRODUCT_NAME%%-pkg-Cron
