@@ -20,8 +20,8 @@
 # (or a batch and publish) fetch different versions of the same stock port -> poudriere deletes
 # and rebuilds the drifted ones ("new version"). To kill that at the root we freeze the stock
 # closure into an IMMUTABLE, rev-keyed R2 bank:
-#     R2:.../ports-cache/stock/<REV>/{All/*.pkg, packagesite.*, meta.*, data.*, ports_top_git_hash}
-#     R2:.../ports-cache/stock/current   (one line = the active REV pointer)
+#     R2:.../ports-cache/stock/<chan>/<REV>/{All/*.pkg, packagesite.*, meta.*, data.*, ports_top_git_hash}
+#     R2:.../ports-cache/stock/<chan>/current   (one line = the channel's active REV pointer)
 # HIT  (bank exists for this week's rev): rclone the frozen bytes straight into the repo and skip
 #      the live fetch entirely -> every batch AND publish seed IDENTICAL bytes -> zero drift.
 # MISS (first build of a new rev): do the live fetch below, seed the build, then BANK exactly
@@ -36,10 +36,14 @@ BULK="${FREESENSE_BULK:-}"
 PORTS="${FREESENSE_PORTS_NAME:-}"
 OVERLAY="${FREESENSE_OVERLAY_DIR:-/root/freesense-ports}"
 REV="${FREESENSE_REV:-}"
+# channel (main=devel, RELENG_1_0=stable). Keys the frozen bank per channel so devel (rolling)
+# and stable (frozen on an older rev, possibly the SAME rev with different options) never collide.
+CHAN="${FREESENSE_CHANNEL:-main}"
 EXTRA="$(dirname "$0")/../conf/pfPorts/must-build.extra"
 PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
 REPODIR="${PKGTOP}/.real_cache"; [ -d "$REPODIR" ] || REPODIR="$PKGTOP"
-STOCKBANK="R2:freesense-pkg/ports-cache/stock/${REV}"
+STOCKBANK="R2:freesense-pkg/ports-cache/stock/${CHAN}/${REV}"
+STOCKPTR="R2:freesense-pkg/ports-cache/stock/${CHAN}/current"
 
 DIAG=/tmp/lean-seed.diag; : > "$DIAG"
 say(){ echo ">>> lean-seed: $*"; printf '%s\n' "$*" >> "$DIAG"; }
@@ -48,7 +52,7 @@ trap finish EXIT
 bail(){ say "SKIP — $1 (bulk will build everything from source)"; exit 0; }
 
 [ -n "$JAIL" ] && [ -n "$BULK" ] && [ -n "$PORTS" ] || bail "missing env (JAIL/BULK/PORTS)"
-say "JAIL=$JAIL PORTS=$PORTS PKGTOP=$PKGTOP REPODIR=$REPODIR OVERLAY=$OVERLAY REV=${REV:-<none>}"
+say "JAIL=$JAIL PORTS=$PORTS PKGTOP=$PKGTOP REPODIR=$REPODIR OVERLAY=$OVERLAY CHAN=$CHAN REV=${REV:-<none>}"
 
 # --- 0. FROZEN STOCK BANK: if this week's rev is already banked, seed from the frozen copy -------
 if [ -n "$REV" ] && command -v rclone >/dev/null 2>&1 \
@@ -158,10 +162,10 @@ if [ -n "$REV" ] && command -v rclone >/dev/null 2>&1 && [ -n "$(ls "$BANKALL"/*
 		if rclone copy --fast-list --transfers 16 --ignore-existing /tmp/lean-bank "${STOCKBANK}" >>"$DIAG" 2>&1; then
 			# meta.conf is the HIT sentinel — upload it LAST so a partial bank never reads as complete
 			rclone copyto --s3-no-check-bucket /tmp/lean-bank/meta.conf "${STOCKBANK}/meta.conf" >>"$DIAG" 2>&1 || true
-			# flip the pointer only after a fully successful bank
+			# flip the per-channel pointer only after a fully successful bank
 			printf '%s\n' "$REV" > /tmp/stock-current
-			rclone copyto --s3-no-check-bucket /tmp/stock-current "R2:freesense-pkg/ports-cache/stock/current" >>"$DIAG" 2>&1 || true
-			say "frozen stock bank PUBLISHED for rev ${REV}; 'current' -> ${REV}"
+			rclone copyto --s3-no-check-bucket /tmp/stock-current "$STOCKPTR" >>"$DIAG" 2>&1 || true
+			say "frozen stock bank PUBLISHED for ${CHAN}/${REV}; ${CHAN} 'current' -> ${REV}"
 		else
 			say "WARN bank upload failed — this run still builds fine; next run retries the fetch+bank"
 		fi
