@@ -8,6 +8,9 @@
 # option-override origins (make.conf per-port blocks)
 databases/rrdtool
 devel/git
+# doxygen: DOCS-off (make.conf) skips its flaky parallel-unsafe self-docs build -> diverges from
+# FreeBSD's DOCS-on binary, so build it (~2 min) rather than waste a fetch that poudriere rejects.
+devel/doxygen
 dns/dnsmasq
 dns/unbound
 dns/bind920
