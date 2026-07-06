@@ -2359,6 +2359,7 @@ EOF
 		# to building from source. Runs here so it sees the pinned+overlaid tree + this make.conf.
 		FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" FREESENSE_MAKECONF="${_makeconf}" \
 		FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" \
+		FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" \
 			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || echo ">>> lean-seed failed; all ports build from source"
 
 		echo ">>> Poudriere bulk started at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
