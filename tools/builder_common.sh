@@ -1800,11 +1800,22 @@ poudriere_pin_ports_tree() {
 	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
 	local _repo _commit
 	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
-	pkg update -f >/dev/null 2>&1 || true
-	_repo=$(freesense_freebsd_ports_repo)
-	# ports_top_git_hash is identical across FreeBSD's package set; read it off any package (pkg).
-	_commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
-	[ -n "${_commit}" ] || _commit=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+	# FROZEN STOCK: prefer the ports_top_git_hash recorded in this week's immutable R2 stock bank
+	# (keyed by the base snapshot rev FREESENSE_REV). Deterministic + identical across every batch
+	# and publish, so the tree is pinned to the SAME commit the frozen binaries were built from ->
+	# poudriere reuses them with zero "new version" drift. Falls back to the live pkg.freebsd.org
+	# query only when the bank isn't populated yet (the very first build of a new rev).
+	if [ -n "${FREESENSE_REV:-}" ] && command -v rclone >/dev/null 2>&1; then
+		_commit=$(rclone cat "R2:freesense-pkg/ports-cache/stock/${FREESENSE_REV}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
+		[ -n "${_commit}" ] && echo ">>> lean-pin: using frozen ports_top_git_hash from stock/${FREESENSE_REV} = ${_commit}" | tee -a ${LOGFILE}
+	fi
+	if [ -z "${_commit}" ]; then
+		pkg update -f >/dev/null 2>&1 || true
+		_repo=$(freesense_freebsd_ports_repo)
+		# ports_top_git_hash is identical across FreeBSD's package set; read it off any package (pkg).
+		_commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+		[ -n "${_commit}" ] || _commit=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+	fi
 	if [ -z "${_commit}" ]; then
 		echo ">>> lean-pin: could not resolve FreeBSD ports_top_git_hash (repo='${_repo:-none}') — leaving tree at HEAD; all ports build from source" | tee -a ${LOGFILE}
 		return 0
