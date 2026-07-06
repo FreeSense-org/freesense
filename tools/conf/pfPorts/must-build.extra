@@ -15,7 +15,10 @@ dns/dnsmasq
 dns/unbound
 dns/bind920
 emulators/open-vm-tools
-ftp/curl
+# NOTE: ftp/curl is deliberately NOT here. It no longer carries a custom option (make.conf), so
+# it MUST be FETCHED from FreeBSD, not built. curl is a dependency of lang/rust: building our own
+# curl (even with default options) makes poudriere reject FreeBSD's prebuilt rust and rebuild it
+# from source (~5h -> job timeout). Keeping curl fetched keeps rust fetched. See make.conf.
 graphics/cairo
 graphics/gd
 graphics/graphviz
@@ -39,7 +42,10 @@ net-mgmt/zabbix7-agent
 net-mgmt/zabbix7-proxy
 net-mgmt/zabbix74-agent
 net-mgmt/zabbix74-proxy
-security/ca_root_nss
+# NOTE: security/ca_root_nss removed — its ETCSYMLINK option is FreeBSD's default, so it should
+# FETCH, not build. It's a likely dependency of lang/rust; building it would cascade-rebuild rust
+# (a dependency being (re)built forces its dependents to rebuild too). We keep the ETCSYMLINK
+# SET_FORCE in make.conf purely as an /etc/ssl/cert.pem safety net if it ever does build.
 security/opensc
 security/openvpn
 security/snort
