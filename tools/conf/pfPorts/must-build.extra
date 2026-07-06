@@ -1,0 +1,63 @@
+# must-build.extra — FreeSense lean-overlay: STOCK-named ports we build ourselves (not fetched
+# from FreeBSD) because make.conf gives them non-default options, so FreeBSD's default-options
+# binary would be rejected by poudriere's reuse check anyway. Listing them here just avoids the
+# wasted fetch (freesense-lean-seed.sh subtracts these from the fetch set). This is an
+# OPTIMIZATION only — a missing entry costs one extra source build, never a wrong package.
+# One origin per line (category/port). Keep in sync with the per-port option blocks in make.conf.
+
+# option-override origins (make.conf per-port blocks)
+databases/rrdtool
+devel/git
+dns/dnsmasq
+dns/unbound
+dns/bind920
+emulators/open-vm-tools
+ftp/curl
+graphics/cairo
+graphics/gd
+graphics/graphviz
+lang/gcc
+mail/pear-Mail
+net/freeradius3
+net/frr10
+net/haproxy
+net/haproxy22
+net/haproxy29
+net/haproxy-devel
+net/libpcap
+net/miniupnpd
+net/mtr
+net/nss_ldap
+net/ntp
+net-mgmt/net-snmp
+net-mgmt/zabbix6-agent
+net-mgmt/zabbix6-proxy
+net-mgmt/zabbix7-agent
+net-mgmt/zabbix7-proxy
+net-mgmt/zabbix74-agent
+net-mgmt/zabbix74-proxy
+security/ca_root_nss
+security/opensc
+security/openvpn
+security/snort
+security/snort3
+security/strongswan
+security/sudo
+security/suricata
+security/suricata4
+security/xinetd
+shells/scponly
+sysutils/apcupsd
+sysutils/flashrom
+sysutils/pftop
+sysutils/syslog-ng
+www/c-icap
+www/e2guardian
+www/lightsquid
+www/lighttpd
+www/nginx
+www/squid
+www/squidguard
+
+# php is rebuilt with PHP_FD_SETSIZE (make.conf) -> its extensions rebuild against it too
+lang/php85

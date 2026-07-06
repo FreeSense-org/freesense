@@ -1774,6 +1774,51 @@ poudriere_rename_ports() {
 	echo "Done!" | tee -a ${LOGFILE}
 }
 
+# FreeSense lean-overlay: resolve the FreeBSD binary ports repo name on the build VM.
+# FreeBSD 15/16 (pkgbase era) split the repo into FreeBSD-base (world) + FreeBSD-ports (apps);
+# older FreeBSD called the single repo FreeBSD. This is almost certainly why an earlier
+# `pkg rquery -r FreeBSD` returned empty. Print the name; empty => caller uses an unnamed query.
+freesense_freebsd_ports_repo() {
+	local _r
+	for _r in FreeBSD-ports FreeBSD; do
+		if [ -n "$(pkg rquery -r "${_r}" '%v' pkg 2>/dev/null)" ]; then
+			echo "${_r}"; return 0
+		fi
+	done
+	return 0
+}
+
+# FreeSense lean-overlay: pin the WHOLE poudriere ports tree to the exact freebsd-ports commit
+# FreeBSD's currently-published binaries were built from (every FreeBSD pkg carries the
+# ports_top_git_hash annotation). This makes stock ports' versions match FreeBSD's binaries so
+# freesense-lean-seed.sh can drop those binaries in and poudriere REUSES them (build only
+# custom). MUST run BEFORE the overlay cp -f: a whole-tree checkout resets tracked files (the
+# vendored FreeSense-* dirs are untracked and survive; the partial open-vm-tools Makefile patch
+# is re-applied by the overlay after). Best-effort: any failure leaves the tree at branch HEAD
+# and everything just builds from source (the old behaviour).
+poudriere_pin_ports_tree() {
+	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
+	local _repo _commit
+	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
+	pkg update -f >/dev/null 2>&1 || true
+	_repo=$(freesense_freebsd_ports_repo)
+	# ports_top_git_hash is identical across FreeBSD's package set; read it off any package (pkg).
+	_commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+	[ -n "${_commit}" ] || _commit=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+	if [ -z "${_commit}" ]; then
+		echo ">>> lean-pin: could not resolve FreeBSD ports_top_git_hash (repo='${_repo:-none}') — leaving tree at HEAD; all ports build from source" | tee -a ${LOGFILE}
+		return 0
+	fi
+	echo -n ">>> lean-pin: pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit} (FreeBSD repo '${_repo:-unnamed}')... " | tee -a ${LOGFILE}
+	if { git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
+	    && git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null; then
+		echo "Done!" | tee -a ${LOGFILE}
+	else
+		echo "FAILED — leaving tree at HEAD; all ports build from source" | tee -a ${LOGFILE}
+	fi
+	return 0
+}
+
 poudriere_create_ports_tree() {
 	LOGFILE=${BUILDER_LOGS}/poudriere.log
 
@@ -1825,6 +1870,10 @@ poudriere_create_ports_tree() {
 			fi
 		fi
 		echo "Done!" | tee -a ${LOGFILE}
+		# FreeSense lean-overlay: pin the stock tree to FreeBSD's binary-build commit BEFORE
+		# the overlay (a whole-tree checkout resets tracked files; the vendored FreeSense-*
+		# dirs are untracked and survive, the partial open-vm-tools patch re-applies below).
+		poudriere_pin_ports_tree
 		# FreeSense: the ports tree above is UPSTREAM FreeBSD ports (no pfSense-* dirs).
 		# Overlay our vendored pfSense-* port recipes (FreeSense-org/freesense-ports) BEFORE
 		# poudriere_rename_ports turns them into FreeSense-*. No pfSense-fork dependency.
@@ -2097,11 +2146,12 @@ poudriere_update_ports() {
 		script -aq ${LOGFILE} git -C "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}" reset --hard >/dev/null 2>&1
 		script -aq ${LOGFILE} git -C "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}" clean -fd >/dev/null 2>&1
 		echo "Done!" | tee -a ${LOGFILE}
-		echo -n ">>> Updating ports tree ${POUDRIERE_PORTS_NAME}... " | tee -a ${LOGFILE}
-		script -aq ${LOGFILE} poudriere ports -u -p "${POUDRIERE_PORTS_NAME}" >/dev/null 2>&1
-		echo "Done!" | tee -a ${LOGFILE}
-		# FreeSense: the reset/clean/update above wipes our overlaid pfSense-* dirs and
-		# pulls upstream FreeBSD ports (which have none); re-apply the overlay before rename.
+		# FreeSense lean-overlay: instead of `poudriere ports -u` (pull to freebsd-ports HEAD),
+		# PIN the tree to FreeBSD's binary-build commit so stock ports match FreeBSD's prebuilt
+		# binaries (freesense-lean-seed.sh then reuses them). Runs BEFORE the overlay re-apply.
+		poudriere_pin_ports_tree
+		# FreeSense: the reset/clean/pin above leaves upstream FreeBSD ports (no pfSense-* dirs);
+		# re-apply the overlay before rename.
 		. ${BUILDER_TOOLS}/ci/freesense-ports-overlay.sh
 		poudriere_rename_ports
 	fi
@@ -2290,6 +2340,14 @@ EOF
 			cat ${_bulk}.tmp ${_bulk}.exclude | sort | uniq -u > ${_bulk}
 			rm -f ${_bulk}.tmp ${_bulk}.exclude
 		fi
+
+		# FreeSense lean-overlay: fetch FreeBSD's PREBUILT stock binaries and seed them into the
+		# poudriere repo so the bulk below REUSES them and builds ONLY the ~135 custom/patched
+		# ports (kills the 5h rust + the huge cold build). Best-effort; any failure falls back
+		# to building from source. Runs here so it sees the pinned+overlaid tree + this make.conf.
+		FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" FREESENSE_MAKECONF="${_makeconf}" \
+		FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" \
+			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || echo ">>> lean-seed failed; all ports build from source"
 
 		echo ">>> Poudriere bulk started at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
 		if ! poudriere bulk -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then

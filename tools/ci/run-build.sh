@@ -27,14 +27,9 @@ echo ">>> freesense-src HEAD: $(git rev-parse --short HEAD) ($(git log -1 --form
 echo ">>> ./build.sh --update-poudriere-ports"
 ./build.sh --update-poudriere-ports
 
-# Stage 1.5: reuse FreeBSD's PREBUILT lang/rust binary instead of the ~5h compile.
-# Pins lang/rust to FreeBSD's current published version + seeds their binary so poudriere
-# skips building it. Best-effort: on any failure the tree stays at HEAD and rust builds.
-echo ">>> ./tools/ci/pin-rust-to-freebsd.sh"
-sh "${SRC_DIR}/tools/ci/pin-rust-to-freebsd.sh" || true
-
-# Stage 2: rebuild ports as needed + regenerate/sign the pkg repo.
-# (Cached poudriere packages are reused; only changed ports rebuild, then signed.)
+# Stage 2: rebuild ports as needed + regenerate/sign the pkg repo. The lean-overlay seed
+# (pin the tree to FreeBSD's build commit, fetch FreeBSD's stock binaries, build ONLY custom)
+# runs INSIDE this step: builder_common.sh poudriere_bulk sources tools/ci/freesense-lean-seed.sh.
 echo ">>> ./build.sh --update-pkg-repo"
 ./build.sh --update-pkg-repo
 
