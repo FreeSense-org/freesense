@@ -50,13 +50,16 @@ say(){ echo ">>> lean-seed: $*"; printf '%s\n' "$*" >> "$DIAG"; }
 finish(){ rclone copyto "$DIAG" R2:freesense-pkg/debug/lean-seed.diag --s3-no-check-bucket >/dev/null 2>&1 || true; }
 trap finish EXIT
 bail(){ say "SKIP — $1 (bulk will build everything from source)"; exit 0; }
+# `rclone lsf MISSING` EXITS 0 with empty output (a successful listing of nothing), so testing
+# its exit code is a false-positive existence check. Test for NON-EMPTY output instead.
+bank_exists(){ [ -n "$(rclone lsf "$1" 2>/dev/null)" ]; }
 
 [ -n "$JAIL" ] && [ -n "$BULK" ] && [ -n "$PORTS" ] || bail "missing env (JAIL/BULK/PORTS)"
 say "JAIL=$JAIL PORTS=$PORTS PKGTOP=$PKGTOP REPODIR=$REPODIR OVERLAY=$OVERLAY CHAN=$CHAN REV=${REV:-<none>}"
 
 # --- 0. FROZEN STOCK BANK: if this week's rev is already banked, seed from the frozen copy -------
 if [ -n "$REV" ] && command -v rclone >/dev/null 2>&1 \
-   && rclone lsf "${STOCKBANK}/meta.conf" >/dev/null 2>&1; then
+   && bank_exists "${STOCKBANK}/meta.conf"; then
 	say "frozen stock bank HIT for rev ${REV} -> seeding from ${STOCKBANK} (no live FreeBSD fetch)"
 	mkdir -p "$REPODIR/All"
 	# Immutable + additive: --ignore-existing keeps anything already restored (custom cache) and
@@ -149,7 +152,7 @@ pkg repo "$REPODIR/" >/dev/null 2>&1 || say "WARN pkg repo regen failed (reuse d
 # seeds identical bytes -> no version drift. Only the first build of a new rev reaches here.
 if [ -n "$REV" ] && command -v rclone >/dev/null 2>&1 && [ -n "$(ls "$BANKALL"/*.pkg 2>/dev/null | head -1)" ]; then
 	# double-check nobody banked while we were fetching (two batches racing) — if so, skip upload
-	if rclone lsf "${STOCKBANK}/meta.conf" >/dev/null 2>&1; then
+	if bank_exists "${STOCKBANK}/meta.conf"; then
 		say "another build already banked stock/${REV} while we fetched — skipping upload"
 	else
 		# record the ports_top_git_hash these binaries were built from (pins the tree deterministically)
