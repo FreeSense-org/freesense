@@ -2359,6 +2359,24 @@ EOF
 		fi
 		echo ">>> Poudriere bulk complated at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
 
+		# lean-overlay: poudriere may REBUILD a stock port that was also FETCHED (plain name);
+		# pkg then names the rebuild name-ver~hash.pkg so it won't clobber the fetched
+		# name-ver.pkg. Both live in .latest/All, and the next step (poudriere pkgclean) dies:
+		# "Found duplicated packages" + the '~' breaks its version parser ("NN~..: not completely
+		# converted") -> set -e -> the WHOLE build aborts even though bulk succeeded. Drop the
+		# hashed twin (keep the plain/fetched one) so pkgclean sees exactly one pkg per origin.
+		_leandir="/usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME}/.latest/All"
+		if [ -d "${_leandir}" ]; then
+			for _h in "${_leandir}"/*~*.pkg; do
+				[ -e "${_h}" ] || continue
+				_plain="${_h%~*}.pkg"
+				if [ -e "${_plain}" ]; then
+					echo ">>> lean-dedup: dropping hashed dup $(basename "${_h}")"
+					rm -f "${_h}"
+				fi
+			done
+		fi
+
 		echo ">>> Cleaning up old packages from repo..."
 		if ! poudriere pkgclean -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME} -y; then
 			echo ">>> ERROR: Something went wrong..."
