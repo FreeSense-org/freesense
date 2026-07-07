@@ -23,7 +23,10 @@
 
 require_once("guiconfig.inc");
 
-# Docs redirect base URL
+# Docs redirect base URL.
+# Per-page help pages don't exist yet, so every page's "?" / "About this Page"
+# link lands on one "coming soon" docs page. The derived page name is passed as
+# a ?page= hint so that page can deep-link once per-page docs are written.
 $redirect_base = "https://docs.freesense.org/help";
 
 $pagename = "";
@@ -66,13 +69,15 @@ if (empty($pagename)) {
 	}
 }
 
-/* Using the derived page name, attempt to find in the URL mapping hash */
+/* Using the derived page name, redirect to the docs help page. Until per-page
+   help pages exist, everyone lands on the same "coming soon" page; the derived
+   page name rides along as a ?page= hint so it can deep-link in the future. */
 if (strlen($pagename) > 0) {
-	/* Clean up the page a little before attempting to use it in a redirect */
+	/* Clean up the page a little before using it in the redirect. */
 	$pagename = urlencode(str_replace(array('%', ':', '..'), '', $pagename));
 
-	/* Redirect to help page. */
-	header("Location: {$redirect_base}/{$pagename}");
+	/* Redirect to the docs help page. */
+	header("Location: {$redirect_base}/?page={$pagename}");
 }
 
 // No page name was determined, so show a message.
