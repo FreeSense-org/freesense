@@ -115,6 +115,12 @@
 @media (min-width: 992px)  { [class*="col-md-"] { float: left; } }
 @media (min-width: 1200px) { [class*="col-lg-"] { float: left; } }
 .form-group::after { display: block; clear: both; content: ""; }
+/* The Form framework renders its global Save/Apply button as a bare col-sm-* div placed
+   DIRECTLY under <form> (not inside a .form-group/.row), so the [class*="col-sm-"] float:left
+   above pulls it out of flow, the <form> collapses, and following content (the footer) overlaps
+   it -> the Save button vanishes on every edit/settings page (list pages use .action-buttons and
+   are unaffected). Clear floats at the form boundary so the button stays in flow and visible. */
+form::after { display: block; clear: both; content: ""; }
 
 /* BS3 offsets used by the Form framework (label/input column math) */
 @media (min-width: 768px) {
