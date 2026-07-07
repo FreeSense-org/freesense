@@ -103,7 +103,6 @@ sysutils/%%PRODUCT_NAME%%-pkg-RRD_Summary
 sysutils/%%PRODUCT_NAME%%-pkg-Service_Watchdog
 sysutils/%%PRODUCT_NAME%%-pkg-Shellcmd
 sysutils/%%PRODUCT_NAME%%-pkg-syslog-ng
-sysutils/%%PRODUCT_NAME%%-pkg-System_Patches
 sysutils/ccze
 sysutils/flashrom
 sysutils/htop
