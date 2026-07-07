@@ -18,6 +18,22 @@ cd "${SRC_DIR}"
 echo "=== run-build start: $(date) ==="
 echo ">>> freesense-src HEAD: $(git rev-parse --short HEAD) ($(git log -1 --format=%s))"
 
+# Stage 0: re-tar the freesense-src distfile from the CURRENT checkout. security/FreeSense-system
+# builds from this tarball (DISTFILES=freesense-src.tar.gz, NO_CHECKSUM) — NOT the git tree — so a
+# stale distfile silently ships week-old /etc/version + /usr/local/www (right pkg VERSION from git,
+# wrong CONTENTS). build-iso.yml does this in its workflow "Update source" step; run-build MUST too,
+# or self-hosted builds ship stale source. Excludes match sync-freesense.sh (tmp/ is GBs of obj).
+echo ">>> Stage 0: re-tar freesense-src distfile (FreeSense-system consumes it, not the git tree)"
+_DF="${DISTFILES_DIR:-/usr/ports/distfiles}"
+mkdir -p "${_DF}"
+rm -f "${_DF}/freesense-src.tar.gz"
+tar czf "${_DF}/freesense-src.tar.gz" -C "$(dirname "${SRC_DIR}")" \
+	--exclude="$(basename "${SRC_DIR}")/.git" \
+	--exclude="$(basename "${SRC_DIR}")/tmp" \
+	--exclude="$(basename "${SRC_DIR}")/logs" \
+	"$(basename "${SRC_DIR}")"
+echo ">>> distfile version=$(tar xzOf "${_DF}/freesense-src.tar.gz" "$(basename "${SRC_DIR}")/src/etc/version" 2>/dev/null)"
+
 # Stage 1: refresh the poudriere ports tree (git reset + re-apply our overlay +
 # rebrand rename). REQUIRED on every build: poudriere_create_ports_tree only
 # overlays on first creation, so without this the tree keeps the PREVIOUS build's
