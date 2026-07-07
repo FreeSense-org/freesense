@@ -15,7 +15,8 @@ emulators/%%PRODUCT_NAME%%-pkg-Open-VM-Tools
 emulators/qemu-guest-agent
 ftp/%%PRODUCT_NAME%%-pkg-tftpd
 # graphics/drm-61-kmod - out-of-tree kmod fails vs the pinned 16-CURRENT snapshot
-# (kernel API drift); FreeSense-ce dep dropped, console falls back to efifb.
+# (kernel API drift); console falls back to efifb. (The security/*-ce metaport that
+# used to carry this was removed — FreeSense has one edition, no CE/Plus split.)
 # graphics/drm-61-kmod
 net-mgmt/%%PRODUCT_NAME%%-pkg-ANDwatch
 net-mgmt/%%PRODUCT_NAME%%-pkg-arpwatch
@@ -75,7 +76,6 @@ net/trafshow
 net/trafshow3
 net/vnstat
 security/%%PRODUCT_NAME%%
-security/%%PRODUCT_NAME%%-ce
 security/snort3
 shells/zsh
 sysutils/%%PRODUCT_NAME%%-default-config
