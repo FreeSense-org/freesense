@@ -155,9 +155,17 @@ if [ -n "$REV" ] && command -v rclone >/dev/null 2>&1 && [ -n "$(ls "$BANKALL"/*
 	if bank_exists "${STOCKBANK}/meta.conf"; then
 		say "another build already banked stock/${REV} while we fetched — skipping upload"
 	else
-		# record the ports_top_git_hash these binaries were built from (pins the tree deterministically)
+		# Record the ports commit to pin the tree to. Prefer poudriere's authoritative
+		# .poudriere.git_hash (the exact commit THIS bulk's tree is on — always present, written
+		# at bulk start: "Ports top-level git hash: <sha>"). The FreeBSD 'ports_top_git_hash'
+		# annotation is unreliable (often empty -> was leaving the bank with NO hash -> the pin
+		# resolver fell back to the LIVE moving tree -> stock drift rebuilds). Annotation first
+		# (it names the commit FreeBSD built the binaries from), .poudriere.git_hash as the solid
+		# fallback (self-consistent with the tree we just seeded).
 		HASH=$(pkg rquery ${FBREPO:+-r $FBREPO} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
 		[ -n "$HASH" ] || HASH=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+		[ -n "$HASH" ] || HASH=$(cat "${LOGD}/.poudriere.git_hash" 2>/dev/null | tr -dc '0-9a-f')
+		[ -n "$HASH" ] || HASH=$(git -C /usr/local/poudriere/ports/"$PORTS" rev-parse HEAD 2>/dev/null | tr -dc '0-9a-f')
 		# build a self-contained catalog for the bank dir, then upload All/ + catalog + hash
 		pkg repo /tmp/lean-bank/ >/dev/null 2>&1 || say "WARN bank catalog regen failed"
 		[ -n "$HASH" ] && printf '%s\n' "$HASH" > /tmp/lean-bank/ports_top_git_hash
