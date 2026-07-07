@@ -2353,12 +2353,27 @@ EOF
 			rm -f ${_bulk}.tmp ${_bulk}.exclude
 		fi
 
-		# FreeSense lean-overlay: fetch FreeBSD's PREBUILT stock binaries and seed them into the
-		# poudriere repo so the bulk below REUSES them and builds ONLY the ~135 custom/patched
-		# ports (kills the 5h rust + the huge cold build). Best-effort; any failure falls back
-		# to building from source. Runs here so it sees the pinned+overlaid tree + this make.conf.
-		FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" FREESENSE_MAKECONF="${_makeconf}" \
-		FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" \
+		# FreeSense FROZEN STOCK SNAPSHOT (producer): when FREESENSE_SNAPSHOT is set this is the
+		# weekly snapshot job, not a build. It runs on the full bulk list (the workflow leaves the
+		# subset blank) against this same pinned+overlaid tree + make.conf, mirrors the COMPLETE
+		# stock closure + ports source to R2:.../stock/<chan>/<rev>/, then RETURNS before building
+		# anything (there is nothing to build — the snapshot only needs the closure + fetch + tar).
+		if [ -n "${FREESENSE_SNAPSHOT:-}" ]; then
+			echo ">>> FreeSense stock-snapshot mode: banking the full stock closure for rev ${FREESENSE_REV:-<none>} (${jail_arch}); the build is skipped" | tee -a ${LOGFILE}
+			FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" \
+			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" \
+			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" \
+				sh ${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh || echo ">>> stock-snapshot failed (next run retries)"
+			return 0
+		fi
+
+		# FreeSense lean-overlay (consumer): seed FreeBSD's PREBUILT stock binaries from THIS rev's
+		# frozen snapshot so the bulk below REUSES them and builds ONLY the ~135 custom/patched ports
+		# (kills the 5h rust + the huge cold build). No FreeBSD contact here — the snapshot job above
+		# produced the bytes. Best-effort; a missing snapshot just falls back to building from source.
+		# Runs here so it sees the pinned+overlaid tree + this make.conf.
+		FREESENSE_JAIL_NAME="${jail_name}" \
+		FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" \
 		FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" \
 			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || echo ">>> lean-seed failed; all ports build from source"
 
