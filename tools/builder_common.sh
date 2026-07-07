@@ -1813,8 +1813,19 @@ poudriere_pin_ports_tree() {
 	if [ -z "${_commit}" ]; then
 		pkg update -f >/dev/null 2>&1 || true
 		_repo=$(freesense_freebsd_ports_repo)
-		# ports_top_git_hash is identical across FreeBSD's package set; read it off any package (pkg).
-		_commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+		# AUTHORITATIVE: read ports_top_git_hash from a fetched package FILE's manifest — this is the
+		# exact freebsd-ports commit FreeBSD BUILT the binaries from. `pkg rquery` reads the CATALOG,
+		# which routinely OMITS ports_top_git_hash (empirically empty), so the old resolver fell back
+		# to the tree's git HEAD — which is NEWER than FreeBSD's build commit -> the pinned tree wanted
+		# newer versions than the frozen binaries -> mass "new version" rebuilds. Fetch one small pkg
+		# and read the annotation off the file instead. (`pkg query -F` reads the .pkg, not the catalog.)
+		rm -rf /tmp/pinprobe 2>/dev/null || true
+		if pkg fetch -y ${_repo:+-r ${_repo}} -o /tmp/pinprobe pkg >/dev/null 2>&1; then
+			_pf=$(find /tmp/pinprobe -name '*.pkg' 2>/dev/null | head -1)
+			[ -n "${_pf}" ] && _commit=$(pkg query -F "${_pf}" '%Ak %Av' 2>/dev/null | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
+		fi
+		# last-ditch: the catalog annotation (usually empty, kept for completeness)
+		[ -n "${_commit}" ] || _commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
 		[ -n "${_commit}" ] || _commit=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
 	fi
 	if [ -z "${_commit}" ]; then

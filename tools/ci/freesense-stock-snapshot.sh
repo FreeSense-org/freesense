@@ -122,15 +122,25 @@ NSTOCK=$(ls "$BANKALL"/*.pkg 2>/dev/null | wc -l | tr -d ' ')
 say "staged ${NSTOCK} stock pkgs for the bank"
 [ "${NSTOCK:-0}" -gt 0 ] || bail "no stock pkgs staged — refusing to publish an empty snapshot"
 
-# --- 7. resolve the pin commit (ports_top_git_hash) the binaries were built from ---------------
-# Annotation first (names the exact freebsd-ports commit FreeBSD built from); .poudriere.git_hash
-# then git HEAD as solid fallbacks (self-consistent with the tree we computed the closure on).
-HASH=$(pkg rquery ${FBREPO:+-r $FBREPO} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
-[ -n "$HASH" ] || HASH=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
+# --- 7. resolve the pin commit + FreeBSD_version from a FETCHED BINARY's manifest --------------
+# AUTHORITATIVE: read the annotations off an actual fetched .pkg — this is the exact freebsd-ports
+# commit (and __FreeBSD_version) FreeBSD BUILT the binaries from. `pkg rquery` reads the CATALOG,
+# which routinely OMITS ports_top_git_hash (empirically empty), so the old resolver fell through to
+# the tree's git HEAD — which is NEWER than FreeBSD's build commit -> builds pinned to a too-new tree
+# -> the frozen binaries read as "new version" and got mass-rebuilt. `pkg query -F` reads the .pkg
+# file, not the catalog, so the annotation is always present.
+HASH=""; FBVER=""
+for _p in "$BANKALL"/*.pkg; do
+	[ -e "$_p" ] || continue
+	_ann=$(pkg query -F "$_p" '%Ak %Av' 2>/dev/null)
+	HASH=$(printf '%s\n' "$_ann" | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
+	FBVER=$(printf '%s\n' "$_ann" | awk '$1=="FreeBSD_version"{print $2; exit}')
+	[ -n "$HASH" ] && break
+done
+# fallbacks (rarely needed now): poudriere's tree hash, then git HEAD
 [ -n "$HASH" ] || HASH=$(cat "${LOGD}/.poudriere.git_hash" 2>/dev/null | tr -dc '0-9a-f')
 [ -n "$HASH" ] || HASH=$(git -C "$TREE" rev-parse HEAD 2>/dev/null | tr -dc '0-9a-f')
-FBVER=$(pkg rquery ${FBREPO:+-r $FBREPO} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^FreeBSD_version=//p')
-say "pin ports_top_git_hash=${HASH:-<none>} FreeBSD_version=${FBVER:-<none>}"
+say "pin ports_top_git_hash=${HASH:-<none>} FreeBSD_version=${FBVER:-<none>} (from fetched binary manifest)"
 
 # --- 8. build the artifacts: packages.tar + ports-src.tar.zst + meta ---------------------------
 STAGE=/tmp/ss-stage; rm -rf "$STAGE"; mkdir -p "$STAGE"
