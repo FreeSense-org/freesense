@@ -240,9 +240,27 @@ Fixed by generalizing to `.btn + .btn { margin-left: 5px }` with exclusions for
 `.btn-toolbar` row spacing. Applied to css/_freesense-core.css (committed) and
 hot-patched on the live box. This is a theme-CSS fix, independent of the shim.
 
+## jQuery 3.7.1 -> 4.0.0 upgrade  ✅ DONE
+Commits: src 29be46c, ports 5fddbbc. jQuery 4.0.0 (released 2026-01-17) removed
+long-deprecated APIs. Audited both repos for the removed set; only a small,
+bounded surface used any of it:
+- base: \$.trim x6, \$.parseJSON x3, .size() x2
+- ports: \$.parseJSON x14, \$.isNumeric x2
+All replaced with native equivalents (String.trim / JSON.parse / .length /
+isNaN+isFinite). Bumped the bundled lib to jquery-4.0.0.min.js and updated every
+reference (foot.inc, authgui.inc, 404/50x.html, csrf_error.php, pkg-plist);
+removed jquery-3.7.1.min.js. jQuery UI 1.13.2 + jquery-treegrid (disks widget
+only; no removed-API usage) are jQuery-4 compatible. The BS5 compat shim's
+jQuery plugin bridge keeps routing \$(el).modal()/.collapse() to window.bootstrap,
+so the deferred Phase-3 calls keep working under jQuery 4. Verified on a live
+box: deployed sha256 == upstream, dashboard renders, jquery-4 served 200, no
+3.7.1 references anywhere.
+NOTE: recommend a pass with jQuery Migrate 4.x in the browser console to catch
+any runtime-only deprecations the static grep can't see.
+
 ## Bottom line
 Nothing is broken today; the shim carries it (button spacing was the exception,
-now fixed). The *high-value* work is Phases
+now fixed). Now on jQuery 4.0.0 + native BS5 for the un-masked categories. The *high-value* work is Phases
 1-3 (un-mask the JS-shimmed categories, especially `.in`) — modest, scriptable,
 concentrated in snort/suricata/pfBlockerNG + a handful of base VPN/system pages.
 Phase 4 cosmetics are optional hygiene. Only after 1-3 can the JS shim be safely
