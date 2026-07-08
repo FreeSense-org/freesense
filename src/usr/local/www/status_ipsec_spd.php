@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * status_ipsec_spd.php
  *

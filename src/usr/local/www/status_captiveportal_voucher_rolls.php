@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * status_captiveportal_voucher_rolls.php
  *

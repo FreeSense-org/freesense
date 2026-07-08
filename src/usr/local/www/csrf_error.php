@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * csrf_error.php
  *

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * interface_statistics.widget.php
  *

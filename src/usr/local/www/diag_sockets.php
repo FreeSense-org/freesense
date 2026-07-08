@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * diag_sockets.php
  *

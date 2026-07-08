@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * services_dhcpv6.php
  *

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * status_services.php
  *

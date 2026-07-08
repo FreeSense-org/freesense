@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * gateways.widget.php
  *

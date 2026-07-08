@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * services_unbound_acls.php
  *

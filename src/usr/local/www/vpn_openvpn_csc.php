@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * vpn_openvpn_csc.php
  *

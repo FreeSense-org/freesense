@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * firewall_virtual_ip.php
  *

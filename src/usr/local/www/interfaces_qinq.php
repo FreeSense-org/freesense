@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * interfaces_qinq.php
  *

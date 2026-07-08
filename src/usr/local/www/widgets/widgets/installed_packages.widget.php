@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * installed_packages.widget.php
  *

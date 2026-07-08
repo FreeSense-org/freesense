@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * firewall_schedule_edit.php
  *

@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * dyn_dns_status.widget.php
  *

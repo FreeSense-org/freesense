@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * diag_states_summary.php
  *

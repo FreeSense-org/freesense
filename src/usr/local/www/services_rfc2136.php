@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * services_rfc2136.php
  *

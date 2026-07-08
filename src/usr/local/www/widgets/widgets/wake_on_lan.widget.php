@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * wake_on_lan.widget.php
  *

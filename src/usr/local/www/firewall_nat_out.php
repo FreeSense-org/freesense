@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * firewall_nat_out.php
  *

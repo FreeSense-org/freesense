@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * services_ntpd_acls.php
  *

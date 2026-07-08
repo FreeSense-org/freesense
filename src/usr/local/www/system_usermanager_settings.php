@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * system_usermanager_settings.php
  *

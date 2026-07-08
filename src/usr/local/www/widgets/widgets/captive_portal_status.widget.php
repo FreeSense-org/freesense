@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * captive_portal_status.widget.php
  *

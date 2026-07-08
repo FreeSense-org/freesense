@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * status_dhcpv6_leases.php
  *

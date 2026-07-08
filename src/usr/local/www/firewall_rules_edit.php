@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * firewall_rules_edit.php
  *

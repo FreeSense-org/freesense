@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * openvpn.widget.php
  *

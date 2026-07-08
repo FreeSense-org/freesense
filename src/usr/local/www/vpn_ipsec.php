@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * vpn_ipsec.php
  *

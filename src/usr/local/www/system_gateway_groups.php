@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * system_gateway_groups.php
  *

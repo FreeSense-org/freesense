@@ -1,4 +1,4 @@
-﻿/*
+/*
  * FreeSenseHelpers.js
  *
  * part of FreeSense (https://www.freesense.org)

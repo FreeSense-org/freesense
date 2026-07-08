@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * diag_dump_states.php
  *

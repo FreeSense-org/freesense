@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /*
  * pkg_mgr_install.php
  *
