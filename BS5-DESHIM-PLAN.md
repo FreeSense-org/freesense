@@ -81,8 +81,25 @@ returns 0 (or only core-theme definitions). Browser-test the top pages.
 6. D5 delete + verify.
 
 ## Status
-- [ ] D1 panels → core theme
-- [ ] D2 compat class sweeps
-- [ ] D3 form classes → core theme
-- [ ] D4 trim compat.js
-- [ ] D5 delete shim + verify
+- [x] D1 panels → core theme  (commit 2cade68)
+- [x] D2 compat class sweeps   (base 13d5db6, ports 7872367)
+      pull-*→float-*, center-block→mx-auto d-block, table-condensed→table-sm,
+      btn-default→btn-secondary, btn-xs→btn-sm, col-xs-N→col-N; .caret shim
+      dropped. Orphaned shim CSS rules removed. ~450 base + ~350 ports edits.
+      NOTE kept: col-sm/md/lg float back-fill (hand-rolled non-.row grids),
+      form-group/control-label/help-block (D3), well/thumbnail/page-header/
+      list-inline/dl-horizontal/.close/label*/progress-bar-*/input-group-addon/
+      has-error-success-warning/hidden-*/visible-*/checkbox-radio (still shimmed).
+- [ ] D3 form classes → core theme (form-group/control-label/help-block/checkbox/
+      radio; treat as FreeSense components, move CSS to core, drop from shim)
+- [ ] D4 trim compat.js (remove data-*→data-bs-* rewriter + .in→.show converter;
+      keep jQuery bridge until BS5-Phase-3)
+- [ ] D5 delete shim + verify (blocked on D3 + BS5-Phase-3)
+
+## Remaining shim inventory (what D3/D4/D5 must still clear)
+CSS shim still holds: form-group/control-label/help-block/checkbox/radio,
+input-group-addon/btn, col-sm/md/lg float helper, well/well-sm/-lg, thumbnail,
+page-header, list-inline, dl-horizontal, .close, label/label-*, progress-bar-*,
+has-error/success/warning, hidden-*/visible-*.
+JS shim still holds: jQuery plugin bridge (needed until Phase 3), data-*
+rewriter + .in→.show (now DEAD - safe to remove in D4).
