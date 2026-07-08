@@ -7,7 +7,7 @@
 
 # option-override origins (make.conf per-port blocks)
 databases/rrdtool
-devel/git
+# devel/git removed — no custom option now, FETCHED (see make.conf).
 # doxygen: DOCS-off (make.conf) skips its flaky parallel-unsafe self-docs build -> diverges from
 # FreeBSD's DOCS-on binary, so build it (~2 min) rather than waste a fetch that poudriere rejects.
 devel/doxygen
@@ -22,7 +22,7 @@ emulators/open-vm-tools
 graphics/cairo
 graphics/gd
 graphics/graphviz
-lang/gcc
+# lang/gcc removed — no custom option now, FETCHED (see make.conf).
 mail/pear-Mail
 net/freeradius3
 net/frr10
@@ -51,15 +51,16 @@ net-mgmt/zabbix74-proxy
 security/opensc
 security/openvpn
 security/snort
-security/snort3
+# security/snort3 removed — no FreeSense-pkg depends on it (FreeSense uses security/snort).
+# Prep for a future snort v3 migration; not built until a FreeSense-pkg-snort3 exists.
 security/strongswan
 security/sudo
 security/suricata
-security/suricata4
+# security/suricata4 removed — no FreeSense-pkg depends on it (FreeSense uses security/suricata).
 security/xinetd
 shells/scponly
 sysutils/apcupsd
-sysutils/flashrom
+# sysutils/flashrom removed — not shipped, not depended on, FETCHED if ever needed.
 sysutils/pftop
 sysutils/syslog-ng
 www/c-icap
