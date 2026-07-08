@@ -260,6 +260,105 @@ ul.context-links li a { color: var(--fs-coral); }
 .panel-group .panel + .panel { margin-top: 5px; }
 .panel-collapse { border: 0; }
 
+/* FreeSense form components. Emitted by the Form_* framework (classes/Form/*)
+ * on every configuration form; these are first-class FreeSense classes layered
+ * on BS5, not a BS3 compat shim. */
+.form-group { margin-bottom: 1rem; }
+.form-horizontal .form-group {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	margin-right: 0;
+	margin-left: 0;
+}
+.control-label { font-weight: 600; margin-bottom: 0; }
+.help-block {
+	display: block;
+	margin-top: .35rem;
+	color: var(--bs-secondary-color);
+	font-size: .875em;
+}
+.checkbox, .radio { position: relative; display: block; margin-top: .25rem; margin-bottom: .25rem; }
+.checkbox label, .radio label { padding-left: .25rem; margin-bottom: 0; }
+.has-error .form-control { border-color: var(--bs-danger); }
+.has-error .control-label,
+.has-error .help-block { color: var(--bs-danger); }
+.has-success .form-control { border-color: var(--bs-success); }
+.has-warning .form-control { border-color: var(--bs-warning); }
+.input-group-addon {
+	display: flex;
+	align-items: center;
+	padding: .375rem .75rem;
+	font-weight: 400;
+	line-height: 1.5;
+	color: var(--bs-body-color);
+	text-align: center;
+	white-space: nowrap;
+	background-color: var(--bs-tertiary-bg);
+	border: 1px solid var(--bs-border-color);
+	border-radius: var(--bs-border-radius);
+}
+.input-group-btn { display: flex; }
+.input-group-btn > .btn { height: 100%; }
+.form-group::after { display: block; clear: both; content: ""; }
+
+/* FreeSense list/definition/close components (used across Status + Diagnostics
+ * pages). Layered on BS5; formerly in the BS3 compat shim. */
+.list-inline { padding-left: 0; margin-left: -5px; list-style: none; }
+.list-inline > li { display: inline-block; padding-right: 5px; padding-left: 5px; }
+
+dl.dl-horizontal { margin: 0; padding: .85rem 1rem; }
+.dl-horizontal dt { font-weight: 700; }
+.dl-horizontal dd { margin-bottom: .5rem; margin-left: 0; }
+.dl-horizontal dd:last-child { margin-bottom: 0; }
+@media (min-width: 768px) {
+	.dl-horizontal dt {
+		float: left;
+		width: 200px;
+		clear: left;
+		text-align: left;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		padding-right: 1rem;
+	}
+	.dl-horizontal dd { margin-left: 200px; }
+}
+
+/* Bare content dropped straight into a panel body shouldn't touch the border. */
+.panel-body > p,
+.panel-body > pre,
+.panel-body > ul:not(.nav),
+.panel-body > ol { padding-left: 1rem; padding-right: 1rem; }
+
+/* Legacy .close button (BS5 renamed to .btn-close). Alerts/modals still emit
+ * <button class="close">&times;</button>. */
+.close {
+	float: right;
+	padding: 0;
+	margin: 0 0 0 .5rem;
+	font-size: 1.4rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--bs-body-color);
+	background: transparent;
+	border: 0;
+	opacity: .55;
+	cursor: pointer;
+}
+.close:hover { opacity: 1; }
+.close span { pointer-events: none; }
+.modal-header .close { margin: -.5rem -.5rem -.5rem auto; }
+.alert-dismissible .close, .alert .close { position: relative; top: -.1rem; }
+
+/* Dashboard progress-bar semantic colors (BS5 moved these to bg-* utilities). */
+.progress-bar-success { background-color: var(--bs-success) !important; }
+.progress-bar-info    { background-color: var(--bs-info) !important; }
+.progress-bar-warning { background-color: var(--bs-warning) !important; }
+.progress-bar-danger  { background-color: var(--bs-danger) !important; }
+.progress-bar.active  { animation: progress-bar-stripes 1s linear infinite; }
+@keyframes progress-bar-stripes { from { background-position: 1rem 0; } to { background-position: 0 0; } }
+
 .content { padding: 1rem; }
 
 /* dashboard widget heading accents */

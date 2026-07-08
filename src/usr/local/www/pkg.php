@@ -382,8 +382,8 @@ if ($savemsg) {
 		echo "<tr><th colspan='" . count($pkg['adddeleteeditpagefields']['columnitem']) . "'>";
 		echo "<table width='100%' summary=''>";
 		echo "<tr>";
-		echo "<td class='text-left'>" . sprintf(gettext('Displaying page %1$s of %2$s'), $page, $totalpages) . "</b></td>";
-		echo "<td class='text-right'>" . gettext("Rows per page: ") . "<select onchange='document.pkgform.submit();' name='display_maximum_rows'>";
+		echo "<td class='text-start'>" . sprintf(gettext('Displaying page %1$s of %2$s'), $page, $totalpages) . "</b></td>";
+		echo "<td class='text-end'>" . gettext("Rows per page: ") . "<select onchange='document.pkgform.submit();' name='display_maximum_rows'>";
 		for ($x = 0; $x < 250; $x++) {
 			if ($x == $display_maximum_rows) {
 				$SELECTED = "selected";
@@ -538,7 +538,7 @@ if ($savemsg) {
 					$final_footer = "";
 					$final_footer .= "<tr><td colspan='$colcount'>";
 					$final_footer .= "<table width='100%' summary=''><tr>";
-					$final_footer .= "<td class='text-left'>";
+					$final_footer .= "<td class='text-start'>";
 					$startingat = $startdisplayingat - $display_maximum_rows;
 					if ($startingat > -1) {
 						$final_footer .= "<a href='pkg.php?xml=" . $_REQUEST['xml'] . "&amp;startdisplayingat={$startingat}&amp;display_maximum_rows={$display_maximum_rows}'>";
@@ -554,7 +554,7 @@ if ($savemsg) {
 					$final_footer .= "</td><td class='text-center'>";
 					$tmppp++;
 					$final_footer .= "<font size='2'>Displaying {$tmppp} - {$endingrecord} / " . count($evaledvar) . " records";
-					$final_footer .= "</font></td><td class='text-right'>&nbsp;";
+					$final_footer .= "</font></td><td class='text-end'>&nbsp;";
 					if (($i+1) < count($evaledvar)) {
 						$final_footer .= "<a href='pkg.php?xml=" . $_REQUEST['xml'] . "&amp;startdisplayingat=" . ($startdisplayingat + $display_maximum_rows) . "&amp;display_maximum_rows={$display_maximum_rows}'>";
 					}

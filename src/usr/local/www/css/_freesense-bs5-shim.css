@@ -4,80 +4,37 @@
  * part of FreeSense (https://www.freesense.org)
  * Licensed under the Apache License, Version 2.0.
  *
- * Bootstrap 3 -> Bootstrap 5 compatibility shim (CSS half; the JS half is
- * freesense-bs5-compat.js). Recreates the BS3 classes that BS5 removed/renamed,
- * built on BS5's --bs-* semantic variables so everything follows the active
- * color mode (data-bs-theme). This lets the legacy Form framework, the 29
- * dashboard widgets, and ~200 pages keep rendering on BS5 while they are
- * migrated to native markup one page at a time.
+ * FreeSense grid & layout support on Bootstrap 5.
+ *
+ * The BS3->BS5 migration is essentially complete: panels, form components, and
+ * every removable BS3 utility class have moved to _freesense-core.css or native
+ * BS5 classes. What remains here is the small set of grid/layout back-fills the
+ * FreeSense Form framework and hand-rolled status-page rows genuinely depend on,
+ * plus the one legacy utility (.hidden) still referenced in markup.
  *
  * Imported by every theme right after bootstrap, before _freesense-core.css.
  * Partial file (leading underscore) -> excluded from the theme picker.
  */
 
-/* Panels are now a first-class FreeSense component defined in
- * _freesense-core.css (they are not a BS3 compat shim). */
-
-/* ============================ Forms ===================================== */
-.form-group { margin-bottom: 1rem; }
-.form-horizontal .form-group {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	margin-right: 0;
-	margin-left: 0;
-}
-.control-label { font-weight: 600; margin-bottom: 0; }
-.help-block {
-	display: block;
-	margin-top: .35rem;
-	color: var(--bs-secondary-color);
-	font-size: .875em;
-}
-.checkbox, .radio { position: relative; display: block; margin-top: .25rem; margin-bottom: .25rem; }
-.checkbox label, .radio label { padding-left: .25rem; margin-bottom: 0; }
-.has-error .form-control { border-color: var(--bs-danger); }
-.has-error .control-label,
-.has-error .help-block { color: var(--bs-danger); }
-.has-success .form-control { border-color: var(--bs-success); }
-.has-warning .form-control { border-color: var(--bs-warning); }
-
-/* BS3 input groups: addon/btn -> input-group-text behaviour */
-.input-group-addon {
-	display: flex;
-	align-items: center;
-	padding: .375rem .75rem;
-	font-weight: 400;
-	line-height: 1.5;
-	color: var(--bs-body-color);
-	text-align: center;
-	white-space: nowrap;
-	background-color: var(--bs-tertiary-bg);
-	border: 1px solid var(--bs-border-color);
-	border-radius: var(--bs-border-radius);
-}
-.input-group-btn { display: flex; }
-.input-group-btn > .btn { height: 100%; }
-
-/* col-xs-* migrated to BS5 col-* (native). */
-
-/* BS3 grid behavior: col-sm/md/lg FLOATED at their breakpoints. BS5 columns
-   outside a .row only carry widths, so legacy hand-rolled rows (e.g. the
-   status-page Search panels: label+input+select+buttons as col-sm-*) stacked
-   vertically. Floats are ignored inside flex parents, so the Form framework's
-   flexed .form-horizontal .form-group and native BS5 .row grids are unaffected. */
+/* The Form framework and several status pages lay out label/input/button rows
+ * as bare col-sm/md/lg-* divs placed directly under <form> (not inside a BS5
+ * .row flex container). BS5 columns outside a .row only carry widths, so those
+ * hand-rolled rows would stack vertically. Restore BS3 float behavior at each
+ * breakpoint. (Floats are ignored inside flex parents, so native BS5 .row grids
+ * and the flexed .form-horizontal .form-group are unaffected.) */
 @media (min-width: 768px)  { [class*="col-sm-"] { float: left; } }
 @media (min-width: 992px)  { [class*="col-md-"] { float: left; } }
 @media (min-width: 1200px) { [class*="col-lg-"] { float: left; } }
-.form-group::after { display: block; clear: both; content: ""; }
-/* The Form framework renders its global Save/Apply button as a bare col-sm-* div placed
-   DIRECTLY under <form> (not inside a .form-group/.row), so the [class*="col-sm-"] float:left
-   above pulls it out of flow, the <form> collapses, and following content (the footer) overlaps
-   it -> the Save button vanishes on every edit/settings page (list pages use .action-buttons and
-   are unaffected). Clear floats at the form boundary so the button stays in flow and visible. */
+
+/* The Form framework renders its global Save/Apply button as a bare col-sm-* div
+ * placed DIRECTLY under <form>. With the float above, that pulls it out of flow,
+ * the <form> collapses, and the footer overlaps it -> the Save button vanishes on
+ * every edit/settings page. Clear floats at the form + form-group boundary so the
+ * button stays in flow. (List pages use .action-buttons and are unaffected.) */
+.form-group::after,
 form::after { display: block; clear: both; content: ""; }
 
-/* BS3 offsets used by the Form framework (label/input column math) */
+/* BS3 column offsets used by the Form framework for label/input column math. */
 @media (min-width: 768px) {
 	.col-sm-offset-0  { margin-left: 0; }
 	.col-sm-offset-1  { margin-left: 8.333333%; }
@@ -93,139 +50,5 @@ form::after { display: block; clear: both; content: ""; }
 	.col-sm-offset-11 { margin-left: 91.66667%; }
 }
 
-/* ============================ Utilities ================================= */
-/* pull-left/right migrated to BS5 float-start/float-end (native). */
-/* center-block migrated to BS5 mx-auto d-block (native). */
+/* BS3 .hidden (still referenced in markup; BS5 uses .d-none). */
 .hidden { display: none !important; }
-.text-right { text-align: right !important; }
-.text-left  { text-align: left  !important; }
-.img-responsive { display: block; max-width: 100%; height: auto; }
-.clearfix::after { display: block; clear: both; content: ""; }
-
-.well {
-	min-height: 20px;
-	padding: 1rem;
-	margin-bottom: 1rem;
-	background-color: var(--bs-secondary-bg);
-	border: 1px solid var(--bs-border-color);
-	border-radius: var(--bs-border-radius);
-}
-.well-sm { padding: .5rem; }
-.well-lg { padding: 1.5rem; }
-
-.thumbnail {
-	display: block;
-	padding: 4px;
-	margin-bottom: 1rem;
-	background-color: var(--bs-body-bg);
-	border: 1px solid var(--bs-border-color);
-	border-radius: var(--bs-border-radius);
-}
-
-.page-header {
-	padding-bottom: 9px;
-	margin: 40px 0 20px;
-	border-bottom: 1px solid var(--bs-border-color);
-}
-
-.list-inline { padding-left: 0; margin-left: -5px; list-style: none; }
-.list-inline > li { display: inline-block; padding-right: 5px; padding-left: 5px; }
-
-/* BS3 .caret removed (no explicit caret spans remain; BS5 .dropdown-toggle
-   draws its own via ::after). btn-default -> btn-secondary and btn-xs -> btn-sm
-   migrated to native BS5. */
-
-/* BS3 .label == BS5 .badge */
-.label {
-	display: inline-block;
-	padding: .35em .6em;
-	font-size: 75%;
-	font-weight: 700;
-	line-height: 1;
-	color: #fff;
-	text-align: center;
-	white-space: nowrap;
-	vertical-align: baseline;
-	border-radius: .375rem;
-}
-.label-default { background-color: var(--bs-secondary); }
-.label-primary { background-color: var(--bs-primary); }
-.label-success { background-color: var(--bs-success); }
-.label-info    { background-color: var(--bs-info); }
-.label-warning { background-color: var(--bs-warning); color: #000; }
-.label-danger  { background-color: var(--bs-danger); }
-
-/* ============================ Progress bars ============================= */
-/* BS5 dropped the color variants (now utility bg-*) and renamed .active to
-   .progress-bar-animated. Without these, the dashboard RAM/disk/state bars
-   all render brand-coral regardless of their semantic state. */
-.progress-bar-success { background-color: var(--bs-success) !important; }
-.progress-bar-info    { background-color: var(--bs-info) !important; }
-.progress-bar-warning { background-color: var(--bs-warning) !important; }
-.progress-bar-danger  { background-color: var(--bs-danger) !important; }
-.progress-bar.active  { animation: progress-bar-stripes 1s linear infinite; }
-
-/* ============================ Tables ==================================== */
-/* table-condensed migrated to BS5 table-sm (native). */
-
-/* ============================ Definition lists ========================= */
-/* BS5 removed .dl-horizontal. Status/Diagnostics pages render label/value
-   pairs with it; without this they collapse flush-left into the panel border. */
-dl.dl-horizontal { margin: 0; padding: .85rem 1rem; }
-.dl-horizontal dt { font-weight: 700; }
-.dl-horizontal dd { margin-bottom: .5rem; margin-left: 0; }
-.dl-horizontal dd:last-child { margin-bottom: 0; }
-@media (min-width: 768px) {
-	.dl-horizontal dt {
-		float: left;
-		width: 200px;
-		clear: left;
-		text-align: left;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		padding-right: 1rem;
-	}
-	.dl-horizontal dd { margin-left: 200px; }
-}
-
-/* Any other bare content dropped straight into a panel body shouldn't touch
-   the border (forms/tables bring their own padding, so scope to direct text). */
-.panel-body > p,
-.panel-body > pre,
-.panel-body > ul:not(.nav),
-.panel-body > ol { padding-left: 1rem; padding-right: 1rem; }
-
-/* ============================ Close buttons (legacy .close) ============ */
-/* BS5 removed .close (now .btn-close). pfSense still emits <button class="close">&times;</button>
-   in alerts and some modals; without this they render as a default bordered button (an "X box"). */
-.close {
-	float: right;
-	padding: 0;
-	margin: 0 0 0 .5rem;
-	font-size: 1.4rem;
-	font-weight: 700;
-	line-height: 1;
-	color: var(--bs-body-color);
-	background: transparent;
-	border: 0;
-	opacity: .55;
-	cursor: pointer;
-}
-.close:hover { opacity: 1; }
-.close span { pointer-events: none; }
-.modal-header .close { margin: -.5rem -.5rem -.5rem auto; }
-.alert-dismissible .close, .alert .close { position: relative; top: -.1rem; }
-
-/* ============================ Responsive visibility ==================== */
-.hidden-xs { }
-@media (max-width: 767px)  { .hidden-xs { display: none !important; } }
-@media (min-width: 768px) and (max-width: 991px)  { .hidden-sm { display: none !important; } }
-@media (min-width: 992px) and (max-width: 1199px) { .hidden-md { display: none !important; } }
-@media (min-width: 1200px) { .hidden-lg { display: none !important; } }
-
-.visible-xs, .visible-sm, .visible-md, .visible-lg { display: none !important; }
-@media (max-width: 767px)  { .visible-xs { display: block !important; } }
-@media (min-width: 768px) and (max-width: 991px)  { .visible-sm { display: block !important; } }
-@media (min-width: 992px) and (max-width: 1199px) { .visible-md { display: block !important; } }
-@media (min-width: 1200px) { .visible-lg { display: block !important; } }
