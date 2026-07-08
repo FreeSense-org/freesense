@@ -3,9 +3,7 @@
  * system.php
  *
  * part of FreeSense (https://www.freesense.org)
- * Copyright (c) 2004-2013 BSD Perimeter
- * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2026 The FreeSense Project
  * All rights reserved.
  *
  * originally based on m0n0wall (http://m0n0.ch/wall)

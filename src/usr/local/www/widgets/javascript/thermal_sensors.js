@@ -2,9 +2,7 @@
  * thermal_sensors.js
  *
  * part of FreeSense (https://www.freesense.org)
- * Copyright (c) 2004-2013 BSD Perimeter
- * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2026 The FreeSense Project
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");

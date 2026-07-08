@@ -4,9 +4,7 @@
  *
  * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2005-2006 Colin Smith (ethethlay@gmail.com)
- * Copyright (c) 2004-2013 BSD Perimeter
- * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2026 The FreeSense Project
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -1611,7 +1609,7 @@ function update_repos() {
 	/* Default error message for failure cases. */
 	$fail_error = [
 		"error" => 1,
-		"messages" => [gettext('Could not connect to Netgate servers. Please try again later.')]
+		"messages" => [gettext('Could not connect to FreeSense servers. Please try again later.')]
 	];
 
 	/* Execute repoc with a full pkg style environment, including proxy

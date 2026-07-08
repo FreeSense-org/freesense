@@ -3,9 +3,7 @@
  * index.php
  *
  * part of FreeSense (https://www.freesense.org)
- * Copyright (c) 2004-2013 BSD Perimeter
- * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2026 The FreeSense Project
  * All rights reserved.
  *
  * Originally part of m0n0wall (http://m0n0.ch/wall)
@@ -136,7 +134,7 @@ if ((!empty($cpsession)) && (! $_POST['logout_id']) && (!empty($cpcfg['page']['l
 		<input name="logout" type="submit" value="<?= gettext("Disconnect") ?>" />
 	</form>
 	<br  />
-	<span> <i>Made with &hearts; by</i> <strong>Netgate</strong></span>
+	<span> <i>Made with &hearts; by</i> <strong>FreeSense</strong></span>
 	</div>
 </div>
 </body>

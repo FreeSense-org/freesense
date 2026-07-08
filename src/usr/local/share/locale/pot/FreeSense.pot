@@ -11296,12 +11296,12 @@ msgid "Installation Feedback"
 msgstr ""
 
 #: src/usr/local/www/system_advanced_misc.php:398
-msgid "Netgate Device ID"
+msgid "Device ID"
 msgstr ""
 
 #: src/usr/local/www/system_advanced_misc.php:401
 msgid ""
-"Enable this option to not send Netgate Device ID as part of User-Agent "
+"Enable this option to not send the Device ID as part of the User-Agent "
 "header."
 msgstr ""
 
@@ -12601,7 +12601,7 @@ msgstr ""
 #: src/usr/local/www/services_acb_settings.php:198
 msgid ""
 "You may optionally provide an identifier which will be stored in plain text "
-"along with each encrypted backup. This may allow the Netgate support team to "
+"along with each encrypted backup. This may allow the support team to "
 "locate your key should you lose it."
 msgstr ""
 
@@ -29103,7 +29103,7 @@ msgid "Serial:"
 msgstr ""
 
 #: src/usr/local/www/widgets/widgets/system_information.widget.php:196
-msgid "Netgate Device ID:"
+msgid "Device ID:"
 msgstr ""
 
 #: src/usr/local/www/widgets/widgets/system_information.widget.php:219
@@ -38352,7 +38352,7 @@ msgid "Use memory file system for /tmp and /var"
 msgstr ""
 
 #: src/usr/local/www/system_advanced_misc.php:399
-msgid "Do NOT send Netgate Device ID with user agent"
+msgid "Do NOT send Device ID with user agent"
 msgstr ""
 
 #: src/usr/local/www/system_hasync.php:125

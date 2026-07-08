@@ -3,9 +3,7 @@
  * config.console.inc
  *
  * part of FreeSense (https://www.freesense.org)
- * Copyright (c) 2004-2013 BSD Perimeter
- * Copyright (c) 2013-2016 Electric Sheep Fencing
- * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2026 The FreeSense Project
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
@@ -736,7 +734,7 @@ function installer_settings_import() {
 		return (-1);
 	}
 
-	/* Read the settings from the Netgate Installer. */
+	/* Read the settings from the FreeSense Installer. */
 	$settings = file_get_contents("{$g['conf_path']}/installer-settings.json");
 	if ($settings === false) {
 		return (0);
@@ -773,7 +771,7 @@ function installer_settings_import() {
 	/* Let the system know that the interface assignment is done. */
 	touch("{$g['conf_path']}/assign_complete");
 
-	write_config(gettext("Network settings imported from the Netgate Installer"));
+	write_config(gettext("Network settings imported from the FreeSense Installer"));
 
 	return (0);
 }

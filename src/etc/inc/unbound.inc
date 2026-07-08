@@ -4,8 +4,7 @@
  *
  * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2015 Warren Baker <warren@percol8.co.za>
- * Copyright (c) 2015-2016 Electric Sheep Fencing
- * Copyright (c) 2015-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2004-2026 The FreeSense Project
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
