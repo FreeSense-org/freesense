@@ -290,12 +290,15 @@ if ($user_settings['widgets']['sequence'] != "") {
 ## Get the configured options for Show/Hide available widgets panel.
 $dashboard_available_widgets_hidden = !$user_settings['webgui']['dashboardavailablewidgetspanel'];
 
+/* Bootstrap 5 uses the "show" class to mark a .collapse element as expanded
+ * (Bootstrap 3 used "in"). Emit "show" when the panel body should be open and
+ * nothing when it should be collapsed. */
 if ($dashboard_available_widgets_hidden) {
-	$panel_state = 'out';
-	$panel_body_state = 'in';
+	$panel_state = '';
+	$panel_body_state = 'show';
 } else {
-	$panel_state = 'in';
-	$panel_body_state = 'out';
+	$panel_state = 'show';
+	$panel_body_state = '';
 }
 
 ## Set Page Title and Include Header
@@ -409,7 +412,7 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 							</span>
 						</h2>
 					</div>
-					<div id="<?=$widget_panel_body_id?>" class="panel-body collapse<?=($widgetconfig['display'] == 'close' ? '' : ' in')?>">
+					<div id="<?=$widget_panel_body_id?>" class="panel-body collapse<?=($widgetconfig['display'] == 'close' ? '' : ' show')?>">
 						<?php
 							// For backward compatibility, included *.widget.php code needs the var $widgetname
 							$widgetname = $widgetkey;
