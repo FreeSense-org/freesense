@@ -42,10 +42,12 @@ net-mgmt/zabbix7-agent
 net-mgmt/zabbix7-proxy
 net-mgmt/zabbix74-agent
 net-mgmt/zabbix74-proxy
-# NOTE: security/ca_root_nss removed — its ETCSYMLINK option is FreeBSD's default, so it should
-# FETCH, not build. It's a likely dependency of lang/rust; building it would cascade-rebuild rust
-# (a dependency being (re)built forces its dependents to rebuild too). We keep the ETCSYMLINK
-# SET_FORCE in make.conf purely as an /etc/ssl/cert.pem safety net if it ever does build.
+# NOTE: security/ca_root_nss is NOT built — it must FETCH so lang/rust (which depends on it)
+# stays fetched, not source-rebuilt (~1.5-5h). The ETCSYMLINK SET_FORCE was REMOVED from
+# make.conf: on FreeBSD 15/16 the port marks ETCSYMLINK OPTIONS_EXCLUDE, so FreeBSD's binary is
+# built WITHOUT it; forcing it made our copy diverge -> ca_root_nss rebuilt -> rust cascade-rebuilt
+# (the exact bug that made suricata/ntopng/snort3 workers take ~2.5h and time out). Keep
+# ca_root_nss at FreeBSD's default. Do NOT re-add any ca_root_nss option override here or in make.conf.
 security/opensc
 security/openvpn
 security/snort
