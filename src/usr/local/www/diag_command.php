@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_command.php
  *
@@ -199,7 +199,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 					<button type="button" class="btn btn-success btn-sm" name="btnRecallNext" onclick="btnRecall_onClick( this.form,  1 );" title="<?=gettext("Recall Next Command")?>">
 						<i class="fa-solid fa-angle-double-right"></i>
 					</button>
-					<button style="margin-left: 10px;" type="button" class="btn btn-default btn-sm" onclick="return Reset_onClick( this.form );" title="<?=gettext("Clear command entry")?>">
+					<button style="margin-left: 10px;" type="button" class="btn btn-secondary btn-sm" onclick="return Reset_onClick( this.form );" title="<?=gettext("Clear command entry")?>">
 						<i class="fa-solid fa-undo"></i>
 						<?=gettext("Clear"); ?>
 					</button>
@@ -231,7 +231,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Upload File')?></h2></div>
 		<div class="panel-body">
 			<div class="content">
-				<input name="ulfile" type="file" class="btn btn-default btn-sm btn-file" id="ulfile" />
+				<input name="ulfile" type="file" class="btn btn-secondary btn-sm btn-file" id="ulfile" />
 				<br />
 				<button name="submit" type="submit" class="btn btn-primary btn-sm" id="upload" value="UPLOAD">
 					<i class="fa-solid fa-upload icon-embed-btn"></i>

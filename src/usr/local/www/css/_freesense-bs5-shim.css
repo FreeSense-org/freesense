@@ -59,27 +59,7 @@
 .input-group-btn { display: flex; }
 .input-group-btn > .btn { height: 100%; }
 
-/* ============================ Grid: col-xs-* (== BS5 col-*) ============= */
-.col-xs-1,.col-xs-2,.col-xs-3,.col-xs-4,.col-xs-5,.col-xs-6,
-.col-xs-7,.col-xs-8,.col-xs-9,.col-xs-10,.col-xs-11,.col-xs-12 {
-	position: relative;
-	width: 100%;
-	padding-right: 15px;
-	padding-left: 15px;
-	float: left;
-}
-.col-xs-1  { width: 8.333333%; }
-.col-xs-2  { width: 16.66667%; }
-.col-xs-3  { width: 25%; }
-.col-xs-4  { width: 33.33333%; }
-.col-xs-5  { width: 41.66667%; }
-.col-xs-6  { width: 50%; }
-.col-xs-7  { width: 58.33333%; }
-.col-xs-8  { width: 66.66667%; }
-.col-xs-9  { width: 75%; }
-.col-xs-10 { width: 83.33333%; }
-.col-xs-11 { width: 91.66667%; }
-.col-xs-12 { width: 100%; }
+/* col-xs-* migrated to BS5 col-* (native). */
 
 /* BS3 grid behavior: col-sm/md/lg FLOATED at their breakpoints. BS5 columns
    outside a .row only carry widths, so legacy hand-rolled rows (e.g. the
@@ -114,9 +94,8 @@ form::after { display: block; clear: both; content: ""; }
 }
 
 /* ============================ Utilities ================================= */
-.pull-right { float: right !important; }
-.pull-left  { float: left  !important; }
-.center-block { display: block; margin-right: auto; margin-left: auto; }
+/* pull-left/right migrated to BS5 float-start/float-end (native). */
+/* center-block migrated to BS5 mx-auto d-block (native). */
 .hidden { display: none !important; }
 .text-right { text-align: right !important; }
 .text-left  { text-align: left  !important; }
@@ -152,37 +131,9 @@ form::after { display: block; clear: both; content: ""; }
 .list-inline { padding-left: 0; margin-left: -5px; list-style: none; }
 .list-inline > li { display: inline-block; padding-right: 5px; padding-left: 5px; }
 
-/* BS3 dropdown caret (BS5 draws its own via ::after on .dropdown-toggle, but
-   keep this for stray markup that still emits an explicit caret span) */
-.caret {
-	display: inline-block;
-	width: 0;
-	height: 0;
-	margin-left: 2px;
-	vertical-align: middle;
-	border-top: 4px dashed;
-	border-right: 4px solid transparent;
-	border-left: 4px solid transparent;
-}
-
-/* ============================ Buttons / labels ========================== */
-.btn-default {
-	color: var(--bs-body-color);
-	background-color: var(--bs-secondary-bg);
-	border-color: var(--bs-border-color);
-}
-.btn-default:hover,
-.btn-default:focus {
-	color: var(--bs-body-color);
-	background-color: var(--bs-tertiary-bg);
-	border-color: var(--bs-border-color);
-}
-.btn-xs {
-	padding: .1rem .4rem;
-	font-size: .75rem;
-	line-height: 1.4;
-	border-radius: .2rem;
-}
+/* BS3 .caret removed (no explicit caret spans remain; BS5 .dropdown-toggle
+   draws its own via ::after). btn-default -> btn-secondary and btn-xs -> btn-sm
+   migrated to native BS5. */
 
 /* BS3 .label == BS5 .badge */
 .label {
@@ -215,7 +166,7 @@ form::after { display: block; clear: both; content: ""; }
 .progress-bar.active  { animation: progress-bar-stripes 1s linear infinite; }
 
 /* ============================ Tables ==================================== */
-.table-condensed > :not(caption) > * > * { padding: .25rem; }
+/* table-condensed migrated to BS5 table-sm (native). */
 
 /* ============================ Definition lists ========================= */
 /* BS5 removed .dl-horizontal. Status/Diagnostics pages render label/value

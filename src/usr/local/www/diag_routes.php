@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_routes.php
  *
@@ -183,7 +183,7 @@ events.push(function() {
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("IPv4 Routes")?></h2></div>
 	<div class="panel panel-body">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" id="IPv4" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" id="IPv4" data-sortable>
 		<thead>
 			<tr>
 				<th><?= gettext('Destination') ?></th>
@@ -207,7 +207,7 @@ events.push(function() {
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("IPv6 Routes")?></h2></div>
 	<div class="panel panel-body">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" id="IPv6" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" id="IPv6" data-sortable>
 		<thead>
 			<tr>
 				<th><?= gettext('Destination') ?></th>

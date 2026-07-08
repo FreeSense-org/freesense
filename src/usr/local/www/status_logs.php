@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_logs.php
  *
@@ -151,7 +151,7 @@ if (!$rawfilter) {
 	</div>
 	<div class="panel-body">
 	    <div class="table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 <?php if ($logfile == 'utx'): ?>
 			<thead>
 				<tr class="text-nowrap">

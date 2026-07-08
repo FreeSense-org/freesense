@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_usermanager_settings.php
  *
@@ -49,7 +49,7 @@ if ($_REQUEST['ajax']) {
 	} else {
 		print("<pre>");
 
-		print('<table class="table table-hover table-condensed">');
+		print('<table class="table table-hover table-sm">');
 
 		print("<tr><td>" . sprintf(gettext('Attempting connection to %1$s%2$s%3$s'), "<td><center>", htmlspecialchars($auth_server_host), "</center></td>"));
 		if (ldap_test_connection($authcfg)) {

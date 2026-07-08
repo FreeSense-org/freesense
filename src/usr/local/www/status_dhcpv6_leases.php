@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_dhcpv6_leases.php
  *
@@ -217,7 +217,7 @@ if (count($pools) > 0) {
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Pool Status')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 		<thead>
 			<tr>
 				<th><?=gettext("Failover Group")?></a></th>
@@ -262,7 +262,7 @@ endif; /* dhcp_is_backend('kea') */
 	<div class="panel-heading">
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
-			<span class="widget-heading-icon pull-right">
+			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
@@ -305,7 +305,7 @@ endif; /* dhcp_is_backend('kea') */
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Address Leases')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table statusdhcpv6leases table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table statusdhcpv6leases table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th data-sortable="false"><!-- status icons --></th>
@@ -444,7 +444,7 @@ endif;
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Prefix Delegation Leases')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table statusdhcpv6prefixes table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table statusdhcpv6prefixes table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 		<thead>
 			<tr>
 				<th data-sortable="false"><!-- status icons --></th>
@@ -587,7 +587,7 @@ if ($no_prefixes_displayed):
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Address Lease Utilization')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext('Interface')?></th>
@@ -639,7 +639,7 @@ if (dhcp_is_backend('kea')):
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('High Availability Status')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed">
+		<table class="table table-striped table-hover table-sm">
 		<thead>
 			<tr>
 				<th><?=gettext('Node Name')?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_logs_packages.php
  *
@@ -177,7 +177,7 @@ if ($pkgwithlogging == false) {
 		</h2>
 	</div>
 	<div class="table table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr class="text-nowrap">
 					<th style="width:100%"><?=gettext("Message")?></th>

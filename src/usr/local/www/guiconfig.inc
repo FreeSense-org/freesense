@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * guiconfig.inc
  *
@@ -297,7 +297,7 @@ function sprint_info_box($msg, $class="alert-warning", $btnname = "close", $btnt
 		$class = 'alert-' . $class;
 	}
 
-	$msg = '<div class="pull-left">' . $msg . '</div>';
+	$msg = '<div class="float-start">' . $msg . '</div>';
 
 	if ($btnname === "close") {
 		$msg = '<button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' . $msg;
@@ -309,7 +309,7 @@ function sprint_info_box($msg, $class="alert-warning", $btnname = "close", $btnt
 			$btnicon = '<i class="' . $btnicon . ' icon-embed-btn"></i>';
 		}
 
-		$msg .= '<form method="post" class="pull-right"><button type="submit" class="btn btn-' . $btnclass . '" name="'. $btnname . '" value="' . $btntext . '">' . $btnicon . $btntext . '</button>';
+		$msg .= '<form method="post" class="float-end"><button type="submit" class="btn btn-' . $btnclass . '" name="'. $btnname . '" value="' . $btntext . '">' . $btnicon . $btntext . '</button>';
 
 		if ( isset($_POST['if']) && !empty($_POST['if'])) {
 			$msg .= "<input type=\"hidden\" name=\"if\" value=\"" . htmlspecialchars($_POST['if']) . "\" />";

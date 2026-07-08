@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * vpn_openvpn_csc.php
  *
@@ -1012,7 +1012,7 @@ else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('CSC Overrides')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("Disabled")?></th>

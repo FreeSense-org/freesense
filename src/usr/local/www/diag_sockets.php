@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_sockets.php
  *
@@ -62,7 +62,7 @@ $showAllOption = $showAll ? "" : "?showAll";
 	<div class="panel-heading"><h2 class="panel-title"><?=$name?> <?=gettext("System Socket Information")?></h2></div>
 	<div class="panel-body">
 		<div class="table table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 <?php
 					foreach (explode("\n", $table) as $i => $line) {

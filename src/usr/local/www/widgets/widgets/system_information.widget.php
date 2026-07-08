@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_information.widget.php
  *
@@ -167,7 +167,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 ?>
 
 <div class="table-responsive">
-<table class="table table-hover table-striped table-condensed">
+<table class="table table-hover table-striped table-sm">
 	<tbody>
 <?php
 	if (!in_array('name', $skipsysinfoitems)):
@@ -558,7 +558,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		<div class="panel-body">
 			<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 			<div class="table responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Item")?></th>

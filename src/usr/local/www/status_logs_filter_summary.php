@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_logs_filter_summary.php
  *
@@ -162,7 +162,7 @@ function stat_block($summary, $stat, $num) {
 	global $g, $gotlines, $fields;
 	uasort($summary[$stat] , 'cmp');
 	print('<div class="table-responsive">');
-	print('<table class="table table-striped table-hover table-condensed">');
+	print('<table class="table table-striped table-hover table-sm">');
 	print('<tr><th>' . $fields[$stat] . '</th>' . '<th>' . gettext("Data points") . '</th><th></th></tr>');
 	$k = array_keys($summary[$stat]);
 	$total = 0;
@@ -173,7 +173,7 @@ function stat_block($summary, $stat, $num) {
 			$numentries++;
 			$outstr = $k[$i];
 			if (is_ipaddr($outstr)) {
-				print('<tr><td>' . $outstr . '</td>' . '<td>' . $summary[$stat][$k[$i]] . '</td><td><a href="diag_dns.php?host=' . $outstr . '" class="btn btn-xs btn-primary" title="' . gettext("Reverse Resolve with DNS") . '"><i class="fa-solid fa-search icon-embed-btn"></i>' . gettext("Lookup") . '</a></td></tr>');
+				print('<tr><td>' . $outstr . '</td>' . '<td>' . $summary[$stat][$k[$i]] . '</td><td><a href="diag_dns.php?host=' . $outstr . '" class="btn btn-sm btn-primary" title="' . gettext("Reverse Resolve with DNS") . '"><i class="fa-solid fa-search icon-embed-btn"></i>' . gettext("Lookup") . '</a></td></tr>');
 
 			} elseif (substr_count($outstr, '/') == 1) {
 				list($proto, $port) = explode('/', $outstr);

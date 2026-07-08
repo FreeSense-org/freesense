@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_ipsec_leases.php
  *
@@ -46,7 +46,7 @@ display_top_tabs($tab_array);
 if (isset($mobile['pool']) && is_array($mobile['pool'])) {
 ?>
 	<div class="table-responsive">
-		<table class="table table-striped table-condensed table-hover sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("Pool")?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_gmirror.php
  *
@@ -215,7 +215,7 @@ else:
 <?php
 	if (count($mirror_status) > 0): ?>
 
-			<table class="table table-striped table-hover table-condensed">
+			<table class="table table-striped table-hover table-sm">
 				<thead>
 					<tr>
 						<th><?=gettext("Name"); ?></th>
@@ -236,7 +236,7 @@ else:
 <?php
 			if (strtoupper($name['status']) == "DEGRADED"): ?>
 							<br />
-							<a class="btn btn-xs btn-danger" href="diag_gmirror.php?action=forget&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Forget Disconnected Disks"); ?></a>
+							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=forget&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Forget Disconnected Disks"); ?></a>
 <?php
 			endif; ?>
 						</td>
@@ -245,9 +245,9 @@ else:
 							<?php list($cname, $cstatus) = explode(" ", $name['components'][0], 2); ?><br />
 <?php
 			if ((strtoupper($name['status']) == "COMPLETE") && (count($name["components"]) > 1)): ?>
-							<a class="btn btn-xs btn-info" href="diag_gmirror.php?action=rebuild&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Rebuild"); ?></a>
-							<a class="btn btn-xs btn-warning" href="diag_gmirror.php?action=deactivate&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-link-slash icon-embed-btn"></i><?=gettext("Deactivate"); ?></a>
-							<a class="btn btn-xs btn-danger" href="diag_gmirror.php?action=remove&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Remove"); ?></a>
+							<a class="btn btn-sm btn-info" href="diag_gmirror.php?action=rebuild&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Rebuild"); ?></a>
+							<a class="btn btn-sm btn-warning" href="diag_gmirror.php?action=deactivate&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-link-slash icon-embed-btn"></i><?=gettext("Deactivate"); ?></a>
+							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=remove&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Remove"); ?></a>
 <?php
 			endif; ?>
 						</td>
@@ -263,9 +263,9 @@ else:
 							<?php list($cname, $cstatus) = explode(" ", $component, 2); ?><br />
 <?php
 					if ((strtoupper($name['status']) == "COMPLETE") && (count($name["components"]) > 1)): ?>
-							<a class="btn btn-xs btn-info" href="diag_gmirror.php?action=rebuild&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Rebuild"); ?></a>
-							<a class="btn btn-xs btn-warning" href="diag_gmirror.php?action=deactivate&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-link-slash icon-embed-btn"></i><?=gettext("Deactivate"); ?></a>
-							<a class="btn btn-xs btn-danger" href="diag_gmirror.php?action=remove&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Remove"); ?></a>
+							<a class="btn btn-sm btn-info" href="diag_gmirror.php?action=rebuild&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Rebuild"); ?></a>
+							<a class="btn btn-sm btn-warning" href="diag_gmirror.php?action=deactivate&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-link-slash icon-embed-btn"></i><?=gettext("Deactivate"); ?></a>
+							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=remove&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Remove"); ?></a>
 <?php
 					endif; ?>
 						</td>
@@ -296,7 +296,7 @@ else:
 		<div class="panel-body table-responsive">
 <?php
 	if (count($unused_consumers) > 0): ?>
-			<table class="table table-striped table-hover table-condensed">
+			<table class="table table-striped table-hover table-sm">
 				<thead>
 					<tr>
 						<th><?=gettext("Name"); ?></th>
@@ -321,12 +321,12 @@ else:
 			$oldmirror = gmirror_get_consumer_metadata_mirror($consumer['name']);
 
 			if ($oldmirror): ?>
-							<a class="btn btn-xs btn-success" href="diag_gmirror.php?action=activate&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>&amp;mirror=<?=htmlspecialchars($oldmirror); ?>">
+							<a class="btn btn-sm btn-success" href="diag_gmirror.php?action=activate&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>&amp;mirror=<?=htmlspecialchars($oldmirror); ?>">
 								<i class="fa-solid fa-link icon-embed-btn"></i>
 								<?=sprintf(gettext("Reactivate on %s"), htmlspecialchars($oldmirror)); ?>
 							</a>
 
-							<a class="btn btn-xs btn-danger" href="diag_gmirror.php?action=clear&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>">
+							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=clear&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>">
 								<i class="fa-solid fa-trash-can icon-embed-btn"></i>
 								<?=gettext("Clear Metadata"); ?>
 							</a>
@@ -338,7 +338,7 @@ else:
 					$consumer_size = gmirror_get_unused_consumer_size($consumer['name']);
 
 					if ($consumer_size > $mirror_size): ?>
-							<a class="btn btn-xs btn-success" href="diag_gmirror.php?action=insert&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>&amp;mirror=<?=htmlspecialchars($mirror); ?>">
+							<a class="btn btn-sm btn-success" href="diag_gmirror.php?action=insert&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>&amp;mirror=<?=htmlspecialchars($mirror); ?>">
 								<i class="fa-solid fa-plus icon-embed-btn"></i>
 								<?=htmlspecialchars($mirror); ?>
 							</a>

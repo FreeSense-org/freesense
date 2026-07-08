@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_openvpn.php
  *
@@ -156,7 +156,7 @@ include("head.inc"); ?>
 <div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title">ovpns<?= htmlspecialchars($server['vpnid']) ?>: <?=htmlspecialchars($server['name']);?> / <?=gettext('Client Connections') . ": " . ($server['conns'][0]['common_name'] != '[error]' ? sizeof($server['conns']) : '0');?></h2></div>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Common Name")?></th>
@@ -253,7 +253,7 @@ include("head.inc"); ?>
 <div class="panel panel-default" id="tabroute-<?=$i?>" style="display: none;">
 		<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($server['name']);?> <?=gettext("Routing Table"); ?></h2></div>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Common Name"); ?></th>
@@ -301,7 +301,7 @@ include("head.inc"); ?>
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Peer to Peer Server Instance Statistics"); ?></h2></div>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Name"); ?></th>
@@ -360,7 +360,7 @@ include("head.inc"); ?>
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Client Instance Statistics"); ?></h2></div>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Name"); ?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * csrf_error.php
  *
@@ -69,7 +69,7 @@ $logincssfile = "#770101";
 			<div style="background: <?=$logincssfile?>;" class="pagebodywarn">
 				<div class="col-sm-2"></div>
 				<div class="col-sm-6 offset-md-4 logoCol">
-					<div class="loginCont center-block">
+					<div class="loginCont mx-auto d-block">
 						<p>Missing or expired CSRF token</p>
 						<p>Form session may have expired, cookies may not be enabled, or possible CSRF-based attack.</p>
 						<p>Resubmitting this request may put the firewall at risk or lead to unintended behavior.</p>

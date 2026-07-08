@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_ntpd.php
  *
@@ -346,7 +346,7 @@ include("head.inc");
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Network Time Protocol Status");?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("Status")?></th>
@@ -384,7 +384,7 @@ if (($gps_ok) && ($gps_lat) && ($gps_lon)):
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("GPS Information");?></h2></div>
 	<div class="panel-body">
-		<table class="table table-striped table-hover table-condensed">
+		<table class="table table-striped table-hover table-sm">
 			<thead>
 				<tr>
 					<th><?=gettext("Clock Latitude")?></th>

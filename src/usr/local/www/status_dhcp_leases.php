@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_dhcp_leases.php
  *
@@ -142,7 +142,7 @@ if (dhcp_is_backend('isc') && count($leases['failover']) > 0):
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Pool Status')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 		<thead>
 			<tr>
 				<th><?=gettext("Failover Group")?></a></th>
@@ -175,7 +175,7 @@ endif; /* dhcp_is_backend('isc') */
 	<div class="panel-heading">
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
-			<span class="widget-heading-icon pull-right">
+			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
@@ -217,7 +217,7 @@ endif; /* dhcp_is_backend('isc') */
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Leases')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th data-sortable="false"><!-- icon --></th>
@@ -362,7 +362,7 @@ endif;
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Lease Utilization')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext('Interface')?></th>
@@ -436,7 +436,7 @@ if (is_array($status) && array_key_exists('high-availability', $status['argument
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('High Availability Status')?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed">
+		<table class="table table-striped table-hover table-sm">
 		<thead>
 			<tr>
 				<th><?=gettext('Node Name')?></th>

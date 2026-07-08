@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_captiveportal.php
  *
@@ -204,7 +204,7 @@ if (!empty($cpzone)): ?>
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=sprintf(gettext("Users Logged In (%d)"), count($cpdb))?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("IP address")?></th>

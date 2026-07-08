@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_services.php
  *
@@ -77,7 +77,7 @@ if (count($services) > 0) {
 
 	<div class="panel-body panel-default">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Service")?></th>

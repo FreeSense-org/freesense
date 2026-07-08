@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * foot.inc
  *
@@ -28,9 +28,9 @@
 	<footer class="footer">
 		<div class="container">
 			<p class="text-muted">
-				<a id="tpl" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up pull-left"></i></a>
+				<a id="tpl" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up float-start"></i></a>
 				<?=print_credit();?>
-				<a id="tpr" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up pull-right"></i></a>
+				<a id="tpr" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up float-end"></i></a>
 			</p>
 		</div>
 	</footer>

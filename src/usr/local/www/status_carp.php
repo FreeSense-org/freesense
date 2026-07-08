@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_carp.php
  *
@@ -193,7 +193,7 @@ if ($carpcount == 0) {
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext('CARP Status')?></h2></div>
 			<div class="panel-body table-responsive">
-				<table class="table table-striped table-condensed table-hover sortable-theme-bootstrap " data-sortable>
+				<table class="table table-striped table-sm table-hover sortable-theme-bootstrap " data-sortable>
 					<thead>
 						<tr>
 							<th><?=gettext("Interface and VHID")?></th>

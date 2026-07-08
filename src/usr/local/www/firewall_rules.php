@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * firewall_rules.php
  *
@@ -392,7 +392,7 @@ if (isset($if)):
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=$rules_header_text?></h2></div>
 		<div id="mainarea" class="table-responsive panel-body">
-			<table id="ruletable" class="table table-hover table-striped table-condensed" style="overflow-x: 'visible'">
+			<table id="ruletable" class="table table-hover table-striped table-sm" style="overflow-x: 'visible'">
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -1059,7 +1059,7 @@ else: ?>
 <?php endif; ?>
 
 <div class="infoblock">
-	<div class="alert alert-info clearfix" role="alert"><div class="pull-left">
+	<div class="alert alert-info clearfix" role="alert"><div class="float-start">
 		<dl class="dl-horizontal responsive">
 		<!-- Legend -->
 			<dt><?=gettext('Legend')?></dt>				<dd></dd>

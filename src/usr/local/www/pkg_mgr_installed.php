@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * pkg_mgr_installed.php
  *
@@ -55,7 +55,7 @@ function get_pkg_table() {
 
 	$pkgtbl = "";
 	$pkgtbl .='		<div class="table-responsive">';
-	$pkgtbl .='		<table class="table table-striped table-hover table-condensed">';
+	$pkgtbl .='		<table class="table table-striped table-hover table-sm">';
 	$pkgtbl .='			<thead>';
 	$pkgtbl .='				<tr>';
 	$pkgtbl .='					<th><!-- Status icon --></th>';

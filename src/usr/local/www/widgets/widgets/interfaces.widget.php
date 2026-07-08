@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * interfaces.widget.php
  *
@@ -67,7 +67,7 @@ if ($_POST['widgetkey'] && !$_REQUEST['ajax']) {
 ?>
 
 <div class="table-responsive" id="ifaces_status_<?=htmlspecialchars($widgetkey)?>">
-	<table class="table table-striped table-hover table-condensed">
+	<table class="table table-striped table-hover table-sm">
 		<tbody>
 
 <?php
@@ -174,7 +174,7 @@ endif;
 		<div class="panel-body">
 			<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 			<div class="table responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Interface")?></th>

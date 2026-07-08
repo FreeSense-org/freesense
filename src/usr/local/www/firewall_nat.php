@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * firewall_nat.php
  *
@@ -97,7 +97,7 @@ $columns_in_table = 13;
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Rules')?></h2></div>
 		<div class="panel-body table-responsive">
-			<table id="ruletable" class="table table-striped table-hover table-condensed">
+			<table id="ruletable" class="table table-striped table-hover table-sm">
 				<thead>
 					<tr>
 						<th style="padding-left:10px;">  <input type="checkbox" id="selectAll" name="selectAll" /></th>

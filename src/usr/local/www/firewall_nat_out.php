@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * firewall_nat_out.php
  *
@@ -153,7 +153,7 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Mappings')?></h2></div>
 		<div class="panel-body table-responsive">
-			<table id="ruletable" class="table table-hover table-striped table-condensed">
+			<table id="ruletable" class="table table-hover table-striped table-sm">
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -385,7 +385,7 @@ if ($mode == "automatic" || $mode == "hybrid"):
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext("Automatic Rules")?></h2></div>
 		<div class="panel-body table-responsive">
-			<table class="table table-hover table-striped table-condensed">
+			<table class="table table-hover table-striped table-sm">
 				<thead>
 					<tr>
 						<th><!-- status	  --></th>

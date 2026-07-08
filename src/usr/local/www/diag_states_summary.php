@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_states_summary.php
  *
@@ -140,7 +140,7 @@ function print_summary_table($label, $iparr, $sort = TRUE) {
 		</div>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-hover table-condensed table-striped">
+				<table class="table table-hover table-sm table-striped">
 					<thead>
 						<tr>
 							<th></th><th></th><th></th>

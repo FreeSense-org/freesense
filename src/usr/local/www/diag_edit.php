@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_edit.php
  *
@@ -116,22 +116,22 @@ print_callout(gettext("The capabilities offered here can be dangerous. No suppor
 				<p><input type="text" class="form-control" id="fbTarget" placeholder="<?=gettext('Path to file to be edited')?>"/></p>
 				<div class="btn-group">
 					<p>
-						<button type="button" class="btn btn-default btn-sm" onclick="loadFile();"	value="<?=gettext('Load')?>">
+						<button type="button" class="btn btn-secondary btn-sm" onclick="loadFile();"	value="<?=gettext('Load')?>">
 							<i class="fa-regular fa-file-lines"></i>
 							<?=gettext('Load')?>
 						</button>
-						<button type="button" class="btn btn-default btn-sm" id="fbOpen"		value="<?=gettext('Browse')?>">
+						<button type="button" class="btn btn-secondary btn-sm" id="fbOpen"		value="<?=gettext('Browse')?>">
 							<i class="fa-solid fa-list"></i>
 							<?=gettext('Browse')?>
 						</button>
-						<button type="button" class="btn btn-default btn-sm" onclick="saveFile();"	value="<?=gettext('Save')?>">
+						<button type="button" class="btn btn-secondary btn-sm" onclick="saveFile();"	value="<?=gettext('Save')?>">
 							<i class="fa-solid fa-save"></i>
 							<?=gettext('Save')?>
 						</button>
 					</p>
 				</div>
-				<p class="pull-right">
-					<button id="btngoto" class="btn btn-default btn-sm"><i class="fa-solid fa-forward"></i><?=gettext("GoTo Line #")?></button> <input type="number" id="gotoline" size="6" style="padding: 3px 0px;"/>
+				<p class="float-end">
+					<button id="btngoto" class="btn btn-secondary btn-sm"><i class="fa-solid fa-forward"></i><?=gettext("GoTo Line #")?></button> <input type="number" id="gotoline" size="6" style="padding: 3px 0px;"/>
 				</p>
 			</form>
 

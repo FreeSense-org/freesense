@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_captiveportal_hostname.php
  *
@@ -81,7 +81,7 @@ $tab_array[] = array(gettext("File Manager"), false, "services_captiveportal_fil
 display_top_tabs($tab_array, true);
 ?>
 <div class="table-responsive">
-	<table class="table table-hover table-striped table-condensed table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+	<table class="table table-hover table-striped table-sm table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
 		<thead>
 			<tr>
 				<th><?=gettext("Hostname"); ?></th>

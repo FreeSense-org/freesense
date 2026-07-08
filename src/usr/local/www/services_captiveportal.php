@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_captiveportal.php
  *
@@ -775,28 +775,28 @@ if ($pconfig['page']['htmltext']) {
 		'Live View',
 		$href,
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btnview',
 		'View Page Contents',
 		'?zone=' . $cpzone . '&act=viewhtmlhtml',
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
 		'Download',
 		'?zone=' . $cpzone . '&act=gethtmlhtml',
 		'fa-solid fa-download'
-	))->addClass('btn btn-primary btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-primary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=delhtmlhtml',
 		'fa-solid fa-undo'
-	))->addClass('btn btn-danger btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
 	$section->add($group);
 }
 
@@ -816,21 +816,21 @@ if ($pconfig['page']['errtext']) {
 		'View Page Contents',
 		'?zone=' . $cpzone . '&act=viewerrhtml',
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
 		'Download',
 		'?zone=' . $cpzone . '&act=geterrhtml',
 		'fa-solid fa-download'
-	))->addClass('btn btn-primary btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-primary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=delerrhtml',
 		'fa-solid fa-undo'
-	))->addClass('btn btn-danger btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
 	$section->add($group);
 }
 
@@ -848,21 +848,21 @@ if ($pconfig['page']['logouttext']) {
 		'View Page Contents',
 		'?zone=' . $cpzone . '&act=viewlogouthtml',
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
 		'Download',
 		'?zone=' . $cpzone . '&act=getlogouthtml',
 		'fa-solid fa-download'
-	))->addClass('btn btn-primary btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-primary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=dellogouthtml',
 		'fa-solid fa-undo'
-	))->addClass('btn btn-danger btn-xs')->setAttribute("target", "_blank");
+	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
 	$section->add($group);
 }
 $form->addGlobal(new Form_Input(

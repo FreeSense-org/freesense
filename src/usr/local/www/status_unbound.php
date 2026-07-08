@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_unbound.php
  *
@@ -49,7 +49,7 @@ if (!config_path_enabled('unbound') || !is_service_running('unbound')) {
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("DNS Resolver Infrastructure Cache Speed")?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Server")?></th>
@@ -135,7 +135,7 @@ foreach ($infra_cache_entries as $ice) {
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("DNS Resolver Infrastructure Cache Stats")?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Server")?></th>

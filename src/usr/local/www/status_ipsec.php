@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_ipsec.php
  *
@@ -305,7 +305,7 @@ function print_ipsec_body() {
 <?php		endif; ?>
 		</a>
 	</div>
-	<table class="table table-hover table-condensed" id="childsa-<?= htmlspecialchars($child_key) ?>" style="display:none">
+	<table class="table table-hover table-sm" id="childsa-<?= htmlspecialchars($child_key) ?>" style="display:none">
 	<thead>
 	<tr class="bg-info">
 		<th><?= htmlspecialchars(gettext("ID")) ?></th>
@@ -605,7 +605,7 @@ display_top_tabs($tab_array);
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?= htmlspecialchars(gettext("IPsec Status")); ?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-condensed table-hover sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr>
 					<th><?= htmlspecialchars(gettext("ID")) ?></th>

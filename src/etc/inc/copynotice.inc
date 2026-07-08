@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * copynotice.inc
  *
@@ -81,7 +81,7 @@ $copyrightfile = "{$g['cf_conf_path']}/copyright";
 			</div>
 
 			<div id="f1" class="modal-footer modal-lg" style="background-color:#1e3f75; color:white;">
-				<button type="button" class="btn btn-xs btn-success" aria-label="Close" onClick="document.querySelectorAll('.modal.show').forEach(function(m){bootstrap.Modal.getOrCreateInstance(m).hide();});">
+				<button type="button" class="btn btn-sm btn-success" aria-label="Close" onClick="document.querySelectorAll('.modal.show').forEach(function(m){bootstrap.Modal.getOrCreateInstance(m).hide();});">
 					<span aria-hidden="true">
 						Accept
 					</span>

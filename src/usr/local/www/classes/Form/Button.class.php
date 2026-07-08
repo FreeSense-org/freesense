@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * Button.class.php
  *
@@ -43,7 +43,7 @@ class Form_Button extends Form_Input
 		{
 			$this->_attributes['href'] = $link;
 			$this->_tagName = 'a';
-			$this->addClass('btn-default');
+			$this->addClass('btn-secondary');
 			unset($this->_attributes['type']);
 			if (isset($icon)) {
 				$this->_attributes['icon'] = $icon;

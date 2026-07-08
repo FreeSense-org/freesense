@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_captiveportal_vouchers.php
  *
@@ -284,7 +284,7 @@ display_top_tabs($tab_array, true);
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Voucher Rolls");?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Roll #")?></th>
@@ -462,7 +462,7 @@ events.push(function() {
 	// Set initial state
 	setShowHide($('#enable').is(":checked"));
 
-	var generateButton = $('<a class="btn btn-xs btn-warning"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new keys");?></a>');
+	var generateButton = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new keys");?></a>');
 	generateButton.on('click', function() {
 		$.ajax({
 			type: 'post',

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_authservers.php
  *
@@ -84,7 +84,7 @@ if ($_REQUEST['ajax']) {
 			'fa-solid fa-save'
 		);
 
-		$btnsv->removeClass("btn-default)")->addClass("btn-primary");
+		$btnsv->removeClass("btn-secondary)")->addClass("btn-primary");
 
 		$modal->addInput(new Form_StaticText(
 			'',
@@ -504,7 +504,7 @@ if (!($act == "new" || $act == "edit" || $input_errors)) {
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Authentication Servers')?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Server Name")?></th>

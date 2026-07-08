@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_captiveportal_mac.php
  *
@@ -87,7 +87,7 @@ $tab_array[] = array(gettext("File Manager"), false, "services_captiveportal_fil
 display_top_tabs($tab_array, true);
 ?>
 <div class="table-responsive">
-	<table class="table table-hover table-striped table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+	<table class="table table-hover table-striped table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 		<thead>
 			<tr>
 				<th><?=gettext('Action')?></th>

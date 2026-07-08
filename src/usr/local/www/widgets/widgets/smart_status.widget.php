@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * smart_status.widget.php
  *
@@ -75,7 +75,7 @@ if ($_POST['widgetkey']) {
 ?>
 
 <div class="table-responsive">
-<table class="table table-hover table-striped table-condensed">
+<table class="table table-hover table-striped table-sm">
 	<thead>
 		<tr>
 			<th></th>
@@ -148,7 +148,7 @@ if (count($devs) > 0)  {
 		<div class="panel-body">
 			<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 			<div class="table responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Drive")?></th>

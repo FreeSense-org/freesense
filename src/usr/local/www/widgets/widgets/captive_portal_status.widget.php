@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * captive_portal_status.widget.php
  *
@@ -67,7 +67,7 @@ foreach (config_get_path('captiveportal', []) as $cpzone => $cp) {
 
 ?>
 <div class="table-responsive">
-	<table class="table table-condensed sortable-theme-bootstrap" data-sortable>
+	<table class="table table-sm sortable-theme-bootstrap" data-sortable>
 		<thead>
 		<tr>
 			<th><?=gettext("IP address");?></th>

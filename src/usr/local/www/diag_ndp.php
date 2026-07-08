@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_ndp.php
  *
@@ -134,7 +134,7 @@ if (isset($deleteResultMessage, $deleteResultMessageType)) {
 	<div class="panel-heading">
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
-			<span class="widget-heading-icon pull-right">
+			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>
@@ -173,7 +173,7 @@ if (isset($deleteResultMessage, $deleteResultMessageType)) {
 	<div class="panel-body">
 
 <div class="table-responsive">
-	<table class="table table-striped table-condensed table-hover sortable-theme-bootstrap" data-sortable>
+	<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
 		<thead>
 			<tr>
 				<th><?=gettext('IPv6 Address')?></th>

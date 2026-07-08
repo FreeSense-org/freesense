@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_captiveportal_filemanager.php
  *
@@ -188,7 +188,7 @@ if (is_array(config_get_path("captiveportal/{$cpzone}/element"))):
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext("Installed Files")?></h2></div>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Name"); ?></th>

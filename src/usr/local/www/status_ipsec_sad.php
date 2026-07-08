@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_ipsec_sad.php
  *
@@ -60,7 +60,7 @@ display_top_tabs($tab_array);
 if (count($sad)) {
 ?>
 	<div table-responsive>
-		<table class="table table-striped table-hover table-condensed">
+		<table class="table table-striped table-hover table-sm">
 			<thead>
 				<tr>
 					<th><?=gettext("Source")?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_tables.php
  *
@@ -259,7 +259,7 @@ if (empty($entries)) {
 	<div class="panel-heading"><h2 class="panel-title"><?=$displayname?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed">
+			<table class="table table-striped table-hover table-sm">
 				<thead>
 					<tr>
 						<th><?=gettext("IP Address")?></th>

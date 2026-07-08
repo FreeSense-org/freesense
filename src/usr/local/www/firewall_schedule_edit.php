@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * firewall_schedule_edit.php
  *
@@ -249,7 +249,7 @@ function build_date_table() {
 		$mostr .= '" class="col-md-6">';
 
 		$mostr .=
-			'<table class="table table-condensed table-bordered" id="calTable' . $monthcounter . $yearcounter . '" >
+			'<table class="table table-sm table-bordered" id="calTable' . $monthcounter . $yearcounter . '" >
 				<thead><tr><td colspan="7" class="text-center"><b>' . date("F_Y", mktime(0, 0, 0, date($monthcounter), 1, date($yearcounter))) . '</b></td>
 				</tr>
 				<tr>
@@ -624,7 +624,7 @@ if ($getSchedule && !empty($pconfig['timerange'])) {
 				'Delete',
 				null,
 				'fa-solid fa-trash-can'
-			))->setAttribute('type','button')->addClass('btn-xs btn-warning');
+			))->setAttribute('type','button')->addClass('btn-sm btn-warning');
 
 			$group->add(new Form_Input(
 				'schedule' . $counter,
@@ -1118,7 +1118,7 @@ function insertElements(tempFriendlyTime, starttimehour, starttimemin, stoptimeh
 			'<input class="form-control" name="schedule@" id="schedule@" type="hidden" value="' + tempID + '"/>' +
 		'</div>' +
 		'<div class="col-sm-2">' +
-			'<a class="btn btn-xs btn-warning" name="delete@" id="delete@" type="button" value="@"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?= gettext("Delete") ?></a>' +
+			'<a class="btn btn-sm btn-warning" name="delete@" id="delete@" type="button" value="@"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?= gettext("Delete") ?></a>' +
 		'</div>' +
 	'</div>';
 

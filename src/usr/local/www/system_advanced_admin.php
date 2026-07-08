@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_advanced_admin.php
  *
@@ -334,7 +334,7 @@ while ($counter < $numaddrs) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning btn-xs');
+	))->addClass('btn-warning btn-sm');
 
 	if ($counter == ($numaddrs - 1)) {
 		$group->setHelp(gettext(sprintf("%sAddresses added to the pass list will bypass login protection.%s", 

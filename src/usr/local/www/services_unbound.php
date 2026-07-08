@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_unbound.php
  *
@@ -525,7 +525,7 @@ events.push(function() {
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Host Overrides")?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("Host")?></th>
@@ -606,7 +606,7 @@ endforeach;
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Domain Overrides")?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("Domain")?></th>

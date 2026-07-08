@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_camanager.php
  *
@@ -364,7 +364,7 @@ if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_error
 	<div class="panel-heading">
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
-			<span class="widget-heading-icon pull-right">
+			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>

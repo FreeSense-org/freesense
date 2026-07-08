@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * openvpn.widget.php
  *
@@ -67,7 +67,7 @@ if (!function_exists('printPanel')) {
 		}
 		$opstring .=    "</h2></div>";
 		$opstring .=	"<div class=\"table-responsive\">";
-		$opstring .=		"<table class=\"table table-striped table-hover table-condensed sortable-theme-bootstrap\" data-sortable>";
+		$opstring .=		"<table class=\"table table-striped table-hover table-sm sortable-theme-bootstrap\" data-sortable>";
 		$opstring .=			"<thead>";
 		$opstring .=				"<tr>";
 		$opstring .=					"<th>" . gettext('Name/Time') . "</th>";
@@ -146,7 +146,7 @@ if (!function_exists('printPanel')) {
 		$opstring .= "<div class=\"widget panel panel-default\">";
 		$opstring .=	"<div class=\"panel-heading\"><h2 class=\"panel-title\">" . gettext("Peer to Peer Server Instance Statistics") . "</h2></div>";
 		$opstring .=	"<div class=\"table-responsive\">";
-		$opstring .=		"<table class=\"table table-striped table-hover table-condensed sortable-theme-bootstrap\" data-sortable>";
+		$opstring .=		"<table class=\"table table-striped table-hover table-sm sortable-theme-bootstrap\" data-sortable>";
 		$opstring .=			"<thead>";
 		$opstring .=				"<tr>";
 		$opstring .=					"<th>" . gettext('Name/Time') . "</th>";
@@ -223,7 +223,7 @@ if (!function_exists('printPanel')) {
 		$opstring .= "<div class=\"widget panel panel-default\">";
 		$opstring .=	"<div class=\"panel-heading\"><h2 class=\"panel-title\">" . gettext("Client Instance Statistics") . "</h2></div>";
 		$opstring .=	"<div class=\"table-responsive\">";
-		$opstring .=		"<table class=\"table table-striped table-hover table-condensed sortable-theme-bootstrap\" data-sortable>";
+		$opstring .=		"<table class=\"table table-striped table-hover table-sm sortable-theme-bootstrap\" data-sortable>";
 		$opstring .=			"<thead>";
 		$opstring .=				"<tr>";
 		$opstring .=					"<th>" . gettext('Name/Time') . "</th>";
@@ -384,7 +384,7 @@ $widgetkey_nodash = str_replace("-", "", $widgetkey);
 		<div class="panel-body">
 			<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 			<div class="table responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Name")?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * firewall_aliases.php
  *
@@ -97,7 +97,7 @@ if ($tab == 'all'):
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext('System Aliases')?></h2></div>
 		<div class="panel-body"><div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Name")?></th>
@@ -164,7 +164,7 @@ endif;
 	<div class="panel-body">
 
 <div class="table-responsive">
-<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 	<thead>
 		<tr>
 			<th><?=gettext("Name")?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_crlmanager.php
  *
@@ -543,7 +543,7 @@ if ($act == "new" || $act == gettext("Save")) {
 		print_info_box(gettext("No certificates found in this CRL."), 'danger');
 	} else {
 ?>
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Serial")?></th>
@@ -651,7 +651,7 @@ if ($act == "new" || $act == gettext("Save")) {
 	<div class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext("Certificate Revocation Lists")?></h2></div>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-condensed table-rowdblclickedit">
+			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
 				<thead>
 					<tr>
 						<th><?=gettext("CA")?></th>

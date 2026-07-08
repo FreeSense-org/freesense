@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * wake_on_lan.widget.php
  *
@@ -70,7 +70,7 @@ if ($_POST['widgetkey']) {
 
 ?>
 <div class="table-responsive">
-<table class="table table-hover table-striped table-condensed">
+<table class="table table-hover table-striped table-sm">
 	<thead>
 		<tr>
 			<th class="widgetsubheader"><?=gettext("Device")?></th>
@@ -172,7 +172,7 @@ foreach (config_get_path('dhcpd', []) as $dhcpif => $dhcp) {
 		<div class="panel-body">
 			<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 			<div class="table responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Description")?></th>

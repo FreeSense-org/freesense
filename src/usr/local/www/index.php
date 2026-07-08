@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * index.php
  *
@@ -193,7 +193,7 @@ if (file_exists('/conf/trigger_initial_wizard')) {
 	<body id="loading-wizard" class="no-menu">
 		<div id="jumbotron">
 			<div class="container">
-				<div class="col-sm-offset-3 col-sm-6 col-xs-12">
+				<div class="col-sm-offset-3 col-sm-6 col-12">
 					<font color="white">
 					<p><h3><?=sprintf(gettext("Welcome to %s!") . "\n", g_get('product_label'))?></h3></p>
 					<p><?=gettext("One moment while the initial setup wizard starts.")?></p>

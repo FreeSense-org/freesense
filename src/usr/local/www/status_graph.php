@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_graph.php
  *
@@ -345,7 +345,7 @@ if (ipsec_enabled()) {
 			</div>
 		</div>
 		<div class="col-sm-6">
-			<table class="table table-striped table-condensed">
+			<table class="table table-striped table-sm">
 				<thead>
 					<tr>
 						<th><?=(($curhostipformat == "") ? gettext("Host IP") : gettext("Host Name or IP")); ?></th>

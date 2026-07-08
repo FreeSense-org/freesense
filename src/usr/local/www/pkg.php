@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * pkg.php
  *
@@ -299,7 +299,7 @@ if ($savemsg) {
 <form action="pkg.php" name="pkgform" method="get">
 	<input type='hidden' name='xml' value='<?=$_REQUEST['xml']?>' />
 		<div id="mainarea" class="panel panel-default">
-			<table id="mainarea" class="table table-striped table-hover table-condensed">
+			<table id="mainarea" class="table table-striped table-hover table-sm">
 				<thead>
 <?php
 	/* Handle filtering bar A-Z */
@@ -348,7 +348,7 @@ if ($savemsg) {
 				}
 				if ($include_filtering_inputbox) {
 					echo '&nbsp;&nbsp;' . gettext("Filter text: ") . '<input id="pkg_filter" name="pkg_filter" value="' . htmlspecialchars($_REQUEST['pkg_filter']) . '" />';
-					echo '&nbsp;<button type="submit" value="Filter" class="btn btn-primary btn-xs">';
+					echo '&nbsp;<button type="submit" value="Filter" class="btn btn-primary btn-sm">';
 					echo '<i class="fa-solid fa-filter icon-embed-btn"></i>';
 					echo gettext("Filter");
 					echo "</button>";

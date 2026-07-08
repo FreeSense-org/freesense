@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * ipsec.inc
  *
@@ -760,7 +760,7 @@ function ipsec_status_button($req, $act, $type, $conid, $uniqueid, $full) {
 		$icon = 'fa-solid fa-right-to-bracket';
 	}
 	if ($full) {
-		$linkclass = 'btn btn-xs btn-' . htmlspecialchars($buttonclass);
+		$linkclass = 'btn btn-sm btn-' . htmlspecialchars($buttonclass);
 	} else {
 		$linkclass = '';
 	}

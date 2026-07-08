@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_advanced_sysctl.php
  *
@@ -119,14 +119,14 @@ if ($act != "edit"): ?>
 	</div>
 	<div class="panel-body">
 		<div class="form-group">
-			<table class="table table-responsive table-hover table-condensed" data-sortable>
+			<table class="table table-responsive table-hover table-sm" data-sortable>
 				<caption><strong><?=gettext('NOTE: '); ?></strong><?=gettext('The options on this page are intended for use by advanced users only.'); ?></caption>
 				<thead>
 					<tr>
 						<th class="col-sm-3"><?=gettext("Tunable Name"); ?></th>
 						<th><?=gettext("Description"); ?></th>
 						<th class="col-sm-1"><?=gettext("Value"); ?></th>
-						<th><a class="btn btn-xs btn-success" href="system_advanced_sysctl.php?act=edit"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('New'); ?></a></th>
+						<th><a class="btn btn-sm btn-success" href="system_advanced_sysctl.php?act=edit"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('New'); ?></a></th>
 					</tr>
 				</thead>
 				<?php

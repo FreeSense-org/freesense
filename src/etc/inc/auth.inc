@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * auth.inc
  *
@@ -160,7 +160,7 @@ if (function_exists("display_error_form") && !config_path_enabled('system/webgui
 <body id="error" class="no-menu">
 	<div id="jumbotron">
 		<div class="container">
-			<div class="col-sm-offset-3 col-sm-6 col-xs-12">
+			<div class="col-sm-offset-3 col-sm-6 col-12">
 				<p><?=gettext("Redirecting to the dashboard...")?></p>
 			</div>
 		</div>

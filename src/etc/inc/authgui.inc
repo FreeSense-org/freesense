@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * authgui.inc
  *
@@ -147,7 +147,7 @@ function display_error_form($http_code, $desc) {
 				<div class="col-sm-2"></div>
 
 				<div class="col-sm-8 offset-md-4 logoCol">
-					<div class="loginCont center-block error-panel">
+					<div class="loginCont mx-auto d-block error-panel">
 						<a href="index.php?logout"><?=$desc;?></a>
 					</div>
 				</div>

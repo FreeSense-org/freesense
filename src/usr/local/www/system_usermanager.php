@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_usermanager.php
  *
@@ -532,7 +532,7 @@ function build_priv_table() {
 	global $id, $read_only;
 
 	$privhtml = '<div class="table-responsive">';
-	$privhtml .=	'<table class="table table-striped table-hover table-condensed">';
+	$privhtml .=	'<table class="table table-striped table-hover table-sm">';
 	$privhtml .=		'<thead>';
 	$privhtml .=			'<tr>';
 	$privhtml .=				'<th>' . gettext('Inherited from') . '</th>';
@@ -603,7 +603,7 @@ function build_cert_table() {
 	global $id, $read_only;
 
 	$certhtml = '<div class="table-responsive">';
-	$certhtml .=	'<table class="table table-striped table-hover table-condensed">';
+	$certhtml .=	'<table class="table table-striped table-hover table-sm">';
 	$certhtml .=		'<thead>';
 	$certhtml .=			'<tr>';
 	$certhtml .=				'<th>' . gettext('Name') . '</th>';
@@ -685,7 +685,7 @@ if (!($act == "new" || $act == "edit" || $input_errors)) {
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Users')?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
 						<th>&nbsp;</th>

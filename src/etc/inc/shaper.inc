@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * shaper.inc
  *
@@ -222,8 +222,8 @@ function build_queue_params($array, $selected, $params, $id) {
 				$currentValue = $value["default"]; // default to default
 			}
 
-			$form .= "<td class=\"col-xs-4\">" . htmlspecialchars($key) . "</td>";
-			$form .= "<td class=\"col-xs-8\"><input class=\"form-control\" type=" . gettext($value["type"])
+			$form .= "<td class=\"col-4\">" . htmlspecialchars($key) . "</td>";
+			$form .= "<td class=\"col-8\"><input class=\"form-control\" type=" . gettext($value["type"])
 					. " name=\"param_" . $selected . "_" . $key . "\" placeholder=\"" .
 					htmlspecialchars($value["default"]) . "\" value=\"" . htmlspecialchars($currentValue) . "\"/></td>";
 
@@ -1106,7 +1106,7 @@ class altq_root_queue {
 		$form .= '	<dt>';
 		$form .= '	<dd>';
 
-		$form .= '<a class="btn btn-danger btn-xs" href="firewall_shaper_queues.php?interface=';
+		$form .= '<a class="btn btn-danger btn-sm" href="firewall_shaper_queues.php?interface=';
 		$form .= $this->GetInterface() . '&amp;queue=';
 		$form .= $this->GetQname() . '&amp;action=delete">';
 		$form .= '<i class="fa-solid fa-trash-can icon-embed-btn"></i>';
@@ -1944,7 +1944,7 @@ class priq_queue {
 			$form .= '	<dt>';
 			$form .= '	<dd>';
 
-			$form .= '<a class="btn btn-danger btn-xs" href="firewall_shaper_queues.php?interface=';
+			$form .= '<a class="btn btn-danger btn-sm" href="firewall_shaper_queues.php?interface=';
 			$form .= $this->GetInterface() . '&amp;queue=';
 			$form .= $this->GetQname() . '&amp;action=delete">';
 			$form .= '<i class="fa-solid fa-trash-can icon-embed-btn"></i>';
@@ -4314,12 +4314,12 @@ EOD;
 		if (is_array($bandwidth)) {
 			foreach ($bandwidth as $bwidx => $bw) {
 				$form .= '<tr>';
-				$form .= '<td class="col-xs-4">';
+				$form .= '<td class="col-4">';
 				$form .= "<input class='form-control' onchange=\"ceil_func(this)\" type=\"number\" id=\"bandwidth{$bwidx}\" name=\"bandwidth{$bwidx}\" value=\"" . ceil2($bw['bw']) ."\" min=\"0\" step=\"1\"/>";
 				//$form .= "</td><td width='20%'>";
 				//$form .= "<input class='formfld unknown' size='10' type=\"text\" id=\"burst{$bwidx}\" name=\"burst{$bwidx}\" value=\"{$bw['burst']}\" />";
 				$form .= "</td>";
-				$form .= '<td class="col-xs-4">';
+				$form .= '<td class="col-4">';
 				$form .= "<select id=\"bwtype{$bwidx}\" name=\"bwtype{$bwidx}\" class=\"form-control\">";
 
 				foreach (array("Kb" => "Kbit/s", "Mb" => "Mbit/s", "b" => "Bit/s") as $bwsidx => $bwscale) {
@@ -4334,7 +4334,7 @@ EOD;
 
 				$form .= "</select>";
 				$form .= "</td>";
-				$form .= '<td class="col-xs-4">';
+				$form .= '<td class="col-4">';
 				$form .= "<select id=\"bwsched{$bwidx}\" name=\"bwsched{$bwidx}\" class=\"form-control\">";
 
 				foreach ($schedules as $schd) {
@@ -5520,7 +5520,7 @@ function build_iface_without_this_queue($iface, $qname) {
 	$form .= 'Clone';
 	$form .= '	</dt>';
 	$form .= '	<dd>';
-	$form .= '<a class="btn btn-info btn-xs" href="firewall_shaper_queues.php?interface=';
+	$form .= '<a class="btn btn-info btn-sm" href="firewall_shaper_queues.php?interface=';
 	$form .= $iface . '&amp;queue=';
 	$form .= $qname . '&amp;action=add">';
 	$form .= '<i class="fa-regular fa-clone icon-embed-btn"></i>';

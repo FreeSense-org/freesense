@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * pkg_mgr.php
  *
@@ -114,7 +114,7 @@ function get_pkg_table() {
 		$pkgtbl .= '<a title="' . gettext("Click to install") . '" href="pkg_mgr_install.php?pkg=' . $index['name'] . '" class="btn btn-success btn-sm"><i class="fa-solid fa-plus icon-embed-btn"></i>Install</a>' . "\n";
 
 		if (!g_get('disablepackageinfo') && $index['pkginfolink'] && $index['pkginfolink'] != $index['www']) {
-			$pkgtbl .= '<a target="_blank" title="' . gettext("View more information") . '" href="' . htmlspecialchars($index['pkginfolink']) . '" class="btn btn-default btn-sm">info</a>' . "\n";
+			$pkgtbl .= '<a target="_blank" title="' . gettext("View more information") . '" href="' . htmlspecialchars($index['pkginfolink']) . '" class="btn btn-secondary btn-sm">info</a>' . "\n";
 		}
 
 		$pkgtbl .= 	'</td>' . "\n";
@@ -140,7 +140,7 @@ display_top_tabs($tab_array);
 	<div class="panel-heading">
 		<h2 class="panel-title">
 			<?=gettext('Search')?>
-			<span class="widget-heading-icon pull-right">
+			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
 					<i class="fa-solid fa-plus-circle"></i>
 				</a>

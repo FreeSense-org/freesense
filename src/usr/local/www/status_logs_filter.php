@@ -146,7 +146,7 @@ if (!$rawfilter) {
 	</div>
 	<div class="panel-body">
 	   <div class="table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr class="text-nowrap">
 					<th><?=gettext("Action")?></th>
@@ -295,7 +295,7 @@ if (!$rawfilter) {
 		</h2>
 	</div>
 	<div class="table table-responsive">
-		<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 			<thead>
 				<tr class="text-nowrap">
 					<th><?=gettext("Time")?></th>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_gateway_groups.php
  *
@@ -63,7 +63,7 @@ display_top_tabs($tab_array);
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Gateway Groups')?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-hover table-condensed table-striped">
+			<table class="table table-hover table-sm table-striped">
 				<thead>
 					<tr>
 						<th><?=gettext("Group Name"); ?></th>
@@ -79,7 +79,7 @@ display_top_tabs($tab_array);
 							<?=htmlspecialchars($gateway_group['name'])?>
 						</td>
 						<td>
-							<table class="table table-bordered table-condensed">
+							<table class="table table-bordered table-sm">
 <?php
 						/* process which priorities we have */
 						$priorities = array();

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_dhcpv6.php
  *
@@ -631,7 +631,7 @@ function build_pooltable() {
 	global $if;
 
 	$pooltbl =	'<div class="table-responsive">';
-	$pooltbl .=		'<table class="table table-striped table-hover table-condensed">';
+	$pooltbl .=		'<table class="table table-striped table-hover table-sm">';
 	$pooltbl .=			'<thead>';
 	$pooltbl .=				'<tr>';
 	$pooltbl .=					'<th>' . gettext("Pool Start") . '</th>';
@@ -1461,7 +1461,7 @@ if (!is_numeric($pool) && !($act === 'newpool')):
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('DHCPv6 Static Mappings');?></h2></div>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-condensed">
+		<table class="table table-striped table-hover table-sm">
 			<thead>
 				<tr>
 					<th><!-- status icons --></th>

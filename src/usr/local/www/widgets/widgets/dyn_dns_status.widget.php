@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * dyn_dns_status.widget.php
  *
@@ -173,7 +173,7 @@ if (!function_exists('get_dyndns_service_text')) {
 ?>
 
 <div class="table-responsive">
-<table id="dyn_dns_status" class="table table-hover table-striped table-condensed">
+<table id="dyn_dns_status" class="table table-hover table-striped table-sm">
 	<thead>
 	<tr>
 		<th style="width:5%;"><?=gettext("Int.");?></th>
@@ -235,7 +235,7 @@ if (!function_exists('get_dyndns_service_text')) {
 		<div class="panel-body">
 			<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 			<div class="table responsive">
-				<table class="table table-striped table-hover table-condensed">
+				<table class="table table-striped table-hover table-sm">
 					<thead>
 						<tr>
 							<th><?=gettext("Interface")?></th>

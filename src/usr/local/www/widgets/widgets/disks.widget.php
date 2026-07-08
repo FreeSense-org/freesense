@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * disks.widget.php
  *
@@ -75,7 +75,7 @@ if (isset($_POST['save'])) {
 ?>
 
 	<div class="table-responsive">
-		<table id="<?=htmlspecialchars($widgetkey)?>-table" class="table table-striped table-hover table-condensed">
+		<table id="<?=htmlspecialchars($widgetkey)?>-table" class="table table-striped table-hover table-sm">
 			<?=disks_compose_widget_table($widget_config)?>
 		</table>
 	</div>
@@ -90,7 +90,7 @@ if (isset($_POST['save'])) {
 			<div class="panel-body">
 				<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey); ?>">
 				<div class="table responsive">
-					<table class="table table-striped table-hover table-condensed">
+					<table class="table table-striped table-hover table-sm">
 						<thead>
 							<tr>
 								<th><?=htmlspecialchars(gettext("Mount"))?></th>

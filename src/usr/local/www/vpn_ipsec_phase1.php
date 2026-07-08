@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /*
  * vpn_ipsec_phase1.php
@@ -1486,7 +1486,7 @@ foreach($pconfig['encryption']['item'] as $key => $p1enc) {
 
 	// ---------- On initial page load ------------------------------------------------------------
 
-	var generateButton = $('<a class="btn btn-xs btn-warning"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new Pre-Shared Key");?></a>');
+	var generateButton = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new Pre-Shared Key");?></a>');
 	generateButton.on('click', function() {
 		$.ajax({
 			type: 'post',

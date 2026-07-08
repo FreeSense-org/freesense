@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_dhcp.php
  *
@@ -881,7 +881,7 @@ function build_pooltable() {
 	global $if;
 
 	$pooltbl =	'<div class="contains-table table-responsive">';
-	$pooltbl .=		'<table class="table table-striped table-hover table-condensed">';
+	$pooltbl .=		'<table class="table table-striped table-hover table-sm">';
 	$pooltbl .=			'<thead>';
 	$pooltbl .=				'<tr>';
 	$pooltbl .=					'<th>' . gettext("Pool Start") . '</th>';
@@ -1905,7 +1905,7 @@ if (!is_numeric($pool) && !($act == "newpool")) {
 ?>
 	<div class="panel-heading"><h2 class="panel-title"><?=$title?></h2></div>
 	<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><!-- status icons --></th>

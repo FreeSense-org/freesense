@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_ntpd_acls.php
  *
@@ -300,7 +300,7 @@ foreach ($networkacl as $item) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning btn-xs')->addClass("nowarn");
+	))->addClass('btn-warning btn-sm')->addClass("nowarn");
 
 	$group->addClass('repeatable');
 

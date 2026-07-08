@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * installed_packages.widget.php
  *
@@ -134,7 +134,7 @@ function get_pkg_stats() {
 ?>
 
 <div class="table-responsive">
-	<table id="pkgtbl" class="table table-striped table-hover table-condensed">
+	<table id="pkgtbl" class="table table-striped table-hover table-sm">
 		<?php get_pkg_stats(); ?>
 	</table>
 </div>

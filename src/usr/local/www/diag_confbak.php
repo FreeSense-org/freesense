@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_confbak.php
  *
@@ -187,14 +187,14 @@ if (is_array($confvers)) {
 
 <form action="diag_confbak.php" method="get">
 	<div class="table-responsive">
-		<table class="table table-striped table-hover table-condensed">
+		<table class="table table-striped table-hover table-sm">
 <?php
 if (is_array($confvers)):
 ?>
 			<thead>
 				<tr>
 					<th colspan="2">
-						<button type="submit" name="compare" class="btn btn-info btn-xs" value="compare">
+						<button type="submit" name="compare" class="btn btn-info btn-sm" value="compare">
 							<i class="fa-solid fa-right-left icon-embed-btn"></i>
 							<?=gettext('Compare'); ?>
 						</button>
@@ -258,7 +258,7 @@ if (is_array($confvers)):
 ?>
 				<tr>
 					<td colspan="2">
-						<button type="submit" name="compare" class="btn btn-info btn-xs" value="compare">
+						<button type="submit" name="compare" class="btn btn-info btn-sm" value="compare">
 							<i class="fa-solid fa-right-left icon-embed-btn"></i>
 							<?=gettext('Compare'); ?>
 						</button>

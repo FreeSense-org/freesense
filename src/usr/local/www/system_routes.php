@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_routes.php
  *
@@ -200,7 +200,7 @@ display_top_tabs($tab_array);
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Static Routes')?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed table-rowdblclickedit">
+			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
 				<thead>
 					<tr>
 						<th></th>

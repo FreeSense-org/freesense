@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_ntpd.php
  *
@@ -542,7 +542,7 @@ $section->addInput(new Form_Input(
 	'leapfile',
 	null,
 	'file'
-))->addClass('btn-default');
+))->addClass('btn-secondary');
 
 $section->addInput(new Form_Select(
 	'dnsresolv',

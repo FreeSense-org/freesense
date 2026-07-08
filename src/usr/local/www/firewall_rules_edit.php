@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * firewall_rules_edit.php
  *
@@ -1352,7 +1352,7 @@ if ($_POST['save']) {
 function build_flag_table() {
 	global $pconfig, $tcpflags;
 
-	$flagtable = '<table class="table table-condensed table-flags" style="width: auto;">';
+	$flagtable = '<table class="table table-sm table-flags" style="width: auto;">';
 
 	$setflags = explode(",", $pconfig['tcpflags1']);
 	$outofflags = explode(",", $pconfig['tcpflags2']);

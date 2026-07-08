@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * system_groupmanager.php
  *
@@ -295,7 +295,7 @@ function build_priv_table() {
 	global $id, $read_only, $dup;
 
 	$privhtml = '<div class="table-responsive">';
-	$privhtml .=	'<table class="table table-striped table-hover table-condensed">';
+	$privhtml .=	'<table class="table table-striped table-hover table-sm">';
 	$privhtml .=		'<thead>';
 	$privhtml .=			'<tr>';
 	$privhtml .=				'<th>' . gettext('Name') . '</th>';
@@ -380,7 +380,7 @@ if (!($act == "new" || $act == "edit")) {
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Groups')?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-condensed sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Group name")?></th>

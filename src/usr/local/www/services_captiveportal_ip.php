@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * services_captiveportal_ip.php
  *
@@ -81,7 +81,7 @@ display_top_tabs($tab_array, true);
 
 ?>
 <div class="table-responsive">
-	<table class="table table-hover table-striped table-condensed table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+	<table class="table table-hover table-striped table-sm table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
 		<thead>
 			<tr>
 				<th><?=gettext("IP Addresses"); ?></th>

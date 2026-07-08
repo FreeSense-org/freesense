@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * Input.class.php
  *
@@ -252,7 +252,7 @@ class Form_Input extends Form_Element
 			unset($this->_attributes['label-start']);
 		}
 		if (!empty($this->_attributes['label-end'])) {
-			$label .= '<label for="' . $this->_attributes['id'] . '" class="form-label pull-right">' . $this->_attributes['label-end'] . '</label>';
+			$label .= '<label for="' . $this->_attributes['id'] . '" class="form-label float-end">' . $this->_attributes['label-end'] . '</label>';
 			unset($this->_attributes['label-end']);
 		}
 		$output = '';

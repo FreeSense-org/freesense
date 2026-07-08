@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * pkg_edit.php
  *
@@ -270,7 +270,7 @@ function bootstrapTable($text) {
 
 	// Substitute everything inbetween with our new classes
 	if ($t && $c && (($c - $t) < 200)) {
-		return(substr_replace($text, ' class="table table-striped table-hover table-condensed"', $t, ($c - $t)));
+		return(substr_replace($text, ' class="table table-striped table-hover table-sm"', $t, ($c - $t)));
 	}
 }
 

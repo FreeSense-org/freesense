@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_dump_states.php
  *
@@ -190,7 +190,7 @@ $states = count($statedisp);
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext("States")?></h2></div>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-condensed table-hover sortable-theme-bootstrap" data-sortable>
+			<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
 				<thead>
 					<tr>
 						<th><?=gettext("Interface")?></th>

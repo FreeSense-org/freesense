@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * diag_dump_states_source.php
  *
@@ -153,7 +153,7 @@ if (count($sources) > 0) {
 					<td><?= $rate ?></td>
 
 					<td>
-						<a class="btn btn-xs btn-danger" data-entry="<?=$srcip?>|<?=$dstip?>"
+						<a class="btn btn-sm btn-danger" data-entry="<?=$srcip?>|<?=$dstip?>"
 							title="<?=sprintf(gettext('Remove all source tracking entries from %1$s to %2$s'), $srcip, $dstip);?>"><?=gettext("Remove")?></a>
 					</td>
 				</tr>
