@@ -65,36 +65,47 @@ EOF
 # FreeBSD-set-base is the meta that pulls the full world. We want everything EXCEPT the
 # kernel packages (FreeBSD-kernel-generic*, FreeBSD-src*, and the -dbg debug sets to
 # keep the image lean). Install by glob, then the kernel/debug/src are excluded.
+# Common pkg args for talking to the pkgbase repo with a forced target ABI. Wrapped in
+# a function so update + install + delete all use the SAME repo dir / ABI / osversion.
+#   ABI / OSVERSION       : force the FreeBSD:16 target (host is 15.x) — issue #2533.
+#   REPOS_DIR             : our throwaway conf ONLY (ignore the host's own repos).
+#   IGNORE_OSVERSION=yes  : the host pkg is 15.x installing 16 pkgs -> silences the
+#                           "Major OS version upgrade detected" refusal for a fresh root.
+#   ASSUME_ALWAYS_YES via env below (NOT -o, which conflicts and warns).
+pkgbase() {
+	_root="$1"; shift
+	env ABI="${ABI}" ASSUME_ALWAYS_YES=yes \
+		pkg --rootdir "${_root}" \
+		    -o OSVERSION="${OSVERSION}" \
+		    -o REPOS_DIR="${REPO_CONF_DIR}" \
+		    -o IGNORE_OSVERSION=yes \
+		    "$@"
+}
+
 seed_chroot() {
 	_root="$1"; _label="$2"
 	say "seeding ${_label} world into ${_root}"
 	mkdir -p "${_root}"
 
-	# Install all FreeBSD-* base packages except kernel/src/debug into the target root.
-	# -o ABI / OSVERSION: force the target's ABI (issue #2533). -r FreeBSD-base: only
-	# our throwaway repo. --repo-conf-dir: use our conf, ignore the host's repos.
-	# -g 'FreeBSD-*': glob the whole set. We then remove kernel/src/dbg after.
-	if ! env ABI="${ABI}" \
-		pkg --rootdir "${_root}" \
-		    --repo-conf-dir "${REPO_CONF_DIR}" \
-		    -o OSVERSION="${OSVERSION}" \
-		    -o ASSUME_ALWAYS_YES=yes \
-		    -o REPOS_DIR="${REPO_CONF_DIR}" \
-		    install -Uy -r FreeBSD-base \
-		    -g 'FreeBSD-runtime' 'FreeBSD-clibs' 'FreeBSD-utilities' \
-		       'FreeBSD-libexecinfo' 'FreeBSD-libcompiler_rt' \
-		       'FreeBSD-*' ; then
+	# 1. Populate the FreeBSD-base catalog for THIS root's repo dir. Without this the
+	#    install fails "Repository FreeBSD-base cannot be opened. 'pkg update' required"
+	#    (the earlier probe updated a DIFFERENT temp dir — that was the run-1 bug).
+	if ! pkgbase "${_root}" update -f -r FreeBSD-base; then
+		die "${_label}: pkg update -r FreeBSD-base failed (cannot reach base_latest)"
+	fi
+
+	# 2. Install the whole base set by glob. -g matches the shell-glob pkg names.
+	if ! pkgbase "${_root}" install -y -r FreeBSD-base -g 'FreeBSD-*'; then
 		die "pkgbase install into ${_root} failed"
 	fi
 
-	# Drop what we do NOT want in a firewall image / what we build ourselves:
-	#   kernel (we build the custom FreeSense kernel), the full src tree, debug syms,
-	#   tests, and lib32 (WITHOUT_LIB32 in the classic build).
-	env ABI="${ABI}" pkg --rootdir "${_root}" -o ASSUME_ALWAYS_YES=yes \
-		delete -y -g 'FreeBSD-kernel-*' 'FreeBSD-src*' 'FreeBSD-*-dbg' \
+	# 3. Drop what we do NOT want in a firewall image / what we build ourselves:
+	#    kernel (we build the custom FreeSense kernel), the full src tree, debug syms,
+	#    tests, and lib32 (WITHOUT_LIB32 in the classic build).
+	pkgbase "${_root}" delete -y -g 'FreeBSD-kernel-*' 'FreeBSD-src*' 'FreeBSD-*-dbg' \
 		         'FreeBSD-tests*' 'FreeBSD-*-lib32' 2>/dev/null || true
 
-	_n=$(env ABI="${ABI}" pkg --rootdir "${_root}" info 2>/dev/null | wc -l | tr -d ' ')
+	_n=$(pkgbase "${_root}" info 2>/dev/null | wc -l | tr -d ' ')
 	[ "${_n:-0}" -gt 50 ] || die "${_label}: only ${_n} pkgs installed — seed looks incomplete"
 	say "${_label}: ${_n} pkgbase packages installed"
 }
