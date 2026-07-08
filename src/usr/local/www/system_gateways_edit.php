@@ -212,7 +212,7 @@ $group = new Form_Group('Monitor IP');
 $group->addClass('toggle-monitor-ip', 'collapse');
 
 if (!$pconfig['monitor_disable'])
-	$group->addClass('in');
+	$group->addClass('show');
 
 $group->add(new Form_Input(
 	'monitor',

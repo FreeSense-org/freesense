@@ -474,7 +474,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-ikev2_retransmit_enable collapse');
 
 if (!empty($pconfig['ikev2_retransmit_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(

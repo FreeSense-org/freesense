@@ -622,7 +622,7 @@ $group = new Form_Group('Authentication Groups');
 $group->addClass('toggle-group_source collapse');
 
 if (!empty($pconfig['group_source'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Select(
@@ -662,7 +662,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-pool_enable collapse');
 
 if (!empty($pconfig['pool_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(
@@ -699,7 +699,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-pool_enable_v6 collapse');
 
 if (!empty($pconfig['pool_enable_v6'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(
@@ -742,7 +742,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-radius_advanced collapse');
 
 if (!empty($pconfig['radius_advanced'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(
@@ -808,7 +808,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-dns_domain collapse');
 
 if (!empty($pconfig['dns_domain_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(
@@ -831,7 +831,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-dns_split collapse');
 
 if (!empty($pconfig['dns_split_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(
@@ -855,7 +855,7 @@ for ($i = 1; $i <= 4; $i++) {
 	$group->addClass('toggle-dns_server_enable collapse');
 
 	if (!empty($pconfig['dns_server_enable'])) {
-		$group->addClass('in');
+		$group->addClass('show');
 	}
 
 	$group->add(new Form_Input(
@@ -880,7 +880,7 @@ for ($i = 1; $i <= 2; $i++) {
 	$group->addClass('toggle-wins_server_enable collapse');
 
 	if (!empty($pconfig['wins_server_enable'])) {
-		$group->addClass('in');
+		$group->addClass('show');
 	}
 
 	$group->add(new Form_Input(
@@ -905,7 +905,7 @@ $group = new Form_Group('Group');
 $group->addClass('toggle-pfs_group collapse');
 
 if (!empty($pconfig['pfs_group_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Select(
@@ -928,7 +928,7 @@ $group = new Form_Group('');
 $group->addClass('toggle-login_banner collapse');
 
 if (!empty($pconfig['login_banner_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 // TODO: should be a textarea

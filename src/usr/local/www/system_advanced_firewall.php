@@ -220,7 +220,7 @@ $group = new Form_Group('Maximum MSS');
 $group->addClass('toggle-maxmss collapse');
 
 if (!empty($pconfig['maxmss_enable'])) {
-	$group->addClass('in');
+	$group->addClass('show');
 }
 
 $group->add(new Form_Input(

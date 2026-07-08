@@ -578,7 +578,7 @@ $section = new Form_Section('LDAP Server Settings');
 $section->addClass('toggle-ldap collapse');
 
 if (!isset($pconfig['type']) || $pconfig['type'] == 'ldap')
-	$section->addClass('in');
+	$section->addClass('show');
 
 $section->addInput(new Form_Input(
 	'ldap_host',
