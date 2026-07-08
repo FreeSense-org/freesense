@@ -225,7 +225,12 @@ ul.context-links li a { color: var(--fs-coral); }
 .breadcrumb a:hover { color: var(--fs-coral); }
 
 /* ============================ Panels (card look) ====================== */
+/* FreeSense panel component (a coral/ink-styled box layered on BS5 primitives).
+ * These are first-class FreeSense classes, NOT a BS3 compat shim: the Form
+ * framework and every status page render panels, and the JS collapse/config
+ * toggles target .panel-heading/.panel-body/.panel-footer. */
 .panel {
+	position: relative;
 	margin-bottom: 1rem;
 	background-color: var(--bs-body-bg);
 	border: 1px solid var(--bs-border-color);
@@ -236,12 +241,24 @@ ul.context-links li a { color: var(--fs-coral); }
 	background-color: var(--bs-tertiary-bg);
 	color: var(--bs-emphasis-color);
 	border-bottom: 1px solid var(--bs-border-color);
+	border-top-left-radius: inherit;
+	border-top-right-radius: inherit;
 	padding: .6rem 1rem;
 }
 .panel-title { font-size: 1rem; font-weight: 600; letter-spacing: .2px; }
 .panel-heading a:link, .panel-heading a:visited { color: var(--bs-emphasis-color); }
 .panel-body { padding: 0; }
 .panel-body > .content { padding: 1rem; }
+.panel-footer {
+	padding: .5rem 1rem;
+	background-color: var(--bs-tertiary-bg);
+	border-top: 1px solid var(--bs-border-color);
+	border-bottom-left-radius: inherit;
+	border-bottom-right-radius: inherit;
+}
+.panel-group { margin-bottom: 1rem; }
+.panel-group .panel + .panel { margin-top: 5px; }
+.panel-collapse { border: 0; }
 
 .content { padding: 1rem; }
 

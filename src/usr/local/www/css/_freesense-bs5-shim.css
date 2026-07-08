@@ -15,33 +15,8 @@
  * Partial file (leading underscore) -> excluded from the theme picker.
  */
 
-/* ============================ Panels -> cards ============================ */
-.panel {
-	position: relative;
-	margin-bottom: 1rem;
-	background-color: var(--bs-body-bg);
-	border: 1px solid var(--bs-border-color);
-	border-radius: var(--bs-border-radius);
-}
-.panel > .panel-heading,
-.panel-heading {
-	padding: .5rem 1rem;
-	border-bottom: 1px solid var(--bs-border-color);
-	border-top-left-radius: inherit;
-	border-top-right-radius: inherit;
-}
-.panel-title { margin: 0; font-size: 1rem; line-height: 1.5; }
-.panel-body { padding: 1rem; }
-.panel-footer {
-	padding: .5rem 1rem;
-	background-color: var(--bs-tertiary-bg);
-	border-top: 1px solid var(--bs-border-color);
-	border-bottom-left-radius: inherit;
-	border-bottom-right-radius: inherit;
-}
-.panel-group { margin-bottom: 1rem; }
-.panel-group .panel + .panel { margin-top: 5px; }
-.panel-collapse { border: 0; }
+/* Panels are now a first-class FreeSense component defined in
+ * _freesense-core.css (they are not a BS3 compat shim). */
 
 /* ============================ Forms ===================================== */
 .form-group { margin-bottom: 1rem; }
