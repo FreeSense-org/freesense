@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * pkg_mgr_install.php
  *
@@ -816,7 +816,7 @@ function get_firmware_versions() {
 	ajaxVersionRequest.done(function (response, textStatus, jqXHR) {
 		var json = new Object;
 
-		json = jQuery.parseJSON(response);
+		json = JSON.parse(response);
 
 		if (json && json.pkg_busy == '1') {
 			$('#uptodate').html('<span class="text-danger">' + 'Another instance of FreeSense-upgrade is running.  Please try again in a few moments.' + "</span>");
@@ -867,7 +867,7 @@ function getLogsStatus() {
 	ajaxRequest.done(function (response, textStatus, jqXHR) {
 		var json = new Object;
 
-		json = jQuery.parseJSON(response);
+		json = JSON.parse(response);
 
 //		alert("JSON data: " + JSON.stringify(json));
 

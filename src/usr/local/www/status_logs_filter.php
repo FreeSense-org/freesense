@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /*
  * status_logs_filter.php
  *
@@ -367,7 +367,7 @@ function resolve_with_ajax(ip_to_resolve) {
 }
 
 function resolve_ip_callback(transport) {
-	var response = $.parseJSON(transport.responseText);
+	var response = JSON.parse(transport.responseText);
 	var resolve_class = htmlspecialchars(response.resolve_ip.replace(/[.:]/g, '-'));
 	var resolve_text = '<small><br />' + htmlspecialchars(response.resolve_text) + '<\/small>';
 

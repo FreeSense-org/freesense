@@ -1,4 +1,4 @@
-/*
+﻿/*
  * FreeSense.js
  *
  * part of FreeSense (https://www.freesense.org)
@@ -197,10 +197,10 @@ $(function() {
 			// in those functions
 			var attr = $(this).attr('usepost');
 			if (typeof attr === typeof undefined || attr === false) {
-				var msg = $.trim(this.textContent).toLowerCase();
+				var msg = (this.textContent || '').trim().toLowerCase();
 
 				if (!msg)
-					var msg = $.trim(this.value).toLowerCase();
+					var msg = (this.value || '').trim().toLowerCase();
 
 				var q = 'Are you sure you wish to '+ msg +'?';
 

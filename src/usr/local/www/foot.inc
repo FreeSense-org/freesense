@@ -37,7 +37,7 @@
 
 	<!-- This use of filemtime() is intended to fool the browser into reloading the file (not using the cached version) if the file is changed -->
 
-	<script src="/vendor/jquery/jquery-3.7.1.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery/jquery-3.7.1.min.js')?>"></script>
+	<script src="/vendor/jquery/jquery-4.0.0.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery/jquery-4.0.0.min.js')?>"></script>
  	<script src="/vendor/jquery-ui/jquery-ui-1.13.2.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery-ui/jquery-ui-1.13.2.min.js')?>"></script>
 	<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js?v=<?=filemtime('/usr/local/www/vendor/bootstrap/js/bootstrap.bundle.min.js')?>"></script>
 	<script src="/js/freesense-bs5-compat.js?v=<?=filemtime('/usr/local/www/js/freesense-bs5-compat.js')?>"></script>

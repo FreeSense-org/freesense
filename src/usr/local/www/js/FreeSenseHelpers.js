@@ -1,4 +1,4 @@
-/*
+﻿/*
  * FreeSenseHelpers.js
  *
  * part of FreeSense (https://www.freesense.org)
@@ -607,7 +607,7 @@ $(function(){
 		}
 		// Prompt to confirm only on disconnect
 		if (($(this).hasClass('fa-trash-can')) || ($(this).children('i').hasClass('fa-trash-can'))) {
-			var msg = $.trim(this.title) + ' ' + $.trim(conid);
+			var msg = (this.title || '').trim() + ' ' + (conid || '').trim();
 			if (!msg) {
 				msg = 'Confirm?';
 			} else {
@@ -808,10 +808,10 @@ function interceptGET() {
 			// Automatically apply a confirmation dialog to "Delete" icons
 			if (!($(this).hasClass('no-confirm')) && !($(this).hasClass('icon-embed-btn')) &&
 			   (($(this).hasClass('do-confirm')) || ($(this).hasClass('fa-trash-can')))) {
-				var msg = $.trim(this.textContent).toLowerCase();
+				var msg = (this.textContent || '').trim().toLowerCase();
 
 				if (!msg)
-					var msg = $.trim(this.value).toLowerCase();
+					var msg = (this.value || '').trim().toLowerCase();
 
 				var q = 'Are you sure you wish to '+ msg +'?';
 

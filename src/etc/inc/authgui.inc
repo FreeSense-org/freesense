@@ -347,7 +347,7 @@ function display_login_form() {
 		//]]>
 		</script>
 
-	    <script src="/vendor/jquery/jquery-3.7.1.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery/jquery-3.7.1.min.js')?>"></script>
+	    <script src="/vendor/jquery/jquery-4.0.0.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery/jquery-4.0.0.min.js')?>"></script>
 		<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js?v=<?=filemtime('/usr/local/www/vendor/bootstrap/js/bootstrap.bundle.min.js')?>"></script>
 		<script src="/js/freesense-bs5-compat.js?v=<?=filemtime('/usr/local/www/js/freesense-bs5-compat.js')?>"></script>
 		<script src="/js/FreeSense.js?v=<?=filemtime('/usr/local/www/js/FreeSense.js')?>"></script>

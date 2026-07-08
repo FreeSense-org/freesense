@@ -1233,11 +1233,11 @@ events.push(function() {
 	hideClass('linkparam', true);
 
 	hideProviders($('#type').val() != "ppp");
-	if ($('provider').size() == 0) {
+	if ($('provider').length == 0) {
 		hideInput('provider', true);
 	}
 
-	if ($('providerplan').size() == 0) {
+	if ($('providerplan').length == 0) {
 		hideInput('providerplan', true);
 	}
 
