@@ -197,6 +197,18 @@ function restore_backup(string|array $backup) {
 	unlink_if_exists(g_get('tmp_path') . '/config.cache');
 	unlock($lockkey);
 
+	// Defence-in-depth: a restored config (especially one imported from another
+	// distribution) can leave the FreeBSD base user/group/shells database in a
+	// state that makes the box unbootable or locks you out. Re-assert the base
+	// OS accounts and console-menu login shell. Idempotent - a no-op on a
+	// healthy restore.
+	if (function_exists('freesense_config_sanitize_base_os')) {
+		freesense_config_sanitize_base_os();
+	} elseif (@is_readable('/etc/inc/config_import_guard.inc')) {
+		require_once('config_import_guard.inc');
+		freesense_config_sanitize_base_os();
+	}
+
 	disable_security_checks();
 
 	return true;

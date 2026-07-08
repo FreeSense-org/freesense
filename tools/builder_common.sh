@@ -259,6 +259,15 @@ make_world() {
 	install -o root -g wheel -m 0755 ${BUILDER_TOOLS}/installer/*.sh \
 		${INSTALLER_CHROOT_DIR}/root
 
+	# Ship the shared foreign-config package map so the installer importer uses
+	# the exact same pfSense/OPNsense->FreeSense mappings as the GUI importer.
+	if [ -f "${PRODUCT_SRC}/etc/config_import_pkgmap.map" ]; then
+		install -o root -g wheel -m 0644 \
+			"${PRODUCT_SRC}/etc/config_import_pkgmap.map" \
+			${INSTALLER_CHROOT_DIR}/root/config_import_pkgmap.map || \
+			echo ">>> WARN: config_import_pkgmap.map not staged into installer (non-fatal)"
+	fi
+
 	# XXX set root password since we don't have nullok enabled
 	pw -R ${INSTALLER_CHROOT_DIR} usermod root -w yes
 

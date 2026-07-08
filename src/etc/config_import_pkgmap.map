@@ -1,0 +1,126 @@
+# FreeSense foreign-config package map (shared by the GUI importer and the
+# installer importer so the two flows never drift).
+#
+# Format (one mapping per line, whitespace-separated):
+#   <lineage>  <source-package>  <freesense-package-or-hyphen>  <confidence>
+#
+#   lineage:     pfsense | opnsense
+#   source:      the source distribution's package/plugin name
+#                (OPNsense: with or without the os- prefix; a bare os- name is
+#                 matched by stripping the prefix at lookup time)
+#   freesense:   the FreeSense package internal name (as used in
+#                <installedpackages>), or "-" when there is no equivalent
+#   confidence:  exact | likely | guess | core | none
+#                exact/likely -> pre-check for the user
+#                guess        -> suggest, leave un-checked
+#                core         -> built into FreeSense, no package needed
+#                none         -> no equivalent, reported as skipped
+#
+# pfSense is rebranded pfSense CE, so any pfSense package not listed here still
+# maps 1:1 by name at runtime (identity fallback). This file only needs the
+# OPNsense translations and any pfSense special-cases; the pfSense identity list
+# is kept for completeness and to flag packages FreeSense does not ship.
+#
+# Keep the FreeSense column in sync with the repo catalog:
+#   pkg rquery -r FreeSense '%n' | sed -n 's/^FreeSense-pkg-//p'
+
+# ---- pfSense CE -> FreeSense (identity; same lineage) ----
+pfsense  acme                    acme                    exact
+pfsense  apcupsd                 apcupsd                 exact
+pfsense  arping                  arping                  exact
+pfsense  arpwatch                arpwatch                exact
+pfsense  Avahi                   Avahi                   exact
+pfsense  Backup                  Backup                  exact
+pfsense  bind                    bind                    exact
+pfsense  cellular                cellular                exact
+pfsense  collectd                collectd                exact
+pfsense  Cron                    Cron                    exact
+pfsense  darkstat                darkstat                exact
+pfsense  Filer                   Filer                   exact
+pfsense  freeradius3             freeradius3             exact
+pfsense  frr                     frr                     exact
+pfsense  haproxy                 haproxy                 exact
+pfsense  haproxy-devel           haproxy-devel           exact
+pfsense  iperf                   iperf                   exact
+pfsense  LADVD                   LADVD                   exact
+pfsense  lldpd                   lldpd                   exact
+pfsense  mcast-bridge            mcast-bridge            exact
+pfsense  mDNS-Bridge             mDNS-Bridge             exact
+pfsense  mtr-nox11               mtr-nox11               exact
+pfsense  net-snmp                net-snmp                exact
+pfsense  nmap                    nmap                    exact
+pfsense  node_exporter           node_exporter           exact
+pfsense  Notes                   Notes                   exact
+pfsense  ntopng                  ntopng                  exact
+pfsense  nut                     nut                     exact
+pfsense  Open-VM-Tools           Open-VM-Tools           exact
+pfsense  openvpn-client-export   openvpn-client-export   exact
+pfsense  pfBlockerNG             pfBlockerNG             exact
+pfsense  pfBlockerNG-devel       pfBlockerNG-devel       exact
+pfsense  pimd                    pimd                    exact
+pfsense  RRD_Summary             RRD_Summary             exact
+pfsense  Service_Watchdog        Service_Watchdog        exact
+pfsense  Shellcmd                Shellcmd                exact
+pfsense  snort                   snort                   exact
+pfsense  softflowd               softflowd               exact
+pfsense  squid                   squid                   exact
+pfsense  Status_Traffic_Totals   Status_Traffic_Totals   exact
+pfsense  stunnel                 stunnel                 exact
+pfsense  sudo                    sudo                    exact
+pfsense  suricata                suricata                exact
+pfsense  syslog-ng               syslog-ng               exact
+pfsense  Tailscale               Tailscale               exact
+pfsense  Telegraf                Telegraf                exact
+pfsense  tftpd                   tftpd                   exact
+pfsense  udpbroadcastrelay       udpbroadcastrelay       exact
+pfsense  WireGuard               WireGuard               exact
+pfsense  zabbix-agent6           zabbix-agent6           exact
+pfsense  zabbix-agent7           zabbix-agent7           exact
+pfsense  zabbix-agent74          zabbix-agent74          exact
+pfsense  zabbix-proxy6           zabbix-proxy6           exact
+pfsense  zabbix-proxy7           zabbix-proxy7           exact
+pfsense  zabbix-proxy74          zabbix-proxy74          exact
+
+# ---- OPNsense -> FreeSense (best-effort; settings not carried) ----
+opnsense  acme-client            acme                    likely
+opnsense  haproxy                haproxy                 likely
+opnsense  wireguard              WireGuard               likely
+opnsense  frr                    frr                     likely
+opnsense  nut                    nut                     likely
+opnsense  ntopng                 ntopng                  likely
+opnsense  tftp                   tftpd                   likely
+opnsense  freeradius             freeradius3             likely
+opnsense  nmap                   nmap                    exact
+opnsense  iperf                  iperf                   exact
+opnsense  mtr                    mtr-nox11               likely
+opnsense  lldpd                  lldpd                   exact
+opnsense  net-snmp               net-snmp                exact
+opnsense  collectd               collectd                exact
+opnsense  telegraf               Telegraf                likely
+opnsense  node_exporter          node_exporter           exact
+opnsense  stunnel                stunnel                 exact
+opnsense  squid                  squid                   likely
+opnsense  apcupsd                apcupsd                 exact
+opnsense  bind                   bind                    likely
+opnsense  softflowd              softflowd               exact
+opnsense  darkstat               darkstat                exact
+opnsense  arpwatch               arpwatch                exact
+opnsense  avahi                  Avahi                   likely
+opnsense  mdns-repeater          mDNS-Bridge             guess
+opnsense  openvpn-client-export  openvpn-client-export   likely
+opnsense  udpbroadcastrelay      udpbroadcastrelay       exact
+opnsense  zabbix-agent           zabbix-agent7           guess
+opnsense  zabbix-proxy           zabbix-proxy7           guess
+opnsense  zabbix-agent-lts       zabbix-agent74          guess
+opnsense  zabbix-proxy-lts       zabbix-proxy74          guess
+# OPNsense plugins that are CORE features in FreeSense (no package needed)
+opnsense  dyndns                 -                       core
+opnsense  wol                    -                       core
+opnsense  captiveportal          -                       core
+# Known OPNsense-only plugins with no FreeSense equivalent (reported as skipped)
+opnsense  tinc                   -                       none
+opnsense  radsecproxy            -                       none
+opnsense  siproxd                -                       none
+opnsense  redis                  -                       none
+opnsense  relayd                 -                       none
+opnsense  wazuh                  -                       none

@@ -222,6 +222,18 @@ $section->addInput(new Form_StaticText(
 	sprintf(gettext("Open a %s configuration XML file and click the button below to restore the configuration."), g_get('product_label'))
 ));
 
+$section->addInput(new Form_StaticText(
+	null,
+	'<div class="infoblock">' .
+	print_info_box(gettext('A full-restore of an OPNsense or pfSense configuration is ' .
+	    'automatically detected and converted to FreeSense. Certificates, users ' .
+	    'and basic networking are kept; OPNsense-specific firewall, NAT and VPN ' .
+	    'settings are not carried and must be reconfigured. Detected packages are ' .
+	    'auto-mapped to FreeSense packages and listed after the restore.'),
+	    'info', false) .
+	'</div>'
+));
+
 $section->addInput(new Form_Select(
 	'restorearea',
 	'Restore area',

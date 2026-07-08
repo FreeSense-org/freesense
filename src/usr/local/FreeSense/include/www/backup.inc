@@ -291,6 +291,73 @@ function execPost($post, $postfiles, $ui = true) {
 						}
 					}
 
+					/* Foreign-config guard: if this is an OPNsense or (older/
+					 * foreign) pfSense config, convert it to a FreeSense config
+					 * before restoring, so a foreign schema cannot brick the box.
+					 * Only acts on a full restore of a foreign lineage; a normal
+					 * FreeSense config is untouched. See config_import_guard.inc.
+					 */
+					if (!$post['restorearea'] && !$input_errors && is_string($data) && $data !== "") {
+						require_once('config_import_guard.inc');
+						require_once('config_import_pkgmap.inc');
+						$fs_lineage = freesense_config_detect_lineage($data);
+						if ($fs_lineage === 'pfsense' || $fs_lineage === 'opnsense') {
+							/* Auto-map the source packages BEFORE conversion
+							 * strips <installedpackages>, so we can report what to
+							 * reinstall. Parse the original foreign data. */
+							$fs_pkg_summary = '';
+							$fs_tmp = tempnam('/tmp', 'fsimport');
+							if ($fs_tmp !== false) {
+								file_put_contents($fs_tmp, $data);
+								$fs_srcconf = parse_xml_config($fs_tmp,
+								    array('pfsense', 'opnsense', 'freesense'));
+								@unlink($fs_tmp);
+								if (is_array($fs_srcconf)) {
+									$fs_cat = freesense_import_pkg_catalog();
+									$fs_maps = freesense_import_map_all_packages(
+									    $fs_srcconf, $fs_lineage, $fs_cat);
+									$fs_install = array();
+									$fs_skip = array();
+									foreach ($fs_maps as $mp) {
+										if ($mp['precheck'] && $mp['target'] !== '') {
+											$fs_install[] = $mp['target'];
+										} elseif ($mp['confidence'] === 'guess' && $mp['target'] !== '') {
+											$fs_install[] = $mp['target'] . '?';
+										} elseif ($mp['confidence'] === 'none') {
+											$fs_skip[] = $mp['source'];
+										}
+									}
+									if (!empty($fs_install)) {
+										$fs_pkg_summary .= ' ' . sprintf(gettext(
+										    "Packages to reinstall (\"?\" = please confirm): %s."),
+										    implode(', ', $fs_install));
+									}
+									if (!empty($fs_skip)) {
+										$fs_pkg_summary .= ' ' . sprintf(gettext(
+										    "No FreeSense equivalent (skipped): %s."),
+										    implode(', ', $fs_skip));
+									}
+									/* stage the confident package list for a
+									 * post-reboot reinstall prompt */
+									if (!empty($fs_install)) {
+										@file_put_contents('/conf/import_packages',
+										    implode("\n", array_filter($fs_install,
+										        function($p) { return substr($p, -1) !== '?'; })) . "\n");
+									}
+								}
+							}
+							$fs_conv = freesense_config_convert_foreign($data, $fs_lineage);
+							$data = $fs_conv['xml'];
+							$savemsg = sprintf(gettext(
+							    "Detected and converted a %s configuration to FreeSense before restoring. %s%s"),
+							    strtoupper($fs_lineage),
+							    implode(' ', $fs_conv['notes']),
+							    $fs_pkg_summary);
+						}
+						unset($fs_lineage, $fs_conv, $fs_srcconf, $fs_maps, $fs_cat,
+						    $fs_install, $fs_skip, $fs_pkg_summary, $fs_tmp);
+					}
+
 					if ($post['restorearea'] && !$input_errors) {
 						/* restore a specific area of the configuration */
 						if (!stristr($data, "<" . $post['restorearea'] . ">")) {
@@ -407,6 +474,12 @@ function execPost($post, $postfiles, $ui = true) {
 									}
 								}
 								console_configure();
+								/* Defence-in-depth after a full restore: re-assert
+								 * the FreeBSD base users/groups and the console-menu
+								 * login shell so an imported config can never leave
+								 * the box unbootable or lock you out. Idempotent. */
+								require_once('config_import_guard.inc');
+								freesense_config_sanitize_base_os();
 								if (is_interface_mismatch() == true) {
 									touch("/var/run/interface_mismatch_reboot_needed");
 									clear_subsystem_dirty("restore");
