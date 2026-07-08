@@ -77,4 +77,36 @@ say "repo now holds $(ls "$REPODIR/All"/*.pkg 2>/dev/null | wc -l | tr -d ' ') p
 rm -f "$REPODIR"/packagesite.* "$REPODIR"/meta.* "$REPODIR"/data.* 2>/dev/null || true
 pkg repo "$REPODIR/" >/dev/null 2>&1 || say "WARN pkg repo regen failed (reuse degraded)"
 [ -d "$PKGTOP/.real_cache" ] && ln -sfn .real_cache "$PKGTOP/.latest" 2>/dev/null || true
+
+# --- stamp .jailversion so poudriere does NOT wipe the freshly-seeded cache -------------------
+# poudriere's prepare_ports() (common.sh ~10301) reads ${PACKAGES}/.jailversion and, if it exists
+# but != `jget ${JAILNAME} version`, runs delete_all_pkgs "newer version of jail" — nuking every
+# seed we just laid down. The R2 cache-restore ships an OLD .jailversion, and the jail here is
+# freshly created from THIS rev's base seed, so the strings differ -> false-positive wipe. In our
+# model the jail (base-<rev>.txz) and the stock binaries (stock/<chan>/<rev>) come from the SAME
+# pinned rev, so they ARE ABI-consistent by construction; the version-string mismatch is spurious.
+# Overwrite .jailversion to the jail's current version so the check passes (do NOT delete it — an
+# absent file skips the check, but a stale restored one would still fire). If we can't read the
+# jail version, remove the stale file (skip-the-check) rather than leave a mismatching one.
+# NB: also fixes the SECOND wipe ("pkg bootstrap missing"): that only fired because wipe #1 had
+# already deleted Latest/pkg.pkg; with the seed preserved, pkg stays present and the check passes.
+# poudriere stores the jail's version string at ${POUDRIERED}/jails/<jail>/version and compares
+# EXACTLY that (`jget ${JAILNAME} version`, common.sh:10306). Read the same file so our stamp is
+# byte-identical to what the check reads. POUDRIERED defaults to <etc>/poudriere.d; on a standard
+# install that is /usr/local/etc/poudriere.d. Fall back to `poudriere jail -i` if the layout differs.
+POUD_ETC="${POUDRIERED:-/usr/local/etc/poudriere.d}"
+JV=""
+for jf in "$POUD_ETC/jails/$JAIL/version" /usr/local/etc/poudriere.d/jails/"$JAIL"/version; do
+	[ -r "$jf" ] && { JV="$(cat "$jf" 2>/dev/null)"; break; }
+done
+[ -n "$JV" ] || JV="$(poudriere jail -i -j "$JAIL" 2>/dev/null | sed -n 's/^Version: *//p' | head -1)"
+if [ -n "$JV" ]; then
+	printf '%s\n' "$JV" > "$REPODIR/.jailversion"
+	[ -e "$PKGTOP/.jailversion" ] && printf '%s\n' "$JV" > "$PKGTOP/.jailversion" 2>/dev/null || true
+	say "stamped .jailversion=$JV (matches jail $JAIL -> no false-positive cache wipe)"
+else
+	rm -f "$REPODIR/.jailversion" "$PKGTOP/.jailversion" 2>/dev/null || true
+	say "WARN could not read jail version -> removed stale .jailversion (poudriere skips the check)"
+fi
+
 say "DONE (frozen) — poudriere bulk will REUSE the frozen stock and build only custom/patched"
