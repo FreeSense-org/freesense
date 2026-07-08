@@ -238,6 +238,31 @@ make_world() {
 		return
 	fi
 
+	# FreeSense LEVER 1 (pkgbase world): instead of compiling the world with
+	# buildworld (~4h, ~99% verbatim FreeBSD), seed the staging + installer chroots
+	# from FreeBSD-16 prebuilt pkgbase binaries. The custom kernel is still built
+	# from patched source below (build_all_kernels); the src/ overlay + patched
+	# userland still land on top in clone_to_staging_area. Gated by
+	# FREESENSE_PKGBASE_WORLD=1 so the classic buildworld path stays the default.
+	if [ "${FREESENSE_PKGBASE_WORLD:-0}" = "1" ]; then
+		echo ">>> $(LC_ALL=C date) - pkgbase world: fetching FreeBSD base binaries (NO buildworld)..." | tee -a ${LOGFILE}
+		[ -d "${INSTALLER_CHROOT_DIR}" ] || mkdir -p ${INSTALLER_CHROOT_DIR}
+		[ -d "${STAGE_CHROOT_DIR}" ] || mkdir -p ${STAGE_CHROOT_DIR}
+		script -aq $LOGFILE env \
+			STAGE_CHROOT_DIR="${STAGE_CHROOT_DIR}" \
+			INSTALLER_CHROOT_DIR="${INSTALLER_CHROOT_DIR}" \
+			TARGET_ARCH="${TARGET_ARCH}" \
+			FREEBSD_SRC_DIR="${FREEBSD_SRC_DIR}" \
+			sh ${BUILDER_TOOLS}/ci/freesense-pkgbase-world.sh \
+			|| print_error_pfS
+		# The classic path builds a cross cc in obj; with no buildworld there is no
+		# obj toolchain, so downstream steps use the chroot's own clang (from the
+		# FreeBSD-clang pkgbase package we just seeded).
+		BUILD_CC="${STAGE_CHROOT_DIR}/usr/bin/cc"
+		make_world_pkgbase_tail
+		return
+	fi
+
 	echo ">>> $(LC_ALL=C date) - Starting build world for ${TARGET} architecture..." | tee -a ${LOGFILE}
 	script -aq $LOGFILE ${BUILDER_SCRIPTS}/build_freebsd.sh -K -s ${FREEBSD_SRC_DIR} \
 		|| print_error_pfS
@@ -311,6 +336,45 @@ make_world() {
 	fi
 
 	unset makeargs
+}
+
+# FreeSense LEVER 1 (pkgbase world): the tail of make_world for the pkgbase path.
+# The chroots are already populated from FreeBSD pkgbase (freesense-pkgbase-world.sh),
+# so there is no installworld to run. This mirrors the classic tail: stage the extra
+# installer scripts + foreign-config map, set the installer root password, and build
+# the crypto tools — but compiled with the chroot's own clang (BUILD_CC set by the
+# caller to ${STAGE_CHROOT_DIR}/usr/bin/cc) since there is no obj cross-toolchain.
+make_world_pkgbase_tail() {
+	LOGFILE=${BUILDER_LOGS}/installworld.${TARGET}
+
+	# Copy additional installer scripts
+	install -o root -g wheel -m 0755 ${BUILDER_TOOLS}/installer/*.sh \
+		${INSTALLER_CHROOT_DIR}/root
+
+	# Ship the shared foreign-config package map (same as the classic path).
+	if [ -f "${PRODUCT_SRC}/etc/config_import_pkgmap.map" ]; then
+		install -o root -g wheel -m 0644 \
+			"${PRODUCT_SRC}/etc/config_import_pkgmap.map" \
+			${INSTALLER_CHROOT_DIR}/root/config_import_pkgmap.map || \
+			echo ">>> WARN: config_import_pkgmap.map not staged into installer (non-fatal)"
+	fi
+
+	# XXX set root password since we don't have nullok enabled
+	pw -R ${INSTALLER_CHROOT_DIR} usermod root -w yes
+
+	# Build crypto tools with the seeded chroot's clang. Non-fatal: the classic path
+	# also treats this as best-effort, and the tools are a convenience, not core.
+	if [ -x "${BUILD_CC}" ]; then
+		[ -d "${STAGE_CHROOT_DIR}/usr/local/bin" ] || mkdir -p ${STAGE_CHROOT_DIR}/usr/local/bin
+		makeargs="CC=${BUILD_CC} DESTDIR=${STAGE_CHROOT_DIR}"
+		echo ">>> pkgbase: building crypto tools with chroot clang... ($(LC_ALL=C date))" | tee -a ${LOGFILE}
+		(script -aq $LOGFILE make -C ${FREEBSD_SRC_DIR}/tools/tools/crypto ${makeargs} clean all install \
+			|| echo ">>> WARN: crypto tools build skipped (non-fatal)";) | egrep '^>>>' | tee -a ${LOGFILE}
+		unset makeargs
+	else
+		echo ">>> WARN: no BUILD_CC (${BUILD_CC}) — skipping crypto tools (non-fatal)" | tee -a ${LOGFILE}
+	fi
+	echo ">>> pkgbase world tail complete." | tee -a ${LOGFILE}
 }
 
 # This routine creates a ova image that contains
@@ -1423,6 +1487,25 @@ buildkernel() {
 
 	local _old_kernconf=${KERNCONF}
 	export KERNCONF=${_kernconf}
+
+	# FreeSense LEVER 1 (pkgbase world): the classic path builds the kernel toolchain
+	# as a side effect of buildworld. With pkgbase world there is no buildworld, so the
+	# kernel compiler/headers are missing — run kernel-toolchain first (~30-45m, vs ~4h
+	# for a full world). Idempotent + guarded so it only runs in pkgbase mode and only
+	# once (the obj toolchain persists across the per-kernel loop).
+	if [ "${FREESENSE_PKGBASE_WORLD:-0}" = "1" ] && [ -z "${_FREESENSE_KTOOLCHAIN_DONE:-}" ]; then
+		echo ">>> $(LC_ALL=C date) - pkgbase: building kernel-toolchain (no buildworld)..." | tee -a ${LOGFILE}
+		# CRITICAL: use the SAME obj dir build_freebsd.sh (called by this function with
+		# no -o) will use, so the toolchain and buildkernel share one obj tree.
+		# build_freebsd.sh defaults objdir=${srcdir}/../obj -> MAKEOBJDIRPREFIX=that.
+		local _ktc_obj="${FREEBSD_SRC_DIR}/../obj"
+		local _ncpu=$(sysctl -qn hw.ncpu 2>/dev/null || echo 2)
+		script -aq $LOGFILE env MAKEOBJDIRPREFIX="${_ktc_obj}" \
+			make -C ${FREEBSD_SRC_DIR} -j$((_ncpu*2)) kernel-toolchain \
+			|| print_error_pfS
+		export _FREESENSE_KTOOLCHAIN_DONE=1
+		echo ">>> $(LC_ALL=C date) - pkgbase: kernel-toolchain ready." | tee -a ${LOGFILE}
+	fi
 
 	echo ">>> $(LC_ALL=C date) - Starting build kernel for ${TARGET} architecture..." | tee -a ${LOGFILE}
 	script -aq $LOGFILE ${BUILDER_SCRIPTS}/build_freebsd.sh -W -s ${FREEBSD_SRC_DIR} \
