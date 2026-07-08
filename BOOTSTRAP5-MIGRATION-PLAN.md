@@ -203,8 +203,20 @@ Only after Phases 1-3 (the JS-masked categories) are done:
   pages (snort preprocessors+rules+alerts+sid, suricata equivalents, pfBlockerNG
   alerts chart dropdown, Status_Monitoring, tftpd upload modal, acme, WireGuard).
 
+## Additional BS3->BS5 regression found & fixed: button spacing
+BS3 gave adjacent `.btn` elements intrinsic spacing; BS5 removed it. FreeSense's
+theme only patched this with `form .btn + .btn { margin-left: 5px }` in
+`css/_freesense-core.css` — too narrow: it missed (a) buttons OUTSIDE a `<form>`
+(toolbar/action buttons on diag_arp, diag_gmirror, status pages) and (b)
+non-direct-sibling buttons — so those touched/overlapped inconsistently.
+Fixed by generalizing to `.btn + .btn { margin-left: 5px }` with exclusions for
+`.btn-group`/`.btn-group-vertical`/`.input-group` (joined by design) plus
+`.btn-toolbar` row spacing. Applied to css/_freesense-core.css (committed) and
+hot-patched on the live box. This is a theme-CSS fix, independent of the shim.
+
 ## Bottom line
-Nothing is broken today; the shim carries it. The *high-value* work is Phases
+Nothing is broken today; the shim carries it (button spacing was the exception,
+now fixed). The *high-value* work is Phases
 1-3 (un-mask the JS-shimmed categories, especially `.in`) — modest, scriptable,
 concentrated in snort/suricata/pfBlockerNG + a handful of base VPN/system pages.
 Phase 4 cosmetics are optional hygiene. Only after 1-3 can the JS shim be safely

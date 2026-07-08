@@ -68,7 +68,23 @@ a.fa-solid, i.fa-solid, a.fa-regular, i.fa-regular, a.fa-brands, i.fa-brands { f
 	--bs-btn-focus-shadow-rgb: 234, 79, 45;
 }
 .btn { border-radius: var(--bs-border-radius-sm); }
-form .btn + .btn { margin-left: 5px; }
+/* Bootstrap 5 removed the intrinsic spacing Bootstrap 3 gave adjacent buttons,
+ * so standalone/toolbar buttons (outside a <form>) ended up touching. Space any
+ * two adjacent buttons, EXCEPT inside a .btn-group / .input-group where they are
+ * meant to be joined (BS5 handles those). */
+.btn + .btn {
+	margin-left: 5px;
+}
+.btn-group > .btn + .btn,
+.btn-group-vertical > .btn + .btn,
+.input-group .btn + .btn {
+	margin-left: 0;
+}
+/* vertical toolbars / stacked buttons that wrap also need row spacing */
+.btn-toolbar > .btn,
+.btn-toolbar > .btn-group {
+	margin-bottom: 5px;
+}
 
 .progress-bar { background-color: var(--fs-coral); }
 .progress { height: 1rem; }
