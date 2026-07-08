@@ -27,8 +27,10 @@ mail/pear-Mail
 net/freeradius3
 net/frr10
 net/haproxy
-net/haproxy22
-net/haproxy29
+# net/haproxy22 + net/haproxy29 removed — these version-variant ports no longer exist in
+# the FreeBSD ports tree (404). FreeSense ships net/haproxy + net/haproxy-devel. Listing
+# nonexistent origins is tolerated by the full-closure lean-seed but is a hard "Nonexistent
+# origin" error under the overlay's explicit bulk list.
 net/haproxy-devel
 net/libpcap
 net/miniupnpd

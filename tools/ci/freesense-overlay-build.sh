@@ -111,6 +111,36 @@ _PN="${PRODUCT_NAME:-FreeSense}"
 sort -u "$SET" | grep -vE '^\s*$' \
 	| sed -E "s#/${_PN}-#/%%PRODUCT_NAME%%-#; s#/${_PN}\$#/%%PRODUCT_NAME%%#" \
 	> "$TMP/final"
+
+# ---- validate origins against the ports tree (drop stale/nonexistent) --------
+# make.conf/must-build.extra can carry origins that no longer exist in the current
+# FreeBSD ports tree (e.g. net/haproxy22 was removed). The full-closure lean-seed
+# tolerates that, but the overlay's EXPLICIT bulk list hits a hard poudriere
+# "Nonexistent origin" fatal. If a ports tree is available at plan time, drop any
+# STOCK origin whose dir is absent. (%%PRODUCT_NAME%% overlay origins are validated
+# via the overlay dir instead; they always exist there by construction.)
+# PORTSTREE: poudriere tree if already created, else a checked-out freebsd-ports.
+PORTSTREE="${PORTSTREE:-}"
+if [ -z "$PORTSTREE" ]; then
+	for c in /usr/local/poudriere/ports/*/. /usr/ports/.; do
+		[ -d "$c" ] && [ -f "${c%/.}/Mk/bsd.port.mk" ] && { PORTSTREE="${c%/.}"; break; }
+	done
+fi
+if [ -n "$PORTSTREE" ] && [ -d "$PORTSTREE" ]; then
+	: > "$TMP/valid"; dropped=""
+	while IFS= read -r origin; do
+		case "$origin" in
+			*%%PRODUCT_NAME%%*) echo "$origin" >> "$TMP/valid" ;;   # overlay origin, trust
+			*) if [ -d "$PORTSTREE/$origin" ]; then echo "$origin" >> "$TMP/valid"
+			   else dropped="$dropped $origin"; fi ;;
+		esac
+	done < "$TMP/final"
+	mv "$TMP/valid" "$TMP/final"
+	[ -n "$dropped" ] && say "dropped nonexistent origins:$dropped"
+else
+	say "no ports tree at plan time -> skipping origin validation (relies on curated lists)"
+fi
+
 N=$(wc -l < "$TMP/final" | tr -d ' ')
 say "CUSTOM SET = ${N} origins (everything else = FreeBSD stock binary, verbatim)"
 
