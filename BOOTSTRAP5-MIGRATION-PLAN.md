@@ -149,7 +149,12 @@ LOW-URGENCY / hygiene, EXCEPT:
 Since the shim masks ~everything, order by RISK, not by raw count. The only
 category with real bug potential is `.collapse.in` (JS-only masking).
 
-### Phase 1 — the fragile category: `.in` → `.show`  (DO FIRST; real bug risk)
+### Phase 1 — the fragile category: `.in` → `.show`  ✅ DONE
+Commits: base 5267671, packages afa20cc. All `collapse in` / `addClass('in')`
+converted to `show`; grep of both repos returns 0. The compat.js `.in`->`.show`
+rewrite is now dead code (can be removed in Phase 6).
+
+### Phase 1 (original notes) — the fragile category: `.in` → `.show`  (DO FIRST; real bug risk)
 Convert every BS3 shown-collapse marker to BS5 so it no longer depends on the
 JS runtime rewrite (the exact failure mode behind the dashboard bug).
 - **Base (15 sites / 6 files):** vpn_ipsec_mobile.php (10), vpn_ipsec_settings.php,
