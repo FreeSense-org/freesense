@@ -1119,7 +1119,7 @@ function gateway_info_popup($showgw) {
 		return;
 	}
 
-	return "<a href=\"{$link}\" data-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"" . gettext('Gateway details') . "\" data-bs-content=\"{$content}\" data-bs-html=\"true\">";
+	return "<a href=\"{$link}\" data-bs-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"" . gettext('Gateway details') . "\" data-bs-content=\"{$content}\" data-bs-html=\"true\">";
 }
 
 function rule_columns_with_alias($src, $srcport, $dst, $dstport, $target="", $targetport="") {

@@ -66,7 +66,7 @@ function multiple_auth_server_type() {
 function print_details($cpent) {
 	global $cpzone, $cpzoneid;
 
-	printf("<a data-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"%s\" data-bs-content=\" ", gettext("Session details"));
+	printf("<a data-bs-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"%s\" data-bs-content=\" ", gettext("Session details"));
 
 	/* print the duration of the session */
 	$session_time = time() - $cpent[0];

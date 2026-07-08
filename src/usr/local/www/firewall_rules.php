@@ -112,7 +112,7 @@ function print_states($tracker_start, $tracker_end = -1) {
 	$title = (gettext('States details'));
 	$href = ('diag_dump_states.php?ruleid=' . $rulesid);
 	printf("<a href=\"%s\" " .
-	    "data-toggle=\"popover\" data-bs-trigger=\"hover focus\" " .
+	    "data-bs-toggle=\"popover\" data-bs-trigger=\"hover focus\" " .
 	    "title=\"%s\" ", $href, $title);
 	printf("data-bs-content=\"{$trackertext}evaluations: %s<br />packets: " .
 	    "%s<br />bytes: %s<br />", format_number($evaluations), format_number($packets),
