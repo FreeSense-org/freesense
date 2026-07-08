@@ -11,20 +11,19 @@
  */
 
 /*
- * Bootstrap 3 -> Bootstrap 5 compatibility shim.
+ * Bootstrap 5 jQuery plugin bridge.
  *
- * NOTE (2026-07-03): the BASE system is fully native BS5 — its markup carries
- * data-bs-* attributes and its JS calls window.bootstrap directly; nothing in
- * freesense-src depends on this bridge anymore. It is retained ONLY for
- * PACKAGE-provided pages (pfBlockerNG, HAProxy, ... ship their own BS3-era
- * markup/JS). Delete it once the freesense-ports files/ sweep lands:
+ * The BS3->BS5 markup sweep is complete: all data-* attributes are now data-bs-*
+ * and no ".collapse.in" markers remain, so the old data-* rewriter and the
+ * .in->.show converter (and their MutationObserver) have been removed.
  *
- *   1. A jQuery plugin bridge so $(el).modal('show') / .collapse('toggle') /
- *      .tab('show') / .tooltip() / .popover() / .dropdown() call the vanilla
- *      Bootstrap 5 API.
- *   2. Rewrites BS3 data-* attributes to BS5 data-bs-* at load so the BS5
- *      delegated click handlers fire (data-toggle -> data-bs-toggle, etc.).
- *   3. Converts the BS3 "shown collapse" class .in to the BS5 .show.
+ * What remains is ONLY the jQuery plugin bridge so that jQuery-style Bootstrap
+ * calls still hit the vanilla Bootstrap 5 API:
+ *   $(el).modal('show') / .collapse('toggle') / .tab('show') / .tooltip() /
+ *   .popover() / .dropdown()
+ * These are still used by some package pages (snort/suricata/pfBlockerNG).
+ * Once BS5-migration Phase 3 converts those calls to bootstrap.X.getOrCreate-
+ * Instance(...), this file and its foot.inc include can be deleted outright.
  *
  * Loaded AFTER jquery + bootstrap.bundle and BEFORE FreeSense.js so the bridge
  * is defined before any ready-handler that uses it runs.
@@ -33,132 +32,51 @@
 (function ($) {
 	"use strict";
 
-	if (typeof window.bootstrap === "undefined") {
-		// Bundle failed to load; nothing we can do.
+	if (typeof window.bootstrap === "undefined" || !$ || !$.fn) {
 		return;
 	}
 
 	var bs = window.bootstrap;
 
-	/* ---- jQuery plugin bridge -------------------------------------------- */
-	if ($ && $.fn) {
-		// Generic bridge: $(el).plugin('command') or $(el).plugin({options})
-		function makeBridge(Ctor, defaults) {
-			return function (arg, extra) {
-				return this.each(function () {
-					var opts = (arg && typeof arg === "object") ? arg : (defaults || {});
-					var inst = Ctor.getOrCreateInstance(this, opts);
-					if (typeof arg === "string" && typeof inst[arg] === "function") {
-						inst[arg](extra);
-					}
-				});
-			};
-		}
-
-		// Collapse must NOT auto-toggle when instantiated programmatically.
-		$.fn.collapse = function (arg) {
+	// Generic bridge: $(el).plugin('command') or $(el).plugin({options})
+	function makeBridge(Ctor, defaults) {
+		return function (arg, extra) {
 			return this.each(function () {
-				var opts = (arg && typeof arg === "object") ? arg : { toggle: false };
-				var inst = bs.Collapse.getOrCreateInstance(this, opts);
+				var opts = (arg && typeof arg === "object") ? arg : (defaults || {});
+				var inst = Ctor.getOrCreateInstance(this, opts);
 				if (typeof arg === "string" && typeof inst[arg] === "function") {
-					inst[arg]();
+					inst[arg](extra);
 				}
 			});
 		};
-
-		// In BS3, $(el).modal() (no/object arg) also SHOWS the modal.
-		$.fn.modal = function (arg) {
-			return this.each(function () {
-				var opts = (arg && typeof arg === "object") ? arg : {};
-				var inst = bs.Modal.getOrCreateInstance(this, opts);
-				if (typeof arg === "string") {
-					if (typeof inst[arg] === "function") { inst[arg](); }
-				} else {
-					inst.show();
-				}
-			});
-		};
-
-		$.fn.tab     = makeBridge(bs.Tab);
-		$.fn.tooltip = makeBridge(bs.Tooltip);
-		$.fn.popover = makeBridge(bs.Popover);
-		$.fn.dropdown = makeBridge(bs.Dropdown);
 	}
 
-	/* ---- data-* -> data-bs-* + .in -> .show ------------------------------ */
-	var ATTR_MAP = {
-		"data-toggle":   "data-bs-toggle",
-		"data-target":   "data-bs-target",
-		"data-dismiss":  "data-bs-dismiss",
-		"data-parent":   "data-bs-parent",
-		"data-ride":     "data-bs-ride",
-		"data-slide":    "data-bs-slide",
-		"data-slide-to": "data-bs-slide-to",
-		"data-backdrop": "data-bs-backdrop",
-		"data-keyboard": "data-bs-keyboard",
-		"data-spy":      "data-bs-spy",
-		/* tooltip/popover option attrs (BS5 only reads the data-bs-* forms) */
-		"data-placement":      "data-bs-placement",
-		"data-container":      "data-bs-container",
-		"data-trigger":        "data-bs-trigger",
-		"data-content":        "data-bs-content",
-		"data-html":           "data-bs-html",
-		"data-delay":          "data-bs-delay",
-		"data-original-title": "data-bs-title"
-	};
-
-	function upgradeMarkup(root) {
-		root = root || document;
-		Object.keys(ATTR_MAP).forEach(function (oldAttr) {
-			var bsAttr = ATTR_MAP[oldAttr];
-			root.querySelectorAll("[" + oldAttr + "]").forEach(function (el) {
-				if (!el.hasAttribute(bsAttr)) {
-					el.setAttribute(bsAttr, el.getAttribute(oldAttr));
-				}
-			});
-		});
-		// BS3 shown-collapse class .in -> BS5 .show
-		root.querySelectorAll(".collapse.in").forEach(function (el) {
-			el.classList.add("show");
-			el.classList.remove("in");
-		});
-	}
-
-	// Expose so dynamically-injected markup can be re-upgraded if needed.
-	window.fsBs5Upgrade = upgradeMarkup;
-
-	// Dynamic content: widgets and pkg pages inject markup via ajax AFTER the
-	// initial pass, so their data-toggle/... attributes were never upgraded and
-	// tooltips/collapses in refreshed fragments went dead. Re-run the upgrade
-	// (scoped to the added subtree) whenever elements are inserted.
-	function watchDynamicMarkup() {
-		if (!window.MutationObserver || !document.body) { return; }
-		var pending = [];
-		var scheduled = false;
-		var observer = new MutationObserver(function (mutations) {
-			mutations.forEach(function (m) {
-				for (var i = 0; i < m.addedNodes.length; i++) {
-					if (m.addedNodes[i].nodeType === 1) { pending.push(m.addedNodes[i]); }
-				}
-			});
-			if (pending.length && !scheduled) {
-				scheduled = true;
-				requestAnimationFrame(function () {
-					var batch = pending; pending = []; scheduled = false;
-					batch.forEach(function (el) { upgradeMarkup(el); });
-				});
+	// Collapse must NOT auto-toggle when instantiated programmatically.
+	$.fn.collapse = function (arg) {
+		return this.each(function () {
+			var opts = (arg && typeof arg === "object") ? arg : { toggle: false };
+			var inst = bs.Collapse.getOrCreateInstance(this, opts);
+			if (typeof arg === "string" && typeof inst[arg] === "function") {
+				inst[arg]();
 			}
 		});
-		observer.observe(document.body, { childList: true, subtree: true });
-	}
+	};
 
-	if (document.readyState === "loading") {
-		document.addEventListener("DOMContentLoaded", function () {
-			upgradeMarkup(document);
-			watchDynamicMarkup();
+	// In BS3, $(el).modal() (no/object arg) also SHOWS the modal.
+	$.fn.modal = function (arg) {
+		return this.each(function () {
+			var opts = (arg && typeof arg === "object") ? arg : {};
+			var inst = bs.Modal.getOrCreateInstance(this, opts);
+			if (typeof arg === "string") {
+				if (typeof inst[arg] === "function") { inst[arg](); }
+			} else {
+				inst.show();
+			}
 		});
-	} else {
-		upgradeMarkup(document);
-		watchDynamicMarkup();
-	}
+	};
+
+	$.fn.tab      = makeBridge(bs.Tab);
+	$.fn.tooltip  = makeBridge(bs.Tooltip);
+	$.fn.popover  = makeBridge(bs.Popover);
+	$.fn.dropdown = makeBridge(bs.Dropdown);
 })(window.jQuery);
