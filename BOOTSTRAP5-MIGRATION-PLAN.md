@@ -167,7 +167,13 @@ JS runtime rewrite (the exact failure mode behind the dashboard bug).
 - Verify: grep for `collapse in` and `addClass('in')` returns 0; then the
   `.collapse.in`→`.show` block in compat.js can be deleted.
 
-### Phase 2 — normalize `data-toggle` → `data-bs-toggle` (declarative correctness)
+### Phase 2 — normalize `data-toggle` → `data-bs-toggle`  ✅ DONE
+Commits: base 0683b28 (3 popover sites), packages e420d42 (58 attrs / 21 files).
+All BS3 declarative data-* renamed to data-bs-* (toggle/dismiss/target/parent +
+popover option attrs). grep of both repos clean, no double-prefixes. The
+compat.js data-* rewriter is now unneeded for these (removable in Phase 6).
+
+### Phase 2 (original notes) — normalize `data-toggle` → `data-bs-toggle`
 Removes reliance on the JS attribute-rewriter (works today, but rewriting on
 every DOM mutation is overhead + a race for ajax content).
 - Base: 3 mixed popover sites (firewall_rules.php:115, guiconfig.inc:1122,
@@ -178,11 +184,26 @@ every DOM mutation is overhead + a race for ajax content).
   data-bs-dismiss, data-target→data-bs-target (+ option attrs per compat.js map).
 - Verify: no non-`-bs` `data-(toggle|dismiss|target)=` on real BS components.
 
-### Phase 3 — jQuery plugin calls → vanilla BS5 API (removes the jQuery bridge)
-49 calls / 14 files in ports (snort_preprocessors.php has 22 `.collapse()`).
-Rewrite `$(x).modal('show')` → `bootstrap.Modal.getOrCreateInstance(el).show()`,
-and the same for collapse/tab/tooltip/popover/dropdown. Then the `$.fn.*` bridge
-in compat.js can be deleted.
+### Phase 3 — jQuery plugin calls → vanilla BS5 API  ⏸ DEFERRED (reasoned)
+~44 calls / 12 files in ports (snort_preprocessors.php has 22 `.collapse()`).
+A mechanical regex codemod was ATTEMPTED and REVERTED: the call sites have
+varied, multi-line/nested forms (e.g. a `.collapse('show')` split across an
+`if (...)` line in snort_preprocessors.php) that a text-replacement corrupts.
+Simple `$('#id').modal('show')` cases convert fine; the complex ones need
+per-line manual review.
+
+Decision: DEFER. These calls WORK TODAY via the base compat shim's `$.fn.modal/
+.collapse/...` jQuery bridge (tiny, stable), so there is zero user-facing benefit
+to a risky manual rewrite of 44 sites. This is the highest-risk / lowest-reward
+phase. Do it opportunistically, per-file, WITH a browser test of each page's
+modals/accordions — NOT as a bulk codemod. Until then the jQuery bridge in
+compat.js MUST stay (it is the only thing Phase 6 cannot remove yet).
+
+Safe conversion pattern when done manually, per call:
+  $('#id').modal('show')  ->  bootstrap.Modal.getOrCreateInstance(document.getElementById('id')).show()
+  $('#id').collapse('toggle') -> bootstrap.Collapse.getOrCreateInstance(document.getElementById('id')).toggle()
+(Use document.getElementById / querySelector — NOT `$(sel)[0]` inside a regex —
+and hand-check each surrounding statement.)
 
 ### Phase 4 — cosmetic class renames (pure hygiene; shim-covered, zero urgency)
 Batch codemod, any time. `pull-left/right`→`float-start/end`,
@@ -191,11 +212,11 @@ Batch codemod, any time. `pull-left/right`→`float-start/end`,
 `panel*` set (528 base + ~500 ports) can stay as-is or convert to `card*` later —
 lowest priority since the CSS shim styles it correctly.
 
-### Phase 5 — dropdown structure (pfBlockerNG chart date-range)
-pfblockerng_alerts.php uses BS3 `<ul class="dropdown-menu"><li>` + `caret` +
-`navbar-right`. Rewrite to BS5 (`<li class="dropdown-item">`, drop caret,
-`ms-auto`). This is the one place a dropdown could actually misbehave if the JS
-bridge ever changes.
+### Phase 5 — dropdown structure (pfBlockerNG chart date-range)  ✅ DONE
+Commit a91a3da. Converted the alerts-chart date-range dropdown (both pfBlockerNG
+and -devel) from BS3 (navbar-right, navbar-nav wrapper, caret span, plain
+li>a) to a BS5 btn-group dropdown (float-end, dropdown-toggle button,
+dropdown-item links). JS hooks (#chartEvent, .navlnk) preserved.
 
 ### Phase 6 — retire the shim + verify
 Only after Phases 1-3 (the JS-masked categories) are done:
