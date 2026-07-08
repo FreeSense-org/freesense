@@ -90,11 +90,41 @@ returns 0 (or only core-theme definitions). Browser-test the top pages.
       form-group/control-label/help-block (D3), well/thumbnail/page-header/
       list-inline/dl-horizontal/.close/label*/progress-bar-*/input-group-addon/
       has-error-success-warning/hidden-*/visible-*/checkbox-radio (still shimmed).
-- [ ] D3 form classes → core theme (form-group/control-label/help-block/checkbox/
-      radio; treat as FreeSense components, move CSS to core, drop from shim)
-- [ ] D4 trim compat.js (remove data-*→data-bs-* rewriter + .in→.show converter;
-      keep jQuery bridge until BS5-Phase-3)
-- [ ] D5 delete shim + verify (blocked on D3 + BS5-Phase-3)
+- [x] D3 form classes → core theme  (commit 29114d9)
+      form-group/control-label/help-block/checkbox/radio/has-error-success-warning/
+      input-group-addon moved to core as FreeSense components.
+- [x] D4 trim compat.js  (commit 115cc87)
+      Removed the dead data-*→data-bs-* rewriter + .in→.show converter +
+      MutationObserver. Kept only the jQuery plugin bridge (still needed until
+      BS5-Phase-3 converts the package $(el).modal()/.collapse() calls).
+- [~] D5 shim shrunk, NOT deleted  (commit 29114d9 + ports a5913e4)
+      Moved all still-used components to core (list-inline/dl-horizontal/.close/
+      progress-bar-*/panel-body>*); migrated text-right/left→text-end/start;
+      dropped every unused BS3 rule. Shim: 194→54 lines.
+      **The shim CANNOT be fully deleted**: it still holds LOAD-BEARING FreeSense
+      layout back-fills that are not disposable BS3 compat —
+        - col-sm/md/lg float (hand-rolled non-.row rows would stack)
+        - col-sm-offset-* (Form framework label/input column math)
+        - form::after clear (WITHOUT IT the global Save button vanishes on every
+          edit page)
+        - .hidden (17 markup uses; BS5 uses .d-none)
+      Renamed the file's header to "FreeSense grid & layout support on BS5" — it
+      is now a permanent FreeSense layout file, not a shim. compat.js (jQuery
+      bridge) also stays until Phase 3.
+
+## Remaining true BS3-in-source (for a future pass, all shim-covered / harmless)
+- .hidden (17)  → could migrate to .d-none, but token-boundary risk; left as-is.
+- BS5-Phase-3: package $(el).modal()/.collapse() jQuery calls → vanilla (~44
+  sites, mostly snort_preprocessors.php). Needs careful per-file work; keeps the
+  compat.js jQuery bridge alive. This is the ONLY thing blocking deletion of
+  compat.js.
+
+## Net result
+Panels, forms, and all removable utility classes are native BS5 or first-class
+FreeSense components in core. The "shim" is reduced to genuine FreeSense grid/
+layout infrastructure (~54 lines) + a jQuery-plugin bridge. The GUI is
+effectively native BS5; what remains is intentional FreeSense layout, not BS3
+compat debt.
 
 ## Remaining shim inventory (what D3/D4/D5 must still clear)
 CSS shim still holds: form-group/control-label/help-block/checkbox/radio,
