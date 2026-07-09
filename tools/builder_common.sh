@@ -238,13 +238,15 @@ make_world() {
 		return
 	fi
 
-	# FreeSense LEVER 1 (pkgbase world): instead of compiling the world with
-	# buildworld (~4h, ~99% verbatim FreeBSD), seed the staging + installer chroots
-	# from FreeBSD-16 prebuilt pkgbase binaries. The custom kernel is still built
-	# from patched source below (build_all_kernels); the src/ overlay + patched
-	# userland still land on top in clone_to_staging_area. Gated by
-	# FREESENSE_PKGBASE_WORLD=1 so the classic buildworld path stays the default.
-	if [ "${FREESENSE_PKGBASE_WORLD:-0}" = "1" ]; then
+	# FreeSense LEVER 1 (pkgbase world) — NOW THE DEFAULT: instead of compiling the
+	# world with buildworld (~4.3h, ~99% verbatim FreeBSD), seed the staging + installer
+	# chroots from FreeBSD-16 prebuilt pkgbase binaries (~47min total core build). The
+	# custom kernel is still built from patched source below (build_all_kernels); the
+	# src/ overlay + patched userland still land on top in clone_to_staging_area, and the
+	# monolithic base.txz delivery is UNCHANGED (proven end-to-end 2026-07-09: 47m,
+	# 339 pkgbase pkgs, base/kernel/rc pkgs identical names+versions). The classic
+	# buildworld path is kept as an escape hatch via FREESENSE_CLASSIC_WORLD=1.
+	if [ "${FREESENSE_CLASSIC_WORLD:-0}" != "1" ]; then
 		echo ">>> $(LC_ALL=C date) - pkgbase world: fetching FreeBSD base binaries (NO buildworld)..." | tee -a ${LOGFILE}
 		[ -d "${INSTALLER_CHROOT_DIR}" ] || mkdir -p ${INSTALLER_CHROOT_DIR}
 		[ -d "${STAGE_CHROOT_DIR}" ] || mkdir -p ${STAGE_CHROOT_DIR}
@@ -1488,12 +1490,12 @@ buildkernel() {
 	local _old_kernconf=${KERNCONF}
 	export KERNCONF=${_kernconf}
 
-	# FreeSense LEVER 1 (pkgbase world): the classic path builds the kernel toolchain
-	# as a side effect of buildworld. With pkgbase world there is no buildworld, so the
-	# kernel compiler/headers are missing — run kernel-toolchain first (~30-45m, vs ~4h
-	# for a full world). Idempotent + guarded so it only runs in pkgbase mode and only
-	# once (the obj toolchain persists across the per-kernel loop).
-	if [ "${FREESENSE_PKGBASE_WORLD:-0}" = "1" ] && [ -z "${_FREESENSE_KTOOLCHAIN_DONE:-}" ]; then
+	# FreeSense LEVER 1 (pkgbase world, now default): the classic path builds the kernel
+	# toolchain as a side effect of buildworld. With pkgbase world there is no buildworld,
+	# so the kernel compiler/headers are missing — run kernel-toolchain first (~30-45m, vs
+	# ~4h for a full world). Runs unless the classic-world escape hatch is set. Idempotent +
+	# guarded so it runs only once (the obj toolchain persists across the per-kernel loop).
+	if [ "${FREESENSE_CLASSIC_WORLD:-0}" != "1" ] && [ -z "${_FREESENSE_KTOOLCHAIN_DONE:-}" ]; then
 		echo ">>> $(LC_ALL=C date) - pkgbase: building kernel-toolchain (no buildworld)..." | tee -a ${LOGFILE}
 		# CRITICAL: use the SAME obj dir build_freebsd.sh (called by this function with
 		# no -o) will use, so the toolchain and buildkernel share one obj tree.
