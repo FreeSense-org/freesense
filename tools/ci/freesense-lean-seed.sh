@@ -38,7 +38,14 @@ REV="${FREESENSE_REV:-}"
 # and stable (frozen on an older rev, possibly the SAME rev with different options) never collide.
 CHAN="${FREESENSE_CHANNEL:-main}"
 PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
-REPODIR="${PKGTOP}/.real_cache"; [ -d "$REPODIR" ] || REPODIR="$PKGTOP"
+# CRITICAL: poudriere `bulk` mounts and reads ${PKGTOP} DIRECTLY as its $PACKAGES dir
+# ("Mounting packages from: .../${JAIL}-${PORTS}") — it reads ${PKGTOP}/All and requires a
+# bootstrappable ${PKGTOP}/Latest/pkg.pkg. It NEVER looks in ${PKGTOP}/.real_cache. The old code
+# seeded into .real_cache (because the workflow pre-creates it), so poudriere saw an EMPTY repo,
+# hit "pkg bootstrap missing", wiped everything, and rebuilt the whole closure (incl. lang/rust,
+# ~4h) from source. Seed into ${PKGTOP} itself so poudriere actually reuses it. .real_cache is only
+# the S3-save staging convention; we keep .latest resolvable for that plumbing below.
+REPODIR="${PKGTOP}"
 SNAPDIR="R2:freesense-pkg/ports-cache/stock/${CHAN}/${REV}"
 
 DIAG=/tmp/lean-seed.diag; : > "$DIAG"
@@ -71,12 +78,37 @@ if ! tar -xf /tmp/packages.tar -C "$REPODIR/All" >>"$DIAG" 2>&1; then
 	bail "untar of packages.tar failed"
 fi
 rm -f /tmp/packages.tar
+# If the workflow already restored a shared cache into .real_cache/All (custom pkgs salvaged from
+# prior batches), fold those in too so poudriere sees the UNION. Harmless when .real_cache is empty
+# (first build of the rev — the log's "cache restored: 0 pkgs" case).
+if [ -d "$PKGTOP/.real_cache/All" ] && [ "$REPODIR" != "$PKGTOP/.real_cache" ]; then
+	cp -n "$PKGTOP/.real_cache/All"/*.pkg "$REPODIR/All"/ 2>/dev/null || true
+fi
 say "repo now holds $(ls "$REPODIR/All"/*.pkg 2>/dev/null | wc -l | tr -d ' ') pkgs after frozen stock seed"
+
+# --- BOOTSTRAP: give poudriere a Latest/pkg.pkg so its sanity check does NOT wipe the seed -------
+# poudriere's sanity_check_pkg_repo requires a bootstrappable pkg at ${PACKAGES}/Latest/pkg.pkg;
+# without it, it logs "pkg bootstrap missing: unable to inspect existing packages, cleaning all
+# packages" and DELETES the entire seed (proven in run 29113843117 -> full from-source rebuild incl
+# rust). The frozen tar ships pkg-<ver>.pkg in All/ but NO Latest/ dir, so we build the link here.
+# pkg wants Latest/pkg.pkg (and historically pkg.txz) pointing at the newest pkg-*.pkg in All/.
+PKGBOOT="$(ls "$REPODIR/All"/pkg-[0-9]*.pkg 2>/dev/null | sort -V | tail -1)"
+if [ -n "$PKGBOOT" ]; then
+	mkdir -p "$REPODIR/Latest"
+	# relative symlinks so the repo stays relocatable (poudriere resolves within the mount)
+	ln -sf "../All/$(basename "$PKGBOOT")" "$REPODIR/Latest/pkg.pkg"
+	ln -sf "../All/$(basename "$PKGBOOT")" "$REPODIR/Latest/pkg.txz"
+	say "bootstrap: Latest/pkg.pkg -> All/$(basename "$PKGBOOT")"
+else
+	say "WARN no pkg-*.pkg in seed -> poudriere may still wipe (bootstrap link not created)"
+fi
 
 # regenerate the catalog from the seeded All/ (frozen stock + any custom cache restored earlier)
 rm -f "$REPODIR"/packagesite.* "$REPODIR"/meta.* "$REPODIR"/data.* 2>/dev/null || true
 pkg repo "$REPODIR/" >/dev/null 2>&1 || say "WARN pkg repo regen failed (reuse degraded)"
-[ -d "$PKGTOP/.real_cache" ] && ln -sfn .real_cache "$PKGTOP/.latest" 2>/dev/null || true
+# Keep .latest resolvable for the S3-save plumbing (workflow does readlink .latest). We seeded into
+# ${PKGTOP} itself now, so point .latest at '.' (self) rather than the empty .real_cache.
+ln -sfn . "$PKGTOP/.latest" 2>/dev/null || true
 
 # --- stamp .jailversion so poudriere does NOT wipe the freshly-seeded cache -------------------
 # poudriere's prepare_ports() (common.sh ~10301) reads ${PACKAGES}/.jailversion and, if it exists
@@ -88,8 +120,11 @@ pkg repo "$REPODIR/" >/dev/null 2>&1 || say "WARN pkg repo regen failed (reuse d
 # Overwrite .jailversion to the jail's current version so the check passes (do NOT delete it — an
 # absent file skips the check, but a stale restored one would still fire). If we can't read the
 # jail version, remove the stale file (skip-the-check) rather than leave a mismatching one.
-# NB: also fixes the SECOND wipe ("pkg bootstrap missing"): that only fired because wipe #1 had
-# already deleted Latest/pkg.pkg; with the seed preserved, pkg stays present and the check passes.
+# NB: the "pkg bootstrap missing" wipe is a SEPARATE, independent failure (NOT a consequence of a
+# jailversion wipe, as an earlier comment wrongly claimed). Run 29113843117 proved it: the jailversion
+# stamp fired correctly (no "newer version of jail" line) yet poudriere STILL wiped with "pkg bootstrap
+# missing" — because the seed had been written to .real_cache (which poudriere never reads) with no
+# Latest/pkg.pkg. That is fixed above by seeding into ${PKGTOP} and creating the Latest bootstrap link.
 # poudriere stores the jail's version string at ${POUDRIERED}/jails/<jail>/version and compares
 # EXACTLY that (`jget ${JAILNAME} version`, common.sh:10306). Read the same file so our stamp is
 # byte-identical to what the check reads. POUDRIERED defaults to <etc>/poudriere.d; on a standard
