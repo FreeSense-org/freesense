@@ -62,11 +62,13 @@ FreeBSD-base: {
 EOF
 
 # --- the pkgbase set we want: the whole base MINUS the kernel (we build our own) ----
-# FreeBSD-set-base is the meta that pulls the full world. We want everything EXCEPT the
-# kernel packages (FreeBSD-kernel-generic*, FreeBSD-src*, and the -dbg debug sets to
-# keep the image lean). Install by glob, then the kernel/debug/src are excluded.
+# We want everything EXCEPT the kernel packages (FreeBSD-kernel-*, FreeBSD-src*), the
+# debug sets (*-dbg), tests, and lib32 — to keep the image lean. Rather than install the
+# whole FreeBSD-* glob and delete the unwanted ~191 afterwards (which fetched+unpacked
+# them only to remove them, twice), we resolve the wanted names from the catalog up front
+# (compute_wanted) and install exactly that set — one pass per chroot.
 # Common pkg args for talking to the pkgbase repo with a forced target ABI. Wrapped in
-# a function so update + install + delete all use the SAME repo dir / ABI / osversion.
+# a function so update + rquery + install all use the SAME repo dir / ABI / osversion.
 #   ABI / OSVERSION       : force the FreeBSD:16 target (host is 15.x) — issue #2533.
 #   REPOS_DIR             : our throwaway conf ONLY (ignore the host's own repos).
 #   IGNORE_OSVERSION=yes  : the host pkg is 15.x installing 16 pkgs -> silences the
@@ -82,6 +84,42 @@ pkgbase() {
 		    "$@"
 }
 
+# What we do NOT want in a firewall image / what we build ourselves: the custom kernel
+# (FreeBSD-kernel-*), the full src tree (FreeBSD-src*), debug symbols (*-dbg — the single
+# biggest chunk of base_latest), tests, and lib32 (WITHOUT_LIB32 in the classic build).
+# These are shell case-globs, matched against each candidate name below.
+UNWANTED='FreeBSD-kernel-* FreeBSD-src* FreeBSD-*-dbg FreeBSD-tests* FreeBSD-*-lib32'
+
+# Compute the exact "wanted" pkgbase name list ONCE from the catalog, so we install only
+# what ships — no fetch-then-delete. Previously seed_chroot installed the whole FreeBSD-*
+# glob (~530 pkgs, incl. all the huge -dbg/src/tests sets) and then deleted ~191 of them,
+# and did that TWICE (stage + installer) — hundreds of packages fetched+unpacked only to
+# be removed. Filtering up front turns that into a single precise install per chroot.
+# Uses a scratch root just for the catalog query (the wanted set is identical for both
+# real chroots, so we resolve it here and reuse it).
+compute_wanted() {
+	_probe=$(mktemp -d)
+	if ! pkgbase "${_probe}" update -f -r FreeBSD-base >/dev/null; then
+		rm -rf "${_probe}"; die "pkg update -r FreeBSD-base failed (cannot reach base_latest)"
+	fi
+	# All available pkgbase names, minus the UNWANTED case-globs.
+	pkgbase "${_probe}" rquery -r FreeBSD-base '%n' 'FreeBSD-*' 2>/dev/null | while read -r _n; do
+		[ -n "${_n}" ] || continue
+		_skip=0
+		for _pat in ${UNWANTED}; do
+			# shellcheck disable=SC2254  # intentional glob match
+			case "${_n}" in ${_pat}) _skip=1; break ;; esac
+		done
+		[ "${_skip}" = 0 ] && printf '%s\n' "${_n}"
+	done
+	rm -rf "${_probe}"
+}
+
+WANTED=$(compute_wanted)
+WANTED_N=$(printf '%s\n' "${WANTED}" | grep -c . || true)
+[ "${WANTED_N:-0}" -gt 50 ] || die "resolved only ${WANTED_N} wanted pkgbase names — catalog query looks wrong"
+say "resolved ${WANTED_N} wanted pkgbase packages (kernel/src/dbg/tests/lib32 excluded up front)"
+
 seed_chroot() {
 	_root="$1"; _label="$2"
 	say "seeding ${_label} world into ${_root}"
@@ -94,16 +132,23 @@ seed_chroot() {
 		die "${_label}: pkg update -r FreeBSD-base failed (cannot reach base_latest)"
 	fi
 
-	# 2. Install the whole base set by glob. -g matches the shell-glob pkg names.
-	if ! pkgbase "${_root}" install -y -r FreeBSD-base -g 'FreeBSD-*'; then
+	# 2. Install EXACTLY the pre-filtered wanted set — one pass, no fetch-then-delete.
+	#    (Named packages, not a glob, so the unwanted sets are never fetched at all.)
+	# shellcheck disable=SC2086  # $WANTED is an intentional word list
+	if ! pkgbase "${_root}" install -y -r FreeBSD-base ${WANTED}; then
 		die "pkgbase install into ${_root} failed"
 	fi
 
-	# 3. Drop what we do NOT want in a firewall image / what we build ourselves:
-	#    kernel (we build the custom FreeSense kernel), the full src tree, debug syms,
-	#    tests, and lib32 (WITHOUT_LIB32 in the classic build).
-	pkgbase "${_root}" delete -y -g 'FreeBSD-kernel-*' 'FreeBSD-src*' 'FreeBSD-*-dbg' \
-		         'FreeBSD-tests*' 'FreeBSD-*-lib32' 2>/dev/null || true
+	# 3. Safety prune: if any WANTED package hard-depends on an UNWANTED one, pkg would have
+	#    pulled it back in as a dependency. base_latest's runtime set is leaf-clean today so
+	#    this is normally a no-op, but keep the guarantee the old delete-after pass gave —
+	#    the image never ships kernel/src/dbg/tests/lib32. Cheap when there's nothing to do.
+	# shellcheck disable=SC2086  # UNWANTED is an intentional glob list
+	if pkgbase "${_root}" info -g ${UNWANTED} >/dev/null 2>&1; then
+		say "${_label}: pruning dependency-pulled unwanted packages"
+		# shellcheck disable=SC2086
+		pkgbase "${_root}" delete -y -f -g ${UNWANTED} 2>/dev/null || true
+	fi
 
 	_n=$(pkgbase "${_root}" info 2>/dev/null | wc -l | tr -d ' ')
 	[ "${_n:-0}" -gt 50 ] || die "${_label}: only ${_n} pkgs installed — seed looks incomplete"
