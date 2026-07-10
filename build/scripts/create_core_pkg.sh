@@ -191,8 +191,12 @@ fi
 [ -n "${ALTABI}" ] \
     && echo "arch: ${ALTABI}" >> ${manifest}
 
+# -T 0 = compress with all CPU threads. The FreeSense-base core pkg bundles the whole
+# ~550MB world, and pkg's default single-threaded compression took ~4-5 min silent on a
+# 12-core box ("Creating core package base" appearing to stall). -T 0 uses every core.
+# (pkg >= 1.19 supports -T; harmless no-op label if an older pkg ignores it.)
 run "Creating core package ${template_name}" \
-	"pkg create -o ${destdir} -p ${plist} -r ${root} -m ${metadir}"
+	"pkg create -T 0 -o ${destdir} -p ${plist} -r ${root} -m ${metadir}"
 
 force_rm ${scratchdir}
 trap "-" 1 2 15 EXIT
