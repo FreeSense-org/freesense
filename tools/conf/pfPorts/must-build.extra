@@ -73,5 +73,7 @@ www/nginx
 www/squid
 www/squidguard
 
-# php is rebuilt with PHP_FD_SETSIZE (make.conf) -> its extensions rebuild against it too
+# php is rebuilt with PHP_FD_SETSIZE=3172 (make.conf) -> its extensions rebuild against it too.
+# LOAD-BEARING: stream_select() lives at etc/inc/pkg-utils.inc:157 & :1631 (pfSense Bug #8845/#8895
+# hard-crash path). Stock php85 is built at libc's 1024 and can't be fetched with 3172. See make.conf.
 lang/php85
