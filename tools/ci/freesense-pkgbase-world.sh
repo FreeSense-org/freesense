@@ -155,7 +155,29 @@ seed_chroot() {
 	say "${_label}: ${_n} pkgbase packages installed"
 }
 
-seed_chroot "${STAGE}" "stage"
-seed_chroot "${INST}"  "installer"
+# The stage and installer chroots are fully independent — different roots (each with its
+# OWN ${_root}/var/cache/pkg, so no shared-cache race), sharing only the read-only catalog
+# (WANTED, resolved once above). The work is fetch/unpack-bound, not CPU-bound, so seeding
+# them CONCURRENTLY overlaps the network+disk waits instead of paying both serially. Each
+# logs to its own file; we print them after so the combined output stays readable, and we
+# honor a non-zero exit from either.
+if [ "${FREESENSE_PKGBASE_PARALLEL_SEED:-1}" = 1 ]; then
+	say "seeding stage + installer chroots concurrently"
+	_slog=$(mktemp); _ilog=$(mktemp)
+	( seed_chroot "${STAGE}" "stage"     >"${_slog}" 2>&1 ) & _spid=$!
+	( seed_chroot "${INST}"  "installer" >"${_ilog}" 2>&1 ) & _ipid=$!
+	wait "${_spid}"; _src=$?
+	wait "${_ipid}"; _irc=$?
+	echo "----- stage seed log -----";     cat "${_slog}"
+	echo "----- installer seed log -----"; cat "${_ilog}"
+	rm -f "${_slog}" "${_ilog}"
+	[ "${_src}" = 0 ] || die "stage chroot seed failed (rc=${_src})"
+	[ "${_irc}" = 0 ] || die "installer chroot seed failed (rc=${_irc})"
+else
+	# Serial fallback (FREESENSE_PKGBASE_PARALLEL_SEED=0) — simpler to debug if the
+	# concurrent fetches ever contend badly on a constrained builder.
+	seed_chroot "${STAGE}" "stage"
+	seed_chroot "${INST}"  "installer"
+fi
 
 say "DONE — world seeded from FreeBSD pkgbase (no buildworld). Kernel builds next."
