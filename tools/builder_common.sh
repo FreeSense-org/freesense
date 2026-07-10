@@ -693,11 +693,15 @@ clone_to_staging_area() {
 		-p ${STAGE_CHROOT_DIR} \
 		-X ${_exclude_files} \
 		> ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.mtree
-	tar \
-		-C ${STAGE_CHROOT_DIR} \
-		-cJf ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz \
-		-X ${_exclude_files} \
-		.
+	# base.txz is a ~550MB xz of the whole staged world. Default -cJf runs SINGLE-THREADED
+	# xz (~8-10 min native, ~20-30 min under QEMU) and emits ZERO output the whole time —
+	# which repeatedly looked like a hang (see the 2026-07-10 diagnostic). Pipe to xz -T0
+	# (all cores) instead: ~8x faster on a 12-core box AND a far shorter silent window. The
+	# echo makes the step no longer silent so monitors don't misread it as wedged.
+	echo ">>> Compressing base.txz (xz -T0, all cores; ~large, expect a quiet minute or two)..." | tee -a ${LOGFILE}
+	tar -C ${STAGE_CHROOT_DIR} -X ${_exclude_files} --create --file - . \
+		| xz -T0 -c > ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz
+	echo ">>> base.txz done: $(ls -lh ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz 2>/dev/null | awk '{print $5}')" | tee -a ${LOGFILE}
 
 	core_pkg_create rc "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
 	core_pkg_create base "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
@@ -855,9 +859,11 @@ customize_stagearea_for_image() {
 create_distribution_tarball() {
 	mkdir -p ${INSTALLER_CHROOT_DIR}/usr/freebsd-dist
 
-	echo -n ">>> Creating distribution tarball... " | tee -a ${LOGFILE}
-	tar -C ${FINAL_CHROOT_DIR} --exclude ./pkgs \
-		-cJf ${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz .
+	# xz -T0 (all cores) not single-threaded -cJf: this is the ISO's ~1GB dist tarball, the
+	# heaviest silent step in the ISO build (~10min single-threaded -> ~1-2min on 12 cores).
+	echo -n ">>> Creating distribution tarball (xz -T0)... " | tee -a ${LOGFILE}
+	tar -C ${FINAL_CHROOT_DIR} --exclude ./pkgs --create --file - . \
+		| xz -T0 -c > ${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz
 	echo "Done!" | tee -a ${LOGFILE}
 
 	echo -n ">>> Creating manifest... " | tee -a ${LOGFILE}
