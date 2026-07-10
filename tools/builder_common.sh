@@ -1805,7 +1805,7 @@ freesense_freebsd_ports_repo() {
 # and everything just builds from source (the old behaviour).
 poudriere_pin_ports_tree() {
 	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-	local _repo _commit _chan
+	local _repo _commit _chan _curr _pinsrc _pf
 	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
 	# FROZEN STOCK: prefer the ports_top_git_hash recorded in this week's immutable R2 stock bank
 	# (keyed by the base snapshot rev FREESENSE_REV). Deterministic + identical across every batch
@@ -1814,8 +1814,20 @@ poudriere_pin_ports_tree() {
 	# query only when the bank isn't populated yet (the very first build of a new rev).
 	if [ -n "${FREESENSE_REV:-}" ] && command -v rclone >/dev/null 2>&1; then
 		_chan="${FREESENSE_CHANNEL:-main}"
-		_commit=$(rclone cat "R2:freesense-pkg/ports-cache/stock/${_chan}/${FREESENSE_REV}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
-		[ -n "${_commit}" ] && echo ">>> lean-pin: using frozen ports_top_git_hash from stock/${_chan}/${FREESENSE_REV} = ${_commit}" | tee -a ${LOGFILE}
+		# Deterministic + identical across every build. Try the exact rev, then the channel's
+		# 'current' pointer (in case the seed rev and the banked rev drift by a snapshot).
+		_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${FREESENSE_REV}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
+		if [ -z "${_commit}" ]; then
+			_curr=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/current" 2>/dev/null | tr -dc '0-9a-f')
+			if [ -n "${_curr}" ] && [ "${_curr}" != "${FREESENSE_REV}" ]; then
+				_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${_curr}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
+				[ -n "${_commit}" ] && echo ">>> lean-pin: seed rev ${FREESENSE_REV} not banked; using 'current'=${_curr}" | tee -a ${LOGFILE}
+			fi
+		fi
+		if [ -n "${_commit}" ]; then
+			_pinsrc="frozen-bank stock/${_chan}"
+			echo ">>> lean-pin: using frozen ports_top_git_hash from ${_pinsrc} = ${_commit}" | tee -a ${LOGFILE}
+		fi
 	fi
 	if [ -z "${_commit}" ]; then
 		pkg update -f >/dev/null 2>&1 || true
@@ -1830,21 +1842,55 @@ poudriere_pin_ports_tree() {
 		if pkg fetch -y ${_repo:+-r ${_repo}} -o /tmp/pinprobe pkg >/dev/null 2>&1; then
 			_pf=$(find /tmp/pinprobe -name '*.pkg' 2>/dev/null | head -1)
 			[ -n "${_pf}" ] && _commit=$(pkg query -F "${_pf}" '%Ak %Av' 2>/dev/null | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
+			[ -n "${_commit}" ] && _pinsrc="live pkg.freebsd.org"
 		fi
 		# last-ditch: the catalog annotation (usually empty, kept for completeness)
 		[ -n "${_commit}" ] || _commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
 		[ -n "${_commit}" ] || _commit=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
 	fi
 	if [ -z "${_commit}" ]; then
-		echo ">>> lean-pin: could not resolve FreeBSD ports_top_git_hash (repo='${_repo:-none}') — leaving tree at HEAD; all ports build from source" | tee -a ${LOGFILE}
+		# LOUD FAILURE. A missed pin silently degrades the WHOLE lean build into a
+		# ~600-port from-source compile (rust/llvm/boost) — the exact 5h+ job the lean
+		# model exists to kill. Never let that masquerade as the fast path again.
+		echo "!!!====================================================================!!!" | tee -a ${LOGFILE}
+		echo "!!! LEAN-PIN MISS: could not resolve FreeBSD ports_top_git_hash"           | tee -a ${LOGFILE}
+		echo "!!!   repo='${_repo:-none}' rev='${FREESENSE_REV:-<unset>}' chan='${FREESENSE_CHANNEL:-main}'" | tee -a ${LOGFILE}
+		echo "!!!   Tree stays at HEAD -> the ~577 cached stock binaries WON'T reuse ->"  | tee -a ${LOGFILE}
+		echo "!!!   poudriere rebuilds the full stock closure FROM SOURCE (multi-hour)."  | tee -a ${LOGFILE}
+		echo "!!!   Fix the frozen bank (stock/<chan>/<rev>/ports_top_git_hash) or creds." | tee -a ${LOGFILE}
+		echo "!!!====================================================================!!!" | tee -a ${LOGFILE}
+		# Drop a breadcrumb on R2 so a headless run is diagnosable even if it times out.
+		if command -v rclone >/dev/null 2>&1; then
+			printf 'lean-pin MISS rev=%s chan=%s repo=%s at %s\n' \
+				"${FREESENSE_REV:-<unset>}" "${FREESENSE_CHANNEL:-main}" "${_repo:-none}" "$(LC_ALL=C date -u)" \
+				| rclone rcat --s3-no-check-bucket "R2:freesense-pkg/debug/lean-pin-miss.txt" 2>/dev/null || true
+		fi
+		# STRICT mode (default ON): abort rather than burn hours building stock from source.
+		# Set FREESENSE_PIN_STRICT=0 only for a deliberate cold from-source build.
+		if [ "${FREESENSE_PIN_STRICT:-1}" = "1" ]; then
+			echo ">>> lean-pin: FREESENSE_PIN_STRICT=1 -> aborting (set =0 to allow the slow from-source path)" | tee -a ${LOGFILE}
+			print_error_pfS
+		fi
+		echo ">>> lean-pin: FREESENSE_PIN_STRICT=0 -> proceeding with from-source build (SLOW)" | tee -a ${LOGFILE}
 		return 0
 	fi
-	echo -n ">>> lean-pin: pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit} (FreeBSD repo '${_repo:-unnamed}')... " | tee -a ${LOGFILE}
+	echo -n ">>> lean-pin: pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit} (source: ${_pinsrc:-live}, FreeBSD repo '${_repo:-unnamed}')... " | tee -a ${LOGFILE}
 	if { git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
 	    && git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null; then
 		echo "Done!" | tee -a ${LOGFILE}
 	else
-		echo "FAILED — leaving tree at HEAD; all ports build from source" | tee -a ${LOGFILE}
+		# Resolved the hash but couldn't check it out — same slow-path danger. Fail loud too.
+		echo "FAILED to fetch/checkout ${_commit}" | tee -a ${LOGFILE}
+		if command -v rclone >/dev/null 2>&1; then
+			printf 'lean-pin CHECKOUT-FAIL commit=%s rev=%s at %s\n' \
+				"${_commit}" "${FREESENSE_REV:-<unset>}" "$(LC_ALL=C date -u)" \
+				| rclone rcat --s3-no-check-bucket "R2:freesense-pkg/debug/lean-pin-miss.txt" 2>/dev/null || true
+		fi
+		if [ "${FREESENSE_PIN_STRICT:-1}" = "1" ]; then
+			echo ">>> lean-pin: FREESENSE_PIN_STRICT=1 -> aborting (checkout failed, would build from source)" | tee -a ${LOGFILE}
+			print_error_pfS
+		fi
+		echo ">>> lean-pin: FREESENSE_PIN_STRICT=0 -> leaving tree at HEAD (SLOW from-source build)" | tee -a ${LOGFILE}
 	fi
 	return 0
 }

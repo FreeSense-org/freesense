@@ -17,6 +17,12 @@ cd "${SRC_DIR}"
 
 echo "=== run-build start: $(date) ==="
 echo ">>> freesense-src HEAD: $(git rev-parse --short HEAD) ($(git log -1 --format=%s))"
+# Lean-pin strictness (builder_common.sh poudriere_pin_ports_tree): by default the build
+# ABORTS if it can't pin the ports tree to FreeBSD's build commit, because a silent miss
+# degrades into a ~600-port from-source compile (the 5h+ ISO timeout, run 29038348912).
+# The pet-VM self-host lane sometimes can't resolve the pin (no FreeBSD repo to read the
+# hash) and intentionally builds at HEAD — it sets FREESENSE_PIN_STRICT=0 to allow that.
+echo ">>> lean-pin strict=${FREESENSE_PIN_STRICT:-1} rev=${FREESENSE_REV:-<unset>} chan=${FREESENSE_CHANNEL:-main}"
 
 # Stage 0: re-tar the freesense-src distfile from the CURRENT checkout. security/FreeSense-system
 # builds from this tarball (DISTFILES=freesense-src.tar.gz, NO_CHECKSUM) — NOT the git tree — so a
