@@ -20,11 +20,11 @@ the qemu process, so qemu (started with -daemonize) keeps running after this exi
 
 Exit 0 on success (key injected, sshd (re)started), non-zero otherwise.
 """
-import os, sys, time, select, argparse
+import os, sys, time, select, argparse, stat, socket
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("serial")
+    ap.add_argument("serial", help="serial device path OR unix socket path")
     ap.add_argument("pubkey")
     ap.add_argument("--timeout", type=int, default=300,
                     help="seconds to wait for the login: prompt (default 300)")
@@ -35,18 +35,34 @@ def main():
         print(f"!! {a.pubkey} does not look like an SSH public key", file=sys.stderr)
         return 2
 
-    # Open the serial line raw, non-blocking.
-    fd = os.open(a.serial, os.O_RDWR | os.O_NOCTTY)
-    os.set_blocking(fd, False)
+    # Serial can be a device/pty (open()) or a Unix socket (qemu -serial unix:...,server).
+    use_sock = os.path.exists(a.serial) and stat.S_ISSOCK(os.stat(a.serial).st_mode)
+    if use_sock:
+        sk = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sk.connect(a.serial)
+        sk.setblocking(False)
+        _rfd = sk.fileno()
+        def _read(n):
+            return sk.recv(n)
+        def _write(b):
+            sk.sendall(b)
+    else:
+        fd = os.open(a.serial, os.O_RDWR | os.O_NOCTTY)
+        os.set_blocking(fd, False)
+        _rfd = fd
+        def _read(n):
+            return os.read(fd, n)
+        def _write(b):
+            os.write(fd, b)
 
     def rd(t=1.0):
         out = b""
         end = time.time() + t
         while time.time() < end:
-            r, _, _ = select.select([fd], [], [], 0.3)
+            r, _, _ = select.select([_rfd], [], [], 0.3)
             if r:
                 try:
-                    c = os.read(fd, 4096)
+                    c = _read(4096)
                 except (BlockingIOError, OSError):
                     break
                 if c:
@@ -54,7 +70,7 @@ def main():
         return out.decode("utf-8", "replace")
 
     def snd(s):
-        os.write(fd, s.encode())
+        _write(s.encode())
 
     # 1) wait for the login: prompt (nudge with newlines so a quiet getty wakes up)
     print(f">>> waiting up to {a.timeout}s for the serial login: prompt", flush=True)
