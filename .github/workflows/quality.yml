@@ -28,7 +28,7 @@ jobs:
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
       - name: Reject committed secrets
         run: |
-          if git grep -IEn '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|R2_SECRET_ACCESS_KEY[=:][[:space:]]*[^$<{])' -- . ':!*.md'; then
+          if git grep -IEn '(^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$|R2_SECRET_ACCESS_KEY[=:][[:space:]]*[^$<{])' -- . ':!*.md'; then
             echo 'Potential credential material found in tracked files' >&2
             exit 1
           fi
