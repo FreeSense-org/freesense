@@ -156,6 +156,20 @@ seed_chroot() {
 		pkgbase "${_root}" delete -y -f -g ${UNWANTED} 2>/dev/null || true
 	fi
 
+	# 4. Physically strip the fat runtime-irrelevant trees. The base.txz exclude_files
+	#    (built from the STAGE chroot) already drops /usr/src etc. from the update payload,
+	#    but the INSTALLER chroot IS the live ISO filesystem — so an unstripped /usr/src
+	#    (~1.5GB, dep-pulled via a FreeBSD-set-* meta the UNWANTED globs don't name-match)
+	#    bloats the raw ISO even when base.txz is slim (2026-07-11: ISO stayed ~4GB while
+	#    base.txz dropped to 873MB). rm them from BOTH chroots so neither the payload nor
+	#    the installer media carries them. These are never needed at runtime on a firewall.
+	for _fat in usr/src usr/tests usr/lib32 usr/lib/debug; do
+		if [ -d "${_root}/${_fat}" ]; then
+			chflags -R noschg "${_root}/${_fat}" 2>/dev/null || true
+			rm -rf "${_root}/${_fat}"
+		fi
+	done
+
 	_n=$(pkgbase "${_root}" info 2>/dev/null | wc -l | tr -d ' ')
 	[ "${_n:-0}" -gt 50 ] || die "${_label}: only ${_n} pkgs installed — seed looks incomplete"
 	say "${_label}: ${_n} pkgbase packages installed"

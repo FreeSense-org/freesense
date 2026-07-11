@@ -1020,8 +1020,21 @@ create_distribution_tarball() {
 
 	# xz -T0 (all cores) not single-threaded -cJf: this is the ISO's ~1GB dist tarball, the
 	# heaviest silent step in the ISO build (~10min single-threaded -> ~1-2min on 12 cores).
+	# NOTE: this is a SEPARATE base.txz from clone_to_staging_area's (the update payload) —
+	# it's the tarball the INSTALLER extracts onto disk. It previously excluded ONLY ./pkgs,
+	# so it shipped /usr/src (~1.5GB, dep-pulled by a FreeBSD-set-* meta) + the nested
+	# ./usr/local/share/%%PRODUCT%%/base.txz (~900MB, the update payload cloned STAGE->FINAL)
+	# — the ISO stayed ~6GB raw even after the update-payload base.txz was slimmed
+	# (2026-07-11). Strip the same fat trees here + the nested payload so the installed
+	# system is lean too. (The seed-level rm in freesense-pkgbase-world.sh removes /usr/src
+	# from the chroots; these excludes are belt-and-suspenders + cover the nested payload.)
 	echo -n ">>> Creating distribution tarball (xz -T0)... " | tee -a ${LOGFILE}
-	tar -C ${FINAL_CHROOT_DIR} --exclude ./pkgs --create --file - . \
+	tar -C ${FINAL_CHROOT_DIR} \
+		--exclude ./pkgs \
+		--exclude ./usr/src --exclude ./usr/tests --exclude ./usr/lib32 --exclude ./usr/lib/debug \
+		--exclude "./usr/local/share/${PRODUCT_NAME}/base.txz" \
+		--exclude "./usr/local/share/${PRODUCT_NAME}/base.mtree" \
+		--create --file - . \
 		| xz -T0 -c > ${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz
 	echo "Done!" | tee -a ${LOGFILE}
 
