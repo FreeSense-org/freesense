@@ -55,7 +55,23 @@ echo ">>> ./build.sh --update-poudriere-ports"
 echo ">>> ./build.sh --update-pkg-repo"
 ./build.sh --update-pkg-repo
 
-# Stage 2: build the installer ISO from the staged repo.
+# Stage 2.5: consume base-build's banked kernel instead of compiling it (kernel-
+# toolchain + buildkernel is ~60-70min on a cold VM — the dominant ISO cost).
+# freesense-fetch-kernel.sh pulls the signed kernel pkg from R2 base/<channel>/
+# (rev-guarded against FREESENSE_REV) and pins DATESTRING to the base build's
+# stamp so the iso stage's get_pkg_name resolves to the fetched file's exact
+# name. Any failure falls back to the classic source build. Opt out with
+# FREESENSE_FETCH_KERNEL=0.
+if [ "${FREESENSE_FETCH_KERNEL:-1}" = "1" ] \
+    && sh tools/ci/freesense-fetch-kernel.sh; then
+	. /tmp/freesense-kernel.env
+	export DATESTRING FREESENSE_PREFETCHED_KERNEL_DIR
+	echo ">>> Stage 2.5: banked kernel prefetched (DATESTRING pinned to ${DATESTRING})"
+else
+	echo ">>> Stage 2.5: no banked kernel — the iso stage will compile it from source"
+fi
+
+# Stage 3: build the installer ISO from the staged repo.
 # (build.sh requires an explicit image type: iso | ova | memstick | all)
 echo ">>> ./build.sh iso"
 ./build.sh iso

@@ -148,6 +148,29 @@ build_all_kernels() {
 	[ -d "${KERNEL_BUILD_PATH}" ] \
 		&& rm -rf ${KERNEL_BUILD_PATH}
 
+	# FreeSense: import a prefetched kernel pkg (tools/ci/freesense-fetch-kernel.sh —
+	# base-build already compiled + published the identical kernel from the same
+	# committed pin). The caller pinned DATESTRING to the base build's stamp, so
+	# get_pkg_name resolves to the fetched file's exact name and the existing
+	# NO_BUILDKERNEL short-circuit in the loop below does the rest. The .latest/All
+	# links must exist for that check (core_pkg_create_repo only makes them later).
+	# A missing/mismatched file falls through to a normal source build.
+	if [ -n "${FREESENSE_PREFETCHED_KERNEL_DIR:-}" ]; then
+		mkdir -p ${CORE_PKG_REAL_PATH}/All
+		ln -sf $(basename ${CORE_PKG_REAL_PATH}) ${CORE_PKG_PATH}/.latest
+		[ -e "${CORE_PKG_ALL_PATH}" ] || ln -sf .latest/All ${CORE_PKG_ALL_PATH}
+		for _kern in ${BUILD_KERNELS}; do
+			_kfile="$(get_pkg_name kernel-${_kern}).pkg"
+			if [ -f "${FREESENSE_PREFETCHED_KERNEL_DIR}/${_kfile}" ]; then
+				cp "${FREESENSE_PREFETCHED_KERNEL_DIR}/${_kfile}" ${CORE_PKG_REAL_PATH}/All/
+				export NO_BUILDKERNEL=yes
+				echo ">>> Using prefetched ${_kfile} — skipping kernel-toolchain + buildkernel"
+			else
+				echo ">>> WARN: prefetched kernel dir has no ${_kfile} — will compile from source"
+			fi
+		done
+	fi
+
 	# Build embedded kernel
 	for BUILD_KERNEL in $BUILD_KERNELS; do
 		unset KERNCONF
@@ -376,6 +399,69 @@ make_world_pkgbase_tail() {
 	else
 		echo ">>> WARN: no BUILD_CC (${BUILD_CC}) — skipping crypto tools (non-fatal)" | tee -a ${LOGFILE}
 	fi
+
+	# FreeSense pkgbase userland delivery (patch triage 2026-07-11): with no
+	# buildworld, patches that touch USERLAND are never compiled/installed — the
+	# chroots hold stock pkgbase binaries. Most of it is covered elsewhere (the
+	# src/ overlay ships /etc/FreeSense-rc and stock /etc/rc carries the
+	# pfSense-rc hook + customize_stagearea_for_image's symlink), but four pieces
+	# are NOT covered and are delivered here straight from the PATCHED source
+	# tree — all plain text, no compile:
+	#   1. bsdinstall scripts (patch 0005): the FreeSense install flow. Without
+	#      them the ISO boots a GENERIC FreeBSD installer, loses config
+	#      recovery/import + the FreeSense ZFS layout, and guided-UFS ABORTS
+	#      (scripts/auto calls the fix_fstab helper that only exists patched).
+	#   2. startbsdinstall (0005): the installer entry menu.
+	#   3. gettytab (0009): the al.3wire serial autologin capability.
+	#   4. loader branding (0004): brand/logo lua + the defaults block, appended
+	#      to /boot/defaults/loader.conf so it ships inside base.txz /
+	#      FreeSense-base exactly like the classic build did (loader.conf.local
+	#      remains the user's file).
+	# Deliberately NOT delivered (compiled, and functionally irrelevant here):
+	# ppp(8) PPP_CONFDIR (FreeSense PPP runs on mpd5) and the 1-char resizewin fix.
+	_bsd_src="${FREEBSD_SRC_DIR}/usr.sbin/bsdinstall"
+	if [ -d "${_bsd_src}" ]; then
+		mkdir -p ${INSTALLER_CHROOT_DIR}/usr/libexec/bsdinstall
+		for _f in auto config zfsboot copy_configxml_from_usb fix_fstab; do
+			if [ -f "${_bsd_src}/scripts/${_f}" ]; then
+				install -o root -g wheel -m 0755 "${_bsd_src}/scripts/${_f}" \
+					${INSTALLER_CHROOT_DIR}/usr/libexec/bsdinstall/${_f}
+			else
+				echo ">>> WARN: patched bsdinstall script '${_f}' missing in src tree" | tee -a ${LOGFILE}
+			fi
+		done
+		if [ -f "${_bsd_src}/startbsdinstall" ]; then
+			install -o root -g wheel -m 0755 "${_bsd_src}/startbsdinstall" \
+				${INSTALLER_CHROOT_DIR}/usr/sbin/startbsdinstall
+		fi
+	fi
+	for _root in ${STAGE_CHROOT_DIR} ${INSTALLER_CHROOT_DIR}; do
+		if [ -f "${FREEBSD_SRC_DIR}/libexec/getty/gettytab" ]; then
+			install -o root -g wheel -m 0644 \
+				"${FREEBSD_SRC_DIR}/libexec/getty/gettytab" ${_root}/etc/gettytab
+		fi
+		mkdir -p ${_root}/boot/lua
+		for _lua in brand-${PRODUCT_NAME}.lua logo-${PRODUCT_NAME}.lua; do
+			if [ -f "${FREEBSD_SRC_DIR}/stand/lua/${_lua}" ]; then
+				install -o root -g wheel -m 0444 \
+					"${FREEBSD_SRC_DIR}/stand/lua/${_lua}" ${_root}/boot/lua/${_lua}
+			fi
+		done
+		if [ -f "${_root}/boot/defaults/loader.conf" ] && \
+		    ! grep -q "loader_menu_title=\"Welcome to ${PRODUCT_NAME}\"" \
+		    ${_root}/boot/defaults/loader.conf; then
+			cat >> ${_root}/boot/defaults/loader.conf <<EOF
+
+### ${PRODUCT_NAME} specific default values #######################
+loader_color="NO"
+loader_logo="${PRODUCT_NAME}"
+loader_brand="${PRODUCT_NAME}"
+loader_menu_title="Welcome to ${PRODUCT_NAME}"
+EOF
+		fi
+	done
+	echo ">>> pkgbase: patched-userland delivery done (bsdinstall + gettytab + loader branding)." | tee -a ${LOGFILE}
+
 	echo ">>> pkgbase world tail complete." | tee -a ${LOGFILE}
 }
 
