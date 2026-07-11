@@ -103,8 +103,14 @@ compute_wanted() {
 		rm -rf "${_probe}"; die "pkg update -r FreeBSD-base failed (cannot reach base_latest)"
 	fi
 	# All available pkgbase names, minus the UNWANTED case-globs.
-	pkgbase "${_probe}" rquery -r FreeBSD-base '%n' 'FreeBSD-*' 2>/dev/null | while read -r _n; do
+	# NB: `pkg rquery FMT 'FreeBSD-*'` matches an EXACT name unless -g is given — the bare
+	# glob returned 0 rows and killed the first ISO run of this code (run 29143251784:
+	# "resolved only 0 wanted pkgbase names"). Use -a (all remote pkgs — base_latest carries
+	# only FreeBSD-*) + a positive case-glob in the loop as the filter. No 2>/dev/null: if
+	# pkg complains we want it in the log, not swallowed.
+	pkgbase "${_probe}" rquery -a -r FreeBSD-base '%n' | while read -r _n; do
 		[ -n "${_n}" ] || continue
+		case "${_n}" in FreeBSD-*) ;; *) continue ;; esac
 		_skip=0
 		for _pat in ${UNWANTED}; do
 			# shellcheck disable=SC2254  # intentional glob match
