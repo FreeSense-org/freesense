@@ -228,8 +228,11 @@ install_default_kernel() {
 
 	echo -n ">>> Installing kernel to be used by image ${KERNEL_NAME}..." | tee -a ${LOGFILE}
 
-	# Copy kernel package to chroot, otherwise pkg won't find it to install
-	if ! pkg_chroot_add ${FINAL_CHROOT_DIR} kernel-${KERNEL_NAME}; then
+	# Copy kernel package to chroot, otherwise pkg won't find it to install.
+	# -M: accept missing deps — the kernel pkg declares a dep on FreeSense-boot
+	# (same stamp); its loader FILES are already staged, and a not-yet-registered
+	# boot pkg must not block the kernel landing (run 29148436302).
+	if ! pkg_chroot_add ${FINAL_CHROOT_DIR} kernel-${KERNEL_NAME} -M; then
 		echo ">>> ERROR: Error installing kernel package $(get_pkg_name kernel-${KERNEL_NAME}).pkg" | tee -a ${LOGFILE}
 		print_error_pfS
 	fi
@@ -1480,12 +1483,20 @@ pkg_chroot() {
 	if [ -f "${_root}/tmp/pkg/pkg.conf" ]; then
 		_params="${_params} --config /tmp/pkg/pkg.conf "
 	fi
-	script -aq ${BUILDER_LOGS}/install_pkg_install_ports.txt \
+	# -e: return the CHILD's exit status. Without it script(1) exits 0 for its own
+	# success and every pkg failure here reported as success — run 29148436302's
+	# kernel never landed in the chroot and no guard fired until image assembly.
+	script -aeq ${BUILDER_LOGS}/install_pkg_install_ports.txt \
 		chroot ${_root} pkg ${_params}$@ >/dev/null 2>&1
 	local result=$?
 	rm -f ${_root}/etc/resolv.conf
 	/sbin/umount -f ${_root}/dev
 	/sbin/umount -f ${_root}/var/cache/pkg
+
+	if [ ${result} -ne 0 ]; then
+		echo ">>> pkg_chroot: 'pkg $@' in ${_root} FAILED (rc=${result}) — last log lines:"
+		tail -30 ${BUILDER_LOGS}/install_pkg_install_ports.txt 2>/dev/null | tr -cd '[:print:]\n'
+	fi
 
 	return $result
 }
@@ -1498,6 +1509,7 @@ pkg_chroot_add() {
 
 	local _target="${1}"
 	local _pkg="$(get_pkg_name ${2}).pkg"
+	local _flags="${3:-}"
 
 	if [ ! -d "${_target}" ]; then
 		echo ">>> ERROR: Target dir ${_target} not found"
@@ -1510,8 +1522,10 @@ pkg_chroot_add() {
 	fi
 
 	cp ${CORE_PKG_ALL_PATH}/${_pkg} ${_target}
-	pkg_chroot ${_target} add /${_pkg}
+	pkg_chroot ${_target} add ${_flags} /${_pkg}
+	local _rc=$?
 	rm -f ${_target}/${_pkg}
+	return ${_rc}
 }
 
 pkg_bootstrap() {

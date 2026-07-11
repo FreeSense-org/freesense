@@ -401,6 +401,15 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	. ${BUILDER_TOOLS}/ci/freesense-bootpkg.sh
 	core_pkg_create_repo # FreeSense: finalize before install
 	install_pkg_install_ports
+	# Tripwire: custom_package_list includes the kernel pkg, so a healthy stage
+	# install leaves /boot/kernel behind. Catch a silently-skipped kernel HERE
+	# (with the pkg log tail) instead of dying blind at image assembly later.
+	if [ ! -f "${STAGE_CHROOT_DIR}/boot/kernel/kernel.gz" ] \
+	    && [ ! -f "${STAGE_CHROOT_DIR}/boot/kernel/kernel" ]; then
+		echo ">>> WARN: stage chroot has NO /boot/kernel after the pkg install — pkg log tail:"
+		tail -40 ${BUILDER_LOGS}/install_pkg_install_ports.txt 2>/dev/null | tr -cd '[:print:]\n'
+		echo ">>> WARN: continuing — install_default_kernel will add the kernel pkg directly"
+	fi
 
 	# Create core repo
 	core_pkg_create_repo
