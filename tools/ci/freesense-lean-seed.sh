@@ -78,11 +78,33 @@ if ! tar -xf /tmp/packages.tar -C "$REPODIR/All" >>"$DIAG" 2>&1; then
 	bail "untar of packages.tar failed"
 fi
 rm -f /tmp/packages.tar
-# If the workflow already restored a shared cache into .real_cache/All (custom pkgs salvaged from
-# prior batches), fold those in too so poudriere sees the UNION. Harmless when .real_cache is empty
-# (first build of the rev — the log's "cache restored: 0 pkgs" case).
+# Fold in the workflow's restored shared cache (.real_cache/All) — but ONLY the packages the frozen
+# bank does NOT already provide. The frozen stock bank (stock/<chan>/<rev>) is AUTHORITATIVE for
+# stock: it is version-correct for the pinned ports tree by construction. The restored .real_cache
+# is the accumulated OUTPUT of past builds, keyed only by jail-rev — so within a rev it carries
+# STALE stock at older versions (e.g. json-c-0.18 when the tree now wants 0.19, ca_root_nss-3.124
+# vs 3.125). If we blindly union it in, those stale copies SHADOW the frozen bank's correct ones;
+# poudriere then "Deleting json-c-0.18: new version 0.19" + a missing-dependency CASCADE
+# (clamav/snort3/ntopng/kea/squid...) -> ~15-20 needless from-source rebuilds (proven run 29130633234).
+# Fix: keep a .real_cache pkg ONLY if its pkgname-base (name minus -version) is NOT already present
+# in the frozen seed. That preserves genuinely-custom FreeSense-built pkgs salvaged from sibling
+# batches (the bank never has those) while letting the bank win every stock version.
 if [ -d "$PKGTOP/.real_cache/All" ] && [ "$REPODIR" != "$PKGTOP/.real_cache" ]; then
-	cp -n "$PKGTOP/.real_cache/All"/*.pkg "$REPODIR/All"/ 2>/dev/null || true
+	# names already provided by the frozen bank, as pkgname-base (strip the -<version> tail)
+	_bankbases=/tmp/lean-bank-bases.txt
+	ls "$REPODIR/All"/*.pkg 2>/dev/null | sed 's#.*/##; s#\.pkg$##; s#-[0-9][^-]*.*$##' | sort -u > "$_bankbases"
+	_folded=0; _skipped=0
+	for _p in "$PKGTOP/.real_cache/All"/*.pkg; do
+		[ -e "$_p" ] || continue
+		_b=$(basename "$_p" .pkg | sed 's#-[0-9][^-]*.*$##')
+		if grep -qxF "$_b" "$_bankbases"; then
+			_skipped=$((_skipped+1))   # frozen bank already has this name -> its version wins
+		else
+			cp -n "$_p" "$REPODIR/All"/ 2>/dev/null && _folded=$((_folded+1))
+		fi
+	done
+	rm -f "$_bankbases"
+	say "folded ${_folded} custom cache pkgs; skipped ${_skipped} shadowing the frozen bank (bank version wins)"
 fi
 say "repo now holds $(ls "$REPODIR/All"/*.pkg 2>/dev/null | wc -l | tr -d ' ') pkgs after frozen stock seed"
 
