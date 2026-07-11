@@ -40,11 +40,12 @@ ENVOUT=${FREESENSE_FETCH_ENV:-/tmp/freesense-kernel.env}
 
 command -v "${RCLONE}" >/dev/null 2>&1 || fail "rclone not available"
 
-# channel -> base repo dir (mirror of base-build.yml's ref->channel map)
+# channel -> base repo dir. MUST mirror base-build.yml's "Map ref -> channel" step
+# exactly (RELENG_1_0 -> v1_0_0, everything else -> devel) — the base repo lives at
+# base/<that channel>/ on R2.
 case "${CHAN}" in
-	main) BCH=devel ;;
-	RELENG_*) BCH=stable ;;
-	*) BCH=${CHAN} ;;
+	RELENG_1_0) BCH=v1_0_0 ;;
+	*) BCH=devel ;;
 esac
 
 # --- resolve the base build's version + rev from the provenance markers ---------
@@ -80,10 +81,21 @@ else
 	[ -n "${KPKG}" ] || fail "no ${PRODUCT}-kernel-${KERNCONF}-*.pkg under base/${BCH}/All/"
 fi
 
-# --- derive the pinned DATESTRING from the pkg version (...(a|b|r).YYYYMMDD.HHMM) ---
+# --- derive the pinned DATESTRING from the pkg version --------------------------
+# Snapshot channels stamp CORE_PKG_VERSION as ...(a|b|r).YYYYMMDD.HHMM (builder_
+# defaults.sh CORE_PKG_DATESTRING) — pin DATESTRING to that stamp so get_pkg_name
+# resolves to the fetched filename. RELEASE versions carry NO stamp at all
+# (CORE_PKG_DATESTRING is unset for -RELEASE), so there is nothing to pin — the
+# pkg name matches regardless of DATESTRING; emit it empty and let builder_
+# defaults compute its own.
 _ver=${KPKG#${PRODUCT}-kernel-${KERNCONF}-}; _ver=${_ver%.pkg}
 DSTR=$(printf '%s' "${_ver}" | sed -nE 's/^.*\.[abr]\.([0-9]{8})\.([0-9]{4}).*$/\1-\2/p')
-[ -n "${DSTR}" ] || fail "cannot derive DATESTRING from kernel pkg version '${_ver}'"
+if [ -z "${DSTR}" ]; then
+	case "${_ver}" in
+		*.a.*|*.b.*|*.r.*) fail "cannot derive DATESTRING from stamped version '${_ver}'" ;;
+		*) say "release-style version '${_ver}' (no stamp) — DATESTRING left unpinned" ;;
+	esac
+fi
 
 mkdir -p "${OUTDIR}"
 say "fetching base/${BCH}/All/${KPKG} ..."
