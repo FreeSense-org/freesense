@@ -157,16 +157,27 @@ build_all_kernels() {
 	# A missing/mismatched file falls through to a normal source build.
 	if [ -n "${FREESENSE_PREFETCHED_KERNEL_DIR:-}" ]; then
 		mkdir -p ${CORE_PKG_REAL_PATH}/All
-		ln -sf $(basename ${CORE_PKG_REAL_PATH}) ${CORE_PKG_PATH}/.latest
-		[ -e "${CORE_PKG_ALL_PATH}" ] || ln -sf .latest/All ${CORE_PKG_ALL_PATH}
+		# -n: replace an existing symlink instead of descending INTO its target
+		# (plain ln -sf against a symlink-to-dir creates the link inside it).
+		ln -sfn $(basename ${CORE_PKG_REAL_PATH}) ${CORE_PKG_PATH}/.latest
+		if [ -L "${CORE_PKG_ALL_PATH}" ] || [ ! -e "${CORE_PKG_ALL_PATH}" ]; then
+			ln -sfn .latest/All ${CORE_PKG_ALL_PATH}
+		fi
 		for _kern in ${BUILD_KERNELS}; do
 			_kfile="$(get_pkg_name kernel-${_kern}).pkg"
 			if [ -f "${FREESENSE_PREFETCHED_KERNEL_DIR}/${_kfile}" ]; then
 				cp "${FREESENSE_PREFETCHED_KERNEL_DIR}/${_kfile}" ${CORE_PKG_REAL_PATH}/All/
+			fi
+			# Skip the build ONLY if the pkg is visible exactly where the
+			# loop's short-circuit (and build.sh's installer-kernel step)
+			# will look. NO_BUILDKERNEL without that file would sail past
+			# the compile and die at install time with no obj tree.
+			if [ -f "${CORE_PKG_ALL_PATH}/${_kfile}" ]; then
 				export NO_BUILDKERNEL=yes
 				echo ">>> Using prefetched ${_kfile} — skipping kernel-toolchain + buildkernel"
 			else
-				echo ">>> WARN: prefetched kernel dir has no ${_kfile} — will compile from source"
+				unset NO_BUILDKERNEL
+				echo ">>> WARN: prefetched ${_kfile} not resolvable via ${CORE_PKG_ALL_PATH} — building from source"
 			fi
 		done
 	fi
