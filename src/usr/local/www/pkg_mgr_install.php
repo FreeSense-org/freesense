@@ -384,31 +384,25 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			<div class="content">
 				<input type="hidden" name="mode" value="<?=$pkgmode;?>" />
 <?php
-	// Draw a selector to allow the user to select a different firmware branch
-	// If the selection is changed, the page will be reloaded and the new choice displayed.
+	// Show the currently-selected firmware branch READ-ONLY. The branch is chosen on
+	// System > Update > Update Settings (system_update_settings.php); it used to be an
+	// editable selector here too, which was redundant/confusing. Display it plainly and
+	// link to Update Settings to change it.
 	if ($firmwareupdate):
 		// Check to see if any new repositories have become available. This data is cached and
-		// refreshed every 24 hours
+		// refreshed every 24 hours. Still needed below for the upgrade path + messages.
 		$repos = update_repos();
-		$helpfilename = pkg_get_repo_help();
+
+		$current_branch = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
 
 		$group = new Form_Group(gettext('Branch'));
-
-		$field = new Form_Select(
-			'fwbranch',
-			'*'.gettext('Branch'),
-			pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path')),
-			pkg_build_repo_list()
-		);
-
-		if (file_exists($helpfilename)) {
-			$field->setHelp(file_get_contents($helpfilename));
-		} else {
-			$field->setHelp('Please select the branch from which to update the system firmware. %1$s' .
-							'Use of the development version is at your own risk!', '<br />');
-		}
-
-		$group->add($field);
+		$group->add(new Form_StaticText(
+			gettext('Branch'),
+			htmlspecialchars($current_branch) .
+			' <a href="system_update_settings.php" class="text-muted" style="margin-left:8px;">' .
+			'<i class="fa-solid fa-gear"></i> ' . gettext('Change branch') . '</a>'
+		))->setHelp(gettext('Updates are pulled from this branch. Change it under %1$sUpdate Settings%2$s.'),
+			'<a href="system_update_settings.php">', '</a>');
 		print($group);
 
 		if (isset($repos['messages']) && count($repos['messages']) > 0) {
@@ -431,6 +425,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 						<?=gettext("Current Base System")?>
 					</label>
 					<div class="col-sm-10" id="installed_version">
+						<span class="text-muted"><i class="fa-solid fa-ellipsis fa-fade"></i></span>
 					</div>
 				</div>
 
@@ -439,12 +434,13 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 						<?=gettext("Latest Base System")?>
 					</label>
 					<div class="col-sm-10" id="version">
+						<span class="text-muted"><i class="fa-solid fa-ellipsis fa-fade"></i></span>
 					</div>
 				</div>
 
 				<div class="form-group" id="confirm">
 					<label class="col-sm-2 control-label" id="confirmlabel">
-						<?=gettext('Retrieving')?>
+						<?=gettext('Status')?>
 					</label>
 					<div class="col-sm-10">
 						<input type="hidden" name="id" value="firmware" />
@@ -453,7 +449,10 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 							<i class="fa-solid fa-check icon-embed-btn"></i>
 							<?=gettext("Confirm")?>
 						</button>
-						<span id="uptodate"><i class="fa-solid fa-rotate fa-spin fa-lg text-warning"></i></span>
+						<span id="uptodate">
+							<i class="fa-solid fa-rotate fa-spin fa-lg text-warning"></i>
+							<span class="text-muted"><?=gettext("Checking for updates…")?></span>
+						</span>
 					</div>
 				</div>
 
@@ -589,10 +588,15 @@ ob_flush();
 if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
 	/* Write out configuration to create a backup prior to pkg install. */
 	if ($firmwareupdate) {
-		foreach ($repos as $repo) {
-			if ($repo['name'] == $_POST['fwbranch']) {
-				config_set_path('system/pkg_repo_conf_path', $repo['name']);
-				break;
+		// The branch is chosen on Update Settings, so system/pkg_repo_conf_path is
+		// already set — no fwbranch selector to honour here anymore. If a fwbranch
+		// value is somehow still posted, respect it for backwards compatibility.
+		if (!empty($_POST['fwbranch'])) {
+			foreach ($repos as $repo) {
+				if ($repo['name'] == $_POST['fwbranch']) {
+					config_set_path('system/pkg_repo_conf_path', $repo['name']);
+					break;
+				}
 			}
 		}
 		write_config(gettext("Creating restore point before upgrade."));
@@ -819,7 +823,7 @@ function get_firmware_versions() {
 		json = JSON.parse(response);
 
 		if (json && json.pkg_busy == '1') {
-			$('#uptodate').html('<span class="text-danger">' + 'Another instance of FreeSense-upgrade is running.  Please try again in a few moments.' + "</span>");
+			$('#uptodate').html('<i class="fa-solid fa-hourglass-half text-warning"></i> <span class="text-warning">' + '<?=gettext("Another update is already running. Please try again in a few moments.")?>' + "</span>");
 		} else if (json && !json.pkg_version_error) {
 			$('#installed_version').text(json.installed_version);
 			$('#version').text(json.version);
@@ -827,19 +831,19 @@ function get_firmware_versions() {
 			// If the installed and latest versions are the same, print an "Up to date" message
 			if (json.pkg_version_compare == '=') {
 				$('#confirmlabel').text("<?=$sysmessage?>");
-				$('#uptodate').html('<span class="text-success">' + '<?=$uptodatemsg?>' + "</span>");
+				$('#uptodate').html('<i class="fa-solid fa-circle-check text-success"></i> <span class="text-success">' + '<?=$uptodatemsg?>' + "</span>");
 			} else if (json.pkg_version_compare == '>') {
 				$('#confirmlabel').text("<?=$sysmessage?>");
-				$('#uptodate').html('<span class="text-success">' + '<?=$newerversionmsg?>' + "</span>");
+				$('#uptodate').html('<i class="fa-solid fa-circle-check text-success"></i> <span class="text-success">' + '<?=$newerversionmsg?>' + "</span>");
 			} else { // If they differ display the "Confirm" button
-				$('#uptodate').hide();
+				$('#uptodate').html('<i class="fa-solid fa-circle-arrow-up text-info"></i> <span class="text-info">' + '<?=gettext("An update is available.")?>' + "</span>");
 				$('#confirmlabel').text( "<?=$confirmlabel?>");
 				$('#pkgconfirm').show();
 			}
 		} else if (json && json.pkg_version_error) {
-			$('#uptodate').html('<span class="text-danger">' + 'Unable to check for updates' + "</span>" + "<br/>" + json.pkg_version_error);
+			$('#uptodate').html('<i class="fa-solid fa-triangle-exclamation text-danger"></i> <span class="text-danger">' + '<?=gettext("Unable to check for updates")?>' + "</span>" + "<br/>" + json.pkg_version_error);
 		} else {
-			$('#uptodate').html('<span class="text-danger">' + 'Unable to check for updates' + "</span>");
+			$('#uptodate').html('<i class="fa-solid fa-triangle-exclamation text-danger"></i> <span class="text-danger">' + '<?=gettext("Unable to check for updates")?>' + "</span>");
 		}
 	});
 }
@@ -1009,18 +1013,8 @@ events.push(function() {
 		get_firmware_versions();
 	}
 
-	// If the user changes the firmware branch selection, submit the form to record that choice
-	$('#fwbranch').on('change', function() {
-		$('#confirmed').val("false");
-
-		$('<input>').attr({
-			type: 'hidden',
-			name: 'refrbranch',
-			value: 'true'
-		}).appendTo('form');
-
-		$('form').submit();
-	});
+	// The firmware branch is now read-only here (chosen under Update Settings), so the
+	// old #fwbranch change-handler that reloaded the page on selection is gone.
 
 	$('#modalbtn').click(function() {
 		$('form').submit();
