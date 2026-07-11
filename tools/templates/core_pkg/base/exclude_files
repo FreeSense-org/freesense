@@ -32,6 +32,9 @@
 ./sys
 ./tmp
 ./usr/lib/debug
+./usr/lib32
+./usr/src
+./usr/tests
 ./usr/libexec/telnetd
 ./usr/local/etc/pkg/repos/%%PRODUCT_NAME%%.conf
 ./usr/local/etc/pkg/repos/%%PRODUCT_NAME%%-installer.conf
