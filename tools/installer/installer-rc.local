@@ -1,0 +1,46 @@
+#!/bin/sh
+# FreeSense installer autostart — shipped as /etc/rc.local INSIDE the installer
+# media (INSTALLER_CHROOT_DIR only, never the installed system).
+#
+# WHY THIS EXISTS: the classic buildworld path installed the installer's
+# autostart via `install_freebsd.sh -i` (which copied FreeBSD's stock
+# release/rc.local). The pkgbase-world path skips install_freebsd.sh entirely,
+# so without this the installer media boots to a bare FreeBSD login prompt
+# instead of launching the installer. builder_common.sh make_world_pkgbase_tail
+# copies this file into the installer chroot's /etc/rc.local.
+#
+# We run FreeSense's `startbsdinstall` (the branded entry: copyright notice ->
+# Install/Rescue/Recover/Import menu -> bsdinstall -> reboot), NOT stock
+# `bsdinstall`, so the media keeps the FreeSense chrome + config recovery/import.
+#
+# Mirrors stock release/rc.local's console handling: run the installer on the
+# active console, and drop to a shell (not a reboot loop) if it exits.
+
+# Only act as an installer on the read-only install media. A normal installed
+# system's /etc/rc.local (if any) is a different file; this one ships only in
+# the installer chroot, but guard anyway so it is inert if ever misplaced.
+if [ ! -x /usr/sbin/startbsdinstall ]; then
+	return 0 2>/dev/null || exit 0
+fi
+
+# Figure out the controlling console (serial vs video) the way the stock
+# installer rc.local does, so serial installs work too.
+if [ -z "${TERM}" ] || [ "${TERM}" = "dumb" ]; then
+	TERM=vt100
+	export TERM
+fi
+
+# Loop: if the installer is cancelled/exits, offer a shell and re-run on exit,
+# so a stray keypress can't strand the media at an unusable prompt.
+while :; do
+	startbsdinstall
+	rc=$?
+	if [ ${rc} -eq 0 ]; then
+		# startbsdinstall handles its own reboot/shell choice on success.
+		break
+	fi
+	echo ""
+	echo "The FreeSense installer exited (status ${rc})."
+	echo "Type 'exit' to return to the installer, or reboot to start over."
+	/bin/sh
+done

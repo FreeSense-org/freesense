@@ -414,13 +414,18 @@ make_world_pkgbase_tail() {
 		echo ">>> WARN: no BUILD_CC (${BUILD_CC}) — skipping crypto tools (non-fatal)" | tee -a ${LOGFILE}
 	fi
 
-	# FreeSense pkgbase userland delivery (patch triage 2026-07-11): with no
-	# buildworld, patches that touch USERLAND are never compiled/installed — the
-	# chroots hold stock pkgbase binaries. Most of it is covered elsewhere (the
-	# src/ overlay ships /etc/FreeSense-rc and stock /etc/rc carries the
-	# pfSense-rc hook + customize_stagearea_for_image's symlink), but four pieces
-	# are NOT covered and are delivered here straight from the PATCHED source
-	# tree — all plain text, no compile:
+	# FreeSense pkgbase userland delivery (patch triage 2026-07-11, corrected
+	# 2026-07-11 after an install test): with no buildworld, patches that touch
+	# USERLAND are never compiled/installed — the chroots hold stock pkgbase
+	# binaries. The src/ overlay ships /etc/FreeSense-rc and
+	# customize_stagearea_for_image symlinks /etc/pfSense-rc -> it, BUT the thing
+	# that ACTUALLY hands boot to that script is a hook patched into base's
+	# /etc/rc (patch 0009): `if [ -f /etc/pfSense-rc ]; then . /etc/pfSense-rc;
+	# exit 0; fi`. Under pkgbase that /etc/rc is STOCK FreeBSD (no hook), so the
+	# installed system boots straight to raw FreeBSD ("Amnesiac", no console
+	# menu / no GUI) even though FreeSense-rc is present. Five pieces are NOT
+	# covered by the stock world and are delivered here straight from the PATCHED
+	# source tree — all plain text, no compile:
 	#   1. bsdinstall scripts (patch 0005): the FreeSense install flow. Without
 	#      them the ISO boots a GENERIC FreeBSD installer, loses config
 	#      recovery/import + the FreeSense ZFS layout, and guided-UFS ABORTS
@@ -431,6 +436,10 @@ make_world_pkgbase_tail() {
 	#      to /boot/defaults/loader.conf so it ships inside base.txz /
 	#      FreeSense-base exactly like the classic build did (loader.conf.local
 	#      remains the user's file).
+	#   5. /etc/rc + /etc/rc.shutdown (0009): the boot hook that execs
+	#      /etc/pfSense-rc. THE load-bearing one — without it nothing ever runs
+	#      FreeSense-rc and the box boots to Amnesiac. Delivered to BOTH chroots
+	#      (installer env and base.txz) and hard-verified below.
 	# Deliberately NOT delivered (compiled, and functionally irrelevant here):
 	# ppp(8) PPP_CONFDIR (FreeSense PPP runs on mpd5) and the 1-char resizewin fix.
 	_bsd_src="${FREEBSD_SRC_DIR}/usr.sbin/bsdinstall"
@@ -449,10 +458,47 @@ make_world_pkgbase_tail() {
 				${INSTALLER_CHROOT_DIR}/usr/sbin/startbsdinstall
 		fi
 	fi
+
+	# Installer autostart: the classic path got this from `install_freebsd.sh -i`
+	# (which copied FreeBSD's stock release/rc.local). pkgbase-world skips that
+	# script, so without an /etc/rc.local the installer media boots to a bare
+	# login prompt instead of launching the installer. Ship the FreeSense
+	# installer rc.local (runs startbsdinstall, keeping the branded chrome +
+	# config import) into the INSTALLER chroot ONLY — never the installed system.
+	_inst_rclocal="${BUILDER_TOOLS}/installer/installer-rc.local"
+	if [ -f "${_inst_rclocal}" ]; then
+		install -o root -g wheel -m 0555 "${_inst_rclocal}" \
+			${INSTALLER_CHROOT_DIR}/etc/rc.local
+	else
+		echo ">>> ERROR: ${_inst_rclocal} missing — installer media would boot to a login prompt, not the installer" | tee -a ${LOGFILE}
+		print_error_pfS
+	fi
+	# The boot hook lives in the patched base /etc/rc (source: libexec/rc/rc).
+	# It is BOOT-CRITICAL: verify the hook is actually present in the source
+	# before shipping it, so a silently-dropped patch 0009 fails the build here
+	# instead of producing an Amnesiac ISO. Same for rc.shutdown.
+	_rc_src="${FREEBSD_SRC_DIR}/libexec/rc/rc"
+	_rcshut_src="${FREEBSD_SRC_DIR}/libexec/rc/rc.shutdown"
+	if [ ! -f "${_rc_src}" ]; then
+		echo ">>> ERROR: ${_rc_src} missing — cannot deliver the FreeSense boot hook" | tee -a ${LOGFILE}
+		print_error_pfS
+	fi
+	if ! grep -q '/etc/pfSense-rc' "${_rc_src}"; then
+		echo ">>> ERROR: ${_rc_src} has no /etc/pfSense-rc hook — patch 0009 did not apply. Refusing to ship an Amnesiac base.txz." | tee -a ${LOGFILE}
+		print_error_pfS
+	fi
+
 	for _root in ${STAGE_CHROOT_DIR} ${INSTALLER_CHROOT_DIR}; do
 		if [ -f "${FREEBSD_SRC_DIR}/libexec/getty/gettytab" ]; then
 			install -o root -g wheel -m 0644 \
 				"${FREEBSD_SRC_DIR}/libexec/getty/gettytab" ${_root}/etc/gettytab
+		fi
+		# Boot hook: the patched /etc/rc that execs /etc/pfSense-rc (-> FreeSense-rc).
+		# Overwrites the stock pkgbase /etc/rc that has no hook. Without this the
+		# installed system and the installer env both boot to raw FreeBSD.
+		install -o root -g wheel -m 0555 "${_rc_src}" ${_root}/etc/rc
+		if [ -f "${_rcshut_src}" ]; then
+			install -o root -g wheel -m 0555 "${_rcshut_src}" ${_root}/etc/rc.shutdown
 		fi
 		mkdir -p ${_root}/boot/lua
 		for _lua in brand-${PRODUCT_NAME}.lua logo-${PRODUCT_NAME}.lua; do
@@ -474,7 +520,7 @@ loader_menu_title="Welcome to ${PRODUCT_NAME}"
 EOF
 		fi
 	done
-	echo ">>> pkgbase: patched-userland delivery done (bsdinstall + gettytab + loader branding)." | tee -a ${LOGFILE}
+	echo ">>> pkgbase: patched-userland delivery done (bsdinstall + gettytab + loader branding + /etc/rc boot hook)." | tee -a ${LOGFILE}
 
 	echo ">>> pkgbase world tail complete." | tee -a ${LOGFILE}
 }
@@ -915,12 +961,17 @@ customize_stagearea_for_image() {
 
 	pkg_chroot_add ${FINAL_CHROOT_DIR} ${_default_config}
 
-	# FreeSense boot hook: FreeBSD base /etc/rc (from base.txz) hardcodes
-	# `if [ -f /etc/pfSense-rc ]; then . /etc/pfSense-rc; exit 0; fi` to hand boot to the
-	# product rc. Our rebrand renamed that script to /etc/${PRODUCT_NAME}-rc, so without a
-	# matching /etc/pfSense-rc the box falls through to RAW FreeBSD (Amnesiac, no console
-	# menu/GUI). Symlink pfSense-rc -> ${PRODUCT_NAME}-rc so the base hook resolves it.
-	# (Cheap + reproducible; avoids rebuilding base.txz just to rebrand the hook string.)
+	# FreeSense boot hook (TWO halves, both required):
+	#   (a) /etc/rc must contain `if [ -f /etc/pfSense-rc ]; then . /etc/pfSense-rc;
+	#       exit 0; fi`. Under the CLASSIC build that hook is patched into base's
+	#       /etc/rc (patch 0009) and compiled in via buildworld. Under pkgbase-world
+	#       there is no buildworld, so make_world_pkgbase_tail installs the patched
+	#       /etc/rc into the chroots explicitly — WITHOUT that, /etc/rc is stock and
+	#       the box boots to RAW FreeBSD (Amnesiac, no console menu/GUI) even though
+	#       the symlink below is present. (Regression found + fixed 2026-07-11.)
+	#   (b) our rebrand renamed the product rc to /etc/${PRODUCT_NAME}-rc, so the
+	#       hook's hard-coded /etc/pfSense-rc must resolve — symlink it here. Cheap +
+	#       reproducible; avoids rebuilding base.txz just to rebrand the hook string.
 	ln -sf ${PRODUCT_NAME}-rc ${FINAL_CHROOT_DIR}/etc/pfSense-rc
 	ln -sf ${PRODUCT_NAME}-rc.shutdown ${FINAL_CHROOT_DIR}/etc/pfSense-rc.shutdown
 
