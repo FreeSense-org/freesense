@@ -822,6 +822,14 @@ clone_to_staging_area() {
 
 	mkdir -p ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR} >/dev/null 2>&1
 
+	# Delete any base.txz/base.mtree left in the chroot by a PREVIOUS build before we
+	# regenerate them. The exclude_files list names these paths, but the stage chroot is
+	# reused across builds and a stale ~1GB base.txz from the prior run was ending up
+	# INSIDE the new base.txz (self-nested, ~1GB of pure bloat) — belt-and-suspenders
+	# with the -X exclude so it can't ship regardless of tar -X pattern semantics.
+	rm -f ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz \
+	      ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.mtree
+
 	# Include a sample pkg stable conf to base
 	setup_pkg_repo \
 		${PKG_REPO_DEFAULT} \
