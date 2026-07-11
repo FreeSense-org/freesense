@@ -28,11 +28,11 @@ require_once("guiconfig.inc");
 $copyrightfile = "{$g['cf_conf_path']}/copyright";
 $tmpfile = "{$g['cf_conf_path']}/copyright.tmp";
 $idfile = "/var/db/uniqueid";
-$FQDN = "";	// FreeSense: was ews.netgate.com/copyright; phone-home disabled
+$FQDN = "";	// FreeSense: legacy vendor copyright phone-home disabled
 $refreshinterval = (24 * 3600);	// 24 hours
 
 // FreeSense: disabled. This used to POST the device unique id to
-// ews.netgate.com/copyright on every dashboard load. We do not phone home.
+// a vendor copyright endpoint on every dashboard load. We do not phone home.
 function updatecopyright() {
 	return;
 	global $g, $copyrightfile, $tmpfile, $idfile, $FQDN;
@@ -72,7 +72,7 @@ function updatecopyright() {
 }
 
 // FreeSense: auto-fetch disabled (no phone-home to Netgate). The block below
-// previously polled ews.netgate.com (and did a DNS lookup of it) on each load.
+// previously polled a vendor endpoint (and did a DNS lookup) on each load.
 // if ((!file_exists($copyrightfile) || (filesize($copyrightfile) == 0) ||
 //     ((time()-filemtime($copyrightfile) > $refreshinterval))) && resolve_address($FQDN)) {
 // 	updateCopyright();

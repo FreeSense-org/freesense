@@ -34,6 +34,7 @@ require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
 require_once("pkg-utils.inc");
+require_once("package_catalog.inc");
 
 $failmsg = "";
 $sendto = "output";
@@ -336,7 +337,7 @@ if ($input_errors) {
 }
 
 ?>
-<form action="pkg_mgr_install.php" method="post" class="form-horizontal">
+<form action="pkg_mgr_install.php" method="post" class="">
 <?php
 
 if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
@@ -355,9 +356,9 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 	}
 
 ?>
-	<div class="panel panel-default">
-		<div class="panel-heading">
-			<h2 class="panel-title">
+	<div class="card mb-3">
+		<div class="card-header">
+			<h2 class="h5 mb-0">
 <?php
 			if ($pkgmode == 'reinstallall'):
 ?>
@@ -380,7 +381,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			</h2>
 		</div>
 
-		<div class="panel-body">
+		<div class="card-body">
 			<div class="content">
 				<input type="hidden" name="mode" value="<?=$pkgmode;?>" />
 <?php
@@ -406,8 +407,8 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		print($group);
 
 		if (isset($repos['messages']) && count($repos['messages']) > 0) {
-			print('<div class="form-group">' .
-				'<label class="col-sm-2 control-label">' .
+			print('<div class="row mb-3">' .
+				'<label class="col-sm-2 col-form-label">' .
 					gettext("Messages") .
 				'</label>' .
 				'<div class="col-sm-10" id="netgate_messages">'
@@ -420,8 +421,8 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 
 		}
 ?>
-				<div class="form-group">
-					<label class="col-sm-2 control-label">
+				<div class="row mb-3">
+					<label class="col-sm-2 col-form-label">
 						<?=gettext("Current Base System")?>
 					</label>
 					<div class="col-sm-10" id="installed_version">
@@ -429,8 +430,8 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 					</div>
 				</div>
 
-				<div class="form-group">
-					<label class="col-sm-2 control-label">
+				<div class="row mb-3">
+					<label class="col-sm-2 col-form-label">
 						<?=gettext("Latest Base System")?>
 					</label>
 					<div class="col-sm-10" id="version">
@@ -438,8 +439,8 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 					</div>
 				</div>
 
-				<div class="form-group" id="confirm">
-					<label class="col-sm-2 control-label" id="confirmlabel">
+				<div class="row mb-3" id="confirm">
+					<label class="col-sm-2 col-form-label" id="confirmlabel">
 						<?=gettext('Status')?>
 					</label>
 					<div class="col-sm-10">
@@ -456,8 +457,8 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 					</div>
 				</div>
 
-				<div class="form-group">
-					<label class="col-sm-2 control-label">
+				<div class="row mb-3">
+					<label class="col-sm-2 col-form-label">
 					</label>
 					<div class="col-sm-10" id="release_info">
 						<a target="_blank" href="https://docs.freesense.org/en/latest/releases/versions.html"><?=gettext("Release notes and version information")?></a>
@@ -467,9 +468,20 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 	elseif (($pkgmode == 'delete') && $pkgname_vital):
 		print_info_box($pkgname_vital_message);
 	else:
+		$catalog_shortname = $pkgname;
+		pkg_remove_prefix($catalog_shortname);
+		$package_meta = freesense_package_catalog_entry($catalog_shortname);
 ?>
 				<input type="hidden" name="pkg" value="<?=$pkgname;?>" />
 				<input type="hidden" name="confirmed" value="true" />
+				<div class="card mb-3">
+					<div class="card-body">
+						<h3 class="h5"><?=htmlspecialchars($package_meta['display_name'])?></h3>
+						<div class="mb-2"><span class="badge text-bg-primary"><?=htmlspecialchars($package_meta['category'])?></span> <span class="badge text-bg-secondary"><?=htmlspecialchars(ucfirst($package_meta['resource_profile']))?></span></div>
+						<?php if (!empty($package_meta['capabilities'])): ?><p class="mb-1"><strong><?=gettext('Security capabilities')?>:</strong></p><div><?php foreach ($package_meta['capabilities'] as $capability): ?><span class="badge text-bg-warning me-1"><?=htmlspecialchars(str_replace('-', ' ', $capability))?></span><?php endforeach; ?></div><?php endif; ?>
+						<?php if (!empty($package_meta['services'])): ?><p class="mt-2 mb-0"><strong><?=gettext('Services')?>:</strong> <?=htmlspecialchars(implode(', ', $package_meta['services']))?></p><?php endif; ?>
+					</div>
+				</div>
 				<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>">
 					<i class="fa-solid fa-check icon-embed-btn"></i>
 					<?=gettext("Confirm")?>
@@ -545,18 +557,18 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 		<div id="progressbar" class="progress-bar progress-bar-striped" role="progressbar" aria-valuemin="0" aria-valuemax="100" style="width: 1%"></div>
 	</div>
 	<br />
-	<div class="panel panel-default">
-		<div class="panel-heading">
+	<div class="card mb-3">
+		<div class="card-header">
 			<div style="float: right;">
 				<label>
 					<input style="margin: 4px 4px 0;" type="checkbox" checked="true" id="autoscroll" />
 				<?=gettext('Auto-scroll')?>
 				</label>
 			</div>
-			<h2 class="panel-title" id="status"><?=$panel_heading_txt?></h2>
+			<h2 class="h5 mb-0" id="status"><?=$panel_heading_txt?></h2>
 		</div>
 
-		<div class="panel-body">
+		<div class="card-body">
 			<textarea rows="15" class="form-control" id="output" name="output" spellcheck="false"><?=($completed ? htmlspecialchars($_POST['output']) : gettext("Please wait while the update system initializes"))?></textarea>
 		</div>
 	</div>

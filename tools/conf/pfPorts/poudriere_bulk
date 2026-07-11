@@ -1,4 +1,3 @@
-benchmarks/%%PRODUCT_NAME%%-pkg-iperf
 databases/php85-mysqli
 databases/php85-pdo_mysql
 databases/php85-pgsql
@@ -19,39 +18,26 @@ ftp/%%PRODUCT_NAME%%-pkg-tftpd
 # used to carry this was removed — FreeSense has one edition, no CE/Plus split.)
 # graphics/drm-61-kmod
 net-mgmt/%%PRODUCT_NAME%%-pkg-ANDwatch
-net-mgmt/%%PRODUCT_NAME%%-pkg-arpwatch
-net-mgmt/%%PRODUCT_NAME%%-pkg-collectd
-net-mgmt/%%PRODUCT_NAME%%-pkg-darkstat
 net-mgmt/%%PRODUCT_NAME%%-pkg-lldpd
 net-mgmt/%%PRODUCT_NAME%%-pkg-net-snmp
 net-mgmt/%%PRODUCT_NAME%%-pkg-softflowd
 net-mgmt/%%PRODUCT_NAME%%-pkg-Telegraf
-net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent6
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent7
-net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-agent74
-net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy6
 net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy7
-net-mgmt/%%PRODUCT_NAME%%-pkg-zabbix-proxy74
 net-mgmt/dhcp_probe
 net-mgmt/iprange
-net/%%PRODUCT_NAME%%-pkg-arping
 net/%%PRODUCT_NAME%%-pkg-Avahi
-net/%%PRODUCT_NAME%%-pkg-cellular
 net/%%PRODUCT_NAME%%-pkg-freeradius3
 net/%%PRODUCT_NAME%%-pkg-frr
 net/%%PRODUCT_NAME%%-pkg-haproxy
-net/%%PRODUCT_NAME%%-pkg-haproxy-devel
-net/%%PRODUCT_NAME%%-pkg-LADVD
 net/%%PRODUCT_NAME%%-pkg-mcast-bridge
 net/%%PRODUCT_NAME%%-pkg-mDNS-Bridge
-net/%%PRODUCT_NAME%%-pkg-mtr-nox11
 net/%%PRODUCT_NAME%%-pkg-ntopng
 net/%%PRODUCT_NAME%%-pkg-pfBlockerNG
-net/%%PRODUCT_NAME%%-pkg-pfBlockerNG-devel
-net/%%PRODUCT_NAME%%-pkg-pimd
 net/%%PRODUCT_NAME%%-pkg-Status_Traffic_Totals
 net/%%PRODUCT_NAME%%-pkg-udpbroadcastrelay
 net/%%PRODUCT_NAME%%-pkg-WireGuard
+net/%%PRODUCT_NAME%%-pkg-ZeroTier
 net/dhcpcd
 net/hping3
 # net/intel-em-kmod - same kmod-vs-CURRENT drift; in-kernel em(4) covers it.
@@ -76,32 +62,19 @@ net/trafshow
 net/trafshow3
 net/vnstat
 security/%%PRODUCT_NAME%%
-security/snort3
 shells/zsh
 sysutils/%%PRODUCT_NAME%%-default-config
 sysutils/%%PRODUCT_NAME%%-default-config-serial
 sysutils/%%PRODUCT_NAME%%-repoc
 security/%%PRODUCT_NAME%%-pkg-acme
-security/%%PRODUCT_NAME%%-pkg-nmap
 security/%%PRODUCT_NAME%%-pkg-openvpn-client-export
-security/%%PRODUCT_NAME%%-pkg-snort
-security/%%PRODUCT_NAME%%-pkg-stunnel
-security/%%PRODUCT_NAME%%-pkg-sudo
+security/%%PRODUCT_NAME%%-pkg-CrowdSec
 security/%%PRODUCT_NAME%%-pkg-suricata
 security/%%PRODUCT_NAME%%-pkg-Tailscale
-# security/%%PRODUCT_NAME%%-pkg-zeek - zeek alone compiles for 3-4h+ on the 4-core
-# GitHub runners and its batch kept hitting the 6h job cap; excluded until it can
-# ride a faster/self-hosted builder.
-sysutils/%%PRODUCT_NAME%%-pkg-apcupsd
-sysutils/%%PRODUCT_NAME%%-pkg-Backup
-sysutils/%%PRODUCT_NAME%%-pkg-Cron
-sysutils/%%PRODUCT_NAME%%-pkg-filer
+sysutils/%%PRODUCT_NAME%%-pkg-Automation
+sysutils/%%PRODUCT_NAME%%-pkg-Diagnostics
 sysutils/%%PRODUCT_NAME%%-pkg-node_exporter
-sysutils/%%PRODUCT_NAME%%-pkg-Notes
 sysutils/%%PRODUCT_NAME%%-pkg-nut
-sysutils/%%PRODUCT_NAME%%-pkg-RRD_Summary
-sysutils/%%PRODUCT_NAME%%-pkg-Service_Watchdog
-sysutils/%%PRODUCT_NAME%%-pkg-Shellcmd
 sysutils/%%PRODUCT_NAME%%-pkg-syslog-ng
 sysutils/ccze
 sysutils/flashrom
@@ -114,4 +87,3 @@ sysutils/tmux
 sysutils/usb_modeswitch
 sysutils/vm-bhyve
 sysutils/xe-guest-utilities
-www/%%PRODUCT_NAME%%-pkg-squid

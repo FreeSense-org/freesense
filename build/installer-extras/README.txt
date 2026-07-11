@@ -41,7 +41,7 @@ Installing FreeSense Software (amd64)
 The installation media can be inserted into the target device. When booted from
 this disk, the installer will launch automatically. For more information on how
 to install FreeSense software, see the installation section of the online
-documentation: https://www.netgate.com/docs/freesense/book/install/index.html
+documentation: https://docs.freesense.org/install/
 
 Restoring an Existing Firewall Configuration (amd64)
 ----------------------------------------------------
@@ -60,7 +60,7 @@ from the target disk before it formats the drive during the installation
 process.
 
 For more information on these features, see the online documentation at
-https://www.netgate.com/docs/freesense/backup/automatically-restore-during-install.html
+https://docs.freesense.org/backup/restore-during-install/
 
 Installing FreeSense Software (ARM)
 ---------------------------------
@@ -68,7 +68,7 @@ Installing FreeSense Software (ARM)
 ARM systems use recovery images and not an installation disk. The process is
 similar, however, details of this process may vary by model. View the
 appropriate recovery instructions for each model at
-https://www.netgate.com/docs/freesense/solutions/
+https://docs.freesense.org/
 
 Restoring an Existing Firewall Configuration (ARM)
 --------------------------------------------------
@@ -83,4 +83,4 @@ its internal disk but will find the configuration on this FAT partition, then
 restore it to the firewall in place of the default settings.
 
 For more information on these features, see the online documentation at
-https://www.netgate.com/docs/freesense/backup/automatically-restore-during-install.html
+https://docs.freesense.org/backup/restore-during-install/

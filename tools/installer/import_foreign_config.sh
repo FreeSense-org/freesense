@@ -117,6 +117,16 @@ convert_opnsense() {
 		}
 	}
 	' "${SRC}" > "${STAGE}"
+
+	# OPNsense stores Unbound configuration inside the dropped MVC subtree. Seed
+	# FreeSense's resolver when no compatible top-level resolver survived, or the
+	# imported firewall has no DNS and cannot reach the update repositories.
+	if ! /usr/bin/grep -q '<unbound>' "${STAGE}"; then
+		/usr/bin/awk '
+		/<\/freesense>/ { print "\t<unbound>"; print "\t\t<enable></enable>"; print "\t</unbound>" }
+		{ print }
+		' "${STAGE}" > "${STAGE}.dns" && /bin/mv "${STAGE}.dns" "${STAGE}"
+	fi
 }
 
 # --- extract source package/plugin names from the ORIGINAL config -------------
@@ -283,5 +293,5 @@ choose_packages "${LINEAGE}"
 _pkgcount=0
 [ -f "${PKG_MANIFEST}" ] && _pkgcount=$(/usr/bin/wc -l < "${PKG_MANIFEST}" | /usr/bin/tr -d ' ')
 
-msg "Imported a ${LINEAGE} configuration.\n\n${_pkgcount} package(s) selected to install on first boot.\n\nAfter the first boot, review Interfaces, System, Firewall, and (for OPNsense imports) VPN settings.\n\nNow choose \"Install\" from the menu to continue."
+msg "Imported a ${LINEAGE} configuration.\n\n${_pkgcount} package(s) selected to install on first boot.\n\nAfter the first boot, review Interfaces, DNS Resolver, System, Firewall, and (for OPNsense imports) VPN settings.\n\nNow choose \"Install\" from the menu to continue."
 exit 0

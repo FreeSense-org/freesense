@@ -88,7 +88,7 @@ fi
 # UNTAR WITH -k (keep existing), THEN KEEP-NEWEST-PER-PKGNAME. Two stale-copy problems meet here:
 #  (a) the restored .real_cache carries OLD stock versions from past builds (json-c-0.18 when the
 #      pinned tree wants 0.19) -> poudriere "new version" deletes + a missing-dep CASCADE through
-#      clamav/snort3/ntopng/kea/squid (~15-20 needless rebuilds, run 29130633234);
+#      large Go/Rust/network consumers (~15-20 needless rebuilds, run 29130633234);
 #  (b) the cache ALSO carries FRESH tree-matched rebuilds NEWER than the frozen bank's lagging
 #      copies (log4cplus-2.2.0.1 built last run vs the bank's 2.1.2 — FreeBSD's `latest` binaries
 #      lag its ports tree, see the frozen-bank memory). A naive "bank always wins" purge deleted

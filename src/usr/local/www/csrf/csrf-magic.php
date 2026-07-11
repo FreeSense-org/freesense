@@ -313,22 +313,22 @@ function csrf_check_token($token) {
     }
     switch ($type) {
         case 'sid':
-            return $value === csrf_hash(session_id(), $time);
+            return hash_equals(csrf_hash(session_id(), $time), $value);
         case 'cookie':
             $n = $GLOBALS['csrf']['cookie'];
             if (!$n) return false;
             if (!isset($_COOKIE[$n])) return false;
-            return $value === csrf_hash($_COOKIE[$n], $time);
+            return hash_equals(csrf_hash($_COOKIE[$n], $time), $value);
         case 'key':
             if (!$GLOBALS['csrf']['key']) return false;
-            return $value === csrf_hash($GLOBALS['csrf']['key'], $time);
+            return hash_equals(csrf_hash($GLOBALS['csrf']['key'], $time), $value);
         // We could disable these 'weaker' checks if 'key' was set, but
         // that doesn't make me feel good then about the cookie-based
         // implementation.
         case 'user':
             if (!csrf_get_secret()) return false;
             if ($GLOBALS['csrf']['user'] === false) return false;
-            return $value === csrf_hash($GLOBALS['csrf']['user'], $time);
+            return hash_equals(csrf_hash($GLOBALS['csrf']['user'], $time), $value);
         case 'ip':
             if (!csrf_get_secret()) return false;
             // do not allow IP-based checks if the username is set, or if
@@ -337,7 +337,7 @@ function csrf_check_token($token) {
             if (!empty($_COOKIE)) return false;
             if (!$GLOBALS['csrf']['allow-ip']) return false;
             $IP_ADDRESS = (isset($_SERVER['IP_ADDRESS']) ? $_SERVER['IP_ADDRESS'] : $_SERVER['REMOTE_ADDR']);
-            return $value === csrf_hash($IP_ADDRESS, $time);
+            return hash_equals(csrf_hash($IP_ADDRESS, $time), $value);
     }
     return false;
 }
@@ -372,28 +372,30 @@ function csrf_get_secret() {
     $secret = '';
     if (file_exists($file)) {
         include $file;
-        return $secret;
+        if (!preg_match('/^[0-9a-f]{40}$/', $secret) || !is_writable($dir)) {
+            return $secret;
+        }
+        /* Rotate legacy mt_rand/SHA-1 secrets once after upgrade. */
+        $secret = csrf_generate_secret();
     }
     if (is_writable($dir)) {
-        $secret = csrf_generate_secret();
-        $fh = fopen($file, 'w');
-        fwrite($fh, '<?php $secret = "'.$secret.'";' . PHP_EOL);
-        fclose($fh);
+        if (empty($secret)) $secret = csrf_generate_secret();
+        $tmp = tempnam($dir, '.csrf-secret-');
+        if ($tmp === false) return '';
+        file_put_contents($tmp, '<?php $secret = "'.$secret.'";' . PHP_EOL, LOCK_EX);
+        chmod($tmp, 0600);
+        rename($tmp, $file);
         return $secret;
     }
     return '';
 }
 
 /**
- * Generates a random string as the hash of time, microtime, and mt_rand.
+ * Generates a cryptographically secure, URL-safe secret.
  */
 function csrf_generate_secret($len = 32) {
-    $r = '';
-    for ($i = 0; $i < $len; $i++) {
-        $r .= chr(mt_rand(0, 255));
-    }
-    $r .= time() . microtime();
-    return sha1($r);
+    $bytes = random_bytes(max(32, $len));
+    return rtrim(strtr(base64_encode($bytes), '+/', '-_'), '=');
 }
 
 /**
@@ -402,7 +404,7 @@ function csrf_generate_secret($len = 32) {
  */
 function csrf_hash($value, $time = null) {
     if (!$time) $time = time();
-    return sha1(csrf_get_secret() . $value . $time) . ',' . $time;
+    return hash_hmac('sha256', $value . '|' . $time, csrf_get_secret()) . ',' . $time;
 }
 
 // Load user configuration

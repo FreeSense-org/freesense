@@ -5202,7 +5202,7 @@ function upgrade_165_to_166() {
 }
 
 /* FreeSense: the "Netgate Services and Support" widget is removed (it phones
-   home to ews.netgate.com). These two migrations used to force it into the
+   home to a vendor cloud endpoint). These two migrations used to force it into the
    dashboard on upgrade; they are now no-ops, kept only to preserve the config
    version sequence. */
 function upgrade_166_to_167() {

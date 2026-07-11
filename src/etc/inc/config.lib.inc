@@ -663,7 +663,7 @@ function write_config($desc="Unknown", $backup = true, $write_config_only = fals
 	}
 
 	/* FreeSense: AutoConfigBackup removed (it uploaded the config to
-	   acb.netgate.com on every save). No config phone-home. */
+	   a vendor cloud endpoint on every save). No config phone-home. */
 
 	return config_get_path('');
 }
@@ -1311,7 +1311,7 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 		if ($_use_cache) {
 			$parsed_config = @file_get_contents($cache_file_path);
 			if (is_string($parsed_config)) {
-				$parsed_config = unserialize($parsed_config);
+				$parsed_config = unserialize($parsed_config, ['allowed_classes' => false]);
 			}
 		}
 

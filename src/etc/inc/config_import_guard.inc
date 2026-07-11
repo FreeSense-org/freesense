@@ -41,8 +41,6 @@
  * installer importer so the two flows never drift.
  */
 
-require_once('config.lib.inc');
-
 /*
  * Detect the lineage of a config.xml given as a string.
  * Returns 'freesense', 'pfsense', 'opnsense', or 'unknown'.
@@ -158,6 +156,14 @@ function freesense_config_convert_foreign($xml, $lineage) {
 			$fq = preg_quote($flag, '/');
 			$xml = preg_replace('/[ \t]*<' . $fq . '>\s*<\/' . $fq . '>[ \t]*\r?\n?/i', '', $xml);
 			$xml = preg_replace('/[ \t]*<' . $fq . '\s*\/>[ \t]*\r?\n?/i', '', $xml);
+		}
+
+		/* OPNsense keeps Unbound in the dropped MVC tree. Ensure the converted
+		 * system can resolve package/update hosts immediately after import. */
+		if (!preg_match('/<\s*unbound\s*>/i', $xml)) {
+			$resolver = "\t<unbound>\n\t\t<enable></enable>\n\t</unbound>\n";
+			$xml = preg_replace('/<\s*\/\s*freesense\s*>/i', $resolver . '</freesense>', $xml, 1);
+			$notes[] = gettext('Enabled the FreeSense DNS Resolver because OPNsense resolver settings are not portable.');
 		}
 
 		$notes[] = gettext('Imported OPNsense basic settings, certificates and users. Firewall, NAT and VPN must be reconfigured.');

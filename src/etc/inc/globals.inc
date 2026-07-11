@@ -319,6 +319,14 @@ $reserved_table_names = [
 		'address' => '',
 		'detail' => ''
 	],
+	'crowdsecblocklist' => [
+		'name' => 'CrowdSecBlocklist',
+		'type' => 'urltable',
+		'url' => '/var/db/crowdsec/freesense-blocks.txt',
+		'descr' => 'Active CrowdSec remediation decisions.',
+		'address' => '',
+		'detail' => ''
+	],
 	'virusprot' => [
 		'name' => 'virusprot',
 		'type' => 'host',

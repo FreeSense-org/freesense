@@ -87,7 +87,7 @@ class freesense_xmlrpc_client {
 		}
 		$options = array(
 			'prefix' => 'freesense.',
-			'sslverify' => false,
+			'sslverify' => !config_path_enabled('hasync', 'synctlsinsecure'),
 			'connectionTimeout' => $timeout
 		);
 

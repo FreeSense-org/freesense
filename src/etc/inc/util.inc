@@ -5827,8 +5827,8 @@ function get_dnsavailable(?int $protocol = null): bool {
 			break;
 	}
 
-	// The domain doesn't matter, only that there's an answer
-	exec("/usr/bin/host -W 1 {$proto} netgate.com.", $null, $result_code);
+	// Use the project domain so this health check has no vendor dependency.
+	exec("/usr/bin/host -W 1 {$proto} freesense.org.", $null, $result_code);
 	if ($result_code === 0) {
 		// DNS server responded
 		return true;

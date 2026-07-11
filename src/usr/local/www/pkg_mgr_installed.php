@@ -72,6 +72,7 @@ function get_pkg_table() {
 		if (!$pkg['name']) {
 			continue;
 		}
+		$meta = $pkg['freesense'];
 
 		#check package version
 		$txtcolor = "";
@@ -115,6 +116,12 @@ function get_pkg_table() {
 
 		$pkgtbl .='				<tr>';
 		$pkgtbl .='					<td>';
+		if (!empty($meta['configure_path'])) {
+			$pkgtbl .= '<a title="' . gettext('Package integration and health') . '" href="pkg_control.php?pkg=' . rawurlencode($pkg['shortname']) . '" class="btn btn-primary btn-sm me-1"><i class="fa-solid fa-sliders me-1"></i>' . gettext('Manage') . '</a>';
+		}
+		if (!empty($meta['status_path']) && $meta['status_path'] !== $meta['configure_path']) {
+			$pkgtbl .= '<a title="' . gettext('Package status') . '" href="' . htmlspecialchars($meta['status_path']) . '" class="btn btn-outline-secondary btn-sm me-1"><i class="fa-solid fa-chart-line"></i></a>';
+		}
 
 		if ($upgradeavail) {
 			$pkgtbl .='						<a title="' . $status . '" href="pkg_mgr_install.php?mode=reinstallpkg&amp;pkg=' . $pkg['name'] . $vergetstr . '" class="fa-solid fa-arrows-rotate"></a>';
@@ -125,10 +132,11 @@ function get_pkg_table() {
 		}
 		$pkgtbl .='					</td>';
 		$pkgtbl .='					<td>';
-		$pkgtbl .='						<span class="' . $txtcolor . '">' . $pkg['shortname'] . '</span>';
+		$pkgtbl .='						<span class="' . $txtcolor . '">' . htmlspecialchars($meta['display_name']) . '</span>';
+		$pkgtbl .='<div class="small text-body-secondary">' . htmlspecialchars(ucfirst($meta['resource_profile'])) . '</div>';
 		$pkgtbl .='					</td>';
 		$pkgtbl .='					<td>';
-		$pkgtbl .='						' . implode(" ", $pkg['categories']);
+		$pkgtbl .='						' . htmlspecialchars($meta['category']);
 		$pkgtbl .='					</td>';
 		$pkgtbl .='					<td>';
 
@@ -190,9 +198,9 @@ display_top_tabs($tab_array);
 
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Installed Packages')?></h2></div>
-	<div id="pkgtbl" class="panel-body">
+<div class="card mb-3">
+	<div class="card-header"><h2 class="h5 mb-0"><?=gettext('Installed Packages')?></h2></div>
+	<div id="pkgtbl" class="card-body">
 		<div id="waitmsg">
 			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-cog fa-spin"></i>'); ?>
 		</div>

@@ -39,12 +39,36 @@ $allowautocomplete = true;
 
 require_once("guiconfig.inc");
 
-if ($_POST['submit'] == "DOWNLOAD" && file_exists($_POST['dlPath'])) {
+$diag_tmp = realpath(g_get('tmp_path'));
+$submit = $_POST['submit'] ?? '';
+
+if ($submit == "DOWNLOAD") {
+	$requested = realpath($_POST['dlPath'] ?? '');
+	if ($diag_tmp !== false && $requested !== false && is_file($requested) &&
+	    strncmp($requested, $diag_tmp . DIRECTORY_SEPARATOR, strlen($diag_tmp) + 1) === 0) {
 	session_cache_limiter('public');
-	send_user_download('file', $_POST['dlPath']);
-} else if ($_POST['submit'] == "UPLOAD" && is_uploaded_file($_FILES['ulfile']['tmp_name'])) {
-	move_uploaded_file($_FILES['ulfile']['tmp_name'], g_get('tmp_path') . "/" . $_FILES['ulfile']['name']);
-	$ulmsg = sprintf(gettext('Uploaded file to %s.'), g_get('tmp_path') . "/" . htmlentities($_FILES['ulfile']['name']));
+		send_user_download('file', $requested);
+	} else {
+		$input_errors[] = gettext('Downloads are restricted to regular files in the diagnostics temporary directory.');
+	}
+} else if ($submit == "UPLOAD" && isset($_FILES['ulfile']) &&
+    is_uploaded_file($_FILES['ulfile']['tmp_name'])) {
+	$name = basename($_FILES['ulfile']['name']);
+	if ($diag_tmp === false) {
+		$input_errors[] = gettext('The diagnostics temporary directory is unavailable.');
+	} elseif ($name === '' || !preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/', $name)) {
+		$input_errors[] = gettext('The upload filename contains unsupported characters.');
+	} elseif ((int)$_FILES['ulfile']['size'] > 32 * 1024 * 1024) {
+		$input_errors[] = gettext('Diagnostic uploads are limited to 32 MiB.');
+	} else {
+		$destination = $diag_tmp . DIRECTORY_SEPARATOR . $name;
+		if (!move_uploaded_file($_FILES['ulfile']['tmp_name'], $destination)) {
+			$input_errors[] = gettext('The uploaded file could not be saved.');
+		} else {
+			chmod($destination, 0600);
+			$ulmsg = sprintf(gettext('Uploaded file to %s.'), htmlspecialchars($destination));
+		}
+	}
 }
 
 // Function: is Blank

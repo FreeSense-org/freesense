@@ -32,7 +32,11 @@ require_once("pkg-utils.inc");
 
 $repos = pkg_list_repos();
 
-if ($_POST) {
+if ($_POST && ($_POST['fwbranch'] ?? '') === 'candidate' && ($_POST['candidate_ack'] ?? '') !== 'yes') {
+	$input_errors[] = gettext('You must acknowledge the release-candidate warning before selecting that channel.');
+}
+
+if ($_POST && !$input_errors) {
 
 	if ($_POST['disablecheck'] == "yes") {
 		config_set_path('system/firmware/disablecheck', true);
@@ -119,6 +123,10 @@ $tab_array[] = array(gettext("System Update"), false, "pkg_mgr_install.php?id=fi
 $tab_array[] = array(gettext("Update Settings"), true, "system_update_settings.php");
 display_top_tabs($tab_array);
 
+if (pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path')) === 'candidate') {
+	print_info_box(gettext('RC Preview is based on FreeBSD 16-CURRENT, has no upstream security support, and must not be used for production systems.'), 'warning');
+}
+
 // Check to see if any new repositories have become available. This data is cached and
 // refreshed every 24 hours
 $repos = update_repos();
@@ -143,6 +151,13 @@ if (file_exists($helpfilename)) {
 }
 
 $section->addInput($field);
+
+$section->addInput(new Form_Checkbox(
+	'candidate_ack',
+	gettext('Pre-release acknowledgement'),
+	gettext('I understand that release candidates may contain defects and are not recommended for production firewalls.'),
+	false
+))->setHelp(gettext('This acknowledgement is required only when switching to the Candidate channel.'));
 
 $form->add($section);
 

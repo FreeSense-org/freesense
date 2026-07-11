@@ -469,6 +469,7 @@ function get_pkg_info($pkgs = 'all', $remote_repo_usage_disabled = false,
 		}
 	}
 
+	require_once('package_catalog.inc');
 	$result = array();
 	foreach ($search_items as $pkg_info) {
 		if (empty($pkg_info['name'])) {
@@ -482,6 +483,7 @@ function get_pkg_info($pkgs = 'all', $remote_repo_usage_disabled = false,
 
 		$pkg_info['shortname'] = $pkg_info['name'];
 		pkg_remove_prefix($pkg_info['shortname']);
+		$pkg_info['freesense'] = freesense_package_catalog_entry($pkg_info['shortname']);
 
 		/* XXX: Add it to globals.inc? */
 		$pkg_info['changeloglink'] =

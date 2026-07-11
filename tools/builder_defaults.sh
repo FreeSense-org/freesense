@@ -75,15 +75,15 @@ if [ ! -d ${SCRATCHDIR} ]; then
 fi
 
 # Product details
-export PRODUCT_NAME=${PRODUCT_NAME:-"nonSense"}
+export PRODUCT_NAME=${PRODUCT_NAME:-"FreeSense"}
 # FreeSense: no edition suffix — there is only one (fully open-source) edition.
 # Was "-CE"; emptied so images are FreeSense-<version>... not FreeSense-CE-...
 export PRODUCT_NAME_SUFFIX=${PRODUCT_NAME_SUFFIX:-""}
 export REPO_BRANCH_PREFIX=${REPO_BRANCH_PREFIX:-""}
 export REPO_PATH_PREFIX=$(echo "${REPO_BRANCH_PREFIX}" | sed -e 's,-,_,g')
-export PRODUCT_URL=${PRODUCT_URL:-""}
+export PRODUCT_URL=${PRODUCT_URL:-"https://freesense.org"}
 export PRODUCT_SRC=${PRODUCT_SRC:-"${BUILDER_ROOT}/src"}
-export PRODUCT_EMAIL=${PRODUCT_EMAIL:-"coreteam@pfsense.org"}
+export PRODUCT_EMAIL=${PRODUCT_EMAIL:-"security@freesense.org"}
 export XML_ROOTOBJ=${XML_ROOTOBJ:-$(echo "${PRODUCT_NAME}" | tr '[[:upper:]]' '[[:lower:]]')}
 
 if [ "${PRODUCT_NAME}" = "pfSense" -a "${BUILD_AUTHORIZED_BY_NETGATE}" != "yes" ]; then
@@ -93,6 +93,18 @@ if [ "${PRODUCT_NAME}" = "pfSense" -a "${BUILD_AUTHORIZED_BY_NETGATE}" != "yes" 
 	exit 1
 fi
 
+if [ -n "${FREESENSE_CANDIDATE_ID:-}" ]; then
+	_preview_id="${FREESENSE_CANDIDATE_ID##*/}"
+	case "${_preview_id}" in
+		[0-9]*.[0-9]*.[0-9]*-rc.[0-9]*)
+			_preview_base="${_preview_id%%-rc.*}"
+			_preview_seq="${_preview_id##*.}"
+			export PRODUCT_VERSION="${_preview_base}-RC${_preview_seq}"
+			export FREESENSE_PREVIEW=yes
+			;;
+		*) echo ">>> ERROR: invalid FREESENSE_CANDIDATE_ID '${_preview_id}'"; exit 1 ;;
+	esac
+fi
 if [ -z "${PRODUCT_VERSION}" ]; then
 	if [ ! -f ${PRODUCT_SRC}/etc/version ]; then
 		echo ">>> ERROR: PRODUCT_VERSION is not defined and ${PRODUCT_SRC}/etc/version was not found"
@@ -280,21 +292,21 @@ export BUILDER_PKG_DEPENDENCIES="devel/git ftp/curl net/rsync sysutils/screen \
     sysutils/vmdktool security/sudo www/nginx \
     archivers/gtar textproc/xmlstarlet"
 
-STAGING_HOSTNAME=${STAGING_HOSTNAME:-"release-staging.nyi.netgate.com"}
+STAGING_HOSTNAME=${STAGING_HOSTNAME:-"127.0.0.1"}
 
 # Host to rsync pkg repos from poudriere
-export PKG_RSYNC_HOSTS=${PKG_RSYNC_HOSTS:-"nyi"}
-export PKG_RSYNC_HOSTNAME_nyi=${PKG_RSYNC_HOSTNAME_nyi:-"nfs1.nyi.netgate.com"}
+export PKG_RSYNC_HOSTS=${PKG_RSYNC_HOSTS:-""}
+export PKG_RSYNC_HOSTNAME_nyi=${PKG_RSYNC_HOSTNAME_nyi:-""}
 export PKG_RSYNC_USERNAME=${PKG_RSYNC_USERNAME:-"wwwsync"}
 export PKG_RSYNC_SSH_PORT=${PKG_RSYNC_SSH_PORT:-"22"}
 export PKG_RSYNC_DESTDIR=${PKG_RSYNC_DESTDIR:-"/storage/files/release-staging/ce/packages"}
 
 # Final packages server
 if [ -n "${_IS_RELEASE}" -o -n "${_IS_RC}" ]; then
-	export PKG_FINAL_RSYNC_HOSTNAME_nyi=${PKG_FINAL_RSYNC_HOSTNAME_nyi:-"nfs1.nyi.netgate.com"}
+	export PKG_FINAL_RSYNC_HOSTNAME_nyi=${PKG_FINAL_RSYNC_HOSTNAME_nyi:-""}
 	export PKG_FINAL_RSYNC_DESTDIR=${PKG_FINAL_RSYNC_DESTDIR:-"/storage/files/pkg"}
 else
-	export PKG_FINAL_RSYNC_HOSTNAME_nyi=${PKG_FINAL_RSYNC_HOSTNAME_nyi:-"nfs1.nyi.netgate.com"}
+	export PKG_FINAL_RSYNC_HOSTNAME_nyi=${PKG_FINAL_RSYNC_HOSTNAME_nyi:-""}
 	export PKG_FINAL_RSYNC_DESTDIR=${PKG_FINAL_RSYNC_DESTDIR:-"/storage/files/beta/packages"}
 fi
 export PKG_FINAL_RSYNC_USERNAME=${PKG_FINAL_RSYNC_USERNAME:-"wwwsync"}
@@ -304,14 +316,14 @@ export SKIP_FINAL_RSYNC=${SKIP_FINAL_RSYNC:-}
 # pkg repo variables
 # FreeSense: disabled. Netgate's build installs packages from a STAGING server then rewrites
 # the installed box's repo conf to the release server. We have no staging server — with this
-# on, setup_pkg_repo writes PKG_REPO_SERVER_STAGING (release-staging.netgate.com) into the
+# on, setup_pkg_repo writes the legacy vendor staging endpoint into the
 # box's FreeSense-repo.conf instead of PKG_REPO_SERVER_RELEASE (pkg.freesense.org). Empty =
 # the box conf uses _RELEASE/_DEVEL directly. (Chroot pkg-install uses the local :8081 repo,
 # not staging, so this is safe.)
 export USE_PKG_REPO_STAGING=""
-export PKG_REPO_SERVER_DEVEL=${PKG_REPO_SERVER_DEVEL:-"pkg+https://packages-beta.netgate.com/packages"}
-export PKG_REPO_SERVER_RELEASE=${PKG_REPO_SERVER_RELEASE:-"pkg+https://packages.netgate.com"}
-export PKG_REPO_SERVER_STAGING=${PKG_REPO_SERVER_STAGING:-"pkg+http://${STAGING_HOSTNAME}/ce/packages"}
+export PKG_REPO_SERVER_DEVEL=${PKG_REPO_SERVER_DEVEL:-"https://pkg.freesense.org"}
+export PKG_REPO_SERVER_RELEASE=${PKG_REPO_SERVER_RELEASE:-"https://pkg.freesense.org"}
+export PKG_REPO_SERVER_STAGING=${PKG_REPO_SERVER_STAGING:-"http://${STAGING_HOSTNAME}:8081"}
 
 if [ -n "${_IS_RELEASE}" -o -n "${_IS_RC}" ]; then
 	export PKG_REPO_BRANCH_STAGING=${PKG_REPO_BRANCH_STAGING:-${PKG_REPO_BRANCH_RELEASE}}
@@ -325,7 +337,7 @@ else
 	export PKG_REPO_SIGN_KEY=${PKG_REPO_SIGN_KEY:-"beta${PRODUCT_NAME_SUFFIX}"}
 fi
 # Command used to sign pkg repo
-: ${PKG_REPO_SIGNING_COMMAND="ssh -o StrictHostKeyChecking=no sign@codesigner.netgate.com sudo ./sign.sh ${PKG_REPO_SIGN_KEY}"}
+: ${PKG_REPO_SIGNING_COMMAND="/root/sign/sign.sh /root/sign/repo.key"}
 export PKG_REPO_SIGNING_COMMAND
 export DO_NOT_SIGN_PKG_REPO=${DO_NOT_SIGN_PKG_REPO:-}
 
@@ -365,13 +377,13 @@ export VARIANTUPDATES=""
 
 # Rsync data to send snapshots
 if [ -n "${_IS_RELEASE}" -o -n "${SKIP_FINAL_RSYNC}" ]; then
-	export RSYNCIP=${RSYNCIP:-"nfs1.nyi.netgate.com"}
+	export RSYNCIP=${RSYNCIP:-""}
 	export RSYNCUSER=${RSYNCUSER:-"wwwsync"}
-	export RSYNCPATH=${RSYNCPATH:-"/storage/files/release-staging/ce/images"}
+	export RSYNCPATH=${RSYNCPATH:-"/freesense/release-candidates/images"}
 else
-	export RSYNCIP=${RSYNCIP:-"nfs1.nyi.netgate.com"}
+	export RSYNCIP=${RSYNCIP:-""}
 	export RSYNCUSER=${RSYNCUSER:-"wwwsync"}
-	export RSYNCPATH=${RSYNCPATH:-"/storage/files/snapshots/${TARGET}/${PRODUCT_NAME}_${GIT_REPO_BRANCH_OR_TAG}"}
+	export RSYNCPATH=${RSYNCPATH:-"/freesense/snapshots/${TARGET}/${PRODUCT_NAME}_${GIT_REPO_BRANCH_OR_TAG}"}
 fi
 
 export SNAPSHOTSLOGFILE=${SNAPSHOTSLOGFILE:-"${SCRATCHDIR}/snapshots-build.log"}
@@ -389,6 +401,6 @@ if [ "${PRODUCT_NAME}" = "pfSense" ]; then
 	export VENDOR_NAME=${VENDOR_NAME:-"Rubicon Communications, LLC (Netgate)"}
 	export OVF_INFO=${OVF_INFO:-"pfSense is a free, open source customized distribution of FreeBSD tailored for use as a firewall and router. In addition to being a powerful, flexible firewalling and routing platform, it includes a long list of related features and a package system allowing further expandability without adding bloat and potential security vulnerabilities to the base distribution. pfSense is a popular project with more than 1 million downloads since its inception, and proven in countless installations ranging from small home networks protecting a PC and an Xbox to large corporations, universities and other organizations protecting thousands of network devices."}
 else
-	export VENDOR_NAME=${VENDOR_NAME:-"nonSense"}
-	export OVF_INFO=${OVF_INFO:-"none"}
+	export VENDOR_NAME=${VENDOR_NAME:-"The FreeSense Project"}
+	export OVF_INFO=${OVF_INFO:-"FreeSense is an open-source FreeBSD firewall and routing platform maintained independently by the FreeSense project."}
 fi

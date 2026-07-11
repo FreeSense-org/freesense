@@ -59,7 +59,7 @@ function get_pkg_table() {
 		exit;
 	}
 
-	$pkgtbl = 	'<table id="pkgtable" class="table table-striped table-hover">' . "\n";
+	$pkgtbl = 	'<table id="pkgtable" class="table table-striped table-hover align-middle">' . "\n";
 	$pkgtbl .= 		'<thead>' . "\n";
 	$pkgtbl .= 			'<tr>' . "\n";
 	$pkgtbl .= 				'<th>' . gettext("Name") . "</th>\n";
@@ -76,15 +76,20 @@ function get_pkg_table() {
 			continue;
 		}
 
-		$pkgtbl .= 	'<tr>' . "\n";
+		$meta = $index['freesense'];
+		$category = htmlspecialchars($meta['category']);
+		$searchtext = htmlspecialchars(strtolower($meta['display_name'] . ' ' . $index['desc'] . ' ' . implode(' ', $meta['capabilities'])));
+		$pkgtbl .= 	'<tr data-category="' . $category . '" data-search="' . $searchtext . '">' . "\n";
 		$pkgtbl .= 	'<td>' . "\n";
 
 		if (($index['www']) && ($index['www'] != "UNKNOWN")) {
 			$pkgtbl .= 	'<a title="' . gettext("Visit official website") . '" target="_blank" href="' . htmlspecialchars($index['www']) . '">' . "\n";
-			$pkgtbl .= htmlspecialchars($index['shortname']) . '</a>' . "\n";
+			$pkgtbl .= htmlspecialchars($meta['display_name']) . '</a>' . "\n";
 		} else {
-			$pkgtbl .= htmlspecialchars($index['shortname']);
+			$pkgtbl .= htmlspecialchars($meta['display_name']);
 		}
+		$pkgtbl .= '<div class="small text-body-secondary">' . $category .
+		    ' · ' . htmlspecialchars(ucfirst($meta['resource_profile'])) . '</div>';
 		$pkgtbl .= 	'</td>' . "\n";
 		$pkgtbl .= 	'<td>' . "\n";
 
@@ -98,6 +103,14 @@ function get_pkg_table() {
 		$pkgtbl .= 	'</td>' . "\n";
 		$pkgtbl .= 	'<td>' . "\n";
 		$pkgtbl .= 		$index['desc'];
+		if (!empty($meta['capabilities'])) {
+			$pkgtbl .= '<div class="mt-2">';
+			foreach ($meta['capabilities'] as $capability) {
+				$pkgtbl .= '<span class="badge text-bg-secondary me-1">' .
+				    htmlspecialchars(str_replace('-', ' ', $capability)) . '</span>';
+			}
+			$pkgtbl .= '</div>';
+		}
 
 		if (is_array($index['deps']) && count($index['deps'])) {
 			$pkgtbl .= 	'<br /><br />' . gettext("Package Dependencies") . ":<br/>\n";
@@ -111,7 +124,7 @@ function get_pkg_table() {
 
 		$pkgtbl .= 	'</td>' . "\n";
 		$pkgtbl .= '<td>' . "\n";
-		$pkgtbl .= '<a title="' . gettext("Click to install") . '" href="pkg_mgr_install.php?pkg=' . $index['name'] . '" class="btn btn-success btn-sm"><i class="fa-solid fa-plus icon-embed-btn"></i>Install</a>' . "\n";
+		$pkgtbl .= '<a title="' . gettext("Review and install") . '" href="pkg_mgr_install.php?pkg=' . rawurlencode($index['name']) . '" class="btn btn-success btn-sm"><i class="fa-solid fa-plus icon-embed-btn"></i>' . gettext('Review') . '</a>' . "\n";
 
 		if (!g_get('disablepackageinfo') && $index['pkginfolink'] && $index['pkginfolink'] != $index['www']) {
 			$pkgtbl .= '<a target="_blank" title="' . gettext("View more information") . '" href="' . htmlspecialchars($index['pkginfolink']) . '" class="btn btn-secondary btn-sm">info</a>' . "\n";
@@ -136,9 +149,9 @@ $tab_array[] = array(gettext("Installed Packages"), false, "pkg_mgr_installed.ph
 $tab_array[] = array(gettext("Available Packages"), true, "pkg_mgr.php");
 display_top_tabs($tab_array);
 ?>
-<div class="panel panel-default" id="search-panel" style="display: none;">
-	<div class="panel-heading">
-		<h2 class="panel-title">
+<div class="card mb-3" id="search-panel">
+	<div class="card-header">
+		<h2 class="h5 mb-0">
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
@@ -147,33 +160,34 @@ display_top_tabs($tab_array);
 			</span>
 		</h2>
 	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse show">
-		<div class="form-group">
-			<label class="col-sm-2 control-label">
+	<div id="search-panel_panel-body" class="card-body collapse show">
+		<div class="row mb-3">
+			<label class="col-sm-2 col-form-label">
 				<?=gettext("Search term")?>
 			</label>
 			<div class="col-sm-5"><input class="form-control" name="searchstr" id="searchstr" type="text"/></div>
 			<div class="col-sm-2">
-				<select id="where" class="form-control">
-					<option value="0"><?=gettext("Name")?></option>
-					<option value="1"><?=gettext("Description")?></option>
-					<option value="2" selected><?=gettext("Both")?></option>
+				<select id="category" class="form-control">
+					<option value=""><?=gettext("All categories")?></option>
+					<?php foreach (freesense_package_catalog_categories() as $category): ?>
+					<option value="<?=htmlspecialchars($category)?>"><?=htmlspecialchars($category)?></option>
+					<?php endforeach; ?>
 				</select>
 			</div>
 			<div class="col-sm-3">
 				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
 				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
 			</div>
-			<div class="col-sm-10 col-sm-offset-2">
-				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to search package names and descriptions.')?></span>
+			<div class="col-sm-10 offset-sm-2">
+				<span class="help-block"><?=gettext('Search package names, descriptions, and capabilities. Search text is treated literally.')?></span>
 			</div>
 		</div>
 	</div>
 </div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Packages')?></h2></div>
-	<div id="pkgtbl" class="panel-body table-responsive">
+<div class="card mb-3">
+	<div class="card-header"><h2 class="h5 mb-0"><?=gettext('Packages')?></h2></div>
+	<div id="pkgtbl" class="card-body table-responsive">
 		<div id="waitmsg">
 			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-cog fa-spin"></i>'); ?>
 		</div>
@@ -190,9 +204,9 @@ display_top_tabs($tab_array);
 events.push(function() {
 
 	// Initial state & toggle icons of collapsed panel
-	$('.panel-heading a[data-bs-toggle="collapse"]').each(function (idx, el) {
-		var body = $(el).parents('.panel').children('.panel-body')
-		var isOpen = body.hasClass('in');
+	$('.card-header a[data-bs-toggle="collapse"]').each(function (idx, el) {
+		var body = $(el).parents('.card').children('.card-body')
+		var isOpen = body.hasClass('show');
 
 		$(el).children('i').toggleClass('fa-plus-circle', !isOpen);
 		$(el).children('i').toggleClass('fa-minus-circle', isOpen);
@@ -208,38 +222,26 @@ events.push(function() {
 	$("#btnclear").prop('type', 'button');
 
 	// Search for a term in the package name and/or description
-	$("#btnsearch").click(function() {
-		var searchstr = $('#searchstr').val().toLowerCase();
-		var table = $("table tbody");
-		var where = $('#where').val();
-
-		table.find('tr').each(function (i) {
-			var $tds = $(this).find('td'),
-				shortname = $tds.eq(0).text().trim().toLowerCase(),
-				descr = $tds.eq(2).text().trim().toLowerCase();
-
-			regexp = new RegExp(searchstr);
-			if (searchstr.length > 0) {
-				if (!(regexp.test(shortname) && (where != 1)) && !(regexp.test(descr) && (where != 0))) {
-					$(this).hide();
-				} else {
-					$(this).show();
-				}
-			} else {
-				$(this).show();	// A blank search string shows all
-			}
+	function filterPackages() {
+		var searchstr = $('#searchstr').val().trim().toLowerCase();
+		var category = $('#category').val();
+		$("#pkgtable tbody tr").each(function () {
+			var matchesText = !searchstr || ($(this).data('search') || '').indexOf(searchstr) !== -1;
+			var matchesCategory = !category || $(this).data('category') === category;
+			$(this).toggle(matchesText && matchesCategory);
 		});
-	});
+	}
+
+	$("#btnsearch").click(filterPackages);
+	$("#category").on('change', filterPackages);
 
 	// Clear the search term and unhide all rows (that were hidden during a previous search)
 	$("#btnclear").click(function() {
 		var table = $("table tbody");
 
 		$('#searchstr').val("");
-
-		table.find('tr').each(function (i) {
-			$(this).show();
-		});
+		$('#category').val('');
+		filterPackages();
 	});
 
 	// Hitting the enter key will do the same as clicking the search button
