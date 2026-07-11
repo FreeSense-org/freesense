@@ -89,21 +89,10 @@ if [ -f "$MUSTBUILD" ]; then
 	say "(c) must-build.extra added"
 fi
 
-# ---- (d) EXCLUDE orphans: ports with make.conf options but NO FreeSense consumer
-# Some make.conf option blocks are reference/prep for future migrations (snort3,
-# suricata4) that no current FreeSense-pkg depends on. Their options make (b) pick
-# them up, but building them wastes time (heavy, unused). Drop from the custom set
-# -> fetch/absent. Keep SHORT; only ports verified to have zero FreeSense consumers.
-EXCLUDE_ORPHANS="security/snort3 security/suricata4"
-for orphan in $EXCLUDE_ORPHANS; do
-	grep -vxF "$orphan" "$SET" > "$SET.x" 2>/dev/null && mv "$SET.x" "$SET"
-done
-say "(d) excluded orphans: $EXCLUDE_ORPHANS"
-
 # ---- normalize to the %%PRODUCT_NAME%% placeholder ---------------------------
 # poudriere_bulk() sed-substitutes %%PRODUCT_NAME%% -> ${PRODUCT_NAME} when it reads
 # the list (builder_common.sh ~2364). The overlay dirs are already renamed to the
-# product name (e.g. security/FreeSense-pkg-snort), so map that leading product
+# product name (e.g. security/FreeSense-pkg-suricata), so map that leading product
 # token back to %%PRODUCT_NAME%% for a canonical list that dedups cleanly against
 # the existing bulk/exclude lists and survives a product rename. Default product =
 # FreeSense; override via PRODUCT_NAME.

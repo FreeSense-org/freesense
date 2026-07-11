@@ -31,6 +31,8 @@ fail(){ echo ">>> fetch-kernel: SKIP: $*" >&2; exit 1; }
 
 RCLONE=${RCLONE:-rclone}
 R2=${FREESENSE_R2_REMOTE:-R2:freesense-pkg}
+PREFIX=${FREESENSE_RELEASE_PREFIX:-}
+[ -n "${PREFIX}" ] && PREFIX="${PREFIX%/}/"
 CHAN=${FREESENSE_CHANNEL:-main}
 WANT_REV=${FREESENSE_REV:-}
 PRODUCT=${PRODUCT_NAME:-FreeSense}
@@ -50,7 +52,7 @@ esac
 
 # --- resolve the base build's version + rev from the provenance markers ---------
 BASE_VER=""; BASE_REV=""
-if ${RCLONE} copyto "${R2}/base/${BCH}/os-snapshot.json" /tmp/os-snapshot.json 2>/dev/null \
+if ${RCLONE} copyto "${R2}/${PREFIX}base/${BCH}/os-snapshot.json" /tmp/os-snapshot.json 2>/dev/null \
     && [ -s /tmp/os-snapshot.json ]; then
 	BASE_REV=$(sed -n 's/.*"freebsd_rev"[^"]*"\([^"]*\)".*/\1/p' /tmp/os-snapshot.json)
 	BASE_VER=$(sed -n 's/.*"base_version"[^"]*"\([^"]*\)".*/\1/p' /tmp/os-snapshot.json)
@@ -76,7 +78,7 @@ fi
 if [ -n "${BASE_VER}" ]; then
 	KPKG="${PRODUCT}-kernel-${KERNCONF}-${BASE_VER}.pkg"
 else
-	KPKG=$(${RCLONE} lsf "${R2}/base/${BCH}/All/" 2>/dev/null \
+	KPKG=$(${RCLONE} lsf "${R2}/${PREFIX}base/${BCH}/All/" 2>/dev/null \
 		| grep "^${PRODUCT}-kernel-${KERNCONF}-" | sort -V | tail -1)
 	[ -n "${KPKG}" ] || fail "no ${PRODUCT}-kernel-${KERNCONF}-*.pkg under base/${BCH}/All/"
 fi
@@ -98,8 +100,8 @@ if [ -z "${DSTR}" ]; then
 fi
 
 mkdir -p "${OUTDIR}"
-say "fetching base/${BCH}/All/${KPKG} ..."
-${RCLONE} copyto "${R2}/base/${BCH}/All/${KPKG}" "${OUTDIR}/${KPKG}" || fail "download failed"
+say "fetching ${PREFIX}base/${BCH}/All/${KPKG} ..."
+${RCLONE} copyto "${R2}/${PREFIX}base/${BCH}/All/${KPKG}" "${OUTDIR}/${KPKG}" || fail "download failed"
 _sz=$(wc -c < "${OUTDIR}/${KPKG}" 2>/dev/null | tr -d ' ')
 [ "${_sz:-0}" -gt 1000000 ] || fail "downloaded pkg is implausibly small (${_sz:-0} bytes)"
 

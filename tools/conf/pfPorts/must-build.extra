@@ -38,40 +38,25 @@ net/mtr
 net/nss_ldap
 net/ntp
 net-mgmt/net-snmp
-net-mgmt/zabbix6-agent
-net-mgmt/zabbix6-proxy
 net-mgmt/zabbix7-agent
 net-mgmt/zabbix7-proxy
-net-mgmt/zabbix74-agent
-net-mgmt/zabbix74-proxy
 # NOTE: security/ca_root_nss is NOT built — it must FETCH so lang/rust (which depends on it)
 # stays fetched, not source-rebuilt (~1.5-5h). The ETCSYMLINK SET_FORCE was REMOVED from
 # make.conf: on FreeBSD 15/16 the port marks ETCSYMLINK OPTIONS_EXCLUDE, so FreeBSD's binary is
 # built WITHOUT it; forcing it made our copy diverge -> ca_root_nss rebuilt -> rust cascade-rebuilt
-# (the exact bug that made suricata/ntopng/snort3 workers take ~2.5h and time out). Keep
+# (the exact bug that made large Rust consumers take ~2.5h and time out). Keep
 # ca_root_nss at FreeBSD's default. Do NOT re-add any ca_root_nss option override here or in make.conf.
 security/opensc
 security/openvpn
-security/snort
-# security/snort3 removed — no FreeSense-pkg depends on it (FreeSense uses security/snort).
-# Prep for a future snort v3 migration; not built until a FreeSense-pkg-snort3 exists.
 security/strongswan
-security/sudo
 security/suricata
-# security/suricata4 removed — no FreeSense-pkg depends on it (FreeSense uses security/suricata).
 security/xinetd
 shells/scponly
-sysutils/apcupsd
 # sysutils/flashrom removed — not shipped, not depended on, FETCHED if ever needed.
 sysutils/pftop
 sysutils/syslog-ng
-www/c-icap
-www/e2guardian
-www/lightsquid
 www/lighttpd
 www/nginx
-www/squid
-www/squidguard
 
 # php is rebuilt with PHP_FD_SETSIZE=3172 (make.conf) -> its extensions rebuild against it too.
 # LOAD-BEARING: stream_select() lives at etc/inc/pkg-utils.inc:157 & :1631 (pfSense Bug #8845/#8895

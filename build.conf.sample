@@ -24,7 +24,7 @@ export PRODUCT_NAME="FreeSense"
 # No edition suffix — one open-source edition (was "-CE").
 export PRODUCT_NAME_SUFFIX=""
 export PRODUCT_URL="https://freesense.org"
-export PRODUCT_EMAIL="dev@freesense.local"
+export PRODUCT_EMAIL="dev@freesense.org"
 export FREEBSD_BRANCH="devel-main"
 # Upstream FreeBSD ports uses 'main' (the old 'devel' was a pfSense-fork branch name;
 # it does not exist in github.com/freebsd/freebsd-ports).
@@ -95,7 +95,7 @@ export NO_CLEAN_FREEBSD_OBJ=YES
 # DNS lookup) which R2 does not serve -> "pkg+:// implies SRV mirror type" errors.
 export PKG_REPO_SERVER_DEVEL="https://pkg.freesense.org"
 export PKG_REPO_SERVER_RELEASE="https://pkg.freesense.org"
-#export PKG_REPO_SERVER_STAGING="pkg+http://release-staging.netgate.com/ce/packages"
+#export PKG_REPO_SERVER_STAGING="pkg+https://pkg.freesense.org/candidates/packages"
 
 # Branch to replace pkg.conf template, defaults to $GIT_REPO_BRANCH_OR_TAG
 #export PKG_REPO_BRANCH_DEVEL="BRANCH"

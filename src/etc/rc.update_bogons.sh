@@ -76,8 +76,8 @@ if [ -f /var/etc/bogon_custom ]; then
 fi
 
 # Set default values if not overridden
-v4url=${v4url:-"https://files.netgate.com/lists/fullbogons-ipv4.txt"}
-v6url=${v6url:-"https://files.netgate.com/lists/fullbogons-ipv6.txt"}
+v4url=${v4url:-"https://www.team-cymru.org/Services/Bogons/fullbogons-ipv4.txt"}
+v6url=${v6url:-"https://www.team-cymru.org/Services/Bogons/fullbogons-ipv6.txt"}
 v4urlcksum=${v4urlcksum:-"${v4url}.md5"}
 v6urlcksum=${v6urlcksum:-"${v6url}.md5"}
 

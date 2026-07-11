@@ -32,6 +32,7 @@ $a_hasync = config_get_path('hasync', []);
 
 $checkbox_names = array(
 	'pfsyncenabled',
+	'synctlsinsecure',
 	'adminsync',
 	'synchronizeusers',
 	'synchronizeauthservers',
@@ -185,6 +186,13 @@ $section->addInput(new Form_Input(
 ))->setHelp(gettext('Enter the IP address of the firewall to which the selected configuration sections should be synchronized.%1$s%1$s' .
 			'XMLRPC sync is currently only supported over connections using the same protocol and port as this system - make sure the remote system\'s port and protocol are set accordingly!%1$s' .
 			'Do not use the Synchronize Config to IP and password option on backup cluster members!'), '<br />');
+
+$section->addInput(new Form_Checkbox(
+	'synctlsinsecure',
+	gettext('TLS verification'),
+	gettext('Disable XMLRPC peer certificate verification (unsafe; temporary migration option only).'),
+	!empty($pconfig['synctlsinsecure'])
+))->setHelp(gettext('Certificate verification is enabled by default. Import the issuing CA into both nodes instead of disabling verification.'));
 
 $section->addInput(new Form_Input(
 	'username',

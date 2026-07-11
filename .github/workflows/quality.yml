@@ -1,0 +1,40 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main, "RELENG_*"]
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install checks
+        run: sudo apt-get update -q && sudo apt-get install -yq php-cli shellcheck
+      - name: PHP syntax
+        run: |
+          find src tools -type f \( -name '*.php' -o -name '*.inc' \) \
+            ! -path 'tools/rector/tests/*' -print0 | xargs -0 -n1 php -l
+          python3 -m json.tool src/etc/freesense-package-catalog.json >/dev/null
+          php tests/ConfigImportGuardSmokeTest.php
+          php tests/PackageCatalogSmokeTest.php
+      - name: Release-sensitive shell syntax
+        run: |
+          sh -n tools/ci/freesense-fetch-kernel.sh
+          shellcheck -S error tools/ci/freesense-fetch-kernel.sh
+      - name: Reject committed secrets
+        run: |
+          if git grep -IEn '(^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$|R2_SECRET_ACCESS_KEY[=:][[:space:]]*[^$<{])' -- . ':!*.md'; then
+            echo 'Potential credential material found in tracked files' >&2
+            exit 1
+          fi
+      - name: Reject vendor infrastructure dependencies
+        run: |
+          if git grep -IEn '(https?://[^[:space:]]*netgate\.com|(?:files|packages(-beta)?|gitlab|codesigner)\.netgate\.com|\.nyi\.netgate\.com)' -- . ':!NOTICE' ':!*.md'; then
+            echo 'Active Netgate infrastructure reference found' >&2
+            exit 1
+          fi

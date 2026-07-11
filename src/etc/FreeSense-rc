@@ -520,7 +520,8 @@ fi
 [ -z "$skip_packages" ] \
 	&& "/usr/local/sbin/${product_name}-upgrade" -y -U -b 2
 
-# Copy default openssl config file and Netgate CA
+# Copy the default OpenSSL configuration. Repository verification uses the
+# FreeSense fingerprint bundle shipped with the repository package.
 [ -d /etc/ssl ] \
 	|| mkdir -p /etc/ssl
 [ -f "/usr/local/share/${product_name}/ssl/openssl.cnf" ] \
@@ -528,9 +529,6 @@ fi
 mkdir -p /usr/local/openssl >/dev/null 2>&1
 ln -sf /etc/ssl/openssl.cnf \
 	/usr/local/openssl/openssl.cnf
-
-[ -f "/usr/local/share/${product_name}/ssl/netgate-ca.pem" ] \
-	&& cp -f "/usr/local/share/${product_name}/ssl/netgate-ca.pem" /etc/ssl
 
 # Populate /usr/local/etc/php.ini
 /usr/local/sbin/php-fpm -c /usr/local/etc/php.ini -y /usr/local/lib/php-fpm.conf -RD >/dev/null 2>&1

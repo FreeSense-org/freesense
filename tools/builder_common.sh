@@ -1360,6 +1360,10 @@ stage_repo_channels() {
 	[ -n "${_altabi}" ] || _altabi="freebsd:16:x86:64"
 
 	mkdir -p "${_share}" "${_repos}"
+	local _stable_channel_line="${PKG_REPO_BRANCH_RELEASE}|Latest stable version (${PKG_REPO_BRANCH_RELEASE})|${PKG_REPO_SERVER_RELEASE}|${PKG_REPO_BRANCH_RELEASE}|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_RELEASE}|${_abi}|${_altabi}|yes"
+	if [ -n "${FREESENSE_PREVIEW:-}" ]; then
+		_stable_channel_line="# Stable is unavailable while FreeSense uses an unsupported FreeBSD development branch"
+	fi
 
 	# Authoritative channel manifest (pipe-delimited). Stable is the global default;
 	# the per-box default marker (below) overrides it for devel images.
@@ -1367,7 +1371,8 @@ stage_repo_channels() {
 	cat > "${_share}/repos.manifest" <<EOF
 # FreeSense repo channel manifest
 # name|descr|server|osversion|version|abi|altabi|default
-${PKG_REPO_BRANCH_RELEASE}|Latest stable version (${PKG_REPO_BRANCH_RELEASE})|${PKG_REPO_SERVER_RELEASE}|${PKG_REPO_BRANCH_RELEASE}|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_RELEASE}|${_abi}|${_altabi}|yes
+${_stable_channel_line}
+${FREESENSE_CANDIDATE_ID:+candidate|RC Preview (${FREESENSE_CANDIDATE_ID}) - not for production|${PKG_REPO_SERVER_RELEASE%/}/candidates/${FREESENSE_CANDIDATE_ID}|${PKG_REPO_BRANCH_RELEASE}|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_RELEASE}|${_abi}|${_altabi}|no}
 devel|Development version|${PKG_REPO_SERVER_DEVEL}|master|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_DEVEL}|${_abi}|${_altabi}|no
 EOF
 
@@ -1385,7 +1390,9 @@ EOF
 	# Pin the box's OWN channel as default (devel images track devel; release images
 	# track the release branch), overriding the manifest's global default.
 	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null
-	if [ -n "${_IS_RELEASE}" ]; then
+	if [ -n "${FREESENSE_CANDIDATE_ID:-}" ]; then
+		: > "${_repos}/${PRODUCT_NAME}-repo-candidate.default"
+	elif [ -n "${_IS_RELEASE}" ]; then
 		: > "${_repos}/${PRODUCT_NAME}-repo-${PKG_REPO_BRANCH_RELEASE}.default"
 	else
 		: > "${_repos}/${PRODUCT_NAME}-repo-devel.default"
@@ -2716,7 +2723,12 @@ EOF
 			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || echo ">>> lean-seed failed; all ports build from source"
 
 		echo ">>> Poudriere bulk started at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
-		if ! poudriere bulk -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
+		_poudriere_test_flag=""
+		if [ -n "${FREESENSE_PORT_TESTS:-}" ]; then
+			_poudriere_test_flag="-t"
+			echo ">>> FreeSense port test mode enabled (Poudriere bulk -t)" | tee -a ${LOGFILE}
+		fi
+		if ! poudriere bulk ${_poudriere_test_flag} -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
 			echo ">>> ERROR: Something went wrong..."
 			if [ "${AWS}" = 1 ]; then
 				save_pkgs_to_s3
