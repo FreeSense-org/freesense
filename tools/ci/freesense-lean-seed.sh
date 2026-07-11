@@ -85,32 +85,43 @@ if ! rclone copyto --s3-no-check-bucket --retries 10 --low-level-retries 20 \
 	"${SNAPDIR}/packages.tar" /tmp/packages.tar >>"$DIAG" 2>&1; then
 	bail "download of ${SNAPDIR}/packages.tar failed"
 fi
-# PURGE-BEFORE-UNTAR: the restored .real_cache is the accumulated OUTPUT of past builds, keyed only
-# by jail-rev — within a rev it carries STALE stock at older versions (json-c-0.18 when the pinned
-# tree wants 0.19, ca_root_nss-3.124 vs 3.125...). If those coexist with the frozen bank's correct
-# copies, poudriere deletes the old ones ("new version") + cascades through their dependents
-# (clamav/snort3/ntopng/kea/squid...) -> ~15-20 needless from-source rebuilds (proven run
-# 29130633234). The frozen bank is AUTHORITATIVE for every pkgname it carries (version-matched to
-# the pinned tree by construction), so: delete any cached pkg whose pkgname-base the bank provides,
-# THEN untar. Custom FreeSense-built pkgs salvaged from sibling batches survive (never in the bank).
-# pkgname-base strip (-[0-9][^-]*.*$) verified safe on py312-/openldap26-/zabbix7-/go125 names.
-_bankbases=/tmp/lean-bank-bases.txt
-tar -tf /tmp/packages.tar 2>/dev/null | sed 's#^\./##; s#\.pkg$##; s#-[0-9][^-]*.*$##' | grep . | sort -u > "$_bankbases"
-_purged=0
-for _p in "$REPODIR/All"/*.pkg; do
-	[ -e "$_p" ] || continue
-	_b=$(basename "$_p" .pkg | sed 's#-[0-9][^-]*.*$##')
-	if grep -qxF "$_b" "$_bankbases"; then
-		rm -f "$_p"; _purged=$((_purged+1))
-	fi
-done
-rm -f "$_bankbases"
-[ "${_purged}" -gt 0 ] && say "purged ${_purged} stale cache pkgs the frozen bank supersedes (bank version wins)"
+# UNTAR WITH -k (keep existing), THEN KEEP-NEWEST-PER-PKGNAME. Two stale-copy problems meet here:
+#  (a) the restored .real_cache carries OLD stock versions from past builds (json-c-0.18 when the
+#      pinned tree wants 0.19) -> poudriere "new version" deletes + a missing-dep CASCADE through
+#      clamav/snort3/ntopng/kea/squid (~15-20 needless rebuilds, run 29130633234);
+#  (b) the cache ALSO carries FRESH tree-matched rebuilds NEWER than the frozen bank's lagging
+#      copies (log4cplus-2.2.0.1 built last run vs the bank's 2.1.2 — FreeBSD's `latest` binaries
+#      lag its ports tree, see the frozen-bank memory). A naive "bank always wins" purge deleted
+#      those fresh copies and re-seeded the stale ones -> the SAME cascade re-ran every publish
+#      (kea alone ~1h20). And for IDENTICAL filenames (kea-3.2.0.pkg in both), the cache copy is
+#      the coherent one (linked against the tree's dep versions) while the bank's was linked
+#      against its own older set -> the bank copy loses poudriere's dep check -> rebuild.
+# The rule that solves both: versions only move forward, so extract the bank WITHOUT overwriting
+# existing files (tar -k: an existing fresh copy beats the bank's same-named stale-linked twin),
+# then keep only the HIGHEST version per pkgname-base (old stale copies lose to the bank's newer
+# ones; fresh rebuilds beat the bank's laggards; duplicate FreeSense timestamp cores dedupe too).
+# poudriere's own sanity/dep checks stay the final authority — a wrong survivor is just deleted
+# and rebuilt (self-healing). pkgname-base strip (-[0-9][^-]*.*$) verified safe on
+# py312-/openldap26-/zabbix7-/go125 style names; version order via sort -V (FreeBSD sort has -V).
 # packages.tar members are the *.pkg files at top level (tarred with -C <All> .)
-if ! tar -xf /tmp/packages.tar -C "$REPODIR/All" >>"$DIAG" 2>&1; then
+if ! tar -xkf /tmp/packages.tar -C "$REPODIR/All" >>"$DIAG" 2>&1; then
+	# bsdtar -k exits 0 on skipped-existing; a real error means a broken download/extract
 	bail "untar of packages.tar failed"
 fi
 rm -f /tmp/packages.tar
+_all=/tmp/lean-all-pkgs.txt
+ls "$REPODIR/All"/*.pkg 2>/dev/null | sed 's#.*/##' | sort -V > "$_all"
+_pruned=0; _prev_base=""; _prev_file=""
+while IFS= read -r _f; do
+	_b=$(printf '%s' "$_f" | sed 's#\.pkg$##; s#-[0-9][^-]*.*$##')
+	if [ "$_b" = "$_prev_base" ]; then
+		# same pkgname, lower version sorted first -> drop the older copy
+		rm -f "$REPODIR/All/$_prev_file"; _pruned=$((_pruned+1))
+	fi
+	_prev_base="$_b"; _prev_file="$_f"
+done < "$_all"
+rm -f "$_all"
+[ "${_pruned}" -gt 0 ] && say "pruned ${_pruned} older duplicate versions (keep-newest-per-pkgname)"
 say "repo now holds $(ls "$REPODIR/All"/*.pkg 2>/dev/null | wc -l | tr -d ' ') pkgs after frozen stock seed"
 
 # --- BOOTSTRAP: Latest/pkg.pkg INSIDE the real dir, so the .building clone can bootstrap pkg ----
