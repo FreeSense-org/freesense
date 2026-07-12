@@ -410,26 +410,22 @@ install_branded_bsdinstall_binaries() {
 			make -C "${_bsd_src}/${_component}" clean
 			make -C "${_bsd_src}/${_component}" CC="${BUILD_CC}" \
 				OSNAME="${PRODUCT_NAME}" all
+			# Resolve, verify, and install while MAKEOBJDIRPREFIX is still in
+			# exactly the same state used for compilation.
+			_objdir=$(make -C "${_bsd_src}/${_component}" -V .OBJDIR)
+			_binary="${_objdir}/${_component}"
+			if [ ! -x "${_binary}" ] || \
+			    ! strings "${_binary}" | grep -Fq "${PRODUCT_NAME} Installer"; then
+				echo "${_component}: branded binary missing at ${_binary}"
+				exit 1
+			fi
+			install -o root -g wheel -m 0555 "${_binary}" \
+				${INSTALLER_CHROOT_DIR}/usr/libexec/bsdinstall/${_component}
 		done
 	) >> ${LOGFILE} 2>&1 || {
 		echo ">>> ERROR: failed to build ${PRODUCT_NAME}-branded bsdinstall binaries" | tee -a ${LOGFILE}
 		print_error_pfS
 	}
-
-	for _component in distextract distfetch partedit; do
-		# FreeBSD make may honor an existing /usr/obj tree even after
-		# MAKEOBJDIRPREFIX is unset. Verify and install the binary it actually
-		# produced instead of a stale source-tree binary from pkgbase.
-		_objdir=$(make -C "${_bsd_src}/${_component}" -V .OBJDIR)
-		_binary="${_objdir}/${_component}"
-		if [ ! -x "${_binary}" ] || \
-		    ! strings "${_binary}" | grep -Fq "${PRODUCT_NAME} Installer"; then
-			echo ">>> ERROR: ${_component} does not contain the ${PRODUCT_NAME} Installer backtitle" | tee -a ${LOGFILE}
-			print_error_pfS
-		fi
-		install -o root -g wheel -m 0555 "${_binary}" \
-			${INSTALLER_CHROOT_DIR}/usr/libexec/bsdinstall/${_component}
-	done
 
 	echo ">>> Verified bsdinstall chrome: ${PRODUCT_NAME} Installer" | tee -a ${LOGFILE}
 }
