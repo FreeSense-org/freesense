@@ -298,6 +298,7 @@ $interfaces_bottom = array();
 
 if (!config_path_enabled('system/webgui', 'noassigninterfaces')) {
 	$interfaces_top[] = array(gettext("Assignments"), "/interfaces_assign.php");
+	$interfaces_top[] = array(gettext("NIC Settings"), "/interfaces_nic_settings.php");
 	$div = true;
 }
 

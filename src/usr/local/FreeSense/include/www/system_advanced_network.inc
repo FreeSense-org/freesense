@@ -37,13 +37,8 @@ function getAdvancedNetwork($json = false) {
 	$pconfig['global-v6duid'] = config_path_enabled('system', 'global-v6duid') ? config_get_path('system/global-v6duid') : null;
 	$pconfig['prefer_ipv4'] = config_path_enabled('system', 'prefer_ipv4');
 	$pconfig['sharednet'] = config_path_enabled('system', 'sharednet') ? config_get_path('system/sharednet') : null;
-	$pconfig['disablechecksumoffloading'] = config_path_enabled('system', 'disablechecksumoffloading');
 	$pconfig['ip_change_kill_states'] = config_path_enabled('system', 'ip_change_kill_states') ? config_get_path('system/ip_change_kill_states') : null;
 	$pconfig['use_if_pppoe'] = config_path_enabled('system', 'use_if_pppoe');
-	$pconfig['hnaltqenable'] = config_path_enabled('system', 'hn_altq_enable');
-	$pconfig['disablechecksumoffloading'] = config_path_enabled('system', 'disablechecksumoffloading');
-	$pconfig['disablesegmentationoffloading'] = config_path_enabled('system', 'disablesegmentationoffloading');
-	$pconfig['disablelargereceiveoffloading'] = config_path_enabled('system', 'disablelargereceiveoffloading');
 	$pconfig['duid'] = get_duid_from_file();
 
 	/* not kea means isc */
@@ -177,37 +172,6 @@ function saveAdvancedNetworking($post, $json = false) {
 			system_enable_arp_wrong_if();
 		}
 
-		if ((isset($post['disablechecksumoffloading']) xor config_path_enabled('system', 'disablechecksumoffloading')) ||
-		    (isset($post['disablesegmentationoffloading']) xor config_path_enabled('system', 'disablesegmentationoffloading')) ||
-		    (isset($post['disablelargereceiveoffloading']) xor config_path_enabled('system', 'disablelargereceiveoffloading'))) {
-			$show_reboot_msg = true;
-		}
-
-		if ($post['disablechecksumoffloading'] == "yes") {
-			config_set_path('system/disablechecksumoffloading', true);
-		} else {
-			config_del_path('system/disablechecksumoffloading');
-		}
-
-		if ($post['disablesegmentationoffloading'] == "yes") {
-			config_set_path('system/disablesegmentationoffloading', true);
-		} else {
-			config_del_path('system/disablesegmentationoffloading');
-		}
-
-		if ($post['disablelargereceiveoffloading'] == "yes") {
-			config_set_path('system/disablelargereceiveoffloading', true);
-		} else {
-			config_del_path('system/disablelargereceiveoffloading');
-		}
-
-		$old_hn_altq_enable = config_path_enabled('system', 'hn_altq_enable');
-		if ($post['hnaltqenable'] == "yes") {
-			config_set_path('system/hn_altq_enable', true);
-		} else {
-			config_del_path('system/hn_altq_enable');
-		}
-
 		if ($post['ip_change_kill_states'] == "yes") {
 			config_set_path('system/ip_change_kill_states', true);
 		} else {
@@ -237,19 +201,10 @@ function saveAdvancedNetworking($post, $json = false) {
 		// Write out configuration (config.xml)
 		write_config("Networking Advanced Settings saved");
 
-		// Setup loader if necessary
-		if ($old_hn_altq_enable != config_path_enabled('system', 'hn_altq_enable')) {
-			setup_loader_settings();
-		}
-
 		// Set preferred protocol
 		prefer_ipv4_or_ipv6();
 
 		$pconfig['duid'] = get_duid_from_file();
-		$pconfig['disablechecksumoffloading'] = config_path_enabled('system', 'disablechecksumoffloading');
-		$pconfig['disablesegmentationoffloading'] = config_path_enabled('system', 'disablesegmentationoffloading');
-		$pconfig['disablelargereceiveoffloading'] = config_path_enabled('system', 'disablelargereceiveoffloading');
-		$pconfig['hnaltqenable'] = config_path_enabled('system', 'hn_altq_enable');
 
 		$changes_applied = true;
 		$retval = 0;

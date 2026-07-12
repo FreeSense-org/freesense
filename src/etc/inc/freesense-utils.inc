@@ -565,6 +565,46 @@ function gen_created_updated_fields(&$form, $created, $updated, $tracker = 0) {
 	}
 }
 
+function nic_settings_device_id($iface, $options = null) {
+	if (!is_array($options)) {
+		$options = get_interface_addresses($iface);
+	}
+	$identity = $options['hwaddr'] ?? $options['macaddr'] ?? $iface;
+	return strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($identity)));
+}
+
+function nic_settings_profiles() {
+	return [
+		'firewall' => ['checksum' => 'on', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'on', 'wol' => 'off'],
+		'throughput' => ['checksum' => 'on', 'tso' => 'on', 'lro' => 'on', 'vlan' => 'on', 'wol' => 'off'],
+		'latency' => ['checksum' => 'on', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'on', 'wol' => 'off'],
+		'capture' => ['checksum' => 'off', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'off', 'wol' => 'off'],
+	];
+}
+
+function nic_settings_effective($iface, $options = null) {
+	$profiles = nic_settings_profiles();
+	$profile = config_get_path('system/nicsettings/profile', 'firewall');
+	if (!isset($profiles[$profile])) {
+		$profile = 'firewall';
+	}
+	$result = $profiles[$profile];
+	$id = nic_settings_device_id($iface, $options);
+	$saved = config_get_path("system/nicsettings/adapters/{$id}", []);
+	foreach (array_keys($result) as $setting) {
+		if (isset($saved[$setting]) && in_array($saved[$setting], ['inherit', 'on', 'off'], true) && $saved[$setting] !== 'inherit') {
+			$result[$setting] = $saved[$setting];
+		}
+	}
+	/* These virtual drivers still require the long-standing checksum safeguard. */
+	if (stripos($iface, 'vtnet') === 0 || stripos($iface, 'ena') === 0) {
+		$result['checksum'] = 'off';
+	}
+	$result['profile'] = $profile;
+	$result['id'] = $id;
+	return $result;
+}
+
 function hardware_offloading_applyflags($iface) {
 	$flags_on = 0;
 	$flags_off = 0;
@@ -572,10 +612,11 @@ function hardware_offloading_applyflags($iface) {
 	if (!isset($options)) {
 		return;
 	}
+	$nic_settings = nic_settings_effective($iface, $options);
 
 	/* disable hardware checksum offloading for VirtIO network drivers,
 	 * see https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=165059 */
-	if (config_path_enabled('system','disablechecksumoffloading') ||
+	if ($nic_settings['checksum'] === 'off' ||
 	    stristr($iface, "vtnet") || stristr($iface, "ena")) {
 		if (isset($options['encaps']['txcsum'])) {
 			$flags_off |= IFCAP_TXCSUM;
@@ -604,7 +645,7 @@ function hardware_offloading_applyflags($iface) {
 		}
 	}
 
-	if (config_path_enabled('system','disablesegmentationoffloading')) {
+	if ($nic_settings['tso'] === 'off') {
 		$flags_off |= IFCAP_TSO;
 		$flags_off |= IFCAP_VLAN_HWTSO;
 	} else if (isset($options['caps']['tso']) || isset($options['caps']['tso4']) || isset($options['caps']['tso6'])) {
@@ -612,14 +653,30 @@ function hardware_offloading_applyflags($iface) {
 		$flags_on |= IFCAP_VLAN_HWTSO;
 	}
 
-	if (config_path_enabled('system','disablelargereceiveoffloading')) {
+	if ($nic_settings['lro'] === 'off') {
 		$flags_off |= IFCAP_LRO;
 	} else if (isset($options['caps']['lro'])) {
 		$flags_on |= IFCAP_LRO;
 	}
 
+	$vlan_flags = IFCAP_VLAN_HWTAGGING | IFCAP_VLAN_HWCSUM | IFCAP_VLAN_HWFILTER;
+	if ($nic_settings['vlan'] === 'off') {
+		$flags_off |= $vlan_flags;
+	} else {
+		$flags_on |= $vlan_flags;
+	}
+	if ($nic_settings['wol'] === 'on' && isset($options['caps']['wolmagic'])) {
+		$flags_on |= IFCAP_WOL_MAGIC;
+	} else if (isset($options['encaps']['wolmagic'])) {
+		$flags_off |= IFCAP_WOL_MAGIC;
+	}
+
 	FreeSense_interface_capabilities($iface, -$flags_off);
 	FreeSense_interface_capabilities($iface, $flags_on);
+	$mtu = config_get_path("system/nicsettings/adapters/{$nic_settings['id']}/mtu");
+	if (is_numeric($mtu)) {
+		FreeSense_interface_mtu($iface, (int)$mtu);
+	}
 }
 
 /****f* freesense-utils/enable_hardware_offloading

@@ -243,45 +243,10 @@ $section->addInput(new Form_Checkbox(
 $form->add($section);
 $section = new Form_Section('Network Interfaces');
 
-$section->addInput(new Form_Checkbox(
-	'disablechecksumoffloading',
-	'Hardware Checksum Offloading',
-	'Disable hardware checksum offload',
-	$pconfig['disablechecksumoffloading']
-))->setHelp('Checking this option will disable hardware checksum offloading.%1$s'.
-	'Checksum offloading is broken in some hardware, particularly some Realtek cards. '.
-	'Rarely, drivers may have problems with checksum offloading and some specific '.
-	'NICs. This will take effect after a machine reboot or re-configure of each '.
-	'interface.', '<br/>');
-
-$section->addInput(new Form_Checkbox(
-	'disablesegmentationoffloading',
-	'Hardware TCP Segmentation Offloading',
-	'Disable hardware TCP segmentation offload',
-	$pconfig['disablesegmentationoffloading']
-))->setHelp('Checking this option will disable hardware TCP segmentation '.
-	'offloading (TSO, TSO4, TSO6). This offloading is broken in some hardware '.
-	'drivers, and may impact performance with some specific NICs. This will take '.
-	'effect after a machine reboot or re-configure of each interface.');
-
-$section->addInput(new Form_Checkbox(
-	'disablelargereceiveoffloading',
-	'Hardware Large Receive Offloading',
-	'Disable hardware large receive offload',
-	$pconfig['disablelargereceiveoffloading']
-))->setHelp('Checking this option will disable hardware large receive offloading '.
-	'(LRO). This offloading is broken in some hardware drivers, and may impact '.
-	'performance with some specific NICs. This will take effect after a machine reboot '.
-	'or re-configure of each interface.');
-
-$section->addInput(new Form_Checkbox(
-	'hnaltqenable',
-	'Virtual NIC ALTQ support',
-	'Enable the ALTQ support for vtnet/hn NICs.',
-	$pconfig['hnaltqenable']
-))->setHelp('Checking this option will enable the ALTQ support for vtnet/hn NICs. '.
-	'The ALTQ support disables the multiqueue API and may reduce the system '.
-	'capability to handle traffic. This will take effect after a machine reboot.');
+$section->addInput(new Form_StaticText(
+	'NIC hardware settings',
+	sprintf('<a class="btn btn-info" href="interfaces_nic_settings.php"><i class="fa fa-microchip"></i> %s</a>', gettext('Open NIC Settings'))
+))->setHelp('Checksum, segmentation, large receive, VLAN acceleration, and validated driver controls are managed per network card.');
 
 $section->addInput(new Form_Checkbox(
 	'sharednet',

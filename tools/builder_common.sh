@@ -346,6 +346,8 @@ make_world() {
 
 	[ -f "${BUILD_CC}" ] || print_error_pfS
 
+	install_branded_bsdinstall_binaries
+
 	# XXX It must go to the scripts
 	[ -d "${STAGE_CHROOT_DIR}/usr/local/bin" ] \
 		|| mkdir -p ${STAGE_CHROOT_DIR}/usr/local/bin
@@ -375,6 +377,49 @@ make_world() {
 	fi
 
 	unset makeargs
+}
+
+# Build the three bsdinstall programs that compile OSNAME into their dialog
+# chrome. Copying the patched shell scripts is not enough: the pkgbase binaries
+# arrive with the upstream "FreeBSD Installer" backtitle embedded in them (most
+# visibly in distextract's archive progress dialog). Rebuilding only these
+# small programs avoids a full buildworld while keeping every installer screen
+# consistently branded.
+install_branded_bsdinstall_binaries() {
+	local _bsd_src="${FREEBSD_SRC_DIR}/usr.sbin/bsdinstall"
+	local _component=""
+	local _binary=""
+
+	if [ ! -d "${_bsd_src}" -o ! -x "${BUILD_CC}" ]; then
+		echo ">>> ERROR: cannot build branded bsdinstall binaries (source/compiler missing)" | tee -a ${LOGFILE}
+		print_error_pfS
+	fi
+
+	echo ">>> Building bsdinstall chrome for ${PRODUCT_NAME}..." | tee -a ${LOGFILE}
+	(
+		unset MAKEOBJDIRPREFIX
+		make -C "${_bsd_src}/include" OSNAME="${PRODUCT_NAME}" clean all
+		for _component in distextract distfetch partedit; do
+			make -C "${_bsd_src}/${_component}" CC="${BUILD_CC}" \
+				OSNAME="${PRODUCT_NAME}" clean all
+		done
+	) >> ${LOGFILE} 2>&1 || {
+		echo ">>> ERROR: failed to build ${PRODUCT_NAME}-branded bsdinstall binaries" | tee -a ${LOGFILE}
+		print_error_pfS
+	}
+
+	for _component in distextract distfetch partedit; do
+		_binary="${_bsd_src}/${_component}/${_component}"
+		if [ ! -x "${_binary}" ] || \
+		    ! strings "${_binary}" | grep -Fq "${PRODUCT_NAME} Installer"; then
+			echo ">>> ERROR: ${_component} does not contain the ${PRODUCT_NAME} Installer backtitle" | tee -a ${LOGFILE}
+			print_error_pfS
+		fi
+		install -o root -g wheel -m 0555 "${_binary}" \
+			${INSTALLER_CHROOT_DIR}/usr/libexec/bsdinstall/${_component}
+	done
+
+	echo ">>> Verified bsdinstall chrome: ${PRODUCT_NAME} Installer" | tee -a ${LOGFILE}
 }
 
 # FreeSense LEVER 1 (pkgbase world): the tail of make_world for the pkgbase path.
@@ -413,6 +458,8 @@ make_world_pkgbase_tail() {
 	else
 		echo ">>> WARN: no BUILD_CC (${BUILD_CC}) — skipping crypto tools (non-fatal)" | tee -a ${LOGFILE}
 	fi
+
+	install_branded_bsdinstall_binaries
 
 	# FreeSense pkgbase userland delivery (patch triage 2026-07-11, corrected
 	# 2026-07-11 after an install test): with no buildworld, patches that touch

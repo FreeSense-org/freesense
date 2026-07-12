@@ -81,33 +81,69 @@ if [ -n "${recover_disk}" ] ; then
 		fi
 	else
 		# ZFS Recovery works different than UFS, needs special handling
-		if [ "${fs_type}" == "zfs" ]; then
-			# Load KLD for ZFS support
-			/sbin/kldload zfs
+		if [ "${fs_type}" = "zfs" ]; then
+			# Do not scan every disk and guess between hard-coded pool names. Read
+			# the labels from the partition the user selected, then import only
+			# that pool read-only. The old unrestricted `zpool import` could block
+			# indefinitely while probing unrelated devices.
+			zdb_label="`/sbin/zdb -l /dev/${recover_disk} 2>/dev/null`"
+			pool_name="`echo "${zdb_label}" | /usr/bin/sed -n "s/^[[:space:]]*name: '\([^']*\)'.*/\1/p" | /usr/bin/head -1`"
+			pool_guid="`echo "${zdb_label}" | /usr/bin/awk '/^[[:space:]]*pool_guid:/ {print $2; exit}'`"
 
-			# Import pool with alternate mount.
-			if /sbin/zpool import | /usr/bin/awk '/pool:/ {print $2}' | /usr/bin/grep -q FreeSense; then
-				# If the pool name is FreeSense, it's the new style layout
-				pool_name="FreeSense"
-			else
-				# Old pool name
-				pool_name="zroot"
+			if [ -z "${pool_name}" -o -z "${pool_guid}" ]; then
+				echo "Unable to read ZFS pool information from ${recover_disk}."
+				exit 1
 			fi
 
-			/sbin/zpool import -R ${recovery_mount} -f ${pool_name}
-			zpool_import=$?
-			if [ ${zpool_import} -eq 0 ]; then
-				# Mount the default root directory of the previous install
-				# to get /etc for SSH keys (new and old) and config.xml (old)
-				/sbin/mount -t zfs ${pool_name}/ROOT/default ${recovery_mount}
+			# ZFS may already be active from an earlier installer operation. Never
+			# load it twice, and leave it loaded for the remainder of the live
+			# installer session rather than tearing down a shared kernel module.
+			if ! /sbin/kldstat -q -m zfs; then
+				if ! /usr/bin/timeout 15 /sbin/kldload zfs >/tmp/recover-zfs-load.log 2>&1; then
+					echo "Unable to load ZFS support."
+					cat /tmp/recover-zfs-load.log 2>/dev/null
+					exit 1
+				fi
+			fi
 
-				if [ ! -d ${recovery_mount}/cf/conf ]; then
-					# New layout has /cf as its own dataset and doesn't need its
-					# root mounted manually to reach it, but it may not be mounted
-					# automatically
+			echo "Found ZFS pool ${pool_name}; importing the selected partition read-only."
+			if ! /usr/bin/timeout 30 /sbin/zpool import -N -f \
+			    -o readonly=on -o cachefile=none -R ${recovery_mount} \
+			    -d /dev/${recover_disk} ${pool_guid}; then
+				echo "Unable to import ${pool_name} from ${recover_disk} for recovery."
+				exit 1
+			fi
+			# Recover from the pool's configured boot environment instead of
+			# assuming ROOT/default. This also works after the user has selected
+			# or rolled back to another boot environment.
+			root_dataset="`/sbin/zpool get -H -o value bootfs ${pool_name} 2>/dev/null`"
+			if [ -z "${root_dataset}" -o "${root_dataset}" = "-" ]; then
+				root_dataset="`/sbin/zfs list -H -r -o name ${pool_name}/ROOT 2>/dev/null | /usr/bin/awk '/\/ROOT\/default$/ {print; exit}'`"
+			fi
+			if [ -z "${root_dataset}" ]; then
+				echo "Unable to locate a boot environment in ${pool_name}."
+				/sbin/zpool export -f ${pool_name} 2>/dev/null
+				exit 1
+			fi
+
+			if ! /sbin/mount -t zfs -o ro ${root_dataset} ${recovery_mount}; then
+				echo "Unable to mount ${root_dataset} for recovery."
+				/sbin/zpool export -f ${pool_name} 2>/dev/null
+				exit 1
+			fi
+
+			if [ ! -d ${recovery_mount}/cf/conf ]; then
+				# Locate a dedicated /cf dataset beneath the active boot
+				# environment instead of assuming its exact dataset name.
+				cf_dataset="`/sbin/zfs list -H -r -o name ${root_dataset} 2>/dev/null | /usr/bin/awk '/\/cf$/ {print; exit}'`"
+				if [ -n "${cf_dataset}" ]; then
 					unmount_cf="yes"
 					/bin/mkdir -p ${recovery_mount}/cf
-					/sbin/mount -t zfs ${pool_name}/ROOT/default/cf ${recovery_mount}/cf
+					if ! /sbin/mount -t zfs -o ro ${cf_dataset} ${recovery_mount}/cf; then
+						echo "Unable to mount ${cf_dataset} for recovery."
+						/sbin/zpool export -f ${pool_name} 2>/dev/null
+						exit 1
+					fi
 				fi
 			fi
 		fi
@@ -137,9 +173,9 @@ if [ -n "${recover_disk}" ] ; then
 	fi
 	/sbin/umount ${recovery_mount} 2>/dev/null
 
-	# ZFS cleanup, export the pool and then unload ZFS KLD.
-	if [ "${fs_type}" == "zfs" ]; then
+	# ZFS cleanup. Keep the module loaded: it may have been active before this
+	# recovery attempt and other installer operations can still need it.
+	if [ "${fs_type}" = "zfs" ]; then
 		/sbin/zpool export -f ${pool_name}
-		/sbin/kldunload zfs
 	fi
 fi

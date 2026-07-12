@@ -31,7 +31,7 @@ STAGE=${STAGE_DIR}/config.xml
 PKG_MANIFEST=${STAGE_DIR}/import_packages
 MNT=/tmp/import_mnt
 SRC=/tmp/import_src_config.xml
-DIALOG=${DIALOG:-/usr/bin/dialog}
+DIALOG=${DIALOG:-/usr/bin/bsddialog}
 # Shared package map (staged next to this script by the builder).
 PKGMAP=${PKGMAP:-/root/config_import_pkgmap.map}
 
@@ -40,29 +40,123 @@ yesno(){ ${DIALOG} --backtitle "FreeSense Installer" --title "Import config" --y
 
 mkdir -p "${STAGE_DIR}" "${MNT}"
 
-# --- find a config.xml on any attached msdos/ufs partition --------------------
+# --- select and read a config.xml from FAT, UFS, or ZFS ------------------------
+copy_source_from_mount() {
+	for p in config.xml conf/config.xml cf/conf/config.xml; do
+		if [ -r "${MNT}/${p}" -a -s "${MNT}/${p}" ]; then
+			/bin/cp "${MNT}/${p}" "${SRC}"
+			return 0
+		fi
+	done
+	return 1
+}
+
+find_zfs_source() {
+	dev="$1"
+	zdb_label="`/sbin/zdb -l /dev/${dev} 2>/dev/null`"
+	pool_name="`echo "${zdb_label}" | /usr/bin/sed -n "s/^[[:space:]]*name: '\([^']*\)'.*/\1/p" | /usr/bin/head -1`"
+	pool_guid="`echo "${zdb_label}" | /usr/bin/awk '/^[[:space:]]*pool_guid:/ {print $2; exit}'`"
+
+	if [ -z "${pool_name}" -o -z "${pool_guid}" ]; then
+		msg "Unable to read ZFS pool information from ${dev}."
+		return 1
+	fi
+
+	if ! /sbin/kldstat -q -m zfs; then
+		if ! /usr/bin/timeout 15 /sbin/kldload zfs >/tmp/import-zfs-load.log 2>&1; then
+			msg "Unable to load ZFS support.\n\n`cat /tmp/import-zfs-load.log 2>/dev/null`"
+			return 1
+		fi
+	fi
+
+	if ! /usr/bin/timeout 30 /sbin/zpool import -N -f \
+	    -o readonly=on -o cachefile=none -R "${MNT}" \
+	    -d "/dev/${dev}" "${pool_guid}" >/tmp/import-zpool.log 2>&1; then
+		msg "Unable to import ${pool_name} from ${dev}.\n\n`cat /tmp/import-zpool.log 2>/dev/null`"
+		return 1
+	fi
+
+	root_dataset="`/sbin/zpool get -H -o value bootfs "${pool_name}" 2>/dev/null`"
+	if [ -z "${root_dataset}" -o "${root_dataset}" = "-" ]; then
+		root_dataset="`/sbin/zfs list -H -r -o name,mountpoint "${pool_name}" 2>/dev/null | /usr/bin/awk '$2 == "/" {print $1; exit}'`"
+	fi
+	if [ -z "${root_dataset}" ]; then
+		root_dataset="`/sbin/zfs list -H -r -o name "${pool_name}" 2>/dev/null | /usr/bin/awk '/\/ROOT\/default$/ {print; exit}'`"
+	fi
+
+	if [ -z "${root_dataset}" ] || \
+	    ! /sbin/mount -t zfs -o ro "${root_dataset}" "${MNT}" 2>/dev/null; then
+		/sbin/zpool export -f "${pool_name}" 2>/dev/null
+		msg "Unable to mount the active boot environment from ${pool_name}."
+		return 1
+	fi
+
+	# pfSense/FreeSense commonly place configuration in a dedicated /cf
+	# dataset. OPNsense generally keeps /conf in the root, but also support a
+	# dedicated /conf dataset if present.
+	for mp in /cf /conf; do
+		dataset="`/sbin/zfs list -H -r -o name,mountpoint "${pool_name}" 2>/dev/null | /usr/bin/awk -v wanted="${mp}" '$2 == wanted {print $1; exit}'`"
+		if [ -n "${dataset}" ]; then
+			/bin/mkdir -p "${MNT}${mp}"
+			/sbin/mount -t zfs -o ro "${dataset}" "${MNT}${mp}" 2>/dev/null || true
+		fi
+	done
+
+	copy_source_from_mount
+	rc=$?
+	/sbin/umount "${MNT}/conf" 2>/dev/null
+	/sbin/umount "${MNT}/cf" 2>/dev/null
+	/sbin/umount "${MNT}" 2>/dev/null
+	/sbin/zpool export -f "${pool_name}" 2>/dev/null
+	return ${rc}
+}
+
 find_source() {
 	rm -f "${SRC}"
-	# msdos (FAT) partitions
-	for dev in $(/sbin/gpart show -p 2>/dev/null | /usr/bin/egrep '(fat32|fat16|\!11|\!12|\!14)' | /usr/bin/awk '{print $3}'); do
+	gpart_output="`/sbin/gpart show -p 2>/dev/null`"
+	targets="`echo "${gpart_output}" | /usr/bin/egrep '(fat32|fat16|ms-basic-data|\!11|\!12|\!14|freebsd-ufs|freebsd-zfs)' | /usr/bin/awk '{print $3}'`"
+	target_list=""
+
+	for dev in ${targets}; do
 		[ -e "/dev/${dev}" ] || continue
-		if /sbin/mount -t msdosfs "/dev/${dev}" "${MNT}" 2>/dev/null; then
-			for p in conf/config.xml config.xml; do
-				if [ -r "${MNT}/${p}" ]; then cp "${MNT}/${p}" "${SRC}"; /sbin/umount "${MNT}"; return 0; fi
-			done
-			/sbin/umount "${MNT}" 2>/dev/null
-		fi
+		details="`echo "${gpart_output}" | /usr/bin/grep "[[:space:]]${dev}[[:space:]]" | /usr/bin/awk '{print $4, $5; exit}'`"
+		target_list="${target_list} \"${dev}\" \"${details}\""
 	done
-	# ufs partitions (e.g. a config export on a ufs stick)
-	for dev in $(/sbin/gpart show -p 2>/dev/null | /usr/bin/egrep 'freebsd-ufs' | /usr/bin/awk '{print $3}'); do
-		[ -e "/dev/${dev}" ] || continue
-		if /sbin/mount -t ufs -o ro "/dev/${dev}" "${MNT}" 2>/dev/null; then
-			for p in conf/config.xml config.xml cf/conf/config.xml; do
-				if [ -r "${MNT}/${p}" ]; then cp "${MNT}/${p}" "${SRC}"; /sbin/umount "${MNT}"; return 0; fi
-			done
-			/sbin/umount "${MNT}" 2>/dev/null
-		fi
-	done
+
+	if [ -z "${target_list}" ]; then
+		msg "No FAT, UFS, or ZFS source partitions were found."
+		return 1
+	fi
+
+	exec 3>&1
+	dev="`echo ${target_list} | xargs -o ${DIALOG} --backtitle "FreeSense Installer" \
+		--title "Import pfSense or OPNsense config" \
+		--menu "Select the partition containing config.xml" \
+		0 0 0 2>&1 1>&3`"
+	rc=$?
+	exec 3>&-
+	[ ${rc} -eq 0 ] || return 2
+
+	part_type="`echo "${gpart_output}" | /usr/bin/grep "[[:space:]]${dev}[[:space:]]" | /usr/bin/awk '{print $4; exit}'`"
+	case "${part_type}" in
+	freebsd-zfs)
+		find_zfs_source "${dev}"
+		return $?
+		;;
+	freebsd-ufs)
+		fs_type=ufs
+		;;
+	*)
+		fs_type=msdosfs
+		;;
+	esac
+
+	if /sbin/mount -t "${fs_type}" -o ro "/dev/${dev}" "${MNT}" 2>/dev/null; then
+		copy_source_from_mount
+		rc=$?
+		/sbin/umount "${MNT}" 2>/dev/null
+		return ${rc}
+	fi
 	return 1
 }
 
@@ -249,12 +343,22 @@ choose_packages() {
 }
 
 # --- main ---------------------------------------------------------------------
-msg "Insert the USB stick that holds the exported config.xml (in /, /conf/, or /cf/conf/), then choose OK to scan for it."
+msg "Import from an existing pfSense/OPNsense installation or an exported config.xml on USB.\n\nSelect its FAT, UFS, or ZFS partition on the next screen. The source is mounted read-only."
 
-if ! find_source; then
-	msg "No config.xml found on any attached USB partition.\n\nExport the config from your old firewall, copy config.xml to a FAT/UFS USB stick (in the root or a conf/ folder), plug it in, and try again."
+find_source
+find_rc=$?
+case ${find_rc} in
+0)
+	;;
+2)
+	# User cancelled the partition menu.
 	exit 1
-fi
+	;;
+*)
+	msg "No readable config.xml was found on the selected partition.\n\nExpected locations are /config.xml, /conf/config.xml, or /cf/conf/config.xml."
+	exit 1
+	;;
+esac
 
 # Auto-detect the source distribution by its root element.
 LINEAGE=$(detect_lineage)

@@ -388,6 +388,12 @@ $priv_list['page-interfaces-assignnetworkports']['descr'] = gettext("Allow acces
 $priv_list['page-interfaces-assignnetworkports']['match'] = array();
 $priv_list['page-interfaces-assignnetworkports']['match'][] = "interfaces_assign.php*";
 
+$priv_list['page-interfaces-nicsettings'] = array();
+$priv_list['page-interfaces-nicsettings']['name'] = gettext("WebCfg - Interfaces: NIC Settings");
+$priv_list['page-interfaces-nicsettings']['descr'] = gettext("Allow access to the Interfaces NIC Settings page.");
+$priv_list['page-interfaces-nicsettings']['match'] = array();
+$priv_list['page-interfaces-nicsettings']['match'][] = "interfaces_nic_settings.php*";
+
 $priv_list['page-interfaces-bridge'] = array();
 $priv_list['page-interfaces-bridge']['name'] = gettext("WebCfg - Interfaces: Bridge");
 $priv_list['page-interfaces-bridge']['descr'] = gettext("Allow access to the 'Interfaces: Bridge' page.");
