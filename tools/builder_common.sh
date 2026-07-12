@@ -399,10 +399,17 @@ install_branded_bsdinstall_binaries() {
 	echo ">>> Building bsdinstall chrome for ${PRODUCT_NAME}..." | tee -a ${LOGFILE}
 	(
 		unset MAKEOBJDIRPREFIX
-		make -C "${_bsd_src}/include" OSNAME="${PRODUCT_NAME}" clean all
+		# Do not combine clean/all: bmake may decide opt_osname.h is current
+		# before the clean target removes it, leaving the default OSNAME header.
+		make -C "${_bsd_src}/include" clean
+		make -C "${_bsd_src}/include" OSNAME="${PRODUCT_NAME}" all
+		_include_objdir=$(make -C "${_bsd_src}/include" -V .OBJDIR)
+		grep -Fq "#define OSNAME \"${PRODUCT_NAME}\"" \
+			"${_include_objdir}/opt_osname.h"
 		for _component in distextract distfetch partedit; do
+			make -C "${_bsd_src}/${_component}" clean
 			make -C "${_bsd_src}/${_component}" CC="${BUILD_CC}" \
-				OSNAME="${PRODUCT_NAME}" clean all
+				OSNAME="${PRODUCT_NAME}" all
 		done
 	) >> ${LOGFILE} 2>&1 || {
 		echo ">>> ERROR: failed to build ${PRODUCT_NAME}-branded bsdinstall binaries" | tee -a ${LOGFILE}
