@@ -1,0 +1,9 @@
+<svg id="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 258 48" width="258" height="48" role="img" aria-labelledby="fs-header-logo-title fs-header-logo-desc">
+	<title id="fs-header-logo-title">FreeSense</title>
+	<desc id="fs-header-logo-desc">FreeSense open firewall distribution</desc>
+	<g font-family="Space Grotesk,Inter,Segoe UI,Arial,sans-serif">
+		<text x="0" y="37" font-size="40" font-weight="700" letter-spacing="-2.5"><tspan class="logo-st0" fill="currentColor">F</tspan><tspan fill="#EA4F2D">S</tspan></text>
+		<rect x="67" y="9" width="1" height="30" rx=".5" fill="#657083" opacity=".55"/>
+		<text x="82" y="34" font-size="30" letter-spacing="-1.15" class="logo-st0" fill="currentColor"><tspan font-weight="500">Free</tspan><tspan font-weight="700">Sense</tspan></text>
+	</g>
+</svg>

@@ -95,6 +95,15 @@ if ($_REQUEST['ajax']) {
 	// JSON encode the result, print it and exit
 	if ($_REQUEST['getversion']) {
 		$firmwareversions = get_system_pkg_version(false);
+		$channel = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
+		if (preg_match('/^[A-Za-z0-9_.-]+$/D', $channel)) {
+			$notes_url = 'https://pkg.freesense.org/update-notes/' . rawurlencode($channel) . '.json';
+			$notes_raw = shell_exec('/usr/bin/fetch -qo - -T 5 ' . escapeshellarg($notes_url) . ' 2>/dev/null');
+			$notes = json_decode($notes_raw, true);
+			if (is_array($notes)) {
+				$firmwareversions['release_notes'] = $notes;
+			}
+		}
 		print(json_encode($firmwareversions));
 		exit;
 	}
@@ -370,7 +379,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 <?php
 			elseif ($firmwareupdate):
 ?>
-				<?=sprintf(gettext('Confirmation Required to update %s system.'), g_get('product_label'))?>
+				<i class="fa-solid fa-arrows-rotate text-primary me-2"></i><?=gettext('System Update')?>
 <?php
 			else:
 ?>
@@ -385,26 +394,10 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			<div class="content">
 				<input type="hidden" name="mode" value="<?=$pkgmode;?>" />
 <?php
-	// Show the currently-selected firmware branch READ-ONLY. The branch is chosen on
-	// System > Update > Update Settings (system_update_settings.php); it used to be an
-	// editable selector here too, which was redundant/confusing. Display it plainly and
-	// link to Update Settings to change it.
 	if ($firmwareupdate):
 		// Check to see if any new repositories have become available. This data is cached and
 		// refreshed every 24 hours. Still needed below for the upgrade path + messages.
 		$repos = update_repos();
-
-		$current_branch = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
-
-		$group = new Form_Group(gettext('Branch'));
-		$group->add(new Form_StaticText(
-			gettext('Branch'),
-			htmlspecialchars($current_branch) .
-			' <a href="system_update_settings.php" class="text-muted" style="margin-left:8px;">' .
-			'<i class="fa-solid fa-gear"></i> ' . gettext('Change branch') . '</a>'
-		))->setHelp(gettext('Updates are pulled from this branch. Change it under %1$sUpdate Settings%2$s.'),
-			'<a href="system_update_settings.php">', '</a>');
-		print($group);
 
 		if (isset($repos['messages']) && count($repos['messages']) > 0) {
 			print('<div class="row mb-3">' .
@@ -421,48 +414,36 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 
 		}
 ?>
-				<div class="row mb-3">
-					<label class="col-sm-2 col-form-label">
-						<?=gettext("Current Base System")?>
-					</label>
-					<div class="col-sm-10" id="installed_version">
-						<span class="text-muted"><i class="fa-solid fa-ellipsis fa-fade"></i></span>
-					</div>
+				<div class="row g-3 mb-4">
+					<div class="col-md-6"><div class="card h-100 border-0 bg-body-tertiary"><div class="card-body d-flex align-items-center gap-3">
+						<div class="fs-2 text-secondary"><i class="fa-solid fa-server"></i></div><div><div class="small text-body-secondary text-uppercase"><?=gettext('Installed system')?></div><div class="h5 mb-0" id="installed_version"><i class="fa-solid fa-ellipsis fa-fade"></i></div></div>
+					</div></div></div>
+					<div class="col-md-6"><div class="card h-100 border-0 bg-body-tertiary"><div class="card-body d-flex align-items-center gap-3">
+						<div class="fs-2 text-primary"><i class="fa-solid fa-cloud-arrow-down"></i></div><div><div class="small text-body-secondary text-uppercase"><?=gettext('Available system')?></div><div class="h5 mb-0" id="version"><i class="fa-solid fa-ellipsis fa-fade"></i></div></div>
+					</div></div></div>
 				</div>
 
-				<div class="row mb-3">
-					<label class="col-sm-2 col-form-label">
-						<?=gettext("Latest Base System")?>
-					</label>
-					<div class="col-sm-10" id="version">
-						<span class="text-muted"><i class="fa-solid fa-ellipsis fa-fade"></i></span>
-					</div>
-				</div>
-
-				<div class="row mb-3" id="confirm">
-					<label class="col-sm-2 col-form-label" id="confirmlabel">
-						<?=gettext('Status')?>
-					</label>
-					<div class="col-sm-10">
+				<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 rounded bg-body-tertiary px-3 py-3 mb-3" id="confirm">
+					<div class="d-flex align-items-center gap-3">
+						<span class="text-body-secondary"><i class="fa-solid fa-signal"></i></span>
+						<div><div class="small text-body-secondary text-uppercase" id="confirmlabel"><?=gettext('Update status')?></div>
 						<input type="hidden" name="id" value="firmware" />
 						<input type="hidden" name="confirmed" id="confirmed" value="true" />
-						<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>" style="display: none">
-							<i class="fa-solid fa-check icon-embed-btn"></i>
-							<?=gettext("Confirm")?>
-						</button>
 						<span id="uptodate">
 							<i class="fa-solid fa-rotate fa-spin fa-lg text-warning"></i>
 							<span class="text-muted"><?=gettext("Checking for updates…")?></span>
 						</span>
+						</div>
 					</div>
+					<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>" style="display: none"><i class="fa-solid fa-download icon-embed-btn"></i><?=gettext("Install update")?></button>
 				</div>
 
-				<div class="row mb-3">
-					<label class="col-sm-2 col-form-label">
-					</label>
-					<div class="col-sm-10" id="release_info">
-						<a target="_blank" href="https://docs.freesense.org/en/latest/releases/versions.html"><?=gettext("Release notes and version information")?></a>
-					</div>
+				<div class="d-flex justify-content-end mb-4" id="release_info">
+						<a target="_blank" href="https://docs.freesense.org/guides/updates-and-channels/"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i><?=gettext("Release channels and update documentation")?></a>
+				</div>
+				<div class="card border-0 bg-body-tertiary mb-3" id="update_notes_card" style="display:none">
+					<div class="card-header bg-transparent d-flex justify-content-between align-items-center"><h3 class="h6 mb-0"><i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i><?=gettext('What is new')?></h3><span class="badge text-bg-primary" id="update_notes_count"></span></div>
+					<div class="card-body"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_summary"></div><div class="list-group list-group-flush" id="update_notes_list"></div></div>
 				</div>
 <?php
 	elseif (($pkgmode == 'delete') && $pkgname_vital):
@@ -471,21 +452,52 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		$catalog_shortname = $pkgname;
 		pkg_remove_prefix($catalog_shortname);
 		$package_meta = freesense_package_catalog_entry($catalog_shortname);
+		$package_version = gettext('Current repository');
+		$package_summary = '';
+		$package_description = '';
+		if (pkg_exec('rquery %v ' . escapeshellarg($pkgname), $detail_out, $detail_err) === 0 && trim($detail_out) !== '') {
+			$package_version = trim($detail_out);
+		}
+		if (pkg_exec('rquery %c ' . escapeshellarg($pkgname), $detail_out, $detail_err) === 0) {
+			$package_summary = trim(preg_replace('/\s+/', ' ', $detail_out));
+		}
+		if (pkg_exec('rquery %e ' . escapeshellarg($pkgname), $detail_out, $detail_err) === 0) {
+			$package_description = trim(preg_replace('/\s+/', ' ', $detail_out));
+		}
+		$package_notes = [];
+		$channel = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
+		if (preg_match('/^[A-Za-z0-9_.-]+$/D', $channel)) {
+			$notes_url = 'https://pkg.freesense.org/package-notes/' . rawurlencode($channel) . '.json';
+			$notes_raw = shell_exec('/usr/bin/fetch -qo - -T 4 ' . escapeshellarg($notes_url) . ' 2>/dev/null');
+			$notes_doc = json_decode($notes_raw, true);
+			if (is_array($notes_doc['packages'][$catalog_shortname] ?? null)) {
+				$package_notes = array_slice($notes_doc['packages'][$catalog_shortname], 0, 3);
+			}
+		}
+		$category_icons = ['Security'=>'shield-halved', 'VPN'=>'lock', 'Monitoring'=>'chart-line', 'Routing'=>'route', 'Services'=>'layer-group', 'System'=>'gear', 'Authentication'=>'user-shield', 'Diagnostics'=>'stethoscope'];
+		$package_icon = $category_icons[$package_meta['category']] ?? 'box-open';
 ?>
 				<input type="hidden" name="pkg" value="<?=$pkgname;?>" />
 				<input type="hidden" name="confirmed" value="true" />
-				<div class="card mb-3">
-					<div class="card-body">
-						<h3 class="h5"><?=htmlspecialchars($package_meta['display_name'])?></h3>
-						<div class="mb-2"><span class="badge text-bg-primary"><?=htmlspecialchars($package_meta['category'])?></span> <span class="badge text-bg-secondary"><?=htmlspecialchars(ucfirst($package_meta['resource_profile']))?></span></div>
-						<?php if (!empty($package_meta['capabilities'])): ?><p class="mb-1"><strong><?=gettext('Security capabilities')?>:</strong></p><div><?php foreach ($package_meta['capabilities'] as $capability): ?><span class="badge text-bg-warning me-1"><?=htmlspecialchars(str_replace('-', ' ', $capability))?></span><?php endforeach; ?></div><?php endif; ?>
-						<?php if (!empty($package_meta['services'])): ?><p class="mt-2 mb-0"><strong><?=gettext('Services')?>:</strong> <?=htmlspecialchars(implode(', ', $package_meta['services']))?></p><?php endif; ?>
+				<div class="card mb-3 overflow-hidden">
+					<div class="card-body p-4">
+						<div class="d-flex align-items-start gap-3 mb-4"><div class="fs-1 text-primary"><i class="fa-solid fa-<?=htmlspecialchars($package_icon)?>"></i></div><div>
+							<div class="d-flex flex-wrap align-items-center gap-2"><h3 class="h4 mb-0"><?=htmlspecialchars($package_meta['display_name'])?></h3><span class="badge text-bg-primary"><?=htmlspecialchars($package_meta['category'])?></span></div>
+							<?php if ($package_summary): ?><div class="lead fs-6 mt-2 mb-1"><?=htmlspecialchars($package_summary)?></div><?php endif; ?>
+							<?php if ($package_description): ?><p class="text-body-secondary mb-0"><?=htmlspecialchars($package_description)?></p><?php endif; ?>
+						</div></div>
+						<div class="row g-2 mb-4">
+							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-code-branch me-1"></i><?=gettext('Version')?></div><strong><?=htmlspecialchars($package_version)?></strong></div></div>
+							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-gauge-high me-1"></i><?=gettext('Resource use')?></div><strong><?=htmlspecialchars(ucfirst($package_meta['resource_profile']))?></strong></div></div>
+							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-life-ring me-1"></i><?=gettext('Support')?></div><strong><?=htmlspecialchars(ucfirst($package_meta['support']))?></strong></div></div>
+							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-flask me-1"></i><?=gettext('Tested on')?></div><strong><?=htmlspecialchars(ucfirst($package_meta['last_tested_release']))?></strong></div></div>
+						</div>
+						<?php if (!empty($package_meta['capabilities'])): ?><h4 class="h6"><i class="fa-solid fa-puzzle-piece text-primary me-2"></i><?=gettext('What it adds')?></h4><div class="d-flex flex-wrap gap-2 mb-3"><?php foreach ($package_meta['capabilities'] as $capability): ?><span class="badge rounded-pill text-bg-secondary"><i class="fa-solid fa-check me-1"></i><?=htmlspecialchars(ucwords(str_replace('-', ' ', $capability)))?></span><?php endforeach; ?></div><?php endif; ?>
+						<?php if (!empty($package_meta['services'])): ?><div class="small text-body-secondary mb-3"><i class="fa-solid fa-server me-2"></i><strong><?=gettext('Background services')?>:</strong> <?=htmlspecialchars(implode(', ', $package_meta['services']))?></div><?php endif; ?>
+						<?php if ($package_notes): ?><h4 class="h6 mt-4"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i><?=gettext('Recent updates')?></h4><div class="list-group list-group-flush"><?php foreach ($package_notes as $note): ?><div class="list-group-item bg-transparent px-0"><div class="fw-semibold"><?=htmlspecialchars($note['title'] ?? '')?></div><small class="text-body-secondary"><?=htmlspecialchars($note['date'] ?? '')?></small></div><?php endforeach; ?></div><?php endif; ?>
 					</div>
 				</div>
-				<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>">
-					<i class="fa-solid fa-check icon-embed-btn"></i>
-					<?=gettext("Confirm")?>
-				</button>
+				<div class="d-flex justify-content-end"><button type="submit" class="btn btn-success btn-lg" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"><i class="fa-solid fa-download icon-embed-btn"></i><?=gettext("Install package")?></button></div>
 <?php
 	endif;
 ?>
@@ -733,8 +745,8 @@ if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
 
 $uptodatemsg = gettext("Up to date.");
 $newerversionmsg = gettext("Running a newer version.");
-$confirmlabel = gettext("Confirm Update");
-$sysmessage = gettext("Status");
+$confirmlabel = gettext("Update available");
+$sysmessage = gettext("Update status");
 
 // $completed just means that we are refreshing the page to update any new menu items
 // that were installed
@@ -839,6 +851,7 @@ function get_firmware_versions() {
 		} else if (json && !json.pkg_version_error) {
 			$('#installed_version').text(json.installed_version);
 			$('#version').text(json.version);
+			render_update_notes(json.release_notes || null);
 
 			// If the installed and latest versions are the same, print an "Up to date" message
 			if (json.pkg_version_compare == '=') {
@@ -858,6 +871,29 @@ function get_firmware_versions() {
 			$('#uptodate').html('<i class="fa-solid fa-triangle-exclamation text-danger"></i> <span class="text-danger">' + '<?=gettext("Unable to check for updates")?>' + "</span>");
 		}
 	});
+}
+
+function render_update_notes(notes) {
+	var list = $('#update_notes_list').empty();
+	var summary = $('#update_notes_summary').empty();
+	var changes = notes && Array.isArray(notes.changes) ? notes.changes : [];
+	if (!changes.length) { $('#update_notes_card').hide(); return; }
+	var styles = {security:'danger', fix:'warning', feature:'success', ui:'primary', package:'info', documentation:'secondary', build:'dark', other:'secondary'};
+	var icons = {security:'shield-halved', fix:'screwdriver-wrench', feature:'star', ui:'palette', package:'box-open', documentation:'book', build:'gears', other:'code-commit'};
+	var counts = {};
+	changes.slice(0, 30).forEach(function(change) {
+		var type = styles[change.type] ? change.type : 'other'; counts[type] = (counts[type] || 0) + 1;
+		var row = $('<div>').addClass('list-group-item bg-transparent px-0 d-flex gap-3');
+		row.append($('<span>').addClass('text-' + styles[type]).append($('<i>').addClass('fa-solid fa-' + icons[type])));
+		var body = $('<div>'); body.append($('<div>').addClass('fw-semibold').text(change.title || ''));
+		if (change.scope) body.append($('<div>').addClass('small text-body-secondary').text(change.scope));
+		row.append(body); list.append(row);
+	});
+	Object.keys(counts).forEach(function(type) {
+		summary.append($('<span>').addClass('badge text-bg-' + styles[type]).append($('<i>').addClass('fa-solid fa-' + icons[type] + ' me-1')).append(document.createTextNode(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + counts[type])));
+	});
+	$('#update_notes_count').text(changes.length + ' <?=gettext('changes')?>');
+	$('#update_notes_card').show();
 }
 
 function getLogsStatus() {

@@ -121,8 +121,18 @@ if (($pagename == "pkg.php") || ($pagename == "pkg_edit.php") || ($pagename == "
 	}
 }
 
-// Build the full help URL.
-$helpurl .= "{$g['help_base_url']}?page={$pagename}";
+// Build a clean, version-aware documentation URL. WebUI implementation details
+// such as the legacy .php suffix are not part of the documentation route.
+$pagename = preg_replace('/\.php(?=-|$)/', '', $pagename);
+$helpurl .= "{$g['help_base_url']}?" . http_build_query(
+	array(
+		'page' => $pagename,
+		'version' => g_get('product_version_string'),
+	),
+	'',
+	'&',
+	PHP_QUERY_RFC3986
+);
 
 /*
  * Read files from $g['ext_menu_path']/*.xml and fill an array with menu info
@@ -479,7 +489,7 @@ if (are_notices_pending()) {
 <nav id="topmenu" class="navbar navbar-expand-lg<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
 	<div class="container">
 		<a class="navbar-brand" href="/">
-			<?php include("/usr/local/www/logo.svg"); ?>
+			<?php include("/usr/local/www/header-logo.svg"); ?>
 		</a>
 		<button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#pf-navbar" aria-controls="pf-navbar" aria-expanded="false" aria-label="<?=gettext('Toggle navigation')?>">
 			<span class="navbar-toggler-icon"></span>

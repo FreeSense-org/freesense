@@ -72,10 +72,20 @@ if (empty($pagename)) {
    page name rides along as a ?page= hint so it can deep-link in the future. */
 if (strlen($pagename) > 0) {
 	/* Clean up the page a little before using it in the redirect. */
-	$pagename = urlencode(str_replace(array('%', ':', '..'), '', $pagename));
+	$pagename = str_replace(array('%', ':', '..'), '', $pagename);
+	$pagename = preg_replace('/\.php(?=-|$)/', '', $pagename);
+	$query = http_build_query(
+		array(
+			'page' => $pagename,
+			'version' => g_get('product_version_string'),
+		),
+		'',
+		'&',
+		PHP_QUERY_RFC3986
+	);
 
 	/* Redirect to the docs help page. */
-	header("Location: {$redirect_base}/?page={$pagename}");
+	header("Location: {$redirect_base}/?{$query}");
 }
 
 // No page name was determined, so show a message.

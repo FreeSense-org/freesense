@@ -34,4 +34,18 @@ if (strpos($packageManager, 'require_once("package_catalog.inc")') === false) {
 	exit(1);
 }
 
+$updateManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr_install.php');
+foreach (['Updates are pulled from this branch', 'Change branch'] as $removedText) {
+	if (strpos($updateManager, $removedText) !== false) {
+		fwrite(STDERR, "Update page still contains redundant branch controls.\n");
+		exit(1);
+	}
+}
+foreach (['update-notes/', 'render_update_notes', 'fa-wand-magic-sparkles'] as $requiredText) {
+	if (strpos($updateManager, $requiredText) === false) {
+		fwrite(STDERR, "Update page is missing classified release-note support.\n");
+		exit(1);
+	}
+}
+
 echo "Package catalog smoke test passed (" . count($catalog) . " entries).\n";

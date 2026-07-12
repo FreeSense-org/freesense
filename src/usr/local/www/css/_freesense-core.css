@@ -105,7 +105,7 @@ a.fa-solid, i.fa-solid, a.fa-regular, i.fa-regular, a.fa-brands, i.fa-brands { f
 	padding: .55rem .85rem;
 }
 .navbar-brand svg#logo {
-	width: 188px;
+	width: 176px;
 	height: auto;
 	display: block;
 	color: #fff;            /* drives currentColor for the "F" + "FreeSense" wordmark */
