@@ -389,6 +389,7 @@ install_branded_bsdinstall_binaries() {
 	local _bsd_src="${FREEBSD_SRC_DIR}/usr.sbin/bsdinstall"
 	local _component=""
 	local _binary=""
+	local _objdir=""
 
 	if [ ! -d "${_bsd_src}" -o ! -x "${BUILD_CC}" ]; then
 		echo ">>> ERROR: cannot build branded bsdinstall binaries (source/compiler missing)" | tee -a ${LOGFILE}
@@ -409,7 +410,11 @@ install_branded_bsdinstall_binaries() {
 	}
 
 	for _component in distextract distfetch partedit; do
-		_binary="${_bsd_src}/${_component}/${_component}"
+		# FreeBSD make may honor an existing /usr/obj tree even after
+		# MAKEOBJDIRPREFIX is unset. Verify and install the binary it actually
+		# produced instead of a stale source-tree binary from pkgbase.
+		_objdir=$(make -C "${_bsd_src}/${_component}" -V .OBJDIR)
+		_binary="${_objdir}/${_component}"
 		if [ ! -x "${_binary}" ] || \
 		    ! strings "${_binary}" | grep -Fq "${PRODUCT_NAME} Installer"; then
 			echo ">>> ERROR: ${_component} does not contain the ${PRODUCT_NAME} Installer backtitle" | tee -a ${LOGFILE}
