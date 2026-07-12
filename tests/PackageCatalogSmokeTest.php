@@ -28,4 +28,10 @@ if ($unknown['support'] !== 'supported' || $unknown['category'] !== 'Other') {
 	exit(1);
 }
 
+$packageManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr.php');
+if (strpos($packageManager, 'require_once("package_catalog.inc")') === false) {
+	fwrite(STDERR, "Package Manager does not explicitly load its catalog helpers.\n");
+	exit(1);
+}
+
 echo "Package catalog smoke test passed (" . count($catalog) . " entries).\n";
