@@ -247,6 +247,7 @@ $system_menu = array();
 $system_menu[] = array(gettext("Advanced"), "/system_advanced_admin.php");
 $system_menu[] = array(gettext("Update"), "/pkg_mgr_install.php?id=firmware");
 $system_menu[] = array(gettext("General Setup"), "/system.php");
+$system_menu[] = array(gettext("Boot Environments"), "/system_boot_environments.php");
 $system_menu[] = array(gettext("High Availability"), "/system_hasync.php");
 $system_menu[] = array(gettext("Package Manager"), "/pkg_mgr_installed.php");
 $system_menu[] = array(gettext("Setup Wizard"), "/wizard.php?xml=setup_wizard.xml");

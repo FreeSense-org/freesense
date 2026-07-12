@@ -597,6 +597,11 @@ fi
 
 /etc/rc.bootup
 
+# Confirm or roll back a one-time ZFS boot environment after core startup.
+if [ -x /usr/local/etc/rc.d/freesense_be_health ]; then
+	/usr/sbin/service freesense_be_health onestart >/dev/null 2>&1 &
+fi
+
 # /etc/rc.bootup unset $g['booting'], and removes file
 # Be sure the file is removed to not create troubles after
 if [ -f "$varrunpath/booting" ]; then

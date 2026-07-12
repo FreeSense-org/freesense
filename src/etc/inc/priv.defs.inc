@@ -1144,6 +1144,13 @@ $priv_list['page-system-update-settings']['descr'] = gettext("Allow access to th
 $priv_list['page-system-update-settings']['match'] = array();
 $priv_list['page-system-update-settings']['match'][] = "system_update_settings.php*";
 
+$priv_list['page-system-boot-environments'] = array();
+$priv_list['page-system-boot-environments']['name'] = gettext("WebCfg - System: Boot Environments");
+$priv_list['page-system-boot-environments']['descr'] = gettext("Allow viewing and managing ZFS boot environments.");
+$priv_list['page-system-boot-environments']['warn'] = "standard-warning-root";
+$priv_list['page-system-boot-environments']['match'] = array();
+$priv_list['page-system-boot-environments']['match'][] = "system_boot_environments.php*";
+
 $priv_list['page-system-user-settings'] = array();
 $priv_list['page-system-user-settings']['name'] = gettext("WebCfg - System: User Settings");
 $priv_list['page-system-user-settings']['descr'] = gettext("Allow access to the 'System: User Settings' page.");
