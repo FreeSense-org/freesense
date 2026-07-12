@@ -376,7 +376,24 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	# Build kernels
 	build_all_kernels
 
-	# Install kernel on installer
+	# Install the kernel on the live installer.  pkgbase meta packages can pull
+	# stock FreeBSD kernel packages into the otherwise kernel-free installer
+	# chroot as dependencies.  Deleting those packages is not sufficient when
+	# several kernel flavours temporarily owned overlapping /boot/kernel files:
+	# a stock uncompressed GENERIC kernel can survive beside our kernel.gz.  The
+	# loader then boots GENERIC while loading FreeSense-built modules, which is an
+	# ABI/configuration mismatch (notably WITNESS/INVARIANTS) and can panic as soon
+	# as ZFS starts.  Treat the FreeSense kernel package as an atomic replacement.
+	for _kernel_dir in \
+		"${INSTALLER_CHROOT_DIR}/boot/kernel" \
+		"${INSTALLER_CHROOT_DIR}/boot/modules"; do
+		if [ -e "${_kernel_dir}" ]; then
+			chflags -R noschg "${_kernel_dir}" 2>/dev/null || true
+			rm -rf "${_kernel_dir}" || print_error_pfS
+		fi
+	done
+	mkdir -p "${INSTALLER_CHROOT_DIR}/boot"
+
 	if [ -n "${NO_BUILDKERNEL:-}" ] && [ -f "${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${PRODUCT_NAME}).pkg" ]; then
 		# Prefetched-kernel path (freesense-fetch-kernel.sh): there is no obj
 		# tree for installkernel to install from — unpack the banked kernel
@@ -393,6 +410,42 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	else
 		installkernel ${INSTALLER_CHROOT_DIR} ${PRODUCT_NAME}
 	fi
+
+	# Do not let another mixed-kernel ISO escape.  Exactly one kernel payload is
+	# allowed, it must identify itself as FreeSense, and its ZFS modules must be
+	# present in the same atomic payload.
+	if [ -f "${INSTALLER_CHROOT_DIR}/boot/kernel/kernel" ] && \
+	   [ -f "${INSTALLER_CHROOT_DIR}/boot/kernel/kernel.gz" ]; then
+		echo ">>> ERROR: installer contains both kernel and kernel.gz (mixed kernel payload)"
+		print_error_pfS
+	fi
+	_kernel_probe="${INSTALLER_CHROOT_DIR}/boot/kernel/kernel"
+	_kernel_probe_tmp=""
+	if [ -f "${INSTALLER_CHROOT_DIR}/boot/kernel/kernel.gz" ]; then
+		_kernel_probe_tmp="${SCRATCHDIR}/installer-kernel.$$.elf"
+		gzip -dc "${INSTALLER_CHROOT_DIR}/boot/kernel/kernel.gz" > "${_kernel_probe_tmp}" \
+			|| print_error_pfS
+		_kernel_probe="${_kernel_probe_tmp}"
+	fi
+	[ -f "${_kernel_probe}" ] || {
+		echo ">>> ERROR: installer FreeSense kernel payload is missing"
+		print_error_pfS
+	}
+	_kernel_ident=$(/usr/sbin/config -x "${_kernel_probe}" 2>/dev/null \
+		| awk '$1 == "ident" { print $2; exit }')
+	[ -n "${_kernel_probe_tmp}" ] && rm -f "${_kernel_probe_tmp}"
+	if [ "${_kernel_ident}" != "${PRODUCT_NAME}" ]; then
+		echo ">>> ERROR: installer kernel ident is '${_kernel_ident:-unknown}', expected '${PRODUCT_NAME}'"
+		print_error_pfS
+	fi
+	for _kernel_module in zfs.ko opensolaris.ko; do
+		[ -f "${INSTALLER_CHROOT_DIR}/boot/kernel/${_kernel_module}" ] || {
+			echo ">>> ERROR: installer kernel payload is missing ${_kernel_module}"
+			print_error_pfS
+		}
+	done
+	echo ">>> Verified atomic installer kernel payload (ident ${_kernel_ident}, ZFS modules present)"
+	unset _kernel_dir _kernel_probe _kernel_probe_tmp _kernel_ident _kernel_module
 
 	# Prepare pre-final staging area
 	clone_to_staging_area

@@ -24,6 +24,7 @@ jobs:
           php tests/PackageCatalogSmokeTest.php
       - name: Release-sensitive shell syntax
         run: |
+          sh -n build.sh
           sh -n tools/ci/freesense-fetch-kernel.sh
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
       - name: Reject committed secrets
