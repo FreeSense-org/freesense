@@ -32,10 +32,6 @@ require_once("pkg-utils.inc");
 
 $repos = pkg_list_repos();
 
-if ($_POST && ($_POST['fwbranch'] ?? '') === 'candidate' && ($_POST['candidate_ack'] ?? '') !== 'yes') {
-	$input_errors[] = gettext('You must acknowledge the release-candidate warning before selecting that channel.');
-}
-
 if ($_POST && !$input_errors) {
 
 	if ($_POST['disablecheck'] == "yes") {
@@ -151,13 +147,6 @@ if (file_exists($helpfilename)) {
 }
 
 $section->addInput($field);
-
-$section->addInput(new Form_Checkbox(
-	'candidate_ack',
-	gettext('Pre-release acknowledgement'),
-	gettext('I understand that release candidates may contain defects and are not recommended for production firewalls.'),
-	false
-))->setHelp(gettext('This acknowledgement is required only when switching to the Candidate channel.'));
 
 $form->add($section);
 
