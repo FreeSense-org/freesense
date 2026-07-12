@@ -32,6 +32,7 @@ ini_set('max_execution_time', '0');
 require_once("globals.inc");
 require_once("guiconfig.inc");
 require_once("pkg-utils.inc");
+require_once("package_catalog.inc");
 
 // if upgrade in progress, alert user
 if (is_subsystem_dirty('packagelock')) {
