@@ -47,7 +47,6 @@ net/hping3
 # Excluded so the poudriere run is clean (a non-zero exit blocks repo signing). Re-enable
 # if/when it builds against the target FreeBSD again.
 net/kea
-net/kea-devel
 net/keama
 net/librdkafka
 net/mcjoin

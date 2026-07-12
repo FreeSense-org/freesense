@@ -85,43 +85,34 @@ if ! rclone copyto --s3-no-check-bucket --retries 10 --low-level-retries 20 \
 	"${SNAPDIR}/packages.tar" /tmp/packages.tar >>"$DIAG" 2>&1; then
 	bail "download of ${SNAPDIR}/packages.tar failed"
 fi
-# UNTAR WITH -k (keep existing), THEN KEEP-NEWEST-PER-PKGNAME. Two stale-copy problems meet here:
-#  (a) the restored .real_cache carries OLD stock versions from past builds (json-c-0.18 when the
-#      pinned tree wants 0.19) -> poudriere "new version" deletes + a missing-dep CASCADE through
-#      large Go/Rust/network consumers (~15-20 needless rebuilds, run 29130633234);
-#  (b) the cache ALSO carries FRESH tree-matched rebuilds NEWER than the frozen bank's lagging
-#      copies (log4cplus-2.2.0.1 built last run vs the bank's 2.1.2 — FreeBSD's `latest` binaries
-#      lag its ports tree, see the frozen-bank memory). A naive "bank always wins" purge deleted
-#      those fresh copies and re-seeded the stale ones -> the SAME cascade re-ran every publish
-#      (kea alone ~1h20). And for IDENTICAL filenames (kea-3.2.0.pkg in both), the cache copy is
-#      the coherent one (linked against the tree's dep versions) while the bank's was linked
-#      against its own older set -> the bank copy loses poudriere's dep check -> rebuild.
-# The rule that solves both: versions only move forward, so extract the bank WITHOUT overwriting
-# existing files (tar -k: an existing fresh copy beats the bank's same-named stale-linked twin),
-# then keep only the HIGHEST version per pkgname-base (old stale copies lose to the bank's newer
-# ones; fresh rebuilds beat the bank's laggards; duplicate FreeSense timestamp cores dedupe too).
-# poudriere's own sanity/dep checks stay the final authority — a wrong survivor is just deleted
-# and rebuilt (self-healing). pkgname-base strip (-[0-9][^-]*.*$) verified safe on
-# py312-/openldap26-/zabbix7-/go125 style names; version order via sort -V (FreeBSD sort has -V).
-# packages.tar members are the *.pkg files at top level (tarred with -C <All> .)
-if ! tar -xkf /tmp/packages.tar -C "$REPODIR/All" >>"$DIAG" 2>&1; then
-	# bsdtar -k exits 0 on skipped-existing; a real error means a broken download/extract
+# The bank and ports tree share one ports_top_git_hash, so the bank is authoritative for
+# every stock package name. Never let a numerically newer package from another revision win:
+# that preserves an incoherent dependency graph (for example log4cplus 2.2 in a tree whose
+# Kea packages require 2.1.2) and causes the same rebuild on every consumer.
+_bank_members=/tmp/lean-bank-members.txt
+if ! tar -tf /tmp/packages.tar | sed 's#^\./##; /^$/d' > "$_bank_members"; then
+	bail "cannot list packages.tar"
+fi
+_replaced=0
+while IFS= read -r _member; do
+	_f=$(basename "$_member")
+	case "$_f" in
+		*.pkg) ;;
+		*) continue ;;
+	esac
+	_b=$(printf '%s' "$_f" | sed 's#\.pkg$##; s#-[0-9][^-]*.*$##')
+	[ -n "$_b" ] || continue
+	for _old in "$REPODIR/All/${_b}-"[0-9]*.pkg; do
+		[ -e "$_old" ] || continue
+		rm -f "$_old"; _replaced=$((_replaced+1))
+	done
+done < "$_bank_members"
+rm -f "$_bank_members"
+[ "$_replaced" -gt 0 ] && say "removed ${_replaced} cached stock packages superseded by frozen bank"
+if ! tar -xf /tmp/packages.tar -C "$REPODIR/All" >>"$DIAG" 2>&1; then
 	bail "untar of packages.tar failed"
 fi
 rm -f /tmp/packages.tar
-_all=/tmp/lean-all-pkgs.txt
-ls "$REPODIR/All"/*.pkg 2>/dev/null | sed 's#.*/##' | sort -V > "$_all"
-_pruned=0; _prev_base=""; _prev_file=""
-while IFS= read -r _f; do
-	_b=$(printf '%s' "$_f" | sed 's#\.pkg$##; s#-[0-9][^-]*.*$##')
-	if [ "$_b" = "$_prev_base" ]; then
-		# same pkgname, lower version sorted first -> drop the older copy
-		rm -f "$REPODIR/All/$_prev_file"; _pruned=$((_pruned+1))
-	fi
-	_prev_base="$_b"; _prev_file="$_f"
-done < "$_all"
-rm -f "$_all"
-[ "${_pruned}" -gt 0 ] && say "pruned ${_pruned} older duplicate versions (keep-newest-per-pkgname)"
 say "repo now holds $(ls "$REPODIR/All"/*.pkg 2>/dev/null | wc -l | tr -d ' ') pkgs after frozen stock seed"
 
 # --- BOOTSTRAP: Latest/pkg.pkg INSIDE the real dir, so the .building clone can bootstrap pkg ----
