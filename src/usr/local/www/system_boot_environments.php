@@ -49,8 +49,9 @@ if ($_POST) {
 		if ($retention === false || $timeout === false) {
 			$input_errors[] = gettext('Invalid retention or health timeout value.');
 		} else {
-			config_set_path('system/bootenv/enabled', isset($_POST['enabled']));
-			config_set_path('system/bootenv/automatic_rollback', isset($_POST['automatic_rollback']));
+			/* Store explicit strings: upgrade/health scripts read these nodes as text. */
+			config_set_path('system/bootenv/enabled', isset($_POST['enabled']) ? 'true' : 'false');
+			config_set_path('system/bootenv/automatic_rollback', isset($_POST['automatic_rollback']) ? 'true' : 'false');
 			config_set_path('system/bootenv/retention_auto', $retention);
 			config_set_path('system/bootenv/health_timeout', $timeout);
 			write_config(gettext('Updated ZFS boot environment settings.'));
@@ -89,6 +90,8 @@ $data = $available ? json_decode($raw, true) : null;
 $compatible = (bool)($data['status']['compatible'] ?? false);
 $environments = $data['environments'] ?? [];
 $settings = config_get_path('system/bootenv', []);
+$bootenv_enabled = !array_key_exists('enabled', $settings) || $settings['enabled'] !== 'false';
+$bootenv_automatic_rollback = !array_key_exists('automatic_rollback', $settings) || $settings['automatic_rollback'] !== 'false';
 $view = $_GET['view'] ?? 'environments';
 if (!in_array($view, ['environments', 'create', 'settings'], true)) {
 	$view = 'environments';
@@ -322,8 +325,8 @@ if ($view === 'environments'):
 <?php elseif ($view === 'settings'): ?>
 	<div class="panel panel-default bootenv-settings"><div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-shield-halved me-1"></i> <?=gettext('Upgrade Protection')?></h2></div><div class="panel-body">
 		<form method="post" action="?view=settings">
-			<div class="bootenv-settings__toggles"><div class="checkbox"><label><input type="checkbox" name="enabled" <?=($settings['enabled'] ?? true) ? 'checked' : ''?>> <?=gettext('Create boot environments automatically during upgrades')?></label></div>
-			<div class="checkbox"><label><input type="checkbox" name="automatic_rollback" <?=($settings['automatic_rollback'] ?? true) ? 'checked' : ''?>> <?=gettext('Automatically roll back failed first boots')?></label></div></div>
+			<div class="bootenv-settings__toggles"><div class="checkbox"><label><input type="checkbox" name="enabled" <?=$bootenv_enabled ? 'checked' : ''?>> <?=gettext('Create boot environments automatically during upgrades')?></label></div>
+			<div class="checkbox"><label><input type="checkbox" name="automatic_rollback" <?=$bootenv_automatic_rollback ? 'checked' : ''?>> <?=gettext('Automatically roll back failed first boots')?></label></div></div>
 			<div class="row bootenv-settings__fields"><div class="col-sm-6"><div class="form-group"><label><?=gettext('Automatic environments to retain')?></label><input class="form-control" type="number" min="1" max="10" name="retention_auto" value="<?=htmlspecialchars($settings['retention_auto'] ?? 3)?>"><span class="help-block"><?=gettext('Older automatically-created environments are removed after this limit.')?></span></div></div>
 			<div class="col-sm-6"><div class="form-group"><label><?=gettext('Health timeout (seconds)')?></label><input class="form-control" type="number" min="60" max="900" name="health_timeout" value="<?=htmlspecialchars($settings['health_timeout'] ?? 300)?>"><span class="help-block"><?=gettext('Maximum time to wait for a successful first-boot health check.')?></span></div></div></div>
 			<button class="btn btn-primary" name="action" value="settings"><i class="fa-solid fa-floppy-disk me-1"></i> <?=gettext('Save settings')?></button>
