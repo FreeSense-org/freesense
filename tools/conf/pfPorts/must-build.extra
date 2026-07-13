@@ -57,6 +57,7 @@ sysutils/pftop
 sysutils/syslog-ng
 www/lighttpd
 www/nginx
+www/squid
 
 # php is rebuilt with PHP_FD_SETSIZE=3172 (make.conf) -> its extensions rebuild against it too.
 # LOAD-BEARING: stream_select() lives at etc/inc/pkg-utils.inc:157 & :1631 (pfSense Bug #8845/#8895

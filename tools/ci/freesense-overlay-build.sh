@@ -116,6 +116,20 @@ if [ -z "$PORTSTREE" ]; then
 	done
 fi
 if [ -n "$PORTSTREE" ] && [ -d "$PORTSTREE" ]; then
+	# Web Gateway 2.0 depends on Squid 7 sslcrtd/SSL-Bump interfaces which were
+	# removed in Squid 8. Refuse a silent major upgrade before any expensive
+	# workers start; runtime performs the same guard on installed systems.
+	SQUID_MAKEFILE="$PORTSTREE/www/squid/Makefile"
+	if [ -f "$SQUID_MAKEFILE" ]; then
+		SQUID_VERSION="$(awk -F= '/^(DISTVERSION|PORTVERSION)[[:space:]]*=/{gsub(/[[:space:]]/, "", $2); print $2; exit}' "$SQUID_MAKEFILE")"
+		case "$SQUID_VERSION" in
+			7.*) say "Squid major guard passed: $SQUID_VERSION" ;;
+			*) say "ERROR Web Gateway requires Squid 7.x, ports tree has ${SQUID_VERSION:-unknown}"; exit 1 ;;
+		esac
+		for option in SSL SSL_CRTD TP_PF ICAP AUTH_LDAP DELAY_POOLS TDB; do
+			grep -q "${option}" "$SQUID_MAKEFILE" || { say "ERROR Squid port lacks required option $option"; exit 1; }
+		done
+	fi
 	: > "$TMP/valid"; dropped=""
 	while IFS= read -r origin; do
 		case "$origin" in
