@@ -454,6 +454,15 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	. ${BUILDER_TOOLS}/ci/freesense-bootpkg.sh
 	core_pkg_create_repo # FreeSense: finalize before install
 	install_pkg_install_ports
+	# Image-integrity tripwire: OpenSSH cannot start without its privilege
+	# separation account. Catch account-database damage before creating an ISO.
+	for _required_account in sshd nobody; do
+		grep -q "^${_required_account}:" "${STAGE_CHROOT_DIR}/etc/master.passwd" || {
+			echo ">>> ERROR: stage chroot is missing required account ${_required_account}"
+			print_error_pfS
+		}
+	done
+	unset _required_account
 	# Tripwire: custom_package_list includes the kernel pkg, so a healthy stage
 	# install leaves /boot/kernel behind. Catch a silently-skipped kernel HERE
 	# (with the pkg log tail) instead of dying blind at image assembly later.

@@ -20,8 +20,27 @@ mkdir -p "${_lr_docroot}"
 # the dir itself if there's no .latest.
 [ -d "${_lr_core}/.latest" ] && ln -sfn "${_lr_core}/.latest" "${_lr_docroot}/core" || ln -sfn "${_lr_core}" "${_lr_docroot}/core"
 [ -d "${_lr_bulk}/.latest" ] && ln -sfn "${_lr_bulk}/.latest" "${_lr_docroot}/bulk" || ln -sfn "${_lr_bulk}" "${_lr_docroot}/bulk"
-# seed a nobody user so pkg can drop privileges (chroot starts ~empty; base pkg replaces these)
-printf 'root:*:0:0::0:0:Charlie &:/root:/bin/sh\nnobody:*:65534:65534::0:0:Unprivileged user:/nonexistent:/usr/sbin/nologin\n' > ${STAGE_CHROOT_DIR}/etc/master.passwd
-printf 'wheel:*:0:root\nnobody:*:65534:\nnogroup:*:65533:\n' > ${STAGE_CHROOT_DIR}/etc/group
-pwd_mkdb -p -d ${STAGE_CHROOT_DIR}/etc ${STAGE_CHROOT_DIR}/etc/master.passwd 2>/dev/null
-echo ">>> FreeSense: chroot local repos + nobody user seeded"
+# The pkgbase-seeded chroot already contains FreeBSD's complete service-account
+# database. Never replace it with a minimal root/nobody file: doing so removes
+# sshd and every other base daemon account from the installed image.
+for _account_file in master.passwd group; do
+	[ -s "${STAGE_CHROOT_DIR}/etc/${_account_file}" ] || {
+		echo ">>> ERROR: pkgbase chroot is missing /etc/${_account_file}"
+		return 1 2>/dev/null || exit 1
+	}
+done
+grep -q '^sshd:' "${STAGE_CHROOT_DIR}/etc/master.passwd" || {
+	echo ">>> ERROR: pkgbase chroot is missing the sshd service account"
+	return 1 2>/dev/null || exit 1
+}
+grep -q '^nobody:' "${STAGE_CHROOT_DIR}/etc/master.passwd" || {
+	echo ">>> ERROR: pkgbase chroot is missing the nobody service account"
+	return 1 2>/dev/null || exit 1
+}
+pwd_mkdb -p -d "${STAGE_CHROOT_DIR}/etc" \
+	"${STAGE_CHROOT_DIR}/etc/master.passwd" || {
+	echo ">>> ERROR: failed to rebuild the pkgbase chroot password database"
+	return 1 2>/dev/null || exit 1
+}
+unset _account_file
+echo ">>> FreeSense: chroot local repos + complete pkgbase account database preserved"
