@@ -25,7 +25,12 @@ set -u
 JAIL="${FREESENSE_JAIL_NAME:-}"
 BULK="${FREESENSE_BULK:-}"
 PORTS="${FREESENSE_PORTS_NAME:-}"
-OVERLAY="${FREESENSE_OVERLAY_DIR:-/root/freesense-ports}"
+case "${REPO_KIND:-system}" in
+	system) _default_overlay=/root/freesense-system-ports ;;
+	packages) _default_overlay=/root/freesense-packages ;;
+	*) echo ">>> snapshot: invalid REPO_KIND '${REPO_KIND}'" >&2; exit 1 ;;
+esac
+OVERLAY="${FREESENSE_OVERLAY_DIR:-${_default_overlay}}"
 REV="${FREESENSE_REV:-}"
 SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-$REV}"
 CHAN="${FREESENSE_CHANNEL:-main}"

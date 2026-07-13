@@ -15,14 +15,19 @@
 # A file-level merge does the right thing for both: we never blow away upstream files we
 # didn't intend to touch.
 #
-# Overlay repo (FreeSense-org/freesense-ports) is cloned to ${OVERLAY_DIR} by
-# provision-buildhost.sh (default /root/freesense-ports). Override via env.
+# The selected purpose-built overlay is cloned to ${OVERLAY_DIR} by
+# provision-buildhost.sh. REPO_KIND selects the default when OVERLAY_DIR is absent.
 
-_overlay="${OVERLAY_DIR:-/root/freesense-ports}"
+case "${REPO_KIND:-system}" in
+	system) _default_overlay=/root/freesense-system-ports ;;
+	packages) _default_overlay=/root/freesense-packages ;;
+	*) echo ">>> ERROR: REPO_KIND must be system or packages" >&2; exit 1 ;;
+esac
+_overlay="${OVERLAY_DIR:-${_default_overlay}}"
 _ports="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
 
 if [ ! -d "${_overlay}" ]; then
-	echo ">>> ERROR: ports overlay not found at ${_overlay} (clone FreeSense-org/freesense-ports)" >&2
+	echo ">>> ERROR: ${REPO_KIND:-system} ports overlay not found at ${_overlay}" >&2
 	print_error_pfS 2>/dev/null || exit 1
 fi
 if [ ! -d "${_ports}" ]; then
@@ -48,10 +53,12 @@ done
 # ship without the platform ABI dependency. Insert before the port framework's
 # final include; the source overlay remains clean and ordinary ports tooling
 # sees the dependency after overlay application.
-find "${_ports}" -type f -path '*/*FreeSense-pkg-*/Makefile' | while IFS= read -r _makefile; do
-	grep -q 'bsd.freesense-package.mk' "${_makefile}" && continue
-	sed -i '' '/^\.include <bsd\.port.*\.mk>/i\
+if [ "${REPO_KIND:-system}" = packages ]; then
+	find "${_ports}" -type f -path '*/*FreeSense-pkg-*/Makefile' | while IFS= read -r _makefile; do
+		grep -q 'bsd.freesense-package.mk' "${_makefile}" && continue
+		sed -i '' '/^\.include <bsd\.port.*\.mk>/i\
 .include <bsd.freesense-package.mk>\
 ' "${_makefile}"
-done
+	done
+fi
 echo "Done!"

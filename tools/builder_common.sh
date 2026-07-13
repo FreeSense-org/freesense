@@ -1488,7 +1488,7 @@ EOF
 
 	# Seed the per-branch confs offline from that manifest, reusing FreeSense-repoc
 	# itself (from the ports overlay) so the conf-writing logic lives in one place.
-	local _repoc="${OVERLAY_DIR:-/root/freesense-ports}/sysutils/${PRODUCT_NAME}-repoc/files/${PRODUCT_NAME}-repoc"
+	local _repoc="${OVERLAY_DIR:-/root/freesense-system-ports}/sysutils/${PRODUCT_NAME}-repoc/files/${PRODUCT_NAME}-repoc"
 	if [ -r "${_repoc}" ]; then
 		PRODUCT="${PRODUCT_NAME}" REPOS_DIR="${_repos}" SHARE_DIR="${_share}" \
 		ARCH="${TARGET_ARCH}" MANIFEST_LOCAL="${_share}/repos.manifest.json" \
@@ -2085,7 +2085,7 @@ poudriere_jail_name() {
 }
 
 poudriere_rename_ports() {
-	# NOTE (2026-07-03): the freesense-ports overlay is now FreeSense-named IN GIT,
+	# The selected purpose-built overlay is FreeSense-named in Git,
 	# so this function is normally a no-op. It is kept as a SAFETY NET: if a
 	# pfSense-* port dir is ever re-imported from upstream, it still gets renamed
 	# here before the bulk build.
@@ -2343,7 +2343,7 @@ poudriere_create_ports_tree() {
 		# dirs are untracked and survive, the partial open-vm-tools patch re-applies below).
 		poudriere_pin_ports_tree
 		# FreeSense: the ports tree above is UPSTREAM FreeBSD ports (no pfSense-* dirs).
-		# Overlay our vendored pfSense-* port recipes (FreeSense-org/freesense-ports) BEFORE
+		# Overlay the selected FreeSense system/package port recipes BEFORE
 		# poudriere_rename_ports turns them into FreeSense-*. No pfSense-fork dependency.
 		. ${BUILDER_TOOLS}/ci/freesense-ports-overlay.sh
 		poudriere_rename_ports
@@ -2819,7 +2819,7 @@ EOF
 		if [ -n "${FREESENSE_SNAPSHOT:-}" ]; then
 			echo ">>> FreeSense stock-snapshot mode: banking the full stock closure for rev ${FREESENSE_REV:-<none>} (${jail_arch}); the build is skipped" | tee -a ${LOGFILE}
 			FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" \
-			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" \
+			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-system-ports}" \
 			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
 				sh ${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh || { echo ">>> stock-snapshot failed; refusing to start workers"; return 1; }
 			return 0

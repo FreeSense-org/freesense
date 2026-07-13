@@ -9,8 +9,9 @@
 #  - SINGLE rebranded tree: clone FreeSense-org/freesense to /root/freesense-src and use it
 #    as BOTH the build framework (build.sh, tools/) AND the source (its src/ is already
 #    rebranded; we do NOT run rebrand-src.sh, do NOT clone vanilla pfSense).
-#  - Ports come from UPSTREAM FreeBSD ports + our overlay (FreeSense-org/freesense-ports);
-#    NO dependency on pfSense's freebsd-ports fork.
+#  - Ports come from UPSTREAM FreeBSD ports plus exactly one purpose-built overlay:
+#    freesense-system-ports for OS builds or freesense-packages for optional packages.
+#    There is NO dependency on pfSense's freebsd-ports fork.
 #  - Signing uses the CI key (FREESENSE_REPO_SIGNING_KEY); its fingerprint already ships
 #    in the OS source (src/.../keys/pkg/trusted/freesense).
 #
@@ -23,10 +24,22 @@ set -eu
 
 # ---- config (override via env) ----
 FREESENSE_REPO="${FREESENSE_REPO:-https://github.com/FreeSense-org/freesense.git}"
-PORTS_OVERLAY_REPO="${PORTS_OVERLAY_REPO:-https://github.com/FreeSense-org/freesense-ports.git}"
+REPO_KIND="${REPO_KIND:-system}"
+case "${REPO_KIND}" in
+	system)
+		_DEFAULT_OVERLAY_REPO="https://github.com/FreeSense-org/freesense-system-ports.git"
+		_DEFAULT_OVERLAY_DIR="/root/freesense-system-ports"
+		;;
+	packages)
+		_DEFAULT_OVERLAY_REPO="https://github.com/FreeSense-org/freesense-packages.git"
+		_DEFAULT_OVERLAY_DIR="/root/freesense-packages"
+		;;
+	*) echo "!!! ERROR: REPO_KIND must be system or packages" >&2; exit 1 ;;
+esac
+PORTS_OVERLAY_REPO="${PORTS_OVERLAY_REPO:-${_DEFAULT_OVERLAY_REPO}}"
 FREEBSD_PORTS_URL="${FREEBSD_PORTS_URL:-https://github.com/freebsd/freebsd-ports.git}"
 SRC_DIR="${SRC_DIR:-/root/freesense-src}"          # the single rebranded tree (framework+source)
-OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" # our ports overlay clone
+OVERLAY_DIR="${OVERLAY_DIR:-${_DEFAULT_OVERLAY_DIR}}" # selected purpose-built overlay clone
 POUDRIERE_PORTS_NAME="${POUDRIERE_PORTS_NAME:-FreeSense_devel}"
 JAIL_NAME="${JAIL_NAME:-FreeSense_master_amd64}"
 SIGN_DIR="${SIGN_DIR:-/root/sign}"
@@ -116,7 +129,7 @@ SRC_DIR="${SRC_DIR}" DISTFILES_DIR=/usr/ports/distfiles sh "${SRC_DIR}/tools/ci/
 	     tar czf /usr/ports/distfiles/freesense-src.tar.gz -C "${_p}" --exclude="${_n}/.git" --exclude="${_n}/tmp" --exclude="${_n}/logs" "${_n}"; }
 
 # ---- 5. clone the ports overlay ----
-log "cloning ports overlay -> ${OVERLAY_DIR}"
+log "cloning ${REPO_KIND} ports overlay -> ${OVERLAY_DIR}"
 if [ -d "${OVERLAY_DIR}/.git" ]; then
 	git -C "${OVERLAY_DIR}" fetch --depth 1 origin && git -C "${OVERLAY_DIR}" reset --hard origin/main
 else

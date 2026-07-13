@@ -6,7 +6,7 @@
 # (packages.tar) VERBATIM — never re-verified, never cascade-rebuilt.
 #
 # The custom set = union of:
-#   (a) OVERLAY origins  — every category/port the FreeSense-ports overlay ships
+#   (a) OVERLAY origins  — every category/port the selected overlay ships
 #                          (FreeSense-*, vendored, patched). FreeBSD never publishes
 #                          these (custom name) or we changed their recipe.
 #   (b) OPTION-DIVERGENT origins — stock ports whose make.conf *_SET/UNSET_FORCE
@@ -23,14 +23,19 @@
 # Gated by FREESENSE_OVERLAY=1 (else this script is a no-op and the normal
 # full-closure lean-seed path runs). Best-effort + diagnosed.
 #
-# Env in:  OVERLAY_DIR (default /root/freesense-ports)
+# Env in:  REPO_KIND (system or packages), OVERLAY_DIR (optional override)
 #          BUILDER_TOOLS (…/tools) or SRC_DIR (…/freesense-src)
 # Writes:  ${BULK_FILE}  (the custom-set bulk list)
 set -u
 
 [ "${FREESENSE_OVERLAY:-0}" = "1" ] || { echo ">>> overlay: FREESENSE_OVERLAY!=1, skipping (normal path)"; exit 0; }
 
-OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}"
+case "${REPO_KIND:-system}" in
+	system) _default_overlay=/root/freesense-system-ports ;;
+	packages) _default_overlay=/root/freesense-packages ;;
+	*) echo ">>> overlay: invalid REPO_KIND '${REPO_KIND}'" >&2; exit 1 ;;
+esac
+OVERLAY_DIR="${OVERLAY_DIR:-${_default_overlay}}"
 # locate the tools/conf/pfPorts dir
 if [ -n "${BUILDER_TOOLS:-}" ]; then
 	CONF="${BUILDER_TOOLS}/conf/pfPorts"
@@ -50,7 +55,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 SET="$TMP/set"; : > "$SET"
 
 # ---- (a) OVERLAY origins: category/port dirs the overlay ships ----------------
-# freesense-ports lays files under <category>/<PkgDir>/... . The origin poudriere
+# The selected overlay lays files under <category>/<PkgDir>/... . The origin poudriere
 # wants is category/port. Derive it from the top two path components of each file,
 # de-duplicated. (Same tree the overlay cp walk uses.)
 if [ -d "$OVERLAY_DIR" ]; then
