@@ -1,0 +1,51 @@
+# FreeSense system repository roots.
+#
+# This repository is the complete operating-system update surface. Poudriere
+# resolves and publishes the recursive runtime closure of these roots. Optional
+# FreeSense-pkg-* integrations must never be added here. The explicit utility
+# roots below are part of the factory/diagnostics surface even when the main
+# metapackage does not express them as runtime dependencies.
+databases/php85-mysqli
+databases/php85-pdo_mysql
+databases/php85-pgsql
+devel/aws-sdk-php
+devel/gdb
+devel/git
+devel/valgrind
+dns/coredns
+dns/dnstop
+editors/nano
+editors/vim
+emulators/qemu-guest-agent
+net-mgmt/dhcp_probe
+net-mgmt/iprange
+net/dhcpcd
+net/hping3
+net/kea
+net/keama
+net/librdkafka
+net/mcjoin
+net/mosh
+net/mrouted
+net/py-speedtest-cli
+net/speedtest-go
+net/trafshow
+net/trafshow3
+net/vnstat
+security/%%PRODUCT_NAME%%
+shells/zsh
+sysutils/%%PRODUCT_NAME%%-default-config
+sysutils/%%PRODUCT_NAME%%-default-config-serial
+sysutils/%%PRODUCT_NAME%%-platform-abi
+sysutils/%%PRODUCT_NAME%%-repoc
+sysutils/ccze
+sysutils/flashrom
+sysutils/htop
+sysutils/memtester
+sysutils/pstree
+sysutils/screen
+sysutils/stress
+sysutils/tmux
+sysutils/usb_modeswitch
+sysutils/vm-bhyve
+sysutils/xe-guest-utilities

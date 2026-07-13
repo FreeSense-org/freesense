@@ -42,4 +42,16 @@ echo -n ">>> FreeSense: overlaying ports from ${_overlay} onto ${_ports}... "
 	mkdir -p "$(dirname "${_dst}")"
 	cp -f "${_overlay}/${rel}" "${_dst}"
 done
+
+# Bind every optional package to the automatically derived compatibility train. Keep
+# this centralized so a newly-added FreeSense-pkg-* port cannot accidentally
+# ship without the platform ABI dependency. Insert before the port framework's
+# final include; the source overlay remains clean and ordinary ports tooling
+# sees the dependency after overlay application.
+find "${_ports}" -type f -path '*/*FreeSense-pkg-*/Makefile' | while IFS= read -r _makefile; do
+	grep -q 'bsd.freesense-package.mk' "${_makefile}" && continue
+	sed -i '' '/^\.include <bsd\.port.*\.mk>/i\
+.include <bsd.freesense-package.mk>\
+' "${_makefile}"
+done
 echo "Done!"

@@ -38,7 +38,7 @@
  *
  * The FreeSense target is the package INTERNAL name (the <name> used in
  * <installedpackages>), NOT the FreeSense-pkg-* pkg-origin. Keep targets in
- * sync with the FreeSense repo catalog (pkg rquery -r FreeSense '%n').
+ * sync with the optional package catalog (pkg rquery -r FreeSense-packages '%n').
  *
  * SHARED TABLE: the authoritative mappings live in the language-neutral file
  * /etc/config_import_pkgmap.map so the installer importer (POSIX sh) and this
@@ -300,7 +300,7 @@ function freesense_import_map_all_packages($conf, $lineage, $catalog = null) {
 function freesense_import_pkg_catalog() {
 	$out = array();
 	$raw = array();
-	exec('/usr/sbin/pkg rquery -r FreeSense %n 2>/dev/null', $raw);
+	exec('/usr/sbin/pkg rquery -r FreeSense-packages %n 2>/dev/null', $raw);
 	foreach ($raw as $line) {
 		$line = trim($line);
 		/* keep only the -pkg- add-ons, strip the FreeSense-pkg- prefix to the

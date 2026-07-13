@@ -402,7 +402,10 @@ function get_pkg_info($pkgs = 'all', $remote_repo_usage_disabled = false,
 	if ($base_packages) {
 		$repo_param = "";
 	} else {
-		$repo_param = "-r {$g['product_name']}";
+		/* Optional integrations are deliberately isolated from the system
+		 * update repository. Their versions follow the product major.minor
+		 * package train and are updated only through Package Manager. */
+		$repo_param = "-r {$g['product_name']}-packages";
 	}
 
 	/*
@@ -496,7 +499,7 @@ function get_pkg_info($pkgs = 'all', $remote_repo_usage_disabled = false,
 			$rc = pkg_exec("query %R {$pkg_info['name']}", $out,
 			    $err);
 			if (!$base_packages &&
-			    rtrim($out) != g_get('product_name')) {
+			    rtrim($out) != g_get('product_name') . '-packages') {
 				continue;
 			}
 

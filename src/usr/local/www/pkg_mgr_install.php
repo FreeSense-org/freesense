@@ -465,9 +465,13 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			$package_description = trim(preg_replace('/\s+/', ' ', $detail_out));
 		}
 		$package_notes = [];
-		$channel = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
-		if (preg_match('/^[A-Za-z0-9_.-]+$/D', $channel)) {
-			$notes_url = 'https://pkg.freesense.org/package-notes/' . rawurlencode($channel) . '.json';
+		$product_version = trim((string)@file_get_contents('/etc/version'));
+		$package_train = '';
+		if (preg_match('/^([0-9]+\.[0-9]+)\./D', $product_version, $train_match)) {
+			$package_train = $train_match[1];
+		}
+		if ($package_train !== '') {
+			$notes_url = 'https://pkg.freesense.org/package-notes/' . rawurlencode($package_train) . '.json';
 			$notes_raw = shell_exec('/usr/bin/fetch -qo - -T 4 ' . escapeshellarg($notes_url) . ' 2>/dev/null');
 			$notes_doc = json_decode($notes_raw, true);
 			if (is_array($notes_doc['packages'][$catalog_shortname] ?? null)) {

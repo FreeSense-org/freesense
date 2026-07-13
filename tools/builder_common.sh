@@ -1430,28 +1430,68 @@ stage_repo_channels() {
 	[ -n "${_altabi}" ] || _altabi="freebsd:16:x86:64"
 
 	mkdir -p "${_share}" "${_repos}"
-	local _stable_channel_line="${PKG_REPO_BRANCH_RELEASE}|Latest stable version (${PKG_REPO_BRANCH_RELEASE})|${PKG_REPO_SERVER_RELEASE}|${PKG_REPO_BRANCH_RELEASE}|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_RELEASE}|${_abi}|${_altabi}|yes"
-	if [ -n "${FREESENSE_PREVIEW:-}" ]; then
-		_stable_channel_line="# Stable is unavailable while FreeSense uses an unsupported FreeBSD development branch"
-	fi
-
-	# Authoritative channel manifest (pipe-delimited). Stable is the global default;
-	# the per-box default marker (below) overrides it for devel images.
-	# name|descr|server|osversion|version|abi|altabi|default
-	cat > "${_share}/repos.manifest" <<EOF
-# FreeSense repo channel manifest
-# name|descr|server|osversion|version|abi|altabi|default
-${_stable_channel_line}
-${FREESENSE_CANDIDATE_ID:+candidate|RC Preview (${FREESENSE_CANDIDATE_ID}) - not for production|${PKG_REPO_SERVER_RELEASE%/}/candidates/${FREESENSE_CANDIDATE_ID}|${PKG_REPO_BRANCH_RELEASE}|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_RELEASE}|${_abi}|${_altabi}|no}
-devel|Development version|${PKG_REPO_SERVER_DEVEL}|master|${REPO_PATH_PREFIX}${PKG_REPO_BRANCH_DEVEL}|${_abi}|${_altabi}|no
+	# Schema 2 binds each OS channel to an independently published optional
+	# package train. PRODUCT_VERSION is the only normal source of the train.
+	local _server_devel="${PKG_REPO_SERVER_DEVEL#pkg+}"
+	local _server_release="${PKG_REPO_SERVER_RELEASE#pkg+}"
+	cat > "${_share}/repos.manifest.json" <<EOF
+{
+  "schema": 2,
+  "channels": [
+    {
+      "name": "${FREESENSE_PACKAGE_TRAIN}",
+      "description": "Latest stable version (${FREESENSE_PACKAGE_TRAIN}.x)",
+      "server": "${_server_release}",
+      "system_channel": "${FREESENSE_PACKAGE_TRAIN}",
+      "package_train": "${FREESENSE_PACKAGE_TRAIN}",
+      "abi": "${_abi}",
+      "altabi": "${_altabi}",
+      "default": true
+    },
+    {
+      "name": "devel",
+      "description": "Development version",
+      "server": "${_server_devel}",
+      "system_channel": "devel",
+      "package_train": "${FREESENSE_PACKAGE_TRAIN}",
+      "abi": "${_abi}",
+      "altabi": "${_altabi}",
+      "default": false
+    }$(if [ -n "${FREESENSE_CANDIDATE_ID:-}" ]; then cat <<CANDIDATE
+,
+    {
+      "name": "candidate",
+      "description": "RC Preview (${FREESENSE_CANDIDATE_ID}) - not for production",
+      "server": "${_server_release%/}/candidates/${FREESENSE_CANDIDATE_ID}",
+      "system_server": "${_server_release%/}/candidates/${FREESENSE_CANDIDATE_ID}",
+      "packages_server": "${_server_release}",
+      "system_channel": "${FREESENSE_PACKAGE_TRAIN}",
+      "package_train": "${FREESENSE_PACKAGE_TRAIN}",
+      "abi": "${_abi}",
+      "altabi": "${_altabi}",
+      "default": false
+    }
+CANDIDATE
+fi)
+  ]
+}
 EOF
+
+	# Separate trust paths allow independent system/package signing keys. Until
+	# dedicated public fingerprints are supplied, seed both from the existing
+	# FreeSense trust anchor so development images remain installable.
+	for _repo_class in system packages; do
+		mkdir -p "${_share}/keys/${_repo_class}/trusted" "${_share}/keys/${_repo_class}/revoked"
+		cp -f "${_share}/keys/pkg/trusted/"* "${_share}/keys/${_repo_class}/trusted/" 2>/dev/null || true
+		: > "${_share}/keys/${_repo_class}/revoked/.empty"
+	done
 
 	# Seed the per-branch confs offline from that manifest, reusing FreeSense-repoc
 	# itself (from the ports overlay) so the conf-writing logic lives in one place.
 	local _repoc="${OVERLAY_DIR:-/root/freesense-ports}/sysutils/${PRODUCT_NAME}-repoc/files/${PRODUCT_NAME}-repoc"
 	if [ -r "${_repoc}" ]; then
 		PRODUCT="${PRODUCT_NAME}" REPOS_DIR="${_repos}" SHARE_DIR="${_share}" \
-		ARCH="${TARGET_ARCH}" MANIFEST_LOCAL="${_share}/repos.manifest" \
+		ARCH="${TARGET_ARCH}" MANIFEST_LOCAL="${_share}/repos.manifest.json" \
 		    sh "${_repoc}" -l || echo ">>> WARNING: FreeSense channel seed failed"
 	else
 		echo ">>> WARNING: FreeSense-repoc not found at ${_repoc}; branch selector will seed at runtime only"
@@ -1463,7 +1503,7 @@ EOF
 	if [ -n "${FREESENSE_CANDIDATE_ID:-}" ]; then
 		: > "${_repos}/${PRODUCT_NAME}-repo-candidate.default"
 	elif [ -n "${_IS_RELEASE}" ]; then
-		: > "${_repos}/${PRODUCT_NAME}-repo-${PKG_REPO_BRANCH_RELEASE}.default"
+		: > "${_repos}/${PRODUCT_NAME}-repo-${FREESENSE_PACKAGE_TRAIN}.default"
 	else
 		: > "${_repos}/${PRODUCT_NAME}-repo-devel.default"
 	fi
@@ -2670,6 +2710,7 @@ poudriere_bulk() {
 	if [ -f "${BUILDER_TOOLS}/conf/pfPorts/make.conf" ]; then
 		sed -e "s,%%PRODUCT_NAME%%,${PRODUCT_NAME},g" \
 		    -e "s,%%PRODUCT_VERSION%%,${PRODUCT_VERSION},g" \
+		    -e "s,%%FREESENSE_PACKAGE_TRAIN%%,${FREESENSE_PACKAGE_TRAIN},g" \
 		    "${BUILDER_TOOLS}/conf/pfPorts/make.conf" > ${_makeconf}
 	fi
 
@@ -2684,6 +2725,7 @@ PKG_REPO_SERVER_RELEASE=${PKG_REPO_SERVER_RELEASE}
 POUDRIERE_PORTS_NAME=${POUDRIERE_PORTS_NAME}
 FREESENSE_DEFAULT_REPO=${FREESENSE_DEFAULT_REPO}
 PRODUCT_NAME=${PRODUCT_NAME}
+FREESENSE_PACKAGE_TRAIN=${FREESENSE_PACKAGE_TRAIN}
 REPO_BRANCH_PREFIX=${REPO_PATH_PREFIX}
 EOF
 

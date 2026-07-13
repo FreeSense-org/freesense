@@ -53,12 +53,13 @@ fi
 
 # Define FreeSense versions (repo-path segments) -> also the Update > branch
 # selector entries. DEVEL = rolling 'devel' path; RELEASE = the current published
-# stable (v1_0_0) so users can switch the package channel devel <-> stable.
+# stable (derived below from the product major.minor train) so users can switch
+# the package channel devel <-> stable without another hardcoded version value.
 # (-DEVELOPMENT builds still install from the 'devel' path; RELEASE here just
 # populates the branch list + the path a release build would publish to.)
 PKG_REPO_BRANCH_DEVEL="devel"
-#PKG_REPO_BRANCH_NEXT="v1_2_0"
-PKG_REPO_BRANCH_RELEASE="v1_0_0"
+#PKG_REPO_BRANCH_NEXT="1.2"
+PKG_REPO_BRANCH_RELEASE="${PKG_REPO_BRANCH_RELEASE:-}"
 PKG_REPO_BRANCH_PREVIOUS=""
 
 # Make sure pkg will not be interactive
@@ -113,6 +114,23 @@ if [ -z "${PRODUCT_VERSION}" ]; then
 
 	export PRODUCT_VERSION=$(head -n 1 ${PRODUCT_SRC}/etc/version)
 fi
+
+# Optional packages follow the product major.minor compatibility train. The
+# ordinary version file is authoritative, so changing 1.1.x -> 1.2.x creates
+# the new train automatically. CI may pass an explicit, validated override to
+# prepare a coordinated prerelease without duplicating version state.
+if [ -z "${FREESENSE_PACKAGE_TRAIN:-}" ]; then
+	export FREESENSE_PACKAGE_TRAIN=$(printf '%s\n' "${PRODUCT_VERSION}" | \
+		sed -nE 's/^([0-9]+\.[0-9]+)\..*$/\1/p')
+fi
+printf '%s' "${FREESENSE_PACKAGE_TRAIN}" | grep -Eq '^[0-9]+\.[0-9]+$' || {
+	echo ">>> ERROR: Invalid FREESENSE_PACKAGE_TRAIN '${FREESENSE_PACKAGE_TRAIN}'"
+	exit 1
+}
+export FREESENSE_PACKAGE_TRAIN
+PKG_REPO_BRANCH_RELEASE="${PKG_REPO_BRANCH_RELEASE:-${FREESENSE_PACKAGE_TRAIN}}"
+export PKG_REPO_BRANCH_RELEASE
+echo ">>> FreeSense package compatibility train: ${FREESENSE_PACKAGE_TRAIN}"
 export PRODUCT_REVISION=${PRODUCT_REVISION:-""}
 
 # Product repository tag to build

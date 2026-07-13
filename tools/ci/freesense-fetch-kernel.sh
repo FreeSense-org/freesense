@@ -42,11 +42,15 @@ ENVOUT=${FREESENSE_FETCH_ENV:-/tmp/freesense-kernel.env}
 
 command -v "${RCLONE}" >/dev/null 2>&1 || fail "rclone not available"
 
-# channel -> base repo dir. MUST mirror base-build.yml's "Map ref -> channel" step
-# exactly (RELENG_1_0 -> v1_0_0, everything else -> devel) — the base repo lives at
-# base/<that channel>/ on R2.
+# Channel -> base repo dir. Release paths use the product major.minor train.
+# RELENG derives the train from src/etc/version; development continues to use devel.
+# The base repo lives at base/<that channel>/ on R2.
 case "${CHAN}" in
-	RELENG_1_0) BCH=v1_0_0 ;;
+	RELENG_1_0)
+		_version_file="${SRC_DIR:-/root/freesense-src}/src/etc/version"
+		BCH=$(sed -nE 's/^([0-9]+\.[0-9]+)\..*/\1/p' "${_version_file}" 2>/dev/null)
+		[ -n "${BCH}" ] || fail "cannot derive release train from ${_version_file}"
+		;;
 	*) BCH=devel ;;
 esac
 
