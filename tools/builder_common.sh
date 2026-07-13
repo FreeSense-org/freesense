@@ -853,6 +853,21 @@ clone_to_staging_area() {
 	tar -C ${PRODUCT_SRC} -c -f - . | \
 		tar -C ${STAGE_CHROOT_DIR} -x -p -f -
 
+	# Belt-and-suspenders: guarantee the boot/rc scripts are executable.
+	# The real fix is the git file modes (they must be tracked 100755), but a
+	# clone from a filesystem/index that lost the exec bit would otherwise ship
+	# /etc/rc.* at 0644, which makes FreeSense-rc fail every rc.* with
+	# "Permission denied" -> config never loads -> the box boots as "Amnesiac".
+	# Restore the exec bit on every shebang script under the staged tree so a
+	# lost mode can never brick the boot again.
+	find ${STAGE_CHROOT_DIR}/etc ${STAGE_CHROOT_DIR}/usr/local/bin \
+		${STAGE_CHROOT_DIR}/usr/local/sbin -type f 2>/dev/null | \
+		while read -r _f; do
+			if [ "$(head -c2 "${_f}" 2>/dev/null)" = '#!' ]; then
+				chmod 0755 "${_f}"
+			fi
+		done
+
 	mkdir -p ${STAGE_CHROOT_DIR}/etc/mtree
 	mtree -Pcp ${STAGE_CHROOT_DIR}/var > ${STAGE_CHROOT_DIR}/etc/mtree/var.dist
 	mtree -Pcp ${STAGE_CHROOT_DIR}/etc > ${STAGE_CHROOT_DIR}/etc/mtree/etc.dist
