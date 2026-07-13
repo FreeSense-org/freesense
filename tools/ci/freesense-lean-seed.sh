@@ -34,6 +34,7 @@ set -u
 JAIL="${FREESENSE_JAIL_NAME:-}"
 PORTS="${FREESENSE_PORTS_NAME:-}"
 REV="${FREESENSE_REV:-}"
+SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-$REV}"
 # channel (main=devel, RELENG_1_0=stable). Keys the frozen snapshot per channel so devel (rolling)
 # and stable (frozen on an older rev, possibly the SAME rev with different options) never collide.
 CHAN="${FREESENSE_CHANNEL:-main}"
@@ -58,13 +59,13 @@ PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
 # Correct recipe: REAL files go in .real_cache (our stable .real_<n>), .latest -> .real_cache,
 # Latest/pkg.pkg lives INSIDE .real_cache, and the top level stays symlink-only.
 REPODIR="${PKGTOP}/.real_cache"
-SNAPDIR="R2:freesense-pkg/ports-cache/stock/${CHAN}/${REV}"
+SNAPDIR="R2:freesense-pkg/ports-cache/stock/${CHAN}/${SNAPSHOT_ID}"
 
 DIAG=/tmp/lean-seed.diag; : > "$DIAG"
 say(){ echo ">>> lean-seed: $*"; printf '%s\n' "$*" >> "$DIAG"; }
 finish(){ rclone copyto "$DIAG" R2:freesense-pkg/debug/lean-seed.diag --s3-no-check-bucket >/dev/null 2>&1 || true; }
 trap finish EXIT
-bail(){ say "SKIP — $1 (bulk will build everything from source)"; exit 0; }
+bail(){ say "ABORT — $1 (refusing an accidental full source build)"; exit 1; }
 # `rclone lsf MISSING` EXITS 0 with empty output (a successful listing of nothing), so testing its
 # exit code is a false-positive existence check. Test for NON-EMPTY output instead.
 snap_has(){ [ -n "$(rclone lsf "$1" 2>/dev/null)" ]; }
@@ -72,13 +73,13 @@ snap_has(){ [ -n "$(rclone lsf "$1" 2>/dev/null)" ]; }
 [ -n "$JAIL" ] && [ -n "$PORTS" ] || bail "missing env (JAIL/PORTS)"
 command -v rclone >/dev/null 2>&1 || bail "no rclone"
 [ -n "$REV" ] || bail "no FREESENSE_REV — cannot resolve the stock snapshot"
-say "JAIL=$JAIL PORTS=$PORTS PKGTOP=$PKGTOP REPODIR=$REPODIR CHAN=$CHAN REV=$REV"
+say "JAIL=$JAIL PORTS=$PORTS PKGTOP=$PKGTOP REPODIR=$REPODIR CHAN=$CHAN REV=$REV SNAPSHOT_ID=$SNAPSHOT_ID"
 
 # --- consume: pull this rev's frozen stock snapshot and seed it into the repo -----------------
 if ! snap_has "${SNAPDIR}/packages.tar"; then
-	bail "no stock snapshot at ${SNAPDIR}/packages.tar for rev ${REV}"
+	bail "no stock snapshot at ${SNAPDIR}/packages.tar for build fingerprint ${SNAPSHOT_ID}"
 fi
-say "stock snapshot HIT for ${CHAN}/${REV} -> seeding from ${SNAPDIR}/packages.tar (no FreeBSD fetch)"
+say "stock snapshot HIT for ${CHAN}/${SNAPSHOT_ID} -> seeding from ${SNAPDIR}/packages.tar (no FreeBSD fetch)"
 mkdir -p "$REPODIR/All"
 rm -f /tmp/packages.tar
 if ! rclone copyto --s3-no-check-bucket --retries 10 --low-level-retries 20 \

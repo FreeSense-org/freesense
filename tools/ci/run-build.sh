@@ -46,14 +46,22 @@ echo ">>> distfile version=$(tar xzOf "${_DF}/freesense-src.tar.gz" "$(basename 
 # version/channel — e.g. a stale DISTVERSION (security/FreeSense would build as the
 # old 2.9.0.a.<ts> instead of tracking src/etc/version). This reset lets DISTVERSION
 # resolve to ${PRODUCT_VERSION} (1.0.0 for a -RELEASE branch, 1.1.0 for devel).
-echo ">>> ./build.sh --update-poudriere-ports"
-./build.sh --update-poudriere-ports
+if [ "${FREESENSE_USE_SEALED_REPO:-0}" = "1" ]; then
+	echo ">>> Stage 1: skipped (ISO consumes the immutable sealed package repository)"
+else
+	echo ">>> ./build.sh --update-poudriere-ports"
+	./build.sh --update-poudriere-ports
+fi
 
 # Stage 2: rebuild ports as needed + regenerate/sign the pkg repo. The lean-overlay seed
 # (pin the tree to FreeBSD's build commit, fetch FreeBSD's stock binaries, build ONLY custom)
 # runs INSIDE this step: builder_common.sh poudriere_bulk sources tools/ci/freesense-lean-seed.sh.
-echo ">>> ./build.sh --update-pkg-repo"
-./build.sh --update-pkg-repo
+if [ "${FREESENSE_USE_SEALED_REPO:-0}" = "1" ]; then
+	echo ">>> Stage 2: skipped (sealed repository verified by the ports publisher)"
+else
+	echo ">>> ./build.sh --update-pkg-repo"
+	./build.sh --update-pkg-repo
+fi
 
 # Stage 2.5: consume base-build's banked kernel instead of compiling it (kernel-
 # toolchain + buildkernel is ~60-70min on a cold VM — the dominant ISO cost).

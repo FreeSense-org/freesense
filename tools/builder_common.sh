@@ -2156,7 +2156,7 @@ freesense_freebsd_ports_repo() {
 # and everything just builds from source (the old behaviour).
 poudriere_pin_ports_tree() {
 	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-	local _repo _commit _chan _curr _pinsrc _pf
+	local _repo _commit _chan _curr _pinsrc _pf _snapshot_id
 	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
 	# FROZEN STOCK: prefer the ports_top_git_hash recorded in this week's immutable R2 stock bank
 	# (keyed by the base snapshot rev FREESENSE_REV). Deterministic + identical across every batch
@@ -2165,14 +2165,15 @@ poudriere_pin_ports_tree() {
 	# query only when the bank isn't populated yet (the very first build of a new rev).
 	if [ -n "${FREESENSE_REV:-}" ] && command -v rclone >/dev/null 2>&1; then
 		_chan="${FREESENSE_CHANNEL:-main}"
+		_snapshot_id="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV}}"
 		# Deterministic + identical across every build. Try the exact rev, then the channel's
 		# 'current' pointer (in case the seed rev and the banked rev drift by a snapshot).
-		_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${FREESENSE_REV}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
-		if [ -z "${_commit}" ]; then
-			_curr=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/current" 2>/dev/null | tr -dc '0-9a-f')
-			if [ -n "${_curr}" ] && [ "${_curr}" != "${FREESENSE_REV}" ]; then
+		_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${_snapshot_id}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
+		if [ -z "${_commit}" ] && [ -z "${FREESENSE_SNAPSHOT:-}" ]; then
+			_curr=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/current" 2>/dev/null | tr -d '\r\n')
+			if [ -n "${_curr}" ] && [ "${_curr}" != "${_snapshot_id}" ]; then
 				_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${_curr}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
-				[ -n "${_commit}" ] && echo ">>> lean-pin: seed rev ${FREESENSE_REV} not banked; using 'current'=${_curr}" | tee -a ${LOGFILE}
+				[ -n "${_commit}" ] && echo ">>> lean-pin: snapshot ${_snapshot_id} not banked; using 'current'=${_curr}" | tee -a ${LOGFILE}
 			fi
 		fi
 		if [ -n "${_commit}" ]; then
@@ -2777,8 +2778,8 @@ EOF
 			echo ">>> FreeSense stock-snapshot mode: banking the full stock closure for rev ${FREESENSE_REV:-<none>} (${jail_arch}); the build is skipped" | tee -a ${LOGFILE}
 			FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" \
 			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-ports}" \
-			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" \
-				sh ${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh || echo ">>> stock-snapshot failed (next run retries)"
+			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
+				sh ${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh || { echo ">>> stock-snapshot failed; refusing to start workers"; return 1; }
 			return 0
 		fi
 
@@ -2789,8 +2790,15 @@ EOF
 		# Runs here so it sees the pinned+overlaid tree + this make.conf.
 		FREESENSE_JAIL_NAME="${jail_name}" \
 		FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" \
-		FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" \
-			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || echo ">>> lean-seed failed; all ports build from source"
+		FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
+			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || {
+				if [ "${FREESENSE_PIN_STRICT:-1}" = "0" ]; then
+					echo ">>> lean-seed failed; non-strict local build may continue from source"
+				else
+					echo ">>> lean-seed failed; refusing an accidental full source build"
+					return 1
+				fi
+			}
 
 		echo ">>> Poudriere bulk started at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
 		_poudriere_test_flag=""
@@ -2812,15 +2820,17 @@ EOF
 		# name-ver.pkg. Both live in .latest/All, and the next step (poudriere pkgclean) dies:
 		# "Found duplicated packages" + the '~' breaks its version parser ("NN~..: not completely
 		# converted") -> set -e -> the WHOLE build aborts even though bulk succeeded. Drop the
-		# hashed twin (keep the plain/fetched one) so pkgclean sees exactly one pkg per origin.
+		# hashed twin. Prefer the fresh rebuild: Poudriere created it because the frozen
+		# package did not match this exact tree/options/dependency set.
 		_leandir="/usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME}/.latest/All"
 		if [ -d "${_leandir}" ]; then
 			for _h in "${_leandir}"/*~*.pkg; do
 				[ -e "${_h}" ] || continue
 				_plain="${_h%~*}.pkg"
 				if [ -e "${_plain}" ]; then
-					echo ">>> lean-dedup: dropping hashed dup $(basename "${_h}")"
-					rm -f "${_h}"
+					echo ">>> lean-dedup: rebuilt package wins $(basename "${_h}") -> $(basename "${_plain}")"
+					rm -f "${_plain}"
+					mv "${_h}" "${_plain}"
 				fi
 			done
 		fi

@@ -27,32 +27,33 @@ BULK="${FREESENSE_BULK:-}"
 PORTS="${FREESENSE_PORTS_NAME:-}"
 OVERLAY="${FREESENSE_OVERLAY_DIR:-/root/freesense-ports}"
 REV="${FREESENSE_REV:-}"
+SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-$REV}"
 CHAN="${FREESENSE_CHANNEL:-main}"
 EXTRA="$(dirname "$0")/../conf/pfPorts/must-build.extra"
 PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
 REPODIR="${PKGTOP}/.real_cache"; [ -d "$REPODIR" ] || REPODIR="$PKGTOP"
 TREE="/usr/local/poudriere/ports/${PORTS}"
 SNAPBASE="R2:freesense-pkg/ports-cache/stock/${CHAN}"
-SNAPDIR="${SNAPBASE}/${REV}"
+SNAPDIR="${SNAPBASE}/${SNAPSHOT_ID}"
 
 DIAG=/tmp/stock-snapshot.diag; : > "$DIAG"
 say(){ echo ">>> stock-snapshot: $*"; printf '%s\n' "$*" >> "$DIAG"; }
 finish(){ rclone copyto "$DIAG" R2:freesense-pkg/debug/stock-snapshot.diag --s3-no-check-bucket >/dev/null 2>&1 || true; }
 trap finish EXIT
-bail(){ say "ABORT — $1"; exit 0; }          # best-effort: a failed snapshot degrades to source builds
+bail(){ say "ABORT — $1"; exit 1; }          # producer failure must stop workers; never degrade into a full source build
 snap_has(){ [ -n "$(rclone lsf "$1" 2>/dev/null)" ]; }
 
 [ -n "$JAIL" ] && [ -n "$BULK" ] && [ -n "$PORTS" ] || bail "missing env (JAIL/BULK/PORTS)"
 command -v rclone >/dev/null 2>&1 || bail "no rclone"
 [ -n "$REV" ] || bail "no FREESENSE_REV — cannot key the snapshot"
-say "JAIL=$JAIL PORTS=$PORTS OVERLAY=$OVERLAY TREE=$TREE CHAN=$CHAN REV=$REV"
+say "JAIL=$JAIL PORTS=$PORTS OVERLAY=$OVERLAY TREE=$TREE CHAN=$CHAN REV=$REV SNAPSHOT_ID=$SNAPSHOT_ID"
 
 # --- 0. idempotency: this rev already fully banked? (meta is uploaded LAST, so it's the sentinel)
 if snap_has "${SNAPDIR}/meta"; then
-	say "rev ${REV} already snapshotted (${SNAPDIR}/meta exists) — nothing to do"
+	say "snapshot ${SNAPSHOT_ID} already exists (${SNAPDIR}/meta) — nothing to do"
 	# make sure 'current' points at it (cheap self-heal if a prior run died before the flip)
-	CUR=$(rclone cat "${SNAPBASE}/current" 2>/dev/null | tr -dc '0-9a-f')
-	[ "$CUR" = "$REV" ] || { printf '%s\n' "$REV" > /tmp/ss-cur; rclone copyto --s3-no-check-bucket /tmp/ss-cur "${SNAPBASE}/current" >>"$DIAG" 2>&1 || true; }
+	CUR=$(rclone cat "${SNAPBASE}/current" 2>/dev/null | tr -d '\r\n')
+	[ "$CUR" = "$SNAPSHOT_ID" ] || { printf '%s\n' "$SNAPSHOT_ID" > /tmp/ss-cur; rclone copyto --s3-no-check-bucket /tmp/ss-cur "${SNAPBASE}/current" >>"$DIAG" 2>&1 || true; }
 	exit 0
 fi
 
@@ -160,6 +161,7 @@ fi
 [ -n "$HASH" ] && printf '%s\n' "$HASH" > "$STAGE/ports_top_git_hash"
 {
 	echo "rev=${REV}"
+	echo "snapshot_id=${SNAPSHOT_ID}"
 	echo "channel=${CHAN}"
 	echo "ports_top_git_hash=${HASH:-}"
 	echo "freebsd_version=${FBVER:-}"
@@ -181,16 +183,16 @@ if [ "$UP_OK" != 1 ]; then
 fi
 
 # --- 10. rotate current -> previous, then flip current -> REV (the ready signal) ---------------
-OLDCUR=$(rclone cat "${SNAPBASE}/current" 2>/dev/null | tr -dc '0-9a-f')
-if [ -n "$OLDCUR" ] && [ "$OLDCUR" != "$REV" ]; then
+OLDCUR=$(rclone cat "${SNAPBASE}/current" 2>/dev/null | tr -d '\r\n')
+if [ -n "$OLDCUR" ] && [ "$OLDCUR" != "$SNAPSHOT_ID" ]; then
 	printf '%s\n' "$OLDCUR" > /tmp/ss-prev
 	rclone copyto --s3-no-check-bucket /tmp/ss-prev "${SNAPBASE}/previous" >>"$DIAG" 2>&1 \
 		&& say "rotated previous -> ${OLDCUR}" || say "WARN could not write previous pointer"
 fi
 rclone copyto --s3-no-check-bucket "$STAGE/meta" "${SNAPDIR}/meta" >>"$DIAG" 2>&1 || bail "meta upload failed"
-printf '%s\n' "$REV" > /tmp/ss-cur
+printf '%s\n' "$SNAPSHOT_ID" > /tmp/ss-cur
 if rclone copyto --s3-no-check-bucket /tmp/ss-cur "${SNAPBASE}/current" >>"$DIAG" 2>&1; then
-	say "SNAPSHOT PUBLISHED for ${CHAN}/${REV} (${NSTOCK} stock pkgs, hash=${HASH:-<none>}); current -> ${REV}"
+	say "SNAPSHOT PUBLISHED for ${CHAN}/${SNAPSHOT_ID} (${NSTOCK} stock pkgs, hash=${HASH:-<none>}); current -> ${SNAPSHOT_ID}"
 else
 	say "WARN could not flip current pointer — snapshot bytes are up, builds will still find them via REV"
 fi
