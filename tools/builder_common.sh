@@ -2250,7 +2250,9 @@ poudriere_pin_ports_tree() {
 		rm -rf /tmp/pinprobe 2>/dev/null || true
 		if pkg fetch -y ${_repo:+-r ${_repo}} -o /tmp/pinprobe pkg >/dev/null 2>&1; then
 			_pf=$(find /tmp/pinprobe -name '*.pkg' 2>/dev/null | head -1)
-			[ -n "${_pf}" ] && _commit=$(pkg query -F "${_pf}" '%Ak %Av' 2>/dev/null | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
+			if [ -n "${_pf}" ] && tar -xOf "${_pf}" +MANIFEST >/tmp/pinprobe.manifest 2>/dev/null; then
+				_commit=$(grep -oE '"ports_top_git_hash":"[0-9a-f]{40}"' /tmp/pinprobe.manifest | head -1 | cut -d'"' -f4)
+			fi
 			[ -n "${_commit}" ] && _pinsrc="live pkg.freebsd.org"
 		fi
 		# last-ditch: the catalog annotation (usually empty, kept for completeness)

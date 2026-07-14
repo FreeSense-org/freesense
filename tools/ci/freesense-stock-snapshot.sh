@@ -177,9 +177,12 @@ if ! pkg fetch -y ${FBREPO:+-r $FBREPO} -o "$PINPROBE" pkg >>"$DIAG" 2>&1; then
 fi
 PINPKG=$(find "$PINPROBE" -type f -name '*.pkg' 2>/dev/null | head -1)
 [ -n "$PINPKG" ] || bail "isolated canonical pkg fetch produced no package file"
-_ann=$(pkg query -F "$PINPKG" '%Ak %Av' 2>/dev/null)
-HASH=$(printf '%s\n' "$_ann" | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
-FBVER=$(printf '%s\n' "$_ann" | awk '$1=="FreeBSD_version"{print $2; exit}')
+PINMANIFEST=/tmp/ss-pin-manifest.json
+if ! tar -xOf "$PINPKG" +MANIFEST >"$PINMANIFEST" 2>>"$DIAG"; then
+	bail "could not extract +MANIFEST from the canonical pkg bootstrap"
+fi
+HASH=$(grep -oE '"ports_top_git_hash":"[0-9a-f]{40}"' "$PINMANIFEST" | head -1 | cut -d'"' -f4)
+FBVER=$(grep -oE '"FreeBSD_version":"[0-9]+"' "$PINMANIFEST" | head -1 | cut -d'"' -f4)
 printf '%s' "$HASH" | grep -Eq '^[0-9a-f]{40}$' \
 	|| bail "canonical pkg bootstrap has no valid ports_top_git_hash annotation"
 say "pin ports_top_git_hash=$HASH FreeBSD_version=${FBVER:-<none>} (isolated canonical $(basename "$PINPKG"))"
