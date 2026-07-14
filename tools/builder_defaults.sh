@@ -136,8 +136,14 @@ export PRODUCT_REVISION=${PRODUCT_REVISION:-""}
 # Product repository tag to build
 _cur_git_repo_branch_or_tag=$(git -C ${BUILDER_ROOT} rev-parse --abbrev-ref HEAD)
 if [ "${_cur_git_repo_branch_or_tag}" = "HEAD" ]; then
-	# We are on a tag, lets find out its name
-	export GIT_REPO_BRANCH_OR_TAG=$(git -C ${BUILDER_ROOT} describe --tags)
+	# CI checks out immutable commits in detached-HEAD mode. Prefer an exact tag
+	# when present; otherwise use the commit identity without emitting a fatal
+	# git-describe warning into every build log.
+	if _detached_tag=$(git -C "${BUILDER_ROOT}" describe --tags --exact-match 2>/dev/null); then
+		export GIT_REPO_BRANCH_OR_TAG="${_detached_tag}"
+	else
+		export GIT_REPO_BRANCH_OR_TAG=$(git -C "${BUILDER_ROOT}" rev-parse --short=12 HEAD)
+	fi
 else
 	export GIT_REPO_BRANCH_OR_TAG="${_cur_git_repo_branch_or_tag}"
 fi
