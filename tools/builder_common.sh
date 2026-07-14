@@ -1571,7 +1571,15 @@ update_freebsd_sources() {
 		# it currently points at a different remote (e.g. the old fork).
 		. ${FREEBSD_SRC_PATCHES_DIR}/manifest.env
 		echo ">>> Obtaining stock FreeBSD sources (${UPSTREAM_REF}) + FreeSense change-set..."
-		if [ -d "${FREEBSD_SRC_DIR}/.git" ] && \
+		if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+			_epoch_src="${FREESENSE_EPOCH_SOURCE_ARCHIVE:-/root/epoch/freebsd-src.tar.zst}"
+			[ -s "${_epoch_src}" ] || { echo ">>> ERROR: missing epoch FreeBSD source ${_epoch_src}"; print_error_pfS; }
+			rm -rf "${FREEBSD_SRC_DIR}"
+			mkdir -p "${FREEBSD_SRC_DIR}"
+			tar --zstd --strip-components 1 -xf "${_epoch_src}" -C "${FREEBSD_SRC_DIR}"
+			[ "$(git -C "${FREEBSD_SRC_DIR}" rev-parse HEAD 2>/dev/null)" = "${UPSTREAM_REF}" ] \
+				|| { echo ">>> ERROR: epoch source does not match ${UPSTREAM_REF}"; print_error_pfS; }
+		elif [ -d "${FREEBSD_SRC_DIR}/.git" ] && \
 		   [ "$(git -C ${FREEBSD_SRC_DIR} config --get remote.origin.url 2>/dev/null)" = "${UPSTREAM_URL}" ]; then
 			git -C ${FREEBSD_SRC_DIR} reset -q --hard
 			git -C ${FREEBSD_SRC_DIR} clean -qfd
@@ -1581,7 +1589,7 @@ update_freebsd_sources() {
 			git -C ${FREEBSD_SRC_DIR} init -q
 			git -C ${FREEBSD_SRC_DIR} remote add origin ${UPSTREAM_URL}
 		fi
-		if ! git -C ${FREEBSD_SRC_DIR} cat-file -e "${UPSTREAM_REF}^{commit}" 2>/dev/null; then
+		if [ -z "${FREESENSE_EPOCH_OFFLINE:-}" ] && ! git -C ${FREEBSD_SRC_DIR} cat-file -e "${UPSTREAM_REF}^{commit}" 2>/dev/null; then
 			git -C ${FREEBSD_SRC_DIR} fetch -q --depth 1 origin ${UPSTREAM_REF} \
 				|| git -C ${FREEBSD_SRC_DIR} fetch -q origin ${UPSTREAM_REF}
 		fi
@@ -2196,14 +2204,23 @@ freesense_freebsd_ports_repo() {
 # and everything just builds from source (the old behaviour).
 poudriere_pin_ports_tree() {
 	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-	local _repo _commit _chan _curr _pinsrc _pf _snapshot_id
+	local _repo _commit _chan _curr _pinsrc _pf _snapshot_id _checkout_ok
 	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
+	# Offline epochs carry the exact ports commit and complete git object in the
+	# verified ports archive. Never contact origin while the build VM is isolated.
+	if [ -n "${FREESENSE_EPOCH_PORTS_SHA:-}" ]; then
+		_commit="${FREESENSE_EPOCH_PORTS_SHA}"
+		_pinsrc="build epoch ${FREESENSE_EPOCH_ID:-producer}"
+	elif [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+		echo ">>> ERROR: offline epoch has no ports SHA"
+		print_error_pfS
+	fi
 	# FROZEN STOCK: prefer the ports_top_git_hash recorded in this week's immutable R2 stock bank
 	# (keyed by the base snapshot rev FREESENSE_REV). Deterministic + identical across every batch
 	# and publish, so the tree is pinned to the SAME commit the frozen binaries were built from ->
 	# poudriere reuses them with zero "new version" drift. Falls back to the live pkg.freebsd.org
 	# query only when the bank isn't populated yet (the very first build of a new rev).
-	if [ -n "${FREESENSE_REV:-}" ] && command -v rclone >/dev/null 2>&1; then
+	if [ -z "${_commit}" ] && [ -n "${FREESENSE_REV:-}" ] && command -v rclone >/dev/null 2>&1; then
 		_chan="${FREESENSE_CHANNEL:-main}"
 		_snapshot_id="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV}}"
 		# Deterministic + identical across every build. Try the exact rev, then the channel's
@@ -2267,8 +2284,18 @@ poudriere_pin_ports_tree() {
 		return 0
 	fi
 	echo -n ">>> lean-pin: pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit} (source: ${_pinsrc:-live}, FreeBSD repo '${_repo:-unnamed}')... " | tee -a ${LOGFILE}
-	if { git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
-	    && git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null; then
+	_checkout_ok=0
+	if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+		git -C "${_tree}" cat-file -e "${_commit}^{commit}" 2>/dev/null \
+			&& git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null \
+			&& _checkout_ok=1
+	else
+		{ git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 \
+		  || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
+			&& git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null \
+			&& _checkout_ok=1
+	fi
+	if [ "${_checkout_ok}" = 1 ]; then
 		echo "Done!" | tee -a ${LOGFILE}
 	else
 		# Resolved the hash but couldn't check it out — same slow-path danger. Fail loud too.
@@ -2300,7 +2327,15 @@ poudriere_create_ports_tree() {
 			_branch="${POUDRIERE_PORTS_GIT_BRANCH}"
 		fi
 		echo -n ">>> Creating poudriere ports tree, it may take some time... " | tee -a ${LOGFILE}
-		if [ "${AWS}" = 1 ]; then
+		if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+			_epoch_ports="${FREESENSE_EPOCH_PORTS_ARCHIVE:-/root/epoch/freebsd-ports.tar.zst}"
+			[ -s "${_epoch_ports}" ] || { echo ">>> ERROR: missing epoch ports archive ${_epoch_ports}"; print_error_pfS; }
+			script -aq ${LOGFILE} poudriere ports -c -p "${POUDRIERE_PORTS_NAME}" -m none
+			mkdir -p "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
+			tar --zstd --strip-components 1 -xf "${_epoch_ports}" -C "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
+			[ -d "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/.git" ] \
+				|| { echo ">>> ERROR: epoch ports archive is not a git checkout"; print_error_pfS; }
+		elif [ "${AWS}" = 1 ]; then
 			set -e
 			script -aq ${LOGFILE} poudriere ports -c -p "${POUDRIERE_PORTS_NAME}" -m none
 			script -aq ${LOGFILE} zfs create ${ZFS_TANK}/poudriere/ports/${POUDRIERE_PORTS_NAME}

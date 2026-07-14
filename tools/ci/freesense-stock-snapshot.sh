@@ -150,6 +150,27 @@ say "pin ports_top_git_hash=${HASH:-<none>} FreeBSD_version=${FBVER:-<none>} (fr
 
 # --- 8. build the artifacts: packages.tar + ports-src.tar.zst + meta ---------------------------
 STAGE=/tmp/ss-stage; rm -rf "$STAGE"; mkdir -p "$STAGE"
+# Fetch every root's source material now while this producer is the only guest
+# allowed to reach upstream services. FreeSense's generated source tarball is a
+# per-build mutable input and is deliberately excluded from the epoch.
+FETCH_FAIL=/tmp/ss-fetch-fail; : > "$FETCH_FAIL"
+while read -r _origin; do
+	[ -n "${_origin}" ] || continue
+	_dir="${TREE}/${_origin}"
+	[ -d "${_dir}" ] || continue
+	grep -Rq 'freesense-src.tar.gz' "${_dir}" 2>/dev/null && continue
+	if ! env BATCH=yes DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
+		make -C "${_dir}" fetch-recursive >>"$DIAG" 2>&1; then
+		echo "${_origin}" >> "$FETCH_FAIL"
+	fi
+done < "$BULK"
+if [ -s "$FETCH_FAIL" ]; then
+	say "distfile fetch failures: $(tr '\n' ' ' < "$FETCH_FAIL")"
+	bail "offline epoch would be missing required distfiles"
+fi
+tar --zstd -cf "$STAGE/distfiles.tar.zst" -C /usr/ports/distfiles . >>"$DIAG" 2>&1 \
+	|| bail "failed to archive verified distfiles"
+say "distfiles.tar.zst: $(ls -l "$STAGE/distfiles.tar.zst" | awk '{print $5}') bytes"
 # packages.tar: members are the *.pkg at top level (consume untars straight into repo All/)
 if ! tar -cf "$STAGE/packages.tar" -C "$BANKALL" . >>"$DIAG" 2>&1; then
 	bail "failed to build packages.tar"
@@ -178,7 +199,7 @@ fi
 # Upload the heavy members first; only if they all land do we write meta + flip 'current', so a
 # partial/failed snapshot never reads as ready.
 UP_OK=1
-for f in packages.tar ports-src.tar.zst ports_top_git_hash; do
+for f in packages.tar ports-src.tar.zst ports_top_git_hash distfiles.tar.zst; do
 	[ -f "$STAGE/$f" ] || continue
 	rclone copyto --s3-no-check-bucket --transfers 8 --retries 10 --low-level-retries 20 \
 		"$STAGE/$f" "${SNAPDIR}/$f" >>"$DIAG" 2>&1 || { say "WARN upload of $f failed"; UP_OK=0; }

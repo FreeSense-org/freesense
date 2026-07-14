@@ -31,6 +31,28 @@
 #
 # Env in: FREESENSE_JAIL_NAME FREESENSE_PORTS_NAME FREESENSE_REV FREESENSE_CHANNEL
 set -u
+
+# A normal build epoch runs with guest networking disabled. The producer has
+# already resolved and fetched the stock closure, so seed those signed bytes
+# directly instead of consulting R2 or pkg.freebsd.org.
+if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+	case "${REPO_KIND:-system}" in
+		system) _epoch_stock="${FREESENSE_EPOCH_SYSTEM_STOCK:-/root/epoch/stock-system-packages.tar}" ;;
+		packages) _epoch_stock="${FREESENSE_EPOCH_PACKAGE_STOCK:-/root/epoch/stock-optional-packages.tar}" ;;
+		*) echo ">>> lean-seed: invalid REPO_KIND '${REPO_KIND:-}'" >&2; exit 1 ;;
+	esac
+	[ -s "${_epoch_stock}" ] || { echo ">>> lean-seed: missing offline stock archive ${_epoch_stock}" >&2; exit 1; }
+	PKGTOP="/usr/local/poudriere/data/packages/${FREESENSE_JAIL_NAME:-FreeSense_main_amd64}-${FREESENSE_PORTS_NAME:-FreeSense_main}"
+	REAL="${PKGTOP}/.real_cache"
+	mkdir -p "${REAL}/All"
+	tar -xf "${_epoch_stock}" -C "${REAL}/All"
+	if ls "${REAL}/All"/*.pkg >/dev/null 2>&1; then
+		pkg repo "${REAL}" >/dev/null
+	fi
+	ln -sfn .real_cache "${PKGTOP}/.latest"
+	echo ">>> lean-seed: offline epoch ${FREESENSE_EPOCH_ID:-unknown} seeded $(find "${REAL}/All" -name '*.pkg' | wc -l | tr -d ' ') stock packages"
+	return 0 2>/dev/null || exit 0
+fi
 JAIL="${FREESENSE_JAIL_NAME:-}"
 PORTS="${FREESENSE_PORTS_NAME:-}"
 REV="${FREESENSE_REV:-}"

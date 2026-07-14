@@ -41,7 +41,17 @@ OSVERSION=$(awk '/^#define[[:space:]]+__FreeBSD_version/ {print $3}' "$PARAM")
 [ -n "$OSVERSION" ] || die "could not read __FreeBSD_version from ${PARAM}"
 FBSD_MAJOR=$(( OSVERSION / 100000 ))
 ABI="${FREESENSE_PKGBASE_ABI:-FreeBSD:${FBSD_MAJOR}:${ARCH}}"
-BASE_URL="${FREESENSE_PKGBASE_URL:-pkg+https://pkg.freebsd.org/${ABI}/base_latest}"
+if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+	EPOCH_PKGBASE_ARCHIVE="${FREESENSE_EPOCH_PKGBASE_ARCHIVE:-/root/epoch/pkgbase.tar.zst}"
+	[ -s "${EPOCH_PKGBASE_ARCHIVE}" ] || die "missing offline pkgbase archive ${EPOCH_PKGBASE_ARCHIVE}"
+	rm -rf /root/epoch/pkgbase
+	tar --zstd -xf "${EPOCH_PKGBASE_ARCHIVE}" -C /root/epoch
+	BASE_URL="file:///root/epoch/pkgbase"
+	MIRROR_TYPE="none"
+else
+	BASE_URL="${FREESENSE_PKGBASE_URL:-pkg+https://pkg.freebsd.org/${ABI}/base_latest}"
+	MIRROR_TYPE="srv"
+fi
 say "ABI=${ABI} OSVERSION=${OSVERSION} url=${BASE_URL}"
 
 # --- a throwaway repo conf pointing at FreeBSD's pkgbase --------------------------
@@ -55,7 +65,7 @@ trap 'rm -rf "$REPO_CONF_DIR"' EXIT
 cat > "${REPO_CONF_DIR}/FreeBSD-base.conf" <<EOF
 FreeBSD-base: {
   url: "${BASE_URL}",
-  mirror_type: "srv",
+  mirror_type: "${MIRROR_TYPE}",
   signature_type: "none",
   enabled: yes
 }
