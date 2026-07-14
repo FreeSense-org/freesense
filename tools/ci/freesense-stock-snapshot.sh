@@ -182,13 +182,14 @@ say "pin ports_top_git_hash=${HASH:-<none>} FreeBSD_version=${FBVER:-<none>} (fr
 
 # --- 8. build the artifacts: packages.tar + ports-src.tar.zst + meta ---------------------------
 STAGE=/tmp/ss-stage; rm -rf "$STAGE"; mkdir -p "$STAGE"
-# Fetch every root's source material now while this producer is the only guest
-# allowed to reach upstream services. FreeSense's generated source tarball is a
-# per-build mutable input and is deliberately excluded from the epoch.
+# Fetch source material only for ports that the offline build will compile.
+# Stock dependencies are consumed from the frozen binary bank above, so walking
+# every root recursively would both waste space and let software installed on
+# this producer host influence validation of ports that are never built here.
 FETCH_FAIL=/tmp/ss-fetch-fail; : > "$FETCH_FAIL"
 # System ports generate this archive from the separately pinned FreeSense source
-# at build time.  Seed a deterministic temporary copy so fetch-recursive can walk
-# through those dependencies without trying an intentionally absent MASTER_SITE.
+# at build time. Seed a deterministic temporary copy so direct source-port
+# fetches do not try an intentionally absent MASTER_SITE.
 # It is removed before the epoch distfile archive because source.tar.zst is the
 # authoritative copy consumed by ordinary offline builds.
 GENERATED_SOURCE=/usr/ports/distfiles/freesense-src.tar.gz
@@ -203,16 +204,25 @@ FETCH_MAKE_CONF="/usr/local/etc/poudriere.d/${PORTS}-make.conf"
 [ -s "$FETCH_MAKE_CONF" ] \
 	|| bail "missing Poudriere make.conf for verified distfile fetch: ${FETCH_MAKE_CONF}"
 say "distfile fetch make.conf=${FETCH_MAKE_CONF}"
+# EXCL is the exact overlay + option-divergent set; QUEUE is this worker's
+# Poudriere-resolved closure. Their intersection is therefore the source-build
+# set whose distfiles must be present when the epoch later disables networking.
+SOURCE_FETCH=/tmp/ss-source-fetch.lst
+comm -12 "$QUEUE" "$EXCL" > "$SOURCE_FETCH"
+say "source-build origins requiring distfiles: $(wc -l < "$SOURCE_FETCH" | tr -d ' ')"
 while read -r _origin; do
 	[ -n "${_origin}" ] || continue
 	_dir="${TREE}/${_origin}"
-	[ -d "${_dir}" ] || continue
+	if [ ! -d "${_dir}" ]; then
+		echo "${_origin} (missing from pinned ports tree)" >> "$FETCH_FAIL"
+		continue
+	fi
 	if ! env __MAKE_CONF="$FETCH_MAKE_CONF" BATCH=yes \
 		DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
-		make -C "${_dir}" fetch-recursive >>"$DIAG" 2>&1; then
+		make -C "${_dir}" NO_DEPENDS=yes fetch >>"$DIAG" 2>&1; then
 		echo "${_origin}" >> "$FETCH_FAIL"
 	fi
-done < "$BULK"
+done < "$SOURCE_FETCH"
 if [ -s "$FETCH_FAIL" ]; then
 	say "distfile fetch failures: $(tr '\n' ' ' < "$FETCH_FAIL")"
 	bail "offline epoch would be missing required distfiles"
