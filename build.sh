@@ -241,7 +241,7 @@ case $BUILDACTION in
 		poudriere_update_jails
 	;;
 	update_poudriere_ports)
-		poudriere_update_ports
+		poudriere_update_ports || exit $?
 	;;
 	rsync_repos)
 		export UPLOAD=1
@@ -256,7 +256,10 @@ case $BUILDACTION in
 			echo "ERROR: rsync is not installed, aborting..."
 			exit 1
 		fi
-		poudriere_bulk
+		# Do not let a failed Poudriere/snapshot producer fall through to the
+		# unconditional finish/exit 0 below.  GitHub Actions must see the real
+		# producer status or a missing frozen closure is reported as green.
+		poudriere_bulk || exit $?
 	;;
 	build_core)
 		# FreeSense: build ONLY the OS base + kernel core packages — world + kernel +

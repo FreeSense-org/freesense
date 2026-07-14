@@ -34,6 +34,8 @@ OVERLAY="${FREESENSE_OVERLAY_DIR:-${_default_overlay}}"
 REV="${FREESENSE_REV:-}"
 SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-$REV}"
 CHAN="${FREESENSE_CHANNEL:-main}"
+WORKER_ID="${FREESENSE_SNAPSHOT_WORKER_ID:-}"
+WORKER_COUNT="${FREESENSE_SNAPSHOT_WORKER_COUNT:-0}"
 EXTRA="$(dirname "$0")/../conf/pfPorts/must-build.extra"
 PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
 REPODIR="${PKGTOP}/.real_cache"; [ -d "$REPODIR" ] || REPODIR="$PKGTOP"
@@ -43,7 +45,12 @@ SNAPDIR="${SNAPBASE}/${SNAPSHOT_ID}"
 
 DIAG=/tmp/stock-snapshot.diag; : > "$DIAG"
 say(){ echo ">>> stock-snapshot: $*"; printf '%s\n' "$*" >> "$DIAG"; }
-finish(){ rclone copyto "$DIAG" R2:freesense-pkg/debug/stock-snapshot.diag --s3-no-check-bucket >/dev/null 2>&1 || true; }
+finish(){
+	_role=legacy
+	[ -n "${WORKER_ID}" ] && _role="worker-${WORKER_ID}"
+	rclone copyto "$DIAG" "R2:freesense-pkg/debug/stock-snapshot-${REPO_KIND:-system}-${_role}.diag" \
+		--s3-no-check-bucket >/dev/null 2>&1 || true
+}
 trap finish EXIT
 bail(){ say "ABORT — $1"; exit 1; }          # producer failure must stop workers; never degrade into a full source build
 snap_has(){ [ -n "$(rclone lsf "$1" 2>/dev/null)" ]; }
@@ -60,6 +67,15 @@ if snap_has "${SNAPDIR}/meta"; then
 	CUR=$(rclone cat "${SNAPBASE}/current" 2>/dev/null | tr -d '\r\n')
 	[ "$CUR" = "$SNAPSHOT_ID" ] || { printf '%s\n' "$SNAPSHOT_ID" > /tmp/ss-cur; rclone copyto --s3-no-check-bucket /tmp/ss-cur "${SNAPBASE}/current" >>"$DIAG" 2>&1 || true; }
 	exit 0
+fi
+
+if [ -n "${WORKER_ID}" ]; then
+	[ "${WORKER_COUNT}" -gt 0 ] 2>/dev/null || bail "snapshot worker requires a positive worker count"
+	_worker_complete=$(rclone cat "${SNAPDIR}/workers/${WORKER_ID}/complete" 2>/dev/null | tr -d '\r\n')
+	if [ "${_worker_complete}" = "${SNAPSHOT_ID} worker-${WORKER_ID}/${WORKER_COUNT}" ]; then
+		say "worker-${WORKER_ID} output already complete for this plan"
+		exit 0
+	fi
 fi
 
 # --- 1. FreeBSD binary ports repo (name differs by FreeBSD version) ----------------------------
@@ -83,7 +99,11 @@ say "exclusion (must-build) origins: $(wc -l < "$EXCL" | tr -d ' ')"
 
 # --- 3. FULL closure via poudriere dry-run (BULK = full list, set by the snapshot job) ---------
 NOUT=/tmp/ss-n.out
-poudriere bulk -n -f "$BULK" -j "$JAIL" -p "$PORTS" > "$NOUT" 2>&1 || true
+if ! poudriere bulk -n -f "$BULK" -j "$JAIL" -p "$PORTS" > "$NOUT" 2>&1; then
+	say "=== failed poudriere bulk -n tail ==="
+	tail -80 "$NOUT" >> "$DIAG"
+	bail "Poudriere could not resolve the complete worker closure"
+fi
 say "=== poudriere bulk -n tail ==="; tail -20 "$NOUT" >> "$DIAG"; say "=== end -n tail ==="
 LOGD="/usr/local/poudriere/data/logs/bulk/${JAIL}-${PORTS}/latest"
 RAW=/tmp/ss-raw; : > "$RAW"
@@ -179,9 +199,9 @@ say "packages.tar: $(ls -l "$STAGE/packages.tar" | awk '{print $5}') bytes, ${NS
 # ports-src.tar.zst: the pinned + overlaid ports SOURCE tree (archival / reproducibility /
 # fallback). NOT consumed by the build (it pins via git to ports_top_git_hash) — this is the
 # frozen source of record. --zstd is already used elsewhere in this codebase (base-build).
-if [ -d "$TREE" ] && tar --zstd -cf "$STAGE/ports-src.tar.zst" -C "$(dirname "$TREE")" "$(basename "$TREE")" >>"$DIAG" 2>&1; then
+if [ -z "${WORKER_ID}" ] && [ -d "$TREE" ] && tar --zstd -cf "$STAGE/ports-src.tar.zst" -C "$(dirname "$TREE")" "$(basename "$TREE")" >>"$DIAG" 2>&1; then
 	say "ports-src.tar.zst: $(ls -l "$STAGE/ports-src.tar.zst" | awk '{print $5}') bytes"
-else
+elif [ -z "${WORKER_ID}" ]; then
 	say "WARN could not tar the ports source tree ${TREE} (snapshot still publishes packages)"
 fi
 [ -n "$HASH" ] && printf '%s\n' "$HASH" > "$STAGE/ports_top_git_hash"
@@ -194,6 +214,23 @@ fi
 	echo "stock_pkgs=${NSTOCK}"
 	echo "built_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)"
 } > "$STAGE/meta"
+
+if [ -n "${WORKER_ID}" ]; then
+	WROOT="${SNAPDIR}/workers/${WORKER_ID}"
+	for f in packages.tar distfiles.tar.zst ports_top_git_hash meta; do
+		[ -s "$STAGE/$f" ] || bail "worker-${WORKER_ID} did not produce ${f}"
+		rclone copyto --s3-no-check-bucket --transfers 8 --retries 10 --low-level-retries 20 \
+			"$STAGE/$f" "$WROOT/$f" >>"$DIAG" 2>&1 || bail "worker-${WORKER_ID} upload of ${f} failed"
+	done
+	cp "$BULK" /tmp/ss-worker-roots
+	rclone copyto --s3-no-check-bucket /tmp/ss-worker-roots "$WROOT/roots.txt" >>"$DIAG" 2>&1 \
+		|| bail "worker-${WORKER_ID} roots upload failed"
+	printf '%s worker-%s/%s\n' "$SNAPSHOT_ID" "$WORKER_ID" "$WORKER_COUNT" >/tmp/ss-worker-complete
+	rclone copyto --s3-no-check-bucket /tmp/ss-worker-complete "$WROOT/complete" >>"$DIAG" 2>&1 \
+		|| bail "worker-${WORKER_ID} completion marker upload failed"
+	say "worker-${WORKER_ID}/${WORKER_COUNT} PUBLISHED (${NSTOCK} stock packages)"
+	exit 0
+fi
 
 # --- 9. upload the immutable rev folder (meta LAST = the "ready" sentinel) ---------------------
 # Upload the heavy members first; only if they all land do we write meta + flip 'current', so a

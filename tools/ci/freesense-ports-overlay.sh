@@ -48,6 +48,17 @@ echo -n ">>> FreeSense: overlaying ports from ${_overlay} onto ${_ports}... "
 	cp -f "${_overlay}/${rel}" "${_dst}"
 done
 
+# Optional-package ports include this framework directly.  Treat a missing
+# framework as an overlay failure here, before Poudriere turns it into dozens
+# of misleading per-port metadata errors.
+if [ "${REPO_KIND:-system}" = packages ]; then
+	_framework="${_ports}/Mk/bsd.freesense-package.mk"
+	if [ ! -s "${_framework}" ]; then
+		echo ">>> ERROR: optional-package overlay did not install ${_framework}" >&2
+		exit 1
+	fi
+fi
+
 # Bind every optional package to the automatically derived compatibility train. Keep
 # this centralized so a newly-added FreeSense-pkg-* port cannot accidentally
 # ship without the platform ABI dependency. Insert before the port framework's

@@ -2852,11 +2852,14 @@ EOF
 		# stock closure + ports source to R2:.../stock/<chan>/<rev>/, then RETURNS before building
 		# anything (there is nothing to build — the snapshot only needs the closure + fetch + tar).
 		if [ -n "${FREESENSE_SNAPSHOT:-}" ]; then
-			echo ">>> FreeSense stock-snapshot mode: banking the full stock closure for rev ${FREESENSE_REV:-<none>} (${jail_arch}); the build is skipped" | tee -a ${LOGFILE}
+			echo ">>> FreeSense stock-snapshot mode: rev ${FREESENSE_REV:-<none>} (${jail_arch}), worker=${FREESENSE_SNAPSHOT_WORKER_ID:-merge/legacy}" | tee -a ${LOGFILE}
+			_snapshot_program=${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh
+			[ -n "${FREESENSE_SNAPSHOT_MERGE:-}" ] && _snapshot_program=${BUILDER_TOOLS}/ci/freesense-stock-merge.sh
 			FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" \
 			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-system-ports}" \
 			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
-				sh ${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh || { echo ">>> stock-snapshot failed; refusing to start workers"; return 1; }
+			FREESENSE_SNAPSHOT_WORKER_ID="${FREESENSE_SNAPSHOT_WORKER_ID:-}" FREESENSE_SNAPSHOT_WORKER_COUNT="${FREESENSE_SNAPSHOT_WORKER_COUNT:-0}" \
+				sh ${_snapshot_program} || { echo ">>> stock-snapshot failed; refusing to continue"; return 1; }
 			return 0
 		fi
 
