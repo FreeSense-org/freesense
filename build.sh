@@ -272,9 +272,13 @@ case $BUILDACTION in
 		make_world
 		build_all_kernels
 		clone_to_staging_area
+		# The kernel package has an exact-version dependency on ${PRODUCT_NAME}-boot.
+		# Build the bootloader package in the same core transaction so a standalone
+		# base repository is dependency-closed before any ports are merged into it.
+		. ${BUILDER_TOOLS}/ci/freesense-bootpkg.sh
 		core_pkg_create_repo
 		echo ">>> FreeSense: core OS packages built:"
-		ls -1 ${CORE_PKG_ALL_PATH}/ 2>/dev/null | grep -iE 'FreeSense-(base|kernel|rc)-' || true
+		ls -1 ${CORE_PKG_ALL_PATH}/ 2>/dev/null | grep -iE 'FreeSense-(base|boot|kernel|rc)-' || true
 	;;
 	*)
 		usage
