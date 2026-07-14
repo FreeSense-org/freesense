@@ -195,11 +195,20 @@ GENERATED_SOURCE=/usr/ports/distfiles/freesense-src.tar.gz
 rm -f "$GENERATED_SOURCE"
 tar -czf "$GENERATED_SOURCE" -C /root freesense-src >>"$DIAG" 2>&1 \
 	|| bail "could not stage generated FreeSense source distfile"
+# Run the standalone fetch pass with exactly the same generated make.conf as
+# Poudriere.  Without this, the host's installed ports can change option
+# resolution (for example ports OpenSSL plus base GSSAPI in bind-tools), making
+# fetch-recursive reject a closure that Poudriere already proved valid.
+FETCH_MAKE_CONF="/usr/local/etc/poudriere.d/${PORTS}-make.conf"
+[ -s "$FETCH_MAKE_CONF" ] \
+	|| bail "missing Poudriere make.conf for verified distfile fetch: ${FETCH_MAKE_CONF}"
+say "distfile fetch make.conf=${FETCH_MAKE_CONF}"
 while read -r _origin; do
 	[ -n "${_origin}" ] || continue
 	_dir="${TREE}/${_origin}"
 	[ -d "${_dir}" ] || continue
-	if ! env BATCH=yes DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
+	if ! env __MAKE_CONF="$FETCH_MAKE_CONF" BATCH=yes \
+		DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
 		make -C "${_dir}" fetch-recursive >>"$DIAG" 2>&1; then
 		echo "${_origin}" >> "$FETCH_FAIL"
 	fi
