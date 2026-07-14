@@ -30,6 +30,7 @@ jobs:
           sh -n tools/ci/freesense-fetch-kernel.sh
           sh -n tools/ci/freesense-ports-overlay.sh
           sh -n tools/ci/freesense-stock-snapshot.sh
+          grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
       - name: Reject committed secrets
         run: |

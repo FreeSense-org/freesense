@@ -83,7 +83,7 @@ if [ "${REPO_KIND:-system}" = packages ]; then
 	find "${_ports}" -type f -path '*/*FreeSense-pkg-*/Makefile' | while IFS= read -r _makefile; do
 		grep -q 'bsd.freesense-package.mk' "${_makefile}" && continue
 		sed -i '' '/^\.include <bsd\.port.*\.mk>/i\
-.include <bsd.freesense-package.mk>\
+.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"\
 ' "${_makefile}"
 	done
 fi
