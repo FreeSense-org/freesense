@@ -24,6 +24,7 @@ case "${REPO_KIND:-system}" in
 	*) echo ">>> ERROR: REPO_KIND must be system or packages" >&2; exit 1 ;;
 esac
 _overlay="${OVERLAY_DIR:-${_default_overlay}}"
+_system_overlay="${FREESENSE_SYSTEM_OVERLAY_DIR:-/root/freesense-system-ports}"
 _ports="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
 
 if [ ! -d "${_overlay}" ]; then
@@ -36,17 +37,31 @@ if [ ! -d "${_ports}" ]; then
 fi
 
 echo -n ">>> FreeSense: overlaying ports from ${_overlay} onto ${_ports}... "
-# Walk every file in the overlay (excluding repo meta + .git), copy it to the same
-# relative path under the poudriere ports tree, creating parent dirs as needed.
-( cd "${_overlay}" && find . -type f \
-	! -path './.git/*' \
-	! -name 'PATCHES.md' ! -name 'README.md' ! -name '.gitattributes' \
-	-print ) | while IFS= read -r rel; do
-	rel=${rel#./}
-	_dst="${_ports}/${rel}"
-	mkdir -p "$(dirname "${_dst}")"
-	cp -f "${_overlay}/${rel}" "${_dst}"
-done
+# Optional packages reference a tiny set of system-owned support ports (most
+# importantly FreeSense-platform-abi).  Compose the two immutable inputs only
+# in the Poudriere tree: system definitions first, package definitions second.
+# The Git repositories and their published package repositories stay separate.
+copy_overlay()
+{
+	_source="$1"
+	( cd "${_source}" && find . -type f \
+		! -path './.git/*' \
+		! -name 'PATCHES.md' ! -name 'README.md' ! -name '.gitattributes' \
+		-print ) | while IFS= read -r rel; do
+		rel=${rel#./}
+		_dst="${_ports}/${rel}"
+		mkdir -p "$(dirname "${_dst}")"
+		cp -f "${_source}/${rel}" "${_dst}"
+	done
+}
+if [ "${REPO_KIND:-system}" = packages ]; then
+	[ -d "${_system_overlay}" ] || {
+		echo ">>> ERROR: package build support overlay not found at ${_system_overlay}" >&2
+		exit 1
+	}
+	copy_overlay "${_system_overlay}"
+fi
+copy_overlay "${_overlay}"
 
 # Optional-package ports include this framework directly.  Treat a missing
 # framework as an overlay failure here, before Poudriere turns it into dozens

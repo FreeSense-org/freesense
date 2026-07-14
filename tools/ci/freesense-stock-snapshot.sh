@@ -31,6 +31,7 @@ case "${REPO_KIND:-system}" in
 	*) echo ">>> snapshot: invalid REPO_KIND '${REPO_KIND}'" >&2; exit 1 ;;
 esac
 OVERLAY="${FREESENSE_OVERLAY_DIR:-${_default_overlay}}"
+SYSTEM_OVERLAY="${FREESENSE_SYSTEM_OVERLAY_DIR:-/root/freesense-system-ports}"
 REV="${FREESENSE_REV:-}"
 SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-$REV}"
 CHAN="${FREESENSE_CHANNEL:-main}"
@@ -93,11 +94,22 @@ say "FreeBSD ports repo = '${FBREPO:-<unnamed/all>}'; rust there = '$($RQ '%v' r
 # --- 2. must-build exclusion (overlay origins + curated extras) — never fetch these ------------
 EXCL=/tmp/ss-excl.lst
 ( cd "$OVERLAY" 2>/dev/null && find . -mindepth 2 -maxdepth 2 -type d 2>/dev/null | grep -v '/\.git' | sed 's,^\./,,' ) > "$EXCL" 2>/dev/null || : > "$EXCL"
+if [ "${REPO_KIND:-system}" = packages ] && [ -d "$SYSTEM_OVERLAY" ]; then
+	( cd "$SYSTEM_OVERLAY" && find . -mindepth 2 -maxdepth 2 -type d 2>/dev/null | grep -v '/\.git' | sed 's,^\./,,' ) >> "$EXCL"
+fi
 [ -f "$EXTRA" ] && grep -vE '^[[:space:]]*(#|$)' "$EXTRA" >> "$EXCL"
 sort -u "$EXCL" -o "$EXCL"
 say "exclusion (must-build) origins: $(wc -l < "$EXCL" | tr -d ' ')"
 
 # --- 3. FULL closure via poudriere dry-run (BULK = full list, set by the snapshot job) ---------
+# Poudriere may refresh/reset its ports tree after the initial create step. Reapply
+# the exact immutable overlays immediately before metadata resolution so package
+# framework/support files cannot disappear between provisioning and the dry-run.
+if ! REPO_KIND="${REPO_KIND:-system}" POUDRIERE_PORTS_NAME="$PORTS" \
+	OVERLAY_DIR="$OVERLAY" FREESENSE_SYSTEM_OVERLAY_DIR="$SYSTEM_OVERLAY" \
+	sh "$(dirname "$0")/freesense-ports-overlay.sh" >>"$DIAG" 2>&1; then
+	bail "could not reapply immutable overlays before closure resolution"
+fi
 NOUT=/tmp/ss-n.out
 if ! poudriere bulk -n -f "$BULK" -j "$JAIL" -p "$PORTS" > "$NOUT" 2>&1; then
 	say "=== failed poudriere bulk -n tail ==="
@@ -174,11 +186,19 @@ STAGE=/tmp/ss-stage; rm -rf "$STAGE"; mkdir -p "$STAGE"
 # allowed to reach upstream services. FreeSense's generated source tarball is a
 # per-build mutable input and is deliberately excluded from the epoch.
 FETCH_FAIL=/tmp/ss-fetch-fail; : > "$FETCH_FAIL"
+# System ports generate this archive from the separately pinned FreeSense source
+# at build time.  Seed a deterministic temporary copy so fetch-recursive can walk
+# through those dependencies without trying an intentionally absent MASTER_SITE.
+# It is removed before the epoch distfile archive because source.tar.zst is the
+# authoritative copy consumed by ordinary offline builds.
+GENERATED_SOURCE=/usr/ports/distfiles/freesense-src.tar.gz
+rm -f "$GENERATED_SOURCE"
+tar -czf "$GENERATED_SOURCE" -C /root freesense-src >>"$DIAG" 2>&1 \
+	|| bail "could not stage generated FreeSense source distfile"
 while read -r _origin; do
 	[ -n "${_origin}" ] || continue
 	_dir="${TREE}/${_origin}"
 	[ -d "${_dir}" ] || continue
-	grep -Rq 'freesense-src.tar.gz' "${_dir}" 2>/dev/null && continue
 	if ! env BATCH=yes DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
 		make -C "${_dir}" fetch-recursive >>"$DIAG" 2>&1; then
 		echo "${_origin}" >> "$FETCH_FAIL"
@@ -188,6 +208,7 @@ if [ -s "$FETCH_FAIL" ]; then
 	say "distfile fetch failures: $(tr '\n' ' ' < "$FETCH_FAIL")"
 	bail "offline epoch would be missing required distfiles"
 fi
+rm -f "$GENERATED_SOURCE"
 tar --zstd -cf "$STAGE/distfiles.tar.zst" -C /usr/ports/distfiles . >>"$DIAG" 2>&1 \
 	|| bail "failed to archive verified distfiles"
 say "distfiles.tar.zst: $(ls -l "$STAGE/distfiles.tar.zst" | awk '{print $5}') bytes"

@@ -28,6 +28,8 @@ jobs:
           sh -n build.sh
           sh -n tools/ci/freesense-localrepo.sh
           sh -n tools/ci/freesense-fetch-kernel.sh
+          sh -n tools/ci/freesense-ports-overlay.sh
+          sh -n tools/ci/freesense-stock-snapshot.sh
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
       - name: Reject committed secrets
         run: |
