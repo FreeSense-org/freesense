@@ -204,6 +204,12 @@ FETCH_MAKE_CONF="/usr/local/etc/poudriere.d/${PORTS}-make.conf"
 [ -s "$FETCH_MAKE_CONF" ] \
 	|| bail "missing Poudriere make.conf for verified distfile fetch: ${FETCH_MAKE_CONF}"
 say "distfile fetch make.conf=${FETCH_MAKE_CONF}"
+# A direct ports make still observes the producer's /usr/local and package DB.
+# Keep both empty so installed host ports (notably openssl) cannot invalidate a
+# source port configured for the clean Poudriere jail's base libraries.
+FETCH_ENV_ROOT=/tmp/ss-fetch-env
+rm -rf "$FETCH_ENV_ROOT"
+mkdir -p "$FETCH_ENV_ROOT/local" "$FETCH_ENV_ROOT/pkgdb" "$FETCH_ENV_ROOT/portdb"
 # EXCL is the exact overlay + option-divergent set; QUEUE is this worker's
 # Poudriere-resolved closure. Their intersection is therefore the source-build
 # set whose distfiles must be present when the epoch later disables networking.
@@ -217,7 +223,9 @@ while read -r _origin; do
 		echo "${_origin} (missing from pinned ports tree)" >> "$FETCH_FAIL"
 		continue
 	fi
-	if ! env __MAKE_CONF="$FETCH_MAKE_CONF" BATCH=yes \
+	if ! env __MAKE_CONF="$FETCH_MAKE_CONF" \
+		LOCALBASE="$FETCH_ENV_ROOT/local" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb" \
+		PORT_DBDIR="$FETCH_ENV_ROOT/portdb" BATCH=yes \
 		DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
 		make -C "${_dir}" NO_DEPENDS=yes fetch >>"$DIAG" 2>&1; then
 		echo "${_origin}" >> "$FETCH_FAIL"

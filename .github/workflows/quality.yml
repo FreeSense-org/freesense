@@ -31,7 +31,8 @@ jobs:
           sh -n tools/ci/freesense-ports-overlay.sh
           sh -n tools/ci/freesense-stock-snapshot.sh
           grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh
-          grep -Fq 'env __MAKE_CONF="$FETCH_MAKE_CONF" BATCH=yes' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'env __MAKE_CONF="$FETCH_MAKE_CONF"' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'LOCALBASE="$FETCH_ENV_ROOT/local" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb"' tools/ci/freesense-stock-snapshot.sh
           grep -Fq 'comm -12 "$QUEUE" "$EXCL" > "$SOURCE_FETCH"' tools/ci/freesense-stock-snapshot.sh
           grep -Fq 'make -C "${_dir}" NO_DEPENDS=yes fetch' tools/ci/freesense-stock-snapshot.sh
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
