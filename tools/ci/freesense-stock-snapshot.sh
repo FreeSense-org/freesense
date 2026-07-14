@@ -139,6 +139,13 @@ $RQ '%o|%n' 2>/dev/null | awk -F'|' 'NR==FNR{w[$0]=1;next} ($1 in w){print $2}' 
 say "stock pkgnames resolved from FreeBSD repo: $(wc -l < "$NAMES" | tr -d ' ')"
 [ -s "$NAMES" ] || bail "no stock pkgnames resolved (repo/name mismatch?)"
 xargs -L 250 pkg fetch -y ${FBREPO:+-r $FBREPO} < "$NAMES" >>"$DIAG" 2>&1 || true
+# Every shard and repository class must derive its ports-tree pin from the same
+# package. A closure-specific first file is not stable: system and optional
+# closures can start with binaries built at different points in the rolling
+# FreeBSD repository. Fetch the repository bootstrap explicitly even when a
+# particular closure did not depend on it.
+pkg fetch -y ${FBREPO:+-r $FBREPO} pkg >>"$DIAG" 2>&1 \
+	|| bail "could not fetch canonical pkg bootstrap for the ports pin"
 CACHE=$(pkg config PKG_CACHEDIR 2>/dev/null); CACHE="${CACHE:-/var/cache/pkg}"
 say "fetched .pkg in cache ($CACHE): $(find "$CACHE" -name '*.pkg' 2>/dev/null | wc -l | tr -d ' ')"
 
@@ -160,25 +167,22 @@ NSTOCK=$(ls "$BANKALL"/*.pkg 2>/dev/null | wc -l | tr -d ' ')
 say "staged ${NSTOCK} stock pkgs for the bank"
 [ "${NSTOCK:-0}" -gt 0 ] || bail "no stock pkgs staged — refusing to publish an empty snapshot"
 
-# --- 7. resolve the pin commit + FreeBSD_version from a FETCHED BINARY's manifest --------------
+# --- 7. resolve the shared pin from the canonical fetched pkg bootstrap ------------------------
 # AUTHORITATIVE: read the annotations off an actual fetched .pkg — this is the exact freebsd-ports
 # commit (and __FreeBSD_version) FreeBSD BUILT the binaries from. `pkg rquery` reads the CATALOG,
 # which routinely OMITS ports_top_git_hash (empirically empty), so the old resolver fell through to
 # the tree's git HEAD — which is NEWER than FreeBSD's build commit -> builds pinned to a too-new tree
 # -> the frozen binaries read as "new version" and got mass-rebuilt. `pkg query -F` reads the .pkg
-# file, not the catalog, so the annotation is always present.
-HASH=""; FBVER=""
-for _p in "$BANKALL"/*.pkg; do
-	[ -e "$_p" ] || continue
-	_ann=$(pkg query -F "$_p" '%Ak %Av' 2>/dev/null)
-	HASH=$(printf '%s\n' "$_ann" | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
-	FBVER=$(printf '%s\n' "$_ann" | awk '$1=="FreeBSD_version"{print $2; exit}')
-	[ -n "$HASH" ] && break
-done
-# fallbacks (rarely needed now): poudriere's tree hash, then git HEAD
-[ -n "$HASH" ] || HASH=$(cat "${LOGD}/.poudriere.git_hash" 2>/dev/null | tr -dc '0-9a-f')
-[ -n "$HASH" ] || HASH=$(git -C "$TREE" rev-parse HEAD 2>/dev/null | tr -dc '0-9a-f')
-say "pin ports_top_git_hash=${HASH:-<none>} FreeBSD_version=${FBVER:-<none>} (from fetched binary manifest)"
+# file, not the catalog. Using the exact pkg-* bootstrap avoids choosing a
+# closure-dependent first package whose annotation may name an older commit.
+PINPKG=$(ls "$BANKALL"/pkg-[0-9]*.pkg 2>/dev/null | sort | tail -1)
+[ -n "$PINPKG" ] || bail "canonical pkg bootstrap is absent from the staged stock bank"
+_ann=$(pkg query -F "$PINPKG" '%Ak %Av' 2>/dev/null)
+HASH=$(printf '%s\n' "$_ann" | awk '$1=="ports_top_git_hash"{print $2; exit}' | tr -dc '0-9a-f')
+FBVER=$(printf '%s\n' "$_ann" | awk '$1=="FreeBSD_version"{print $2; exit}')
+printf '%s' "$HASH" | grep -Eq '^[0-9a-f]{40}$' \
+	|| bail "canonical pkg bootstrap has no valid ports_top_git_hash annotation"
+say "pin ports_top_git_hash=$HASH FreeBSD_version=${FBVER:-<none>} (canonical $(basename "$PINPKG"))"
 
 # --- 8. build the artifacts: packages.tar + ports-src.tar.zst + meta ---------------------------
 STAGE=/tmp/ss-stage; rm -rf "$STAGE"; mkdir -p "$STAGE"

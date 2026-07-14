@@ -35,6 +35,9 @@ jobs:
           grep -Fq 'LOCALBASE="$FETCH_ENV_ROOT/local" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb"' tools/ci/freesense-stock-snapshot.sh
           grep -Fq 'comm -12 "$QUEUE" "$EXCL" > "$SOURCE_FETCH"' tools/ci/freesense-stock-snapshot.sh
           grep -Fq 'make -C "${_dir}" NO_DEPENDS=yes fetch' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'ls "$BANKALL"/pkg-[0-9]*.pkg' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'canonical pkg bootstrap has no valid ports_top_git_hash annotation' tools/ci/freesense-stock-snapshot.sh
+          ! grep -Fq 'for _p in "$BANKALL"/*.pkg' tools/ci/freesense-stock-snapshot.sh
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
       - name: Reject committed secrets
         run: |
