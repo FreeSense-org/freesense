@@ -2861,7 +2861,19 @@ EOF
 			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-system-ports}" \
 			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
 			FREESENSE_SNAPSHOT_WORKER_ID="${FREESENSE_SNAPSHOT_WORKER_ID:-}" FREESENSE_SNAPSHOT_WORKER_COUNT="${FREESENSE_SNAPSHOT_WORKER_COUNT:-0}" \
-				sh ${_snapshot_program} || { echo ">>> stock-snapshot failed; refusing to continue"; return 1; }
+				sh ${_snapshot_program} || {
+					echo ">>> stock-snapshot failed; refusing to continue" | tee -a ${LOGFILE}
+					_snapshot_diag=/tmp/stock-snapshot.diag
+					[ -n "${FREESENSE_SNAPSHOT_MERGE:-}" ] && _snapshot_diag=/tmp/stock-snapshot-merge.diag
+					if [ -s "${_snapshot_diag}" ]; then
+						{
+							echo ">>> stock-snapshot diagnostic tail"
+							tail -200 "${_snapshot_diag}"
+							echo ">>> end stock-snapshot diagnostic tail"
+						} | tee -a ${LOGFILE}
+					fi
+					return 1
+				}
 			return 0
 		fi
 
