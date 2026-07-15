@@ -32,7 +32,9 @@ jobs:
           sh -n tools/ci/freesense-stock-snapshot.sh
           grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh
           grep -Fq 'env __MAKE_CONF="$FETCH_MAKE_CONF"' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'LOCALBASE="$FETCH_ENV_ROOT/local" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb"' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq -- "-name 'go[0-9][0-9][0-9]-*.pkg'" tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'tar -xf "${_go_pkg}" -C "$FETCH_ENV_ROOT"' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'LOCALBASE="$FETCH_LOCALBASE" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb"' tools/ci/freesense-stock-snapshot.sh
           grep -Fq '[ -f "$TREE/${_origin}/Makefile" ]' tools/ci/freesense-stock-snapshot.sh
           grep -Fq 'cp "$QUEUE" "$SOURCE_FETCH"' tools/ci/freesense-stock-snapshot.sh
           grep -Fq 'make -C "${_dir}" NO_DEPENDS=yes fetch' tools/ci/freesense-stock-snapshot.sh

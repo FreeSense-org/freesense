@@ -229,7 +229,26 @@ say "distfile fetch make.conf=${FETCH_MAKE_CONF}"
 # source port configured for the clean Poudriere jail's base libraries.
 FETCH_ENV_ROOT=/tmp/ss-fetch-env
 rm -rf "$FETCH_ENV_ROOT"
-mkdir -p "$FETCH_ENV_ROOT/local" "$FETCH_ENV_ROOT/pkgdb" "$FETCH_ENV_ROOT/portdb"
+FETCH_LOCALBASE="$FETCH_ENV_ROOT/usr/local"
+mkdir -p "$FETCH_LOCALBASE" "$FETCH_ENV_ROOT/pkgdb" "$FETCH_ENV_ROOT/portdb"
+# USES=go:modules runs `go mod download` from the fetch target. NO_DEPENDS keeps
+# the host package database from influencing the frozen closure, so expose the
+# already-fetched stock Go toolchains inside this isolated LOCALBASE instead.
+# Extracting package payloads (without registering or running package scripts)
+# is sufficient for the self-contained Go distributions and remains pinned to
+# the same FreeBSD repository bytes banked above.
+GO_FETCH_PKGS=/tmp/ss-go-fetch-pkgs.lst
+find "$BANKALL" -maxdepth 1 -type f -name 'go[0-9][0-9][0-9]-*.pkg' 2>/dev/null | sort > "$GO_FETCH_PKGS"
+while IFS= read -r _go_pkg; do
+	[ -n "${_go_pkg}" ] || continue
+	_go_name=$(basename "${_go_pkg}" | sed -E 's/-[0-9].*$//')
+	if ! tar -xf "${_go_pkg}" -C "$FETCH_ENV_ROOT" >>"$DIAG" 2>&1; then
+		bail "could not extract isolated ${_go_name} fetch toolchain"
+	fi
+	[ -x "$FETCH_LOCALBASE/bin/${_go_name}" ] \
+		|| bail "isolated ${_go_name} package has no executable fetch tool"
+done < "$GO_FETCH_PKGS"
+say "isolated Go fetch toolchains: $(wc -l < "$GO_FETCH_PKGS" | tr -d ' ')"
 # A stock package is only an optimisation: Poudriere may reject it when the
 # frozen package repository lags the pinned ports tree, its options differ, or
 # an archive entry is absent. Any origin in the resolved closure can therefore
@@ -246,7 +265,7 @@ while read -r _origin; do
 		continue
 	fi
 	if ! env __MAKE_CONF="$FETCH_MAKE_CONF" \
-		LOCALBASE="$FETCH_ENV_ROOT/local" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb" \
+		LOCALBASE="$FETCH_LOCALBASE" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb" \
 		PORT_DBDIR="$FETCH_ENV_ROOT/portdb" BATCH=yes \
 		DISABLE_VULNERABILITIES=yes DISTDIR=/usr/ports/distfiles \
 		make -C "${_dir}" NO_DEPENDS=yes fetch >>"$DIAG" 2>&1; then
