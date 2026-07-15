@@ -217,12 +217,14 @@ say "distfile fetch make.conf=${FETCH_MAKE_CONF}"
 FETCH_ENV_ROOT=/tmp/ss-fetch-env
 rm -rf "$FETCH_ENV_ROOT"
 mkdir -p "$FETCH_ENV_ROOT/local" "$FETCH_ENV_ROOT/pkgdb" "$FETCH_ENV_ROOT/portdb"
-# EXCL is the exact overlay + option-divergent set; QUEUE is this worker's
-# Poudriere-resolved closure. Their intersection is therefore the source-build
-# set whose distfiles must be present when the epoch later disables networking.
+# A stock package is only an optimisation: Poudriere may reject it when the
+# frozen package repository lags the pinned ports tree, its options differ, or
+# an archive entry is absent. Any origin in the resolved closure can therefore
+# fall back to a source build. Fetch the complete closure so the sealed epoch
+# remains valid when consumers physically disable networking.
 SOURCE_FETCH=/tmp/ss-source-fetch.lst
-comm -12 "$QUEUE" "$EXCL" > "$SOURCE_FETCH"
-say "source-build origins requiring distfiles: $(wc -l < "$SOURCE_FETCH" | tr -d ' ')"
+cp "$QUEUE" "$SOURCE_FETCH"
+say "offline fallback origins requiring distfiles: $(wc -l < "$SOURCE_FETCH" | tr -d ' ')"
 while read -r _origin; do
 	[ -n "${_origin}" ] || continue
 	_dir="${TREE}/${_origin}"
