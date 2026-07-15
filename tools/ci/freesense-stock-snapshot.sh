@@ -122,9 +122,22 @@ RAW=/tmp/ss-raw; : > "$RAW"
 for f in "$LOGD/.poudriere.ports.queued" "$LOGD/.poudriere.all_pkgs" "$LOGD/.data.json"; do
 	[ -f "$f" ] && cat "$f" >> "$RAW"
 done
+CANDIDATES=/tmp/ss-candidates.lst
 QUEUE=/tmp/ss-queue.lst
-{ cat "$RAW" 2>/dev/null; cat "$NOUT"; } | grep -oE '[a-z][a-z0-9_-]*/[A-Za-z0-9._+-]+' | sort -u > "$QUEUE"
+REJECTED=/tmp/ss-rejected.lst
+{ cat "$RAW" 2>/dev/null; cat "$NOUT"; } | grep -oE '[a-z][a-z0-9_-]*/[A-Za-z0-9._+-]+' | sort -u > "$CANDIDATES"
+: > "$QUEUE"
+: > "$REJECTED"
+while IFS= read -r _origin; do
+	[ -n "${_origin}" ] || continue
+	if [ -f "$TREE/${_origin}/Makefile" ]; then
+		echo "${_origin}" >> "$QUEUE"
+	else
+		echo "${_origin}" >> "$REJECTED"
+	fi
+done < "$CANDIDATES"
 say "closure origins parsed: $(wc -l < "$QUEUE" | tr -d ' ')"
+say "non-origin path tokens rejected: $(wc -l < "$REJECTED" | tr -d ' ')"
 [ -s "$QUEUE" ] || bail "could not parse the build closure from poudriere -n"
 
 # --- 4. stock = closure - exclusion (never fetch FreeSense-*/pfSense-*) ------------------------
