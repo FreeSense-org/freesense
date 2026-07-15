@@ -32,27 +32,6 @@
 # Env in: FREESENSE_JAIL_NAME FREESENSE_PORTS_NAME FREESENSE_REV FREESENSE_CHANNEL
 set -u
 
-# A normal build epoch runs with guest networking disabled. The producer has
-# already resolved and fetched the stock closure, so seed those signed bytes
-# directly instead of consulting R2 or pkg.freebsd.org.
-if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
-	case "${REPO_KIND:-system}" in
-		system) _epoch_stock="${FREESENSE_EPOCH_SYSTEM_STOCK:-/root/epoch/stock-system-packages.tar}" ;;
-		packages) _epoch_stock="${FREESENSE_EPOCH_PACKAGE_STOCK:-/root/epoch/stock-optional-packages.tar}" ;;
-		*) echo ">>> lean-seed: invalid REPO_KIND '${REPO_KIND:-}'" >&2; exit 1 ;;
-	esac
-	[ -s "${_epoch_stock}" ] || { echo ">>> lean-seed: missing offline stock archive ${_epoch_stock}" >&2; exit 1; }
-	PKGTOP="/usr/local/poudriere/data/packages/${FREESENSE_JAIL_NAME:-FreeSense_main_amd64}-${FREESENSE_PORTS_NAME:-FreeSense_main}"
-	REAL="${PKGTOP}/.real_cache"
-	mkdir -p "${REAL}/All"
-	tar -xf "${_epoch_stock}" -C "${REAL}/All"
-	if ls "${REAL}/All"/*.pkg >/dev/null 2>&1; then
-		pkg repo "${REAL}" >/dev/null
-	fi
-	ln -sfn .real_cache "${PKGTOP}/.latest"
-	echo ">>> lean-seed: offline epoch ${FREESENSE_EPOCH_ID:-unknown} seeded $(find "${REAL}/All" -name '*.pkg' | wc -l | tr -d ' ') stock packages"
-	return 0 2>/dev/null || exit 0
-fi
 JAIL="${FREESENSE_JAIL_NAME:-}"
 PORTS="${FREESENSE_PORTS_NAME:-}"
 REV="${FREESENSE_REV:-}"
@@ -60,7 +39,7 @@ SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-$REV}"
 # channel (main=devel, RELENG_1_0=stable). Keys the frozen snapshot per channel so devel (rolling)
 # and stable (frozen on an older rev, possibly the SAME rev with different options) never collide.
 CHAN="${FREESENSE_CHANNEL:-main}"
-PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
+PKGTOP="/usr/local/poudriere/data/packages/${JAIL:-FreeSense_main_amd64}-${PORTS:-FreeSense_main}"
 # poudriere ATOMIC repo layout (verified against poudriere common.sh stash_packages:3248 /
 # commit_packages:3293 / convert_repository:3199):
 #   .real_<n>/            REAL dir holding the repo (All/, Latest/, catalog files)
@@ -73,7 +52,9 @@ PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
 #   run 29113843117: seed in .real_cache but NO Latest/pkg.pkg inside it -> the .building
 #     clone had no bootstrap -> ensure_pkg_installed() fails -> "pkg bootstrap missing:
 #     unable to inspect existing packages, cleaning all packages" -> ENTIRE seed wiped ->
-#     full from-source rebuild incl lang/rust (~4h).
+#     full from-source rebuild incl lang/rust (~4h). Offline epoch path re-hit this on
+#     2026-07-15 (runs 29421043596 / 29423566026): stock seeded then wiped, rebuild of
+#     ports-mgmt/pkg offline fails -> print_error_pfS -> rc=143.
 #   run 29130633234: seeded REAL All/meta/meta.conf at the TOP level -> commit_packages'
 #     relink loop hits them ("meta shadows repository file in .latest/meta") and unlink(2)
 #     on the real All/ dir returns EPERM ("Operation not permitted") -> set -e -> the whole
@@ -81,6 +62,72 @@ PKGTOP="/usr/local/poudriere/data/packages/${JAIL}-${PORTS}"
 # Correct recipe: REAL files go in .real_cache (our stable .real_<n>), .latest -> .real_cache,
 # Latest/pkg.pkg lives INSIDE .real_cache, and the top level stays symlink-only.
 REPODIR="${PKGTOP}/.real_cache"
+
+# Finalize a seeded .real_cache so poudriere bulk will REUSE it (shared by online + offline).
+lean_seed_finalize_repo() {
+	# --- BOOTSTRAP: Latest/pkg.pkg INSIDE the real dir (see run 29113843117) -------------
+	PKGBOOT="$(ls "$REPODIR/All"/pkg-[0-9]*.pkg 2>/dev/null | sort -V | tail -1)"
+	if [ -n "$PKGBOOT" ]; then
+		mkdir -p "$REPODIR/Latest"
+		ln -sf "../All/$(basename "$PKGBOOT")" "$REPODIR/Latest/pkg.pkg"
+		ln -sf "../All/$(basename "$PKGBOOT")" "$REPODIR/Latest/pkg.txz"
+		echo ">>> lean-seed: bootstrap Latest/pkg.pkg -> All/$(basename "$PKGBOOT")"
+	else
+		echo ">>> lean-seed: WARN no pkg-*.pkg in seed -> poudriere may wipe (bootstrap link not created)"
+	fi
+
+	rm -f "$REPODIR"/packagesite.* "$REPODIR"/meta.* "$REPODIR"/data.* 2>/dev/null || true
+	pkg repo "$REPODIR/" >/dev/null 2>&1 || echo ">>> lean-seed: WARN pkg repo regen failed (reuse degraded)"
+
+	ln -sfn .real_cache "$PKGTOP/.latest"
+	for _e in All Latest meta meta.conf meta.txz packagesite.pkg packagesite.txz data.pkg data.txz digests.pkg; do
+		if [ -e "$PKGTOP/$_e" ] && [ ! -L "$PKGTOP/$_e" ]; then
+			echo ">>> lean-seed: removing REAL top-level ${_e} (must be symlink-only)"
+			rm -rf "$PKGTOP/${_e:?}"
+		fi
+	done
+	ln -sfn .latest/All    "$PKGTOP/All"
+	ln -sfn .latest/Latest "$PKGTOP/Latest"
+
+	# Stamp .jailversion so poudriere does not false-positive wipe the seed.
+	POUD_ETC="${POUDRIERED:-/usr/local/etc/poudriere.d}"
+	_jv=""
+	_jail="${JAIL:-${FREESENSE_JAIL_NAME:-FreeSense_main_amd64}}"
+	for jf in "$POUD_ETC/jails/$_jail/version" /usr/local/etc/poudriere.d/jails/"$_jail"/version; do
+		[ -r "$jf" ] && { _jv="$(cat "$jf" 2>/dev/null)"; break; }
+	done
+	[ -n "$_jv" ] || _jv="$(poudriere jail -i -j "$_jail" 2>/dev/null | sed -n 's/^Version: *//p' | head -1)"
+	if [ -n "$_jv" ]; then
+		printf '%s\n' "$_jv" > "$REPODIR/.jailversion"
+		[ -e "$PKGTOP/.jailversion" ] && printf '%s\n' "$_jv" > "$PKGTOP/.jailversion" 2>/dev/null || true
+		echo ">>> lean-seed: stamped .jailversion=$_jv (jail $_jail)"
+	else
+		rm -f "$REPODIR/.jailversion" "$PKGTOP/.jailversion" 2>/dev/null || true
+		echo ">>> lean-seed: WARN could not read jail version -> removed stale .jailversion"
+	fi
+}
+
+# A normal build epoch runs with guest networking disabled. The producer has
+# already resolved and fetched the stock closure, so seed those signed bytes
+# directly instead of consulting R2 or pkg.freebsd.org.
+# MUST apply the same Latest/pkg.pkg + symlink-only top-level recipe as the online
+# path, or poudriere prints "pkg bootstrap missing... cleaning all packages" and
+# rebuilds stock from source offline (which then fails without distfiles).
+if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
+	case "${REPO_KIND:-system}" in
+		system) _epoch_stock="${FREESENSE_EPOCH_SYSTEM_STOCK:-/root/epoch/stock-system-packages.tar}" ;;
+		packages) _epoch_stock="${FREESENSE_EPOCH_PACKAGE_STOCK:-/root/epoch/stock-optional-packages.tar}" ;;
+		*) echo ">>> lean-seed: invalid REPO_KIND '${REPO_KIND:-}'" >&2; exit 1 ;;
+	esac
+	[ -s "${_epoch_stock}" ] || { echo ">>> lean-seed: missing offline stock archive ${_epoch_stock}" >&2; exit 1; }
+	mkdir -p "${REPODIR}/All"
+	tar -xf "${_epoch_stock}" -C "${REPODIR}/All"
+	_n="$(find "${REPODIR}/All" -name '*.pkg' 2>/dev/null | wc -l | tr -d ' ')"
+	echo ">>> lean-seed: offline epoch ${FREESENSE_EPOCH_ID:-unknown} extracted ${_n} stock packages"
+	lean_seed_finalize_repo
+	echo ">>> lean-seed: offline epoch ${FREESENSE_EPOCH_ID:-unknown} finalized for poudriere reuse"
+	return 0 2>/dev/null || exit 0
+fi
 SNAPDIR="R2:freesense-pkg/ports-cache/stock/${CHAN}/${SNAPSHOT_ID}"
 
 DIAG=/tmp/lean-seed.diag; : > "$DIAG"
@@ -138,75 +185,7 @@ fi
 rm -f /tmp/packages.tar
 say "repo now holds $(ls "$REPODIR/All"/*.pkg 2>/dev/null | wc -l | tr -d ' ') pkgs after frozen stock seed"
 
-# --- BOOTSTRAP: Latest/pkg.pkg INSIDE the real dir, so the .building clone can bootstrap pkg ----
-# ensure_pkg_installed() (common.sh:7312) reads ${PACKAGES}/Latest/pkg.pkg (PACKAGES = the .building
-# clone of .latest). If unreadable -> delete_all_pkgs "pkg bootstrap missing" -> the ENTIRE seed is
-# wiped (proven run 29113843117 -> full from-source rebuild incl rust). The frozen tar ships
-# pkg-<ver>.pkg in All/ but NO Latest/ dir, so build the link here, INSIDE ${REPODIR} where the
-# clone picks it up. Relative symlink = exactly what poudriere itself creates.
-PKGBOOT="$(ls "$REPODIR/All"/pkg-[0-9]*.pkg 2>/dev/null | sort -V | tail -1)"
-if [ -n "$PKGBOOT" ]; then
-	mkdir -p "$REPODIR/Latest"
-	ln -sf "../All/$(basename "$PKGBOOT")" "$REPODIR/Latest/pkg.pkg"
-	ln -sf "../All/$(basename "$PKGBOOT")" "$REPODIR/Latest/pkg.txz"
-	say "bootstrap: Latest/pkg.pkg -> All/$(basename "$PKGBOOT")"
-else
-	say "WARN no pkg-*.pkg in seed -> poudriere may still wipe (bootstrap link not created)"
-fi
-
-# regenerate the catalog from the seeded All/ — INSIDE the real dir (real catalog files at the
-# PKGTOP top level are fatal at commit time, see layout note above)
-rm -f "$REPODIR"/packagesite.* "$REPODIR"/meta.* "$REPODIR"/data.* 2>/dev/null || true
-pkg repo "$REPODIR/" >/dev/null 2>&1 || say "WARN pkg repo regen failed (reuse degraded)"
-
-# --- top-level hygiene: .latest -> .real_cache; top level = SYMLINKS ONLY ----------------------
-# stash_packages keys off `[ -L ${PACKAGES}/.latest ]` and clones ITS target; commit_packages'
-# relink loop unlinks top-level entries to re-link them into the new .real_<n> — unlink(2) on a
-# REAL directory returns EPERM and kills the build after all ports built (run 29130633234). So:
-# remove any REAL (non-symlink) top-level entry defensively, then create the canonical symlinks.
-ln -sfn .real_cache "$PKGTOP/.latest"
-for _e in All Latest meta meta.conf meta.txz packagesite.pkg packagesite.txz data.pkg data.txz digests.pkg; do
-	if [ -e "$PKGTOP/$_e" ] && [ ! -L "$PKGTOP/$_e" ]; then
-		say "removing REAL top-level ${_e} (would be fatal at commit; real copy lives in .real_cache)"
-		rm -rf "$PKGTOP/${_e:?}"
-	fi
-done
-ln -sfn .latest/All    "$PKGTOP/All"
-ln -sfn .latest/Latest "$PKGTOP/Latest"
-
-# --- stamp .jailversion so poudriere does NOT wipe the freshly-seeded cache -------------------
-# poudriere's prepare_ports() (common.sh ~10301) reads ${PACKAGES}/.jailversion and, if it exists
-# but != `jget ${JAILNAME} version`, runs delete_all_pkgs "newer version of jail" — nuking every
-# seed we just laid down. The R2 cache-restore ships an OLD .jailversion, and the jail here is
-# freshly created from THIS rev's base seed, so the strings differ -> false-positive wipe. In our
-# model the jail (base-<rev>.txz) and the stock binaries (stock/<chan>/<rev>) come from the SAME
-# pinned rev, so they ARE ABI-consistent by construction; the version-string mismatch is spurious.
-# Overwrite .jailversion to the jail's current version so the check passes (do NOT delete it — an
-# absent file skips the check, but a stale restored one would still fire). If we can't read the
-# jail version, remove the stale file (skip-the-check) rather than leave a mismatching one.
-# NB: the "pkg bootstrap missing" wipe is a SEPARATE, independent failure (NOT a consequence of a
-# jailversion wipe, as an earlier comment wrongly claimed). Run 29113843117 proved it: the jailversion
-# stamp fired correctly (no "newer version of jail" line) yet poudriere STILL wiped with "pkg bootstrap
-# missing" — because the seed had been written to .real_cache (which poudriere never reads) with no
-# Latest/pkg.pkg. Fixed above by creating the Latest/pkg.pkg bootstrap link INSIDE ${REPODIR}
-# (.real_cache), where stash_packages' .building clone picks it up.
-# poudriere stores the jail's version string at ${POUDRIERED}/jails/<jail>/version and compares
-# EXACTLY that (`jget ${JAILNAME} version`, common.sh:10306). Read the same file so our stamp is
-# byte-identical to what the check reads. POUDRIERED defaults to <etc>/poudriere.d; on a standard
-# install that is /usr/local/etc/poudriere.d. Fall back to `poudriere jail -i` if the layout differs.
-POUD_ETC="${POUDRIERED:-/usr/local/etc/poudriere.d}"
-JV=""
-for jf in "$POUD_ETC/jails/$JAIL/version" /usr/local/etc/poudriere.d/jails/"$JAIL"/version; do
-	[ -r "$jf" ] && { JV="$(cat "$jf" 2>/dev/null)"; break; }
-done
-[ -n "$JV" ] || JV="$(poudriere jail -i -j "$JAIL" 2>/dev/null | sed -n 's/^Version: *//p' | head -1)"
-if [ -n "$JV" ]; then
-	printf '%s\n' "$JV" > "$REPODIR/.jailversion"
-	[ -e "$PKGTOP/.jailversion" ] && printf '%s\n' "$JV" > "$PKGTOP/.jailversion" 2>/dev/null || true
-	say "stamped .jailversion=$JV (matches jail $JAIL -> no false-positive cache wipe)"
-else
-	rm -f "$REPODIR/.jailversion" "$PKGTOP/.jailversion" 2>/dev/null || true
-	say "WARN could not read jail version -> removed stale .jailversion (poudriere skips the check)"
-fi
+# Same finalize as the offline epoch path (Latest/pkg.pkg + symlink top-level + jailversion).
+lean_seed_finalize_repo
 
 say "DONE (frozen) — poudriere bulk will REUSE the frozen stock and build only custom/patched"
