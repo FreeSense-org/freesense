@@ -33,6 +33,7 @@ usage() {
 	echo "		--rsync-snapshots - rsync snapshots images and pkg repos"
 	echo "		--clean-builder - clean all builder used data/resources"
 	echo "		--build-kernels - build all configured kernels"
+	echo "		--assemble-iso - assemble an ISO only from sealed base/system repositories"
 	echo "		--build-kernel argument - build specified kernel. Example --build-kernel KERNEL_NAME"
 	echo "		--install-extra-kernels argument - Put extra kernel(s) under /kernel image directory. Example --install-extra-kernels KERNEL_NAME_WRAP"
 	echo "		--snapshots - Build snapshots"
@@ -97,6 +98,12 @@ while test "$1" != ""; do
 			# FreeSense: build ONLY the OS base + kernel core packages (world+kernel),
 			# no poudriere ports and no ISO. For the GitHub base-build workflow.
 			BUILDACTION="build_core"
+			;;
+		--assemble-iso)
+			# Compile-free path. All world, kernel, rc, installer binaries, and
+			# system packages must already exist in authenticated repositories.
+			BUILDACTION="assemble_iso"
+			IMAGETYPE="iso"
 			;;
 		--install-extra-kernels)
 			shift
@@ -282,6 +289,10 @@ case $BUILDACTION in
 		core_pkg_create_repo
 		echo ">>> FreeSense: core OS packages built:"
 		ls -1 ${CORE_PKG_ALL_PATH}/ 2>/dev/null | grep -iE 'FreeSense-(base|boot|kernel|rc)-' || true
+	;;
+	assemble_iso)
+		. ${BUILDER_TOOLS}/ci/freesense-assemble-iso.sh
+		assemble_iso_from_seals
 	;;
 	*)
 		usage
