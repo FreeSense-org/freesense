@@ -1440,10 +1440,9 @@ setup_pkg_repo() {
 	fi
 }
 
-# FreeSense: write the public channel manifest and seed the per-branch repo confs
-# into the image, so System > Update's branch selector is populated out of the box
-# (even offline). FreeSense-repoc refreshes these from pkg.freesense.org at runtime.
-# The box's OWN channel is marked default so an un-chosen box upgrades in-channel.
+# Bake the exact system repository used for this image.  At runtime repoc replaces
+# this trusted local seed with the signed v3 channel document.  URLs are immutable;
+# no branch or date-derived path is reconstructed by the box.
 stage_repo_channels() {
 	local _root="${1}"
 	local _share="${_root}${PRODUCT_SHARE_DIR}"
@@ -1456,51 +1455,57 @@ stage_repo_channels() {
 	[ -n "${_abi}" ] || _abi="FreeBSD:16:${TARGET_ARCH}"
 	[ -n "${_altabi}" ] || _altabi="freebsd:16:x86:64"
 
-	mkdir -p "${_share}" "${_repos}"
-	# Schema 2 binds each OS channel to an independently published optional
-	# package train. PRODUCT_VERSION is the only normal source of the train.
-	local _server_devel="${PKG_REPO_SERVER_DEVEL#pkg+}"
-	local _server_release="${PKG_REPO_SERVER_RELEASE#pkg+}"
+	[ -n "${FREESENSE_SYSTEM_REPO_URL:-}" ] || {
+		echo ">>> ERROR: FREESENSE_SYSTEM_REPO_URL is required"
+		print_error_pfS
+	}
+	case "${FREESENSE_SYSTEM_REPO_URL}" in
+	https://pkg.freesense.org/v1/artifacts/system/*/amd64) : ;;
+	*) echo ">>> ERROR: invalid immutable system repository URL"; print_error_pfS ;;
+	esac
+	if [ -n "${FREESENSE_PACKAGES_REPO_URL:-}" ]; then
+		case "${FREESENSE_PACKAGES_REPO_URL}" in
+		https://pkg.freesense.org/v1/artifacts/packages/${FREESENSE_PACKAGE_TRAIN}/*/amd64) : ;;
+		*) echo ">>> ERROR: invalid immutable optional-package repository URL"; print_error_pfS ;;
+		esac
+	fi
+
+	mkdir -p "${_share}" "${_repos}" "${_share}/keys/channel"
+	[ -r "${FREESENSE_CHANNEL_PUBLIC_KEY_FILE:-}" ] || {
+		echo ">>> ERROR: FREESENSE_CHANNEL_PUBLIC_KEY_FILE is required"
+		print_error_pfS
+	}
+	cp -f "${FREESENSE_CHANNEL_PUBLIC_KEY_FILE}" "${_share}/keys/channel/public.pem"
 	cat > "${_share}/repos.manifest.json" <<EOF
 {
-  "schema": 2,
-  "channels": [
-    {
-      "name": "${FREESENSE_PACKAGE_TRAIN}",
-      "description": "Latest stable version (${FREESENSE_PACKAGE_TRAIN}.x)",
-      "server": "${_server_release}",
-      "system_channel": "${FREESENSE_PACKAGE_TRAIN}",
-      "package_train": "${FREESENSE_PACKAGE_TRAIN}",
-      "abi": "${_abi}",
-      "altabi": "${_altabi}",
-      "default": true
-    },
-    {
+  "schema_version": "freesense.channels/v1",
+  "channels": {
+    "devel": {
       "name": "devel",
       "description": "Development version",
-      "server": "${_server_devel}",
-      "system_channel": "devel",
       "package_train": "${FREESENSE_PACKAGE_TRAIN}",
       "abi": "${_abi}",
       "altabi": "${_altabi}",
-      "default": false
-    }$(if [ -n "${FREESENSE_CANDIDATE_ID:-}" ]; then cat <<CANDIDATE
+      "default": true,
+      "system": {
+        "fingerprint": "${FREESENSE_SYSTEM_FINGERPRINT:-0000000000000000000000000000000000000000000000000000000000000000}",
+        "url": "${FREESENSE_SYSTEM_REPO_URL}",
+        "generation": ${PRODUCT_REVISION:-1},
+        "published_at": "1970-01-01T00:00:00Z",
+        "verified": false
+      }$(if [ -n "${FREESENSE_PACKAGES_REPO_URL:-}" ]; then cat <<PACKAGES
 ,
-    {
-      "name": "candidate",
-      "description": "RC Preview (${FREESENSE_CANDIDATE_ID}) - not for production",
-      "server": "${_server_release%/}/candidates/${FREESENSE_CANDIDATE_ID}",
-      "system_server": "${_server_release%/}/candidates/${FREESENSE_CANDIDATE_ID}",
-      "packages_server": "${_server_release}",
-      "system_channel": "${FREESENSE_PACKAGE_TRAIN}",
-      "package_train": "${FREESENSE_PACKAGE_TRAIN}",
-      "abi": "${_abi}",
-      "altabi": "${_altabi}",
-      "default": false
-    }
-CANDIDATE
+      "packages": {
+        "fingerprint": "${FREESENSE_PACKAGES_FINGERPRINT:-0000000000000000000000000000000000000000000000000000000000000000}",
+        "url": "${FREESENSE_PACKAGES_REPO_URL}",
+        "generation": ${PRODUCT_REVISION:-1},
+        "published_at": "1970-01-01T00:00:00Z",
+        "verified": false
+      }
+PACKAGES
 fi)
-  ]
+    }
+  }
 }
 EOF
 
@@ -1524,16 +1529,8 @@ EOF
 		echo ">>> WARNING: FreeSense-repoc not found at ${_repoc}; branch selector will seed at runtime only"
 	fi
 
-	# Pin the box's OWN channel as default (devel images track devel; release images
-	# track the release branch), overriding the manifest's global default.
 	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null
-	if [ -n "${FREESENSE_CANDIDATE_ID:-}" ]; then
-		: > "${_repos}/${PRODUCT_NAME}-repo-candidate.default"
-	elif [ -n "${_IS_RELEASE}" ]; then
-		: > "${_repos}/${PRODUCT_NAME}-repo-${FREESENSE_PACKAGE_TRAIN}.default"
-	else
-		: > "${_repos}/${PRODUCT_NAME}-repo-devel.default"
-	fi
+	: > "${_repos}/${PRODUCT_NAME}-repo-devel.default"
 }
 
 depend_check() {
@@ -1598,15 +1595,7 @@ update_freebsd_sources() {
 		# it currently points at a different remote (e.g. the old fork).
 		. ${FREEBSD_SRC_PATCHES_DIR}/manifest.env
 		echo ">>> Obtaining stock FreeBSD sources (${UPSTREAM_REF}) + FreeSense change-set..."
-		if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
-			_epoch_src="${FREESENSE_EPOCH_SOURCE_ARCHIVE:-/root/epoch/freebsd-src.tar.zst}"
-			[ -s "${_epoch_src}" ] || { echo ">>> ERROR: missing epoch FreeBSD source ${_epoch_src}"; print_error_pfS; }
-			rm -rf "${FREEBSD_SRC_DIR}"
-			mkdir -p "${FREEBSD_SRC_DIR}"
-			tar --zstd --strip-components 1 -xf "${_epoch_src}" -C "${FREEBSD_SRC_DIR}"
-			[ "$(git -C "${FREEBSD_SRC_DIR}" rev-parse HEAD 2>/dev/null)" = "${UPSTREAM_REF}" ] \
-				|| { echo ">>> ERROR: epoch source does not match ${UPSTREAM_REF}"; print_error_pfS; }
-		elif [ -d "${FREEBSD_SRC_DIR}/.git" ] && \
+		if [ -d "${FREEBSD_SRC_DIR}/.git" ] && \
 		   [ "$(git -C ${FREEBSD_SRC_DIR} config --get remote.origin.url 2>/dev/null)" = "${UPSTREAM_URL}" ]; then
 			git -C ${FREEBSD_SRC_DIR} reset -q --hard
 			git -C ${FREEBSD_SRC_DIR} clean -qfd
@@ -1616,7 +1605,7 @@ update_freebsd_sources() {
 			git -C ${FREEBSD_SRC_DIR} init -q
 			git -C ${FREEBSD_SRC_DIR} remote add origin ${UPSTREAM_URL}
 		fi
-		if [ -z "${FREESENSE_EPOCH_OFFLINE:-}" ] && ! git -C ${FREEBSD_SRC_DIR} cat-file -e "${UPSTREAM_REF}^{commit}" 2>/dev/null; then
+		if ! git -C ${FREEBSD_SRC_DIR} cat-file -e "${UPSTREAM_REF}^{commit}" 2>/dev/null; then
 			git -C ${FREEBSD_SRC_DIR} fetch -q --depth 1 origin ${UPSTREAM_REF} \
 				|| git -C ${FREEBSD_SRC_DIR} fetch -q origin ${UPSTREAM_REF}
 		fi
@@ -2233,14 +2222,11 @@ poudriere_pin_ports_tree() {
 	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
 	local _repo _commit _chan _curr _pinsrc _pf _snapshot_id _checkout_ok
 	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
-	# Offline epochs carry the exact ports commit and complete git object in the
-	# verified ports archive. Never contact origin while the build VM is isolated.
-	if [ -n "${FREESENSE_EPOCH_PORTS_SHA:-}" ]; then
-		_commit="${FREESENSE_EPOCH_PORTS_SHA}"
-		_pinsrc="build epoch ${FREESENSE_EPOCH_ID:-producer}"
-	elif [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
-		echo ">>> ERROR: offline epoch has no ports SHA"
-		print_error_pfS
+	# The build lock is authoritative.  Do not infer a ports revision from a
+	# package mirror, timestamp, cache, or whatever happens to be at branch HEAD.
+	if echo "${FREESENSE_PORTS_COMMIT:-}" | grep -Eq '^[0-9a-f]{40}$'; then
+		_commit="${FREESENSE_PORTS_COMMIT}"
+		_pinsrc="FreeBSD lock"
 	fi
 	# FROZEN STOCK: prefer the ports_top_git_hash recorded in this week's immutable R2 stock bank
 	# (keyed by the base snapshot rev FREESENSE_REV). Deterministic + identical across every batch
@@ -2314,16 +2300,10 @@ poudriere_pin_ports_tree() {
 	fi
 	echo -n ">>> lean-pin: pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit} (source: ${_pinsrc:-live}, FreeBSD repo '${_repo:-unnamed}')... " | tee -a ${LOGFILE}
 	_checkout_ok=0
-	if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
-		git -C "${_tree}" cat-file -e "${_commit}^{commit}" 2>/dev/null \
-			&& git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null \
-			&& _checkout_ok=1
-	else
-		{ git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 \
-		  || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
-			&& git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null \
-			&& _checkout_ok=1
-	fi
+	{ git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 \
+	  || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
+		&& git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null \
+		&& _checkout_ok=1
 	if [ "${_checkout_ok}" = 1 ]; then
 		echo "Done!" | tee -a ${LOGFILE}
 	else
@@ -2356,15 +2336,7 @@ poudriere_create_ports_tree() {
 			_branch="${POUDRIERE_PORTS_GIT_BRANCH}"
 		fi
 		echo -n ">>> Creating poudriere ports tree, it may take some time... " | tee -a ${LOGFILE}
-		if [ -n "${FREESENSE_EPOCH_OFFLINE:-}" ]; then
-			_epoch_ports="${FREESENSE_EPOCH_PORTS_ARCHIVE:-/root/epoch/freebsd-ports.tar.zst}"
-			[ -s "${_epoch_ports}" ] || { echo ">>> ERROR: missing epoch ports archive ${_epoch_ports}"; print_error_pfS; }
-			script -aq ${LOGFILE} poudriere ports -c -p "${POUDRIERE_PORTS_NAME}" -m none
-			mkdir -p "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-			tar --zstd --strip-components 1 -xf "${_epoch_ports}" -C "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-			[ -d "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}/.git" ] \
-				|| { echo ">>> ERROR: epoch ports archive is not a git checkout"; print_error_pfS; }
-		elif [ "${AWS}" = 1 ]; then
+		if [ "${AWS}" = 1 ]; then
 			set -e
 			script -aq ${LOGFILE} poudriere ports -c -p "${POUDRIERE_PORTS_NAME}" -m none
 			script -aq ${LOGFILE} zfs create ${ZFS_TANK}/poudriere/ports/${POUDRIERE_PORTS_NAME}
@@ -2826,9 +2798,9 @@ EOF
 	# devel  -> <ver>-ALPHA-<datestamp>  (ports framework renders it <ver>.a.<datestamp>)
 	# release -> clean <ver> with the -RELEASE suffix stripped (1.0.0-RELEASE -> 1.0.0).
 	if [ -z "${_IS_RELEASE}" ]; then
-		local _meta_pkg_version="$(echo "${PRODUCT_VERSION}" | sed 's,DEVELOPMENT,ALPHA,')-${DATESTRING}"
+		local _meta_pkg_version="$(echo "${PRODUCT_VERSION}" | sed 's,DEVELOPMENT,ALPHA,')-${DATESTRING}${PRODUCT_REVISION:+_}${PRODUCT_REVISION}"
 	else
-		local _meta_pkg_version="${PRODUCT_VERSION%%-*}"
+		local _meta_pkg_version="${PRODUCT_VERSION%%-*}${PRODUCT_REVISION:+_}${PRODUCT_REVISION}"
 	fi
 	local _pdir="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
 	grep -rlE 'DISTVERSION=[[:space:]]*\$\{PRODUCT_VERSION\}|PORTVERSION=[[:space:]]*\$\{PRODUCT_VERSION\}' \
@@ -2880,47 +2852,11 @@ EOF
 		# subset blank) against this same pinned+overlaid tree + make.conf, mirrors the COMPLETE
 		# stock closure + ports source to R2:.../stock/<chan>/<rev>/, then RETURNS before building
 		# anything (there is nothing to build — the snapshot only needs the closure + fetch + tar).
-		if [ -n "${FREESENSE_SNAPSHOT:-}" ]; then
-			echo ">>> FreeSense stock-snapshot mode: rev ${FREESENSE_REV:-<none>} (${jail_arch}), worker=${FREESENSE_SNAPSHOT_WORKER_ID:-merge/legacy}" | tee -a ${LOGFILE}
-			_snapshot_program=${BUILDER_TOOLS}/ci/freesense-stock-snapshot.sh
-			[ -n "${FREESENSE_SNAPSHOT_MERGE:-}" ] && _snapshot_program=${BUILDER_TOOLS}/ci/freesense-stock-merge.sh
-			FREESENSE_JAIL_NAME="${jail_name}" FREESENSE_BULK="${_bulk}" \
-			FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" FREESENSE_OVERLAY_DIR="${OVERLAY_DIR:-/root/freesense-system-ports}" \
-			FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
-			FREESENSE_SNAPSHOT_WORKER_ID="${FREESENSE_SNAPSHOT_WORKER_ID:-}" FREESENSE_SNAPSHOT_WORKER_COUNT="${FREESENSE_SNAPSHOT_WORKER_COUNT:-0}" \
-				sh ${_snapshot_program} || {
-					echo ">>> stock-snapshot failed; refusing to continue" | tee -a ${LOGFILE}
-					_snapshot_diag=/tmp/stock-snapshot.diag
-					[ -n "${FREESENSE_SNAPSHOT_MERGE:-}" ] && _snapshot_diag=/tmp/stock-snapshot-merge.diag
-					if [ -s "${_snapshot_diag}" ]; then
-						{
-							echo ">>> stock-snapshot diagnostic tail"
-							tail -200 "${_snapshot_diag}"
-							echo ">>> end stock-snapshot diagnostic tail"
-						} | tee -a ${LOGFILE}
-					fi
-					return 1
-				}
-			return 0
-		fi
-
 		# FreeSense lean-overlay (consumer): seed FreeBSD's PREBUILT stock binaries from THIS rev's
 		# frozen snapshot so the bulk below REUSES them and builds ONLY the ~135 custom/patched ports
 		# (kills the 5h rust + the huge cold build). No FreeBSD contact here — the snapshot job above
 		# produced the bytes. Best-effort; a missing snapshot just falls back to building from source.
 		# Runs here so it sees the pinned+overlaid tree + this make.conf.
-		FREESENSE_JAIL_NAME="${jail_name}" \
-		FREESENSE_PORTS_NAME="${POUDRIERE_PORTS_NAME}" \
-		FREESENSE_REV="${FREESENSE_REV:-}" FREESENSE_CHANNEL="${FREESENSE_CHANNEL:-main}" FREESENSE_SNAPSHOT_ID="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV:-}}" \
-			sh ${BUILDER_TOOLS}/ci/freesense-lean-seed.sh || {
-				if [ "${FREESENSE_PIN_STRICT:-1}" = "0" ]; then
-					echo ">>> lean-seed failed; non-strict local build may continue from source"
-				else
-					echo ">>> lean-seed failed; refusing an accidental full source build"
-					return 1
-				fi
-			}
-
 		echo ">>> Poudriere bulk started at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
 		_poudriere_test_flag=""
 		if [ -n "${FREESENSE_PORT_TESTS:-}" ]; then

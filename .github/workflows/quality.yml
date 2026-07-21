@@ -30,22 +30,9 @@ jobs:
           sh -n tools/ci/freesense-dist-world.sh
           sh -n tools/ci/freesense-fetch-kernel.sh
           sh -n tools/ci/freesense-ports-overlay.sh
-          sh -n tools/ci/freesense-stock-snapshot.sh
           grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh
-          grep -Fq 'env __MAKE_CONF="$FETCH_MAKE_CONF"' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq -- "-name 'go[0-9][0-9][0-9]-*.pkg'" tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'tar -xf "${_go_pkg}" -C "$FETCH_ENV_ROOT"' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'LOCALBASE="$FETCH_LOCALBASE" PKG_DBDIR="$FETCH_ENV_ROOT/pkgdb"' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq '[ -f "$TREE/${_origin}/Makefile" ]' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'cp "$QUEUE" "$SOURCE_FETCH"' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'make -C "${_dir}" NO_DEPENDS=yes fetch' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'tail -200 "${_snapshot_diag}"' tools/builder_common.sh
-          grep -Fq -- '-o "$PINPROBE" pkg' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'PINPROBE=/tmp/ss-pinprobe' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'tar -xOf "$PINPKG" +MANIFEST' tools/ci/freesense-stock-snapshot.sh
-          grep -Fq 'tar -xOf "${_pf}" +MANIFEST' tools/builder_common.sh
-          grep -Fq 'canonical pkg bootstrap has no valid ports_top_git_hash annotation' tools/ci/freesense-stock-snapshot.sh
-          ! grep -Fq 'for _p in "$BANKALL"/*.pkg' tools/ci/freesense-stock-snapshot.sh
+          grep -Fq 'FREESENSE_PORTS_COMMIT' tools/builder_common.sh
+          ! grep -R -Eq 'FREESENSE_EPOCH|/root/epoch' tools
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
           shellcheck -S error tools/ci/freesense-dist-world.sh
       - name: Reject committed secrets
