@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compile-free ISO assembly from the split base and system repositories.
+# Compile-free ISO assembly from one sealed System repository.
 
 run_in_assembly_chroot() (
 	set -eu
@@ -125,41 +125,24 @@ install_assembly_channel() {
 
 assemble_iso_from_repositories() {
 	set -eu
-	: "${FREESENSE_ASSEMBLY_BASE_REPO:?base repository is required}"
+	require_source_date_epoch || return 1
 	: "${FREESENSE_ASSEMBLY_SYSTEM_REPO:?system repository is required}"
 	: "${FREESENSE_ASSEMBLY_FREEBSD_SRC:?pinned FreeBSD release tools are required}"
 	: "${FREESENSE_ASSEMBLY_CHANNEL_PAYLOAD:?verified channel payload is required}"
 	: "${FREESENSE_ASSEMBLY_CHANNEL:?selected channel is required}"
 	: "${FREESENSE_SYSTEM_FINGERPRINT:?current system fingerprint is required}"
 
-	for _repo in "${FREESENSE_ASSEMBLY_BASE_REPO}" "${FREESENSE_ASSEMBLY_SYSTEM_REPO}"; do
-		test -s "${_repo}/meta.conf"
-		test -s "${_repo}/packagesite.pkg"
-		test -n "$(find "${_repo}/All" -type f -name '*.pkg' -print -quit)"
-		for _package in "${_repo}"/All/*.pkg; do
-			pkg query -F "${_package}" '%n|%v|%o' >/dev/null
-		done
+	_repo="${FREESENSE_ASSEMBLY_SYSTEM_REPO}"
+	test -s "${_repo}/meta.conf"
+	test -s "${_repo}/packagesite.pkg"
+	test -n "$(find "${_repo}/All" -type f -name '*.pkg' -print -quit)"
+	for _package in "${_repo}"/All/*.pkg; do
+		pkg query -F "${_package}" '%n|%v|%o' >/dev/null
 	done
 
-	rm -rf "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}" \
-		"${SCRATCHDIR}/assembly-repository"
+	rm -rf "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}"
 	mkdir -p "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}" \
-		"${SCRATCHDIR}/assembly-repository/All" "${BUILDER_LOGS}"
-
-	# Merge by package filename and reject any non-reproducible duplicate.
-	for _repo in "${FREESENSE_ASSEMBLY_BASE_REPO}" "${FREESENSE_ASSEMBLY_SYSTEM_REPO}"; do
-		for _package in "${_repo}"/All/*.pkg; do
-			_destination="${SCRATCHDIR}/assembly-repository/All/$(basename "${_package}")"
-			if [ -e "${_destination}" ]; then
-				[ "$(sha256 -q "${_package}")" = "$(sha256 -q "${_destination}")" ] || {
-					echo ">>> ERROR: conflicting package $(basename "${_package}")"
-					return 1
-				}
-			else
-				cp "${_package}" "${_destination}"
-			fi
-		done
-	done
+		"${BUILDER_LOGS}"
 
 	# Seed enough userland to run pkg inside each fresh root. pkg then executes
 	# package scripts and registers the exact immutable repository closure.
@@ -168,7 +151,7 @@ assemble_iso_from_repositories() {
 			"${PRODUCT_NAME}-base-*.pkg" "${PRODUCT_NAME}-boot-*.pkg" \
 			"${PRODUCT_NAME}-kernel-${PRODUCT_NAME}-*.pkg" "${PRODUCT_NAME}-rc-*.pkg" \
 			"pkg-[0-9]*.pkg"; do
-			_package=$(find "${SCRATCHDIR}/assembly-repository/All" -name "${_pattern}" -type f | sort | tail -1)
+			_package=$(find "${_repo}/All" -name "${_pattern}" -type f | sort | tail -1)
 			[ -n "${_package}" ] || {
 				echo ">>> ERROR: assembly package missing: ${_pattern}"
 				return 1
@@ -178,22 +161,27 @@ assemble_iso_from_repositories() {
 		mkdir -p "${_root}/tmp/assembly-pkgs" "${_root}/dev"
 	done
 
-	cp "${FREESENSE_ASSEMBLY_BASE_REPO}"/All/*.pkg \
-		"${INSTALLER_CHROOT_DIR}/tmp/assembly-pkgs/"
-	cp "${SCRATCHDIR}/assembly-repository/All"/*.pkg \
-		"${STAGE_CHROOT_DIR}/tmp/assembly-pkgs/"
+	cp "${_repo}"/All/*.pkg "${INSTALLER_CHROOT_DIR}/tmp/assembly-pkgs/"
+	cp "${_repo}"/All/*.pkg "${STAGE_CHROOT_DIR}/tmp/assembly-pkgs/"
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
-		run_in_assembly_chroot "${_root}" /bin/sh -c \
-			'pkg add -f /tmp/assembly-pkgs/*.pkg'
+		# pkg records NOW() in local.sqlite for every installed package.  pkg's
+		# supported override makes the installed package database reproducible.
+		run_in_assembly_chroot "${_root}" /usr/bin/env \
+			PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" /bin/sh -c \
+			'pkg add -f /tmp/assembly-pkgs/*.pkg &&
+			test "$(pkg query -a "%t" | sort -u)" = "${PKG_INSTALL_EPOCH}"'
 		rm -rf "${_root}/tmp/assembly-pkgs"
 	done
 
 	clone_directory_contents "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}"
-	_default=$(find "${FREESENSE_ASSEMBLY_BASE_REPO}/All" \
+	_default=$(find "${_repo}/All" \
 		-name "${PRODUCT_NAME}-default-config-[0-9]*.pkg" -type f | sort | tail -1)
 	[ -n "${_default}" ] || { echo ">>> ERROR: default configuration package missing"; return 1; }
 	cp "${_default}" "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
-	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" pkg add -f /tmp/default-config.pkg
+	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" /usr/bin/env \
+		PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" \
+		/bin/sh -c 'pkg add -f /tmp/default-config.pkg &&
+		test "$(pkg query -a "%t" | sort -u)" = "${PKG_INSTALL_EPOCH}"'
 	rm -f "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
 	install_assembly_channel
 

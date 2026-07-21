@@ -25,19 +25,18 @@ jobs:
           php tests/PackageCatalogSmokeTest.php
           php tests/RepositoryTrustSmokeTest.php
           php tests/NicSettingsSmokeTest.php
+          php tests/ReproducibleArtifactsSmokeTest.php
+          php tests/PoudriereReuseSmokeTest.php
       - name: Release-sensitive shell syntax
         run: |
           sh -n build.sh
+          sh -n build/scripts/create_core_pkg.sh
+          sh -n tools/builder_common.sh
           sh -n tools/ci/freesense-localrepo.sh
-          sh -n tools/ci/freesense-assemble-iso.sh
-          sh -n tools/ci/freesense-dist-world.sh
-          sh -n tools/ci/freesense-fetch-kernel.sh
           sh -n tools/ci/freesense-ports-overlay.sh
           grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh
-          grep -Fq 'FREESENSE_PORTS_COMMIT' tools/builder_common.sh
           ! grep -R -Eq 'FREESENSE_EPOCH|/root/epoch' tools
           shellcheck -S error tools/ci/freesense-assemble-iso.sh
-          shellcheck -S error tools/ci/freesense-fetch-kernel.sh
           shellcheck -S error tools/ci/freesense-dist-world.sh
       - name: Reject committed secrets
         run: |

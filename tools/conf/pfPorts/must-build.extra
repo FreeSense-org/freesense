@@ -1,9 +1,6 @@
-# must-build.extra — FreeSense lean-overlay: STOCK-named ports we build ourselves (not fetched
-# from FreeBSD) because make.conf gives them non-default options, so FreeBSD's default-options
-# binary would be rejected by poudriere's reuse check anyway. Listing them here just avoids the
-# wasted fetch (freesense-lean-seed.sh subtracts these from the fetch set). This is an
-# OPTIMIZATION only — a missing entry costs one extra source build, never a wrong package.
-# One origin per line (category/port). Keep in sync with the per-port option blocks in make.conf.
+# Ports whose options differ from FreeBSD packages and must therefore build locally.
+# The builder turns each origin into a package-family fetch blacklist pattern.
+# One origin per line; keep this aligned with the option blocks in make.conf.
 
 # option-override origins (make.conf per-port blocks)
 databases/rrdtool
