@@ -35,13 +35,11 @@ jobs:
           sh -n tools/ci/freesense-localrepo.sh
           sh -n tools/ci/freesense-assemble-iso.sh
           sh -n tools/ci/freesense-dist-world.sh
-          sh -n tools/ci/freesense-fetch-kernel.sh
           sh -n tools/ci/freesense-ports-overlay.sh
           grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh
           grep -Fq 'FREESENSE_PORTS_COMMIT' tools/builder_common.sh
           ! grep -R -Eq 'FREESENSE_EPOCH|/root/epoch' tools
           shellcheck -S error tools/ci/freesense-assemble-iso.sh
-          shellcheck -S error tools/ci/freesense-fetch-kernel.sh
           shellcheck -S error tools/ci/freesense-dist-world.sh
       - name: Reject committed secrets
         run: |
