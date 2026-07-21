@@ -1442,7 +1442,7 @@ setup_pkg_repo() {
 
 # Bake the exact system repository used for this image.  At runtime repoc replaces
 # this trusted local seed with the signed v3 channel document.  URLs are immutable;
-# no branch, candidate, epoch, or date-derived path is reconstructed by the box.
+# no branch or date-derived path is reconstructed by the box.
 stage_repo_channels() {
 	local _root="${1}"
 	local _share="${_root}${PRODUCT_SHARE_DIR}"
