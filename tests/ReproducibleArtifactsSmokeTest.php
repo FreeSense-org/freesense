@@ -15,7 +15,6 @@ if ($builder === false || $corePackage === false || $assembler === false) {
 
 $assemblyContracts = [
 	'require_source_date_epoch || return 1',
-	'PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}"',
 	'pkg query -a "%t" | sort -u',
 ];
 foreach ($assemblyContracts as $contract) {
@@ -43,7 +42,6 @@ $archiveContracts = [
 	'--use-compress-program="xz -T0"',
 	'"${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz"',
 	'"${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz"',
-	'-k type,uid,gid,mode,nlink,size,link,flags',
 	'local _mtree_tmp="${SCRATCHDIR}/default-mtrees.$$"',
 	'"${_mtree_tmp}/etc.dist"',
 	"sed -e '/^#/d'",
@@ -79,8 +77,6 @@ $coreContracts = [
 	'SOURCE_DATE_EPOCH -- Decimal source commit timestamp (required)',
 	'case "${SOURCE_DATE_EPOCH:-}" in',
 	"''|*[!0-9]*)",
-	'export SOURCE_DATE_EPOCH',
-	'pkg create -T 0',
 ];
 foreach ($coreContracts as $contract) {
 	if (!str_contains($corePackage, $contract)) {
