@@ -49,6 +49,7 @@ Environment:
 	TMPDIR       -- Temporary directory (default: /tmp)
 	PRODUCT_NAME -- Product name (default: FreeSense)
 	PRODUCT_URL  -- Product URL (default: https://www.freesense.org)
+	SOURCE_DATE_EPOCH -- Decimal source commit timestamp (required)
 END
 	exit 1
 }
@@ -103,6 +104,16 @@ done
 : ${TMPDIR=/tmp}
 : ${PRODUCT_NAME=FreeSense}
 : ${PRODUCT_URL=http://www.freesense.org/}
+
+# pkg(8) honors SOURCE_DATE_EPOCH by assigning it to every archive member.
+# Require and export it before copying metadata or package content so a retry
+# for an already-selected artifact identity cannot depend on the wall clock.
+case "${SOURCE_DATE_EPOCH:-}" in
+	''|*[!0-9]*)
+	err "SOURCE_DATE_EPOCH must be a non-empty decimal Unix timestamp"
+		;;
+esac
+export SOURCE_DATE_EPOCH
 
 [ -d $destdir ] \
 	|| mkdir -p ${destdir}

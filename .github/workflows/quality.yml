@@ -25,9 +25,13 @@ jobs:
           php tests/PackageCatalogSmokeTest.php
           php tests/RepositoryTrustSmokeTest.php
           php tests/NicSettingsSmokeTest.php
+          php tests/ReproducibleArtifactsSmokeTest.php
+          php tests/PoudriereReuseSmokeTest.php
       - name: Release-sensitive shell syntax
         run: |
           sh -n build.sh
+          sh -n build/scripts/create_core_pkg.sh
+          sh -n tools/builder_common.sh
           sh -n tools/ci/freesense-localrepo.sh
           sh -n tools/ci/freesense-assemble-iso.sh
           sh -n tools/ci/freesense-dist-world.sh

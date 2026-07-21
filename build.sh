@@ -418,13 +418,9 @@ if [ -z "${_SKIP_REBUILD_PRESTAGE}" ]; then
 	mkdir -p "${INSTALLER_CHROOT_DIR}/boot"
 
 	if [ -n "${NO_BUILDKERNEL:-}" ] && [ -f "${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${PRODUCT_NAME}).pkg" ]; then
-		# Prefetched-kernel path (freesense-fetch-kernel.sh): there is no obj
-		# tree for installkernel to install from — unpack the banked kernel
-		# pkg's payload instead. Same file effect: the classic installkernel is
-		# also a plain file drop into the chroot, no pkg registration. (Run
-		# 29147580182 died right here: NO_BUILDKERNEL skipped the compile but
-		# this line still asked the missing obj tree for the kernel.)
-		echo ">>> Installing prefetched kernel pkg payload into installer chroot..."
+		# Local --no-buildworld runs may reuse the existing core kernel package
+		# without requiring its old object tree.
+		echo ">>> Installing existing kernel package into installer chroot..."
 		tar -xpf "${CORE_PKG_ALL_PATH}/$(get_pkg_name kernel-${PRODUCT_NAME}).pkg" \
 			-C "${INSTALLER_CHROOT_DIR}" --exclude '+*'
 		[ -f "${INSTALLER_CHROOT_DIR}/boot/kernel/kernel.gz" ] \

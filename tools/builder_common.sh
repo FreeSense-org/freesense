@@ -34,6 +34,91 @@ lc() {
 	echo "${1}" | tr '[[:upper:]]' '[[:lower:]]'
 }
 
+# Release artifact identities are fixed before a worker starts.  Every archive
+# created for that identity must therefore use the source commit time rather
+# than the worker's wall clock.  Keep the validation here so all builder paths
+# enforce the same contract.
+require_source_date_epoch() {
+	case "${SOURCE_DATE_EPOCH:-}" in
+		''|*[!0-9]*)
+			echo ">>> ERROR: SOURCE_DATE_EPOCH must be a non-empty decimal Unix timestamp" >&2
+			return 1
+			;;
+	esac
+	export SOURCE_DATE_EPOCH
+}
+
+# mtree embeds user, host, source path, and wall-clock data in comment lines.
+# Keep the semantic entries and atomically discard every non-semantic comment.
+create_reproducible_mtree() {
+	local _output="${1}"
+	shift
+	local _tmp="${SCRATCHDIR}/.$(basename "${_output}").mtree.$$"
+	local _normalized="${_tmp}.normalized"
+
+	mkdir -p "$(dirname "${_output}")" || return 1
+	rm -f "${_tmp}" "${_normalized}"
+	if ! LC_ALL=C TZ=UTC mtree "$@" >"${_tmp}"; then
+		rm -f "${_tmp}" "${_normalized}"
+		return 1
+	fi
+	if ! sed -e '/^#/d' "${_tmp}" >"${_normalized}" ||
+	   ! mv -f "${_normalized}" "${_output}"; then
+		rm -f "${_tmp}" "${_normalized}"
+		return 1
+	fi
+	rm -f "${_tmp}"
+}
+
+# Create a byte-reproducible xz-compressed tar archive.  GNU tar is an explicit
+# builder dependency (archivers/gtar): libarchive tar does not provide the same
+# stable member sorting and PAX-header controls.  The temporary file lives
+# outside the archived root so an interrupted build can never archive its own
+# partially-written output.
+create_reproducible_txz() {
+	local _root="${1}"
+	local _output="${2}"
+	shift 2
+
+	require_source_date_epoch || return 1
+	if ! command -v gtar >/dev/null 2>&1; then
+		echo ">>> ERROR: GNU tar (archivers/gtar) is required for reproducible artifacts" >&2
+		return 1
+	fi
+	if ! command -v xz >/dev/null 2>&1; then
+		echo ">>> ERROR: xz is required for reproducible artifacts" >&2
+		return 1
+	fi
+
+	local _tmpdir="${SCRATCHDIR:-$(dirname "${_output}")}"
+	local _tmp="${_tmpdir}/.$(basename "${_output}").tmp.$$"
+	mkdir -p "${_tmpdir}" "$(dirname "${_output}")" || return 1
+	rm -f "${_tmp}"
+
+	# Preserve service-account numeric ownership while omitting host-dependent
+	# user/group names from the archive.
+	if ! LC_ALL=C TZ=UTC gtar \
+		-C "${_root}" \
+		--sort=name \
+		--format=pax \
+		--mtime="@${SOURCE_DATE_EPOCH}" \
+		--numeric-owner \
+		--no-xattrs --no-acls --no-selinux \
+		--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime \
+		"$@" \
+		--use-compress-program="xz -T0" \
+		--create --file="${_tmp}" .; then
+		rm -f "${_tmp}"
+		echo ">>> ERROR: failed to create reproducible archive ${_output}" >&2
+		return 1
+	fi
+
+	if ! mv -f "${_tmp}" "${_output}"; then
+		rm -f "${_tmp}"
+		return 1
+	fi
+}
+
 git_last_commit() {
 	export CURRENT_COMMIT=$(git -C ${BUILDER_ROOT} log -1 --format='%H')
 	export CURRENT_AUTHOR=$(git -C ${BUILDER_ROOT} log -1 --format='%an')
@@ -147,40 +232,6 @@ build_all_kernels() {
 
 	[ -d "${KERNEL_BUILD_PATH}" ] \
 		&& rm -rf ${KERNEL_BUILD_PATH}
-
-	# FreeSense: import a prefetched kernel pkg (tools/ci/freesense-fetch-kernel.sh —
-	# base-build already compiled + published the identical kernel from the same
-	# committed pin). The caller pinned DATESTRING to the base build's stamp, so
-	# get_pkg_name resolves to the fetched file's exact name and the existing
-	# NO_BUILDKERNEL short-circuit in the loop below does the rest. The .latest/All
-	# links must exist for that check (core_pkg_create_repo only makes them later).
-	# A missing/mismatched file falls through to a normal source build.
-	if [ -n "${FREESENSE_PREFETCHED_KERNEL_DIR:-}" ]; then
-		mkdir -p ${CORE_PKG_REAL_PATH}/All
-		# -n: replace an existing symlink instead of descending INTO its target
-		# (plain ln -sf against a symlink-to-dir creates the link inside it).
-		ln -sfn $(basename ${CORE_PKG_REAL_PATH}) ${CORE_PKG_PATH}/.latest
-		if [ -L "${CORE_PKG_ALL_PATH}" ] || [ ! -e "${CORE_PKG_ALL_PATH}" ]; then
-			ln -sfn .latest/All ${CORE_PKG_ALL_PATH}
-		fi
-		for _kern in ${BUILD_KERNELS}; do
-			_kfile="$(get_pkg_name kernel-${_kern}).pkg"
-			if [ -f "${FREESENSE_PREFETCHED_KERNEL_DIR}/${_kfile}" ]; then
-				cp "${FREESENSE_PREFETCHED_KERNEL_DIR}/${_kfile}" ${CORE_PKG_REAL_PATH}/All/
-			fi
-			# Skip the build ONLY if the pkg is visible exactly where the
-			# loop's short-circuit (and build.sh's installer-kernel step)
-			# will look. NO_BUILDKERNEL without that file would sail past
-			# the compile and die at install time with no obj tree.
-			if [ -f "${CORE_PKG_ALL_PATH}/${_kfile}" ]; then
-				export NO_BUILDKERNEL=yes
-				echo ">>> Using prefetched ${_kfile} — skipping kernel-toolchain + buildkernel"
-			else
-				unset NO_BUILDKERNEL
-				echo ">>> WARN: prefetched ${_kfile} not resolvable via ${CORE_PKG_ALL_PATH} — building from source"
-			fi
-		done
-	fi
 
 	# Build embedded kernel
 	for BUILD_KERNEL in $BUILD_KERNELS; do
@@ -890,11 +941,35 @@ clone_to_staging_area() {
 		done
 
 	mkdir -p ${STAGE_CHROOT_DIR}/etc/mtree
-	mtree -Pcp ${STAGE_CHROOT_DIR}/var > ${STAGE_CHROOT_DIR}/etc/mtree/var.dist
-	mtree -Pcp ${STAGE_CHROOT_DIR}/etc > ${STAGE_CHROOT_DIR}/etc/mtree/etc.dist
+	# Spell out mtree's normal semantic keys but omit its default `time` key.
+	# File ownership/mode/link repair remains intact without embedding the wall
+	# clock from the staging filesystem into otherwise reproducible packages.
+	# Generate outside /etc as etc.dist would otherwise describe its own partially
+	# written output (and stale specs left by an interrupted earlier attempt).
+	local _mtree_tmp="${SCRATCHDIR}/default-mtrees.$$"
+	rm -rf "${_mtree_tmp}"
+	mkdir -p "${_mtree_tmp}" || print_error_pfS
+	rm -f \
+		"${STAGE_CHROOT_DIR}/etc/mtree/var.dist" \
+		"${STAGE_CHROOT_DIR}/etc/mtree/etc.dist" \
+		"${STAGE_CHROOT_DIR}/etc/mtree/localetc.dist"
+	create_reproducible_mtree "${_mtree_tmp}/var.dist" \
+		-n -Pcp ${STAGE_CHROOT_DIR}/var \
+		-k type,uid,gid,mode,nlink,size,link,flags \
+		|| print_error_pfS
+	create_reproducible_mtree "${_mtree_tmp}/etc.dist" \
+		-n -Pcp ${STAGE_CHROOT_DIR}/etc \
+		-k type,uid,gid,mode,nlink,size,link,flags \
+		|| print_error_pfS
 	if [ -d ${STAGE_CHROOT_DIR}/usr/local/etc ]; then
-		mtree -Pcp ${STAGE_CHROOT_DIR}/usr/local/etc > ${STAGE_CHROOT_DIR}/etc/mtree/localetc.dist
+		create_reproducible_mtree "${_mtree_tmp}/localetc.dist" \
+			-n -Pcp ${STAGE_CHROOT_DIR}/usr/local/etc \
+			-k type,uid,gid,mode,nlink,size,link,flags \
+			|| print_error_pfS
 	fi
+	mv "${_mtree_tmp}"/*.dist "${STAGE_CHROOT_DIR}/etc/mtree/" \
+		|| print_error_pfS
+	rm -rf "${_mtree_tmp}"
 
 	## Add buildtime and lastcommit information
 	# This is used for detecting updates.
@@ -932,20 +1007,25 @@ clone_to_staging_area() {
 	# System > Update branch selector is populated on a fresh install.
 	stage_repo_channels ${STAGE_CHROOT_DIR}
 
-	mtree \
+	create_reproducible_mtree \
+		"${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.mtree" \
+		-n \
 		-c \
 		-k uid,gid,mode,size,flags,sha256digest \
 		-p ${STAGE_CHROOT_DIR} \
 		-X ${_exclude_files} \
-		> ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.mtree
+		|| print_error_pfS
 	# base.txz is a ~550MB xz of the whole staged world. Default -cJf runs SINGLE-THREADED
 	# xz (~8-10 min native, ~20-30 min under QEMU) and emits ZERO output the whole time —
 	# which repeatedly looked like a hang (see the 2026-07-10 diagnostic). Pipe to xz -T0
 	# (all cores) instead: ~8x faster on a 12-core box AND a far shorter silent window. The
 	# echo makes the step no longer silent so monitors don't misread it as wedged.
 	echo ">>> Compressing base.txz (xz -T0, all cores; ~large, expect a quiet minute or two)..." | tee -a ${LOGFILE}
-	tar -C ${STAGE_CHROOT_DIR} -X ${_exclude_files} --create --file - . \
-		| xz -T0 -c > ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz
+	create_reproducible_txz \
+		"${STAGE_CHROOT_DIR}" \
+		"${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz" \
+		-X "${_exclude_files}" \
+		|| print_error_pfS
 	echo ">>> base.txz done: $(ls -lh ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz 2>/dev/null | awk '{print $5}')" | tee -a ${LOGFILE}
 
 	core_pkg_create rc "" ${CORE_PKG_VERSION} ${STAGE_CHROOT_DIR}
@@ -1126,13 +1206,14 @@ create_distribution_tarball() {
 	# system is lean too. (The seed-level rm in freesense-pkgbase-world.sh removes /usr/src
 	# from the chroots; these excludes are belt-and-suspenders + cover the nested payload.)
 	echo -n ">>> Creating distribution tarball (xz -T0)... " | tee -a ${LOGFILE}
-	tar -C ${FINAL_CHROOT_DIR} \
+	create_reproducible_txz \
+		"${FINAL_CHROOT_DIR}" \
+		"${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz" \
 		--exclude ./pkgs \
 		--exclude ./usr/src --exclude ./usr/tests --exclude ./usr/lib32 --exclude ./usr/lib/debug \
 		--exclude "./usr/local/share/${PRODUCT_NAME}/base.txz" \
 		--exclude "./usr/local/share/${PRODUCT_NAME}/base.mtree" \
-		--create --file - . \
-		| xz -T0 -c > ${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz
+		|| print_error_pfS
 	echo "Done!" | tee -a ${LOGFILE}
 
 	echo -n ">>> Creating manifest... " | tee -a ${LOGFILE}
@@ -2196,130 +2277,30 @@ poudriere_rename_ports() {
 	echo "Done!" | tee -a ${LOGFILE}
 }
 
-# FreeSense lean-overlay: resolve the FreeBSD binary ports repo name on the build VM.
-# FreeBSD 15/16 (pkgbase era) split the repo into FreeBSD-base (world) + FreeBSD-ports (apps);
-# older FreeBSD called the single repo FreeBSD. This is almost certainly why an earlier
-# `pkg rquery -r FreeBSD` returned empty. Print the name; empty => caller uses an unnamed query.
-freesense_freebsd_ports_repo() {
-	local _r
-	for _r in FreeBSD-ports FreeBSD; do
-		if [ -n "$(pkg rquery -r "${_r}" '%v' pkg 2>/dev/null)" ]; then
-			echo "${_r}"; return 0
-		fi
-	done
-	return 0
-}
-
-# FreeSense lean-overlay: pin the WHOLE poudriere ports tree to the exact freebsd-ports commit
-# FreeBSD's currently-published binaries were built from (every FreeBSD pkg carries the
-# ports_top_git_hash annotation). This makes stock ports' versions match FreeBSD's binaries so
-# freesense-lean-seed.sh can drop those binaries in and poudriere REUSES them (build only
-# custom). MUST run BEFORE the overlay cp -f: a whole-tree checkout resets tracked files (the
-# vendored FreeSense-* dirs are untracked and survive; the partial open-vm-tools Makefile patch
-# is re-applied by the overlay after). Best-effort: any failure leaves the tree at branch HEAD
-# and everything just builds from source (the old behaviour).
+# Pin the complete ports tree to the commit selected by the external FreeBSD
+# lock.  Resolution belongs to the pin workflow; builds never infer a revision
+# from a mutable branch, package mirror, cache, or wall clock.
 poudriere_pin_ports_tree() {
 	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-	local _repo _commit _chan _curr _pinsrc _pf _snapshot_id _checkout_ok
-	[ -d "${_tree}/.git" ] || { echo ">>> lean-pin: ${_tree} is not a git checkout; leaving at HEAD"; return 0; }
-	# The build lock is authoritative.  Do not infer a ports revision from a
-	# package mirror, timestamp, cache, or whatever happens to be at branch HEAD.
-	if echo "${FREESENSE_PORTS_COMMIT:-}" | grep -Eq '^[0-9a-f]{40}$'; then
-		_commit="${FREESENSE_PORTS_COMMIT}"
-		_pinsrc="FreeBSD lock"
+	local _commit="${FREESENSE_PORTS_COMMIT:-}"
+	[ -d "${_tree}/.git" ] || {
+		echo ">>> ERROR: ${_tree} is not a git checkout" >&2
+		print_error_pfS
+	}
+	echo "${_commit}" | grep -Eq '^[0-9a-f]{40}$' || {
+		echo ">>> ERROR: FREESENSE_PORTS_COMMIT is not a full Git commit" >&2
+		print_error_pfS
+	}
+	echo -n ">>> Pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit}... " | tee -a ${LOGFILE}
+	if ! { git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 ||
+	       git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } ||
+	   ! git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null ||
+	   [ "$(git -C "${_tree}" rev-parse HEAD 2>/dev/null)" != "${_commit}" ]; then
+		echo "FAILED" | tee -a ${LOGFILE}
+		echo ">>> ERROR: could not check out pinned FreeBSD ports commit ${_commit}" >&2
+		print_error_pfS
 	fi
-	# FROZEN STOCK: prefer the ports_top_git_hash recorded in this week's immutable R2 stock bank
-	# (keyed by the base snapshot rev FREESENSE_REV). Deterministic + identical across every batch
-	# and publish, so the tree is pinned to the SAME commit the frozen binaries were built from ->
-	# poudriere reuses them with zero "new version" drift. Falls back to the live pkg.freebsd.org
-	# query only when the bank isn't populated yet (the very first build of a new rev).
-	if [ -z "${_commit}" ] && [ -n "${FREESENSE_REV:-}" ] && command -v rclone >/dev/null 2>&1; then
-		_chan="${FREESENSE_CHANNEL:-main}"
-		_snapshot_id="${FREESENSE_SNAPSHOT_ID:-${FREESENSE_REV}}"
-		# Deterministic + identical across every build. Try the exact rev, then the channel's
-		# 'current' pointer (in case the seed rev and the banked rev drift by a snapshot).
-		_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${_snapshot_id}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
-		if [ -z "${_commit}" ] && [ -z "${FREESENSE_SNAPSHOT:-}" ]; then
-			_curr=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/current" 2>/dev/null | tr -d '\r\n')
-			if [ -n "${_curr}" ] && [ "${_curr}" != "${_snapshot_id}" ]; then
-				_commit=$(rclone cat --s3-no-check-bucket "R2:freesense-pkg/ports-cache/stock/${_chan}/${_curr}/ports_top_git_hash" 2>/dev/null | tr -dc '0-9a-f')
-				[ -n "${_commit}" ] && echo ">>> lean-pin: snapshot ${_snapshot_id} not banked; using 'current'=${_curr}" | tee -a ${LOGFILE}
-			fi
-		fi
-		if [ -n "${_commit}" ]; then
-			_pinsrc="frozen-bank stock/${_chan}"
-			echo ">>> lean-pin: using frozen ports_top_git_hash from ${_pinsrc} = ${_commit}" | tee -a ${LOGFILE}
-		fi
-	fi
-	if [ -z "${_commit}" ]; then
-		pkg update -f >/dev/null 2>&1 || true
-		_repo=$(freesense_freebsd_ports_repo)
-		# AUTHORITATIVE: read ports_top_git_hash from a fetched package FILE's manifest — this is the
-		# exact freebsd-ports commit FreeBSD BUILT the binaries from. `pkg rquery` reads the CATALOG,
-		# which routinely OMITS ports_top_git_hash (empirically empty), so the old resolver fell back
-		# to the tree's git HEAD — which is NEWER than FreeBSD's build commit -> the pinned tree wanted
-		# newer versions than the frozen binaries -> mass "new version" rebuilds. Fetch one small pkg
-		# and read the annotation off the file instead. (`pkg query -F` reads the .pkg, not the catalog.)
-		rm -rf /tmp/pinprobe 2>/dev/null || true
-		if pkg fetch -y ${_repo:+-r ${_repo}} -o /tmp/pinprobe pkg >/dev/null 2>&1; then
-			_pf=$(find /tmp/pinprobe -name '*.pkg' 2>/dev/null | head -1)
-			if [ -n "${_pf}" ] && tar -xOf "${_pf}" +MANIFEST >/tmp/pinprobe.manifest 2>/dev/null; then
-				_commit=$(grep -oE '"ports_top_git_hash":"[0-9a-f]{40}"' /tmp/pinprobe.manifest | head -1 | cut -d'"' -f4)
-			fi
-			[ -n "${_commit}" ] && _pinsrc="live pkg.freebsd.org"
-		fi
-		# last-ditch: the catalog annotation (usually empty, kept for completeness)
-		[ -n "${_commit}" ] || _commit=$(pkg rquery ${_repo:+-r ${_repo}} '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
-		[ -n "${_commit}" ] || _commit=$(pkg rquery '%Ak=%Av' pkg 2>/dev/null | sed -n 's/^ports_top_git_hash=//p')
-	fi
-	if [ -z "${_commit}" ]; then
-		# LOUD FAILURE. A missed pin silently degrades the WHOLE lean build into a
-		# ~600-port from-source compile (rust/llvm/boost) — the exact 5h+ job the lean
-		# model exists to kill. Never let that masquerade as the fast path again.
-		echo "!!!====================================================================!!!" | tee -a ${LOGFILE}
-		echo "!!! LEAN-PIN MISS: could not resolve FreeBSD ports_top_git_hash"           | tee -a ${LOGFILE}
-		echo "!!!   repo='${_repo:-none}' rev='${FREESENSE_REV:-<unset>}' chan='${FREESENSE_CHANNEL:-main}'" | tee -a ${LOGFILE}
-		echo "!!!   Tree stays at HEAD -> the ~577 cached stock binaries WON'T reuse ->"  | tee -a ${LOGFILE}
-		echo "!!!   poudriere rebuilds the full stock closure FROM SOURCE (multi-hour)."  | tee -a ${LOGFILE}
-		echo "!!!   Fix the frozen bank (stock/<chan>/<rev>/ports_top_git_hash) or creds." | tee -a ${LOGFILE}
-		echo "!!!====================================================================!!!" | tee -a ${LOGFILE}
-		# Drop a breadcrumb on R2 so a headless run is diagnosable even if it times out.
-		if command -v rclone >/dev/null 2>&1; then
-			printf 'lean-pin MISS rev=%s chan=%s repo=%s at %s\n' \
-				"${FREESENSE_REV:-<unset>}" "${FREESENSE_CHANNEL:-main}" "${_repo:-none}" "$(LC_ALL=C date -u)" \
-				| rclone rcat --s3-no-check-bucket "R2:freesense-pkg/debug/lean-pin-miss.txt" 2>/dev/null || true
-		fi
-		# STRICT mode (default ON): abort rather than burn hours building stock from source.
-		# Set FREESENSE_PIN_STRICT=0 only for a deliberate cold from-source build.
-		if [ "${FREESENSE_PIN_STRICT:-1}" = "1" ]; then
-			echo ">>> lean-pin: FREESENSE_PIN_STRICT=1 -> aborting (set =0 to allow the slow from-source path)" | tee -a ${LOGFILE}
-			print_error_pfS
-		fi
-		echo ">>> lean-pin: FREESENSE_PIN_STRICT=0 -> proceeding with from-source build (SLOW)" | tee -a ${LOGFILE}
-		return 0
-	fi
-	echo -n ">>> lean-pin: pinning ${POUDRIERE_PORTS_NAME} to freebsd-ports ${_commit} (source: ${_pinsrc:-live}, FreeBSD repo '${_repo:-unnamed}')... " | tee -a ${LOGFILE}
-	_checkout_ok=0
-	{ git -C "${_tree}" fetch --depth 1 origin "${_commit}" >/dev/null 2>&1 \
-	  || git -C "${_tree}" fetch origin "${_commit}" >/dev/null 2>&1; } \
-		&& git -C "${_tree}" checkout -q -f "${_commit}" 2>/dev/null \
-		&& _checkout_ok=1
-	if [ "${_checkout_ok}" = 1 ]; then
-		echo "Done!" | tee -a ${LOGFILE}
-	else
-		# Resolved the hash but couldn't check it out — same slow-path danger. Fail loud too.
-		echo "FAILED to fetch/checkout ${_commit}" | tee -a ${LOGFILE}
-		if command -v rclone >/dev/null 2>&1; then
-			printf 'lean-pin CHECKOUT-FAIL commit=%s rev=%s at %s\n' \
-				"${_commit}" "${FREESENSE_REV:-<unset>}" "$(LC_ALL=C date -u)" \
-				| rclone rcat --s3-no-check-bucket "R2:freesense-pkg/debug/lean-pin-miss.txt" 2>/dev/null || true
-		fi
-		if [ "${FREESENSE_PIN_STRICT:-1}" = "1" ]; then
-			echo ">>> lean-pin: FREESENSE_PIN_STRICT=1 -> aborting (checkout failed, would build from source)" | tee -a ${LOGFILE}
-			print_error_pfS
-		fi
-		echo ">>> lean-pin: FREESENSE_PIN_STRICT=0 -> leaving tree at HEAD (SLOW from-source build)" | tee -a ${LOGFILE}
-	fi
+	echo "Done!" | tee -a ${LOGFILE}
 	return 0
 }
 
@@ -2374,9 +2355,7 @@ poudriere_create_ports_tree() {
 			fi
 		fi
 		echo "Done!" | tee -a ${LOGFILE}
-		# FreeSense lean-overlay: pin the stock tree to FreeBSD's binary-build commit BEFORE
-		# the overlay (a whole-tree checkout resets tracked files; the vendored FreeSense-*
-		# dirs are untracked and survive, the partial open-vm-tools patch re-applies below).
+		# Pin before applying FreeSense overlays because checkout resets tracked files.
 		poudriere_pin_ports_tree
 		# FreeSense: the ports tree above is UPSTREAM FreeBSD ports (no pfSense-* dirs).
 		# Overlay the selected FreeSense system/package port recipes BEFORE
@@ -2650,9 +2629,7 @@ poudriere_update_ports() {
 		script -aq ${LOGFILE} git -C "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}" reset --hard >/dev/null 2>&1
 		script -aq ${LOGFILE} git -C "/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}" clean -fd >/dev/null 2>&1
 		echo "Done!" | tee -a ${LOGFILE}
-		# FreeSense lean-overlay: instead of `poudriere ports -u` (pull to freebsd-ports HEAD),
-		# PIN the tree to FreeBSD's binary-build commit so stock ports match FreeBSD's prebuilt
-		# binaries (freesense-lean-seed.sh then reuses them). Runs BEFORE the overlay re-apply.
+		# Restore the exact locked tree instead of advancing a mutable branch.
 		poudriere_pin_ports_tree
 		# FreeSense: the reset/clean/pin above leaves upstream FreeBSD ports (no pfSense-* dirs);
 		# re-apply the overlay before rename.
@@ -2712,6 +2689,63 @@ aws_exec() {
 	return $?
 }
 
+# Translate every overlaid or explicitly option-divergent origin into the
+# package names Poudriere must build locally.  Everything else may be fetched
+# from FreeBSD's binary repository when it matches the pinned ports tree.
+poudriere_package_fetch_blacklist() {
+	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
+	local _origins="${SCRATCHDIR}/package-fetch-blacklist.origins.$$"
+	local _origin _overlay _pkgbase _blacklist=""
+
+	: > "${_origins}" || return 1
+	if [ -f "${BUILDER_TOOLS}/conf/pfPorts/must-build.extra" ]; then
+		sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
+			"${BUILDER_TOOLS}/conf/pfPorts/must-build.extra" >> "${_origins}"
+	fi
+	for _overlay in "${OVERLAY_DIR:-}" "${FREESENSE_SYSTEM_OVERLAY_DIR:-}"; do
+		[ -d "${_overlay}" ] || continue
+		find "${_overlay}" -mindepth 2 -maxdepth 2 -type f -name Makefile -print | \
+			sed -e "s#^${_overlay}/##" -e 's#/Makefile$##' >> "${_origins}"
+	done
+	sort -u "${_origins}" -o "${_origins}"
+	while IFS= read -r _origin; do
+		case "${_origin}" in
+		''|*[!A-Za-z0-9_+.,@/-]*)
+			echo ">>> ERROR: invalid locally-built port origin ${_origin}" >&2
+			rm -f "${_origins}"
+			return 1
+			;;
+		esac
+		[ -f "${_tree}/${_origin}/Makefile" ] || {
+			echo ">>> ERROR: locally-built port origin is absent: ${_origin}" >&2
+			rm -f "${_origins}"
+			return 1
+		}
+		_pkgbase=$(make -C "${_tree}/${_origin}" -V PKGBASE) || {
+			rm -f "${_origins}"
+			return 1
+		}
+		case "${_pkgbase}" in
+		''|*[!A-Za-z0-9_+.,@-]*)
+			echo ">>> ERROR: invalid package base for ${_origin}: ${_pkgbase}" >&2
+			rm -f "${_origins}"
+			return 1
+			;;
+		esac
+		_pkgbase="${_pkgbase}*"
+		case " ${_blacklist} " in
+		*" ${_pkgbase} "*) : ;;
+		*) _blacklist="${_blacklist}${_blacklist:+ }${_pkgbase}" ;;
+		esac
+	done < "${_origins}"
+	rm -f "${_origins}"
+	[ -n "${_blacklist}" ] || {
+		echo ">>> ERROR: package fetch blacklist is empty" >&2
+		return 1
+	}
+	printf '%s\n' "${_blacklist}"
+}
+
 poudriere_bulk() {
 	local _archs=$(poudriere_possible_archs)
 	local _makeconf
@@ -2764,6 +2798,32 @@ PRODUCT_NAME=${PRODUCT_NAME}
 FREESENSE_PACKAGE_TRAIN=${FREESENSE_PACKAGE_TRAIN}
 REPO_BRANCH_PREFIX=${REPO_PATH_PREFIX}
 EOF
+
+	# Poudriere sanitizes its build environment.  Put the pinned source time in
+	# the selected ports tree's make.conf and export it from make(1), ensuring
+	# pkg and port subprocesses receive the same value.  Local exploratory builds
+	# may omit it; release/CI callers can require it explicitly.
+	if [ -n "${SOURCE_DATE_EPOCH:-}" ] || \
+	    [ "${FREESENSE_REQUIRE_SOURCE_DATE_EPOCH:-0}" = "1" ]; then
+		if ! require_source_date_epoch; then
+			print_error_pfS
+		fi
+		cat <<EOF >>${_makeconf}
+SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
+.export SOURCE_DATE_EPOCH
+EOF
+	fi
+	if [ -n "${FREESENSE_MAKE_JOBS_NUMBER_LIMIT:-}" ]; then
+		case "${FREESENSE_MAKE_JOBS_NUMBER_LIMIT}" in
+		''|*[!0-9]*|0)
+			echo ">>> ERROR: FREESENSE_MAKE_JOBS_NUMBER_LIMIT must be a positive integer" >&2
+			print_error_pfS
+			;;
+		esac
+		cat <<EOF >>${_makeconf}
+MAKE_JOBS_NUMBER_LIMIT=${FREESENSE_MAKE_JOBS_NUMBER_LIMIT}
+EOF
+	fi
 
 	local _value=""
 	for jail_arch in ${_archs}; do
@@ -2847,23 +2907,34 @@ EOF
 			rm -f ${_bulk}.tmp ${_bulk}.exclude
 		fi
 
-		# FreeSense FROZEN STOCK SNAPSHOT (producer): when FREESENSE_SNAPSHOT is set this is the
-		# weekly snapshot job, not a build. It runs on the full bulk list (the workflow leaves the
-		# subset blank) against this same pinned+overlaid tree + make.conf, mirrors the COMPLETE
-		# stock closure + ports source to R2:.../stock/<chan>/<rev>/, then RETURNS before building
-		# anything (there is nothing to build — the snapshot only needs the closure + fetch + tar).
-		# FreeSense lean-overlay (consumer): seed FreeBSD's PREBUILT stock binaries from THIS rev's
-		# frozen snapshot so the bulk below REUSES them and builds ONLY the ~135 custom/patched ports
-		# (kills the 5h rust + the huge cold build). No FreeBSD contact here — the snapshot job above
-		# produced the bytes. Best-effort; a missing snapshot just falls back to building from source.
-		# Runs here so it sees the pinned+overlaid tree + this make.conf.
 		echo ">>> Poudriere bulk started at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
 		_poudriere_test_flag=""
 		if [ -n "${FREESENSE_PORT_TESTS:-}" ]; then
 			_poudriere_test_flag="-t"
 			echo ">>> FreeSense port test mode enabled (Poudriere bulk -t)" | tee -a ${LOGFILE}
 		fi
-		if ! poudriere bulk ${_poudriere_test_flag} -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
+		_package_fetch_blacklist=""
+		if [ "${FREESENSE_USE_PACKAGE_FETCH:-0}" = "1" ]; then
+			_package_fetch_blacklist=$(poudriere_package_fetch_blacklist) || print_error_pfS
+			echo ">>> Reusing compatible FreeBSD packages; modified package blacklist: ${_package_fetch_blacklist}" | tee -a ${LOGFILE}
+		fi
+		if [ "${FREESENSE_USE_PACKAGE_FETCH:-0}" = "1" ]; then
+			if env PACKAGE_FETCH_BLACKLIST="${_package_fetch_blacklist}" \
+				poudriere bulk -b latest ${_poudriere_test_flag} \
+				-f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
+				_bulk_status=0
+			else
+				_bulk_status=$?
+			fi
+		else
+			if poudriere bulk ${_poudriere_test_flag} \
+				-f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
+				_bulk_status=0
+			else
+				_bulk_status=$?
+			fi
+		fi
+		if [ "${_bulk_status}" -ne 0 ]; then
 			echo ">>> ERROR: Something went wrong..."
 			if [ "${AWS}" = 1 ]; then
 				save_pkgs_to_s3
@@ -2871,26 +2942,6 @@ EOF
 			print_error_pfS
 		fi
 		echo ">>> Poudriere bulk complated at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
-
-		# lean-overlay: poudriere may REBUILD a stock port that was also FETCHED (plain name);
-		# pkg then names the rebuild name-ver~hash.pkg so it won't clobber the fetched
-		# name-ver.pkg. Both live in .latest/All, and the next step (poudriere pkgclean) dies:
-		# "Found duplicated packages" + the '~' breaks its version parser ("NN~..: not completely
-		# converted") -> set -e -> the WHOLE build aborts even though bulk succeeded. Drop the
-		# hashed twin. Prefer the fresh rebuild: Poudriere created it because the frozen
-		# package did not match this exact tree/options/dependency set.
-		_leandir="/usr/local/poudriere/data/packages/${jail_name}-${POUDRIERE_PORTS_NAME}/.latest/All"
-		if [ -d "${_leandir}" ]; then
-			for _h in "${_leandir}"/*~*.pkg; do
-				[ -e "${_h}" ] || continue
-				_plain="${_h%~*}.pkg"
-				if [ -e "${_plain}" ]; then
-					echo ">>> lean-dedup: rebuilt package wins $(basename "${_h}") -> $(basename "${_plain}")"
-					rm -f "${_plain}"
-					mv "${_h}" "${_plain}"
-				fi
-			done
-		fi
 
 		echo ">>> Cleaning up old packages from repo..."
 		if ! poudriere pkgclean -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME} -y; then
