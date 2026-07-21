@@ -1,0 +1,127 @@
+<?php
+
+$root = dirname(__DIR__);
+$validator = $root . '/tools/ci/freesense-validate-channel.php';
+$assembler = $root . '/tools/ci/freesense-assemble-iso.sh';
+$fingerprint = str_repeat('a', 64);
+$packageFingerprint = str_repeat('b', 64);
+$payload = [
+	'schema_version' => 'freesense.channels/v1',
+	'channels' => [
+		'devel' => [
+			'name' => 'devel',
+			'description' => 'Development version',
+			'package_train' => '16.0',
+			'abi' => 'FreeBSD:16:amd64',
+			'altabi' => 'freebsd:16:x86:64',
+			'default' => true,
+			'system' => [
+				'fingerprint' => $fingerprint,
+				'url' => "https://pkg.freesense.org/v1/artifacts/system/{$fingerprint}/amd64",
+				'generation' => 7,
+				'published_at' => '2026-07-22T00:00:00Z',
+				'verified' => false,
+			],
+			'packages' => [
+				'fingerprint' => $packageFingerprint,
+				'system_fingerprint' => $fingerprint,
+				'url' => "https://pkg.freesense.org/v1/artifacts/packages/16.0/{$packageFingerprint}/amd64",
+				'generation' => 8,
+				'published_at' => '2026-07-22T00:05:00Z',
+				'verified' => false,
+			],
+		],
+	],
+];
+
+function runValidator(string $validator, array $payload, string $channel, string $fingerprint): int
+{
+	$path = tempnam(sys_get_temp_dir(), 'freesense-channel-');
+	if ($path === false || file_put_contents($path, json_encode($payload, JSON_THROW_ON_ERROR)) === false) {
+		throw new RuntimeException('Unable to create channel fixture.');
+	}
+	$command = escapeshellarg(PHP_BINARY) . ' -n ' . escapeshellarg($validator) . ' '
+		. escapeshellarg($path) . ' ' . escapeshellarg($channel) . ' '
+		. escapeshellarg($fingerprint);
+	exec($command . ' 2>&1', $output, $status);
+	unlink($path);
+	return $status;
+}
+
+if (runValidator($validator, $payload, 'devel', $fingerprint) !== 0) {
+	fwrite(STDERR, "Valid channel payload was rejected.\n");
+	exit(1);
+}
+$stablePayload = $payload;
+$stablePayload['channels']['stable'] = $stablePayload['channels']['devel'];
+$stablePayload['channels']['stable']['name'] = 'stable';
+$stablePayload['channels']['stable']['description'] = 'Stable version';
+$stablePayload['channels']['stable']['default'] = false;
+if (runValidator($validator, $stablePayload, 'stable', $fingerprint) !== 0) {
+	fwrite(STDERR, "Valid stable channel payload was rejected.\n");
+	exit(1);
+}
+
+$wrongSchema = $payload;
+$wrongSchema['schema_version'] = 'freesense.channels/v0';
+if (runValidator($validator, $wrongSchema, 'devel', $fingerprint) === 0) {
+	fwrite(STDERR, "Unsupported channel payload schema was accepted.\n");
+	exit(1);
+}
+if (runValidator($validator, $payload, 'stable', $fingerprint) === 0) {
+	fwrite(STDERR, "Missing selected channel was accepted.\n");
+	exit(1);
+}
+if (runValidator($validator, $payload, 'devel', str_repeat('c', 64)) === 0) {
+	fwrite(STDERR, "Mismatched current system was accepted.\n");
+	exit(1);
+}
+$wrongBinding = $payload;
+$wrongBinding['channels']['devel']['packages']['system_fingerprint'] = str_repeat('c', 64);
+if (runValidator($validator, $wrongBinding, 'devel', $fingerprint) === 0) {
+	fwrite(STDERR, "Mismatched optional-package system binding was accepted.\n");
+	exit(1);
+}
+
+$source = file_get_contents($assembler);
+if ($source === false) {
+	fwrite(STDERR, "Unable to read ISO assembler.\n");
+	exit(1);
+}
+$requiredSourceContracts = [
+	'${FREESENSE_ASSEMBLY_CHANNEL_PAYLOAD:?verified channel payload is required}',
+	'${FREESENSE_ASSEMBLY_CHANNEL:?selected channel is required}',
+	'${FREESENSE_SYSTEM_FINGERPRINT:?current system fingerprint is required}',
+	'cmp -s "${_channel_payload}" "${_share}/repos.manifest.json"',
+	'"/usr/local/sbin/${PRODUCT_NAME}-repoc" -l',
+	'[ -s "${_selected}.conf" ]',
+	'[ -f "${_selected}.default" ]',
+];
+foreach ($requiredSourceContracts as $contract) {
+	if (!str_contains($source, $contract)) {
+		fwrite(STDERR, "ISO assembler is missing channel closure contract: {$contract}\n");
+		exit(1);
+	}
+}
+$unusedOutputContracts = [
+	'gzip -kf "${ISOPATH}"',
+	'"${ISOPATH}.sha256"',
+	'.sbom.cdx.json',
+	'.provenance.json',
+];
+foreach ($unusedOutputContracts as $contract) {
+	if (str_contains($source, $contract)) {
+		fwrite(STDERR, "ISO assembler still creates unpublished output: {$contract}\n");
+		exit(1);
+	}
+}
+$defaultInstall = strpos($source, 'pkg add -f /tmp/default-config.pkg');
+$channelInstall = strpos($source, "\tinstall_assembly_channel\n");
+$distribution = strpos($source, "\tcreate_distribution_tarball\n");
+if ($defaultInstall === false || $channelInstall === false || $distribution === false
+	|| !($defaultInstall < $channelInstall && $channelInstall < $distribution)) {
+	fwrite(STDERR, "Channel closure is not installed between final package setup and distribution creation.\n");
+	exit(1);
+}
+
+echo "ISO channel closure smoke test passed.\n";
