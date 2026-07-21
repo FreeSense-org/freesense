@@ -985,8 +985,14 @@ clone_to_staging_area() {
 	rm -f ${STAGE_CHROOT_DIR}/cf/conf/enableserial_force
 	rm -f ${STAGE_CHROOT_DIR}/cf/conf/config.xml
 
-	# Make sure pkg is present
-	pkg_bootstrap ${STAGE_CHROOT_DIR}
+	# Normal image builds need pkg in the staging root.  A --build-core run is
+	# itself producing the first dependency-closed repository, so reaching out
+	# to the public repository here creates a circular bootstrap dependency.
+	if [ "${FREESENSE_SKIP_STAGE_PKG_BOOTSTRAP:-no}" = "yes" ]; then
+		echo ">>> FreeSense: core-only build skips external pkg bootstrap"
+	else
+		pkg_bootstrap ${STAGE_CHROOT_DIR} || return $?
+	fi
 
 	# Make sure correct repo is available on tmp dir
 	mkdir -p ${STAGE_CHROOT_DIR}/tmp/pkg/pkg-repos
