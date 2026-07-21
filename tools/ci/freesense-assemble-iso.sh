@@ -1,11 +1,136 @@
 #!/bin/sh
 # Compile-free ISO assembly from the split base and system repositories.
 
+run_in_assembly_chroot() (
+	set -eu
+	_assembly_root="${1}"
+	shift
+	_assembly_devfs_mounted=""
+
+	cleanup_assembly_devfs() {
+		_assembly_status=$?
+		trap - EXIT HUP INT TERM
+		if [ -n "${_assembly_devfs_mounted}" ] && \
+		    ! umount -f "${_assembly_root}/dev"; then
+			echo ">>> ERROR: unable to unmount ${_assembly_root}/dev" >&2
+			[ "${_assembly_status}" -ne 0 ] || _assembly_status=1
+		fi
+		exit "${_assembly_status}"
+	}
+
+	trap cleanup_assembly_devfs EXIT
+	trap 'exit 129' HUP
+	trap 'exit 130' INT
+	trap 'exit 143' TERM
+	mount -t devfs devfs "${_assembly_root}/dev"
+	_assembly_devfs_mounted=yes
+	chroot "${_assembly_root}" "$@"
+)
+
+install_assembly_channel() {
+	_channel_payload="${FREESENSE_ASSEMBLY_CHANNEL_PAYLOAD}"
+	_channel="${FREESENSE_ASSEMBLY_CHANNEL}"
+	_current_system="${FREESENSE_SYSTEM_FINGERPRINT}"
+	_share="${FINAL_CHROOT_DIR}${PRODUCT_SHARE_DIR}"
+	_repos="${FINAL_CHROOT_DIR}/usr/local/etc/${PRODUCT_NAME}/pkg/repos"
+	_guest_payload="/tmp/freesense-assembly-channel.json"
+	_guest_validator="/tmp/freesense-validate-channel.php"
+	_validator="${BUILDER_TOOLS}/ci/freesense-validate-channel.php"
+
+	case "${_channel}" in
+	devel|stable) : ;;
+	*)
+		echo ">>> ERROR: assembly channel must be devel or stable" >&2
+		return 1
+		;;
+	esac
+	if [ "${#_current_system}" -ne 64 ]; then
+		echo ">>> ERROR: assembly system fingerprint must be SHA-256" >&2
+		return 1
+	fi
+	case "${_current_system}" in
+	*[!0-9a-f]*)
+		echo ">>> ERROR: assembly system fingerprint must be SHA-256" >&2
+		return 1
+		;;
+	esac
+	[ -s "${_channel_payload}" ] || {
+		echo ">>> ERROR: verified assembly channel payload is missing" >&2
+		return 1
+	}
+	[ -r "${_validator}" ] || {
+		echo ">>> ERROR: assembly channel validator is missing" >&2
+		return 1
+	}
+	[ -x "${FINAL_CHROOT_DIR}/usr/local/bin/php" ] || {
+		echo ">>> ERROR: installed PHP is required to validate the assembly channel" >&2
+		return 1
+	}
+	[ -x "${FINAL_CHROOT_DIR}/usr/local/sbin/${PRODUCT_NAME}-repoc" ] || {
+		echo ">>> ERROR: installed ${PRODUCT_NAME}-repoc is required" >&2
+		return 1
+	}
+
+	cp "${_channel_payload}" "${FINAL_CHROOT_DIR}${_guest_payload}"
+	cp "${_validator}" "${FINAL_CHROOT_DIR}${_guest_validator}"
+	_channel_status=0
+	chroot "${FINAL_CHROOT_DIR}" /usr/local/bin/php -n \
+		"${_guest_validator}" "${_guest_payload}" "${_channel}" \
+		"${_current_system}" || _channel_status=$?
+	rm -f "${FINAL_CHROOT_DIR}${_guest_validator}"
+	[ "${_channel_status}" -eq 0 ] || {
+		rm -f "${FINAL_CHROOT_DIR}${_guest_payload}"
+		echo ">>> ERROR: assembly channel payload does not select the current system" >&2
+		return "${_channel_status}"
+	}
+
+	mkdir -p "${_share}" "${_repos}"
+	install -o root -g wheel -m 0444 "${FINAL_CHROOT_DIR}${_guest_payload}" \
+		"${_share}/repos.manifest.json"
+	cmp -s "${_channel_payload}" "${_share}/repos.manifest.json" || {
+		echo ">>> ERROR: installed channel payload differs from verified input" >&2
+		return 1
+	}
+	rm -f "${FINAL_CHROOT_DIR}${_guest_payload}"
+	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null || true
+	: > "${_repos}/${PRODUCT_NAME}-repo-${_channel}.default"
+
+	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" /usr/bin/env \
+		PRODUCT="${PRODUCT_NAME}" \
+		REPOS_DIR="/usr/local/etc/${PRODUCT_NAME}/pkg/repos" \
+		SHARE_DIR="${PRODUCT_SHARE_DIR}" ARCH="${TARGET_ARCH}" \
+		MANIFEST_LOCAL="${PRODUCT_SHARE_DIR}/repos.manifest.json" \
+		"/usr/local/sbin/${PRODUCT_NAME}-repoc" -l
+
+	_selected="${_repos}/${PRODUCT_NAME}-repo-${_channel}"
+	[ -s "${_selected}.conf" ] || {
+		echo ">>> ERROR: selected assembly channel configuration was not materialized" >&2
+		return 1
+	}
+	[ -f "${_selected}.default" ] || {
+		echo ">>> ERROR: selected assembly channel default marker was not preserved" >&2
+		return 1
+	}
+	_default_count=$(find "${_repos}" -type f \
+		-name "${PRODUCT_NAME}-repo-*.default" -print | awk 'END { print NR + 0 }')
+	[ "${_default_count}" -eq 1 ] || {
+		echo ">>> ERROR: assembly must contain exactly one selected channel" >&2
+		return 1
+	}
+	grep -Fq "/artifacts/system/${_current_system}/amd64" "${_selected}.conf" || {
+		echo ">>> ERROR: selected repository configuration does not match the current system" >&2
+		return 1
+	}
+}
+
 assemble_iso_from_repositories() {
 	set -eu
 	: "${FREESENSE_ASSEMBLY_BASE_REPO:?base repository is required}"
 	: "${FREESENSE_ASSEMBLY_SYSTEM_REPO:?system repository is required}"
 	: "${FREESENSE_ASSEMBLY_FREEBSD_SRC:?pinned FreeBSD release tools are required}"
+	: "${FREESENSE_ASSEMBLY_CHANNEL_PAYLOAD:?verified channel payload is required}"
+	: "${FREESENSE_ASSEMBLY_CHANNEL:?selected channel is required}"
+	: "${FREESENSE_SYSTEM_FINGERPRINT:?current system fingerprint is required}"
 
 	for _repo in "${FREESENSE_ASSEMBLY_BASE_REPO}" "${FREESENSE_ASSEMBLY_SYSTEM_REPO}"; do
 		test -s "${_repo}/meta.conf"
@@ -58,9 +183,8 @@ assemble_iso_from_repositories() {
 	cp "${SCRATCHDIR}/assembly-repository/All"/*.pkg \
 		"${STAGE_CHROOT_DIR}/tmp/assembly-pkgs/"
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
-		mount -t devfs devfs "${_root}/dev"
-		chroot "${_root}" /bin/sh -c 'pkg add -f /tmp/assembly-pkgs/*.pkg'
-		umount -f "${_root}/dev"
+		run_in_assembly_chroot "${_root}" /bin/sh -c \
+			'pkg add -f /tmp/assembly-pkgs/*.pkg'
 		rm -rf "${_root}/tmp/assembly-pkgs"
 	done
 
@@ -69,10 +193,9 @@ assemble_iso_from_repositories() {
 		-name "${PRODUCT_NAME}-default-config-[0-9]*.pkg" -type f | sort | tail -1)
 	[ -n "${_default}" ] || { echo ">>> ERROR: default configuration package missing"; return 1; }
 	cp "${_default}" "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
-	mount -t devfs devfs "${FINAL_CHROOT_DIR}/dev"
-	chroot "${FINAL_CHROOT_DIR}" pkg add -f /tmp/default-config.pkg
-	umount -f "${FINAL_CHROOT_DIR}/dev"
+	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" pkg add -f /tmp/default-config.pkg
 	rm -f "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
+	install_assembly_channel
 
 	mkdir -p "${INSTALLER_CHROOT_DIR}/pkgs"
 	cp "${_default}" "${INSTALLER_CHROOT_DIR}/pkgs/"
@@ -111,23 +234,5 @@ assemble_iso_from_repositories() {
 	sh "${FREEBSD_SRC_DIR}/release/${TARGET}/mkisoimages.sh" -b \
 		"${FSLABEL}" "${ISOPATH}" "${INSTALLER_CHROOT_DIR}"
 	test -s "${ISOPATH}"
-	gzip -kf "${ISOPATH}"
-	sha256 "${ISOPATH}" "${ISOPATH}.gz" > "${ISOPATH}.sha256"
-
-	python3 - "${SCRATCHDIR}/assembly-repository/All" "${ISOPATH}" <<'PY'
-import datetime, hashlib, json, pathlib, sys
-packages, image = map(pathlib.Path, sys.argv[1:])
-components = []
-for package in sorted(packages.glob("*.pkg")):
-    components.append({"type": "library", "name": package.name,
-        "hashes": [{"alg": "SHA-256", "content": hashlib.sha256(package.read_bytes()).hexdigest()}]})
-sbom = {"bomFormat": "CycloneDX", "specVersion": "1.5", "version": 1, "components": components}
-image.with_suffix(image.suffix + ".sbom.cdx.json").write_text(json.dumps(sbom, indent=2, sort_keys=True) + "\n")
-provenance = {"schema": 1, "kind": "freesense-split-iso",
-    "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    "iso_sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
-    "package_count": len(components)}
-image.with_suffix(image.suffix + ".provenance.json").write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
-PY
 	echo ">>> compile-free ISO complete: ${ISOPATH}"
 }
