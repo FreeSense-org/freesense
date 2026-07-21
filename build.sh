@@ -292,7 +292,7 @@ case $BUILDACTION in
 	;;
 	assemble_iso)
 		. ${BUILDER_TOOLS}/ci/freesense-assemble-iso.sh
-		assemble_iso_from_seals
+		assemble_iso_from_repositories
 	;;
 	*)
 		usage
