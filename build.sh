@@ -281,7 +281,12 @@ case $BUILDACTION in
 		git_last_commit
 		make_world
 		build_all_kernels
-		clone_to_staging_area
+		# A core-only producer creates the pkg repository later in this same
+		# transaction.  It must not try to bootstrap pkg from that unpublished
+		# repository while cloning the freshly built world.
+		export FREESENSE_SKIP_STAGE_PKG_BOOTSTRAP=yes
+		clone_to_staging_area || exit $?
+		unset FREESENSE_SKIP_STAGE_PKG_BOOTSTRAP
 		# The kernel package has an exact-version dependency on ${PRODUCT_NAME}-boot.
 		# Build the bootloader package in the same core transaction so a standalone
 		# base repository is dependency-closed before any ports are merged into it.
