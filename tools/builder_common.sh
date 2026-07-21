@@ -275,6 +275,27 @@ make_world() {
 		return
 	fi
 
+	# Deterministic fast path for the split builder. The orchestrator verifies and
+	# mirrors one official base.txz alongside the exact FreeBSD source commit, then
+	# passes its local path here. Both chroots therefore start from identical,
+	# checksum-pinned distribution bytes without a moving package repository.
+	if [ -n "${FREESENSE_DIST_WORLD_ARCHIVE:-}" ]; then
+		if [ ! -f "${FREESENSE_DIST_WORLD_ARCHIVE}" ]; then
+			echo ">>> ERROR: pinned world archive is missing: ${FREESENSE_DIST_WORLD_ARCHIVE}" | tee -a ${LOGFILE}
+			print_error_pfS
+		fi
+		echo ">>> $(LC_ALL=C date) - seeding world from pinned base.txz (NO buildworld)..." | tee -a ${LOGFILE}
+		script -aq $LOGFILE env \
+			STAGE_CHROOT_DIR="${STAGE_CHROOT_DIR}" \
+			INSTALLER_CHROOT_DIR="${INSTALLER_CHROOT_DIR}" \
+			FREESENSE_DIST_WORLD_ARCHIVE="${FREESENSE_DIST_WORLD_ARCHIVE}" \
+			sh ${BUILDER_TOOLS}/ci/freesense-dist-world.sh \
+			|| print_error_pfS
+		BUILD_CC="${STAGE_CHROOT_DIR}/usr/bin/cc"
+		make_world_pkgbase_tail
+		return
+	fi
+
 	# FreeSense LEVER 1 (pkgbase world) — NOW THE DEFAULT: instead of compiling the
 	# world with buildworld (~4.3h, ~99% verbatim FreeBSD), seed the staging + installer
 	# chroots from FreeBSD-16 prebuilt pkgbase binaries (~47min total core build). The

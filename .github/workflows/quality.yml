@@ -27,6 +27,7 @@ jobs:
         run: |
           sh -n build.sh
           sh -n tools/ci/freesense-localrepo.sh
+          sh -n tools/ci/freesense-dist-world.sh
           sh -n tools/ci/freesense-fetch-kernel.sh
           sh -n tools/ci/freesense-ports-overlay.sh
           sh -n tools/ci/freesense-stock-snapshot.sh
@@ -46,6 +47,7 @@ jobs:
           grep -Fq 'canonical pkg bootstrap has no valid ports_top_git_hash annotation' tools/ci/freesense-stock-snapshot.sh
           ! grep -Fq 'for _p in "$BANKALL"/*.pkg' tools/ci/freesense-stock-snapshot.sh
           shellcheck -S error tools/ci/freesense-fetch-kernel.sh
+          shellcheck -S error tools/ci/freesense-dist-world.sh
       - name: Reject committed secrets
         run: |
           if git grep -IEn '(^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$|R2_SECRET_ACCESS_KEY[=:][[:space:]]*[^$<{])' -- . ':!*.md'; then
