@@ -105,11 +105,25 @@ foreach ($requiredSourceContracts as $contract) {
 }
 $worldSeed = strpos($source, 'freesense-dist-world.sh');
 $pkgBootstrap = strpos($source, 'tar -xpf "${_pkg_package}"');
-$packageInstall = strpos($source, 'pkg add /tmp/assembly-pkgs/*.pkg');
-if ($worldSeed === false || $pkgBootstrap === false || $packageInstall === false
-	|| !($worldSeed < $pkgBootstrap && $pkgBootstrap < $packageInstall)) {
+$pkgRegister = strpos($source, 'pkg add /tmp/pkg-bootstrap.pkg');
+$packageInstall = strpos($source, 'pkg add "$@"');
+if ($worldSeed === false || $pkgBootstrap === false || $pkgRegister === false
+	|| $packageInstall === false
+	|| !($worldSeed < $pkgBootstrap && $pkgBootstrap < $pkgRegister
+		&& $pkgRegister < $packageInstall)) {
 	fwrite(STDERR, "ISO assembler does not seed pinned world before its pkg-only bootstrap.\n");
 	exit(1);
+}
+$installDiagnostics = [
+	'unable to register the pinned pkg bootstrap',
+	'unable to install the pinned System package closure',
+	'package install epoch mismatch',
+];
+foreach ($installDiagnostics as $diagnostic) {
+	if (!str_contains($source, $diagnostic)) {
+		fwrite(STDERR, "ISO assembler is missing package failure diagnostic: {$diagnostic}\n");
+		exit(1);
+	}
 }
 $unusedOutputContracts = [
 	'gzip -kf "${ISOPATH}"',
