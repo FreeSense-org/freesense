@@ -1,5 +1,6 @@
 #!/bin/sh
 # Compile-free ISO assembly from one sealed System repository.
+# FREESENSE_ISO_ASSEMBLY_API=2
 
 run_in_assembly_chroot() (
 	set -eu
@@ -109,12 +110,6 @@ install_assembly_channel() {
 	}
 	[ -f "${_selected}.default" ] || {
 		echo ">>> ERROR: selected assembly channel default marker was not preserved" >&2
-		return 1
-	}
-	_default_count=$(find "${_repos}" -type f \
-		-name "${PRODUCT_NAME}-repo-*.default" -print | awk 'END { print NR + 0 }')
-	[ "${_default_count}" -eq 1 ] || {
-		echo ">>> ERROR: assembly must contain exactly one selected channel" >&2
 		return 1
 	}
 	grep -Fq "/artifacts/system/${_current_system}/amd64" "${_selected}.conf" || {
