@@ -169,16 +169,31 @@ assemble_iso_from_repositories() {
 		# supported override makes the installed package database reproducible.
 		run_in_assembly_chroot "${_root}" /usr/bin/env \
 			PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" /bin/sh -c \
-			'if ! pkg add /tmp/pkg-bootstrap.pkg; then
+			'report_pkg_failure() {
+				_log=$1
+				echo ">>> relevant pkg diagnostics:" >&2
+				grep -Eai "(^pkg:|error|conflict|failed|failure|already installed)" \
+					"${_log}" | tail -n 40 >&2 || true
+				echo ">>> final pkg output:" >&2
+				tail -n 60 "${_log}" >&2 || true
+			}
+			if ! pkg add /tmp/pkg-bootstrap.pkg >/tmp/pkg-bootstrap.log 2>&1; then
+				report_pkg_failure /tmp/pkg-bootstrap.log
 				echo ">>> ERROR: unable to register the pinned pkg bootstrap" >&2
 				exit 1
 			fi
-			rm -f /tmp/pkg-bootstrap.pkg
+			rm -f /tmp/pkg-bootstrap.pkg /tmp/pkg-bootstrap.log
 			set -- /tmp/assembly-pkgs/*.pkg
-			if [ ! -f "$1" ] || ! pkg add "$@"; then
+			if [ ! -f "$1" ]; then
+				echo ">>> ERROR: pinned System package closure is empty" >&2
+				exit 1
+			fi
+			if ! pkg add "$@" >/tmp/pkg-closure.log 2>&1; then
+				report_pkg_failure /tmp/pkg-closure.log
 				echo ">>> ERROR: unable to install the pinned System package closure" >&2
 				exit 1
 			fi
+			rm -f /tmp/pkg-closure.log
 			_pkg_epochs=$(pkg query -a "%t" | sort -u)
 			if [ "${_pkg_epochs}" != "${PKG_INSTALL_EPOCH}" ]; then
 				printf ">>> ERROR: package install epoch mismatch (expected %s, got %s)\n" \
@@ -195,10 +210,13 @@ assemble_iso_from_repositories() {
 	cp "${_default}" "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
 	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" /usr/bin/env \
 		PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" \
-		/bin/sh -c 'if ! pkg add -f /tmp/default-config.pkg; then
+		/bin/sh -c 'if ! pkg add -f /tmp/default-config.pkg \
+			>/tmp/pkg-default.log 2>&1; then
+			tail -n 60 /tmp/pkg-default.log >&2 || true
 			echo ">>> ERROR: unable to apply the default configuration package" >&2
 			exit 1
 		fi
+		rm -f /tmp/pkg-default.log
 		_pkg_epochs=$(pkg query -a "%t" | sort -u)
 		if [ "${_pkg_epochs}" != "${PKG_INSTALL_EPOCH}" ]; then
 			printf ">>> ERROR: final package install epoch mismatch (expected %s, got %s)\n" \
