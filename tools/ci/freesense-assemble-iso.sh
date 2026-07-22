@@ -35,8 +35,6 @@ install_assembly_channel() {
 	_share="${FINAL_CHROOT_DIR}${PRODUCT_SHARE_DIR}"
 	_repos="${FINAL_CHROOT_DIR}/usr/local/etc/${PRODUCT_NAME}/pkg/repos"
 	_guest_payload="/tmp/freesense-assembly-channel.json"
-	_guest_validator="/tmp/freesense-validate-channel.php"
-	_validator="${BUILDER_TOOLS}/ci/freesense-validate-channel.php"
 
 	case "${_channel}" in
 	devel|stable) : ;;
@@ -59,33 +57,27 @@ install_assembly_channel() {
 		echo ">>> ERROR: verified assembly channel payload is missing" >&2
 		return 1
 	}
-	[ -r "${_validator}" ] || {
-		echo ">>> ERROR: assembly channel validator is missing" >&2
-		return 1
-	}
-	[ -x "${FINAL_CHROOT_DIR}/usr/local/bin/php" ] || {
-		echo ">>> ERROR: installed PHP is required to validate the assembly channel" >&2
-		return 1
-	}
 	[ -x "${FINAL_CHROOT_DIR}/usr/local/sbin/${PRODUCT_NAME}-repoc" ] || {
 		echo ">>> ERROR: installed ${PRODUCT_NAME}-repoc is required" >&2
 		return 1
 	}
 
 	cp "${_channel_payload}" "${FINAL_CHROOT_DIR}${_guest_payload}"
-	cp "${_validator}" "${FINAL_CHROOT_DIR}${_guest_validator}"
-	_channel_status=0
-	chroot "${FINAL_CHROOT_DIR}" /usr/local/bin/php -n \
-		"${_guest_validator}" "${_guest_payload}" "${_channel}" \
-		"${_current_system}" || _channel_status=$?
-	rm -f "${FINAL_CHROOT_DIR}${_guest_validator}"
-	[ "${_channel_status}" -eq 0 ] || {
+	mkdir -p "${_share}" "${_repos}"
+	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null || true
+	: > "${_repos}/${PRODUCT_NAME}-repo-${_channel}.default"
+
+	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" /usr/bin/env \
+		PRODUCT="${PRODUCT_NAME}" \
+		REPOS_DIR="/usr/local/etc/${PRODUCT_NAME}/pkg/repos" \
+		SHARE_DIR="${PRODUCT_SHARE_DIR}" \
+		MANIFEST_LOCAL="${_guest_payload}" \
+		"/usr/local/sbin/${PRODUCT_NAME}-repoc" -l || {
 		rm -f "${FINAL_CHROOT_DIR}${_guest_payload}"
-		echo ">>> ERROR: assembly channel payload does not select the current system" >&2
-		return "${_channel_status}"
+		echo ">>> ERROR: assembly channel payload is not a verified release pair" >&2
+		return 1
 	}
 
-	mkdir -p "${_share}" "${_repos}"
 	install -o root -g wheel -m 0444 "${FINAL_CHROOT_DIR}${_guest_payload}" \
 		"${_share}/repos.manifest.json"
 	cmp -s "${_channel_payload}" "${_share}/repos.manifest.json" || {
@@ -93,15 +85,6 @@ install_assembly_channel() {
 		return 1
 	}
 	rm -f "${FINAL_CHROOT_DIR}${_guest_payload}"
-	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null || true
-	: > "${_repos}/${PRODUCT_NAME}-repo-${_channel}.default"
-
-	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" /usr/bin/env \
-		PRODUCT="${PRODUCT_NAME}" \
-		REPOS_DIR="/usr/local/etc/${PRODUCT_NAME}/pkg/repos" \
-		SHARE_DIR="${PRODUCT_SHARE_DIR}" ARCH="${TARGET_ARCH}" \
-		MANIFEST_LOCAL="${PRODUCT_SHARE_DIR}/repos.manifest.json" \
-		"/usr/local/sbin/${PRODUCT_NAME}-repoc" -l
 
 	_selected="${_repos}/${PRODUCT_NAME}-repo-${_channel}"
 	[ -s "${_selected}.conf" ] || {

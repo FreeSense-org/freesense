@@ -30,6 +30,14 @@ if [ -z "${TERM}" ] || [ "${TERM}" = "dumb" ]; then
 	export TERM
 fi
 
+# A machine-readable signal lets release automation prove that the real ISO
+# reached the installer without scraping a terminal UI.
+if [ -w /dev/ttyu0 ]; then
+	printf '%s\n' 'FREESENSE_INSTALLER_READY_V1' >/dev/ttyu0
+elif [ -w /dev/console ]; then
+	printf '%s\n' 'FREESENSE_INSTALLER_READY_V1' >/dev/console
+fi
+
 # Loop: if the installer is cancelled/exits, offer a shell and re-run on exit,
 # so a stray keypress can't strand the media at an unusable prompt.
 while :; do

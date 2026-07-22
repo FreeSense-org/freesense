@@ -1003,15 +1003,8 @@ clone_to_staging_area() {
 	rm -f ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz \
 	      ${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.mtree
 
-	# Include a sample pkg stable conf to base
-	setup_pkg_repo \
-		${PKG_REPO_DEFAULT} \
-		${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/${PRODUCT_NAME}-repo.conf \
-		${TARGET} \
-		${TARGET_ARCH}
-
-	# FreeSense: seed the channel manifest + per-branch repo confs so the
-	# System > Update branch selector is populated on a fresh install.
+	# Install only repository trust anchors into the reusable System payload.
+	# The release assembler installs the exact verified channel pair later.
 	stage_repo_channels ${STAGE_CHROOT_DIR}
 
 	create_reproducible_mtree \
@@ -1528,35 +1521,14 @@ setup_pkg_repo() {
 	fi
 }
 
-# Bake the exact system repository used for this image.  At runtime repoc replaces
-# this trusted local seed with the signed v3 channel document.  URLs are immutable;
-# no branch or date-derived path is reconstructed by the box.
+# Install only channel and package trust anchors. Channel state is deliberately
+# absent from the reusable System/update payload: ISO assembly installs its exact
+# verified pair, and repoc retains later verified live state under /cf/conf.
 stage_repo_channels() {
 	local _root="${1}"
 	local _share="${_root}${PRODUCT_SHARE_DIR}"
 	local _repos="${_root}/usr/local/etc/${PRODUCT_NAME}/pkg/repos"
-
-	local _abi=$(cat ${PKG_REPO_BASE}/${PRODUCT_NAME}-repo-devel.abi 2>/dev/null \
-	    | sed -e "s/%%ARCH%%/${TARGET_ARCH}/g")
-	local _altabi=$(cat ${PKG_REPO_BASE}/${PRODUCT_NAME}-repo-devel.altabi 2>/dev/null \
-	    | sed -e "s/%%ARCH%%/$(get_altabi_arch ${TARGET_ARCH})/g")
-	[ -n "${_abi}" ] || _abi="FreeBSD:16:${TARGET_ARCH}"
-	[ -n "${_altabi}" ] || _altabi="freebsd:16:x86:64"
-
-	[ -n "${FREESENSE_SYSTEM_REPO_URL:-}" ] || {
-		echo ">>> ERROR: FREESENSE_SYSTEM_REPO_URL is required"
-		print_error_pfS
-	}
-	case "${FREESENSE_SYSTEM_REPO_URL}" in
-	https://pkg.freesense.org/v1/artifacts/system/*/amd64) : ;;
-	*) echo ">>> ERROR: invalid immutable system repository URL"; print_error_pfS ;;
-	esac
-	if [ -n "${FREESENSE_PACKAGES_REPO_URL:-}" ]; then
-		case "${FREESENSE_PACKAGES_REPO_URL}" in
-		https://pkg.freesense.org/v1/artifacts/packages/${FREESENSE_PACKAGE_TRAIN}/*/amd64) : ;;
-		*) echo ">>> ERROR: invalid immutable optional-package repository URL"; print_error_pfS ;;
-		esac
-	fi
+	local _repo_class _trust_found="" _trust_anchor
 
 	mkdir -p "${_share}" "${_repos}" "${_share}/keys/channel"
 	[ -r "${FREESENSE_CHANNEL_PUBLIC_KEY_FILE:-}" ] || {
@@ -1564,61 +1536,33 @@ stage_repo_channels() {
 		print_error_pfS
 	}
 	cp -f "${FREESENSE_CHANNEL_PUBLIC_KEY_FILE}" "${_share}/keys/channel/public.pem"
-	cat > "${_share}/repos.manifest.json" <<EOF
-{
-  "schema_version": "freesense.channels/v1",
-  "channels": {
-    "devel": {
-      "name": "devel",
-      "description": "Development version",
-      "package_train": "${FREESENSE_PACKAGE_TRAIN}",
-      "abi": "${_abi}",
-      "altabi": "${_altabi}",
-      "default": true,
-      "system": {
-        "fingerprint": "${FREESENSE_SYSTEM_FINGERPRINT:-0000000000000000000000000000000000000000000000000000000000000000}",
-        "url": "${FREESENSE_SYSTEM_REPO_URL}",
-        "generation": ${PRODUCT_REVISION:-1},
-        "published_at": "1970-01-01T00:00:00Z",
-        "verified": false
-      }$(if [ -n "${FREESENSE_PACKAGES_REPO_URL:-}" ]; then cat <<PACKAGES
-,
-      "packages": {
-        "fingerprint": "${FREESENSE_PACKAGES_FINGERPRINT:-0000000000000000000000000000000000000000000000000000000000000000}",
-        "url": "${FREESENSE_PACKAGES_REPO_URL}",
-        "generation": ${PRODUCT_REVISION:-1},
-        "published_at": "1970-01-01T00:00:00Z",
-        "verified": false
-      }
-PACKAGES
-fi)
-    }
-  }
-}
-EOF
 
 	# Separate trust paths allow independent system/package signing keys. Until
 	# dedicated public fingerprints are supplied, seed both from the existing
 	# FreeSense trust anchor so development images remain installable.
 	for _repo_class in system packages; do
 		mkdir -p "${_share}/keys/${_repo_class}/trusted" "${_share}/keys/${_repo_class}/revoked"
-		cp -f "${_share}/keys/pkg/trusted/"* "${_share}/keys/${_repo_class}/trusted/" 2>/dev/null || true
+		for _trust_anchor in "${_share}/keys/pkg/trusted/"*; do
+			[ -f "${_trust_anchor}" ] || continue
+			cp -f "${_trust_anchor}" "${_share}/keys/${_repo_class}/trusted/" || print_error_pfS
+			_trust_found=yes
+		done
 		: > "${_share}/keys/${_repo_class}/revoked/.empty"
 	done
+	[ -n "${_trust_found}" ] || {
+		echo ">>> ERROR: repository signing trust anchor is missing"
+		print_error_pfS
+	}
 
-	# Seed the per-branch confs offline from that manifest, reusing FreeSense-repoc
-	# itself (from the ports overlay) so the conf-writing logic lives in one place.
-	local _repoc="${OVERLAY_DIR:-/root/freesense-system-ports}/sysutils/${PRODUCT_NAME}-repoc/files/${PRODUCT_NAME}-repoc"
-	if [ -r "${_repoc}" ]; then
-		PRODUCT="${PRODUCT_NAME}" REPOS_DIR="${_repos}" SHARE_DIR="${_share}" \
-		ARCH="${TARGET_ARCH}" MANIFEST_LOCAL="${_share}/repos.manifest.json" \
-		    sh "${_repoc}" -l || echo ">>> WARNING: FreeSense channel seed failed"
-	else
-		echo ">>> WARNING: FreeSense-repoc not found at ${_repoc}; branch selector will seed at runtime only"
-	fi
-
-	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null
-	: > "${_repos}/${PRODUCT_NAME}-repo-devel.default"
+	# A package upgrade must never overwrite the appliance's retained channel or
+	# repository selection with build-time state.
+	rm -f "${_share}/repos.manifest.json" \
+		"${_repos}/${PRODUCT_NAME}-repo-"*.conf \
+		"${_repos}/${PRODUCT_NAME}-repo-"*.name \
+		"${_repos}/${PRODUCT_NAME}-repo-"*.descr \
+		"${_repos}/${PRODUCT_NAME}-repo-"*.abi \
+		"${_repos}/${PRODUCT_NAME}-repo-"*.altabi \
+		"${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null || true
 }
 
 depend_check() {
