@@ -131,6 +131,7 @@ assemble_iso_from_repositories() {
 	: "${FREESENSE_ASSEMBLY_CHANNEL_PAYLOAD:?verified channel payload is required}"
 	: "${FREESENSE_ASSEMBLY_CHANNEL:?selected channel is required}"
 	: "${FREESENSE_SYSTEM_FINGERPRINT:?current system fingerprint is required}"
+	: "${FREESENSE_DIST_WORLD_ARCHIVE:?pinned FreeBSD world archive is required}"
 
 	_repo="${FREESENSE_ASSEMBLY_SYSTEM_REPO}"
 	test -s "${_repo}/meta.conf"
@@ -140,24 +141,21 @@ assemble_iso_from_repositories() {
 		pkg query -F "${_package}" '%n|%v|%o' >/dev/null
 	done
 
-	rm -rf "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}"
-	mkdir -p "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}" \
-		"${BUILDER_LOGS}"
+	rm -rf "${FINAL_CHROOT_DIR}"
+	mkdir -p "${FINAL_CHROOT_DIR}" "${BUILDER_LOGS}"
+	sh "${BUILDER_TOOLS}/ci/freesense-dist-world.sh"
 
-	# Seed enough userland to run pkg inside each fresh root. pkg then executes
-	# package scripts and registers the exact immutable repository closure.
+	_pkg_package=$(find "${_repo}/All" -name 'pkg-[0-9]*.pkg' \
+		-type f | sort | tail -1)
+	[ -n "${_pkg_package}" ] || {
+		echo ">>> ERROR: assembly package missing: pkg-[0-9]*.pkg"
+		return 1
+	}
+
+	# Bootstrap only pkg into the pinned world. pkg then installs and registers
+	# every package from the exact immutable System repository closure once.
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
-		for _pattern in \
-			"${PRODUCT_NAME}-base-*.pkg" "${PRODUCT_NAME}-boot-*.pkg" \
-			"${PRODUCT_NAME}-kernel-${PRODUCT_NAME}-*.pkg" "${PRODUCT_NAME}-rc-*.pkg" \
-			"pkg-[0-9]*.pkg"; do
-			_package=$(find "${_repo}/All" -name "${_pattern}" -type f | sort | tail -1)
-			[ -n "${_package}" ] || {
-				echo ">>> ERROR: assembly package missing: ${_pattern}"
-				return 1
-			}
-			tar -xpf "${_package}" -C "${_root}" --exclude '+*'
-		done
+		tar -xpf "${_pkg_package}" -C "${_root}" --exclude '+*'
 		mkdir -p "${_root}/tmp/assembly-pkgs" "${_root}/dev"
 	done
 
