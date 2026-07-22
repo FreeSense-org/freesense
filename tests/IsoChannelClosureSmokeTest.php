@@ -96,6 +96,19 @@ $requiredSourceContracts = [
 	'"/usr/local/sbin/${PRODUCT_NAME}-repoc" -l',
 	'[ -s "${_selected}.conf" ]',
 	'[ -f "${_selected}.default" ]',
+	'url: "file:///tmp/assembly-repo"',
+	'signature_type: "fingerprints"',
+	'fingerprints: "/tmp/assembly-keys"',
+	'-o REPOS_DIR=/tmp/assembly-repos',
+	'-o PKG_CACHEDIR=/tmp/assembly-cache',
+	'for _package_name in "${PRODUCT_NAME}" ${custom_package_list:-}',
+	'LC_ALL=C sort -u -o "${_assembly_package_names}"',
+	'test -s "${_repo}/data.pkg"',
+	'cp "${_repo}/meta.conf" "${_repo}"/*.pkg',
+	'trap cleanup_assembly_exit EXIT',
+	'cleanup_assembly_repository',
+	'test -f "${_root}/etc/${PRODUCT_NAME}-rc"',
+	'test -f "${_root}/etc/${PRODUCT_NAME}-rc.shutdown"',
 ];
 foreach ($requiredSourceContracts as $contract) {
 	if (!str_contains($source, $contract)) {
@@ -106,12 +119,24 @@ foreach ($requiredSourceContracts as $contract) {
 $worldSeed = strpos($source, 'freesense-dist-world.sh');
 $pkgBootstrap = strpos($source, 'tar -xpf "${_pkg_package}"');
 $pkgRegister = strpos($source, 'pkg add /tmp/pkg-bootstrap.pkg');
-$packageInstall = strpos($source, 'pkg add "$@"');
+$packageInstall = strpos($source, 'install -r FreeSenseAssembly -y "$@"');
 if ($worldSeed === false || $pkgBootstrap === false || $pkgRegister === false
 	|| $packageInstall === false
 	|| !($worldSeed < $pkgBootstrap && $pkgBootstrap < $pkgRegister
 		&& $pkgRegister < $packageInstall)) {
 	fwrite(STDERR, "ISO assembler does not seed pinned world before its pkg-only bootstrap.\n");
+	exit(1);
+}
+if (str_contains($source, 'pkg add "$@"')
+	|| substr_count($source, 'install -r FreeSenseAssembly -y "$@"') !== 1) {
+	fwrite(STDERR, "ISO assembler does not use one dependency-resolving System transaction.\n");
+	exit(1);
+}
+$assemblyCleanup = strpos($source, "\tcleanup_assembly_repository\n", $packageInstall);
+$rootClone = strpos($source, 'clone_directory_contents "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}"');
+if ($assemblyCleanup === false || $rootClone === false
+	|| !($packageInstall < $assemblyCleanup && $assemblyCleanup < $rootClone)) {
+	fwrite(STDERR, "Temporary assembly repository state can reach the final image.\n");
 	exit(1);
 }
 $installDiagnostics = [

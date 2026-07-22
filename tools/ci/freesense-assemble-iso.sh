@@ -134,12 +134,51 @@ assemble_iso_from_repositories() {
 	: "${FREESENSE_DIST_WORLD_ARCHIVE:?pinned FreeBSD world archive is required}"
 
 	_repo="${FREESENSE_ASSEMBLY_SYSTEM_REPO}"
+	_assembly_keys="${BUILDER_ROOT}/src/usr/local/share/${PRODUCT_NAME}/keys/pkg"
+	_assembly_package_names="${SCRATCHDIR}/assembly-package-names.$$"
+	cleanup_assembly_repository() {
+		for _cleanup_root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
+			rm -rf "${_cleanup_root}/tmp/assembly-repo" \
+				"${_cleanup_root}/tmp/assembly-repos" \
+				"${_cleanup_root}/tmp/assembly-keys" \
+				"${_cleanup_root}/tmp/assembly-cache"
+			rm -f "${_cleanup_root}/tmp/assembly-package-names" \
+				"${_cleanup_root}/tmp/pkg-bootstrap.pkg" \
+				"${_cleanup_root}/var/db/pkg/repo-FreeSenseAssembly.sqlite"*
+		done
+		rm -f "${_assembly_package_names}"
+	}
+	cleanup_assembly_exit() {
+		_assembly_status=$?
+		trap - EXIT HUP INT TERM
+		set +e
+		cleanup_assembly_repository
+		exit "${_assembly_status}"
+	}
+	trap cleanup_assembly_exit EXIT
+	trap 'exit 129' HUP
+	trap 'exit 130' INT
+	trap 'exit 143' TERM
+
 	test -s "${_repo}/meta.conf"
+	test -s "${_repo}/data.pkg"
 	test -s "${_repo}/packagesite.pkg"
-	test -n "$(find "${_repo}/All" -type f -name '*.pkg' -print -quit)"
-	for _package in "${_repo}"/All/*.pkg; do
-		pkg query -F "${_package}" '%n|%v|%o' >/dev/null
+	test -s "${_assembly_keys}/trusted/freesense"
+	: > "${_assembly_package_names}"
+	# Keep the same small image-root contract as the native builder.  The
+	# repository also contains build-only tools, overlapping core archives, and
+	# mutually exclusive image variants; pkg resolves only these intended roots.
+	for _package_name in "${PRODUCT_NAME}" ${custom_package_list:-}; do
+		case "${_package_name}" in
+		''|[!A-Za-z0-9]*|*[!A-Za-z0-9+_.-]*)
+			echo ">>> ERROR: invalid package name in the image root set" >&2
+			return 1
+			;;
+		esac
+		printf '%s\n' "${_package_name}" >> "${_assembly_package_names}"
 	done
+	LC_ALL=C sort -u -o "${_assembly_package_names}" "${_assembly_package_names}"
+	test -s "${_assembly_package_names}"
 
 	rm -rf "${FINAL_CHROOT_DIR}"
 	mkdir -p "${FINAL_CHROOT_DIR}" "${BUILDER_LOGS}"
@@ -152,19 +191,33 @@ assemble_iso_from_repositories() {
 		return 1
 	}
 
-	_pkg_basename=${_pkg_package##*/}
 	# Bootstrap only pkg into the pinned world. Register it first so the normal
 	# closure transaction never has to install the package manager running it.
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
 		tar -xpf "${_pkg_package}" -C "${_root}" --exclude '+*'
-		mkdir -p "${_root}/tmp/assembly-pkgs" "${_root}/dev"
+		mkdir -p "${_root}/tmp/assembly-repo/All" \
+			"${_root}/tmp/assembly-repos" \
+			"${_root}/tmp/assembly-keys" \
+			"${_root}/tmp/assembly-cache" "${_root}/dev"
+		cp "${_repo}/meta.conf" "${_repo}"/*.pkg \
+			"${_root}/tmp/assembly-repo/"
+		cp "${_repo}"/All/*.pkg "${_root}/tmp/assembly-repo/All/"
+		cp -R "${_assembly_keys}/." "${_root}/tmp/assembly-keys/"
+		cp "${_assembly_package_names}" \
+			"${_root}/tmp/assembly-package-names"
+		cp "${_pkg_package}" "${_root}/tmp/pkg-bootstrap.pkg"
+		cat > "${_root}/tmp/assembly-repos/FreeSenseAssembly.conf" <<'EOF'
+FreeSenseAssembly: {
+  url: "file:///tmp/assembly-repo",
+  mirror_type: "none",
+  signature_type: "fingerprints",
+  fingerprints: "/tmp/assembly-keys",
+  enabled: yes
+}
+EOF
 	done
 
-	cp "${_repo}"/All/*.pkg "${INSTALLER_CHROOT_DIR}/tmp/assembly-pkgs/"
-	cp "${_repo}"/All/*.pkg "${STAGE_CHROOT_DIR}/tmp/assembly-pkgs/"
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
-		mv "${_root}/tmp/assembly-pkgs/${_pkg_basename}" \
-			"${_root}/tmp/pkg-bootstrap.pkg"
 		# pkg records NOW() in local.sqlite for every installed package.  pkg's
 		# supported override makes the installed package database reproducible.
 		run_in_assembly_chroot "${_root}" /usr/bin/env \
@@ -183,12 +236,19 @@ assemble_iso_from_repositories() {
 				exit 1
 			fi
 			rm -f /tmp/pkg-bootstrap.pkg /tmp/pkg-bootstrap.log
-			set -- /tmp/assembly-pkgs/*.pkg
-			if [ ! -f "$1" ]; then
+			set --
+			while IFS= read -r _package_name; do
+				[ -n "${_package_name}" ] || continue
+				set -- "$@" "${_package_name}"
+			done < /tmp/assembly-package-names
+			if [ "$#" -eq 0 ]; then
 				echo ">>> ERROR: pinned System package closure is empty" >&2
 				exit 1
 			fi
-			if ! pkg add "$@" >/tmp/pkg-closure.log 2>&1; then
+			if ! pkg -o REPOS_DIR=/tmp/assembly-repos \
+				-o PKG_CACHEDIR=/tmp/assembly-cache \
+				install -r FreeSenseAssembly -y "$@" \
+				>/tmp/pkg-closure.log 2>&1; then
 				report_pkg_failure /tmp/pkg-closure.log
 				echo ">>> ERROR: unable to install the pinned System package closure" >&2
 				exit 1
@@ -200,8 +260,8 @@ assemble_iso_from_repositories() {
 					"${PKG_INSTALL_EPOCH}" "${_pkg_epochs:-empty}" >&2
 				exit 1
 			fi'
-		rm -rf "${_root}/tmp/assembly-pkgs"
 	done
+	cleanup_assembly_repository
 
 	clone_directory_contents "${STAGE_CHROOT_DIR}" "${FINAL_CHROOT_DIR}"
 	_default=$(find "${_repo}/All" \
@@ -237,6 +297,8 @@ assemble_iso_from_repositories() {
 		grep -q '^sshd:' "${_root}/etc/master.passwd"
 		grep -q '^nobody:' "${_root}/etc/master.passwd"
 		grep -q '/etc/pfSense-rc' "${_root}/etc/rc"
+		test -f "${_root}/etc/${PRODUCT_NAME}-rc"
+		test -f "${_root}/etc/${PRODUCT_NAME}-rc.shutdown"
 		test -x "${_root}/usr/sbin/bsdinstall"
 		test -f "${_root}/boot/kernel/zfs.ko"
 		test -f "${_root}/boot/kernel/opensolaris.ko"
@@ -265,4 +327,5 @@ assemble_iso_from_repositories() {
 		"${FSLABEL}" "${ISOPATH}" "${INSTALLER_CHROOT_DIR}"
 	test -s "${ISOPATH}"
 	echo ">>> compile-free ISO complete: ${ISOPATH}"
+	trap - EXIT HUP INT TERM
 }
