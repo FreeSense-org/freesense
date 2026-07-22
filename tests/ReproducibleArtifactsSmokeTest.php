@@ -14,6 +14,7 @@ if ($builder === false || $corePackage === false || $assembler === false) {
 }
 
 $assemblyContracts = [
+	'# FREESENSE_ISO_ASSEMBLY_API=2',
 	'require_source_date_epoch || return 1',
 	'pkg query -a "%t" | sort -u',
 ];
@@ -41,7 +42,8 @@ $archiveContracts = [
 	'--pax-option=exthdr.name=%d/PaxHeaders/%f,delete=atime,delete=ctime',
 	'--use-compress-program="xz -T0"',
 	'set -o pipefail',
-	'--options hdrcharset=BINARY',
+	'tar --options hdrcharset=BINARY -C "${1}" -c -f - . | \\',
+	'tar -C "${2}" -x -p -f -',
 	'"${STAGE_CHROOT_DIR}${PRODUCT_SHARE_DIR}/base.txz"',
 	'"${INSTALLER_CHROOT_DIR}/usr/freebsd-dist/base.txz"',
 	'local _mtree_tmp="${SCRATCHDIR}/default-mtrees.$$"',
@@ -53,6 +55,10 @@ foreach ($archiveContracts as $contract) {
 		fwrite(STDERR, "Builder is missing reproducible archive contract: {$contract}\n");
 		exit(1);
 	}
+}
+if (substr_count($builder, '--options hdrcharset=BINARY') !== 1) {
+	fwrite(STDERR, "Directory cloning must preserve binary names on write without forcing a reader charset.\n");
+	exit(1);
 }
 if (substr_count($builder, '-k type,uid,gid,mode,nlink,size,link,flags') !== 3) {
 	fwrite(STDERR, "Every generated defaults mtree must omit wall-clock timestamps.\n");

@@ -916,7 +916,7 @@ clone_directory_contents() {
 	if ! (
 		set -o pipefail
 		tar --options hdrcharset=BINARY -C "${1}" -c -f - . | \
-			tar --options hdrcharset=BINARY -C "${2}" -x -p -f -
+			tar -C "${2}" -x -p -f -
 	); then
 		echo "Failed!"
 		return 1
