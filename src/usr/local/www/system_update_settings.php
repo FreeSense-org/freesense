@@ -32,6 +32,11 @@ require_once("pkg-utils.inc");
 
 $repos = pkg_list_repos();
 
+if ($_POST && !empty($_POST['fwbranch']) &&
+    !in_array($_POST['fwbranch'], array_column($repos, 'name'), true)) {
+	$input_errors[] = gettext('That firmware branch would downgrade the running system and cannot be selected.');
+}
+
 if ($_POST && !$input_errors) {
 
 	if ($_POST['disablecheck'] == "yes") {

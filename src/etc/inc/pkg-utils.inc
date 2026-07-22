@@ -1452,6 +1452,31 @@ function get_system_pkg_version($use_cache = true, $updates_only = true) {
 	return $result;
 }
 
+/* Return the numeric release triplet from values such as 1.1.0-DEVELOPMENT. */
+function pkg_release_version_parts($version) {
+	if (!is_string($version) ||
+	    !preg_match('/^([0-9]+)\.([0-9]+)\.([0-9]+)(?:-(?:RELEASE|DEVELOPMENT))?$/D',
+	    trim($version), $parts)) {
+		return false;
+	}
+
+	return array((int)$parts[1], (int)$parts[2], (int)$parts[3]);
+}
+
+/* A booted release may move only forward; reinstalling 1.0 makes 1.0 valid again. */
+function pkg_repo_version_is_selectable($repo_version, $installed_version = null) {
+	if ($installed_version === null) {
+		$installed_version = @file_get_contents('/etc/version');
+	}
+	$repo = pkg_release_version_parts($repo_version);
+	$installed = pkg_release_version_parts($installed_version);
+	if ($repo === false || $installed === false) {
+		return false;
+	}
+
+	return $repo >= $installed;
+}
+
 /* List available repos */
 function pkg_list_repos() {
 	global $g;
@@ -1500,6 +1525,15 @@ function pkg_list_repos() {
 		    'path' => "{$repo_name_base}.conf",
 		    'descr' => $descr
 		);
+		$version_file = "{$repo_name_base}.version";
+		if (!file_exists($version_file)) {
+			continue;
+		}
+		$repo_version = trim((string)file_get_contents($version_file));
+		if (!pkg_repo_version_is_selectable($repo_version)) {
+			continue;
+		}
+		$entry['version'] = $repo_version;
 		if ($new == 1) {
 			$entry['id'] = $repo_id;
 		}
