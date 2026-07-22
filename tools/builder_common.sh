@@ -2696,63 +2696,6 @@ aws_exec() {
 	return $?
 }
 
-# Translate every overlaid or explicitly option-divergent origin into the
-# package names Poudriere must build locally.  Everything else may be fetched
-# from FreeBSD's binary repository when it matches the pinned ports tree.
-poudriere_package_fetch_blacklist() {
-	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-	local _origins="${SCRATCHDIR}/package-fetch-blacklist.origins.$$"
-	local _origin _overlay _pkgbase _blacklist=""
-
-	: > "${_origins}" || return 1
-	if [ -f "${BUILDER_TOOLS}/conf/pfPorts/must-build.extra" ]; then
-		sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' \
-			"${BUILDER_TOOLS}/conf/pfPorts/must-build.extra" >> "${_origins}"
-	fi
-	for _overlay in "${OVERLAY_DIR:-}" "${FREESENSE_SYSTEM_OVERLAY_DIR:-}"; do
-		[ -d "${_overlay}" ] || continue
-		find "${_overlay}" -mindepth 2 -maxdepth 2 -type f -name Makefile -print | \
-			sed -e "s#^${_overlay}/##" -e 's#/Makefile$##' >> "${_origins}"
-	done
-	sort -u "${_origins}" -o "${_origins}"
-	while IFS= read -r _origin; do
-		case "${_origin}" in
-		''|*[!A-Za-z0-9_+.,@/-]*)
-			echo ">>> ERROR: invalid locally-built port origin ${_origin}" >&2
-			rm -f "${_origins}"
-			return 1
-			;;
-		esac
-		[ -f "${_tree}/${_origin}/Makefile" ] || {
-			echo ">>> ERROR: locally-built port origin is absent: ${_origin}" >&2
-			rm -f "${_origins}"
-			return 1
-		}
-		_pkgbase=$(make -C "${_tree}/${_origin}" -V PKGBASE) || {
-			rm -f "${_origins}"
-			return 1
-		}
-		case "${_pkgbase}" in
-		''|*[!A-Za-z0-9_+.,@-]*)
-			echo ">>> ERROR: invalid package base for ${_origin}: ${_pkgbase}" >&2
-			rm -f "${_origins}"
-			return 1
-			;;
-		esac
-		_pkgbase="${_pkgbase}*"
-		case " ${_blacklist} " in
-		*" ${_pkgbase} "*) : ;;
-		*) _blacklist="${_blacklist}${_blacklist:+ }${_pkgbase}" ;;
-		esac
-	done < "${_origins}"
-	rm -f "${_origins}"
-	[ -n "${_blacklist}" ] || {
-		echo ">>> ERROR: package fetch blacklist is empty" >&2
-		return 1
-	}
-	printf '%s\n' "${_blacklist}"
-}
-
 poudriere_bulk() {
 	local _archs=$(poudriere_possible_archs)
 	local _makeconf
@@ -2920,28 +2863,8 @@ EOF
 			_poudriere_test_flag="-t"
 			echo ">>> FreeSense port test mode enabled (Poudriere bulk -t)" | tee -a ${LOGFILE}
 		fi
-		_package_fetch_blacklist=""
-		if [ "${FREESENSE_USE_PACKAGE_FETCH:-0}" = "1" ]; then
-			_package_fetch_blacklist=$(poudriere_package_fetch_blacklist) || print_error_pfS
-			echo ">>> Reusing compatible FreeBSD packages; modified package blacklist: ${_package_fetch_blacklist}" | tee -a ${LOGFILE}
-		fi
-		if [ "${FREESENSE_USE_PACKAGE_FETCH:-0}" = "1" ]; then
-			if env PACKAGE_FETCH_BLACKLIST="${_package_fetch_blacklist}" \
-				poudriere bulk -b latest ${_poudriere_test_flag} \
-				-f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
-				_bulk_status=0
-			else
-				_bulk_status=$?
-			fi
-		else
-			if poudriere bulk ${_poudriere_test_flag} \
-				-f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
-				_bulk_status=0
-			else
-				_bulk_status=$?
-			fi
-		fi
-		if [ "${_bulk_status}" -ne 0 ]; then
+		if ! poudriere bulk ${_poudriere_test_flag} \
+			-f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
 			echo ">>> ERROR: Something went wrong..."
 			if [ "${AWS}" = 1 ]; then
 				save_pkgs_to_s3
