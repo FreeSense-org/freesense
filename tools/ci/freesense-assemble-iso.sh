@@ -152,8 +152,9 @@ assemble_iso_from_repositories() {
 		return 1
 	}
 
-	# Bootstrap only pkg into the pinned world. pkg then installs and registers
-	# every package from the exact immutable System repository closure once.
+	_pkg_basename=${_pkg_package##*/}
+	# Bootstrap only pkg into the pinned world. Register it first so the normal
+	# closure transaction never has to install the package manager running it.
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
 		tar -xpf "${_pkg_package}" -C "${_root}" --exclude '+*'
 		mkdir -p "${_root}/tmp/assembly-pkgs" "${_root}/dev"
@@ -162,12 +163,28 @@ assemble_iso_from_repositories() {
 	cp "${_repo}"/All/*.pkg "${INSTALLER_CHROOT_DIR}/tmp/assembly-pkgs/"
 	cp "${_repo}"/All/*.pkg "${STAGE_CHROOT_DIR}/tmp/assembly-pkgs/"
 	for _root in "${INSTALLER_CHROOT_DIR}" "${STAGE_CHROOT_DIR}"; do
+		mv "${_root}/tmp/assembly-pkgs/${_pkg_basename}" \
+			"${_root}/tmp/pkg-bootstrap.pkg"
 		# pkg records NOW() in local.sqlite for every installed package.  pkg's
 		# supported override makes the installed package database reproducible.
 		run_in_assembly_chroot "${_root}" /usr/bin/env \
 			PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" /bin/sh -c \
-			'pkg add /tmp/assembly-pkgs/*.pkg &&
-			test "$(pkg query -a "%t" | sort -u)" = "${PKG_INSTALL_EPOCH}"'
+			'if ! pkg add /tmp/pkg-bootstrap.pkg; then
+				echo ">>> ERROR: unable to register the pinned pkg bootstrap" >&2
+				exit 1
+			fi
+			rm -f /tmp/pkg-bootstrap.pkg
+			set -- /tmp/assembly-pkgs/*.pkg
+			if [ ! -f "$1" ] || ! pkg add "$@"; then
+				echo ">>> ERROR: unable to install the pinned System package closure" >&2
+				exit 1
+			fi
+			_pkg_epochs=$(pkg query -a "%t" | sort -u)
+			if [ "${_pkg_epochs}" != "${PKG_INSTALL_EPOCH}" ]; then
+				printf ">>> ERROR: package install epoch mismatch (expected %s, got %s)\n" \
+					"${PKG_INSTALL_EPOCH}" "${_pkg_epochs:-empty}" >&2
+				exit 1
+			fi'
 		rm -rf "${_root}/tmp/assembly-pkgs"
 	done
 
@@ -178,8 +195,16 @@ assemble_iso_from_repositories() {
 	cp "${_default}" "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
 	run_in_assembly_chroot "${FINAL_CHROOT_DIR}" /usr/bin/env \
 		PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" \
-		/bin/sh -c 'pkg add -f /tmp/default-config.pkg &&
-		test "$(pkg query -a "%t" | sort -u)" = "${PKG_INSTALL_EPOCH}"'
+		/bin/sh -c 'if ! pkg add -f /tmp/default-config.pkg; then
+			echo ">>> ERROR: unable to apply the default configuration package" >&2
+			exit 1
+		fi
+		_pkg_epochs=$(pkg query -a "%t" | sort -u)
+		if [ "${_pkg_epochs}" != "${PKG_INSTALL_EPOCH}" ]; then
+			printf ">>> ERROR: final package install epoch mismatch (expected %s, got %s)\n" \
+				"${PKG_INSTALL_EPOCH}" "${_pkg_epochs:-empty}" >&2
+			exit 1
+		fi'
 	rm -f "${FINAL_CHROOT_DIR}/tmp/default-config.pkg"
 	install_assembly_channel
 
