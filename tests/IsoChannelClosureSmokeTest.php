@@ -105,7 +105,7 @@ foreach ($requiredSourceContracts as $contract) {
 }
 $worldSeed = strpos($source, 'freesense-dist-world.sh');
 $pkgBootstrap = strpos($source, 'tar -xpf "${_pkg_package}"');
-$packageInstall = strpos($source, 'pkg add -f /tmp/assembly-pkgs/*.pkg');
+$packageInstall = strpos($source, 'pkg add /tmp/assembly-pkgs/*.pkg');
 if ($worldSeed === false || $pkgBootstrap === false || $packageInstall === false
 	|| !($worldSeed < $pkgBootstrap && $pkgBootstrap < $packageInstall)) {
 	fwrite(STDERR, "ISO assembler does not seed pinned world before its pkg-only bootstrap.\n");
@@ -125,10 +125,13 @@ foreach ($unusedOutputContracts as $contract) {
 }
 $defaultInstall = strpos($source, 'pkg add -f /tmp/default-config.pkg');
 $channelInstall = strpos($source, "\tinstall_assembly_channel\n");
+$logInitialize = strpos($source, 'LOGFILE="${BUILDER_LOGS}/isoimage.${TARGET}"');
 $distribution = strpos($source, "\tcreate_distribution_tarball\n");
-if ($defaultInstall === false || $channelInstall === false || $distribution === false
-	|| !($defaultInstall < $channelInstall && $channelInstall < $distribution)) {
-	fwrite(STDERR, "Channel closure is not installed between final package setup and distribution creation.\n");
+if ($defaultInstall === false || $channelInstall === false || $logInitialize === false
+	|| $distribution === false
+	|| !($defaultInstall < $channelInstall && $channelInstall < $logInitialize
+		&& $logInitialize < $distribution)) {
+	fwrite(STDERR, "ISO finalization order is invalid.\n");
 	exit(1);
 }
 

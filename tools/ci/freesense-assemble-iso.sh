@@ -166,7 +166,7 @@ assemble_iso_from_repositories() {
 		# supported override makes the installed package database reproducible.
 		run_in_assembly_chroot "${_root}" /usr/bin/env \
 			PKG_INSTALL_EPOCH="${SOURCE_DATE_EPOCH}" /bin/sh -c \
-			'pkg add -f /tmp/assembly-pkgs/*.pkg &&
+			'pkg add /tmp/assembly-pkgs/*.pkg &&
 			test "$(pkg query -a "%t" | sort -u)" = "${PKG_INSTALL_EPOCH}"'
 		rm -rf "${_root}/tmp/assembly-pkgs"
 	done
@@ -214,6 +214,7 @@ assemble_iso_from_repositories() {
 
 	FREEBSD_SRC_DIR="${FREESENSE_ASSEMBLY_FREEBSD_SRC}"
 	export FREEBSD_SRC_DIR DEFAULT_KERNEL="${PRODUCT_NAME}"
+	LOGFILE="${BUILDER_LOGS}/isoimage.${TARGET}"
 	create_distribution_tarball
 	mkdir -p "$(dirname "${ISOPATH}")"
 	FSLABEL=$(echo "${PRODUCT_NAME}" | tr '[:lower:]' '[:upper:]')
