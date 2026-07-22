@@ -901,11 +901,11 @@ clean_builder() {
 }
 
 clone_directory_contents() {
-	if [ ! -e "$2" ]; then
-		mkdir -p "$2"
+	if [ ! -e "${2}" ]; then
+		mkdir -p "${2}"
 	fi
-	if [ ! -d "$1" -o ! -d "$2" ]; then
-		if [ -z "${LOGFILE}" ]; then
+	if [ ! -d "${1}" ] || [ ! -d "${2}" ]; then
+		if [ -z "${LOGFILE:-}" ]; then
 			echo ">>> ERROR: Argument $1 supplied is not a directory!"
 		else
 			echo ">>> ERROR: Argument $1 supplied is not a directory!" | tee -a ${LOGFILE}
@@ -913,7 +913,14 @@ clone_directory_contents() {
 		print_error_pfS
 	fi
 	echo -n ">>> Using TAR to clone $1 to $2 ..."
-	tar -C ${1} -c -f - . | tar -C ${2} -x -p -f -
+	if ! (
+		set -o pipefail
+		tar --options hdrcharset=BINARY -C "${1}" -c -f - . | \
+			tar --options hdrcharset=BINARY -C "${2}" -x -p -f -
+	); then
+		echo "Failed!"
+		return 1
+	fi
 	echo "Done!"
 }
 
