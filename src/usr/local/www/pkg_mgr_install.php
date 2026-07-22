@@ -67,6 +67,11 @@ $sock_file = "{$g['tmp_path']}/{$g['product_name']}-upgrade.sock";
 $freesense_upgrade = "/usr/local/sbin/{$g['product_name']}-upgrade";
 $repos = pkg_list_repos();
 
+if (!empty($_POST['fwbranch']) &&
+    !in_array($_POST['fwbranch'], array_column($repos, 'name'), true)) {
+	$input_errors[] = gettext('That firmware branch would downgrade the running system and cannot be selected.');
+}
+
 $pkgname = '';
 
 if (!empty($_REQUEST['pkg'])) {
@@ -255,6 +260,9 @@ if (!empty($_REQUEST['mode'])) {
 // After a successful installation/removal/update the page is reloaded so that any menu changes show up
 // immediately. These values passed as POST arguments tell the page the state it was in before the reload.
 $confirmed = isset($_POST['confirmed']) && $_POST['confirmed'] == 'true';
+if ($input_errors) {
+	$confirmed = false;
+}
 $completed = isset($_POST['completed']) && $_POST['completed'] == 'true';
 $reboot_needed = isset($_POST['reboot_needed']) && $_POST['reboot_needed'] == "yes";
 
