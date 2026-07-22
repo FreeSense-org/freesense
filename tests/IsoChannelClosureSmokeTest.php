@@ -103,6 +103,14 @@ foreach ($requiredSourceContracts as $contract) {
 		exit(1);
 	}
 }
+$worldSeed = strpos($source, 'freesense-dist-world.sh');
+$pkgBootstrap = strpos($source, 'tar -xpf "${_pkg_package}"');
+$packageInstall = strpos($source, 'pkg add -f /tmp/assembly-pkgs/*.pkg');
+if ($worldSeed === false || $pkgBootstrap === false || $packageInstall === false
+	|| !($worldSeed < $pkgBootstrap && $pkgBootstrap < $packageInstall)) {
+	fwrite(STDERR, "ISO assembler does not seed pinned world before its pkg-only bootstrap.\n");
+	exit(1);
+}
 $unusedOutputContracts = [
 	'gzip -kf "${ISOPATH}"',
 	'"${ISOPATH}.sha256"',
