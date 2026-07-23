@@ -40,6 +40,16 @@ yesno(){ ${DIALOG} --backtitle "FreeSense Installer" --title "Import config" --y
 
 mkdir -p "${STAGE_DIR}" "${MNT}"
 
+find_zdb_tool() {
+	for candidate in /usr/sbin/zdb /rescue/zdb /sbin/zdb; do
+		if [ -x "${candidate}" ]; then
+			echo "${candidate}"
+			return 0
+		fi
+	done
+	return 1
+}
+
 # --- select and read a config.xml from FAT, UFS, or ZFS ------------------------
 copy_source_from_mount() {
 	for p in config.xml conf/config.xml cf/conf/config.xml; do
@@ -55,12 +65,17 @@ find_zfs_source() {
 	dev="$1"
 	zdb_log=/tmp/import-zdb-label.log
 	/bin/rm -f "${zdb_log}"
+	zdb_tool="`find_zdb_tool`"
+	if [ -z "${zdb_tool}" ]; then
+		msg "This installer image has no usable zdb tool.\n\nZFS configuration import cannot continue. Rebuild the installer with /usr/sbin/zdb or /rescue/zdb."
+		return 1
+	fi
 
 	# zdb versions differ on whether label details are emitted on stdout or
 	# stderr. Capture both and parse the first complete label.
 	# zdb may return non-zero for one damaged label while still printing a
 	# complete identity from another label copy. Parse before deciding it failed.
-	/usr/bin/timeout 15 /sbin/zdb -l "/dev/${dev}" >"${zdb_log}" 2>&1 || true
+	/usr/bin/timeout 15 "${zdb_tool}" -l "/dev/${dev}" >"${zdb_log}" 2>&1 || true
 	pool_name="`/usr/bin/awk -F "'" \
 		'/^[[:space:]]*name:[[:space:]]*/ {print $2; exit}' "${zdb_log}"`"
 	pool_guid="`/usr/bin/awk \
@@ -377,8 +392,11 @@ esac
 LINEAGE=$(detect_lineage)
 case "${LINEAGE}" in
 freesense)
-	msg "This is already a FreeSense config (<freesense>).\n\nUse \"Recover config.xml\" to restore a FreeSense backup instead. Nothing was imported."
-	exit 1
+	yesno "Detected a FreeSense configuration.\n\nIt will be validated and copied unchanged. Packages recorded in the backup will be mapped and offered for installation.\n\nImport it now?" || exit 1
+	/bin/cp "${SRC}" "${STAGE}" || {
+		msg "The FreeSense configuration could not be staged."
+		exit 1
+	}
 	;;
 pfsense)
 	yesno "Detected a pfSense CE config.\n\nFreeSense is rebranded pfSense, so the full configuration (including package settings) can be imported. Packages will be mapped 1:1 and you choose which to install.\n\nImport it now?" || exit 1

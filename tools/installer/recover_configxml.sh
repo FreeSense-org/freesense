@@ -46,6 +46,16 @@ confirm_force() {
 		--yes-label "Force copy" --no-label "Cancel" --yesno "$1" 0 0
 }
 
+find_zdb_tool() {
+	for candidate in /usr/sbin/zdb /rescue/zdb /sbin/zdb; do
+		if [ -x "${candidate}" ]; then
+			echo "${candidate}"
+			return 0
+		fi
+	done
+	return 1
+}
+
 record_mount() {
 	echo "$1" >> "${mounted_paths}"
 }
@@ -161,13 +171,20 @@ load_zfs() {
 read_zfs_identity() {
 	recover_disk="$1"
 	/bin/rm -f "${zdb_log}"
+	zdb_tool="`find_zdb_tool`"
+	if [ -z "${zdb_tool}" ]; then
+		message "Recover config.xml" "This installer image has no usable zdb tool.
+
+ZFS configuration recovery cannot continue. Rebuild the installer with /usr/sbin/zdb or /rescue/zdb."
+		return 1
+	fi
 
 	# zdb versions differ on whether label details are emitted on stdout or
 	# stderr. Capture both streams, then parse the first complete label.
 	# A partially damaged label can make zdb return non-zero even though another
 	# label copy contains the pool identity we need. Parse the captured output
 	# first and only reject it when no usable identity is present.
-	/usr/bin/timeout 15 /sbin/zdb -l "/dev/${recover_disk}" \
+	/usr/bin/timeout 15 "${zdb_tool}" -l "/dev/${recover_disk}" \
 	    > "${zdb_log}" 2>&1 || true
 	pool_name="`/usr/bin/awk -F "'" \
 		'/^[[:space:]]*name:[[:space:]]*/ {print $2; exit}' "${zdb_log}"`"

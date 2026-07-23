@@ -280,6 +280,13 @@ EOF
 		test -x "${_root}/usr/sbin/bsdinstall"
 		test -f "${_root}/boot/kernel/zfs.ko"
 		test -f "${_root}/boot/kernel/opensolaris.ko"
+		test -x "${_root}/sbin/zfs"
+		test -x "${_root}/sbin/zpool"
+		if [ ! -x "${_root}/usr/sbin/zdb" ] &&
+		    [ ! -x "${_root}/rescue/zdb" ]; then
+			echo ">>> ERROR: ${_root} has no executable zdb for installer ZFS recovery" >&2
+			return 1
+		fi
 	done
 	_kernel="${INSTALLER_CHROOT_DIR}/boot/kernel/kernel"
 	_kernel_tmp=""
