@@ -21,6 +21,7 @@ jobs:
             ! -path 'tools/rector/tests/*' -print0 | xargs -0 -n1 php -l
           python3 -m json.tool src/etc/freesense-package-catalog.json >/dev/null
           php tests/ConfigImportGuardSmokeTest.php
+          php tests/InstallerRecoverySmokeTest.php
           php tests/PackageCatalogSmokeTest.php
           php tests/RepositoryTrustSmokeTest.php
           php tests/NicSettingsSmokeTest.php
@@ -32,6 +33,8 @@ jobs:
           sh -n build/scripts/create_core_pkg.sh
           sh -n tools/builder_common.sh
           sh -n tools/installer/installer-rc.local
+          sh -n tools/installer/recover_configxml.sh
+          sh -n tools/installer/import_foreign_config.sh
           sh -n tools/ci/freesense-localrepo.sh
           sh -n tools/ci/freesense-ports-overlay.sh
           grep -Fq '.include "${.CURDIR:H:H}/Mk/bsd.freesense-package.mk"' tools/ci/freesense-ports-overlay.sh

@@ -53,12 +53,21 @@ copy_source_from_mount() {
 
 find_zfs_source() {
 	dev="$1"
-	zdb_label="`/sbin/zdb -l /dev/${dev} 2>/dev/null`"
-	pool_name="`echo "${zdb_label}" | /usr/bin/sed -n "s/^[[:space:]]*name: '\([^']*\)'.*/\1/p" | /usr/bin/head -1`"
-	pool_guid="`echo "${zdb_label}" | /usr/bin/awk '/^[[:space:]]*pool_guid:/ {print $2; exit}'`"
+	zdb_log=/tmp/import-zdb-label.log
+	/bin/rm -f "${zdb_log}"
+
+	# zdb versions differ on whether label details are emitted on stdout or
+	# stderr. Capture both and parse the first complete label.
+	# zdb may return non-zero for one damaged label while still printing a
+	# complete identity from another label copy. Parse before deciding it failed.
+	/usr/bin/timeout 15 /sbin/zdb -l "/dev/${dev}" >"${zdb_log}" 2>&1 || true
+	pool_name="`/usr/bin/awk -F "'" \
+		'/^[[:space:]]*name:[[:space:]]*/ {print $2; exit}' "${zdb_log}"`"
+	pool_guid="`/usr/bin/awk \
+		'/^[[:space:]]*pool_guid:[[:space:]]*/ {print $2; exit}' "${zdb_log}"`"
 
 	if [ -z "${pool_name}" -o -z "${pool_guid}" ]; then
-		msg "Unable to read ZFS pool information from ${dev}."
+		msg "Unable to parse ZFS pool information from ${dev}.\n\n`cat "${zdb_log}" 2>/dev/null`"
 		return 1
 	fi
 
@@ -96,6 +105,10 @@ find_zfs_source() {
 	# dedicated /conf dataset if present.
 	for mp in /cf /conf; do
 		dataset="`/sbin/zfs list -H -r -o name,mountpoint "${pool_name}" 2>/dev/null | /usr/bin/awk -v wanted="${mp}" '$2 == wanted {print $1; exit}'`"
+		if [ -z "${dataset}" ]; then
+			dataset="`/sbin/zfs list -H -r -o name "${pool_name}" 2>/dev/null | /usr/bin/awk -v suffix="${mp}" \
+				'length($0) >= length(suffix) && substr($0, length($0)-length(suffix)+1) == suffix {print; exit}'`"
+		fi
 		if [ -n "${dataset}" ]; then
 			/bin/mkdir -p "${MNT}${mp}"
 			/sbin/mount -t zfs -o ro "${dataset}" "${MNT}${mp}" 2>/dev/null || true
