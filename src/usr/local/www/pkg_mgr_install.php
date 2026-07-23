@@ -102,7 +102,10 @@ if ($_REQUEST['ajax']) {
 		$firmwareversions = get_system_pkg_version(false);
 		$channel = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
 		if (preg_match('/^[A-Za-z0-9_.-]+$/D', $channel)) {
-			$notes_url = 'https://pkg.freesense.org/update-notes/' . rawurlencode($channel) . '.json';
+			// Release notes travel with the canonical release document used by
+			// the website and download publisher. This prevents the appliance
+			// and website from showing different changelogs for the same build.
+			$notes_url = 'https://pkg.freesense.org/v1/releases/' . rawurlencode($channel) . '.json';
 			$notes_raw = shell_exec('/usr/bin/fetch -qo - -T 5 ' . escapeshellarg($notes_url) . ' 2>/dev/null');
 			$notes = json_decode($notes_raw, true);
 			if (is_array($notes)) {
