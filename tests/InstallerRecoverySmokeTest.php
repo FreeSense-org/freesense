@@ -64,4 +64,13 @@ check_recovery(
     strpos($assemble, '${_root}/rescue/zdb') !== false,
     'ISO assembly does not refuse media missing the ZFS inspection tool');
 
+$builder = file_get_contents(__DIR__ . '/../tools/builder_common.sh');
+check_recovery($builder !== false, 'builder implementation is unreadable');
+check_recovery(
+    strpos($builder, 'echo "-S115200 -Dh" > ${BOOTCONF}') !== false,
+    'serial media does not request firmware-aware dual-console mode');
+check_recovery(
+    strpos($builder, 'console="comconsole,vidconsole"') === false,
+    'serial media hard-codes the BIOS-only video console');
+
 echo "Installer recovery helpers: valid\n";

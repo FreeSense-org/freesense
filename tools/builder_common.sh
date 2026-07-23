@@ -1346,14 +1346,15 @@ create_memstick_serial_image() {
 	LOADERCONF=${INSTALLER_CHROOT_DIR}/boot/loader.conf
 
 	echo ">>> Activating serial console..." 2>&1 | tee -a ${LOGFILE}
-	echo "-S115200 -D" > ${BOOTCONF}
+	echo "-S115200 -Dh" > ${BOOTCONF}
 
-	# Activate serial console+video console in loader.conf
+	# -Dh activates serial plus the loader's native video console with serial
+	# primary. Do not name the video console here: UEFI uses "efi", while
+	# legacy BIOS uses "vidconsole".
 	echo 'autoboot_delay="3"' > ${LOADERCONF}
 	echo 'kern.cam.boot_delay=10000' >> ${LOADERCONF}
 	echo 'boot_multicons="YES"' >> ${LOADERCONF}
 	echo 'boot_serial="YES"' >> ${LOADERCONF}
-	echo 'console="comconsole,vidconsole"' >> ${LOADERCONF}
 	echo 'comconsole_speed="115200"' >> ${LOADERCONF}
 
 	cat ${BOOTCONF} >> ${FINAL_CHROOT_DIR}/boot.config
