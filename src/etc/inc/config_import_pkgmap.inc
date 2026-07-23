@@ -104,7 +104,7 @@ function freesense_import_pkgmap_pfsense() {
 		'RRD_Summary', 'Service_Watchdog', 'Shellcmd', 'snort', 'softflowd',
 		'squid', 'Status_Traffic_Totals', 'stunnel', 'sudo', 'suricata',
 		'syslog-ng', 'Tailscale', 'Telegraf', 'tftpd', 'udpbroadcastrelay',
-		'WireGuard', 'zabbix-agent6', 'zabbix-agent7', 'zabbix-agent74',
+		'WebGateway', 'WireGuard', 'zabbix-agent6', 'zabbix-agent7', 'zabbix-agent74',
 		'zabbix-proxy6', 'zabbix-proxy7', 'zabbix-proxy74',
 	);
 	foreach ($identity as $n) {

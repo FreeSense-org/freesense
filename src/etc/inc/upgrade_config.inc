@@ -1416,45 +1416,114 @@ function upgrade_048_to_049() {
 }
 
 
-function upgrade_049_to_050() {
-	$user_config = config_get_path('system/user', []);
-	/* update user privileges */
-	foreach ($user_config as & $user) {
-		$privs = array();
-		if (!is_array($user['priv'])) {
-			unset($user['priv']);
-			continue;
-		}
-		foreach ($user['priv'] as $priv) {
-			switch ($priv['id']) {
-				case "hasshell":
-					$privs[] = "user-shell-access";
-					break;
-				case "copyfiles":
-					$privs[] = "user-copy-files";
-					break;
-			}
-		}
-		$user['priv'] = $privs;
+function upgrade_049_normalize_user_privileges($privileges) {
+	if (is_string($privileges)) {
+		$privileges = array($privileges);
+	}
+	if (!is_array($privileges)) {
+		return array();
 	}
 
-	$group_config = config_get_path('system/group', []);
-	/* update group privileges */
-	foreach ($group_config as & $group) {
-		$privs = array();
-		if (!is_array($group['pages'])) {
-			unset($group['pages']);
+	$normalized = array();
+	foreach ($privileges as $privilege) {
+		if (is_string($privilege)) {
+			/* A current-format privilege may be encountered during a
+			 * defensive re-run. Preserve it instead of treating the string
+			 * as the legacy array format. */
+			$privilege = trim($privilege);
+			if ($privilege !== '') {
+				$normalized[] = $privilege;
+			}
 			continue;
 		}
-		foreach ($group['pages'] as $page) {
-			$priv = map_page_privname($page);
-			if ($priv) {
-				$privs[] = $priv;
+		if (!is_array($privilege) || !isset($privilege['id']) ||
+		    !is_string($privilege['id'])) {
+			continue;
+		}
+		switch ($privilege['id']) {
+			case "hasshell":
+				$normalized[] = "user-shell-access";
+				break;
+			case "copyfiles":
+				$normalized[] = "user-copy-files";
+				break;
+		}
+	}
+
+	return array_values(array_unique($normalized));
+}
+
+function upgrade_049_normalize_current_privileges($privileges) {
+	if (is_string($privileges)) {
+		$privileges = array($privileges);
+	}
+	if (!is_array($privileges)) {
+		return array();
+	}
+
+	$normalized = array();
+	foreach ($privileges as $privilege) {
+		if (is_string($privilege) && trim($privilege) !== '') {
+			$normalized[] = trim($privilege);
+		}
+	}
+	return array_values(array_unique($normalized));
+}
+
+function upgrade_049_to_050() {
+	$user_config = config_get_path('system/user', []);
+	if (!is_array($user_config)) {
+		$user_config = array();
+	}
+	/* update user privileges */
+	foreach ($user_config as $user_index => &$user) {
+		if (!is_array($user)) {
+			unset($user_config[$user_index]);
+			continue;
+		}
+		if (!array_key_exists('priv', $user)) {
+			continue;
+		}
+		$user['priv'] = upgrade_049_normalize_user_privileges($user['priv']);
+	}
+	unset($user);
+	$user_config = array_values($user_config);
+
+	$group_config = config_get_path('system/group', []);
+	if (!is_array($group_config)) {
+		$group_config = array();
+	}
+	/* update group privileges */
+	foreach ($group_config as $group_index => &$group) {
+		if (!is_array($group)) {
+			unset($group_config[$group_index]);
+			continue;
+		}
+		$had_privileges = array_key_exists('priv', $group);
+		$had_pages = array_key_exists('pages', $group);
+		$privs = upgrade_049_normalize_current_privileges($group['priv'] ?? array());
+		$pages = $group['pages'] ?? array();
+		if (is_string($pages)) {
+			$pages = array($pages);
+		}
+		if (is_array($pages)) {
+			foreach ($pages as $page) {
+				if (!is_string($page)) {
+					continue;
+				}
+				$priv = map_page_privname($page);
+				if (is_string($priv) && $priv !== '') {
+					$privs[] = $priv;
+				}
 			}
 		}
 		unset($group['pages']);
-		$group['priv'] = $privs;
+		if ($had_privileges || $had_pages || !empty($privs)) {
+			$group['priv'] = array_values(array_unique($privs));
+		}
 	}
+	unset($group);
+	$group_config = array_values($group_config);
 
 	config_set_path('system/user', $user_config);
 	config_set_path('system/group', $group_config);

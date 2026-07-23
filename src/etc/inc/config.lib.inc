@@ -325,16 +325,36 @@ function restore_sshdata($conf = false) {
 	if (!$conf) {
 		$conf = config_get_path('');
 	}
+	if (!is_array($conf) || !isset($conf["sshdata"]["sshkeyfile"]) ||
+	    !is_array($conf["sshdata"]["sshkeyfile"])) {
+		logger(LOG_WARNING, localize_text("Ignoring malformed SSH backup data"), LOG_PREFIX_CONFIG);
+		return;
+	}
 
 	$oldmask = umask();
 	foreach ($conf["sshdata"]["sshkeyfile"] as $sshkey) {
+		if (!is_array($sshkey) || !isset($sshkey['filename'], $sshkey['xmldata']) ||
+		    !is_string($sshkey['filename']) || !is_string($sshkey['xmldata']) ||
+		    basename($sshkey['filename']) !== $sshkey['filename'] ||
+		    !preg_match('/^ssh_host_(?:rsa|ecdsa|ed25519)_key(?:\.pub)?$/D',
+		    $sshkey['filename'])) {
+			logger(LOG_WARNING, localize_text("Ignoring malformed SSH key backup entry"), LOG_PREFIX_CONFIG);
+			continue;
+		}
+		$decoded = base64_decode($sshkey['xmldata'], true);
+		$keydata = is_string($decoded) ? @gzinflate($decoded) : false;
+		if (!is_string($keydata) || $keydata === '') {
+			logger(LOG_WARNING, localize_text("Ignoring invalid SSH key backup data for %s",
+			    $sshkey['filename']), LOG_PREFIX_CONFIG);
+			continue;
+		}
 		$keypath = "{$sshConfigDir}/{$sshkey['filename']}";
-		if (strstr($sshkey['filename'], 'pub')) {
+		if (str_ends_with($sshkey['filename'], '.pub')) {
 			umask(0133);
 		} else {
 			umask(0177);
 		}
-		if (file_put_contents($keypath, gzinflate(base64_decode($sshkey['xmldata']))) === false) {
+		if (file_put_contents($keypath, $keydata) === false) {
 			logger(LOG_CRIT, localize_text("Cannot write %s", $sshkey['filename']), LOG_PREFIX_CONFIG);
 			continue;
 		}

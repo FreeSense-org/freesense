@@ -74,6 +74,7 @@ pfsense  Telegraf                Telegraf                exact
 pfsense  tftpd                   tftpd                   exact
 pfsense  udpbroadcastrelay       udpbroadcastrelay       exact
 pfsense  WireGuard               WireGuard               exact
+pfsense  WebGateway              WebGateway              exact
 pfsense  zabbix-agent6           zabbix-agent6           exact
 pfsense  zabbix-agent7           zabbix-agent7           exact
 pfsense  zabbix-agent74          zabbix-agent74          exact
