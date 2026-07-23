@@ -1683,6 +1683,12 @@ update_freebsd_sources() {
 		fi
 	fi
 	. ${BUILDER_TOOLS}/ci/freesense-confrename.sh
+	if [ "${PRODUCT_NAME}" != "pfSense" ] && \
+	    ! grep -Fq "EFI_LABEL_NAME=${PRODUCT_NAME}" \
+	    "${FREEBSD_SRC_DIR}/usr.sbin/bsdinstall/startbsdinstall"; then
+		echo ">>> ERROR: installer does not set the UEFI boot entry label to ${PRODUCT_NAME}" | tee -a ${LOGFILE}
+		print_error_pfS
+	fi
 
 	if [ -n "${GIT_FREEBSD_COSHA1}" ]; then
 		echo -n ">>> Checking out desired commit (${GIT_FREEBSD_COSHA1})... "

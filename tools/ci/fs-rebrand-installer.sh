@@ -34,12 +34,15 @@ skip { next }
 { print }
 ' "$SBI" > "$SBI.fsnew" && mv "$SBI.fsnew" "$SBI"
 
-# 2) Rebrand hardcoded dialog strings + installer product name (leave device-label/ZFS-pool alone).
+# 2) Rebrand hardcoded dialog strings, installer product name, and the UEFI
+#    Boot#### description shown by firmware. Leave GPT/device labels and the
+#    ZFS pool name alone.
 sed -i '' \
   -e 's/pfSense Installer/FreeSense Installer/g' \
   -e 's/Welcome to pfSense!/Welcome to FreeSense!/g' \
   -e 's/Install pfSense/Install FreeSense/g' \
   -e 's/Installation of pfSense complete/Installation of FreeSense complete/g' \
+  -e 's/EFI_LABEL_NAME=pfSense/EFI_LABEL_NAME=FreeSense/g' \
   -e 's/OSNAME=pfSense/OSNAME=FreeSense/g' \
   "$SBI"
 echo "fs-rebrand-installer: rebranded $SBI"
