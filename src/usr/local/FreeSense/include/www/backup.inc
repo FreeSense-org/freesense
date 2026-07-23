@@ -301,10 +301,12 @@ function execPost($post, $postfiles, $ui = true) {
 						require_once('config_import_guard.inc');
 						require_once('config_import_pkgmap.inc');
 						$fs_lineage = freesense_config_detect_lineage($data);
-						if ($fs_lineage === 'pfsense' || $fs_lineage === 'opnsense') {
-							/* Auto-map the source packages BEFORE conversion
-							 * strips <installedpackages>, so we can report what to
-							 * reinstall. Parse the original foreign data. */
+						if (in_array($fs_lineage, array('freesense', 'pfsense', 'opnsense'), true)) {
+							/* Auto-map packages before conversion can strip
+							 * <installedpackages>. Do this for native FreeSense
+							 * restores too: installer-converted pfSense backups
+							 * already have a <freesense> root, and native backups
+							 * should also offer to reinstall their packages. */
 							$fs_pkg_summary = '';
 							$fs_tmp = tempnam('/tmp', 'fsimport');
 							if ($fs_tmp !== false) {
@@ -346,13 +348,19 @@ function execPost($post, $postfiles, $ui = true) {
 									}
 								}
 							}
-							$fs_conv = freesense_config_convert_foreign($data, $fs_lineage);
-							$data = $fs_conv['xml'];
-							$savemsg = sprintf(gettext(
-							    "Detected and converted a %s configuration to FreeSense before restoring. %s%s"),
-							    strtoupper($fs_lineage),
-							    implode(' ', $fs_conv['notes']),
-							    $fs_pkg_summary);
+							if ($fs_lineage === 'pfsense' || $fs_lineage === 'opnsense') {
+								$fs_conv = freesense_config_convert_foreign($data, $fs_lineage);
+								$data = $fs_conv['xml'];
+								$savemsg = sprintf(gettext(
+								    "Detected and converted a %s configuration to FreeSense before restoring. %s%s"),
+								    strtoupper($fs_lineage),
+								    implode(' ', $fs_conv['notes']),
+								    $fs_pkg_summary);
+							} elseif ($fs_pkg_summary !== '') {
+								$savemsg = sprintf(gettext(
+								    "FreeSense configuration accepted.%s"),
+								    $fs_pkg_summary);
+							}
 						}
 						unset($fs_lineage, $fs_conv, $fs_srcconf, $fs_maps, $fs_cat,
 						    $fs_install, $fs_skip, $fs_pkg_summary, $fs_tmp);

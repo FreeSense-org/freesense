@@ -21,6 +21,7 @@ jobs:
             ! -path 'tools/rector/tests/*' -print0 | xargs -0 -n1 php -l
           python3 -m json.tool src/etc/freesense-package-catalog.json >/dev/null
           php tests/ConfigImportGuardSmokeTest.php
+          php tests/ConfigUpgradeSmokeTest.php
           php tests/InstallerRecoverySmokeTest.php
           php tests/PackageCatalogSmokeTest.php
           php tests/RepositoryTrustSmokeTest.php
