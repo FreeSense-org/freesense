@@ -16,6 +16,15 @@ check_recovery($import !== false, 'foreign import helper is unreadable');
 
 foreach (array($recover, $import) as $helper) {
 	check_recovery(
+	    strpos($helper, 'for candidate in /usr/sbin/zdb /rescue/zdb /sbin/zdb') !== false,
+	    'ZFS recovery does not resolve zdb from the FreeBSD 16 base layout');
+	check_recovery(
+	    strpos($helper, '/usr/bin/timeout 15 "${zdb_tool}" -l') !== false,
+	    'ZFS recovery still invokes a hard-coded zdb path');
+	check_recovery(
+	    strpos($helper, '/usr/bin/timeout 15 /sbin/zdb') === false,
+	    'ZFS recovery uses the nonexistent FreeBSD 16 /sbin/zdb path');
+	check_recovery(
 	    strpos($helper, '> "${zdb_log}" 2>&1') !== false ||
 	    strpos($helper, '>"${zdb_log}" 2>&1') !== false,
 	    'ZFS label output does not capture both stdout and stderr');
@@ -43,5 +52,16 @@ check_recovery(
 check_recovery(
     strpos($recover, 'readonly=on') !== false,
     'ZFS recovery import is not read-only');
+check_recovery(
+    strpos($import, 'Detected a FreeSense configuration.') !== false &&
+    strpos($import, '/bin/cp "${SRC}" "${STAGE}"') !== false,
+    'installer import still rejects already-converted FreeSense configurations');
+
+$assemble = file_get_contents(__DIR__ . '/../tools/ci/freesense-assemble-iso.sh');
+check_recovery($assemble !== false, 'ISO assembly implementation is unreadable');
+check_recovery(
+    strpos($assemble, '${_root}/usr/sbin/zdb') !== false &&
+    strpos($assemble, '${_root}/rescue/zdb') !== false,
+    'ISO assembly does not refuse media missing the ZFS inspection tool');
 
 echo "Installer recovery helpers: valid\n";
