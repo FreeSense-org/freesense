@@ -41,7 +41,7 @@ foreach (['Updates are pulled from this branch', 'Change branch'] as $removedTex
 		exit(1);
 	}
 }
-foreach (['update-notes/', 'render_update_notes', 'fa-wand-magic-sparkles'] as $requiredText) {
+foreach (['/v1/releases/', 'render_update_notes', 'fa-wand-magic-sparkles'] as $requiredText) {
 	if (strpos($updateManager, $requiredText) === false) {
 		fwrite(STDERR, "Update page is missing classified release-note support.\n");
 		exit(1);
