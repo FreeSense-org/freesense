@@ -192,12 +192,16 @@ function freesense_import_source_packages($conf, $lineage) {
 		if (is_array($pkgs) && !empty($pkgs) && !isset($pkgs['name'])) {
 			foreach ($pkgs as $p) {
 				if (!empty($p['name'])) {
-					$out[] = array('name' => $p['name'], 'raw' => $p['name']);
+					$name = !empty($p['internal_name']) ?
+					    $p['internal_name'] : $p['name'];
+					$out[] = array('name' => $name, 'raw' => $p['name']);
 				}
 			}
 		} elseif (is_array($pkgs) && isset($pkgs['name'])) {
 			/* single-package configs parse to a bare assoc array */
-			$out[] = array('name' => $pkgs['name'], 'raw' => $pkgs['name']);
+			$name = !empty($pkgs['internal_name']) ?
+			    $pkgs['internal_name'] : $pkgs['name'];
+			$out[] = array('name' => $name, 'raw' => $pkgs['name']);
 		}
 	} elseif ($lineage == 'opnsense') {
 		$plugins = array_get_path($conf, 'system/firmware/plugins', '');
@@ -293,14 +297,20 @@ function freesense_import_map_all_packages($conf, $lineage, $catalog = null) {
 
 /*
  * Convenience: read the FreeSense repo catalog of installable package internal
- * names, for catalog validation above. Best-effort; returns [] if pkg/repo is
- * unavailable (e.g. running in the installer before the repo is reachable), in
- * which case mapping proceeds without catalog validation.
+ * names for catalog validation above. A null result means pkg/repo availability
+ * is unknown and mapping proceeds without destructive catalog validation. An
+ * empty array means the signed query succeeded and the repository contains no
+ * optional packages.
  */
 function freesense_import_pkg_catalog() {
 	$out = array();
 	$raw = array();
-	exec('/usr/sbin/pkg rquery -r FreeSense-packages %n 2>/dev/null', $raw);
+	$status = 0;
+	exec('/usr/sbin/pkg rquery -r FreeSense-packages %n 2>/dev/null',
+	    $raw, $status);
+	if ($status !== 0) {
+		return null;
+	}
 	foreach ($raw as $line) {
 		$line = trim($line);
 		/* keep only the -pkg- add-ons, strip the FreeSense-pkg- prefix to the

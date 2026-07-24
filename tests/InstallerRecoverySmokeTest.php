@@ -73,4 +73,20 @@ check_recovery(
     strpos($builder, 'console="comconsole,vidconsole"') === false,
     'serial media hard-codes the BIOS-only video console');
 
+$boot = file_get_contents(__DIR__ . '/../src/etc/rc.bootup');
+$ecl = file_get_contents(__DIR__ . '/../src/etc/rc.ecl');
+check_recovery($boot !== false, 'boot restore reconciliation is unreadable');
+check_recovery($ecl !== false, 'external configuration loader is unreadable');
+check_recovery(
+    strpos($boot, 'freesense_package_restore_prepare_active') !== false &&
+    strpos($boot, 'installer-or-boot-restore') !== false,
+    'recovered package settings are not isolated before service startup');
+$restore_position = strpos($ecl, 'restore_backup($config_location);');
+$sync_position = strpos($ecl, "touch('/cf/conf/needs_package_sync');");
+$wizard_position = strpos($ecl, "if (file_exists('/cf/conf/trigger_initial_wizard'))");
+check_recovery(
+    $restore_position !== false && $sync_position > $restore_position &&
+    $wizard_position > $sync_position,
+    'external restore only schedules package reconciliation during first boot');
+
 echo "Installer recovery helpers: valid\n";

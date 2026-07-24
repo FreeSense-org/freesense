@@ -188,9 +188,14 @@ function find_config_xml() {
 							backup_config();
 							echo "Restoring [{$slice}] {$config_location}...\n";
 							restore_backup($config_location);
+							/*
+							 * Every externally restored configuration needs
+							 * package reconciliation, not only first-boot
+							 * installer recovery.
+							 */
+							touch('/cf/conf/needs_package_sync');
 							if (file_exists('/cf/conf/trigger_initial_wizard')) {
-								echo "First boot after install, setting flag for package sync and disabling wizard...\n";
-								touch('/cf/conf/needs_package_sync');
+								echo "First boot after install, disabling wizard after configuration recovery...\n";
 								@unlink('/cf/conf/trigger_initial_wizard');
 							}
 							echo "Cleaning up...\n";

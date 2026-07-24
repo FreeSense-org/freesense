@@ -121,6 +121,175 @@ function check_and_returnif_section_exists($section) {
 	return false;
 }
 
+function freesense_package_restore_preview_dir() {
+	global $g;
+	return "{$g['tmp_path']}/package-restore-preview";
+}
+
+function freesense_package_restore_parse_xml($data, $restorearea = '') {
+	$parse_data = $data;
+	$roots = array('freesense', 'pfsense', 'opnsense');
+	if ($restorearea === 'installedpackages' &&
+	    !preg_match('/<\s*(?:freesense|pfsense|opnsense)\s*>/i', $data)) {
+		$parse_data = preg_replace('/<\?xml[^>]*>\s*/i', '', $data);
+		$parse_data = "<freesense>\n{$parse_data}\n</freesense>\n";
+	}
+	$temporary = tempnam('/tmp', 'fs-restore-parse-');
+	if ($temporary === false) {
+		return false;
+	}
+	file_put_contents($temporary, $parse_data);
+	$parsed = parse_xml_config($temporary, $roots);
+	@unlink($temporary);
+	return is_array($parsed) ? $parsed : false;
+}
+
+function freesense_package_restore_cleanup_previews() {
+	$directory = freesense_package_restore_preview_dir();
+	foreach (glob("{$directory}/*.json") ?: array() as $metadata_path) {
+		$metadata = freesense_package_restore_read_json($metadata_path);
+		if (!is_array($metadata) || (int)($metadata['expires_at'] ?? 0) < time()) {
+			$token = basename($metadata_path, '.json');
+			@unlink("{$directory}/{$token}.xml");
+			@unlink($metadata_path);
+		}
+	}
+}
+
+function freesense_package_restore_create_preview($post, $postfiles) {
+	$errors = array();
+	$upload = $postfiles['conffile']['tmp_name'] ?? '';
+	if ($upload === '' || !is_uploaded_file($upload) || !filesize($upload)) {
+		return array('input_errors' => array(gettext(
+		    'A readable configuration file is required for restore preview.')));
+	}
+	$data = file_get_contents($upload);
+	if ($data === false) {
+		return array('input_errors' => array(gettext(
+		    'The uploaded configuration could not be read.')));
+	}
+	if (!empty($post['decrypt'])) {
+		if (empty($post['decrypt_password']) ||
+		    !tagfile_deformat($data, $data, 'config.xml')) {
+			return array('input_errors' => array(gettext(
+			    'The encrypted configuration or password is invalid.')));
+		}
+		$data = decrypt_data($data, $post['decrypt_password']);
+		if (empty($data)) {
+			return array('input_errors' => array(gettext(
+			    'File decryption failed. Incorrect password or invalid file.')));
+		}
+	}
+
+	$restorearea = (string)($post['restorearea'] ?? '');
+	require_once('config_import_guard.inc');
+	require_once('config_import_pkgmap.inc');
+	$lineage = freesense_config_detect_lineage($data);
+	if ($restorearea === '' &&
+	    ($lineage === 'pfsense' || $lineage === 'opnsense')) {
+		$converted = freesense_config_convert_foreign($data, $lineage);
+		$data = $converted['xml'];
+		$lineage = 'freesense';
+	}
+	$parsed = freesense_package_restore_parse_xml($data, $restorearea);
+	if ($parsed === false) {
+		return array('input_errors' => array(gettext(
+		    'The uploaded configuration could not be parsed for preview.')));
+	}
+
+	$catalog = freesense_import_pkg_catalog();
+	$preview_config = $parsed;
+	$analysis = freesense_package_restore_extract(
+	    $preview_config, $catalog, null);
+	$token = bin2hex(random_bytes(24));
+	$directory = freesense_package_restore_preview_dir();
+	if (!is_dir($directory) && !mkdir($directory, 0700, true)) {
+		return array('input_errors' => array(gettext(
+		    'The restore preview could not be staged securely.')));
+	}
+	@chmod($directory, 0700);
+	$xml_path = "{$directory}/{$token}.xml";
+	if (file_put_contents($xml_path, $data, LOCK_EX) === false) {
+		return array('input_errors' => array(gettext(
+		    'The restore preview could not be staged securely.')));
+	}
+	@chmod($xml_path, 0600);
+	$metadata = array(
+		'schema_version' => FREESENSE_PACKAGE_RESTORE_SCHEMA,
+		'expires_at' => time() + 1800,
+		'session' => hash('sha256', session_id()),
+		'restorearea' => $restorearea,
+		'lineage' => $lineage,
+		'xml_sha256' => hash('sha256', $data),
+		'catalog' => $catalog,
+	);
+	if (!freesense_package_restore_atomic_json(
+	    "{$directory}/{$token}.json", $metadata)) {
+		@unlink($xml_path);
+		return array('input_errors' => array(gettext(
+		    'The restore preview could not be staged securely.')));
+	}
+	freesense_package_restore_cleanup_previews();
+	return array(
+		'input_errors' => $errors,
+		'token' => $token,
+		'packages' => $analysis['packages'],
+		'catalog_available' => ($catalog !== null),
+		'restorearea' => $restorearea,
+	);
+}
+
+function freesense_package_restore_apply_preview($token, $selected) {
+	if (!is_string($token) || !preg_match('/^[0-9a-f]{48}$/D', $token)) {
+		return array('input_errors' => array(gettext('The restore preview token is invalid.')));
+	}
+	$directory = freesense_package_restore_preview_dir();
+	$metadata_path = "{$directory}/{$token}.json";
+	$xml_path = "{$directory}/{$token}.xml";
+	$metadata = freesense_package_restore_read_json($metadata_path);
+	$data = is_readable($xml_path) ? file_get_contents($xml_path) : false;
+	if (!is_array($metadata) || $data === false ||
+	    (int)($metadata['expires_at'] ?? 0) < time() ||
+	    !hash_equals((string)($metadata['session'] ?? ''),
+	        hash('sha256', session_id())) ||
+	    !hash_equals((string)($metadata['xml_sha256'] ?? ''),
+	        hash('sha256', $data))) {
+		return array('input_errors' => array(gettext(
+		    'The restore preview expired or no longer belongs to this session.')));
+	}
+	require_once('config_import_pkgmap.inc');
+	$catalog = freesense_import_pkg_catalog();
+	if ($catalog === null) {
+		$catalog = $metadata['catalog'] ?? null;
+	}
+	$restorearea = (string)($metadata['restorearea'] ?? '');
+	$parsed = freesense_package_restore_parse_xml($data, $restorearea);
+	if ($parsed === false) {
+		return array('input_errors' => array(gettext(
+		    'The staged restore configuration is no longer readable.')));
+	}
+	$result = freesense_package_restore_extract(
+	    $parsed, $catalog, is_array($selected) ? $selected : array());
+	if ($restorearea === 'installedpackages') {
+		$data = dump_xml_config(
+		    $parsed['installedpackages'] ?? array(), 'installedpackages');
+	} else {
+		$data = dump_xml_config($parsed, g_get('xml_rootobj'));
+	}
+	if (file_put_contents($xml_path, $data, LOCK_EX) === false) {
+		return array('input_errors' => array(gettext(
+		    'The sanitized restore configuration could not be staged.')));
+	}
+	@chmod($xml_path, 0600);
+	return array(
+		'input_errors' => array(),
+		'path' => $xml_path,
+		'metadata_path' => $metadata_path,
+		'restorearea' => $restorearea,
+		'result' => $result,
+	);
+}
+
 function execPost($post, $postfiles, $ui = true) {
 	global $g;
 
@@ -395,7 +564,17 @@ function execPost($post, $postfiles, $ui = true) {
 									convert_config();
 								}
 								filter_configure();
-								if ($post['restorearea'] == 'system') {
+								if ($post['restorearea'] == 'installedpackages') {
+									require_once('package_restore.inc');
+									if (empty($post['package_restore_prepared'])) {
+										freesense_package_restore_prepare_active(
+										    null, 'package-area-restore', true);
+									}
+									touch("{$g['conf_path']}/needs_package_sync");
+									mark_subsystem_dirty("restore");
+									$savemsg = gettext(
+									    "Package settings have been isolated for reconciliation. The firewall is now rebooting.");
+								} elseif ($post['restorearea'] == 'system') {
 									/*
 									 * System contains the WebGUI protocol, port and
 									 * certificate reference. Reboot so the active nginx
@@ -426,6 +605,11 @@ function execPost($post, $postfiles, $ui = true) {
 								mark_subsystem_dirty("restore");
 								touch("/conf/needs_package_sync");
 								config_read_file(true);
+								if (empty($post['package_restore_prepared'])) {
+									require_once('package_restore.inc');
+									freesense_package_restore_prepare_active(
+									    null, 'full-config-restore', true);
+								}
 
 								/* Restore previously pkg repo configured */
 								$pkg_repo_restored = false;

@@ -40,7 +40,8 @@ if (file_exists("{$g['tmp_path']}/.rc.start_packages.running")) {
 	}
 }
 
-if (file_exists("{$g['conf_path']}/needs_package_sync")) {
+if (file_exists("{$g['conf_path']}/needs_package_sync") &&
+    is_subsystem_dirty('packagelock')) {
 	logger(LOG_NOTICE, localize_text("Skipping STARTing packages process because package reinstallation is pending."));
 	return;
 }

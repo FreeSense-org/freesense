@@ -758,9 +758,14 @@ function reset_factory_defaults($lock = false, $reboot_required = true) {
 }
 
 function config_restore(string $path, string $descr): bool {
+	global $config;
+
 	if (!file_exists($path) || !backup_config()) {
 		return false;
 	}
+	require_once('package_restore.inc');
+	$old_package_signature =
+	    freesense_package_restore_inventory_signature($config);
 
 	$lockkey = lock('config', LOCK_EX);
 	if (!isset($lockkey)) {
@@ -775,6 +780,15 @@ function config_restore(string $path, string $descr): bool {
 		disable_security_checks();
 		config_read_file(true, false);
 		write_config(sprintf(gettext('Reverted to "%s"'), $descr), false);
+		$new_package_signature =
+		    freesense_package_restore_inventory_signature($config);
+		if ($old_package_signature !== $new_package_signature) {
+			$prepared = freesense_package_restore_prepare_active(
+			    null, 'configuration-history', true);
+			if ($prepared !== false) {
+				mwexec_bg("/etc/rc.package_reinstall_all");
+			}
+		}
 		return true;
 	}
 

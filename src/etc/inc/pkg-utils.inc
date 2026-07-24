@@ -25,6 +25,7 @@ require_once("service-utils.inc");
 require_once("/usr/local/www/includes/functions.inc.php");
 require_once("xmlparse.inc");
 require_once("freesense-utils.inc");
+require_once("package_restore.inc");
 
 if (!function_exists("pkg_debug")) {
 	/* set up logging if needed */
@@ -920,6 +921,13 @@ function install_package_xml($package_name) {
 	update_status(gettext("Loading package configuration... "));
 	$pkg_config = parse_xml_config_pkg("/usr/local/pkg/" .
 	    $pkg_info['configurationfile'], "packagegui");
+	$package_owner = get_package_internal_name($pkg_info);
+	if (!empty($pkg_config['name'])) {
+		config_set_path(
+		    "installedpackages/package/{$pkgid}/restore_config_paths",
+		    array('installedpackages/' . xml_safe_fieldname($pkg_config['name']))
+		);
+	}
 	update_status(gettext("done.") . "\n");
 	update_status(gettext("Configuring package components...") .
 	    "\n");
@@ -987,6 +995,7 @@ function install_package_xml($package_name) {
 		$menus = config_get_path('installedpackages/menu', []);
 		update_status(gettext("Menu items... "));
 		foreach ($pkg_config['menu'] as $menu) {
+			$menu['package'] = $package_owner;
 			foreach ($menus as $amenu) {
 				if ((trim($amenu['name']) == trim($menu['name'])) &&
 				    ($amenu['section'] == $menu['section'])) {
@@ -1006,6 +1015,7 @@ function install_package_xml($package_name) {
 			if (empty($service)) {
 				continue;
 			}
+			$service['package'] = $package_owner;
 			foreach ($services as $aservice) {
 				if (empty($aservice)) {
 					continue;
@@ -1068,6 +1078,25 @@ function delete_package_xml($package_name, $when = "post-deinstall") {
 	/* parse package configuration */
 	$pkg_info = config_get_path("installedpackages/package/{$pkgid}",[]);
 	$services = config_get_path('installedpackages/service', []);
+	$package_owner = get_package_internal_name($pkg_info);
+
+	/*
+	 * Current metadata records its owner, so it can be removed even when the
+	 * package configuration file disappeared. Legacy ownerless entries still
+	 * use the XML matching path below when that file is available.
+	 */
+	$menus = config_get_path('installedpackages/menu', []);
+	foreach ($menus as $key => $menu) {
+		if (($menu['package'] ?? '') === $package_owner) {
+			unset($menus[$key]);
+		}
+	}
+	config_set_path('installedpackages/menu', array_values($menus));
+	foreach ($services as $key => $service) {
+		if (($service['package'] ?? '') === $package_owner) {
+			config_del_path("installedpackages/service/{$key}");
+		}
+	}
 	if (file_exists("/usr/local/pkg/" . $pkg_info['configurationfile'])) {
 		$pkg_config = parse_xml_config_pkg("/usr/local/pkg/" .
 		    $pkg_info['configurationfile'], "packagegui");
@@ -1216,7 +1245,9 @@ function package_reinstall_all() {
 	global $g;
 
 	$pkgs = config_get_path('installedpackages/package');
-	if ($pkgs === null) {
+	$pending_restore = freesense_package_restore_read_json(
+	    freesense_package_restore_pending_path());
+	if ($pkgs === null && empty($pending_restore['packages'])) {
 		return true;
 	}
 
@@ -1250,6 +1281,64 @@ function package_reinstall_all() {
 
 	if ($ntries == 0) {
 		return false;
+	}
+
+	if (!empty($pending_restore['packages'])) {
+		require_once('config_import_pkgmap.inc');
+		$catalog = freesense_import_pkg_catalog();
+		if ($catalog === null) {
+			return false;
+		}
+
+		$remaining = array();
+		$quarantine = array();
+		foreach ($pending_restore['packages'] as $package) {
+			$target = (string)($package['target'] ??
+			    $package['internal_name'] ?? '');
+			$state = freesense_package_restore_catalog_lookup($target, $catalog);
+			if ($state['status'] === 'missing') {
+				$package['status'] = 'missing';
+				$package['reason'] = 'missing';
+				$quarantine[] = $package;
+				continue;
+			}
+
+			$target = $state['target'];
+			$pkg_name = g_get('pkg_prefix') . $target;
+			if (!pkg_install($pkg_name, true) && !is_pkg_installed($pkg_name)) {
+				$package['status'] = 'install-failed';
+				$remaining[] = $package;
+				continue;
+			}
+			/*
+			 * Package post-install normally registers its XML through
+			 * rc.packages. Fall back only when that hook could not run (for
+			 * example, early boot before php-fpm is available).
+			 */
+			if (!is_package_installed($target) &&
+			    !install_package_xml($target)) {
+				$package['status'] = 'registration-failed';
+				$remaining[] = $package;
+				continue;
+			}
+
+			freesense_package_restore_merge_settings($package['settings'] ?? array());
+			write_config(sprintf(gettext(
+			    'Restored settings for optional package %s after successful installation.'),
+			    $target));
+			sync_package($target);
+		}
+
+		if (!empty($quarantine) &&
+		    freesense_package_restore_quarantine(
+		        $quarantine, 'package-reconciliation') === false) {
+			return false;
+		}
+		if (!freesense_package_restore_update_pending(
+		    $pending_restore, $remaining)) {
+			return false;
+		}
+		return empty($remaining);
 	}
 
 	if (!empty($pkgs)) {
@@ -1289,7 +1378,7 @@ function package_reinstall_all() {
 			    sprintf(gettext("Package %s does not exist in " .
 			    "current %s version and it has been removed."),
 			    $pkgname, g_get('product_label')));
-			uninstall_package($package);
+			uninstall_package($package['name']);
 		}
 	}
 

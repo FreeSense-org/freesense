@@ -41,21 +41,25 @@ while($ntries <= $max_tries) {
 	$ntries++;
 }
 
-unlink_if_exists("{$g['conf_path']}/needs_package_sync");
+$reinstall_complete = ($ntries <= $max_tries);
+if ($reinstall_complete) {
+	unlink_if_exists("{$g['conf_path']}/needs_package_sync");
+}
 
-if ($ntries > $max_tries) {
+if (!$reinstall_complete) {
 	file_notice(gettext("Package reinstall"), gettext("Package reinstall " .
-	    "process was ABORTED due to lack of internet connectivity"));
+	    "is incomplete. Restored package settings remain isolated and can be " .
+	    "retried from Diagnostics > Backup & Restore."));
 } else {
 	file_notice(gettext("Package reinstall"), gettext("Package reinstall " .
 	    "process finished successfully"));
-	mwexec_bg("{$g['etc_path']}/rc.start_packages");
 }
 
 /* Detect installed binary pkgs that are not registered in the system */
 register_all_installed_packages();
 clear_subsystem_dirty('packagelock');
+mwexec_bg("{$g['etc_path']}/rc.start_packages");
 
-if ($ntries <= $max_tries) {
+if ($reinstall_complete) {
 	mwexec_bg("/etc/rc.filter_configure_sync");
 }
