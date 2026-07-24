@@ -117,7 +117,12 @@ function get_pkg_table() {
 			$pkgtbl .= 	'<br /><br />' . gettext("Package Dependencies") . ":<br/>\n";
 
 			foreach ($index['deps'] as $pdep) {
-				$pkgtbl .= '<a target="_blank" href="https://freshports.org/' . $pdep['origin'] . '">&nbsp;<i class="fa-solid fa-paperclip"></i> ' . basename($pdep['origin']) . '-' . $pdep['version'] . '</a>&emsp;' . "\n";
+				$dependency = pkg_dependency_presentation($pdep);
+				$pkgtbl .= '<a target="_blank" href="' .
+				    htmlspecialchars($dependency['url']) .
+				    '">&nbsp;<i class="fa-solid fa-paperclip"></i> ' .
+				    htmlspecialchars($dependency['label']) .
+				    '</a>&emsp;' . "\n";
 			}
 
 			$pkgtbl .= "\n";
