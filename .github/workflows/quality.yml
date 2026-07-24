@@ -25,6 +25,7 @@ jobs:
           php tests/WebGuiRestoreSmokeTest.php
           php tests/InstallerRecoverySmokeTest.php
           php tests/PackageCatalogSmokeTest.php
+          php tests/PackageRuntimeCompatibilitySmokeTest.php
           php tests/RepositoryTrustSmokeTest.php
           php tests/NicSettingsSmokeTest.php
           php tests/ReproducibleArtifactsSmokeTest.php
