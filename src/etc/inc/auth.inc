@@ -2177,6 +2177,27 @@ function cleanup_invalid_username($username) {
 	return $clean_username;
 }
 
+/*
+ * Return the protocol used by the current WebGUI request.
+ *
+ * The configured protocol can temporarily differ from the active listener
+ * while a WebGUI change or configuration restore is being applied. Cookie
+ * security and session continuity must follow the connection that delivered
+ * the request, not the desired protocol in config.xml.
+ */
+function webgui_request_is_secure() {
+	$https = $_SERVER['HTTPS'] ?? '';
+	if ($https !== '' && strcasecmp((string)$https, 'off') != 0) {
+		return true;
+	}
+
+	return ((int)($_SERVER['SERVER_PORT'] ?? 0) === 443);
+}
+
+function webgui_request_protocol() {
+	return webgui_request_is_secure() ? 'https' : 'http';
+}
+
 function session_auth() {
 	global $_SESSION, $page;
 
@@ -2186,7 +2207,7 @@ function session_auth() {
 		'lifetime' => $currentCookieParams["lifetime"],
 		'path' => $currentCookieParams["path"],
 		'domain' => NULL,
-		'secure' => (config_get_path('system/webgui/protocol') == "https"),
+		'secure' => webgui_request_is_secure(),
 		'httponly' => true,
 		'samesite' => 'Strict'
 	]);
@@ -2194,7 +2215,8 @@ function session_auth() {
 	phpsession_begin();
 
 	// Detect protocol change
-	if (!isset($_POST['login']) && !empty($_SESSION['Logged_In']) && $_SESSION['protocol'] != config_get_path('system/webgui/protocol')) {
+	if (!isset($_POST['login']) && !empty($_SESSION['Logged_In']) &&
+	    $_SESSION['protocol'] != webgui_request_protocol()) {
 		phpsession_end();
 		return false;
 	}
@@ -2227,7 +2249,7 @@ function session_auth() {
 			$_SESSION['Username'] = $_POST['usernamefld'];
 			$_SESSION['user_radius_attributes'] = $attributes;
 			$_SESSION['last_access'] = time();
-			$_SESSION['protocol'] = config_get_path('system/webgui/protocol');
+			$_SESSION['protocol'] = webgui_request_protocol();
 			$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];
 			phpsession_end(true);
 			log_auth_event(LOG_AUTH_EVENT_LOGIN, $_POST['usernamefld'], get_user_remote_address() . get_user_remote_authsource());

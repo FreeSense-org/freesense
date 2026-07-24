@@ -357,7 +357,7 @@ function display_login_form() {
 		events.push(function() {
 			document.cookie=
 				"cookie_test=1" +
-				"<?php echo config_get_path('system/webgui/protocol') == 'https' ? '; secure' : '';?>";
+				"<?php echo webgui_request_is_secure() ? '; secure' : '';?>";
 
 			if (document.cookie.indexOf("cookie_test") == -1) {
 				alert("<?=gettext('The browser must support cookies to login.')?>");
