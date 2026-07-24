@@ -34,6 +34,21 @@ if (strpos($packageManager, 'require_once("package_catalog.inc")') === false) {
 	exit(1);
 }
 
+$packageUtilities = file_get_contents(dirname(__DIR__) . '/src/etc/inc/pkg-utils.inc');
+$installedPackageManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr_installed.php');
+foreach ([$packageManager, $installedPackageManager] as $packagePage) {
+	if (strpos($packagePage, 'pkg_dependency_presentation($pdep)') === false) {
+		fwrite(STDERR, "Package Manager bypasses dependency presentation rules.\n");
+		exit(1);
+	}
+}
+foreach (['-platform-abi', '-system %v', 'https://docs.freesense.org/packages/installing-packages/'] as $requiredText) {
+	if (strpos($packageUtilities, $requiredText) === false) {
+		fwrite(STDERR, "Package dependency presentation is missing compatibility metadata.\n");
+		exit(1);
+	}
+}
+
 $updateManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr_install.php');
 foreach (['Updates are pulled from this branch', 'Change branch'] as $removedText) {
 	if (strpos($updateManager, $removedText) !== false) {

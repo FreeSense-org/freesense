@@ -344,6 +344,62 @@ function pkg_parse_json_output($raw) {
 	));
 }
 
+/*
+ * Return presentation data for a package dependency.
+ *
+ * pkg(8) may omit a dependency version from a repository-restricted search
+ * when the dependency is supplied by another configured repository.  The
+ * FreeSense platform ABI marker deliberately lives in the System repository,
+ * while optional integrations live in the Packages repository.  Resolve the
+ * marker from the installed package or System repository so the WebUI does
+ * not render a misleading trailing dash.
+ */
+function pkg_dependency_presentation($dependency) {
+	$product_name = g_get('product_name');
+	$origin = (string)($dependency['origin'] ?? '');
+	$name = basename($origin);
+	$version = trim((string)($dependency['version'] ?? ''));
+	$url = 'https://freshports.org/' . ltrim($origin, '/');
+	$platform_abi_name = "{$product_name}-platform-abi";
+
+	if ($name == $platform_abi_name) {
+		static $platform_abi_version;
+		static $platform_abi_version_resolved = false;
+
+		if ($version == '' && !$platform_abi_version_resolved) {
+			$out = $err = '';
+			$platform_abi_version_resolved = true;
+			$rc = pkg_exec("query %v {$platform_abi_name}", $out, $err);
+			if ($rc != 0 || trim($out) == '') {
+				$out = $err = '';
+				$rc = pkg_exec(
+				    "rquery -U -r {$product_name}-system %v {$platform_abi_name}",
+				    $out, $err);
+			}
+			if ($rc == 0 && trim($out) != '') {
+				$platform_abi_version = explode("\n", trim($out))[0];
+			}
+		}
+
+		if ($version == '' && !empty($platform_abi_version)) {
+			$version = $platform_abi_version;
+		}
+		$url = 'https://docs.freesense.org/packages/installing-packages/';
+	}
+
+	$label = $name;
+	if ($version != '') {
+		$label .= "-{$version}";
+	}
+
+	return [
+		'name' => $name,
+		'version' => $version,
+		'label' => $label,
+		'url' => $url,
+	];
+}
+
 // Get information about packages.
 function get_pkg_info($pkgs = 'all', $remote_repo_usage_disabled = false,
     $installed_pkgs_only = false) {
