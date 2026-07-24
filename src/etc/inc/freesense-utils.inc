@@ -961,6 +961,51 @@ function backup_config_section($section_name) {
 }
 
 /*
+ * A System-only restore can reference a GUI certificate that was not part of
+ * the restored section. Ensure HTTPS has a usable certificate before the
+ * restored configuration is written. If local certificate generation fails,
+ * fall back to HTTP instead of leaving the WebGUI inaccessible.
+ */
+function sanitize_restored_system_webgui() {
+	$protocol = config_get_path('system/webgui/protocol', 'http');
+	if (!in_array($protocol, ['http', 'https'], true)) {
+		config_set_path('system/webgui/protocol', 'http');
+		config_del_path('system/webgui/ssl-certref');
+		logger(LOG_WARNING,
+		    localize_text("Restored System configuration had an invalid WebGUI protocol; falling back to HTTP."),
+		    LOG_PREFIX_WEBGUI);
+		return;
+	}
+
+	if ($protocol != 'https') {
+		return;
+	}
+
+	require_once('certs.inc');
+	$cert_entry = lookup_cert(config_get_path('system/webgui/ssl-certref'));
+	$cert = $cert_entry['item'] ?? null;
+	if (is_array($cert) && !empty($cert['crt']) && !empty($cert['prv']) &&
+	    !cert_chain_has_weak_digest($cert)) {
+		return;
+	}
+
+	$cert = cert_create_selfsigned('', '', false);
+	if (is_array($cert) && !empty($cert['refid'])) {
+		config_set_path('system/webgui/ssl-certref', $cert['refid']);
+		logger(LOG_NOTICE,
+		    localize_text("Generated a new self-signed WebGUI certificate after restoring the System configuration."),
+		    LOG_PREFIX_WEBGUI);
+		return;
+	}
+
+	config_set_path('system/webgui/protocol', 'http');
+	config_del_path('system/webgui/ssl-certref');
+	logger(LOG_ERR,
+	    localize_text("Unable to create a WebGUI certificate after restoring the System configuration; falling back to HTTP."),
+	    LOG_PREFIX_WEBGUI);
+}
+
+/*
  *  restore_config_section($section_name, new_contents): restore a configuration section,
  *                                                  and write the configuration out
  *                                                  to disk/cf.
@@ -1002,6 +1047,7 @@ function restore_config_section($section_name, $new_contents) {
 		} elseif (config_get_path('system/pkg_repo_conf_path')) {
 			config_del_path(('system/pkg_repo_conf_path'));
 		}
+		sanitize_restored_system_webgui();
 	}
 
 	write_config(sprintf(gettext("Restored %s of config file (maybe from CARP partner)"), $section_name));

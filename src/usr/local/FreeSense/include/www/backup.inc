@@ -395,7 +395,18 @@ function execPost($post, $postfiles, $ui = true) {
 									convert_config();
 								}
 								filter_configure();
-								$savemsg = gettext("The configuration area has been restored. The firewall may need to be rebooted.");
+								if ($post['restorearea'] == 'system') {
+									/*
+									 * System contains the WebGUI protocol, port and
+									 * certificate reference. Reboot so the active nginx
+									 * listener cannot remain out of sync with the
+									 * restored settings.
+									 */
+									mark_subsystem_dirty("restore");
+									$savemsg = gettext("The System configuration has been restored. The firewall is now rebooting.");
+								} else {
+									$savemsg = gettext("The configuration area has been restored. The firewall may need to be rebooted.");
+								}
 							}
 						}
 					} elseif (!$input_errors) {
