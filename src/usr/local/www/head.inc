@@ -167,9 +167,57 @@ function return_ext_menu($section) {
 	$htmltext = "";
 	$extarray = array();
 	$ext_menu_entries = array();
+	static $owned_menu_keys = null;
+	static $legacy_menu_keys = null;
 
 	if ((!empty(config_get_path('installedpackages/package'))) && (!empty(config_get_path('installedpackages/menu')))) {
+		if ($owned_menu_keys === null) {
+			$owned_menu_keys = array();
+			$legacy_menu_keys = array();
+			foreach (config_get_path('installedpackages/package', []) as $package) {
+				/*
+				 * Compatibility for metadata written before package owners
+				 * were recorded. Trust a legacy entry only when a currently
+				 * registered package XML on disk declares the same menu.
+				 */
+				$configfile = (string)($package['configurationfile'] ?? '');
+				if (!preg_match('/^[A-Za-z0-9_.-]+\.xml$/D', $configfile) ||
+				    !file_exists("/usr/local/pkg/{$configfile}")) {
+					continue;
+				}
+				$identities = array_filter(array_map('strtolower', array(
+					(string)($package['name'] ?? ''),
+					(string)($package['internal_name'] ?? ''),
+				)));
+				$packagegui = parse_xml_config_pkg(
+				    "/usr/local/pkg/{$configfile}", 'packagegui');
+				foreach ((array)($packagegui['menu'] ?? array()) as $declared) {
+					$key = implode("\0", array(
+						(string)($declared['name'] ?? ''),
+						(string)($declared['section'] ?? ''),
+						(string)($declared['url'] ?? ''),
+					));
+					$legacy_menu_keys[$key] = true;
+					foreach ($identities as $identity) {
+						$owned_menu_keys["{$identity}\0{$key}"] = true;
+					}
+				}
+			}
+		}
+
 		foreach (config_get_path('installedpackages/menu', []) as $menu) {
+			$owner = (string)($menu['package'] ?? '');
+			$key = implode("\0", array(
+				(string)($menu['name'] ?? ''),
+				(string)($menu['section'] ?? ''),
+				(string)($menu['url'] ?? ''),
+			));
+			$current = ($owner !== '') ?
+			    isset($owned_menu_keys[strtolower($owner) . "\0{$key}"]) :
+			    isset($legacy_menu_keys[$key]);
+			if (!$current) {
+				continue;
+			}
 			if (isset($menu['name']) && ($menu['name'] != "AutoConfigBackup")) { // AutoConfigBackup was moved to a built-in function
 	//			print('Name: ' . $menu['name'] . ', Pkg category: ' . $menu['category'] . ', Section: ' . $section . '<br />');
 				if (isset($menu['section']) && ($menu['section'] == $section)) {

@@ -12,11 +12,15 @@ $auth = file_get_contents(__DIR__ . '/../src/etc/inc/auth.inc');
 $authgui = file_get_contents(__DIR__ . '/../src/etc/inc/authgui.inc');
 $utils = file_get_contents(__DIR__ . '/../src/etc/inc/freesense-utils.inc');
 $backup = file_get_contents(__DIR__ . '/../src/usr/local/FreeSense/include/www/backup.inc');
+$backupPage = file_get_contents(__DIR__ . '/../src/usr/local/www/diag_backup.php');
+$head = file_get_contents(__DIR__ . '/../src/usr/local/www/head.inc');
 
 check_webgui_restore($auth !== false, 'WebGUI authentication implementation is unreadable');
 check_webgui_restore($authgui !== false, 'WebGUI login implementation is unreadable');
 check_webgui_restore($utils !== false, 'configuration restore implementation is unreadable');
 check_webgui_restore($backup !== false, 'GUI backup implementation is unreadable');
+check_webgui_restore($backupPage !== false, 'GUI backup page is unreadable');
+check_webgui_restore($head !== false, 'WebGUI menu implementation is unreadable');
 
 check_webgui_restore(
     strpos($auth, "'secure' => webgui_request_is_secure()") !== false &&
@@ -35,5 +39,17 @@ check_webgui_restore(
     strpos($backup, "if (\$post['restorearea'] == 'system')") !== false &&
     strpos($backup, 'mark_subsystem_dirty("restore");') !== false,
     'System restore does not require a reboot to synchronize the WebGUI listener');
+check_webgui_restore(
+    strpos($backup, 'function freesense_package_restore_create_preview') !== false &&
+    strpos($backup, 'function freesense_package_restore_apply_preview') !== false &&
+    strpos($backupPage, 'package_restore_apply') !== false &&
+    strpos($backupPage, 'freesense_package_restore_save') !== false,
+    'full and package-area restores do not use package preview and isolation');
+check_webgui_restore(
+    strpos($head, '$owned_menu_keys') !== false &&
+    strpos($head, '$legacy_menu_keys') !== false &&
+    strpos($head, "A-Za-z0-9_.-]+\\.xml") !== false &&
+    strpos($head, 'if (!$current)') !== false,
+    'restored package menus are not checked against current package ownership');
 
 echo "WebGUI restore session safety: valid\n";

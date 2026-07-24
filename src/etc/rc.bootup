@@ -143,6 +143,22 @@ convert_config();
 echo "done.\n";
 
 /*
+ * A recovered configuration may describe optional packages that are not
+ * installed on this image. Separate their settings before any service or the
+ * WebGUI can consume restored package metadata.
+ */
+if (file_exists("{$g['conf_path']}/needs_package_sync")) {
+	require_once("package_restore.inc");
+	$restore_prepare = freesense_package_restore_prepare_active(
+	    null, 'installer-or-boot-restore');
+	if ($restore_prepare === false) {
+		file_notice(gettext("Package restore"), gettext(
+		    "Unable to isolate restored optional package settings. " .
+		    "Package startup remains blocked until the restore can be retried."));
+	}
+}
+
+/*
  *	Determine if we need to throw a interface exception
  *	and ask the user to reassign interfaces.  This will
  *	avoid a reboot and that is a good thing.
