@@ -923,10 +923,14 @@ function install_package_xml($package_name) {
 	    $pkg_info['configurationfile'], "packagegui");
 	$package_owner = get_package_internal_name($pkg_info);
 	if (!empty($pkg_config['name'])) {
-		config_set_path(
-		    "installedpackages/package/{$pkgid}/restore_config_paths",
-		    array('installedpackages/' . xml_safe_fieldname($pkg_config['name']))
-		);
+		$restore_config_path =
+		    freesense_package_restore_xml_path($pkg_config['name']);
+		if ($restore_config_path !== '') {
+			config_set_path(
+			    "installedpackages/package/{$pkgid}/restore_config_paths",
+			    $restore_config_path
+			);
+		}
 	}
 	update_status(gettext("done.") . "\n");
 	update_status(gettext("Configuring package components...") .

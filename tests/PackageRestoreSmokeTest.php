@@ -2,6 +2,7 @@
 /* Standalone CI regression test; run with `php tests/PackageRestoreSmokeTest.php`. */
 
 require_once(__DIR__ . '/../src/etc/inc/package_restore.inc');
+require_once(__DIR__ . '/../src/etc/inc/xmlparse.inc');
 
 function check_package_restore($condition, $message) {
 	if (!$condition) {
@@ -71,6 +72,33 @@ check_package_restore(
 check_package_restore(
     ($quarantine_reasons['mystery'] ?? '') === 'orphan',
     'unowned package settings were not quarantined');
+
+$round_trip_path =
+    freesense_package_restore_xml_path('Secure Web Gateway');
+$round_trip_config = array('installedpackages' => array('package' => array(
+	array(
+		'name' => 'Secure Web Gateway',
+		'internal_name' => 'WebGateway',
+		'restore_config_paths' => $round_trip_path,
+	),
+)));
+$round_trip_xml = dump_xml_config($round_trip_config, 'freesense');
+check_package_restore(
+    !str_contains($round_trip_xml, '<0>') &&
+    !str_contains($round_trip_xml, '</0>'),
+    'package restore metadata serialized numeric XML element names');
+$round_trip_file = tempnam(sys_get_temp_dir(), 'freesense-restore-xml-');
+check_package_restore(
+    $round_trip_file !== false &&
+    file_put_contents($round_trip_file, $round_trip_xml) !== false,
+    'package restore XML fixture could not be written');
+$round_trip_parsed = parse_xml_config($round_trip_file, array('freesense'));
+@unlink($round_trip_file);
+check_package_restore(
+    ($round_trip_parsed['installedpackages']['package'][0]
+        ['restore_config_paths'] ?? '') ===
+        'installedpackages/securewebgateway',
+    'package restore metadata did not survive an XML round trip');
 
 $offline_config = package_restore_fixture();
 $offline = freesense_package_restore_extract($offline_config, null, null);

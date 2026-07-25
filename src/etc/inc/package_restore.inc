@@ -15,6 +15,17 @@ function freesense_package_restore_normalize($value) {
 	return strtolower(preg_replace('/[^A-Za-z0-9]/', '', (string)$value));
 }
 
+/*
+ * config.xml cannot represent numerically indexed arrays below ordinary
+ * fields: dump_xml_config() would emit invalid elements such as <0>. A
+ * package currently owns one configuration root, so persist that root as a
+ * scalar and let restore readers cast it to an array when iterating.
+ */
+function freesense_package_restore_xml_path($package_name) {
+	$root = freesense_package_restore_normalize($package_name);
+	return ($root === '') ? '' : "installedpackages/{$root}";
+}
+
 function freesense_package_restore_inventory($value) {
 	if (!is_array($value) || empty($value)) {
 		return array();
