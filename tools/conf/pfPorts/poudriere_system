@@ -17,8 +17,10 @@ dns/dnstop
 editors/nano
 editors/vim
 emulators/qemu-guest-agent
+emulators/qemu@tools
 net-mgmt/dhcp_probe
 net-mgmt/iprange
+net/cloud-init
 net/dhcpcd
 net/hping3
 net/kea
@@ -34,6 +36,7 @@ net/trafshow3
 net/vnstat
 security/%%PRODUCT_NAME%%
 shells/zsh
+sysutils/%%PRODUCT_NAME%%-cloud-init
 sysutils/%%PRODUCT_NAME%%-default-config
 sysutils/%%PRODUCT_NAME%%-default-config-serial
 sysutils/%%PRODUCT_NAME%%-platform-abi
