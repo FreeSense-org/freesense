@@ -118,6 +118,22 @@ echo "Loading configuration...";
 parse_config_bootup();
 echo "done.\n";
 
+/*
+ * Cloud images may install an adapter which imports cloud-init's validated
+ * datasource into native FreeSense configuration.  Keep this hook optional:
+ * installer and appliance images do not ship the executable and retain the
+ * normal boot path.
+ */
+$cloud_init_hook = "/usr/local/sbin/freesense-cloud-init";
+if (is_executable($cloud_init_hook)) {
+	echo "Importing cloud instance configuration...";
+	$cloud_init_status = mwexec("{$cloud_init_hook} early");
+	echo $cloud_init_status === 0 ? "done.\n" : "failed; preserving existing configuration.\n";
+	if ($cloud_init_status === 0) {
+		parse_config_bootup();
+	}
+}
+
 mwexec("/usr/sbin/gnid > {$g['vardb_path']}/uniqueid 2>/dev/null");
 
 /* Import the Installer network settings. */
@@ -539,6 +555,12 @@ if ($ipsec_dynamic_hosts || !empty($filterdns)) {
  * booting. Now that bootup is complete, reload the filter to alert of
  * any alias issues. */
 filter_configure_sync();
+
+if (isset($cloud_init_hook) && is_executable($cloud_init_hook)) {
+	echo "Completing cloud instance provisioning...";
+	$cloud_init_status = mwexec("{$cloud_init_hook} final");
+	echo $cloud_init_status === 0 ? "done.\n" : "failed.\n";
+}
 
 led_normalize();
 
