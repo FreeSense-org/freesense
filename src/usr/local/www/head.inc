@@ -20,6 +20,7 @@
  */
 
 require_once("globals.inc");
+require_once("freesense-docs.inc");
 require_once("functions.inc");
 require_once("shortcuts.inc");
 require_once("service-utils.inc");
@@ -121,18 +122,9 @@ if (($pagename == "pkg.php") || ($pagename == "pkg_edit.php") || ($pagename == "
 	}
 }
 
-// Build a clean, version-aware documentation URL. WebUI implementation details
-// such as the legacy .php suffix are not part of the documentation route.
-$pagename = preg_replace('/\.php(?=-|$)/', '', $pagename);
-$helpurl .= "{$g['help_base_url']}?" . http_build_query(
-	array(
-		'page' => $pagename,
-		'version' => g_get('product_version_string'),
-	),
-	'',
-	'&',
-	PHP_QUERY_RFC3986
-);
+// Each page opens its relevant documentation topic directly. The resolver
+// selects the matching Stable-root or /1.1 Development edition.
+$helpurl = freesense_docs_url($pagename, g_get('product_version_string'));
 
 /*
  * Read files from $g['ext_menu_path']/*.xml and fill an array with menu info
