@@ -26,6 +26,7 @@ require_once("/usr/local/www/includes/functions.inc.php");
 require_once("xmlparse.inc");
 require_once("freesense-utils.inc");
 require_once("package_restore.inc");
+require_once("package_registration.inc");
 
 if (!function_exists("pkg_debug")) {
 	/* set up logging if needed */
@@ -862,6 +863,39 @@ function eval_once($toeval) {
 	return;
 }
 
+function update_package_generated_metadata($pkg_info, $pkg_config) {
+	$package_owner = get_package_internal_name($pkg_info);
+	config_set_path('installedpackages/menu',
+	    freesense_package_reconcile_generated_entries(
+	        config_get_path('installedpackages/menu', []),
+	        $pkg_config['menu'] ?? array(), $package_owner,
+	        array('name', 'section')));
+	config_set_path('installedpackages/service',
+	    freesense_package_reconcile_generated_entries(
+	        config_get_path('installedpackages/service', []),
+	        $pkg_config['service'] ?? array(), $package_owner, array('name')));
+}
+
+/* Repair generated menus/services without repeating package install hooks. */
+function refresh_package_generated_metadata($package_name) {
+	$pkgid = get_package_id($package_name);
+	if ($pkgid == -1) {
+		return install_package_xml($package_name);
+	}
+	$pkg_info = config_get_path("installedpackages/package/{$pkgid}", []);
+	$configfile = (string)($pkg_info['configurationfile'] ?? '');
+	if ($configfile === '' || !file_exists("/usr/local/pkg/{$configfile}")) {
+		return false;
+	}
+	$pkg_config = parse_xml_config_pkg(
+	    "/usr/local/pkg/{$configfile}", 'packagegui');
+	update_package_generated_metadata($pkg_info, $pkg_config);
+	write_config(sprintf(gettext(
+	    'Refreshed generated metadata for optional package %s.'),
+	    $pkg_info['name'] ?? $package_name));
+	return true;
+}
+
 function install_package_xml($package_name) {
 	if (($pkg_info = read_package_config($package_name)) == false) {
 		return false;
@@ -921,7 +955,6 @@ function install_package_xml($package_name) {
 	update_status(gettext("Loading package configuration... "));
 	$pkg_config = parse_xml_config_pkg("/usr/local/pkg/" .
 	    $pkg_info['configurationfile'], "packagegui");
-	$package_owner = get_package_internal_name($pkg_info);
 	if (!empty($pkg_config['name'])) {
 		$restore_config_path =
 		    freesense_package_restore_xml_path($pkg_config['name']);
@@ -995,42 +1028,13 @@ function install_package_xml($package_name) {
 		}
 	}
 	/* sidebar items */
+	update_package_generated_metadata($pkg_info, $pkg_config);
 	if (is_array($pkg_config['menu'])) {
-		$menus = config_get_path('installedpackages/menu', []);
 		update_status(gettext("Menu items... "));
-		foreach ($pkg_config['menu'] as $menu) {
-			$menu['package'] = $package_owner;
-			foreach ($menus as $amenu) {
-				if ((trim($amenu['name']) == trim($menu['name'])) &&
-				    ($amenu['section'] == $menu['section'])) {
-					continue 2;
-				}
-			}
-			$menus[] = $menu;
-		}
-		config_set_path('installedpackages/menu', $menus);
 		update_status(gettext("done.") . "\n");
 	}
-	/* services */
 	if (is_array($pkg_config['service'])) {
 		update_status(gettext("Services... "));
-		$services = config_get_path('installedpackages/service', []);
-		foreach ($pkg_config['service'] as $service) {
-			if (empty($service)) {
-				continue;
-			}
-			$service['package'] = $package_owner;
-			foreach ($services as $aservice) {
-				if (empty($aservice)) {
-					continue;
-				}
-				if (trim($aservice['name']) == trim($service['name'])) {
-					continue 2;
-				}
-			}
-			$services[] = $service;
-		}
-		config_set_path('installedpackages/service', $services);
 		update_status(gettext("done.") . "\n");
 	}
 	if (is_array($pkg_config['tabs'])) {
@@ -1351,18 +1355,24 @@ function package_reinstall_all() {
 
 	foreach ($pkgs as $package) {
 		$found = false;
+		$package_target = '';
 		foreach ($pkg_info as $pkg) {
 			pkg_remove_prefix($pkg['name']);
 			if ($pkg['name'] == $package['internal_name']) {
-				pkg_install(g_get('pkg_prefix') . $package['internal_name'], true);
+				$package_target = $package['internal_name'];
+				pkg_install(g_get('pkg_prefix') . $package_target, true);
 				$found = true;
 			} elseif ($pkg['name'] == $package['name']) {
 				/* some packages use 'name' as the package name,
 				 * see upstream issue 12766 */
-				pkg_install(g_get('pkg_prefix') . $package['name'], true);
+				$package_target = $package['name'];
+				pkg_install(g_get('pkg_prefix') . $package_target, true);
 				$found = true;
 			}
 			if ($found) {
+				if (!refresh_package_generated_metadata($package_target)) {
+					return false;
+				}
 				break;
 			}
 		}
