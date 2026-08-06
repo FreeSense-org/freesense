@@ -1596,7 +1596,16 @@ function get_system_pkg_version($use_cache = true, $updates_only = true) {
 		'version' => $new_version ?: $installed_version,
 		'installed_version' => $installed_version,
 	];
-	$result['pkg_version_compare'] = pkg_version_compare($result['installed_version'], $result['version']);
+	/*
+	 * FreeSense-upgrade is authoritative here: exit code 2 means its full
+	 * System package-set check found an update.  Do not override that result
+	 * by comparing the display versions.  pkgbase and ports packages can
+	 * encode the same build generation differently (for example .49 versus
+	 * _55), and pkg version ordering across those forms can incorrectly make
+	 * the installed System appear newer.
+	 */
+	$result['pkg_version_compare'] = isset($new_version) ? '<' :
+	    pkg_version_compare($result['installed_version'], $result['version']);
 
 	return $result;
 }
