@@ -48,6 +48,12 @@ foreach (['-platform-abi', '-system %v', 'https://docs.freesense.org/packages/in
 		exit(1);
 	}
 }
+if (strpos($packageUtilities,
+    "isset(\$new_version) ? '<' :") === false) {
+	fwrite(STDERR,
+	    "System update detection does not preserve the authoritative updater result.\n");
+	exit(1);
+}
 
 $updateManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr_install.php');
 foreach (['Updates are pulled from this branch', 'Change branch'] as $removedText) {
