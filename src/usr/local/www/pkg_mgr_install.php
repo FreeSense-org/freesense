@@ -454,7 +454,16 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 				</div>
 				<div class="card border-0 bg-body-tertiary mb-3" id="update_notes_card" style="display:none">
 					<div class="card-header bg-transparent d-flex justify-content-between align-items-center"><h3 class="h6 mb-0"><i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i><?=gettext('What is new')?></h3><span class="badge text-bg-primary" id="update_notes_count"></span></div>
-					<div class="card-body"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_summary"></div><div class="list-group list-group-flush" id="update_notes_list"></div></div>
+					<div class="card-body">
+						<ul class="nav nav-tabs mb-3" id="update_notes_tabs" role="tablist">
+							<li class="nav-item" role="presentation"><button class="nav-link active" id="update_notes_freesense_tab" data-bs-toggle="tab" data-bs-target="#update_notes_freesense" type="button" role="tab" aria-controls="update_notes_freesense" aria-selected="true"><i class="fa-solid fa-shield-halved me-1"></i><?=gettext('FreeSense')?><span class="badge text-bg-secondary ms-2" id="update_notes_freesense_count"></span></button></li>
+							<li class="nav-item" role="presentation"><button class="nav-link" id="update_notes_platform_tab" data-bs-toggle="tab" data-bs-target="#update_notes_platform" type="button" role="tab" aria-controls="update_notes_platform" aria-selected="false"><i class="fa-brands fa-freebsd me-1"></i><?=gettext('Platform & packages')?><span class="badge text-bg-secondary ms-2" id="update_notes_platform_count"></span></button></li>
+						</ul>
+						<div class="tab-content">
+							<div class="tab-pane fade show active" id="update_notes_freesense" role="tabpanel" aria-labelledby="update_notes_freesense_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_freesense_summary"></div><div class="list-group list-group-flush" id="update_notes_freesense_list"></div></div>
+							<div class="tab-pane fade" id="update_notes_platform" role="tabpanel" aria-labelledby="update_notes_platform_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_platform_summary"></div><div class="list-group list-group-flush" id="update_notes_platform_list"></div></div>
+						</div>
+					</div>
 				</div>
 <?php
 	elseif (($pkgmode == 'delete') && $pkgname_vital):
@@ -889,10 +898,18 @@ function get_firmware_versions() {
 }
 
 function render_update_notes(notes) {
-	var list = $('#update_notes_list').empty();
-	var summary = $('#update_notes_summary').empty();
-	var changes = notes && Array.isArray(notes.changes) ? notes.changes : [];
-	if (!changes.length) { $('#update_notes_card').hide(); return; }
+	var structured = notes && notes.release_notes && notes.release_notes.schema_version === 'freesense.release-notes/v2' ? notes.release_notes : null;
+	var changes = structured && Array.isArray(structured.freesense) ? structured.freesense : (notes && Array.isArray(notes.changes) ? notes.changes : []);
+	var platform = structured && structured.platform ? structured.platform : null;
+	var freebsd = platform && platform.freebsd ? platform.freebsd : null;
+	var packages = platform && platform.packages ? platform.packages : null;
+	var packageCounts = packages && packages.counts ? packages.counts : {updated:0, added:0, removed:0};
+	var platformCount = (freebsd && freebsd.changed ? 1 : 0) + (freebsd && freebsd.ports_changed ? 1 : 0) + (packageCounts.updated || 0) + (packageCounts.added || 0) + (packageCounts.removed || 0);
+	if (!changes.length && !platformCount) { $('#update_notes_card').hide(); return; }
+	var list = $('#update_notes_freesense_list').empty();
+	var summary = $('#update_notes_freesense_summary').empty();
+	var platformList = $('#update_notes_platform_list').empty();
+	var platformSummary = $('#update_notes_platform_summary').empty();
 	var styles = {security:'danger', fix:'warning', feature:'success', ui:'primary', package:'info', documentation:'secondary', build:'dark', other:'secondary'};
 	var icons = {security:'shield-halved', fix:'screwdriver-wrench', feature:'star', ui:'palette', package:'box-open', documentation:'book', build:'gears', other:'code-commit'};
 	var counts = {};
@@ -907,7 +924,42 @@ function render_update_notes(notes) {
 	Object.keys(counts).forEach(function(type) {
 		summary.append($('<span>').addClass('badge text-bg-' + styles[type]).append($('<i>').addClass('fa-solid fa-' + icons[type] + ' me-1')).append(document.createTextNode(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + counts[type])));
 	});
-	$('#update_notes_count').text(changes.length + ' <?=gettext('changes')?>');
+	if (!changes.length) list.append($('<div>').addClass('text-body-secondary py-3').text('<?=gettext('No FreeSense changes in this firmware.')?>'));
+
+	function platformRow(icon, color, title, detail) {
+		var row = $('<div>').addClass('list-group-item bg-transparent px-0 d-flex gap-3');
+		row.append($('<span>').addClass('text-' + color).append($('<i>').addClass('fa-solid fa-' + icon)));
+		var body = $('<div>'); body.append($('<div>').addClass('fw-semibold').text(title));
+		if (detail) body.append($('<div>').addClass('small text-body-secondary').text(detail));
+		row.append(body); platformList.append(row);
+	}
+	function shortCommit(value) { return typeof value === 'string' && /^[0-9a-f]{40}$/.test(value) ? value.slice(0, 12) : 'unknown'; }
+	if (freebsd && freebsd.changed) platformRow('server', 'primary', '<?=gettext('FreeBSD source snapshot updated')?>', shortCommit(freebsd.from_commit) + ' → ' + shortCommit(freebsd.to_commit));
+	if (freebsd && freebsd.ports_changed) platformRow('code-branch', 'info', '<?=gettext('FreeBSD ports snapshot updated')?>', shortCommit(freebsd.from_ports_commit) + ' → ' + shortCommit(freebsd.to_ports_commit));
+	[['updated','arrow-up','info'], ['added','plus','success'], ['removed','minus','warning']].forEach(function(kind) {
+		var items = packages && Array.isArray(packages[kind[0]]) ? packages[kind[0]] : [];
+		items.forEach(function(item) {
+			var version = kind[0] === 'updated' ? item.from + ' → ' + item.to : item.version;
+			platformRow(kind[1], kind[2], item.name || '', version + (item.origin ? ' · ' + item.origin : ''));
+		});
+	});
+	if (freebsd && freebsd.changed) platformSummary.append($('<span>').addClass('badge text-bg-primary').text('<?=gettext('FreeBSD source updated')?>'));
+	if (freebsd && freebsd.ports_changed) platformSummary.append($('<span>').addClass('badge text-bg-info').text('<?=gettext('Ports updated')?>'));
+	[['updated','info'], ['added','success'], ['removed','warning']].forEach(function(kind) {
+		var count = packageCounts[kind[0]] || 0;
+		if (count) platformSummary.append($('<span>').addClass('badge text-bg-' + kind[1]).text(kind[0].charAt(0).toUpperCase() + kind[0].slice(1) + ' ' + count));
+	});
+	if (packages && packages.truncated) platformList.append($('<div>').addClass('small text-body-secondary py-2').text('<?=gettext('Only the first 200 package changes are shown.')?>'));
+	if (!platformCount) platformList.append($('<div>').addClass('text-body-secondary py-3').text(structured ? '<?=gettext('FreeBSD platform and System packages are unchanged.')?>' : '<?=gettext('Platform details are not available for this older release.')?>'));
+
+	$('#update_notes_freesense_count').text(changes.length);
+	$('#update_notes_platform_count').text(platformCount);
+	$('#update_notes_count').text((changes.length + platformCount) + ' <?=gettext('changes')?>');
+	var showPlatform = !changes.length && platformCount > 0;
+	$('#update_notes_freesense_tab').toggleClass('active', !showPlatform).attr('aria-selected', showPlatform ? 'false' : 'true');
+	$('#update_notes_platform_tab').toggleClass('active', showPlatform).attr('aria-selected', showPlatform ? 'true' : 'false');
+	$('#update_notes_freesense').toggleClass('show active', !showPlatform);
+	$('#update_notes_platform').toggleClass('show active', showPlatform);
 	$('#update_notes_card').show();
 }
 
