@@ -19,6 +19,25 @@
  * limitations under the License.
  */
 
+/*
+ * config.xml treats <package> as a list tag. Generated menu and service
+ * metadata therefore returns its single owner as array('name') after a
+ * config reload, even though it was written as a scalar. Accept only that
+ * single-value form so malformed metadata remains untrusted.
+ */
+function freesense_package_generated_entry_owner($value): string {
+	if (is_array($value)) {
+		if (count($value) !== 1) {
+			return '';
+		}
+		$value = reset($value);
+	}
+	if (!is_scalar($value)) {
+		return '';
+	}
+	return trim((string)$value);
+}
+
 function freesense_package_generated_identity_matches(
     $left, $right, array $identity_fields): bool {
 	if (!is_array($left) || !is_array($right)) {
@@ -45,7 +64,8 @@ function freesense_package_reconcile_generated_entries(
 		if (!is_array($entry)) {
 			continue;
 		}
-		$entry_owner = trim((string)($entry['package'] ?? ''));
+		$entry_owner = freesense_package_generated_entry_owner(
+		    $entry['package'] ?? '');
 		if ($entry_owner !== '' && strcasecmp($entry_owner, $owner) === 0) {
 			continue;
 		}
@@ -59,7 +79,8 @@ function freesense_package_reconcile_generated_entries(
 		$entry['package'] = $owner;
 		$replaced = false;
 		foreach ($result as $key => $existing) {
-			if (!empty($existing['package']) ||
+			if (freesense_package_generated_entry_owner(
+			    $existing['package'] ?? '') !== '' ||
 			    !freesense_package_generated_identity_matches(
 			        $existing, $entry, $identity_fields)) {
 				continue;
@@ -75,4 +96,3 @@ function freesense_package_reconcile_generated_entries(
 
 	return array_values($result);
 }
-

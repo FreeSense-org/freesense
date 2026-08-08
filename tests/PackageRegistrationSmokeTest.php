@@ -10,6 +10,13 @@ function check_package_registration($condition, $message) {
 	}
 }
 
+check_package_registration(
+    freesense_package_generated_entry_owner(array('haproxy')) === 'haproxy',
+    'single package owner reloaded from config.xml was not normalized');
+check_package_registration(
+    freesense_package_generated_entry_owner(array('haproxy', 'acme')) === '',
+    'ambiguous package owner metadata was trusted');
+
 $stored_menus = array(
 	array(
 		'name' => 'Suricata',
@@ -20,13 +27,13 @@ $stored_menus = array(
 		'name' => 'Old Suricata Status',
 		'section' => 'Status',
 		'url' => '/suricata/old-status.php',
-		'package' => 'suricata',
+		'package' => array('suricata'),
 	),
 	array(
 		'name' => 'HAProxy',
 		'section' => 'Services',
 		'url' => '/haproxy/haproxy_listeners.php',
-		'package' => 'haproxy',
+		'package' => array('haproxy'),
 	),
 );
 $declared_menus = array(array(
@@ -45,13 +52,14 @@ check_package_registration(
     ($by_name['Suricata']['package'] ?? '') === 'suricata',
     'legacy menu entry was not upgraded to current owned metadata');
 check_package_registration(
-    ($by_name['HAProxy']['package'] ?? '') === 'haproxy',
+    freesense_package_generated_entry_owner(
+        $by_name['HAProxy']['package'] ?? '') === 'haproxy',
     'another package menu was modified');
 
 $services = freesense_package_reconcile_generated_entries(
     array(
-	array('name' => 'suricata', 'rcfile' => 'old.sh', 'package' => 'suricata'),
-	array('name' => 'haproxy', 'rcfile' => 'haproxy.sh', 'package' => 'haproxy'),
+	array('name' => 'suricata', 'rcfile' => 'old.sh', 'package' => array('suricata')),
+	array('name' => 'haproxy', 'rcfile' => 'haproxy.sh', 'package' => array('haproxy')),
     ),
     array(array('name' => 'suricata', 'rcfile' => 'suricata.sh')),
     'suricata', array('name'));
@@ -69,4 +77,3 @@ check_package_registration(
     'forced package reinstall does not explicitly refresh generated metadata');
 
 echo "Package registration reconciliation: valid\n";
-

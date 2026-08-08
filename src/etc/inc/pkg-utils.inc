@@ -1095,13 +1095,15 @@ function delete_package_xml($package_name, $when = "post-deinstall") {
 	 */
 	$menus = config_get_path('installedpackages/menu', []);
 	foreach ($menus as $key => $menu) {
-		if (($menu['package'] ?? '') === $package_owner) {
+		if (freesense_package_generated_entry_owner(
+		    $menu['package'] ?? '') === $package_owner) {
 			unset($menus[$key]);
 		}
 	}
 	config_set_path('installedpackages/menu', array_values($menus));
 	foreach ($services as $key => $service) {
-		if (($service['package'] ?? '') === $package_owner) {
+		if (freesense_package_generated_entry_owner(
+		    $service['package'] ?? '') === $package_owner) {
 			config_del_path("installedpackages/service/{$key}");
 		}
 	}
