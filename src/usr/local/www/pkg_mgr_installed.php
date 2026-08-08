@@ -55,7 +55,9 @@ function get_pkg_table() {
 
 	$pkgtbl = "";
 	$pkgtbl .='		<div class="table-responsive">';
-	$pkgtbl .='		<table class="table table-striped table-hover table-sm">';
+	/* Package descriptions and dependency lists make each row a full card-like
+	 * block. Striped rows therefore create a distracting alternate panel. */
+	$pkgtbl .='		<table class="table table-hover table-sm">';
 	$pkgtbl .='			<thead>';
 	$pkgtbl .='				<tr>';
 	$pkgtbl .='					<th><!-- Status icon --></th>';

@@ -24,6 +24,7 @@ require_once("freesense-docs.inc");
 require_once("functions.inc");
 require_once("shortcuts.inc");
 require_once("service-utils.inc");
+require_once("package_registration.inc");
 require_once('notices.inc');
 
 header('Content-Type: text/html; charset=utf-8');
@@ -198,14 +199,16 @@ function return_ext_menu($section) {
 		}
 
 		foreach (config_get_path('installedpackages/menu', []) as $menu) {
-			$owner = (string)($menu['package'] ?? '');
+			$owner = freesense_package_generated_entry_owner(
+			    $menu['package'] ?? '');
 			$key = implode("\0", array(
 				(string)($menu['name'] ?? ''),
 				(string)($menu['section'] ?? ''),
 				(string)($menu['url'] ?? ''),
 			));
-			$current = ($owner !== '') ?
-			    isset($owned_menu_keys[strtolower($owner) . "\0{$key}"]) :
+			$current = array_key_exists('package', $menu) ?
+			    ($owner !== '' && isset($owned_menu_keys[
+			        strtolower($owner) . "\0{$key}"])) :
 			    isset($legacy_menu_keys[$key]);
 			if (!$current) {
 				continue;
