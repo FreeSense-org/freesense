@@ -1929,10 +1929,12 @@ buildkernel() {
 	fi
 	_config_dir=$(mktemp -d "${SCRATCHDIR}/kernel-config-check.XXXXXX") || print_error_pfS
 	echo ">>> Validating kernel configuration ${_kernconf} for ${TARGET}.${TARGET_ARCH}..." | tee -a ${LOGFILE}
-	if ! /usr/sbin/config -I "${FREEBSD_SRC_DIR}/sys/${TARGET}/conf" \
-		-I "${FREEBSD_SRC_DIR}/sys/conf" \
-		-d "${_config_dir}" -s "${FREEBSD_SRC_DIR}/sys" \
-		"${_config_file}" >>${LOGFILE} 2>&1; then
+	if ! (
+		cd "${FREEBSD_SRC_DIR}/sys/${TARGET}/conf" &&
+		/usr/sbin/config -I . -I "${FREEBSD_SRC_DIR}/sys/conf" \
+			-d "${_config_dir}" -s "${FREEBSD_SRC_DIR}/sys" \
+			"${_kernconf}"
+	) >>${LOGFILE} 2>&1; then
 		echo ">>> ERROR: kernel configuration ${_kernconf} is incompatible with pinned FreeBSD" | tee -a ${LOGFILE}
 		tail -n 120 "${LOGFILE}" >&2
 		rm -rf "${_config_dir}"
