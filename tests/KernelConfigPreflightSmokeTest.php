@@ -7,7 +7,7 @@ if ($builder === false) {
 	exit(1);
 }
 
-$configCall = '/usr/sbin/config -I "${FREEBSD_SRC_DIR}/sys/${TARGET}/conf"';
+$configCall = '/usr/sbin/config -I . -I "${FREEBSD_SRC_DIR}/sys/conf"';
 $toolchain = 'pkgbase: building kernel-toolchain';
 $configPosition = strpos($builder, $configCall);
 $toolchainPosition = strpos($builder, $toolchain);
@@ -18,7 +18,7 @@ if ($configPosition === false || $toolchainPosition === false ||
 }
 
 foreach ([
-	'-I "${FREEBSD_SRC_DIR}/sys/conf"',
+	'cd "${FREEBSD_SRC_DIR}/sys/${TARGET}/conf"',
 	'-d "${_config_dir}" -s "${FREEBSD_SRC_DIR}/sys"',
 	'mktemp -d "${SCRATCHDIR}/kernel-config-check.XXXXXX"',
 	'kernel configuration ${_kernconf} is incompatible with pinned FreeBSD',
