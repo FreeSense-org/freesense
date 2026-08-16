@@ -1,7 +1,7 @@
 echo ">>> FreeSense: building boot package from the built product bootloader"
 # Derive the poudriere jail name dynamically (PRODUCT_NAME_BRANCH_arch, e.g.
 # FreeSense_main_amd64) instead of hardcoding — the branch (main/master) and arch vary.
-_fs_jail=$(poudriere_jail_name amd64 2>/dev/null || echo "${PRODUCT_NAME}_${POUDRIERE_BRANCH}_amd64")
+_fs_jail=$(poudriere_jail_name "${TARGET_ARCH}" 2>/dev/null || echo "${PRODUCT_NAME}_${POUDRIERE_BRANCH}_${TARGET_ARCH}")
 _bs=${SCRATCHDIR}/freesense-bootstage
 rm -rf ${_bs}; mkdir -p ${_bs}/boot
 # IMPORTANT: source the bootloader from the freshly built product staging area

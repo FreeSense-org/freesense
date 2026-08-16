@@ -12,8 +12,8 @@ EOF
 # freesense_localrepo http.server serves (/tmp/freesense-repos). Without this the docroot is
 # empty -> 'Installing built ports in chroot... Failed!'.
 _lr_docroot="${FREESENSE_LOCALREPO_DOCROOT:-/tmp/freesense-repos}"
-_lr_core="${SCRATCHDIR}/${PRODUCT_NAME}_${POUDRIERE_BRANCH}_amd64-core"
-_lr_bulk="/usr/local/poudriere/data/packages/$(poudriere_jail_name amd64 2>/dev/null || echo ${PRODUCT_NAME}_${POUDRIERE_BRANCH}_amd64)-${POUDRIERE_PORTS_NAME}"
+_lr_core="${SCRATCHDIR}/${PRODUCT_NAME}_${POUDRIERE_BRANCH}_${TARGET_ARCH}-core"
+_lr_bulk="/usr/local/poudriere/data/packages/$(poudriere_jail_name "${TARGET_ARCH}" 2>/dev/null || echo ${PRODUCT_NAME}_${POUDRIERE_BRANCH}_${TARGET_ARCH})-${POUDRIERE_PORTS_NAME}"
 mkdir -p "${_lr_docroot}"
 # Point at the .latest subdir (modern pkg wants packagesite.PKG, which lives under
 # .latest/.real_*; the repo top level only has the legacy .txz catalog). Fall back to

@@ -1432,6 +1432,8 @@ get_altabi_arch() {
 
 	if [ "${_target_arch}" = "amd64" ]; then
 		echo "x86:64"
+	elif [ "${_target_arch}" = "aarch64" ]; then
+		echo "aarch64:64"
 	elif [ "${_target_arch}" = "i386" ]; then
 		echo "x86:32"
 	elif [ "${_target_arch}" = "armv7" ]; then
@@ -1557,7 +1559,7 @@ stage_repo_channels() {
 
 	# A package upgrade must never overwrite the appliance's retained channel or
 	# repository selection with build-time state.
-	rm -f "${_share}/repos.manifest.json" \
+	rm -f "${_share}/repos.manifest.json" "${_share}/repos."*.manifest.json \
 		"${_repos}/${PRODUCT_NAME}-repo-"*.conf \
 		"${_repos}/${PRODUCT_NAME}-repo-"*.name \
 		"${_repos}/${PRODUCT_NAME}-repo-"*.descr \
@@ -2101,9 +2103,17 @@ poudriere_possible_archs() {
 	local _arch=$(uname -m)
 	local _archs=""
 
-	# If host is amd64, we'll create both repos, and if possible armv7
+	# An amd64 host builds native amd64 and may execute foreign target tools
+	# through FreeBSD binmisc/QEMU user emulation.
 	if [ "${_arch}" = "amd64" ]; then
 		_archs="amd64.amd64"
+
+		if [ -x /usr/local/bin/qemu-aarch64-static ]; then
+			/usr/local/etc/rc.d/qemu_user_static forcestart >/dev/null 2>&1
+			if binmiscctl lookup aarch64 >/dev/null 2>&1; then
+				_archs="${_archs} arm64.aarch64"
+			fi
+		fi
 
 		if [ -f /usr/local/bin/qemu-arm-static ]; then
 			# Make sure binmiscctl is ok
