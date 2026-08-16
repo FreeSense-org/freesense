@@ -1,5 +1,5 @@
 if [ "${PRODUCT_NAME}" != "pfSense" ]; then
-  for f in ${FREEBSD_SRC_DIR}/release/conf/pfSense* ${FREEBSD_SRC_DIR}/sys/amd64/conf/pfSense*; do
+  for f in ${FREEBSD_SRC_DIR}/release/conf/pfSense* ${FREEBSD_SRC_DIR}/sys/${TARGET}/conf/pfSense*; do
     [ -e "$f" ] || continue
     nf=$(echo "$f" | sed "s,/pfSense,/${PRODUCT_NAME},")
     mv "$f" "$nf"

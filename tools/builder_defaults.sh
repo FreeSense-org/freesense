@@ -193,7 +193,12 @@ export MAKEOBJDIRPREFIX=${MAKEOBJDIRPREFIX:-"${SCRATCHDIR}/obj"}
 if [ -z "${MODULES_OVERRIDE}" ]; then
 	export MODULES_OVERRIDE_base="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc/cc_htcp cc/cc_vegas cryptodev dummynet fdescfs hwpmc i2c if_stf ipdivert ipfw ipfw_nat64 opensolaris usb/cdce usb/ipheth usb/ure usb/urndis zfs"
 	export MODULES_OVERRIDE_amd64="${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom drm2 ipmi ix ixv ndis nmdm qlnx sfxge vmm"
-	export MODULES_OVERRIDE="${MODULES_OVERRIDE_amd64}"
+	export MODULES_OVERRIDE_arm64="${MODULES_OVERRIDE_base} cpuctl"
+	case "${TARGET}.${TARGET_ARCH}" in
+		amd64.amd64) export MODULES_OVERRIDE="${MODULES_OVERRIDE_amd64}" ;;
+		arm64.aarch64) export MODULES_OVERRIDE="${MODULES_OVERRIDE_arm64}" ;;
+		*) echo ">>> ERROR: Unsupported build tuple ${TARGET}.${TARGET_ARCH}"; exit 1 ;;
+	esac
 fi
 
 # gnid
@@ -390,7 +395,10 @@ export PRODUCT_SHARE_DIR=${PRODUCT_SHARE_DIR:-"/usr/local/share/${PRODUCT_NAME}"
 #export custom_package_list=""
 
 # General builder output filenames
-export ISOPATH=${ISOPATH:-"${IMAGES_FINAL_DIR}/installer/${PRODUCT_NAME}${PRODUCT_NAME_SUFFIX}-${PRODUCT_VERSION}${PRODUCT_REVISION:+-p}${PRODUCT_REVISION}-${TARGET}${TIMESTAMP_SUFFIX}.iso"}
+_installer_extension=iso
+[ "${TARGET}" = arm64 ] && _installer_extension=img
+export ISOPATH=${ISOPATH:-"${IMAGES_FINAL_DIR}/installer/${PRODUCT_NAME}${PRODUCT_NAME_SUFFIX}-${PRODUCT_VERSION}${PRODUCT_REVISION:+-p}${PRODUCT_REVISION}-${TARGET}${TIMESTAMP_SUFFIX}.${_installer_extension}"}
+unset _installer_extension
 export MEMSTICKPATH=${MEMSTICKPATH:-"${IMAGES_FINAL_DIR}/installer/${PRODUCT_NAME}${PRODUCT_NAME_SUFFIX}-memstick-${PRODUCT_VERSION}${PRODUCT_REVISION:+-p}${PRODUCT_REVISION}-${TARGET}${TIMESTAMP_SUFFIX}.img"}
 export MEMSTICKSERIALPATH=${MEMSTICKSERIALPATH:-"${IMAGES_FINAL_DIR}/installer/${PRODUCT_NAME}${PRODUCT_NAME_SUFFIX}-memstick-serial-${PRODUCT_VERSION}${PRODUCT_REVISION:+-p}${PRODUCT_REVISION}-${TARGET}${TIMESTAMP_SUFFIX}.img"}
 export MEMSTICKADIPATH=${MEMSTICKADIPATH:-"${IMAGES_FINAL_DIR}/installer/${PRODUCT_NAME}${PRODUCT_NAME_SUFFIX}-memstick-ADI-${PRODUCT_VERSION}${PRODUCT_REVISION:+-p}${PRODUCT_REVISION}-${TARGET}${TIMESTAMP_SUFFIX}.img"}

@@ -64,6 +64,8 @@ install_assembly_channel() {
 
 	cp "${_channel_payload}" "${FINAL_CHROOT_DIR}${_guest_payload}"
 	mkdir -p "${_share}" "${_repos}"
+	_pkg_arch=${TARGET_ARCH}
+	[ "${_pkg_arch}" = aarch64 ] || _pkg_arch=amd64
 	rm -f "${_repos}/${PRODUCT_NAME}-repo-"*.default 2>/dev/null || true
 	: > "${_repos}/${PRODUCT_NAME}-repo-${_channel}.default"
 
@@ -71,6 +73,7 @@ install_assembly_channel() {
 		PRODUCT="${PRODUCT_NAME}" \
 		REPOS_DIR="/usr/local/etc/${PRODUCT_NAME}/pkg/repos" \
 		SHARE_DIR="${PRODUCT_SHARE_DIR}" \
+		MACHINE_ARCH="${TARGET}" PROCESSOR_ARCH="${TARGET_ARCH}" \
 		MANIFEST_LOCAL="${_guest_payload}" \
 		"/usr/local/sbin/${PRODUCT_NAME}-repoc" -l || {
 		rm -f "${FINAL_CHROOT_DIR}${_guest_payload}"
@@ -79,8 +82,8 @@ install_assembly_channel() {
 	}
 
 	install -o root -g wheel -m 0444 "${FINAL_CHROOT_DIR}${_guest_payload}" \
-		"${_share}/repos.manifest.json"
-	cmp -s "${_channel_payload}" "${_share}/repos.manifest.json" || {
+		"${_share}/repos.${_pkg_arch}.manifest.json"
+	cmp -s "${_channel_payload}" "${_share}/repos.${_pkg_arch}.manifest.json" || {
 		echo ">>> ERROR: installed channel payload differs from verified input" >&2
 		return 1
 	}
@@ -95,7 +98,7 @@ install_assembly_channel() {
 		echo ">>> ERROR: selected assembly channel default marker was not preserved" >&2
 		return 1
 	}
-	grep -Fq "/artifacts/system/${_current_system}/amd64" "${_selected}.conf" || {
+	grep -Fq "/artifacts/system/${_current_system}/${_pkg_arch}" "${_selected}.conf" || {
 		echo ">>> ERROR: selected repository configuration does not match the current system" >&2
 		return 1
 	}
@@ -308,8 +311,13 @@ EOF
 	create_distribution_tarball
 	mkdir -p "$(dirname "${ISOPATH}")"
 	FSLABEL=$(echo "${PRODUCT_NAME}" | tr '[:lower:]' '[:upper:]')
-	sh "${FREEBSD_SRC_DIR}/release/${TARGET}/mkisoimages.sh" -b \
-		"${FSLABEL}" "${ISOPATH}" "${INSTALLER_CHROOT_DIR}"
+	if [ "${TARGET}" = arm64 ]; then
+		sh "${FREEBSD_SRC_DIR}/release/arm64/make-memstick.sh" \
+			"${INSTALLER_CHROOT_DIR}" "${ISOPATH}"
+	else
+		sh "${FREEBSD_SRC_DIR}/release/amd64/mkisoimages.sh" -b \
+			"${FSLABEL}" "${ISOPATH}" "${INSTALLER_CHROOT_DIR}"
+	fi
 	test -s "${ISOPATH}"
 	echo ">>> compile-free ISO complete: ${ISOPATH}"
 	trap - EXIT HUP INT TERM
