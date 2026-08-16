@@ -18,7 +18,7 @@ if (!preg_match('/^\texport MODULES_OVERRIDE_arm64="([^"]+)"/m', $defaults, $mat
 	exit(1);
 }
 
-foreach (['aesni', 'amdsmn', 'amdtemp', 'coretemp', 'vmm'] as $module) {
+foreach (['aesni', 'amdsmn', 'amdtemp', 'coretemp', 'cpuctl', 'vmm'] as $module) {
 	if (preg_match('/(^| )' . preg_quote($module, '/') . '( |$)/', $matches[1])) {
 		fwrite(STDERR, "ARM64 kernel modules include x86-only module {$module}\n");
 		exit(1);
