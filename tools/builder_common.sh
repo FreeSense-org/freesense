@@ -342,7 +342,7 @@ make_world() {
 			FREESENSE_DIST_WORLD_ARCHIVE="${FREESENSE_DIST_WORLD_ARCHIVE}" \
 			sh ${BUILDER_TOOLS}/ci/freesense-dist-world.sh \
 			|| print_error_pfS
-		BUILD_CC="${STAGE_CHROOT_DIR}/usr/bin/cc"
+		configure_seeded_world_compiler
 		make_world_pkgbase_tail
 		return
 	fi
@@ -369,7 +369,7 @@ make_world() {
 		# The classic path builds a cross cc in obj; with no buildworld there is no
 		# obj toolchain, so downstream steps use the chroot's own clang (from the
 		# FreeBSD-clang pkgbase package we just seeded).
-		BUILD_CC="${STAGE_CHROOT_DIR}/usr/bin/cc"
+		configure_seeded_world_compiler
 		make_world_pkgbase_tail
 		return
 	fi
@@ -451,6 +451,61 @@ make_world() {
 	unset makeargs
 }
 
+# Select a compiler for the fast, prebuilt-world paths. A target compiler copied
+# from an aarch64 base.txz cannot be invoked as a normal amd64 host executable:
+# its dynamic loader and libraries live inside the target root. Use the host
+# clang as a real cross compiler with that sealed root as its sysroot instead.
+configure_seeded_world_compiler() {
+	local _host_arch="$(uname -p)"
+	local _source_osversion=""
+	local _freebsd_major=""
+	local _cross_cc=""
+	local _probe=""
+	local _file_pattern=""
+
+	if [ "${_host_arch}" = "${TARGET_ARCH}" ]; then
+		BUILD_CC="${STAGE_CHROOT_DIR}/usr/bin/cc"
+	else
+		_source_osversion=$(awk '/^#[[:space:]]*define[[:space:]]+__FreeBSD_version[[:space:]]+/ {print $3}' \
+			"${FREEBSD_SRC_DIR}/sys/sys/param.h")
+		case "${_source_osversion}" in
+			*[!0-9]*|'')
+				echo ">>> ERROR: cannot derive cross-compiler ABI from FreeBSD source" | tee -a ${LOGFILE}
+				print_error_pfS
+				;;
+		esac
+		_freebsd_major=$((_source_osversion / 100000))
+		_cross_cc="${SCRATCHDIR}/freesense-${TARGET_ARCH}-cc"
+		cat >"${_cross_cc}" <<-EOF
+		#!/bin/sh
+		exec /usr/bin/cc --target=${TARGET_ARCH}-unknown-freebsd${_freebsd_major}.0 --sysroot=${STAGE_CHROOT_DIR} "\$@"
+		EOF
+		chmod 0555 "${_cross_cc}"
+		BUILD_CC="${_cross_cc}"
+		echo ">>> Seeded world: using host clang for ${_host_arch}->${TARGET_ARCH} with sealed sysroot" | tee -a ${LOGFILE}
+	fi
+
+	_probe="${SCRATCHDIR}/freesense-${TARGET_ARCH}-cc-probe"
+	printf '%s\n' 'int main(void) { return 0; }' | \
+		"${BUILD_CC}" -x c - -o "${_probe}" >>${LOGFILE} 2>&1 || {
+		echo ">>> ERROR: seeded-world compiler cannot link a ${TARGET_ARCH} executable" | tee -a ${LOGFILE}
+		tail -n 80 "${LOGFILE}" >&2
+		print_error_pfS
+	}
+	case "${TARGET_ARCH}" in
+		amd64) _file_pattern='x86-64|amd64' ;;
+		aarch64) _file_pattern='ARM aarch64|aarch64' ;;
+		*) _file_pattern="${TARGET_ARCH}" ;;
+	esac
+	file "${_probe}" | grep -Eq "${_file_pattern}" || {
+		echo ">>> ERROR: seeded-world compiler produced the wrong architecture" | tee -a ${LOGFILE}
+		file "${_probe}" | tee -a ${LOGFILE}
+		print_error_pfS
+	}
+	rm -f "${_probe}"
+	export BUILD_CC
+}
+
 # Build the three bsdinstall programs that compile OSNAME into their dialog
 # chrome. Copying the patched shell scripts is not enough: the pkgbase binaries
 # arrive with the upstream "FreeBSD Installer" backtitle embedded in them (most
@@ -496,6 +551,7 @@ install_branded_bsdinstall_binaries() {
 		done
 	) >> ${LOGFILE} 2>&1 || {
 		echo ">>> ERROR: failed to build ${PRODUCT_NAME}-branded bsdinstall binaries" | tee -a ${LOGFILE}
+		tail -n 120 "${LOGFILE}" >&2
 		print_error_pfS
 	}
 
