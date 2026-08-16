@@ -18,6 +18,7 @@ if ($configPosition === false || $toolchainPosition === false ||
 }
 
 foreach ([
+	'-I "${FREEBSD_SRC_DIR}/sys/conf"',
 	'-d "${_config_dir}" -s "${FREEBSD_SRC_DIR}/sys"',
 	'mktemp -d "${SCRATCHDIR}/kernel-config-check.XXXXXX"',
 	'kernel configuration ${_kernconf} is incompatible with pinned FreeBSD',
