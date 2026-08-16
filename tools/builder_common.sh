@@ -1903,6 +1903,8 @@ staginareas_clean_each_run() {
 # Imported from FreeSBIE
 buildkernel() {
 	local _kernconf=${1:-${KERNCONF}}
+	local _config_dir=""
+	local _config_file=""
 
 	if [ -n "${NO_BUILDKERNEL}" ]; then
 		echo ">>> NO_BUILDKERNEL set, skipping build" | tee -a ${LOGFILE}
@@ -1916,6 +1918,26 @@ buildkernel() {
 
 	local _old_kernconf=${KERNCONF}
 	export KERNCONF=${_kernconf}
+
+	# Validate the patched target configuration before spending ~15 minutes on
+	# kernel-toolchain. This uses the worker's native config(8), which can parse
+	# any target tree and reports removed options or devices immediately.
+	_config_file="${FREEBSD_SRC_DIR}/sys/${TARGET}/conf/${_kernconf}"
+	if [ ! -f "${_config_file}" ]; then
+		echo ">>> ERROR: kernel configuration is missing: ${_config_file}" | tee -a ${LOGFILE}
+		print_error_pfS
+	fi
+	_config_dir=$(mktemp -d "${SCRATCHDIR}/kernel-config-check.XXXXXX") || print_error_pfS
+	echo ">>> Validating kernel configuration ${_kernconf} for ${TARGET}.${TARGET_ARCH}..." | tee -a ${LOGFILE}
+	if ! /usr/sbin/config -d "${_config_dir}" -s "${FREEBSD_SRC_DIR}/sys" \
+		"${_config_file}" >>${LOGFILE} 2>&1; then
+		echo ">>> ERROR: kernel configuration ${_kernconf} is incompatible with pinned FreeBSD" | tee -a ${LOGFILE}
+		tail -n 120 "${LOGFILE}" >&2
+		rm -rf "${_config_dir}"
+		print_error_pfS
+	fi
+	rm -rf "${_config_dir}"
+	echo ">>> Kernel configuration ${_kernconf} is valid." | tee -a ${LOGFILE}
 
 	# FreeSense LEVER 1 (pkgbase world, now default): the classic path builds the kernel
 	# toolchain as a side effect of buildworld. With pkgbase world there is no buildworld,

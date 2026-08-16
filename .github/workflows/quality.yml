@@ -33,6 +33,7 @@ jobs:
           php tests/ReproducibleArtifactsSmokeTest.php
           php tests/PoudriereSourceBuildSmokeTest.php
           php tests/Arm64CrossCompilerSmokeTest.php
+          php tests/KernelConfigPreflightSmokeTest.php
       - name: Release-sensitive shell syntax
         run: |
           sh -n build.sh
