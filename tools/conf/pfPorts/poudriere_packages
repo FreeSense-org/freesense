@@ -19,7 +19,6 @@ net/%%PRODUCT_NAME%%-pkg-haproxy
 net/%%PRODUCT_NAME%%-pkg-mcast-bridge
 net/%%PRODUCT_NAME%%-pkg-mDNS-Bridge
 net/%%PRODUCT_NAME%%-pkg-ntopng
-net/%%PRODUCT_NAME%%-pkg-pfBlockerNG
 net/%%PRODUCT_NAME%%-pkg-Status_Traffic_Totals
 net/%%PRODUCT_NAME%%-pkg-udpbroadcastrelay
 net/%%PRODUCT_NAME%%-pkg-WireGuard
@@ -27,6 +26,7 @@ net/%%PRODUCT_NAME%%-pkg-ZeroTier
 security/%%PRODUCT_NAME%%-pkg-acme
 security/%%PRODUCT_NAME%%-pkg-CrowdSec
 security/%%PRODUCT_NAME%%-pkg-openvpn-client-export
+security/%%PRODUCT_NAME%%-pkg-ThreatShield
 security/%%PRODUCT_NAME%%-pkg-suricata
 security/%%PRODUCT_NAME%%-pkg-Tailscale
 sysutils/%%PRODUCT_NAME%%-pkg-Automation
