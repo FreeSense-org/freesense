@@ -859,6 +859,9 @@ function send_event($cmd) {
 			$try = 3;
 		} else if (!is_process_running("check_reload_status")) {
 			mwexec_bg("/usr/bin/nice -n20 /usr/local/sbin/check_reload_status");
+			usleep(250000);
+		} else {
+			usleep(250000);
 		}
 		$try++;
 	}
@@ -890,6 +893,9 @@ function send_multiple_events($cmds) {
 			$try = 3;
 		} else if (!is_process_running("check_reload_status")) {
 			mwexec_bg("/usr/bin/nice -n20 /usr/local/sbin/check_reload_status");
+			usleep(250000);
+		} else {
+			usleep(250000);
 		}
 		$try++;
 	}
