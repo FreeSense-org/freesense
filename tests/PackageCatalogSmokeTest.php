@@ -42,6 +42,10 @@ foreach ([$packageManager, $installedPackageManager] as $packagePage) {
 		exit(1);
 	}
 }
+if (substr_count($installedPackageManager, 'class="text-nowrap align-middle"') < 2) {
+	fwrite(STDERR, "Installed package status and action controls can wrap into each other.\n");
+	exit(1);
+}
 foreach (['-platform-abi', '-system %v', 'https://docs.freesense.org/packages/installing-packages/'] as $requiredText) {
 	if (strpos($packageUtilities, $requiredText) === false) {
 		fwrite(STDERR, "Package dependency presentation is missing compatibility metadata.\n");
@@ -56,6 +60,12 @@ if (strpos($packageUtilities,
 }
 
 $updateManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr_install.php');
+foreach (['Remove package', 'Reinstall package', 'Install package', 'confirm_button_icon'] as $requiredText) {
+	if (strpos($updateManager, $requiredText) === false) {
+		fwrite(STDERR, "Package confirmation action does not reflect its operation.\n");
+		exit(1);
+	}
+}
 foreach (['Updates are pulled from this branch', 'Change branch'] as $removedText) {
 	if (strpos($updateManager, $removedText) !== false) {
 		fwrite(STDERR, "Update page still contains redundant branch controls.\n");

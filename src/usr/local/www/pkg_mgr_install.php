@@ -500,6 +500,19 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		}
 		$category_icons = ['Security'=>'shield-halved', 'VPN'=>'lock', 'Monitoring'=>'chart-line', 'Routing'=>'route', 'Services'=>'layer-group', 'System'=>'gear', 'Authentication'=>'user-shield', 'Diagnostics'=>'stethoscope'];
 		$package_icon = $category_icons[$package_meta['category']] ?? 'box-open';
+		if ($pkgmode === 'delete') {
+			$confirm_button_class = 'btn-danger';
+			$confirm_button_icon = 'trash-can';
+			$confirm_button_label = gettext('Remove package');
+		} elseif ($pkgmode === 'reinstallpkg' || $pkgmode === 'reinstallall') {
+			$confirm_button_class = 'btn-primary';
+			$confirm_button_icon = 'arrows-rotate';
+			$confirm_button_label = gettext('Reinstall package');
+		} else {
+			$confirm_button_class = 'btn-success';
+			$confirm_button_icon = 'download';
+			$confirm_button_label = gettext('Install package');
+		}
 ?>
 				<input type="hidden" name="pkg" value="<?=$pkgname;?>" />
 				<input type="hidden" name="confirmed" value="true" />
@@ -521,7 +534,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 						<?php if ($package_notes): ?><h4 class="h6 mt-4"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i><?=gettext('Recent updates')?></h4><div class="list-group list-group-flush"><?php foreach ($package_notes as $note): ?><div class="list-group-item bg-transparent px-0"><div class="fw-semibold"><?=htmlspecialchars($note['title'] ?? '')?></div><small class="text-body-secondary"><?=htmlspecialchars($note['date'] ?? '')?></small></div><?php endforeach; ?></div><?php endif; ?>
 					</div>
 				</div>
-				<div class="d-flex justify-content-end"><button type="submit" class="btn btn-success btn-lg" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"><i class="fa-solid fa-download icon-embed-btn"></i><?=gettext("Install package")?></button></div>
+				<div class="d-flex justify-content-end"><button type="submit" class="btn <?=htmlspecialchars($confirm_button_class)?> btn-lg" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"><i class="fa-solid fa-<?=htmlspecialchars($confirm_button_icon)?> icon-embed-btn"></i><?=htmlspecialchars($confirm_button_label)?></button></div>
 <?php
 	endif;
 ?>
