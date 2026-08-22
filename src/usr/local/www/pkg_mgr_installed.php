@@ -117,7 +117,7 @@ function get_pkg_table() {
 		}
 
 		$pkgtbl .='				<tr>';
-		$pkgtbl .='					<td>';
+		$pkgtbl .='					<td class="text-nowrap align-middle">';
 		if (!empty($meta['configure_path'])) {
 			$pkgtbl .= '<a title="' . gettext('Package integration and health') . '" href="pkg_control.php?pkg=' . rawurlencode($pkg['shortname']) . '" class="btn btn-primary btn-sm me-1"><i class="fa-solid fa-sliders me-1"></i>' . gettext('Manage') . '</a>';
 		}
@@ -165,7 +165,7 @@ function get_pkg_table() {
 			}
 		}
 		$pkgtbl .='					</td>';
-		$pkgtbl .='					<td>';
+		$pkgtbl .='					<td class="text-nowrap align-middle">';
 		$pkgtbl .='							<a title="' . sprintf(gettext("Remove package %s"), $pkg['name']) .
 		    '" href="pkg_mgr_install.php?mode=delete&amp;pkg=' . $pkg['name'] . '" class="fa-solid fa-trash-can"></a>';
 
