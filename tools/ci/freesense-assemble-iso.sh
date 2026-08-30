@@ -25,6 +25,10 @@ run_in_assembly_chroot() (
 	trap 'exit 143' TERM
 	mount -t devfs devfs "${_assembly_root}/dev"
 	_assembly_devfs_mounted=yes
+	if [ -f /usr/local/bin/qemu-aarch64-static ] && [ ! -f "${_assembly_root}/usr/local/bin/qemu-aarch64-static" ]; then
+		mkdir -p "${_assembly_root}/usr/local/bin"
+		cp /usr/local/bin/qemu-aarch64-static "${_assembly_root}/usr/local/bin/"
+	fi
 	chroot "${_assembly_root}" "$@"
 )
 
@@ -305,6 +309,9 @@ EOF
 	}
 	[ -z "${_kernel_tmp}" ] || rm -f "${_kernel_tmp}"
 
+	for _root in "${INSTALLER_CHROOT_DIR}" "${FINAL_CHROOT_DIR}"; do
+		rm -f "${_root}/usr/local/bin/qemu-aarch64-static"
+	done
 	FREEBSD_SRC_DIR="${FREESENSE_ASSEMBLY_FREEBSD_SRC}"
 	export FREEBSD_SRC_DIR DEFAULT_KERNEL="${PRODUCT_NAME}"
 	LOGFILE="${BUILDER_LOGS}/isoimage.${TARGET}"
