@@ -16,7 +16,7 @@ dns/coredns
 dns/dnstop
 editors/nano
 editors/vim
-emulators/qemu-guest-agent
+emulators/qemu@guestagent
 emulators/qemu@tools
 net-mgmt/dhcp_probe
 net-mgmt/iprange

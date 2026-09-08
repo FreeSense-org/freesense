@@ -11,7 +11,7 @@ dns/dnstop
 editors/nano
 editors/vim
 emulators/%%PRODUCT_NAME%%-pkg-Open-VM-Tools
-emulators/qemu-guest-agent
+emulators/qemu@guestagent
 ftp/%%PRODUCT_NAME%%-pkg-tftpd
 # graphics/drm-61-kmod - out-of-tree kmod fails vs the pinned 16-CURRENT snapshot
 # (kernel API drift); console falls back to efifb. (The security/*-ce metaport that
