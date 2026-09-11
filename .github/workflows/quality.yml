@@ -32,6 +32,7 @@ jobs:
           php tests/NicSettingsSmokeTest.php
           php tests/ReproducibleArtifactsSmokeTest.php
           php tests/PoudriereSourceBuildSmokeTest.php
+          php tests/PhpFdSetsizeWorkaroundSmokeTest.php
           php tests/Arm64CrossCompilerSmokeTest.php
           php tests/KernelConfigPreflightSmokeTest.php
       - name: Release-sensitive shell syntax

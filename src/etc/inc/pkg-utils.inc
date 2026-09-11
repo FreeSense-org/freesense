@@ -125,6 +125,70 @@ function pkg_env($extra_env = array()) {
 	return $pkg_env_vars;
 }
 
+/*
+ * Drain a child's stdout/stderr without stream_select(). PHP's select() is
+ * limited by FD_SETSIZE (1024 on FreeBSD); pkg/repoc pipes can receive fds
+ * above that on busy hardware. Non-blocking reads have no such limit.
+ */
+function pkg_drain_pipes($process, $stdout_pipe, $stderr_pipe,
+    $timeout_seconds = null, $on_stdout = null) {
+	stream_set_blocking($stdout_pipe, false);
+	stream_set_blocking($stderr_pipe, false);
+
+	$stdout = '';
+	$stderr = '';
+	$deadline = ($timeout_seconds === null) ? null :
+	    (microtime(true) + $timeout_seconds);
+
+	while (true) {
+		$out = stream_get_contents($stdout_pipe);
+		if ($out !== false && $out !== '') {
+			$stdout .= $out;
+			if ($on_stdout !== null) {
+				$on_stdout($out);
+			}
+		}
+		$err = stream_get_contents($stderr_pipe);
+		if ($err !== false && $err !== '') {
+			$stderr .= $err;
+		}
+
+		$status = proc_get_status($process);
+		if (!$status['running']) {
+			$out = stream_get_contents($stdout_pipe);
+			if ($out !== false && $out !== '') {
+				$stdout .= $out;
+				if ($on_stdout !== null) {
+					$on_stdout($out);
+				}
+			}
+			$err = stream_get_contents($stderr_pipe);
+			if ($err !== false && $err !== '') {
+				$stderr .= $err;
+			}
+			break;
+		}
+
+		if ($deadline !== null && microtime(true) >= $deadline) {
+			return array(
+				'timed_out' => true,
+				'status' => $status,
+				'stdout' => $stdout,
+				'stderr' => $stderr,
+			);
+		}
+
+		usleep(20000);
+	}
+
+	return array(
+		'timed_out' => false,
+		'status' => $status,
+		'stdout' => $stdout,
+		'stderr' => $stderr,
+	);
+}
+
 /* Execute a pkg call */
 function pkg_call($params, $mute = false, $extra_env = array()) {
 	if (empty($params)) {
@@ -144,38 +208,15 @@ function pkg_call($params, $mute = false, $extra_env = array()) {
 		return false;
 	}
 
-	stream_set_blocking($pipes[1], 0);
-	stream_set_blocking($pipes[2], 0);
-
-	/* XXX: should be a tunable? */
-	$timeout = 60; // seconds
-	$error_log = '';
-
-	do {
-		$write = array();
-		$read = array($pipes[1], $pipes[2]);
-		$except = array();
-
-		$stream = @stream_select($read, $write, $except, $timeout);
-		if ($stream !== FALSE && $stream > 0) {
-			foreach ($read as $pipe) {
-				$content = stream_get_contents($pipe);
-				if ($content == '') {
-					continue;
-				}
-				if ($pipe === $pipes[1]) {
-					if (!$mute) {
-						update_status($content);
-					}
-					flush();
-				} else if ($pipe === $pipes[2]) {
-					$error_log .= $content;
-				}
-			}
+	$drained = pkg_drain_pipes($process, $pipes[1], $pipes[2], null,
+	    function($content) use ($mute) {
+		if (!$mute) {
+			update_status($content);
 		}
-
-		$status = proc_get_status($process);
-	} while ($status['running']);
+		flush();
+	});
+	$error_log = $drained['stderr'];
+	$status = $drained['status'];
 
 	fclose($pipes[1]);
 	fclose($pipes[2]);
@@ -1831,25 +1872,16 @@ function update_repos() {
 		return $fail_error;
 	}
 
-	$timeout = 5; /* seconds */
-	$stdout = '';
-	do {
-		$start = microtime(true);
-		$r = ['stdout' => $pipes[1], 'stderr' => $pipes[2]];
-		$w = $e = null;
-		if (($n = stream_select($r, $w, $e, 0)) === false) {
-			$result = $fail_error;
-			goto error;
-		} else if ($n > 0) {
-			foreach ($r as $var => $fd) {
-				$$var .= fread($fd, 4096);
-			}
-		}
-		if (($timeout -= (microtime(true) - $start)) <= 0) {
-			$result = $fail_error;
-			goto error;
-		}
-	} while (!feof($pipes[1]) && !feof($pipes[2]));
+	$drained = pkg_drain_pipes($process, $pipes[1], $pipes[2], 5);
+	$stdout = $drained['stdout'];
+	$stderr = $drained['stderr'];
+	fclose($pipes[1]);
+	fclose($pipes[2]);
+	if ($drained['timed_out']) {
+		proc_terminate($process);
+		$result = $fail_error;
+		goto error;
+	}
 
 	/* Get return code */
 	$result = [
