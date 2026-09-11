@@ -11,6 +11,15 @@ if (preg_match('/^\s*PHP_FD_SETSIZE\s*=/m', $makeConf) === 1) {
 	fwrite(STDERR, "PHP_FD_SETSIZE must not force a custom php85 build.\n");
 	exit(1);
 }
+if (preg_match('/go=1\.25/', $makeConf) === 1) {
+	fwrite(STDERR, "Go must follow the official FreeBSD default, not 1.25.\n");
+	exit(1);
+}
+if (preg_match('/^\s*WITH_DEBUG\s*=/m', $makeConf) === 1 ||
+    preg_match('/^\s*MAKE_JOBS_UNSAFE\s*=/m', $makeConf) === 1) {
+	fwrite(STDERR, "WITH_DEBUG and MAKE_JOBS_UNSAFE must not force source builds.\n");
+	exit(1);
+}
 
 foreach (['stream_select($', 'socket_select($'] as $forbidden) {
 	if (str_contains($pkgUtils, $forbidden)) {
