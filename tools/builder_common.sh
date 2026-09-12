@@ -2916,10 +2916,22 @@ EOF
 		fi
 		echo ">>> Poudriere bulk complated at `date "+%Y/%m/%d %H:%M:%S"` for ${jail_arch}"
 
-		echo ">>> Cleaning up old packages from repo..."
-		if ! poudriere pkgclean -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME} -y; then
-			echo ">>> ERROR: Something went wrong..."
-			print_error_pfS
+		# pkgclean deletes every package in the repository that the bulk list
+		# does not reach. That is right when the repository only ever holds what
+		# this build produced, and catastrophic when it has been seeded with
+		# prebuilt packages on purpose: the seed is by definition outside the
+		# bulk list, so pkgclean removes it and the next batch recompiles from
+		# source. The build still succeeds -- it just silently becomes the slow
+		# build the seeding existed to avoid -- so the seeding side sets
+		# FREESENSE_KEEP_SEEDED_PACKAGES and cleans up on its own terms.
+		if [ -n "${FREESENSE_KEEP_SEEDED_PACKAGES:-}" ]; then
+			echo ">>> Keeping seeded packages; skipping pkgclean" | tee -a ${LOGFILE}
+		else
+			echo ">>> Cleaning up old packages from repo..."
+			if ! poudriere pkgclean -f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME} -y; then
+				echo ">>> ERROR: Something went wrong..."
+				print_error_pfS
+			fi
 		fi
 
 		if [ "${AWS}" = 1 ]; then
