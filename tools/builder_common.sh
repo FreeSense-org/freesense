@@ -1955,7 +1955,13 @@ buildkernel() {
 		# build_freebsd.sh defaults objdir=${srcdir}/../obj -> MAKEOBJDIRPREFIX=that.
 		local _ktc_obj="${FREEBSD_SRC_DIR}/../obj"
 		local _ncpu=$(sysctl -qn hw.ncpu 2>/dev/null || echo 2)
+		# The world is seeded, never built, and the kernel uses the worker's own
+		# clang/lld/LLVM binutils (freesense-os-base src-env.conf). Turning the
+		# world's LLVM options off for this target only stops bootstrap-tools from
+		# still compiling libllvmminimal and the tblgen generators, which nothing
+		# here uses. The environment (not MAKEFLAGS) reaches every sub-make.
 		script -aq $LOGFILE env MAKEOBJDIRPREFIX="${_ktc_obj}" \
+			WITHOUT_CLANG=yes WITHOUT_LLD=yes WITHOUT_LLDB=yes WITHOUT_LLVM_BINUTILS=yes \
 			make -C ${FREEBSD_SRC_DIR} -j$((_ncpu*2)) kernel-toolchain \
 			|| print_error_pfS
 		export _FREESENSE_KTOOLCHAIN_DONE=1
