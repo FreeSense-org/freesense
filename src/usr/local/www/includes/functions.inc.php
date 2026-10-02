@@ -134,7 +134,7 @@ function get_hwtype() {
 }
 
 function get_mbuf() {
-	$mbufs_output=trim(`/usr/bin/vmstat -z --libxo=json | /usr/local/bin/jq -r '."vmstat"."memory-zone-statistics".zone.[] | select(.name=="mbuf_cluster") | "\(.limit) \(.used) \(.free)"'`);
+	$mbufs_output=trim(shell_exec('/usr/bin/vmstat -z --libxo=json | /usr/local/bin/jq -r \'."vmstat"."memory-zone-statistics".zone.[] | select(.name=="mbuf_cluster") | "\(.limit) \(.used) \(.free)"\'') ?? '');
 	list($mbufs_max, $mbufs_used, $mbufs_free) = explode(" ", $mbufs_output);
 	$mbufs_total = (int) $mbufs_used + (int) $mbufs_free;
 	return $mbufs_total . "/" . $mbufs_max;

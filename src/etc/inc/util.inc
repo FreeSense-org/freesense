@@ -3754,9 +3754,9 @@ function timeout($timer = 9) {
 		} else {
 			echo chr(8). "{$timer}";
 		}
-		`/bin/stty -icanon min 0 time 25`;
-		$key = trim(`KEY=\`dd count=1 2>/dev/null\`; echo \$KEY`);
-		`/bin/stty icanon`;
+		shell_exec('/bin/stty -icanon min 0 time 25');
+		$key = trim(shell_exec('KEY=`dd count=1 2>/dev/null`; echo $KEY') ?? '');
+		shell_exec('/bin/stty icanon');
 		if ($key == '') {
 			unset($key);
 		}
