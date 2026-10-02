@@ -55,7 +55,8 @@ function send_wol($if, $mac, $description, & $savemsg, & $class) {
 $savemsg = "";
 $class = "";
 
-if ($_REQUEST['wakeall'] != "") {
+/* Waking every device changes state, so only accept it via POST. */
+if ($_POST['wakeall'] != "") {
 	foreach (config_get_path('wol/wolentry', []) as $wolent) {
 		send_wol($wolent['interface'], $wolent['mac'], $wolent['descr'], $savemsg, $class);
 	}
@@ -165,10 +166,10 @@ print $form;
 			<?=gettext("Add");?>
 		</a>
 
-		<a href="services_wol.php?wakeall=true" role="button" class="btn btn-primary">
+		<button type="button" class="btn btn-primary wakeall">
 			<i class="fa-solid fa-power-off icon-embed-btn"></i>
 			<?=gettext("Wake All Devices")?>
-		</a>
+		</button>
 	</div>
 <?php } ?>
 
@@ -191,7 +192,7 @@ print $form;
 								<?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($wolent['interface']));?>
 							</td>
 							<td>
-								<a href="?mac=<?=$wolent['mac'];?>&amp;if=<?=urlencode($wolent['interface']);?>" usepost><?=strtolower($wolent['mac']);?></a>
+								<a href="?mac=<?=urlencode($wolent['mac']);?>&amp;if=<?=urlencode($wolent['interface']);?>" usepost><?=htmlspecialchars(strtolower($wolent['mac']));?></a>
 							</td>
 							<td>
 								<?=htmlspecialchars($wolent['descr']);?>
@@ -199,7 +200,7 @@ print $form;
 							<td>
 								<a class="fa-solid fa-pencil"	title="<?=gettext('Edit Device')?>"	href="services_wol_edit.php?id=<?=$i?>"></a>
 								<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete Device')?>" href="services_wol.php?act=del&amp;id=<?=$i?>" usepost></a>
-								<a class="fa-solid fa-power-off" title="<?=gettext('Wake Device')?>" href="?mac=<?=$wolent['mac'];?>&amp;if=<?=urlencode($wolent['interface']);?>" usepost></a>
+								<a class="fa-solid fa-power-off" title="<?=gettext('Wake Device')?>" href="?mac=<?=urlencode($wolent['mac']);?>&amp;if=<?=urlencode($wolent['interface']);?>" usepost></a>
 							</td>
 						</tr>
 					<?php endforeach?>
@@ -213,7 +214,7 @@ print $form;
 			<?=gettext("Add");?>
 		</a>
 
-		<button id="wakeall" class="btn btn-primary">
+		<button type="button" class="btn btn-primary wakeall">
 			<i class="fa-solid fa-power-off icon-embed-btn"></i>
 			<?=gettext("Wake All Devices")?>
 		</button>
@@ -224,7 +225,7 @@ print $form;
 //<![CDATA[
 events.push(function() {
 
-	$('#wakeall').click(function() {
+	$('.wakeall').click(function() {
 		if (confirm("Are you sure you wish to Wake All Devices?")) {
 			postSubmit({wakeall: 'true'}, 'services_wol.php');
 		}

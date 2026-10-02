@@ -937,7 +937,7 @@ function system_alias_info_popup($name, $description = null) {
 		$alias_items[] = htmlspecialchars(trim($address));
 	}
 
-	$content = '<h5>' . ($description ?? htmlspecialchars($name)) . '</h5>';
+	$content = '<h5>' . htmlspecialchars($description ?? $name) . '</h5>';
 	if (empty($alias_items)) {
 		return $content;
 	}
@@ -946,7 +946,16 @@ function system_alias_info_popup($name, $description = null) {
 	return $content;
 }
 
+/*
+ * Popover content for an alias, encoded for use in a data-bs-content
+ * attribute. Popovers render their content as HTML, so the attribute value
+ * is encoded once more on top of the escaped markup built below.
+ */
 function alias_info_popup($alias_id, $is_system_alias = false) {
+	return htmlspecialchars(alias_info_popup_html($alias_id, $is_system_alias));
+}
+
+function alias_info_popup_html($alias_id, $is_system_alias = false) {
 	global $user_settings;
 
 	$alias = null;
@@ -973,7 +982,7 @@ function alias_info_popup($alias_id, $is_system_alias = false) {
 
 	if ($user_settings['webgui']['disablealiaspopupdetail']) {
 		if (strlen($alias['descr']) >= $maxlength) {
-			$alias['descr'] = substr($alias['descr'], 0, $maxlength) . '&hellip;';
+			$alias['descr'] = substr($alias['descr'], 0, $maxlength) . '…';
 		}
 
 		return htmlspecialchars($alias['descr']);
@@ -989,14 +998,15 @@ function alias_info_popup($alias_id, $is_system_alias = false) {
 			$counter = count($alias_addresses);
 		}
 
-		$content .= '<h5>'. htmlspecialchars($alias['url']) .'</h5><ul><li>'. implode('</li><li>', $alias_addresses) .'</li></ul>';
+		/* URL table content (including retained comments) is remote data. */
+		$content .= '<h5>'. htmlspecialchars($alias['url']) .'</h5><ul><li>'. implode('</li><li>', array_map('htmlspecialchars', $alias_addresses)) .'</li></ul>';
 		if ($counter > 10002) {
 			$content .= '<i>'. gettext("listing only first 10k items") .'</i>';
 		}
 	} else {
 		if (empty($alias['address'])) {
 			if (strlen($alias['descr']) >= $maxlength) {
-				$alias['descr'] = substr($alias['descr'], 0, $maxlength) . '&hellip;';
+				$alias['descr'] = substr($alias['descr'], 0, $maxlength) . '…';
 			}
 			return htmlspecialchars($alias['descr']);
 		}
@@ -1014,7 +1024,7 @@ function alias_info_popup($alias_id, $is_system_alias = false) {
 		foreach ($alias_addresses as $ap) {
 			$content .= "	<tr>\n";
 			$content .= "		<td>\n";
-			$content .= 			alias_idn_to_utf8($ap);
+			$content .= 			htmlspecialchars(alias_idn_to_utf8($ap));
 			$content .=	"		</td>\n";
 			$content .= "		<td style='padding-left: 10px;'>\n";
 			$content .= 			htmlspecialchars($alias_details[$idx]);
@@ -1028,6 +1038,38 @@ function alias_info_popup($alias_id, $is_system_alias = false) {
 	}
 
 	return $content;
+}
+
+/*
+ * Custom Kea JSON can load hook libraries and choose file paths, which is
+ * equivalent to root access (pfSense-SA-26_20). Only administrators or users
+ * holding the dedicated privilege may change it.
+ */
+function kea_custom_config_editable() {
+	$user_entry = getUserEntry($_SESSION['Username']);
+	$user_entry = $user_entry['item'] ?? [];
+	return (isAdminUID($_SESSION['Username']) ||
+	    userHasPrivilege($user_entry, 'page-services-dhcpserver-kea-custom') ||
+	    userHasPrivilege($user_entry, 'page-all'));
+}
+
+/*
+ * For users who may not edit custom Kea JSON, keep the stored value and
+ * reject any attempt to change it. $stored is the base64 config value.
+ */
+function kea_custom_config_enforce($stored, &$input_errors) {
+	if (kea_custom_config_editable()) {
+		return;
+	}
+	$stored = base64_decode((string)$stored);
+	$normalize = function ($text) {
+		return trim(str_replace("\r\n", "\n", (string)$text));
+	};
+	if (isset($_POST['custom_kea_config']) &&
+	    ($normalize($_POST['custom_kea_config']) !== $normalize($stored))) {
+		$input_errors[] = gettext("This user does not have sufficient privileges to edit the custom Kea configuration.");
+	}
+	$_POST['custom_kea_config'] = $stored;
 }
 
 function gateway_info_popup($showgw) {

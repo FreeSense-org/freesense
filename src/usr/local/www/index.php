@@ -99,6 +99,27 @@ foreach (glob("/usr/local/www/widgets/widgets/*.widget.php") as $file) {
 	);
 }
 
+/*
+ * Validate one dashboard layout entry. The widget basename is used to build an
+ * include path, so only names of installed widgets are accepted.
+ */
+function dashboard_sequence_entry_valid($basename, $col, $copynum, $known_widgets, $allow_next = false) {
+	$offset = strpos((string)$basename, '-container');
+	if (false !== $offset) {
+		$basename = substr($basename, 0, $offset);
+	}
+	if (!isset($known_widgets[$basename . '-0'])) {
+		return false;
+	}
+	if (($col != '') && !preg_match('/^col[0-9]+$/', $col)) {
+		return false;
+	}
+	if ($allow_next && ($copynum === 'next')) {
+		return true;
+	}
+	return ctype_digit((string)$copynum);
+}
+
 ##if no config entry found, initialize config entry
 
 if (!is_array($user_settings['widgets'])) {
@@ -111,7 +132,11 @@ if ($_POST && $_POST['sequence']) {
 	$widget_settings = $user_settings['widgets'];
 
 	$widget_sep = ',';
-	$widget_seq_array = explode($widget_sep, rtrim($_POST['sequence'], $widget_sep));
+	$widget_seq_array = array_filter(explode($widget_sep, rtrim($_POST['sequence'], $widget_sep)),
+	    function ($widget_seq_data) use ($known_widgets) {
+		list($basename, $col, $display, $widget_counter) = array_pad(explode(':', $widget_seq_data), 4, null);
+		return dashboard_sequence_entry_valid($basename, $col, $widget_counter, $known_widgets, true);
+	});
 	$widget_counter_array = array();
 	$widget_sep = '';
 
@@ -220,8 +245,8 @@ if ($user_settings['widgets']['sequence'] != "") {
 			$line_items[] = 0;
 		}
 
-		list($basename, $col, $display, $copynum) = $line_items;
-		if (!is_numeric($copynum)) {
+		list($basename, $col, $display, $copynum) = array_pad($line_items, 4, null);
+		if (!dashboard_sequence_entry_valid($basename, $col, $copynum, $known_widgets)) {
 			continue;
 		}
 

@@ -5633,14 +5633,19 @@ function configure_cron() {
 
 		$http_proxy = config_get_path('system/proxyurl');
 		$http_proxyport = config_get_path('system/proxyport');
+		$proxyuser = config_get_path('system/proxyuser');
+		$proxypass = config_get_path('system/proxypass');
+		/* Proxy values become crontab lines; never let them add more lines. */
+		if (preg_match('/[\x00-\x1F\x7F]/', "{$http_proxy}{$http_proxyport}{$proxyuser}{$proxypass}")) {
+			log_error(gettext("Proxy settings contain control characters; omitting them from the crontab."));
+			$http_proxy = '';
+		}
 		if (!empty($http_proxy)) {
 			if (!empty($http_proxyport)) {
 				$http_proxy .= ':' . $http_proxyport;
 			}
 			$crontab_contents .= "HTTP_PROXY={$http_proxy}\n";
 
-			$proxyuser = config_get_path('system/proxyuser');
-			$proxypass = config_get_path('system/proxypass');
 			if (!empty($proxyuser) && !empty($proxypass)) {
 				$crontab_contents .= "HTTP_PROXY_AUTH={$proxyuser}:{$proxypass}\n";
 			}

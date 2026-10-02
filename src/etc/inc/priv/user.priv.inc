@@ -166,4 +166,9 @@ $priv_list['page-openvpn-client-advanced']['name'] = gettext("WebCfg - OpenVPN: 
 $priv_list['page-openvpn-client-advanced']['descr'] = gettext("Allow edit access to the 'OpenVPN: Servers' Advanced settings field.");
 $priv_list['page-openvpn-client-advanced']['warn'] = "standard-warning-root";
 
+$priv_list['page-services-dhcpserver-kea-custom'] = array();
+$priv_list['page-services-dhcpserver-kea-custom']['name'] = gettext("WebCfg - Services: DHCP Server: Edit Custom Kea Configuration");
+$priv_list['page-services-dhcpserver-kea-custom']['descr'] = gettext("Allow edit access to the custom Kea JSON configuration fields on the DHCP and DHCPv6 Server pages.");
+$priv_list['page-services-dhcpserver-kea-custom']['warn'] = "standard-warning-root";
+
 ?>

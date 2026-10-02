@@ -1182,6 +1182,13 @@ function captiveportal_get_last_activity($ip) {
 /* log successful captive portal authentication to syslog */
 /* part of this code from php.net */
 function captiveportal_logportalauth($user, $mac, $ip, $status, $message = null) {
+	/* Failed logins carry whatever the client sent; keep it from forging or
+	 * confusing log entries (and log parsers such as sshguard). */
+	if (in_array($status, ['FAILURE', 'ERROR'])) {
+		$user = cleanup_invalid_username((string)$user);
+	} else {
+		$user = preg_replace('/[\x00-\x1F\x7F]/', '_', (string)$user);
+	}
 	// Log it
 	if (!$message) {
 		$message = "{$status}: {$user}, {$mac}, {$ip}";

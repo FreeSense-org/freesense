@@ -565,7 +565,6 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 		//build Schedule popup box
 		$schedule_span_begin = "";
 		$schedule_span_end = "";
-		$sched_caption_escaped = "";
 		$sched_content = "";
 		$schedstatus = false;
 		$dayArray = array (gettext('Mon'), gettext('Tues'), gettext('Wed'), gettext('Thur'), gettext('Fri'), gettext('Sat'), gettext('Sun'));
@@ -666,10 +665,10 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							$sched_content .= $dayFriendly . "; " . $timeFriendly . "<br />";
 						}
 					}
-					#FIXME
-					$sched_caption_escaped = str_replace("'", "\'", $schedule['descr']);
-					$schedule_span_begin = '<a href="/firewall_schedule_edit.php?id=' . $idx . '" data-bs-toggle="popover" data-bs-trigger="hover focus" title="' . $schedule['name'] . '" data-bs-content="' .
-						$sched_caption_escaped . '" data-bs-html="true">';
+					/* Popovers render their title and content as HTML (FreeSense.js), so
+					 * encode once for the HTML render and once for the attribute. */
+					$schedule_span_begin = '<a href="/firewall_schedule_edit.php?id=' . $idx . '" data-bs-toggle="popover" data-bs-trigger="hover focus" title="' . htmlspecialchars(htmlspecialchars($schedule['name'])) . '" data-bs-content="' .
+						htmlspecialchars(htmlspecialchars($schedule['descr'])) . '" data-bs-html="true">';
 					$schedule_span_end = "</a>";
 				}
 				$idx++;
