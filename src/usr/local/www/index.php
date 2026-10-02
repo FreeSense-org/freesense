@@ -174,10 +174,7 @@ require_once('includes/functions.inc.php');
 
 ## Check to see if we have a swap space,
 ## if true, display, if false, hide it ...
-if (file_exists("/usr/sbin/swapinfo")) {
-	$swapinfo = `/usr/sbin/swapinfo`;
-	if (stristr($swapinfo, '%') == true) $showswap=true;
-}
+$showswap = ((int)get_single_sysctl('vm.swap_total') > 0);
 
 ## If it is the first time webConfigurator has been
 ## accessed since initial install show this stuff.
@@ -614,13 +611,16 @@ events.push(function() {
 	ajaxtimeout = false;
 
 	function make_ajax_call(wd) {
+		wd.busy = true;
 		$.ajax({
 			type: 'POST',
 			url: wd.url,
 			dataType: 'html',
 			data: wd.parms,
+			timeout: 60000,
 
 			success: function(data){
+				wd.failures = 0;
 				if (data.length > 0 ) {
 					// If the session has timed out, display a pop-up
 					if (data.indexOf("SESSION_TIMEOUT") === -1) {
@@ -635,22 +635,36 @@ events.push(function() {
 
 			},
 
-			error: function(e){
-				console.log("Error: " + e);
+			error: function(xhr, status){
+				console.log("Error: " + status);
+				// Back off exponentially, up to five minutes, while a widget keeps failing
+				wd.failures = Math.min((wd.failures || 0) + 1, 8);
+				wd.retryAt = Date.now() + Math.min(wd.freq * 1000 * Math.pow(2, wd.failures), 300000);
+			},
+
+			complete: function(){
+				wd.busy = false;
 			}
 		});
 	}
 
 	function execute_ajax_call(item){
+		// Never stack requests for a widget whose previous refresh is still running
+		if (item.busy || (item.retryAt && Date.now() < item.retryAt)) {
+			return;
+		}
 		if ((ajaxcntr % item.freq) === 0) {
 			make_ajax_call(item);
 		}
 	}
 
 	// Loop through each AJAX widget refresh object, make the AJAX call and pass the
-	// results back to the widget's callback function
+	// results back to the widget's callback function. Refreshes pause while the
+	// dashboard is in a hidden browser tab.
 	function executewidget() {
-		ajaxspecs.forEach(execute_ajax_call);
+		if (!document.hidden) {
+			ajaxspecs.forEach(execute_ajax_call);
+		}
 
 		if (++ajaxcntr >= 4096) {
 			ajaxcntr = 0;

@@ -3443,8 +3443,13 @@ function get_sysctl($names) {
  * return the value for sysctl $name or empty string if it doesn't exist
  */
 function get_single_sysctl($name) {
+	global $sysctl_prefetched;
+
 	if (empty($name)) {
 		return "";
+	}
+	if (isset($sysctl_prefetched[$name])) {
+		return $sysctl_prefetched[$name];
 	}
 
 	$value = get_sysctl($name);
@@ -3453,6 +3458,28 @@ function get_single_sysctl($name) {
 	}
 
 	return $value[$name];
+}
+
+/*
+ * sysctl_prefetch($names)
+ * Read several sysctl OIDs with a single sysctl(8) call so that following
+ * get_single_sysctl() calls for them don't each start a process. OIDs absent
+ * on this system read as an empty string. Pass null to drop the values.
+ */
+function sysctl_prefetch(?array $names) {
+	global $sysctl_prefetched;
+
+	$sysctl_prefetched = array();
+	if (empty($names)) {
+		return;
+	}
+
+	$sysctl_prefetched = get_sysctl($names);
+	foreach ($names as $name) {
+		if (!isset($sysctl_prefetched[$name])) {
+			$sysctl_prefetched[$name] = "";
+		}
+	}
 }
 
 /*
@@ -3727,9 +3754,9 @@ function timeout($timer = 9) {
 		} else {
 			echo chr(8). "{$timer}";
 		}
-		`/bin/stty -icanon min 0 time 25`;
-		$key = trim(`KEY=\`dd count=1 2>/dev/null\`; echo \$KEY`);
-		`/bin/stty icanon`;
+		shell_exec('/bin/stty -icanon min 0 time 25');
+		$key = trim(shell_exec('KEY=`dd count=1 2>/dev/null`; echo $KEY') ?? '');
+		shell_exec('/bin/stty icanon');
 		if ($key == '') {
 			unset($key);
 		}

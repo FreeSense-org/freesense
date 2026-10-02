@@ -1306,6 +1306,30 @@ function config_write_file() {
 }
 
 /**
+ * Takes a non-blocking shared lock on config.lock.
+ *
+ * @return resource|null The lock handle to pass to unlock(), or null when a
+ *                       writer holds the exclusive config lock.
+ */
+function config_cache_lock() {
+	$lock_file_path = g_get('tmp_path') . '/config.lock';
+	$created = !file_exists($lock_file_path);
+	$fp = @fopen($lock_file_path, 'c');
+	if ($fp === false) {
+		return null;
+	}
+	if ($created) {
+		@chmod($lock_file_path, 0666);
+	}
+	if (!flock($fp, LOCK_SH | LOCK_NB)) {
+		fclose($fp);
+		return null;
+	}
+
+	return $fp;
+}
+
+/**
  * Reloads the in-memory configuration with config.xml.
  *
  * @param bool $use_backup If True, try to restore config backups
@@ -1323,9 +1347,19 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 		$cache_file_path = g_get('tmp_path') . '/config.cache';
 		$config_file_path = g_get('conf_path') . '/config.xml';
 
-		// The cache is considered outdated while the config is being written.
-		if ($_use_cache && file_exists($cache_file_path) && (filesize($cache_file_path) > 0) &&
-		    !file_exists(g_get('tmp_path') . '/config.lock')) {
+		/* Writers replace config.xml and remove the cache while holding an
+		 * exclusive lock on config.lock, and never delete the lock file, so
+		 * its existence says nothing. Probe it with a non-blocking shared
+		 * lock instead: if that fails a write is in progress and the cache
+		 * must be neither read nor rewritten. Holding the shared lock until
+		 * the cache is written also prevents a parse of the old config.xml
+		 * from being cached after a writer has removed the cache. */
+		$cache_lock = config_cache_lock();
+		if ($cache_lock === null) {
+			$_use_cache = false;
+		}
+
+		if ($_use_cache && file_exists($cache_file_path) && (filesize($cache_file_path) > 0)) {
 			$cache_modified_time = filemtime($cache_file_path);
 			$config_modified_time = 0;
 			if (file_exists($config_file_path) && (filesize($config_file_path) > 0)) {
@@ -1351,18 +1385,20 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 
 		if (!is_array($parsed_config)) {
 			$parsed_config = parse_xml_config($config_file_path, [g_get('xml_rootobj')]);
-			$update_cache = true;
+			$update_cache = ($cache_lock !== null);
 		}
-	
+
+		$result = false;
 		if (is_array($parsed_config) && !empty($parsed_config) &&
 			is_array(config_set_path('', $parsed_config))) {
 			if ($update_cache) {
 				safe_write_file($cache_file_path, serialize($parsed_config));
 			}
-			return true;
+			$result = true;
 		}
-	
-		return false;
+		unlock($cache_lock);
+
+		return $result;
 	};
 
 	global $config_parsed;
