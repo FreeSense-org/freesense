@@ -182,8 +182,9 @@ if ($_POST) {
 					$fa_type = PCAP_TYPE_SMATCH;
 					break;
 				default:
-					// Other Types don't need to be checked.
-					continue;
+					// Other Types don't need to be checked. ("continue" alone
+					// only left the switch and reused the previous $fa_type.)
+					continue 2;
 			}
 
 			// Get this match's corresponding input element ID to retrieve its value
