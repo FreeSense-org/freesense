@@ -37,7 +37,7 @@ use Symfony\{
 abstract class AbstractProvider {
 	private $cacheAdapter = null;
 
-	public function __construct(AbstractAdapter $cacheAdapter = null) {
+	public function __construct(?AbstractAdapter $cacheAdapter = null) {
 		if (is_null($cacheAdapter) || (!($cacheAdapter instanceof AbstractAdapter))) {
 			require_once('globals.inc');
 

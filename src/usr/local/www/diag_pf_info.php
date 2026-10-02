@@ -36,13 +36,13 @@ if (stristr($_POST['Submit'], gettext("No"))) {
 }
 
 if ($_REQUEST['getactivity']) {
-	$text = `/sbin/pfctl -vvsi`;
+	$text = shell_exec('/sbin/pfctl -vvsi');
 	$text .= "<p/>";
-	$text .= `/sbin/pfctl -vvsm`;
+	$text .= shell_exec('/sbin/pfctl -vvsm');
 	$text .= "<p/>";
-	$text .= `/sbin/pfctl -vvst`;
+	$text .= shell_exec('/sbin/pfctl -vvst');
 	$text .= "<p/>";
-	$text .= `/sbin/pfctl -vvsI`;
+	$text .= shell_exec('/sbin/pfctl -vvsI');
 	echo $text;
 	exit;
 }

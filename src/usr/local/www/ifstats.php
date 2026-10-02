@@ -38,7 +38,7 @@ if($_POST['if']) {
 	$realifarray = explode("|", $realifs);
 
 	$temp = gettimeofday();
-	$timing = (double)$temp["sec"] + (double)$temp["usec"] / 1000000.0;
+	$timing = (float)$temp["sec"] + (float)$temp["usec"] / 1000000.0;
 	$obj = [];
 	$count = 0;
 

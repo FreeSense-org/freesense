@@ -379,10 +379,10 @@ class FilterAttribute {
 						case 'ipv4':
 							$string_part = 'ip';
 							break;
-						case 'ipv6';
+						case 'ipv6':
 							$string_part = 'ip6';
 							break;
-						case 'arp';
+						case 'arp':
 							$string_part = 'arp';
 							break;
 						default:

@@ -36,7 +36,7 @@ final class Filesystems {
 
 	private $provider = null;
 
-	public function __construct(AbstractProvider $provider = null) {
+	public function __construct(?AbstractProvider $provider = null) {
 		if (is_null($provider)
 		    || (!($provider instanceof AbstractProvider))) {
 			$provider = new SystemProvider();

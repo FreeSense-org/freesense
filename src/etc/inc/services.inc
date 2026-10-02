@@ -4737,7 +4737,6 @@ function dyndnsCheckIP($interface, string|null $mode = null, int|null $address_f
 		set_curlproxy($ip_ch);
 	}
 	$ip_result_page = curl_exec($ip_ch);
-	curl_close($ip_ch);
 	$matches = [];
 	preg_match($response_pattern, $ip_result_page, $matches);
 	if (isset($matches[1]) && is_ipaddr($matches[1])) {
