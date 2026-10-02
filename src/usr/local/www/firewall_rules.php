@@ -386,7 +386,7 @@ if (isset($if)):
 </style>
 
 <form id="mainform" method="post">
-	<input name="if" id="if" type="hidden" value="<?=$if?>" />
+	<input name="if" id="if" type="hidden" value="<?=htmlspecialchars((string)$if)?>" />
 	<input name="dstif" id="dstif" type="hidden" value="" />
 	<input name="convertif" id="convertif" type="hidden" value="" />
 	<div class="panel panel-default">
@@ -429,7 +429,7 @@ if (isset($if)):
 						<td>*</td>
 						<td>*</td>
 						<td>*</td>
-						<td><?=$iflist[$if];?> Address</td>
+						<td><?=htmlspecialchars($iflist[$if] ?? '');?> Address</td>
 						<td><?=$alports?></td>
 						<td>*</td>
 						<td>*</td>
@@ -1097,7 +1097,7 @@ else: ?>
 //<![CDATA[
 
 //Need to create some variables here so that jquery/FreeSenseHelpers.js can read them
-iface = "<?=strtolower($if)?>";
+iface = <?=json_encode(strtolower((string)$if), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
 cncltxt = '<?=gettext("Cancel")?>';
 svtxt = '<?=gettext("Save")?>';
 svbtnplaceholder = '<?=gettext("Enter a description, Save, then drag to final location.")?>';

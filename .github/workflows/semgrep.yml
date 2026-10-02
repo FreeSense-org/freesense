@@ -1,0 +1,39 @@
+name: Semgrep (PHP security)
+
+# CodeQL does not analyse PHP, so Semgrep's PHP security rules (p/php) cover
+# the web GUI and system code. Each file is analysed on its own, so a full scan
+# takes about two minutes. Findings are uploaded to Security > Code scanning
+# (category "semgrep"); the job only fails if Semgrep itself cannot run.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Mondays 04:41 UTC: picks up rule updates for unchanged code.
+    - cron: '41 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Scan PHP sources
+        run: |
+          # Bundled third-party code (Composer vendor, www/vendor) is excluded.
+          docker run --rm -v "$PWD:/src" -w /src \
+            semgrep/semgrep:1.179.0@sha256:93963d9295a366f59e4850127b1550400ee7b388f04fe144e4a1f6325d96e01b \
+            semgrep scan --config p/php --metrics=off \
+              --exclude vendor --sarif --output semgrep.sarif \
+              src/etc src/usr/local/www src/usr/local/FreeSense/include
+          test -s semgrep.sarif
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep

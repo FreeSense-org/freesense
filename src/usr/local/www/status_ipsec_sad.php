@@ -39,7 +39,21 @@ $shortcut_section = "ipsec";
 include("head.inc");
 
 /* delete any SA? */
-if ($_POST['act'] == "del") {
+/* The values are written into setkey's command input, so accept only an
+ * address pair, a known protocol and a hex SPI; anything else could add
+ * further setkey commands. */
+function sad_endpoint_valid($endpoint) {
+	/* setkey prints NAT-T endpoints as address[port]. */
+	if (!preg_match('/^([^\[\]]+)(\[[0-9]{1,5}\])?$/', (string)$endpoint, $m)) {
+		return false;
+	}
+	return is_ipaddr($m[1]);
+}
+
+if (($_POST['act'] == "del") &&
+    sad_endpoint_valid($_POST['src']) && sad_endpoint_valid($_POST['dst']) &&
+    in_array(strtolower((string)$_POST['proto']), ['esp', 'ah', 'ipcomp'], true) &&
+    preg_match('/^0x[0-9a-f]{1,8}$/i', (string)$_POST['spi'])) {
 	$fd = @popen("/sbin/setkey -c > /dev/null 2>&1", "w");
 	if ($fd) {
 		fwrite($fd, "delete {$_POST['src']} {$_POST['dst']} {$_POST['proto']} {$_POST['spi']} ;\n");
