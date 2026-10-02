@@ -395,8 +395,10 @@ SWAPDEVICE=`/bin/cat /etc/fstab | /usr/bin/grep swap | /usr/bin/awk '{ print $1 
 if [ -n "${SWAPDEVICE}" ]; then
 	/bin/rm -f /tmp/fstab.swap
 	if ! [ -c "${SWAPDEVICE}" ]; then
-		# Keep the original device, in case it is special, such as encrypted+mirrored zfs swap
-		echo "${SWAPDEVICE}	none	swap	sw	0	0" >> /tmp/fstab.swap
+		# Keep every swap entry from fstab, not only the first one: the
+		# first device may be missing while others are valid (#16232).
+		# Special devices such as encrypted+mirrored zfs swap are kept too.
+		/usr/bin/awk '$1 !~ /^#/ && $3 == "swap"' /etc/fstab >> /tmp/fstab.swap
 		# The swap device in fstab does not exist, look for other valid entries and update fstab
 		for SWAPLABEL in /dev/label/swap* /dev/mirror/swap*; do
 			if [ -c "${SWAPLABEL}" ]; then

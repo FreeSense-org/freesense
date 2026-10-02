@@ -1704,12 +1704,17 @@ function fixup_default_gateway($ipprotocol, $gateways_status, $gateways_arr) {
 		}
 
 		if (count($gwg_members) > 0) {
-			$currentdefaultgwip = route_get_default($ipprotocol);
+			$currentdefault = route_get('default', $ipprotocol, true);
+			$currentdefaultgwip = $currentdefault[0]['gateway'] ?? '';
+			$currentdefaultif = $currentdefault[0]['interface-name'] ?? '';
 			$found_current = false;
 			foreach($gwg_members as $gwgroupitem) {
+				/* Gateways on different interfaces (e.g. PPPoE links) can share
+				 * the same address, so the interface must match too (#16816). */
 				if (!empty($currentdefaultgwip) &&
 				    is_array($gwgroupitem) &&
-				    ($gwgroupitem['gwip'] == $currentdefaultgwip)) {
+				    ($gwgroupitem['gwip'] == $currentdefaultgwip) &&
+				    (empty($currentdefaultif) || ($gwgroupitem['int'] == $currentdefaultif))) {
 					$set_dfltgwname = $gwgroupitem['gw'];
 					$found_current = true;
 					if (g_get('debug')) {
@@ -2690,6 +2695,17 @@ function save_gateway($gateway_settings, $realid = "", $json = false) {
 		    !empty($a_gateway_item) &&
 		    is_ipaddr($a_gateway_item['monitor']) &&
 		    $gateway_settings['monitor'] != $a_gateway_item['monitor'] &&
+		    $gateway['gateway'] != $a_gateway_item['monitor']) {
+			route_del($a_gateway_item['monitor']);
+		}
+
+		/* The monitor route is also stale when "Do not add static route"
+		 * is newly enabled for an unchanged monitor IP (#16861). */
+		if (!empty($a_gateway_item) &&
+		    is_ipaddr($a_gateway_item['monitor']) &&
+		    $gateway_settings['monitor'] == $a_gateway_item['monitor'] &&
+		    !empty($gateway['dpinger_dont_add_static_route']) &&
+		    !isset($a_gateway_item['dpinger_dont_add_static_route']) &&
 		    $gateway['gateway'] != $a_gateway_item['monitor']) {
 			route_del($a_gateway_item['monitor']);
 		}

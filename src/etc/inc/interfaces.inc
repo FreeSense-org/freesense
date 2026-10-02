@@ -1921,7 +1921,7 @@ function interface_bring_down($interface = "wan", $destroy = false, $ifacecfg = 
 					if ($realif != $ppp['if']) {
 						continue;
 					}
-					if (config_path_enabled('system', 'use_if_pppoe')) {
+					if (use_if_pppoe()) {
 						if (does_interface_exist($realif)) {
 							mwexec('/sbin/ifconfig ' . escapeshellarg($realif) . ' down', true);
 							FreeSense_interface_destroy($realif);
@@ -2413,7 +2413,7 @@ function interface_ppps_configure($interface) {
 
 	$confports = array_filter(explode(',', $ppp['ports']));
 
-	if (config_path_enabled('system', 'use_if_pppoe') && $type == "pppoe") {
+	if (use_if_pppoe() && $type == "pppoe") {
 		if (is_array($confports) && count($confports) > 1) {
 			logger(LOG_ERR, localize_text("Error creating PPPoE interface %s.  MLPP is not supported by if_pppoe.  Aborting setup.",
 			    $ifcfg['if']));
@@ -3215,7 +3215,7 @@ function interface_ipalias_configure(&$vip) {
 		if (is_pseudo_interface($realif)) {
 			if (is_ipaddrv4($vip['subnet'])) {
 				$gateway = get_interface_gateway($if);
-			} else if (!config_path_enabled('system', 'use_if_pppoe')) {
+			} else if (!use_if_pppoe()) {
 				$gateway = get_interface_gateway_v6($if);
 			}
 		}

@@ -2007,13 +2007,13 @@ EOD;
 					$keaconf['Dhcp4']['client-classes'][] = [
 						'name' => $name,
 						'test' => $arch['test'],
-						'only-if-required' => true,
+						'only-in-additional-list' => true,
 						'option-data' => [[
 							'name' => 'boot-file-name',
 							'data' => $arch['filename']
 						]]
 					];
-					$keapool['require-client-classes'][] = $name;
+					$keapool['evaluate-additional-classes'][] = $name;
 				}
 
 				if (!empty($poolconf['filename'])) {
@@ -2030,16 +2030,16 @@ EOD;
 					$keaconf['Dhcp4']['client-classes'][] = [
 						'name' => $name,
 						'test' => $legacy_test,
-						'only-if-required' => true,
+						'only-in-additional-list' => true,
 						'option-data' => [[
 							'name' => 'boot-file-name',
 							'data' => $poolconf['filename']
 						]]
 					];
-					if (!is_array($keapool['require-client-classes'])) {
-						$keapool['require-client-classes'] = [];
+					if (!is_array($keapool['evaluate-additional-classes'])) {
+						$keapool['evaluate-additional-classes'] = [];
 					}
-					$keapool['require-client-classes'][] = $name;
+					$keapool['evaluate-additional-classes'][] = $name;
 				}
 
 				if (!empty($poolconf['rootpath'])) {
@@ -2188,13 +2188,13 @@ EOD;
 				$keaconf['Dhcp4']['client-classes'][] = [
 					'name' => $name,
 					'test' => $arch['test'],
-					'only-if-required' => true,
+					'only-in-additional-list' => true,
 					'option-data' => [[
 						'name' => 'boot-file-name',
 						'data' => $arch['filename']
 					]]
 				];
-				$keasubnet['require-client-classes'][] = $name;
+				$keasubnet['evaluate-additional-classes'][] = $name;
 			}
 
 			if (!empty($dhcpifconf['filename'])) {
@@ -2211,16 +2211,16 @@ EOD;
 				$keaconf['Dhcp4']['client-classes'][] = [
 					'name' => $name,
 					'test' => $legacy_test,
-					'only-if-required' => true,
+					'only-in-additional-list' => true,
 					'option-data' => [[
 						'name' => 'boot-file-name',
 						'data' => $dhcpifconf['filename']
 					]]
 				];
-				if (!is_array($keasubnet['require-client-classes'])) {
-					$keasubnet['require-client-classes'] = [];
+				if (!is_array($keasubnet['evaluate-additional-classes'])) {
+					$keasubnet['evaluate-additional-classes'] = [];
 				}
-				$keasubnet['require-client-classes'][] = $name;
+				$keasubnet['evaluate-additional-classes'][] = $name;
 			}
 
 			if (!empty($dhcpifconf['rootpath'])) {

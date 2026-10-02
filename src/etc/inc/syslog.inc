@@ -428,7 +428,7 @@ EOD;
 	}
 	if (!config_path_enabled('syslog', 'disablelocallogging')) {
 		$syslogconf .= "local5.{$log_level_nginx}							{$g['varlog_path']}/nginx.log\n";
-		$syslogconf .= "*.{$log_level_system};kern.debug;lpr.info;mail.crit;news.err;local0.none;local3.none;local4.none;local7.none;security.*;auth.info;authpriv.info;daemon.{$log_level_system}	{$g['varlog_path']}/system.log\n";
+		$syslogconf .= "*.{$log_level_system};kern.debug;lpr.info;mail.crit;news.err;local0.none;local3.none;local4.none;local5.none;local7.none;security.*;auth.info;authpriv.info;daemon.{$log_level_system}	{$g['varlog_path']}/system.log\n";
 		$syslogconf .= "*.emerg								*\n";
 	}
 	if (!$remote_log_all && config_path_enabled('syslog', 'system')) {

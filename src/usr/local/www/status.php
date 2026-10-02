@@ -107,7 +107,10 @@ if (file_exists("/dev/etherswitch0")) {
 
 /* Firewall rules and info */
 status_cmd_define("Firewall-Generated Ruleset", "/bin/cat " . g_get('tmp_path') . "/rules.debug");
-status_cmd_define("Firewall-Generated Ruleset Limiters", "/bin/cat " . g_get('tmp_path') . "/rules.limiter");
+if (file_exists(g_get('tmp_path') . "/rules.debug.failed")) {
+	status_cmd_define("Firewall-Generated Ruleset (Last Failed Load)", "/bin/cat " . g_get('tmp_path') . "/rules.debug.failed");
+}
+status_cmd_define("Firewall-Generated Ruleset Limiters","/bin/cat " . g_get('tmp_path') . "/rules.limiter");
 status_cmd_define("Firewall-Generated Ruleset Limits", "/bin/cat " . g_get('tmp_path') . "/rules.limits");
 foreach (glob(g_get('tmp_path') . "/rules.packages.*") as $pkgrules) {
 	$pkgname = substr($pkgrules, strrpos($pkgrules, '.') + 1);

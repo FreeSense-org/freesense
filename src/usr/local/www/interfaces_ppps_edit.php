@@ -57,7 +57,7 @@ if ($this_ppp_config) {
 		$pconfig['type'] = $this_ppp_config['type'];
 	}
 	$pconfig['interfaces'] = array_filter(explode(",", $this_ppp_config['ports']));
-	if (config_path_enabled('system', 'use_if_pppoe') &&
+	if (use_if_pppoe() &&
 	    is_array($pconfig['interfaces']) && count($pconfig['interfaces']) > 1) {
 		$input_errors[] = gettext("Multilink connections (MLPPP) using the if_pppoe kernel driver is not currently supported. Please select only one Link Interface.");
 	}
@@ -257,7 +257,7 @@ if ($_POST['save']) {
 	if (($_POST['type'] == "ppp") && is_array($_POST['interfaces']) && (count($_POST['interfaces']) > 1)) {
 		$input_errors[] = gettext("Multilink connections (MLPPP) using the PPP link type is not currently supported. Please select only one Link Interface.");
 	}
-	if (config_path_enabled('system', 'use_if_pppoe') && is_array($_POST['interfaces']) && (count($_POST['interfaces']) > 1)) {
+	if (use_if_pppoe() && is_array($_POST['interfaces']) && (count($_POST['interfaces']) > 1)) {
 		$input_errors[] = gettext("Multilink connections (MLPPP) using the if_pppoe kernel driver is not currently supported. Please select only one Link Interface.");
 	}
 	foreach (['provider', 'providerplan'] as $ppp_text_field) {
@@ -445,7 +445,7 @@ if ($_POST['save']) {
 		$ppp['mtu-override'] =
 		    $_POST['mtu-override'] ? true : false;
 		$ppp['vjcomp'] = $_POST['vjcomp'] ? true : false;
-		if (config_path_enabled('system', 'use_if_pppoe')) {
+		if (use_if_pppoe()) {
 			$ppp['tcpmssfix'] = $_POST['ifpppoe_tcpmssfix'] ? true : false;
 		} else {
 			$ppp['tcpmssfix'] = $_POST['tcpmssfix'] ? true : false;
@@ -540,7 +540,7 @@ $section->addInput(new Form_Select(
 
 $linklist = build_ppps_link_list();
 $if_select_help = "Select the interface for the PPP connection.";
-if ($pconfig['type'] == "pppoe" && !config_path_enabled('system', 'use_if_pppoe')) {
+if ($pconfig['type'] == "pppoe" && !use_if_pppoe()) {
 	$if_select_help = "Select at least two interfaces for Multilink (MLPPP) connections.";
 }
 
@@ -1035,7 +1035,7 @@ events.push(function() {
 		}
 
 		// if_pppoe options.
-		var if_pppoetype = <?php if (config_path_enabled('system', 'use_if_pppoe')) { echo 'true'; } else { echo 'false'; } ?>
+		var if_pppoetype = <?php if (use_if_pppoe()) { echo 'true'; } else { echo 'false'; } ?>
 
 		if (if_pppoetype) {
 			hideClass('adnlopts', 1);

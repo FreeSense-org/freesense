@@ -1184,6 +1184,9 @@ function reload_filter() {
 	 */
 	if ($rules_loading <> 0) {
 		$result[1] = $rules_loading;
+		/* Keep the ruleset that failed; rules.debug is overwritten by the
+		 * next reload and is needed to diagnose the error (#16796). */
+		@copy("{$g['tmp_path']}/rules.debug", "{$g['tmp_path']}/rules.debug.failed");
 		foreach ($rules_error as $errorline) {
 			$saved_line_error = $errorline;
 			$line_error = explode(":", $errorline);
@@ -1343,7 +1346,7 @@ function filter_generate_scrubbing() {
 		} else {
 			$ppps = config_get_path('ppps/ppp', []);
 			foreach ($ppps as $pppid => $ppp) {
-				if (!config_path_enabled('system', 'use_if_pppoe') ||
+				if (!use_if_pppoe() ||
 				    $scrubcfg['if'] != $ppp['if']) {
 					continue;
 				}
@@ -2107,29 +2110,33 @@ function filter_get_vpns_list() {
 
 	/* openvpn */
 	foreach (['client', 'server'] as $type) {
-		$ovpncfg = config_get_path("openvpn/{$type}");
-		if (is_array($ovpncfg)) {
-			foreach ($ovpncfg as $settings) {
-				if (is_array($settings)) {
-					if (!isset($settings['disable'])) {
-						$remote_networks = explode(',', $settings['remote_network']);
-						foreach ($remote_networks as $remote_network) {
-							if (is_alias($remote_network)) {
-								foreach (alias_to_subnets_recursive($remote_network) as $net) {
-									if (is_subnetv4($net) && ($net != "0.0.0.0/0")) {
-										$vpns_arr[] = $net;
-									}
-								}
-							} elseif (is_subnetv4($remote_network) && ($remote_network != "0.0.0.0/0")) {
-								$vpns_arr[] = $remote_network;
+		/* The config keys are openvpn-client and openvpn-server (#16795). */
+		foreach (config_get_path("openvpn/openvpn-{$type}", []) as $settings) {
+			if (!is_array($settings) || isset($settings['disable'])) {
+				continue;
+			}
+			foreach (['remote_network' => 'ipv4', 'remote_networkv6' => 'ipv6'] as $field => $family) {
+				$any = ($family == 'ipv4') ? '0.0.0.0/0' : '::/0';
+				$is_subnet_fn = ($family == 'ipv4') ? 'is_subnetv4' : 'is_subnetv6';
+				foreach (array_filter(array_map('trim', explode(',', (string)($settings[$field] ?? '')))) as $remote_network) {
+					if (is_alias($remote_network)) {
+						foreach (alias_to_subnets_recursive($remote_network) as $net) {
+							if ($is_subnet_fn($net) && ($net != $any)) {
+								$vpns_arr[] = $net;
 							}
 						}
-						if (openvpn_validate_tunnel_network($settings['tunnel_network'], 'ipv4') &&
-						    ($settings['tunnel_network'] != "0.0.0.0/0")) {
-
-							$vpns_arr[] = implode('/', openvpn_gen_tunnel_network($settings['tunnel_network']));
-						}
+					} elseif ($is_subnet_fn($remote_network) && ($remote_network != $any)) {
+						$vpns_arr[] = $remote_network;
 					}
+				}
+			}
+			foreach (['tunnel_network' => 'ipv4', 'tunnel_networkv6' => 'ipv6'] as $field => $family) {
+				$any = ($family == 'ipv4') ? '0.0.0.0/0' : '::/0';
+				$tunnel_network = trim((string)($settings[$field] ?? ''));
+				if (!empty($tunnel_network) &&
+				    openvpn_validate_tunnel_network($tunnel_network, $family) &&
+				    ($tunnel_network != $any)) {
+					$vpns_arr[] = implode('/', openvpn_gen_tunnel_network($tunnel_network));
 				}
 			}
 		}
@@ -4449,8 +4456,9 @@ function filter_generate_user_rule($rule) {
 	/* set the gateway interface */
 	update_filter_reload_status(sprintf(gettext("Setting up pass/block rules %s"), $rule['descr']));
 
-	/* do not process reply-to for gateway'd rules */
-	if (($type == "pass") && ($rule['gateway'] == "") && ($aline['direction'] <> "") && (interface_has_gateway($rule['interface']) || interface_has_gatewayv6($rule['interface'])) && !config_path_enabled('system','disablereplyto') && !isset($rule['disablereplyto'])) {
+	/* do not process reply-to for gateway'd rules, nor for NAT64 rules: the
+	 * translated packets are IPv4 and an IPv6 reply-to misroutes them (#16429) */
+	if (($type == "pass") && ($rule['gateway'] == "") && empty($aline['nat']) &&($aline['direction'] <> "") && (interface_has_gateway($rule['interface']) || interface_has_gatewayv6($rule['interface'])) && !config_path_enabled('system','disablereplyto') && !isset($rule['disablereplyto'])) {
 		if ($rule['ipprotocol'] == "inet6") {
 			$rg = get_interface_gateway_v6($rule['interface']);
 			if (is_ipaddrv6($rg)) {

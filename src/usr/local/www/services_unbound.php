@@ -91,6 +91,9 @@ if ($_POST['apply']) {
 	system_resolvconf_generate();
 	/* Start or restart dhcpleases when it's necessary */
 	system_dhcpleases_configure();
+	if (unlink_if_exists("{$g['tmp_path']}/.unbound_kea_resync")) {
+		services_dhcpd_configure();
+	}
 }
 
 if ($_POST['save']) {
@@ -171,6 +174,12 @@ if ($_POST['save']) {
 	}
 
 	if (!$input_errors) {
+		/* Kea only loads its DNS registration hooks while Unbound is
+		 * enabled, so it must be reconfigured when that changes. */
+		if ((isset($pconfig['enable']) != config_path_enabled('unbound')) &&
+		    dhcp_is_backend('kea')) {
+			@touch("{$g['tmp_path']}/.unbound_kea_resync");
+		}
 		config_set_path('unbound/enable', isset($pconfig['enable']));
 		config_set_path('unbound/enablessl', isset($pconfig['enablessl']));
 		config_set_path('unbound/port', $pconfig['port']);

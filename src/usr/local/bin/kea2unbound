@@ -657,7 +657,7 @@ class FlushCommand extends Command
                     unbound_fast_reload($unboundConfFile);
                 }
             }
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             syslogf(LOG_ERR, $e->getMessage());
             $ret = Command::FAILURE;
         } finally {
@@ -745,7 +745,7 @@ class SyncCommand extends Command
                     unbound_fast_reload($unboundConfFile);
                 }
             }
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             syslogf(LOG_ERR, $e->getMessage());
             $ret = Command::FAILURE;
         } finally {

@@ -68,15 +68,28 @@ function printBandwidth($interface, $filter, $sort, $hostipformat, $mode) {
 	// If hostname, description or FQDN is requested then load the locally-known IP address - host/description mappings into an array keyed by IP address.
 	if ($hostipformat != "") {
 		$domain = config_get_path('system/domain');
-		foreach (array_column(config_get_path('dhcpd', []), 'staticmap') as $hostent) {
-			if (($hostent['ipaddr'] != "") && ($hostent['hostname'] != "")) {
-				if ($hostipformat == "descr" && $hostent['descr'] != "") {
-					$iplookup[$hostent['ipaddr']] = $hostent['descr'];
-				} else {
-					$iplookup[$hostent['ipaddr']] = $hostent['hostname'];
-					if ($hostipformat == "fqdn") {
-						$iplookup[$hostent['ipaddr']] .= "." . $domain;
-					}
+		/* Each interface holds a list of static mappings (#16979). */
+		$staticmaps = [];
+		foreach (config_get_path('dhcpd', []) as $dhcpifconf) {
+			foreach ((array)($dhcpifconf['staticmap'] ?? []) as $hostent) {
+				$staticmaps[] = [$hostent['ipaddr'] ?? '', $hostent];
+			}
+		}
+		foreach (config_get_path('dhcpdv6', []) as $dhcpifconf) {
+			foreach ((array)($dhcpifconf['staticmap'] ?? []) as $hostent) {
+				$staticmaps[] = [$hostent['ipaddrv6'] ?? '', $hostent];
+			}
+		}
+		foreach ($staticmaps as [$ipaddr, $hostent]) {
+			if (!is_array($hostent) || empty($ipaddr)) {
+				continue;
+			}
+			if (($hostipformat == "descr") && !empty($hostent['descr'])) {
+				$iplookup[$ipaddr] = $hostent['descr'];
+			} elseif (!empty($hostent['hostname'])) {
+				$iplookup[$ipaddr] = $hostent['hostname'];
+				if ($hostipformat == "fqdn") {
+					$iplookup[$ipaddr] .= "." . $domain;
 				}
 			}
 		}
@@ -191,7 +204,8 @@ function printBandwidth($interface, $filter, $sort, $hostipformat, $mode) {
 					}
 				}
 				//print host information;
-				echo $addrdata . ";" . $infoarray[1] . ";" . $infoarray[2] . "|";
+				/* ";" and "|" separate fields and hosts in this output. */
+				echo str_replace([";", "|"], " ", (string)$addrdata) . ";" . $infoarray[1] . ";" . $infoarray[2] . "|";
 
 				//mark that we collected information
 				$someinfo = true;

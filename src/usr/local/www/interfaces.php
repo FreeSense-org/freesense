@@ -3685,7 +3685,7 @@ print($form);
 //<![CDATA[
 events.push(function() {
 	// if_pppoe options.
-	var if_pppoetype = <?php if (config_path_enabled('system', 'use_if_pppoe')) { echo 'true'; } else { echo 'false'; } ?>;
+	var if_pppoetype = <?php if (use_if_pppoe()) { echo 'true'; } else { echo 'false'; } ?>;
 
 	function updateType(t) {
 
