@@ -3836,7 +3836,9 @@ function anynat_rules_sort(string $nat_type = '') {
 				$npt_rules_map = [];
 				break;
 			default:
-				continue;
+				/* Unknown type: skip it. A bare "continue" only left the
+				 * switch, so the unknown type was still written back. */
+				continue 2;
 		}
 		set_anynat_rules_map($type, get_anynat_rules_map($type));
 	}

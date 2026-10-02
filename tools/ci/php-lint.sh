@@ -1,6 +1,7 @@
 #!/bin/sh
 # Lint FreeSense PHP sources with the PHP CLI on PATH and fail on syntax
-# errors or compile-time deprecations.
+# errors, compile-time deprecations or compile-time warnings (such as a
+# "continue" that targets a switch).
 #
 # Usage: tools/ci/php-lint.sh [file-list]
 #   file-list: newline-separated paths to lint. Without it, every *.php and
@@ -8,8 +9,9 @@
 #   with a PHP shebang or open tag is linted (Composer vendor directories and
 #   tools/rector/tests are skipped).
 #
-# PHP_LINT_DEPRECATION_ALLOW: space-separated paths whose deprecation notices
-# are reported as warnings instead of failing the run (temporary carve-outs).
+# PHP_LINT_DEPRECATION_ALLOW: space-separated paths whose deprecation and
+# warning notices are reported instead of failing the run (temporary
+# carve-outs).
 
 set -eu
 
@@ -47,16 +49,16 @@ while IFS= read -r file; do
 		failed=1
 		continue
 	fi
-	if grep -q '^\(PHP \)\{0,1\}Deprecated:' "$log"; then
+	if grep -q '^\(PHP \)\{0,1\}\(Deprecated\|Warning\):' "$log"; then
 		allowed=0
 		for a in $allow; do
 			[ "$a" = "$file" ] && allowed=1
 		done
 		if [ "$allowed" -eq 1 ]; then
-			grep '^\(PHP \)\{0,1\}Deprecated:' "$log" |
+			grep '^\(PHP \)\{0,1\}\(Deprecated\|Warning\):' "$log" |
 			    sed 's/^/::warning::(allowlisted) /'
 		else
-			grep '^\(PHP \)\{0,1\}Deprecated:' "$log" |
+			grep '^\(PHP \)\{0,1\}\(Deprecated\|Warning\):' "$log" |
 			    sed 's/^/::error::/' >&2
 			failed=1
 		fi

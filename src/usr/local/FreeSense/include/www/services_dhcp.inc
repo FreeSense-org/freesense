@@ -74,7 +74,8 @@ function kea_earlydnsreg_enabled(array $dhcpdconf, array $mapent): array|false {
 			case 'disable':
 				break 2;
 			default:
-				continue;
+				/* 'default' defers to the next, broader policy. */
+				continue 2;
 		}
 	}
 
@@ -118,7 +119,8 @@ function kea6_earlydnsreg_enabled(array $dhcpdconf, array $mapent): array|false 
 			case 'disable':
 				break 2;
 			default:
-				continue;
+				/* 'default' defers to the next, broader policy. */
+				continue 2;
 		}
 	}
 
