@@ -695,6 +695,11 @@ function handle_colors() {
 
 	$('[id^=sepclr]').click(function () {
 		var color =	 $(this).attr('value');
+		// The colour becomes part of the separator row's HTML; only accept the
+		// classes the picker offers.
+		if (['bg-info', 'bg-danger', 'bg-success', 'bg-warning'].indexOf(color) < 0) {
+			return;
+		}
 		// Clear all the color classes
 		$(this).parent('td').prop('class', '');
 		$(this).parent('td').prev('td').prop('class', '');
