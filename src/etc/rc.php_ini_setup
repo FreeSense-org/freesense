@@ -23,23 +23,12 @@
 VERSION=$(/bin/cat /etc/version)
 MIN_REALMEM_FOR_OPCACHE=512
 
-if /usr/local/sbin/pkg-static info -e php85; then
-	EXTENSIONSDIR="/usr/local/lib/php/20250925/"
-elif /usr/local/sbin/pkg-static info -e php84; then
-	EXTENSIONSDIR="/usr/local/lib/php/20240924/"
-elif /usr/local/sbin/pkg-static info -e php83; then
-	EXTENSIONSDIR="/usr/local/lib/php/20230831/"
-elif /usr/local/sbin/pkg-static info -e php82; then
-	EXTENSIONSDIR="/usr/local/lib/php/20220829/"
-elif /usr/local/sbin/pkg-static info -e php81; then
-	EXTENSIONSDIR="/usr/local/lib/php/20210902/"
-elif /usr/local/sbin/pkg-static info -e php74; then
-	EXTENSIONSDIR="/usr/local/lib/php/20190902/"
-elif /usr/local/sbin/pkg-static info -e php73; then
-	EXTENSIONSDIR="/usr/local/lib/php/20180731/"
-elif /usr/local/sbin/pkg-static info -e php72; then
-	EXTENSIONSDIR="/usr/local/lib/php/20170718/"
+# Ask the installed PHP for its extension directory, ignoring any php.ini.
+EXTENSIONSDIR=$(/usr/local/bin/php -n -r 'echo PHP_EXTENSION_DIR;' 2>/dev/null)
+if [ -z "${EXTENSIONSDIR}" ]; then
+	EXTENSIONSDIR="/usr/local/lib/php/20250925"
 fi
+EXTENSIONSDIR="${EXTENSIONSDIR}/"
 
 # Grab amount of memory that is detected
 if [ -f /var/log/dmesg.boot ]; then
@@ -67,22 +56,18 @@ if [ "${REALMEM}" -lt "$MIN_REALMEM_FOR_OPCACHE" ]; then
 	echo "INFO >>> Under $MIN_REALMEM_FOR_OPCACHE megabytes of ram detected.  Not enabling opcache" | /usr/bin/logger -p daemon.info -i -t rc.php_ini_setup
 else
 
-	# Calculate opcache memory size according
-	# to detected memory values
-	if [ "$AVAILMEM" -gt "135" ]; then
-		OPCACHEMEMSIZE="10"
-	fi
-	if [ "$AVAILMEM" -gt "256" ]; then
-		OPCACHEMEMSIZE="20"
-	fi
-	if [ "$AVAILMEM" -gt "384" ]; then
-		OPCACHEMEMSIZE="25"
-	fi
-	if [ "$AVAILMEM" -gt "512" ]; then
-		OPCACHEMEMSIZE="30"
-	fi
+	# Calculate opcache memory size according to detected memory values.
+	# The WebUI, its includes and installed packages need more than 32MB
+	# of compiled scripts and interned strings to stay fully cached.
+	OPCACHEMEMSIZE="48"
+	OPCACHESTRINGS="8"
 	if [ "$AVAILMEM" -gt "784" ]; then
-		OPCACHEMEMSIZE="50"
+		OPCACHEMEMSIZE="64"
+		OPCACHESTRINGS="16"
+	fi
+	if [ "$AVAILMEM" -gt "1536" ]; then
+		OPCACHEMEMSIZE="128"
+		OPCACHESTRINGS="16"
 	fi
 fi
 
@@ -195,7 +180,6 @@ expose_php = Off
 implicit_flush = true
 magic_quotes_gpc = Off
 max_execution_time = 900
-request_terminate_timeout = 900
 max_input_time = 1800
 max_input_vars = 5000
 register_argc_argv = On
@@ -260,15 +244,17 @@ if [ "$LOWMEM" != "TRUE" ]; then
 	/bin/cat >>/usr/local/etc/php.ini <<EOF
 
 ; opcache Settings
-opcache.enabled="1"
+opcache.enable="1"
 opcache.enable_cli="0"
 opcache.memory_consumption="${OPCACHEMEMSIZE}"
+opcache.interned_strings_buffer="${OPCACHESTRINGS}"
+opcache.max_accelerated_files="10000"
 
 EOF
 else
 	/bin/cat >>/usr/local/etc/php.ini <<EOF
 ; opcache Settings
-opcache.enabled="0"
+opcache.enable="0"
 EOF
 fi
 
@@ -320,6 +306,12 @@ if [ "$REALMEM" -lt 250 ]; then
 	PHPFPMSTART=1
 	PHPFPMSPARE=1
 	PHPFPMREQ=500
+elif [ "${REALMEM}" -gt 2000 ]; then
+	PHPFPMMAX=12
+	PHPFPMIDLE=3600
+	PHPFPMSTART=2
+	PHPFPMSPARE=7
+	PHPFPMREQ=5000
 elif [ "${REALMEM}" -gt 1000 ]; then
 	PHPFPMMAX=8
 	PHPFPMIDLE=3600
@@ -355,6 +347,9 @@ security.limit_extensions =
 ; Pass environment variables
 env[PATH] = /bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 env[LOGNAME] = root
+
+; No request_terminate_timeout: HA sync, package and restore pages run
+; without a time limit and must not be killed while writing the config.
 
 EOF
 
@@ -427,7 +422,7 @@ for EXT in $PHPMODULESLC; do
 	if [ "$SHOULDREMOVE" = "true" ]; then
 		if [ -f "${EXTENSIONSDIR}${EXT}.so" ]; then
 			echo ">>> ${EXT} did not load correctly.  Removing from php.ini..." >> /var/run/php_modules_load_errors.txt
-			/usr/bin/grep -v "$EXT" /usr/local/etc/php.ini > /tmp/php.ini
+			/usr/bin/grep -iv "^extension=${EXT}\.so$" /usr/local/etc/php.ini > /tmp/php.ini
 			/bin/rm -f /usr/local/etc/php.ini
 			/bin/mv /tmp/php.ini /usr/local/etc/php.ini
 		fi
