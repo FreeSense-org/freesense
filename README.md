@@ -64,8 +64,4 @@ they are not FreeSense product branding. Current 16-CURRENT builds are unsupport
 
 ---
 
-<sub>
-
 **Upstream &amp; license.** FreeSense is a derivative work of **pfSense® CE**, © 2004–2026 Rubicon Communications, LLC (Netgate) and earlier Electric Sheep Fencing, LLC, originally published under the Apache License 2.0. FreeSense is licensed under the **Apache License 2.0** (see [`LICENSE`](LICENSE)); original copyright notices are retained and modifications relative to upstream are documented in [`NOTICE`](NOTICE). *"pfSense" is a registered trademark of Electric Sheep Fencing, LLC, licensed to Netgate.* FreeSense is **not** pfSense and is **not** affiliated with, sponsored by, or endorsed by Netgate or Electric Sheep Fencing — the name is used only to identify the upstream project FreeSense is derived from.
-
-</sub>
