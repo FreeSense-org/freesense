@@ -1,0 +1,18 @@
+# Dependency update pull requests. Grouped and monthly: every merge to this
+# repository starts a new System build, so updates are batched.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ['*']
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      composer:
+        patterns: ['*']
