@@ -8,9 +8,11 @@ release-candidate builds are test channels and receive no support guarantee.
 
 ## Reporting a vulnerability
 
-Do not open a public issue for a suspected vulnerability. Use GitHub's private
-vulnerability reporting feature for `FreeSense-org/freesense`. Include affected
-versions, reproduction steps, impact, and any proposed mitigation.
+Do not open a public issue for a suspected vulnerability. Report it privately
+through GitHub's private vulnerability reporting for `FreeSense-org/freesense`:
+<https://github.com/FreeSense-org/freesense/security/advisories/new>.
+Include affected versions, reproduction steps, impact, and any proposed
+mitigation.
 
 The project aims to acknowledge reports within 72 hours, provide an initial
 severity assessment within seven days, and coordinate disclosure after a signed

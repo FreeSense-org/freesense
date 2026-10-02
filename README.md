@@ -13,6 +13,7 @@
 [![Built on FreeBSD](https://img.shields.io/badge/built%20on-FreeBSD-14181F?style=flat-square)](https://www.freebsd.org/)
 [![Packages](https://img.shields.io/badge/pkg-pkg.freesense.org-EA4F2D?style=flat-square)](https://pkg.freesense.org)
 [![ISOs](https://img.shields.io/badge/downloads-downloads.freesense.org-14181F?style=flat-square)](https://downloads.freesense.org)
+[![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/FreeSense-org/freesense?label=openssf%20scorecard&style=flat-square)](https://scorecard.dev/viewer/?uri=github.com/FreeSense-org/freesense)
 
 </div>
 
