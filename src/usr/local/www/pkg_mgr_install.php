@@ -74,7 +74,9 @@ if (!empty($_POST['fwbranch']) &&
 
 $pkgname = '';
 
-if (!empty($_REQUEST['pkg'])) {
+/* The package name is also used to build log file paths; accept package-name
+ * characters only so it cannot point outside the log directory. */
+if (!empty($_REQUEST['pkg']) && preg_match('/^[A-Za-z0-9][A-Za-z0-9._+-]*$/', $_REQUEST['pkg'])) {
 	$pkgname = $_REQUEST['pkg'];
 }
 
