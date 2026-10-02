@@ -690,10 +690,26 @@ function openvpn_gen_tunnel_network($tunnel_network) {
 	return explode('/', $pair);
 }
 
+/* NetBIOS scope IDs are dot-separated labels, like a domain name. */
+function openvpn_is_valid_netbios_scope($scope) {
+	return (is_string($scope) && preg_match('/^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$/', $scope));
+}
+
 function openvpn_add_dhcpopts(& $settings, & $conf) {
 
-	if (!empty($settings['dns_domain'])) {
-		$conf .= "push \"dhcp-option DOMAIN {$settings['dns_domain']}\"\n";
+	/* These values are placed inside quoted push lines. Drop anything that
+	 * could close the quotes or start a new line (e.g. from an old config). */
+	$safe = [];
+	foreach (['dns_domain', 'netbios_scope'] as $opt) {
+		$safe[$opt] = $settings[$opt] ?? '';
+		if (!empty($safe[$opt]) && preg_match('/["\\\\\x00-\x1F\x7F]/', $safe[$opt])) {
+			log_error(sprintf(gettext("OpenVPN: ignoring invalid %s value."), $opt));
+			$safe[$opt] = '';
+		}
+	}
+
+	if (!empty($safe['dns_domain'])) {
+		$conf .= "push \"dhcp-option DOMAIN {$safe['dns_domain']}\"\n";
 	}
 
 	if (!empty($settings['dns_server1'])) {
@@ -732,8 +748,8 @@ function openvpn_add_dhcpopts(& $settings, & $conf) {
 		if (!empty($settings['netbios_ntype']) && ($settings['netbios_ntype'] != 0)) {
 			$conf .= "push \"dhcp-option NBT {$settings['netbios_ntype']}\"\n";
 		}
-		if (!empty($settings['netbios_scope'])) {
-			$conf .= "push \"dhcp-option NBS {$settings['netbios_scope']}\"\n";
+		if (!empty($safe['netbios_scope'])) {
+			$conf .= "push \"dhcp-option NBS {$safe['netbios_scope']}\"\n";
 		}
 
 		if (!empty($settings['wins_server1'])) {

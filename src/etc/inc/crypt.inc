@@ -33,6 +33,8 @@ define('PFS_OPENSSL_DEFAULT_ITERATIONS', '500000');
 	}
 
 	function crypt_data($val, $pass, $opt, $legacy = false, $iterations = PFS_OPENSSL_DEFAULT_ITERATIONS) {
+		/* The plaintext and ciphertext must only be readable by root. */
+		$old_umask = umask(0077);
 		$file = tempnam("/tmp", "php-encrypt");
 		/* Ensure the files do not already exist */
 
@@ -41,13 +43,29 @@ define('PFS_OPENSSL_DEFAULT_ITERATIONS', '500000');
 
 		/* Use PBKDF2 Key Derivation (https://en.wikipedia.org/wiki/PBKDF2)
 		 *  unless we need to read old data encrypted without it. */
-		$keyder = ($legacy) ? "" : "-pbkdf2";
 		$md = ($legacy) ? "md5" : "sha256";
-		$iter = ($legacy) ? '' : ' -iter ' . escapeshellarg($iterations);
+		$cmd = ['/usr/bin/openssl', 'enc', $opt, '-aes-256-cbc',
+		    '-in', "{$file}.dec", '-out', "{$file}.enc",
+		    '-pass', 'fd:3', '-salt', '-md', $md];
+		if (!$legacy) {
+			array_push($cmd, '-pbkdf2', '-iter', (string)$iterations);
+		}
 
-		$output = "";
-		$exitcode = "";
-		exec("/usr/bin/openssl enc {$opt} -aes-256-cbc -in {$file}.dec -out {$file}.enc -pass pass:" . escapeshellarg($pass) . " -salt -md {$md} {$keyder} {$iter} 2> /dev/null", $output, $exitcode);
+		/* Hand the passphrase over a pipe so it never appears in the
+		 * process list (pfSense-SA-26_19). */
+		$exitcode = 1;
+		$proc = proc_open($cmd, [
+		    0 => ['file', '/dev/null', 'r'],
+		    1 => ['file', '/dev/null', 'w'],
+		    2 => ['file', '/dev/null', 'w'],
+		    3 => ['pipe', 'r'],
+		], $pipes);
+		if (is_resource($proc)) {
+			fwrite($pipes[3], $pass . "\n");
+			fclose($pipes[3]);
+			$exitcode = proc_close($proc);
+		}
+		umask($old_umask);
 
 		if (($exitcode == 0) && file_exists("{$file}.enc") && (filesize("{$file}.enc") > 0)) {
 			$result = file_get_contents("{$file}.enc");

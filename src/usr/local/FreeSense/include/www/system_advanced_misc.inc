@@ -216,6 +216,17 @@ function saveSystemAdvancedMisc($post, $json = false) {
 		$input_errors[] = gettext("Proxy URL must be a valid IP address or FQDN.");
 	}
 
+	foreach (['proxyurl', 'proxyport', 'proxyuser', 'proxypass'] as $proxyfield) {
+		if (preg_match('/[\x00-\x1F\x7F]/', (string)$post[$proxyfield])) {
+			$input_errors[] = gettext("Proxy settings must not contain control characters such as line breaks.");
+			break;
+		}
+	}
+
+	if (str_contains((string)$post['proxyuser'], ':')) {
+		$input_errors[] = gettext("Proxy username must not contain a colon.");
+	}
+
 	if (!empty($post['proxyuser']) && empty($post['proxypass'])) {
 		$input_errors[] = gettext("A proxy password must be set when specifying a proxy username.");
 	}

@@ -452,6 +452,7 @@ if (isset($_POST['apply'])) {
 
 	/* validate custom config */
 	if (dhcp_is_backend('kea')) {
+		kea_custom_config_enforce(array_get_path($dhcpdconf, 'custom_kea_config'), $input_errors);
 		if (!empty($_POST['custom_kea_config'])) {
 			$json = json_decode($_POST['custom_kea_config'], true);
 			if (!is_array($json) || (json_last_error() !== JSON_ERROR_NONE)) {
@@ -893,9 +894,9 @@ if (is_ipaddrv6($ifcfgip)) {
 			$section->addInput(new Form_StaticText(
 				($first ? ((count($ranges) > 1) ? gettext('In-use Ranges') : gettext('In-use Range')) : null),
 				sprintf('%s - %s%s',
-					array_get_path($range, 'from'),
-					array_get_path($range, 'to'),
-					!empty($range['descr']) ? ' ('.$range['descr'].')' : null
+					htmlspecialchars((string)array_get_path($range, 'from')),
+					htmlspecialchars((string)array_get_path($range, 'to')),
+					!empty($range['descr']) ? ' ('.htmlspecialchars($range['descr']).')' : null
 				)
 			));
 			$first = false;
@@ -1420,11 +1421,14 @@ endif; /* dhcp_is_backend('kea') */
 
 if (dhcp_is_backend('kea')):
 $section = new Form_Section(gettext('Custom Configuration'));
-$section->addInput(new Form_Textarea(
+$kea_custom_input = $section->addInput(new Form_Textarea(
 	'custom_kea_config',
 	gettext('JSON Configuration'),
 	array_get_path($pconfig, 'custom_kea_config')
 ))->setWidth(8)->setHelp(gettext('JSON to be merged into the "%1$s" section of the generated Kea DHCPv6 configuration.%2$sThe input must be a well formed JSON object and should not include the "%1$s" key itself.'), $kea_section, '<br/>');
+if (!kea_custom_config_editable()) {
+	$kea_custom_input->setReadonly();
+}
 $form->add($section);
 endif;	
 

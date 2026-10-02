@@ -1454,7 +1454,8 @@ function is_ipaddrv6_v4map($ipaddr) {
 
 /* returns true if $ipaddr is a valid dotted IPv4 address */
 function is_ipaddrv4($ipaddr) {
-	if (!is_string($ipaddr) || empty($ipaddr) || ip2long($ipaddr) === FALSE) {
+	if (!is_string($ipaddr) || empty($ipaddr) || str_contains($ipaddr, "\0") ||
+	    ip2long($ipaddr) === FALSE) {
 		return false;
 	}
 	return true;

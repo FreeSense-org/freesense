@@ -590,11 +590,11 @@ $section->addInput(new Form_Select(
 if (!empty($pconfig['ikeid'])) {
 	$p1 = ipsec_get_phase1($pconfig['ikeid']);
 	if (!empty($p1['descr'])) {
-		$p1name = $p1['descr'];
+		$p1name = htmlspecialchars($p1['descr']);
 	} else {
 		$p1name = '<i>' . gettext('No description') . '</i> ';
 	}
-	$p1name .= ' (IKE ID ' . $pconfig['ikeid'];
+	$p1name .= ' (IKE ID ' . htmlspecialchars($pconfig['ikeid']);
 	if (isset($pconfig['mobile'])) {
 		$p1name .= ', ' . gettext('Mobile');
 	}
@@ -602,7 +602,7 @@ if (!empty($pconfig['ikeid'])) {
 	$section->addInput(new Form_StaticText(
 		'Phase 1',
 		$p1name .
-		' <a class="fa-solid fa-pencil" href="vpn_ipsec_phase1.php?ikeid=' . $p1['ikeid'] . '" title="' . gettext("Edit Phase 1 Entry") . '"></a>'
+		' <a class="fa-solid fa-pencil" href="vpn_ipsec_phase1.php?ikeid=' . urlencode((string)$p1['ikeid']) . '" title="' . gettext("Edit Phase 1 Entry") . '"></a>'
 	));
 }
 if (!empty($pconfig['reqid'])) {

@@ -237,6 +237,15 @@ if ($_POST['save']) {
 		}
 	}
 
+	if ($pconfig['dns_domain_enable'] && !is_domain($pconfig['dns_domain'])) {
+		$input_errors[] = gettext("The field 'DNS Default Domain' must contain a valid domain name");
+	}
+
+	if ($pconfig['netbios_enable'] && !empty($pconfig['netbios_scope']) &&
+	    !openvpn_is_valid_netbios_scope($pconfig['netbios_scope'])) {
+		$input_errors[] = gettext("The field 'NetBIOS Scope ID' may only contain letters, digits, hyphens, underscores and dots");
+	}
+
 	if ($pconfig['dns_server_enable']) {
 		if (!empty($pconfig['dns_server1']) && !is_ipaddr(trim($pconfig['dns_server1']))) {
 			$input_errors[] = gettext("The field 'DNS Server #1' must contain a valid IP address");

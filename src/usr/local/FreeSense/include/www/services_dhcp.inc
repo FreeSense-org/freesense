@@ -341,6 +341,8 @@ function dhcp_validate_settings_post(array $pconfig): array {
 
 function dhcp_do_settings_post(): array {
 	$pconfig = $old_config = config_get_path('kea', []);
+	$priv_errors = [];
+	kea_custom_config_enforce(array_get_path($old_config, 'custom_kea_config'), $priv_errors);
 
 	/* normalize these fields so that changes comparison below works properly */
 	foreach ([
@@ -424,7 +426,7 @@ function dhcp_do_settings_post(): array {
 		array_del_path($pconfig, 'ha');
 	}
 
-	$input_errors = dhcp_validate_settings_post($pconfig);
+	$input_errors = array_merge($priv_errors, dhcp_validate_settings_post($pconfig));
 	if (!$input_errors && ($pconfig !== $old_config)) {
 		config_set_path('kea', $pconfig);
 		write_config(gettext('DHCP Server - Settings changed'));
@@ -438,6 +440,8 @@ function dhcp_do_settings_post(): array {
 
 function dhcp6_do_settings_post(): array {
 	$pconfig = $old_config = config_get_path('kea6', []);
+	$priv_errors = [];
+	kea_custom_config_enforce(array_get_path($old_config, 'custom_kea_config'), $priv_errors);
 
 	/* normalize these fields so that changes comparison below works properly */
 	foreach ([
@@ -521,7 +525,7 @@ function dhcp6_do_settings_post(): array {
 		array_del_path($pconfig, 'ha');
 	}
 
-	$input_errors = dhcp_validate_settings_post($pconfig);
+	$input_errors = array_merge($priv_errors, dhcp_validate_settings_post($pconfig));
 	if (!$input_errors && ($pconfig !== $old_config)) {
 		config_set_path('kea6', $pconfig);
 		write_config(gettext('DHCPv6 Server - Settings changed'));

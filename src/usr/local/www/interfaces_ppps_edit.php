@@ -260,6 +260,12 @@ if ($_POST['save']) {
 	if (config_path_enabled('system', 'use_if_pppoe') && is_array($_POST['interfaces']) && (count($_POST['interfaces']) > 1)) {
 		$input_errors[] = gettext("Multilink connections (MLPPP) using the if_pppoe kernel driver is not currently supported. Please select only one Link Interface.");
 	}
+	foreach (['provider', 'providerplan'] as $ppp_text_field) {
+		if (preg_match('/[\x00-\x1F\x7F<>"\\\\]/', (string)$_POST[$ppp_text_field])) {
+			$input_errors[] = gettext("The Service provider, Plan and Service name fields contain invalid characters.");
+			break;
+		}
+	}
 	if ($_POST['provider'] && $_POST['null_service']) {
 		$input_errors[] = gettext("Do not specify both a Service name and a NULL Service name.");
 	}
@@ -1134,7 +1140,7 @@ events.push(function() {
 						$('#provider').append(new Option(value, value));
 					}
 				}
-				$("#provider").val("<?=$pconfig['provider'];?>");
+				$("#provider").val(<?=json_encode((string)$pconfig['provider'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);?>);
 				// select option simulates the provider to populate the Plan
 				$("#provider").trigger("change");
 			}
@@ -1159,7 +1165,7 @@ events.push(function() {
 											  providerplan[1]));
 					}
 				}
-				$("#providerplan").val("<?=$pconfig['providerplan'];?>");
+				$("#providerplan").val(<?=json_encode((string)$pconfig['providerplan'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);?>);
 			}
 		});
 	}

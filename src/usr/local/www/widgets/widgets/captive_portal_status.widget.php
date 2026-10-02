@@ -81,9 +81,9 @@ foreach (config_get_path('captiveportal', []) as $cpzone => $cp) {
 		<tbody>
 	<?php foreach ($cpdb_all as $cpent): ?>
 		<tr>
-			<td><?=$cpent[2];?></td>
-			<td><?=$cpent[3];?></td>
-			<td><?=$cpent[4];?></td>
+			<td><?=htmlspecialchars($cpent[2]);?></td>
+			<td><?=htmlspecialchars($cpent[3]);?></td>
+			<td><?=htmlspecialchars($cpent[4]);?></td>
 			<td><?=date("m/d/Y H:i:s", $cpent[0]);?></td>
 			<td>
 <?php
@@ -95,7 +95,7 @@ foreach (config_get_path('captiveportal', []) as $cpzone => $cp) {
 ?>
 			</td>
 			<td>
-				<a href="?order=<?=htmlspecialchars($_GET['order']);?>&amp;showact=<?=$showact;?>&amp;act=del&amp;zone=<?=$cpent[10];?>&amp;id=<?=$cpent[5];?>">
+				<a href="?order=<?=htmlspecialchars($_GET['order']);?>&amp;showact=<?=htmlspecialchars($showact);?>&amp;act=del&amp;zone=<?=urlencode($cpent[10]);?>&amp;id=<?=urlencode($cpent[5]);?>">
 					<i class="fa-solid fa-trash-can" title="<?=gettext("delete");?>"></i>
 				</a>
 			</td>

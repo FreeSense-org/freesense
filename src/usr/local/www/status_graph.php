@@ -74,13 +74,17 @@ if (!empty($_POST)) {
 		header("Location: status_graph.php");
 		exit;
 	}
-	$cursort = $_POST['sort'];
-	$curfilter = $_POST['filter'];
-	$curhostipformat = $_POST['hostipformat'];
-	$curbackgroundupdate = $_POST['backgroundupdate'];
-	$curinvert = $_POST['invert'];
-	$cursmoothing = $_POST['smoothfactor'];
-	$curmode = $_POST['mode'];
+	/* Only accept the values offered by the form. */
+	$pick = function ($value, $allowed) {
+		return in_array($value, $allowed, true) ? $value : $allowed[0];
+	};
+	$cursort = $pick($_POST['sort'], ['in', 'out']);
+	$curfilter = $pick($_POST['filter'], ['local', 'remote', 'all']);
+	$curhostipformat = $pick($_POST['hostipformat'], ['', 'hostname', 'descr', 'fqdn']);
+	$curbackgroundupdate = $pick($_POST['backgroundupdate'], ['false', 'true']);
+	$curinvert = $pick($_POST['invert'], ['true', 'false']);
+	$cursmoothing = $pick($_POST['smoothfactor'], ['0', '1', '2', '3', '4', '5']);
+	$curmode = $pick($_POST['mode'], ['rate', 'iftop']);
 
 	// Save data to config
 	if (isset($_POST['save'])) {
@@ -260,7 +264,7 @@ $realif = get_real_interface($curif);
 //<![CDATA[
 events.push(function() {
 
-	var InterfaceString = "<?=$curif?>";
+	var InterfaceString = <?=json_encode((string)$curif, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
 	var RealInterfaceString = "<?=$realif?>";
 	window.graph_backgroundupdate = $('#backgroundupdate').val() === "true";
 	window.smoothing = $('#smoothfactor').val();
@@ -304,11 +308,12 @@ function updateBandwidth() {
 					if ((y < hosts_split.length) && (hosts_split[y] != "") && (hosts_split[y] != "no info")) {
 						hostinfo = hosts_split[y].split(";");
 
-						$('#top10-hosts').append('<tr>'+
-							'<td>'+ hostinfo[0] +'</td>'+
-							'<td>'+ hostinfo[1] +' <?=gettext("Bits/sec");?></td>'+
-							'<td>'+ hostinfo[2] +' <?=gettext("Bits/sec");?></td>'+
-						'</tr>');
+						// Host names and descriptions come from DNS and DHCP data; insert them as text.
+						$('#top10-hosts').append($('<tr>').append(
+							$('<td>').text(hostinfo[0]),
+							$('<td>').text(hostinfo[1] + ' ' + <?=json_encode(gettext("Bits/sec"));?>),
+							$('<td>').text(hostinfo[2] + ' ' + <?=json_encode(gettext("Bits/sec"));?>)
+						));
 					}
 				}
 			},
@@ -340,7 +345,7 @@ if (ipsec_enabled()) {
 	</div>
 	<div class="panel-body">
 		<div class="col-sm-6">
-			<div id="traffic-chart-<?=$curif?>" class="d3-chart traffic-widget-chart">
+			<div id="traffic-chart-<?=htmlspecialchars($curif)?>" class="d3-chart traffic-widget-chart">
 				<svg></svg>
 			</div>
 		</div>

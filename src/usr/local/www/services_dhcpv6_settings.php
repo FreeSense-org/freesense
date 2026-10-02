@@ -357,11 +357,14 @@ $section->addInput(new Form_Select(
 $form->add($section);
 
 $section = new Form_Section(gettext('Custom Configuration'));
-$section->addInput(new Form_Textarea(
+$kea_custom_input = $section->addInput(new Form_Textarea(
 	'custom_kea_config',
 	gettext('JSON Configuration'),
 	array_get_path($pconfig, 'custom_kea_config')
 ))->setWidth(8)->setHelp(gettext('JSON to be merged into the "%1$s" section of the generated Kea DHCPv6 configuration.%2$sThe input must be a well formed JSON object and should not include the "%1$s" key itself.'), 'Dhcp6', '<br/>');
+if (!kea_custom_config_editable()) {
+	$kea_custom_input->setReadonly();
+}
 $form->add($section);
 
 $form->addGlobal(new Form_Input(

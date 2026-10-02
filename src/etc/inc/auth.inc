@@ -2503,7 +2503,7 @@ EOD;
 			$ldapconf .= "ldap_version {$authcfg['ldap_protver']}\n";
 			$ldapconf .= "timelimit {$authcfg['ldap_timeout']}\n";
 			$ldapconf .= "base {$authcfg['ldap_basedn']}\n";
-			$scope = ($authcfg['ldap_scope' == 'one']) ? 'one' : 'sub';
+			$scope = ($authcfg['ldap_scope'] == 'one') ? 'one' : 'sub';
 			$ldapconf .= "scope {$scope}\n";
 			$ldapconf .= "binddn {$authcfg['ldap_binddn']}\n";
 			$ldapconf .= "bindpw {$authcfg['ldap_bindpw']}\n";
@@ -2521,7 +2521,7 @@ auth		required	pam_unix.so		no_warn try_first_pass
 # account
 account		required	pam_nologin.so
 account		required	pam_login_access.so
-account         sufficient      /usr/local/lib/pam_ldap.so	ignore_authinfo_unavail ignore_unknown_user config=/var/etc/pam_ldap.conf
+account         required        /usr/local/lib/pam_ldap.so	ignore_authinfo_unavail ignore_unknown_user config=/var/etc/pam_ldap.conf
 
 # session
 session		required	/usr/local/lib/pam_mkhomedir.so	umask=0077 skel=/etc/skel/ silent
@@ -2541,8 +2541,8 @@ auth		required	pam_unix.so		no_warn try_first_pass
 
 # account
 account		required	pam_login_access.so
+account         required        /usr/local/lib/pam_ldap.so	ignore_authinfo_unavail ignore_unknown_user config=/var/etc/pam_ldap.conf
 account         sufficient      pam_radius.so
-account         sufficient      /usr/local/lib/pam_ldap.so	ignore_authinfo_unavail ignore_unknown_user config=/var/etc/pam_ldap.conf
 
 # session
 session		required	/usr/local/lib/pam_mkhomedir.so	umask=0077 skel=/etc/skel/ silent

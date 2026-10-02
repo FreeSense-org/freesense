@@ -1448,12 +1448,13 @@ function find_rule_by_number_buffer($rulenr, $subrulenr, $trackernum, $type) {
 	if ($type == "rdr") {
 		$ruleString = $buffer_rules_rdr[$lookup_key];
 		//TODO: get the correct 'description' part of a RDR log line. currently just first 30 characters..
-		$rulename = substr($ruleString, 0, 30);
+		$rulename = htmlspecialchars(substr($ruleString, 0, 30));
 	} else {
 		$ruleString = $buffer_rules_normal[$lookup_key];
-		$rulename = str_replace("USER_RULE: ", '<i class="fa-solid fa-user"></i> ', $ruleString);
+		/* Rule descriptions are user-controlled; encode before adding markup. */
+		$rulename = str_replace(htmlspecialchars("USER_RULE: "), '<i class="fa-solid fa-user"></i> ', htmlspecialchars($ruleString));
 	}
-	return "{$rulename} ({$lookup_key})";
+	return $rulename . ' (' . htmlspecialchars($lookup_key) . ')';
 }
 
 function find_action_image($action) {

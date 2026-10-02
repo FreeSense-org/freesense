@@ -7,6 +7,14 @@ require_once("guiconfig.inc");
  * Copyright (c) 2013-2026 Rubicon Communications, LLC (Netgate)
  * All rights reserved.
  */
+// Encode a value as a JavaScript string literal for use inside an HTML
+// attribute such as onClick. htmlspecialchars() alone is not enough there,
+// because the browser decodes entities before running the script.
+function fb_js_string($value) {
+	return htmlspecialchars(json_encode((string)$value,
+	    JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES));
+}
+
 // Fetch a list of directories and files inside a given directory
 function get_content($dir) {
 	$dirs  = array();
@@ -47,7 +55,7 @@ if (is_file($path)) {
 <table width="100%">
 	<tr>
 		<td class="fbHome text-left" width="25px">
-			<img onClick="$('#fbTarget').val('<?=htmlspecialchars($realDir)?>'); fbBrowse('/');" src="/vendor/filebrowser/images/icon_home.gif" alt="Home" title="Home" />
+			<img onClick="$('#fbTarget').val(''); fbBrowse('/');" src="/vendor/filebrowser/images/icon_home.gif" alt="Home" title="Home" />
 		</td>
 		<td><b><?=htmlspecialchars($path);?></b></td>
 		<td class="fbClose text-right">
@@ -83,7 +91,7 @@ foreach ($dirs as $dir):
 	<tr>
 		<td></td>
 		<td class="fbDir vexpl text-left" id="<?=htmlspecialchars($realDir);?>">
-			<div onClick="$('#fbTarget').val('<?=htmlspecialchars($realDir)?>'); fbBrowse('<?=htmlspecialchars($realDir)?>');">
+			<div onClick="$('#fbTarget').val(<?=fb_js_string($realDir)?>); fbBrowse(<?=fb_js_string($realDir)?>);">
 				<img src="/vendor/filebrowser/images/folder_generic.gif" />
 				&nbsp;<?=htmlspecialchars($dir);?>
 			</div>
@@ -149,8 +157,8 @@ foreach ($files as $file):
 	<tr>
 		<td></td>
 		<td class="fbFile vexpl text-left" id="<?=htmlspecialchars($fqpn);?>">
-			<?php $filename = htmlspecialchars(addslashes(str_replace("//","/", "{$path}/{$file}"))); ?>
-			<div onClick="$('#fbTarget').val('<?=$filename?>'); loadFile(); $('#fbBrowser').fadeOut();">
+			<?php $filename = fb_js_string(str_replace("//","/", "{$path}/{$file}")); ?>
+			<div onClick="$('#fbTarget').val(<?=$filename?>); loadFile(); $('#fbBrowser').fadeOut();">
 				<img src="/vendor/filebrowser/images/file_<?=$type;?>.gif" alt="" title="">
 				&nbsp;<?=htmlspecialchars($file);?>
 			</div>
