@@ -73,15 +73,7 @@ if ($_REQUEST['delete']) {
 }
 
 if ($_POST['clearall']) {
-	$entries = array();
-	exec("/sbin/pfctl -t " . escapeshellarg($tablename) . " -T show", $entries);
-	if (is_array($entries)) {
-		foreach ($entries as $entryA) {
-			$entry = trim($entryA);
-			exec("/sbin/pfctl -t " . escapeshellarg($tablename) . " -T delete " . escapeshellarg($entry), $delete);
-		}
-	}
-	unset($entries);
+	exec("/sbin/pfctl -t " . escapeshellarg($tablename) . " -T flush");
 }
 
 if ($_POST['Download'] && ($bogons || $urltable)) {
