@@ -220,9 +220,16 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		unset($biosversion);
 		unset($biosdate);
 		unset($bootmethod);
-		$_gb = exec('/bin/kenv -q smbios.bios.vendor 2>/dev/null', $biosvendor);
-		$_gb = exec('/bin/kenv -q smbios.bios.version 2>/dev/null', $biosversion);
-		$_gb = exec('/bin/kenv -q smbios.bios.reldate 2>/dev/null', $biosdate);
+		if (function_exists('FreeSense_kenv_dump')) {
+			$kenv = FreeSense_kenv_dump();
+			$biosvendor = [$kenv['smbios.bios.vendor'] ?? ''];
+			$biosversion = [$kenv['smbios.bios.version'] ?? ''];
+			$biosdate = [$kenv['smbios.bios.reldate'] ?? ''];
+		} else {
+			$_gb = exec('/bin/kenv -q smbios.bios.vendor 2>/dev/null', $biosvendor);
+			$_gb = exec('/bin/kenv -q smbios.bios.version 2>/dev/null', $biosversion);
+			$_gb = exec('/bin/kenv -q smbios.bios.reldate 2>/dev/null', $biosdate);
+		}
 		$bootmethod = get_single_sysctl("machdep.bootmethod");
 		/* Only display BIOS information if there is any to show. */
 		if (!empty($biosvendor[0]) || !empty($biosversion[0]) || !empty($biosdate[0])):
@@ -529,7 +536,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 					<div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="<?=$swapusage?>" aria-valuemin="0" aria-valuemax="100" style="width: <?=$swapusage?>%">
 					</div>
 				</div>
-				<span><?=$swapusage?>% of <?= sprintf("%.0f", `/usr/sbin/swapinfo -m | /usr/bin/tail -1 | /usr/bin/awk '{ print $2;}'`) ?> MiB</span>
+				<span><?=$swapusage?>% of <?= sprintf("%.0f", get_single_sysctl('vm.swap_total') / (1024*1024)) ?> MiB</span>
 			</td>
 		</tr>
 		<?php endif; ?>

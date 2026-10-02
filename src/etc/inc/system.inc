@@ -2138,11 +2138,33 @@ EOD;
 		$nginx_config .= "\tlimit_conn_zone \$binary_remote_addr zone=addr:10m;\n";
 		$nginx_config .= "\tkeepalive_timeout 0;\n";
 		$intercept_errors = "";
+		$static_expires = "";
+		$fastcgi_buffers = "";
 	} else {
 		$nginx_config .= "\tkeepalive_timeout 75;\n";
 		$nginx_config .= "\terror_page 404 /404.html;\n";
 		$nginx_config .= "\terror_page 500 502 503 504 /50x.html;\n";
 		$intercept_errors = "\t\t\tfastcgi_intercept_errors on;\n";
+		/*
+		 * Browser caching for static GUI assets. Assets referenced with a
+		 * ?v=<filemtime> cache-buster can be cached for a long time since
+		 * the URL changes whenever the file does. Unversioned references
+		 * (CSS-referenced fonts/images, some page-specific scripts) get a
+		 * short lifetime so upgrades are picked up quickly. This uses a map
+		 * rather than a separate location so PHP routing, deny rules and
+		 * plugin locations are unaffected, and "expires" rather than
+		 * add_header so the inherited security headers are kept.
+		 */
+		$nginx_config .= "\tmap \"\$arg_v|\$uri\" \$static_expires {\n";
+		$nginx_config .= "\t\tdefault\toff;\n";
+		$nginx_config .= "\t\t\"~*^[^|]+\\|.+\\.(css|js|png|svg|gif|jpe?g|ico|woff2?|ttf|otf|eot)\$\"\t1y;\n";
+		$nginx_config .= "\t\t\"~*^\\|.+\\.(css|js)\$\"\t1h;\n";
+		$nginx_config .= "\t\t\"~*^\\|.+\\.(png|svg|gif|jpe?g|ico|woff2?|ttf|otf|eot)\$\"\t7d;\n";
+		$nginx_config .= "\t}\n";
+		$static_expires = "\t\texpires \$static_expires;\n";
+		/* Keep large pages (rules, logs) in memory instead of temp files */
+		$fastcgi_buffers = "\t\t\tfastcgi_buffer_size 32k;\n";
+		$fastcgi_buffers .= "\t\t\tfastcgi_buffers 16 16k;\n";
 	}
 	$nginx_config .= "\tclient_header_timeout 10;\n";
 
@@ -2195,7 +2217,10 @@ EOD;
 		client_max_body_size 200m;
 
 		gzip on;
-		gzip_types text/plain text/css text/javascript application/x-javascript text/xml application/xml application/xml+rss application/json;
+		gzip_vary on;
+		gzip_comp_level 5;
+		gzip_min_length 256;
+		gzip_types text/plain text/css text/javascript application/javascript application/x-javascript text/xml application/xml application/xml+rss application/json image/svg+xml image/x-icon font/ttf font/otf application/vnd.ms-fontobject;
 
 
 EOD;
@@ -2225,7 +2250,7 @@ EOD;
 
 	$nginx_config .= <<<EOD
 		root "{$document_root}";
-		location / {
+{$static_expires}		location / {
 			index  index.php index.html index.htm;
 		}
 		location ~ (\.inc$|\.orig$|\.pkgsave$) {
@@ -2242,7 +2267,7 @@ EOD;
 			# Fix httpoxy - https://httpoxy.org/#fix-now
 			fastcgi_param  HTTP_PROXY  "";
 			fastcgi_read_timeout 180;
-{$intercept_errors}
+{$fastcgi_buffers}{$intercept_errors}
 			include        /usr/local/etc/nginx/fastcgi_params;
 		}
 		location ~ (^/status$) {

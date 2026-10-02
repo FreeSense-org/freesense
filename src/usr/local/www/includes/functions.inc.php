@@ -28,6 +28,14 @@ require_once("freesense-utils.inc");
 
 function get_stats($sitems = array()) {
 	$sitems = is_array($sitems) ? $sitems : [];
+	// Read every sysctl used below with one sysctl(8) call.
+	sysctl_prefetch([
+		'kern.cp_time', 'kern.boottime',
+		'vm.stats.vm.v_page_count', 'vm.stats.vm.v_inactive_count',
+		'vm.stats.vm.v_laundry_count', 'vm.stats.vm.v_free_count',
+		'dev.cpu.0.temperature', 'hw.acpi.thermal.tz0.temperature',
+		'dev.cpu.0.freq_levels', 'dev.cpu.0.freq',
+	]);
 	$stats['cpu'] = (!in_array('cpu_usage', $sitems)) ? cpu_usage() : '|';
 	$stats['mem'] = (!in_array('memory_usage', $sitems)) ? mem_usage() : '';
 	$stats['uptime'] = (!in_array('uptime', $sitems)) ? get_uptime() : '';
@@ -38,6 +46,7 @@ function get_stats($sitems = array()) {
 	$stats['load_average'] = (!in_array('load_average', $sitems)) ? get_load_average() : '';
 	$stats['mbuf_usage'] = (!in_array('mbuf_usage', $sitems)) ? get_mbuf() : '';
 	$stats['statepercent'] = (!in_array('state_table_size', $sitems)) ? get_pfstate(true) : '';
+	sysctl_prefetch(null);
 	$stats = join("|", $stats);
 	return $stats;
 }
@@ -90,14 +99,17 @@ function cpu_usage() {
 }
 
 function get_pfstate($percent=false) {
-	$matches = "";
+	static $curentries = null;
 	$maxstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
-	$curentries = `/sbin/pfctl -si |grep current`;
-	if (preg_match("/([0-9]+)/", $curentries, $matches)) {
-		$curentries = $matches[1];
-	}
-	if (!is_numeric($curentries)) {
+	// The state count is read once per request, from pf directly when possible.
+	if ($curentries === null) {
 		$curentries = 0;
+		$pf_stats = function_exists('FreeSense_get_pf_stats') ? FreeSense_get_pf_stats() : null;
+		if (is_array($pf_stats) && isset($pf_stats['states'])) {
+			$curentries = (int)$pf_stats['states'];
+		} elseif (preg_match("/current entries\s+([0-9]+)/", (string)shell_exec('/sbin/pfctl -si'), $matches)) {
+			$curentries = (int)$matches[1];
+		}
 	}
 	if ($percent) {
 		if (intval($maxstates) > 0) {
@@ -122,7 +134,7 @@ function get_hwtype() {
 }
 
 function get_mbuf() {
-	$mbufs_output=trim(`/usr/bin/vmstat -z --libxo=json | /usr/local/bin/jq -r '."vmstat"."memory-zone-statistics".zone.[] | select(.name=="mbuf_cluster") | "\(.limit) \(.used) \(.free)"'`);
+	$mbufs_output=trim(shell_exec('/usr/bin/vmstat -z --libxo=json | /usr/local/bin/jq -r \'."vmstat"."memory-zone-statistics".zone.[] | select(.name=="mbuf_cluster") | "\(.limit) \(.used) \(.free)"\'') ?? '');
 	list($mbufs_max, $mbufs_used, $mbufs_free) = explode(" ", $mbufs_output);
 	$mbufs_total = (int) $mbufs_used + (int) $mbufs_free;
 	return $mbufs_total . "/" . $mbufs_max;
@@ -137,7 +149,7 @@ function get_temp() {
 	// Remove 'C' from the end and spaces
 	$temp_out = trim(rtrim($temp_out, 'C'));
 
-	if ($temp_out[0] == '-') {
+	if ($temp_out === '' || $temp_out[0] == '-') {
 		return '';
 	}
 
@@ -419,9 +431,11 @@ function get_cpu_count($show_detail = false) {
 }
 
 function get_load_average() {
-	$load_average = "";
-	exec("/usr/bin/uptime | /usr/bin/sed 's/^.*: //'", $load_average);
-	return $load_average[0];
+	$load_average = sys_getloadavg();
+	if ($load_average === false) {
+		return "";
+	}
+	return vsprintf("%.2f, %.2f, %.2f", $load_average);
 }
 
 function get_interfacestats() {
