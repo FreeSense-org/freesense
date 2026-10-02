@@ -92,7 +92,7 @@ if ($_POST['Download'] && ($bogons || $urltable)) {
 	$maxtimetowait = 0;
 	$loading = true;
 	while ($loading == true) {
-		$isrunning = `/bin/ps awwwux | /usr/bin/grep -v grep | /usr/bin/grep $table_type`;
+		$isrunning = shell_exec("/bin/ps awwwux | /usr/bin/grep -v grep | /usr/bin/grep " . escapeshellarg($table_type)) ?? "";
 		if ($isrunning == "") {
 			$loading = false;
 		}
