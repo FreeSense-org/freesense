@@ -980,9 +980,9 @@ function alias_info_popup($alias_id, $is_system_alias = false) {
 	} else if ($alias['url']) {
 		// TODO: Change it when pf supports tables with ports
 		if ($alias['type'] == "urltable") {
-			exec("/sbin/pfctl -t {$alias['name']} -T show | wc -l", $total_entries);
-			$counter=preg_replace("/\D/", "", $total_entries[0]);
-			exec("/sbin/pfctl -t {$alias['name']} -T show | head -10002", $alias_addresses);
+			// One pass over the table: the first 10002 entries, then the total count.
+			exec("/sbin/pfctl -t " . escapeshellarg($alias['name']) . " -T show | /usr/bin/awk 'NR <= 10002 { print } END { print NR }'", $alias_addresses);
+			$counter = (int)array_pop($alias_addresses);
 		} else {
 			$urlfn = alias_expand_urltable($alias['name']);
 			$alias_addresses = empty($urlfn) ? [] : explode("\n", file_get_contents($urlfn));
@@ -1149,7 +1149,6 @@ function rule_columns_with_alias($src, $srcport, $dst, $dstport, $target="", $ta
 }
 
 function form_output_row($name, $label, $content) {
-var_dump($content);die;
 ?>
 <div class="form-group">
 	<label for="<?=$name?>" class="col-sm-2 control-label"><?=gettext($label); ?></label>

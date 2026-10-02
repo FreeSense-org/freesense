@@ -24,11 +24,11 @@ $session_write = false;
 $session_action_list = array();
 
 function simplestacktrace() {
-	$stack = debug_backtrace();
+	// Arguments are never printed, so don't have them copied into the trace.
+	$stack = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
 	$str = "";
 	foreach($stack as $s) {
-		// $s['args']
-		$str .= "\n{$s['function']}(..) - {$s['file']}:{$s['line']}";
+		$str .= "\n{$s['function']}(..) - " . ($s['file'] ?? '') . ":" . ($s['line'] ?? '');
 	}
 	return $str;
 }

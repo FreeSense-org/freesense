@@ -128,28 +128,56 @@ if (($pagename == "pkg.php") || ($pagename == "pkg_edit.php") || ($pagename == "
 $helpurl = freesense_docs_url($pagename, g_get('product_version_string'));
 
 /*
+ * Package XML is parsed by a userland parser and this file runs on every
+ * page, so keep the parsed result in tmp_path. The cache is reused only while
+ * the source files keep their size and modification time and $context, the
+ * other input of $build, is unchanged.
+ */
+function ext_menu_cached_data(string $name, array $files, mixed $context, callable $build) {
+	$signature = array($context);
+	foreach ($files as $file) {
+		$signature[$file] = array(@filemtime($file), @filesize($file));
+	}
+	$signature = md5(serialize($signature));
+
+	$cache_file = g_get('tmp_path') . "/{$name}.cache";
+	$cached = @file_get_contents($cache_file);
+	if (is_string($cached)) {
+		$cached = unserialize($cached, ['allowed_classes' => false]);
+		if (is_array($cached) && (($cached['signature'] ?? '') === $signature)) {
+			return $cached['data'];
+		}
+	}
+
+	$data = $build();
+	safe_write_file($cache_file, serialize(array('signature' => $signature, 'data' => $data)));
+	return $data;
+}
+
+/*
  * Read files from $g['ext_menu_path']/*.xml and fill an array with menu info
  */
 function read_ext_menu_path_data() {
 	global $g;
 
-	$result = array();
-
 	if (!is_dir(g_get('ext_menu_path'))) {
+		return array();
+	}
+
+	$menu_files = glob("{$g['ext_menu_path']}/*.xml");
+	return ext_menu_cached_data('ext_menu_path', $menu_files, null, function () use ($menu_files) {
+		$result = array();
+		foreach ($menu_files as $menu_xml) {
+			$xml_data = parse_xml_config_pkg($menu_xml, "packagegui");
+			if (empty($xml_data['menu'])) {
+				continue;
+			}
+			foreach ($xml_data['menu'] as $menu) {
+				$result[] = $menu;
+			}
+		}
 		return $result;
-	}
-
-	foreach (glob("{$g['ext_menu_path']}/*.xml") as $menu_xml) {
-		$xml_data = parse_xml_config_pkg($menu_xml, "packagegui");
-		if (empty($xml_data['menu'])) {
-			continue;
-		}
-		foreach ($xml_data['menu'] as $menu) {
-			$result[] = $menu;
-		}
-	}
-
-	return $result;
+	});
 }
 
 // Create a menu entry of any installed packages in the specified category
@@ -165,8 +193,7 @@ function return_ext_menu($section) {
 
 	if ((!empty(config_get_path('installedpackages/package'))) && (!empty(config_get_path('installedpackages/menu')))) {
 		if ($owned_menu_keys === null) {
-			$owned_menu_keys = array();
-			$legacy_menu_keys = array();
+			$registered = array();
 			foreach (config_get_path('installedpackages/package', []) as $package) {
 				/*
 				 * Compatibility for metadata written before package owners
@@ -178,24 +205,33 @@ function return_ext_menu($section) {
 				    !file_exists("/usr/local/pkg/{$configfile}")) {
 					continue;
 				}
-				$identities = array_filter(array_map('strtolower', array(
+				$registered["/usr/local/pkg/{$configfile}"][] = array_filter(array_map('strtolower', array(
 					(string)($package['name'] ?? ''),
 					(string)($package['internal_name'] ?? ''),
 				)));
-				$packagegui = parse_xml_config_pkg(
-				    "/usr/local/pkg/{$configfile}", 'packagegui');
-				foreach ((array)($packagegui['menu'] ?? array()) as $declared) {
-					$key = implode("\0", array(
-						(string)($declared['name'] ?? ''),
-						(string)($declared['section'] ?? ''),
-						(string)($declared['url'] ?? ''),
-					));
-					$legacy_menu_keys[$key] = true;
-					foreach ($identities as $identity) {
-						$owned_menu_keys["{$identity}\0{$key}"] = true;
+			}
+			list($owned_menu_keys, $legacy_menu_keys) = ext_menu_cached_data('ext_menu_keys',
+			    array_keys($registered), $registered, function () use ($registered) {
+				$owned = array();
+				$legacy = array();
+				foreach ($registered as $package_xml => $identity_sets) {
+					$packagegui = parse_xml_config_pkg($package_xml, 'packagegui');
+					foreach ((array)($packagegui['menu'] ?? array()) as $declared) {
+						$key = implode("\0", array(
+							(string)($declared['name'] ?? ''),
+							(string)($declared['section'] ?? ''),
+							(string)($declared['url'] ?? ''),
+						));
+						$legacy[$key] = true;
+						foreach ($identity_sets as $identities) {
+							foreach ($identities as $identity) {
+								$owned["{$identity}\0{$key}"] = true;
+							}
+						}
 					}
 				}
-			}
+				return array($owned, $legacy);
+			});
 		}
 
 		foreach (config_get_path('installedpackages/menu', []) as $menu) {
