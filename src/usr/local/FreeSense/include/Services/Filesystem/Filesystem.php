@@ -110,7 +110,7 @@ final class Filesystem {
 		return $this->_getProperty('used-percent');
 	}
 
-	public function getHtmlClass(string $prefix = null, $parentPath = false) : string {
+	public function getHtmlClass(?string $prefix = null, $parentPath = false) : string {
 		$parent = $this->getParent();
 
 		$prefix = $this->hasParent() ? "{$parent->getHtmlClass($prefix)}-" : "{$prefix}root";
@@ -120,7 +120,7 @@ final class Filesystem {
 		return Strings::webalize("{$prefix}{$suffix}");
 	}
 
-	public function getParentHtmlClass(string $prefix = null) : string {
+	public function getParentHtmlClass(?string $prefix = null) : string {
 		return $this->getHtmlClass($prefix, true);
 	}
 

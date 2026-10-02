@@ -1892,7 +1892,7 @@ function get_interface_info($ifdescr) {
 		$ppp_if_file = "{$g['varrun_path']}/{$link_type}_{$ifdescr}.pid";
 	}
 	if (file_exists($ppp_if_file)) {
-		$sec = trim(`/usr/local/sbin/ppp-uptime.sh {$ifinfo['if']}`);
+		$sec = trim(shell_exec("/usr/local/sbin/ppp-uptime.sh {$ifinfo['if']}") ?? '');
 		$ifinfo['ppp_uptime'] = convert_seconds_to_dhms($sec);
 	}
 
@@ -1982,7 +1982,7 @@ function get_interface_info($ifdescr) {
 	$bridge = "";
 	$bridge = link_interface_to_bridge($ifdescr);
 	if ($bridge) {
-		$bridge_text = `/sbin/ifconfig {$bridge}`;
+		$bridge_text = shell_exec("/sbin/ifconfig {$bridge}") ?? '';
 		if (stristr($bridge_text, "blocking") <> false) {
 			$ifinfo['bridge'] = "<b><font color='red'>" . gettext("blocking") . "</font></b> - " . gettext("check for ethernet loops");
 			$ifinfo['bridgeint'] = $bridge;
@@ -2099,13 +2099,13 @@ function freesense_default_state_size() {
 }
 
 function freesense_current_tables_size() {
-	$current = `pfctl -sm | grep ^tables | awk '{print $4};'`;
+	$current = shell_exec("pfctl -sm | grep ^tables | awk '{print \$4};'");
 	return $current;
 }
 
 function freesense_current_table_entries_size() {
-	$current = `pfctl -sm | grep table-entries | awk '{print $4};'`;
-	return (trim($current));
+	$current = shell_exec("pfctl -sm | grep table-entries | awk '{print \$4};'");
+	return (trim($current ?? ''));
 }
 
 /* Compare the current hostname DNS to the DNS cache we made
@@ -2251,7 +2251,6 @@ function download_file($url, $destination, $verify_ssl = true, $connect_timeout 
 	@curl_exec($ch);
 	$http_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 	fclose($fp);
-	curl_close($ch);
 	if ($http_code == 200) {
 		return true;
 	} else {
@@ -2304,7 +2303,6 @@ function download_file_with_progress_bar($url, $destination, $verify_ssl = true,
 	@curl_exec($ch);
 	$http_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
 	fclose($fout);
-	curl_close($ch);
 	if ($http_code == 200) {
 		return true;
 	} else {

@@ -114,7 +114,7 @@ $tab_array[] = array(gettext("Reset States"), false, "diag_resetstate.php");
 display_top_tabs($tab_array);
 
 // Start of tab content
-$current_statecount=`pfctl -si | grep "current entries" | awk '{ print $3 }'`;
+$current_statecount = shell_exec('pfctl -si | grep "current entries" | awk \'{ print $3 }\'');
 
 $form = new Form(false);
 

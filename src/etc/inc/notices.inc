@@ -651,7 +651,6 @@ function curl_post_notification($url, $data = []) {
 	curl_setopt($conn, CURLOPT_RETURNTRANSFER, true);
 	set_curlproxy($conn);
 	$curl_post_result = curl_exec($conn);
-	curl_close($conn);
 	return $curl_post_result; //json encoded
 }
 

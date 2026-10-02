@@ -36,7 +36,7 @@ require_once('xmlparse.inc');
  * RESULT
  *   Rewrites config.xml without encryption
  ******/
-function encrypted_configxml(string $file_name = null) {
+function encrypted_configxml(?string $file_name = null) {
 	// we can only prompt for password if the PHP script is running in a cli
 	if (!is_cli_sapi()) {
 		return false;

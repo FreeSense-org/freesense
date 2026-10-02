@@ -14,28 +14,42 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Install checks
-        run: sudo apt-get update -q && sudo apt-get install -yq php-cli shellcheck
-      - name: PHP syntax
+        run: sudo apt-get update -q && sudo apt-get install -yq shellcheck
+      - name: PHP 8.5 syntax and deprecations
+        # Lint with the PHP release the System image ships. Any compile-time
+        # deprecation fails the job.
         run: |
-          find src tools -type f \( -name '*.php' -o -name '*.inc' \) \
-            ! -path 'tools/rector/tests/*' -print0 | xargs -0 -n1 php -l
+          docker run --rm -v "$PWD:/src" -w /src \
+            php:8.5-cli sh tools/ci/php-lint.sh
+      - name: PHP 8.5 smoke tests
+        # tests/ConfigLibTest.php is not run here: it loads config.lib.inc ->
+        # util.inc, which needs the FreeBSD-patched PEAR Net_IPv6 and other
+        # appliance-only runtime pieces that are not available on Linux.
+        run: |
           python3 -m json.tool src/etc/freesense-package-catalog.json >/dev/null
-          php tests/ConfigImportGuardSmokeTest.php
-          php tests/ConfigUpgradeSmokeTest.php
-          php tests/ConfigCacheSmokeTest.php
-          php tests/WebGuiRestoreSmokeTest.php
-          php tests/InstallerRecoverySmokeTest.php
-          php tests/PackageCatalogSmokeTest.php
-          php tests/PackageRegistrationSmokeTest.php
-          php tests/PackageRestoreSmokeTest.php
-          php tests/PackageRuntimeCompatibilitySmokeTest.php
-          php tests/RepositoryTrustSmokeTest.php
-          php tests/NicSettingsSmokeTest.php
-          php tests/ReproducibleArtifactsSmokeTest.php
-          php tests/PoudriereSourceBuildSmokeTest.php
-          php tests/PhpFdSetsizeWorkaroundSmokeTest.php
-          php tests/Arm64CrossCompilerSmokeTest.php
-          php tests/KernelConfigPreflightSmokeTest.php
+          docker run --rm -v "$PWD:/src" -w /src php:8.5-cli sh -ec '
+            php -v | head -n 1
+            for t in \
+              ConfigImportGuardSmokeTest \
+              ConfigUpgradeSmokeTest \
+              ConfigCacheSmokeTest \
+              WebGuiRestoreSmokeTest \
+              InstallerRecoverySmokeTest \
+              PackageCatalogSmokeTest \
+              PackageRegistrationSmokeTest \
+              PackageRestoreSmokeTest \
+              PackageRuntimeCompatibilitySmokeTest \
+              RepositoryTrustSmokeTest \
+              NicSettingsSmokeTest \
+              ReproducibleArtifactsSmokeTest \
+              PoudriereSourceBuildSmokeTest \
+              PhpFdSetsizeWorkaroundSmokeTest \
+              Arm64CrossCompilerSmokeTest \
+              KernelConfigPreflightSmokeTest \
+              KernelModulePolicySmokeTest; do
+              php -d error_reporting=E_ALL "tests/$t.php"
+            done
+          '
       - name: Release-sensitive shell syntax
         run: |
           sh -n build.sh
@@ -50,6 +64,7 @@ jobs:
           ! grep -R -Eq 'FREESENSE_EPOCH|/root/epoch' tools
           shellcheck -S error tools/ci/freesense-assemble-iso.sh
           shellcheck -S error tools/ci/freesense-dist-world.sh
+          shellcheck -S warning tools/ci/php-lint.sh
       - name: Reject committed secrets
         run: |
           if git grep -IEn '(^[[:space:]]*-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----[[:space:]]*$|R2_SECRET_ACCESS_KEY[=:][[:space:]]*[^$<{])' -- . ':!*.md'; then

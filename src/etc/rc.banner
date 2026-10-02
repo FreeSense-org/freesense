@@ -27,7 +27,7 @@ require_once("gwlb.inc");
 require_once("interfaces.inc");
 
 $hostname = config_get_path('system/hostname');
-$machine = trim(`uname -m`);
+$machine = trim(shell_exec('uname -m') ?? '');
 
 /* Export the product variable. */
 if (is_writable("/etc")) {
