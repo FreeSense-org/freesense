@@ -697,8 +697,18 @@ function saveNATrule($post, $id, $json = false) {
 				$filterent['tracker'] = (int)microtime(true);
 				$filterent['created'] = make_config_revision_entry(null, gettext("NAT Port Forward"));
 				add_filter_rules([$filterent]);
-			} elseif ($filterentid !== false) {
+			} elseif (isset($filterentid) && ($filterentid !== false)) {
 				add_filter_rules([$filterent], $filterentid, true);
+			} elseif ($post['filter-rule-association'] == 'add-unassociated') {
+				/* A new, independent rule. $filterentid is unset here, so the
+				 * branch above used to pass null as the rule index (#15346). */
+				unset($filterent['associated-rule-id']);
+				if ($natent['nosync']) {
+					$filterent['nosync'] = true;
+				}
+				$filterent['tracker'] = (int)microtime(true);
+				$filterent['created'] = make_config_revision_entry(null, gettext("NAT Port Forward"));
+				add_filter_rules([$filterent]);
 			}
 
 			if (!$json) {

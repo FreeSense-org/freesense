@@ -1025,11 +1025,17 @@ EOD;
 
 		unset($rrdupdatesh);
 
+		/* Serialize restarts so overlapping calls cannot leave two
+		 * collectors running (#16927). */
+		$rrdlock = lock('updaterrd', LOCK_EX);
+
 		/* kill off traffic collectors */
 		kill_traffic_collector();
 
 		/* start traffic collector */
 		mwexec_bg("/usr/bin/nice -n20 /bin/sh $updaterrdscript");
+
+		unlock($rrdlock);
 
 	} else {
 		/* kill off traffic collectors */
@@ -1053,6 +1059,9 @@ function kill_traffic_collector() {
 	global $g;
 
 	killbypid("{$g['varrun_path']}/updaterrd.sh.pid");
+	/* A collector started moments ago may not have written its PID file
+	 * yet. The [u] keeps the pattern from matching this command's shell. */
+	mwexec("/bin/pkill -f " . escapeshellarg('^/bin/sh .*/rrd/[u]pdaterrd\.sh'), true);
 }
 
 ?>

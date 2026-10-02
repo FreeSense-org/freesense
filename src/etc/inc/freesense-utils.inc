@@ -1886,7 +1886,7 @@ function get_interface_info($ifdescr) {
 			break;
 	}
 
-	if (config_path_enabled('system', 'use_if_pppoe')) {
+	if (use_if_pppoe()) {
 		$ppp_if_file = "/tmp/{$ifinfo['if']}up";
 	} else {
 		$ppp_if_file = "{$g['varrun_path']}/{$link_type}_{$ifdescr}.pid";
@@ -2674,7 +2674,7 @@ function update_alias_url_data() {
 				}
 
 				/* if the item is tar gzipped then extract */
-				if (stripos($alias_url, '.tgz') && !process_alias_tgz($temp_filename)) {
+				if (alias_url_is_archive($alias_url) && !process_alias_tgz($temp_filename)) {
 					logger(LOG_ERR, localize_text("Could not unpack tgz from the URL '%s'.", $alias_url));
 					rmdir_recursive($temp_filename);
 					continue;
@@ -2717,37 +2717,67 @@ function update_alias_url_data() {
 	return $updated;
 }
 
-function process_alias_tgz($temp_filename) {
+/* True when an alias URL points at a gzipped tar archive. */
+function alias_url_is_archive($url) {
+	$path = (string)parse_url($url, PHP_URL_PATH);
+	return (bool)preg_match('/\.(tgz|tar\.gz)$/i', $path);
+}
+
+/*
+ * Replace $file, a gzipped tar archive, with the contents of the regular
+ * files inside it, one after another (#16964).
+ */
+function alias_unpack_archive($file) {
 	if (!file_exists('/usr/bin/tar')) {
 		logger(LOG_CRIT, localize_text("Alias archive is a .tar/tgz file which cannot be decompressed because utility is missing!"));
 		return false;
 	}
-	rename("{$temp_filename}/aliases", "{$temp_filename}/aliases.tgz");
-	mwexec("/usr/bin/tar xzf {$temp_filename}/aliases.tgz -C {$temp_filename}/aliases/");
-	unlink("{$temp_filename}/aliases.tgz");
-	$files_to_process = return_dir_as_array("{$temp_filename}/");
-	/* foreach through all extracted files and build up aliases file */
-	$fd = @fopen("{$temp_filename}/aliases", "w");
-	if (!$fd) {
-		logger(LOG_ERR, localize_text("Could not open %s/aliases for writing!", $temp_filename));
+	$dir = "{$file}.d";
+	rmdir_recursive($dir);
+	if (!@mkdir($dir, 0700)) {
 		return false;
 	}
-	foreach ($files_to_process as $f2p) {
-		$tmpfd = @fopen($f2p, 'r');
-		if (!$tmpfd) {
-			logger(LOG_ERR, localize_text('The following file could not be read %1$s from %2$s', $f2p, $temp_filename));
+	/* bsdtar refuses absolute and ".." member paths by default. */
+	if (mwexec('/usr/bin/tar -xzf ' . escapeshellarg($file) . ' -C ' . escapeshellarg($dir), true) != 0) {
+		rmdir_recursive($dir);
+		return false;
+	}
+
+	$members = [];
+	$iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir,
+	    FilesystemIterator::SKIP_DOTS));
+	foreach ($iterator as $member) {
+		if ($member->isFile() && !$member->isLink()) {
+			$members[] = $member->getPathname();
+		}
+	}
+	sort($members);
+
+	$fd = @fopen($file, 'w');
+	if (!$fd) {
+		logger(LOG_ERR, localize_text("Could not open %s for writing!", $file));
+		rmdir_recursive($dir);
+		return false;
+	}
+	foreach ($members as $member) {
+		$in = @fopen($member, 'r');
+		if (!$in) {
+			logger(LOG_ERR, localize_text('The following file could not be read %1$s from %2$s', basename($member), $file));
 			continue;
 		}
-		while (($tmpbuf = fread($tmpfd, 65536)) !== FALSE) {
-			fwrite($fd, $tmpbuf);
-		}
-		fclose($tmpfd);
-		unlink($f2p);
+		stream_copy_to_stream($in, $fd);
+		/* Keep the last line of one file apart from the next file. */
+		fwrite($fd, "\n");
+		fclose($in);
 	}
 	fclose($fd);
-	unset($tmpbuf);
+	rmdir_recursive($dir);
 
 	return true;
+}
+
+function process_alias_tgz($temp_filename) {
+	return alias_unpack_archive("{$temp_filename}/aliases");
 }
 
 function version_compare_dates($a, $b) {
@@ -2875,7 +2905,8 @@ function process_alias_urltable($name, $type, $url, $freq, $forceupdate=false, $
 		// Try to fetch the URL supplied
 		unlink_if_exists($tmp_urltable_filename);
 		$verify_ssl = config_path_enabled('system','checkaliasesurlcert');
-		if (download_file($url, $tmp_urltable_filename, $verify_ssl)) {
+		if (download_file($url, $tmp_urltable_filename, $verify_ssl) &&
+		    (!alias_url_is_archive($url) || alias_unpack_archive($tmp_urltable_filename))) {
 			// Convert lines that begin with '$' or ';' to comments '#' instead of deleting them.
 			mwexec("/usr/bin/sed -i \"\" -E 's/^[[:space:]]*($|#|;)/#/g; /^#/!s/\;.*//g;' ". escapeshellarg($tmp_urltable_filename));
 

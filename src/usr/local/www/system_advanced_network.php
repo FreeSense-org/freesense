@@ -264,6 +264,8 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp('This option resets all states when a WAN IP Address changes instead of only '.
     'states associated with the previous IP Address.');
 
+/* Only offer if_pppoe when the kernel driver is installed. */
+if (if_pppoe_available()):
 $section->addInput(new Form_Checkbox(
 	'use_if_pppoe',
 	'Use if_pppoe kernel module for PPPoE client',
@@ -273,6 +275,7 @@ $section->addInput(new Form_Checkbox(
     'for PPPoE client connections. Keep it unchecked to use the deprecated PPPoE support from mpd5.%s'.
     'NOTE: Changing this option interrupts connectivity for affected interfaces and requires a system reboot.',
     '<br />');
+endif;
 
 $form->add($section);
 print $form;

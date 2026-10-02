@@ -341,6 +341,9 @@ EOF;
 			}
 		}
 	}
+	/* An interface and a VIP or address on it can resolve to the same IP.
+	 * Unbound fails to start when an address is bound twice (#16906). */
+	$bindints = array_unique($bindints);
 	foreach ($bindints as $bindint) {
 		$bindintcfg .= "interface: {$bindint}\n";
 		if (isset($unboundcfg['enablessl'])) {

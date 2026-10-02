@@ -162,6 +162,13 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp(gettext('Default early DNS registration policy for DHCPv6 server.%1$s' .
 			'When checked, DHCPv6 static mappings will automatically be pre-registered with the DNS Resolver.'), '<br/>');
 
+$section->addInput(new Form_Select(
+	'loglevel',
+	gettext('Log Level'),
+	array_get_path($pconfig, 'loglevel', 'WARN'),
+	kea_log_levels()
+))->setHelp(gettext('Minimum severity of Kea messages sent to the DHCP log.'));
+
 $form->add($section);
 
 $section = new Form_Section(gettext('High Availability'));

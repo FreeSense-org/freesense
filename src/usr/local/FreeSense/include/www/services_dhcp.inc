@@ -24,6 +24,17 @@ require_once('util.inc');
 require_once('interfaces.inc');
 require_once('freesense-utils.inc');
 
+/* Kea logger severities offered in the GUI (#16230); WARN is the default. */
+function kea_log_levels(): array {
+	return [
+		'FATAL' => gettext('Fatal'),
+		'ERROR' => gettext('Error'),
+		'WARN' => gettext('Warning (default)'),
+		'INFO' => gettext('Informational'),
+		'DEBUG' => gettext('Debug'),
+	];
+}
+
 function kea_defaults(string $key): int|string {
 	/* throws an exception if $key isn't matched */
 	return (match($key) {
@@ -182,6 +193,10 @@ function kea6_earlydnsreg_mappings(): array {
 
 function kea_dnsreg_enabled_ids(): array {
 	$ids = [];
+	/* Registration goes through Unbound; nothing to do without it (#16865). */
+	if (!config_path_enabled('unbound')) {
+		return ($ids);
+	}
 	$enabled['enable'] = true;
 	if (config_path_enabled('kea', 'dnsreg')) {
 		$enabled['default'] = true;
@@ -205,6 +220,10 @@ function kea_dnsreg_subnet_enabled(int $subnet_id): bool {
 
 function kea6_dnsreg_enabled_ids(): array {
 	$ids = [];
+	/* Registration goes through Unbound; nothing to do without it (#16865). */
+	if (!config_path_enabled('unbound')) {
+		return ($ids);
+	}
 	$enabled['enable'] = true;
 	if (config_path_enabled('kea6', 'dnsreg')) {
 		$enabled['default'] = true;
@@ -328,6 +347,10 @@ function dhcp_validate_settings_post(array $pconfig): array {
 		}
 	}
 
+	if (!empty($pconfig['loglevel']) && !array_key_exists($pconfig['loglevel'], kea_log_levels())) {
+		$input_errors[] = gettext('Invalid log level.');
+	}
+
 	/* validate custom config */
 	if (!empty($pconfig['custom_kea_config'])) {
 		$json = json_decode(base64_decode(array_get_path($pconfig, 'custom_kea_config')), true);
@@ -417,6 +440,12 @@ function dhcp_do_settings_post(): array {
 		array_set_path($pconfig, 'custom_kea_config', base64_encode($_POST['custom_kea_config']));
 	} else {
 		array_del_path($pconfig, 'custom_kea_config');
+	}
+
+	if (!empty($_POST['loglevel']) && ($_POST['loglevel'] != 'WARN')) {
+		array_set_path($pconfig, 'loglevel', $_POST['loglevel']);
+	} else {
+		array_del_path($pconfig, 'loglevel');
 	}
 
 	/* don't leave empty ha config section */
@@ -514,6 +543,12 @@ function dhcp6_do_settings_post(): array {
 		array_set_path($pconfig, 'custom_kea_config', base64_encode($_POST['custom_kea_config']));
 	} else {
 		array_del_path($pconfig, 'custom_kea_config');
+	}
+
+	if (!empty($_POST['loglevel']) && ($_POST['loglevel'] != 'WARN')) {
+		array_set_path($pconfig, 'loglevel', $_POST['loglevel']);
+	} else {
+		array_del_path($pconfig, 'loglevel');
 	}
 
 	/* don't leave empty ha config section */

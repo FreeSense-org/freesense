@@ -1679,7 +1679,7 @@ foreach (['src' => gettext('Source'), 'dst' => gettext('Destination')] as $type 
 	}
 
 	$ruleValues_flags = array_merge([SPECIALNET_CHECKPERM], $filter_srcdsttype_flags);
-	if ($type != 'dst' && !isset($a_filter[$id]['floating']) && $if != "FloatingRules") {
+	if ($type != 'dst' && !$is_floating_rule) {
 		$ruleValues_flags = array_diff($ruleValues_flags, [SPECIALNET_SELF]);
 	}
 

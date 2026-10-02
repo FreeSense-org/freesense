@@ -2570,7 +2570,13 @@ function ca_setup_trust_store() {
 		ca_setup_capath($ca, $trust_store_directory, '', false, 'crt', 'crl');
 	}
 
-	mwexec_bg('/usr/sbin/certctl rehash');
+	/* While booting, the package repository is contacted right after this,
+	 * so wait for the trust store to be rebuilt (#16341). */
+	if (is_platform_booting()) {
+		mwexec('/usr/sbin/certctl rehash');
+	} else {
+		mwexec_bg('/usr/sbin/certctl rehash');
+	}
 }
 
 /****f* certs/ca_setup_capath

@@ -1452,6 +1452,23 @@ function is_ipaddrv6_v4map($ipaddr) {
 	return false;
 }
 
+/* The if_pppoe kernel driver is a pfSense addition that the FreeSense
+ * FreeBSD base does not ship. */
+function if_pppoe_available(): bool {
+	static $available = null;
+	if ($available === null) {
+		$available = file_exists('/boot/kernel/if_pppoe.ko') ||
+		    file_exists('/boot/modules/if_pppoe.ko');
+	}
+	return $available;
+}
+
+/* Only honor "Use if_pppoe" (e.g. from an imported pfSense config) when the
+ * driver exists; otherwise PPPoE would be handed to a missing driver. */
+function use_if_pppoe(): bool {
+	return config_path_enabled('system', 'use_if_pppoe') && if_pppoe_available();
+}
+
 /* returns true if $ipaddr is a valid dotted IPv4 address */
 function is_ipaddrv4($ipaddr) {
 	if (!is_string($ipaddr) || empty($ipaddr) || ip2long($ipaddr) === FALSE) {

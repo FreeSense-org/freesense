@@ -178,7 +178,9 @@ function saveAdvancedNetworking($post, $json = false) {
 			config_del_path('system/ip_change_kill_states');
 		}
 
-		if (($post['use_if_pppoe'] == "yes") xor config_path_enabled('system', 'use_if_pppoe')) {
+		if (!if_pppoe_available()) {
+			/* The option is hidden without the driver; leave it alone. */
+		} elseif (($post['use_if_pppoe'] == "yes") xor config_path_enabled('system', 'use_if_pppoe')) {
 			$if_config = config_get_path('interfaces', []);
 			foreach ($if_config as $ifn => $ifc) {
 				if (!isset($ifc['enable']) || $ifc['ipaddr'] != "pppoe") {
@@ -189,7 +191,9 @@ function saveAdvancedNetworking($post, $json = false) {
 			$show_reboot_msg = true;
 			$reboot_cause = "pppoe";
 		}
-		if ($post['use_if_pppoe'] == "yes") {
+		if (!if_pppoe_available()) {
+			/* Keep an imported value as is; use_if_pppoe() ignores it. */
+		} elseif ($post['use_if_pppoe'] == "yes") {
 			config_set_path('system/use_if_pppoe', true);
 			remove_pppoe_cron_items();
 		} else {

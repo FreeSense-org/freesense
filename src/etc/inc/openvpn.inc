@@ -1924,7 +1924,17 @@ function openvpn_resync_all($interface = "", $protocol = "", $force = false) {
 					$settings['interface']));
 			}
 
-			if ($force || $ip_change || $gw_group_change) {
+			/* A forced resync for one interface only restarts the instances
+			 * that use it or are assigned to it, not every instance (#16815). */
+			$force_this = false;
+			if ($force) {
+				$force_this = $ip_change ||
+				    (get_failover_interface($settings['interface']) == get_real_interface($interface)) ||
+				    (config_get_path("interfaces/{$interface}/if") ==
+				    'ovpn' . substr($type, 0, 1) . $settings['vpnid']);
+			}
+
+			if ($force_this || $ip_change || $gw_group_change) {
 				if (!$dirs) {
 					openvpn_create_dirs();
 				}
