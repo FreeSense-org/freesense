@@ -1206,6 +1206,10 @@ nv.utils.deepExtend = function(dst){
     var sources = arguments.length > 1 ? [].slice.call(arguments, 1) : [];
     sources.forEach(function(source) {
         for (var key in source) {
+            // FreeSense: never copy keys that would change an object's prototype.
+            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+                continue;
+            }
             var isArray = nv.utils.isArray(dst[key]);
             var isObject = nv.utils.isObject(dst[key]);
             var srcObj = nv.utils.isObject(source[key]);
