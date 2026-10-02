@@ -2170,6 +2170,8 @@ EOD;
 			$nginx_config .= "\t\tadd_header Strict-Transport-Security \"max-age=31536000\";\n";
 		}
 		$nginx_config .= "\t\tadd_header X-Content-Type-Options nosniff;\n";
+		// add_header here stops inheritance of the http-level X-Frame-Options.
+		$nginx_config .= "\t\tadd_header X-Frame-Options SAMEORIGIN;\n";
 		$nginx_config .= "\t\tssl_session_tickets off;\n";
 		$nginx_config .= "\t\tssl_dhparam /etc/dh-parameters.4096;\n";
 		$cert_temp = lookup_cert(config_get_path('system/webgui/ssl-certref'));
