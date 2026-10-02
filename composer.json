@@ -2,10 +2,10 @@
     "name": "freesense/freesense",
     "require": {
         "mikehaertl/php-shellcommand": "^1.7",
-        "symfony/cache": "^8.0.5",
-        "nette/utils": "^4.1.1",
+        "symfony/cache": "^8.0.15",
+        "nette/utils": "^4.1.5",
         "simplepie/simplepie": "^1.9",
-        "symfony/console": "^8.0.4"
+        "symfony/console": "^8.0.15"
     },
     "autoload": {
         "psr-4": {
