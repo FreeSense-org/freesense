@@ -25,6 +25,18 @@ foreach (['aesni', 'amdsmn', 'amdtemp', 'coretemp', 'cpuctl', 'vmm'] as $module)
 	}
 }
 
+/* Optional packages load these at runtime, so every target must ship them. */
+if (!preg_match('/^\texport MODULES_OVERRIDE_base="([^"]+)"/m', $defaults, $base)) {
+	fwrite(STDERR, "Base kernel module policy is missing\n");
+	exit(1);
+}
+foreach (['if_wg'] as $module) {
+	if (!preg_match('/(^| )' . preg_quote($module, '/') . '( |$)/', $base[1])) {
+		fwrite(STDERR, "Base kernel modules must include {$module}\n");
+		exit(1);
+	}
+}
+
 $amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom ipmi ix ixv nmdm qlnx sfxge vmm';
 if (strpos($defaults, 'MODULES_OVERRIDE_amd64="' . $amd64 . '"') === false) {
 	fwrite(STDERR, "amd64 kernel module policy changed unexpectedly\n");
