@@ -1145,6 +1145,11 @@ function delete_package_xml($package_name, $when = "post-deinstall") {
 	foreach ($services as $key => $service) {
 		if (freesense_package_generated_entry_owner(
 		    $service['package'] ?? '') === $package_owner) {
+			/* Stop it while its entry still exists: stop_service() looks the
+			 * service up in the config, so removed packages kept running. */
+			if (!is_platform_booting() && !empty($service['name'])) {
+				stop_service($service['name']);
+			}
 			config_del_path("installedpackages/service/{$key}");
 		}
 	}
