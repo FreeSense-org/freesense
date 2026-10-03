@@ -83,8 +83,25 @@ function write_rcfile($params) {
 	return;
 }
 
+/*
+ * pkg (2.x) kills every process its install/deinstall scripts leave running
+ * when the script ends, so a service started from a package's install hook
+ * died at once. Inside a pkg script, start requests are queued instead and
+ * FreeSense-upgrade starts them after pkg has finished.
+ */
+define('PKG_SERVICE_START_QUEUE', '/var/run/pkg_service_start.queue');
+
+function running_in_pkg_script(): bool {
+	return (getenv('PKG_NAME') !== false) && (getenv('PKG_MSGFD') !== false);
+}
+
 function start_service($name, $after_sync = false) {
 	if (empty($name)) {
+		return;
+	}
+
+	if (running_in_pkg_script()) {
+		@file_put_contents(PKG_SERVICE_START_QUEUE, "{$name}\n", FILE_APPEND | LOCK_EX);
 		return;
 	}
 
