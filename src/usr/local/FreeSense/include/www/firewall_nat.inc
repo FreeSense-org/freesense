@@ -1000,6 +1000,9 @@ function getNATRule($id, $json = false) {
 		}
 	} else {
 		$pconfig['interface'] = "wan";
+		/* Without a default the protocol list showed "Any" and the page hid
+		 * every port field; a port forward almost always needs TCP. */
+		$pconfig['proto'] = "tcp";
 		$pconfig['src'] = "any";
 		$pconfig['srcbeginport'] = "any";
 		$pconfig['srcendport'] = "any";
