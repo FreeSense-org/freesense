@@ -36,7 +36,7 @@ $ntp_poll_values = system_ntp_poll_values();
 
 $serialports = get_serial_ports(true);
 
-function set_default_gps() {
+function set_default_gps($write = true) {
 	config_del_path('ntpd/gps');
 	config_set_path('ntpd/gps/type', 'Default');
 	/* copy an existing configured GPS port if it exists, the unset may be uncommented post production */
@@ -47,7 +47,9 @@ function set_default_gps() {
 		config_set_path('ntpd/gps/nmea', 0);
 	}
 
-	write_config(gettext("Setting default NTPd settings"));
+	if ($write) {
+		write_config(gettext("Setting default NTPd settings"));
+	}
 }
 
 function parse_ublox(&$nmeaset, $splitline) {
@@ -171,7 +173,8 @@ if ($_POST) {
 } else {
 	/* set defaults if they do not already exist */
 	if (empty(config_get_path('ntpd/gps/type'))) {
-		set_default_gps();
+		/* Only fill in defaults for display; a GET must not write the config. */
+		set_default_gps(false);
 	}
 }
 
@@ -208,7 +211,7 @@ if ($_POST && empty($input_errors)) {
 	if (!empty($_POST['gpsnmea']) && ($_POST['gpsnmea'][0] === "0")) {
 		config_set_path('ntpd/gps/nmea', "0");
 	} else {
-		config_set_path('ntpd/gps/nmea', strval(array_sum($_POST['gpsnmea'])));
+		config_set_path('ntpd/gps/nmea', strval(array_sum((array) ($_POST['gpsnmea'] ?? []))));
 	}
 
 	if (!empty($_POST['processpgrmf'])) {
@@ -323,7 +326,8 @@ if ($_POST && empty($input_errors)) {
 } else {
 	/* set defaults if they do not already exist */
 	if (empty(config_get_path('ntpd/gps/type'))) {
-		set_default_gps();
+		/* Only fill in defaults for display; a GET must not write the config. */
+		set_default_gps(false);
 	}
 }
 
