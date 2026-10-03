@@ -922,6 +922,7 @@ if ($act=="new" || $act=="edit"):
 		))->setHelp('Certificates known to be incompatible with use for OpenVPN are not included in this list, ' .
 				'such as certificates using incompatible ECDSA curves or weak digest algorithms.');
 
+	$data_ciphers_list = array();
 	foreach (array_filter(explode(",", $pconfig['data_ciphers'])) as $cipher) {
 		$data_ciphers_list[$cipher] = $cipher;
 	}
