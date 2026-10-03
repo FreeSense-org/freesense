@@ -259,6 +259,21 @@ function dump_xml_config_sub($arr, $indent) {
 	$xmlconfig = "";
 
 	foreach ($arr as $ent => $val) {
+		/*
+		 * A plain PHP list under a tag that is not in $listtags has numeric
+		 * keys. Writing them as <0>, <1> made config.xml invalid, so the next
+		 * read restored a backup and the save was silently lost. Wrap such a
+		 * list as <item> entries (a list tag) so the data survives.
+		 */
+		if (is_array($val) && !empty($val) && !is_int($ent) &&
+		    !isset($listtags[strtolower($ent)]) && array_is_list($val)) {
+			static $numeric_key_logged = false;
+			if (!$numeric_key_logged && function_exists('log_error')) {
+				log_error(sprintf(gettext('Configuration list "%s" has no list tag; it was stored as <item> entries.'), $ent));
+				$numeric_key_logged = true;
+			}
+			$val = ['item' => $val];
+		}
 		if (is_array($val)) {
 			/* is it just a list of multiple values? */
 			if (isset($listtags[strtolower($ent)])) {

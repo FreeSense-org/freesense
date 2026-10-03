@@ -46,7 +46,8 @@ jobs:
               PhpFdSetsizeWorkaroundSmokeTest \
               Arm64CrossCompilerSmokeTest \
               KernelConfigPreflightSmokeTest \
-              KernelModulePolicySmokeTest; do
+              KernelModulePolicySmokeTest \
+              XmlNumericKeySmokeTest; do
               php -d error_reporting=E_ALL "tests/$t.php"
             done
           '
