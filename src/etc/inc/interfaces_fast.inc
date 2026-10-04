@@ -244,6 +244,14 @@ function interface_assign_description_fast($portlist, $friendlyifnames) {
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
+		} elseif ($portinfo['isvxlan']) {
+			$peer = ($portinfo['mode'] == 'multicast') ? $portinfo['mcastgroup'] : $portinfo['remote-addr'];
+			/* the parent is a friendly name or a VIP, not a real interface */
+			$descr = sprintf('VXLAN %1$s %2$s '.$gettext.' %3$s', $portinfo['vni'], $peer,
+			    convert_friendly_interface_to_friendly_descr($portinfo['if']));
+			if ($portinfo['descr']) {
+				$descr .= " (" . $portinfo['descr'] . ")";
+			}
 		} elseif ($portinfo['islagg']) {
 			$descr = strtoupper($portinfo['laggif']);
 			if ($portinfo['descr']) {

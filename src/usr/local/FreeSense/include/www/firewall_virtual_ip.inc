@@ -115,6 +115,31 @@ function saveVIP($post, $json = false) {
 		}
 	}
 
+	/* a tunnel sent from this VIP needs an address of its family on it */
+	if (isset($id) && !empty($a_vip[$id]['uniqid']) && is_ipaddr($post['subnet'])) {
+		$vipparent = "_vip{$a_vip[$id]['uniqid']}";
+		$tunnels = array();
+		foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+			$tunnels[] = array($vxlan['if'], $vxlan['ipproto'], 'VXLAN', $vxlan['vxlanif']);
+		}
+		foreach (array('gre' => 'GRE', 'gif' => 'GIF') as $type => $label) {
+			foreach (config_get_path("{$type}s/{$type}", []) as $tunnel) {
+				$tunnels[] = array($tunnel['if'], is_ipaddrv6($tunnel['remote-addr']) ? 'inet6' : 'inet',
+				    $label, $tunnel["{$type}if"]);
+			}
+		}
+		foreach ($tunnels as list($tunparent, $tunproto, $tunlabel, $tunif)) {
+			if ($tunparent != $vipparent) {
+				continue;
+			}
+			if (!in_array($post['mode'], array('ipalias', 'carp')) ||
+			    !vxlan_is_family($post['subnet'], $tunproto)) {
+				$input_errors[] = sprintf(gettext('%1$s tunnel %2$s is sent from this VIP, so it must stay an IP Alias or CARP address of the same address family.'), $tunlabel, $tunif);
+				break;
+			}
+		}
+	}
+
 	/* ipalias and carp should not use network or broadcast address */
 	if ($post['mode'] == "ipalias" || $post['mode'] == "carp") {
 		if (is_ipaddrv4($post['subnet']) && $post['subnet_bits'] != "32" && $post['subnet_bits'] != "31") {
@@ -323,6 +348,8 @@ function applyVIP() {
 					default:
 						break;
 				}
+				/* GRE, GIF and VXLAN tunnels sent from this VIP follow its new address */
+				interface_tunnels_reconfigure_vip($a_vip[$vid]);
 				/* restart choparp on VIP change, see #7379 */
 				if ($a_vip[$vid]['mode'] != 'proxyarp') {
 					foreach ($a_vip as $avip) { 
@@ -413,6 +440,16 @@ function deleteVIP($id, $json = false) {
 						$input_errors[] = sprintf(gettext('This entry cannot be deleted because it is still referenced by IPsec %1$s.'), $ipsec_desc);
 						break 2;
 					}
+				}
+			}
+		}
+
+		/* make sure no VXLAN tunnel is sent from this entry */
+		if (!empty($a_vip[$id]['uniqid'])) {
+			foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+				if ($vxlan['if'] == "_vip{$a_vip[$id]['uniqid']}") {
+					$input_errors[] = sprintf(gettext('This entry cannot be deleted because it is still the parent of VXLAN %s.'), $vxlan['vxlanif']);
+					break;
 				}
 			}
 		}

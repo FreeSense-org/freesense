@@ -490,6 +490,18 @@ $priv_list['page-interfaces-vlan-edit']['descr'] = gettext("Allow access to the 
 $priv_list['page-interfaces-vlan-edit']['match'] = array();
 $priv_list['page-interfaces-vlan-edit']['match'][] = "interfaces_vlan_edit.php*";
 
+$priv_list['page-interfaces-vxlan'] = array();
+$priv_list['page-interfaces-vxlan']['name'] = gettext("WebCfg - Interfaces: VXLAN");
+$priv_list['page-interfaces-vxlan']['descr'] = gettext("Allow access to the 'Interfaces: VXLAN' page.");
+$priv_list['page-interfaces-vxlan']['match'] = array();
+$priv_list['page-interfaces-vxlan']['match'][] = "interfaces_vxlan.php*";
+
+$priv_list['page-interfaces-vxlan-edit'] = array();
+$priv_list['page-interfaces-vxlan-edit']['name'] = gettext("WebCfg - Interfaces: VXLAN: Edit");
+$priv_list['page-interfaces-vxlan-edit']['descr'] = gettext("Allow access to the 'Interfaces: VXLAN: Edit' page.");
+$priv_list['page-interfaces-vxlan-edit']['match'] = array();
+$priv_list['page-interfaces-vxlan-edit']['match'][] = "interfaces_vxlan_edit.php*";
+
 $priv_list['page-interfaces-wireless'] = array();
 $priv_list['page-interfaces-wireless']['name'] = gettext("WebCfg - Interfaces: Wireless");
 $priv_list['page-interfaces-wireless']['descr'] = gettext("Allow access to the 'Interfaces: Wireless' page.");

@@ -30,6 +30,7 @@ require_once("util.inc");
 require_once("gwlb.inc");
 require_once("ipsec.inc");
 require_once("vpn.inc");
+require_once("vxlan.inc");
 require_once("Net/IPv6.php");
 
 function interfaces_bring_up($interface) {
@@ -1205,6 +1206,11 @@ function interface_is_type($if, $type) {
 			$entry = 'lagg';
 			$entif = 'laggif';
 			break;
+		case "vxlan":
+			$list = 'vxlans';
+			$entry = 'vxlan';
+			$entif = 'vxlanif';
+			break;
 		default:
 			break;
 	}
@@ -1383,7 +1389,7 @@ function interface_gif_configure(&$gif, $gifkey = "", $flush = true) {
 }
 
 function interfaces_tunnel_configure($checkparent = 0, $realif = "", $type = "") {
-	if (!in_array($type, array('gre', 'gif'))) {
+	if (!in_array($type, array('gre', 'gif', 'vxlan'))) {
 		return;
 	}
 
@@ -1400,7 +1406,8 @@ function interfaces_tunnel_configure($checkparent = 0, $realif = "", $type = "")
 			continue;
 		}
 
-		$ipaddrv6 = config_get_path("interfaces/{$tunnel}/if/ipaddrv6");
+		/* $tunnel['if'] is the parent's friendly name (or a _vip/_lloc reference) */
+		$ipaddrv6 = config_get_path("interfaces/{$tunnel['if']}/ipaddrv6");
 		if ($checkparent == 1) {
 			if (substr($tunnel['if'], 0, 4) == '_vip') {
 				continue;
@@ -1423,11 +1430,289 @@ function interfaces_tunnel_configure($checkparent = 0, $realif = "", $type = "")
 			interface_gif_configure($tunnel, "", false);
 		} elseif ($type == 'gre') {
 			interface_gre_configure($tunnel, "", false);
+		} elseif ($type == 'vxlan') {
+			interface_vxlan_configure($tunnel, "", false);
 		}
 	}
 
 	/* Invalidate cache */
 	get_interface_arr(true);
+}
+
+/* Real name of the interface a VXLAN tunnel runs over. */
+function interface_vxlan_parent_real($vxlan) {
+	$realif = convert_friendly_interface_to_real_interface_name($vxlan['if']);
+	if (!interface_is_vlan($realif)) {
+		$realif = get_real_interface($vxlan['if']);
+	}
+	return $realif;
+}
+
+/* Current parent address of the tunnel's address family, or '' when there is none. */
+function interface_vxlan_local_address($vxlan) {
+	if (($vxlan['ipproto'] ?? 'inet') == 'inet6') {
+		$addr = get_interface_ipv6($vxlan['if']);
+		return is_ipaddrv6($addr) ? $addr : '';
+	}
+	$addr = get_interface_ip($vxlan['if']);
+	return is_ipaddrv4($addr) ? $addr : '';
+}
+
+/* MTU of a VXLAN without an explicit MTU: the parent's MTU minus the encapsulation. */
+function interface_vxlan_default_mtu($vxlan) {
+	return vxlan_default_mtu(get_interface_mtu(interface_vxlan_parent_real($vxlan)),
+	    $vxlan['ipproto'] ?? 'inet');
+}
+
+/*
+ * Whether a tunnel is sent from a CARP VIP (or an IP Alias on one) that is not
+ * MASTER here. Such a tunnel stays down so that a bridged backup node does not
+ * flood its segment to the remote VTEPs; rc.carpmaster brings it up.
+ */
+function interface_vxlan_carp_standby($vxlan) {
+	if (!is_array($vxlan) || (substr($vxlan['if'] ?? '', 0, 4) != '_vip')) {
+		return false;
+	}
+	$carpid = $vxlan['if'];
+	$vip = get_configured_vip($carpid);
+	if (is_array($vip) && ($vip['mode'] == 'ipalias') && (substr($vip['interface'], 0, 4) == '_vip')) {
+		$carpid = $vip['interface'];
+		$vip = get_configured_vip($carpid);
+	}
+	if (!is_array($vip) || ($vip['mode'] != 'carp')) {
+		return false;
+	}
+	return (get_carp_interface_status($carpid) != 'MASTER');
+}
+
+/* The configured MAC of a VXLAN interface, or NULL when it is not a configured VXLAN. */
+function interface_vxlan_mac($realif) {
+	$vxlan = interface_is_type($realif, 'vxlan');
+	if (is_array($vxlan) && is_macaddr($vxlan['mac'] ?? '')) {
+		return $vxlan['mac'];
+	}
+	return NULL;
+}
+
+/*
+ * NOTE: $vxlankey is not used but useful for passing this function to array_walk.
+ *
+ * Boot, rc.newwanip(v6), VIP changes and the WebUI can configure the same
+ * tunnel at once; each run destroys and recreates it, so serialize them.
+ */
+function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
+	if (!is_array($vxlan)) {
+		return -1;
+	}
+	$lock = lock('vxlan', LOCK_EX);
+	$result = interface_vxlan_configure_locked($vxlan, $flush);
+	unlock($lock);
+	return $result;
+}
+
+function interface_vxlan_configure_locked(&$vxlan, $flush) {
+	$parentif = interface_vxlan_parent_real($vxlan);
+	$localaddr = interface_vxlan_local_address($vxlan);
+
+	/* vxlanlocal must be an address that is configured on the parent */
+	if (empty($parentif) || empty($localaddr)) {
+		logger(LOG_WARNING, localize_text('Not configuring VXLAN %1$s: parent %2$s has no usable address',
+		    $vxlan['vxlanif'] ?? 'vxlan', $vxlan['if']));
+		return -1;
+	}
+
+	interfaces_bring_up($parentif);
+
+	/* amd64 ships if_vxlan as a module, arm64 has the device built in */
+	if (!is_module_loaded("if_vxlan")) {
+		mwexec("/sbin/kldload if_vxlan");
+		if (!is_module_loaded("if_vxlan")) {
+			logger(LOG_ERR, localize_text('Not configuring VXLAN %s: the if_vxlan kernel module could not be loaded',
+			    $vxlan['vxlanif'] ?? 'vxlan'));
+			return -1;
+		}
+	}
+
+	/* The tunnel parameters can only be set while the interface is down, so recreate it. */
+	if (!empty($vxlan['vxlanif'])) {
+		FreeSense_interface_destroy($vxlan['vxlanif']);
+		$tempifname = FreeSense_interface_create2($vxlan['vxlanif']);
+		if (!is_string($tempifname)) {
+			logger(LOG_ERR, localize_text('Failed to configure interface %1$s: Could not create temporary interface %2$s', $vxlan['if'], $vxlan['vxlanif']));
+			return -1;
+		}
+		$vxlanif = $vxlan['vxlanif'];
+	} else {
+		/*
+		 * Never let the kernel pick the unit: a configured VXLAN whose parent
+		 * has no address yet does not exist, and its name must stay free.
+		 */
+		$vxlanif = interface_vxlan_next_ifname();
+		if (!is_string(FreeSense_interface_create2($vxlanif))) {
+			logger(LOG_ERR, localize_text('Failed to configure interface %1$s: Could not create temporary interface %2$s', $vxlan['if'], $vxlanif));
+			return -1;
+		}
+	}
+
+	if (is_ipaddrv6($localaddr)) {
+		/* vxlan(4) cannot bind a tentative IPv6 address */
+		if (!interface_wait_tentative($parentif)) {
+			logger(LOG_WARNING, localize_text('VXLAN %1$s: the IPv6 address of %2$s is still tentative', $vxlanif, $parentif));
+		}
+		/*
+		 * IPv6 VXLAN traffic to and from net.inet6.udp6.rfc6935_port uses a
+		 * zero UDP checksum (RFC 6935). vxlan(4) sets it once and never
+		 * resets it, so a changed port would drop zero-checksum packets
+		 * from FreeBSD peers until reboot. All IPv6 tunnels share one local
+		 * port (see vxlan_validate()), so set it to that port.
+		 */
+		set_single_sysctl('net.inet6.udp6.rfc6935_port', vxlan_localport($vxlan));
+	}
+
+	/* Do not leave a tunnel without its VNI, peer, port or MAC behind. */
+	$args = vxlan_ifconfig_args($vxlan, $localaddr, $parentif);
+	if (mwexec("/sbin/ifconfig " . escapeshellarg($vxlanif) . " " .
+	    implode(" ", array_map('escapeshellarg', $args))) != 0) {
+		logger(LOG_ERR, localize_text('Failed to configure VXLAN %s', $vxlanif));
+		FreeSense_interface_destroy($vxlanif);
+		get_interface_arr(true);
+		return -1;
+	}
+
+	/* An MTU set on the assigned interface wins, see interface_configure() */
+	$mtu = 0;
+	$assigned = convert_real_interface_to_friendly_interface_name($vxlanif);
+	if (!empty($assigned)) {
+		$mtu = intval(config_get_path("interfaces/{$assigned}/mtu", 0));
+	}
+	if ($mtu <= 0) {
+		$mtu = interface_vxlan_default_mtu($vxlan);
+	}
+	if (get_interface_mtu($vxlanif) != $mtu) {
+		FreeSense_interface_mtu($vxlanif, $mtu);
+	}
+
+	if (interface_vxlan_carp_standby($vxlan)) {
+		logger(LOG_INFO, localize_text('VXLAN %s stays down while its CARP VIP is not MASTER', $vxlanif));
+		if ($flush) {
+			get_interface_arr(true);
+		}
+		return $vxlanif;
+	}
+
+	interfaces_bring_up($vxlanif);
+
+	/*
+	 * vxlan(4) ignores socket, port and multicast errors when the interface
+	 * comes up; it then just never runs. Treat that as a failure.
+	 */
+	$ifconfig = array();
+	exec("/sbin/ifconfig " . escapeshellarg($vxlanif) . " 2>/dev/null", $ifconfig);
+	if (!vxlan_ifconfig_is_running(implode("\n", $ifconfig))) {
+		logger(LOG_ERR, localize_text('VXLAN %1$s did not start: the kernel could not bind %2$s port %3$d or join the group (address not present yet, port or VNI already in use). See dmesg.',
+		    $vxlanif, $localaddr, vxlan_localport($vxlan)));
+		FreeSense_interface_destroy($vxlanif);
+		get_interface_arr(true);
+		return -1;
+	}
+
+	if ($flush) {
+		get_interface_arr(true);
+	}
+
+	return $vxlanif;
+}
+
+/* Lowest vxlanN not used by a configured tunnel or an existing interface. */
+function interface_vxlan_next_ifname() {
+	$used = array();
+	foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+		if (!empty($vxlan['vxlanif'])) {
+			$used[] = $vxlan['vxlanif'];
+		}
+	}
+	foreach (get_interface_arr(true) as $ifname) {
+		if (substr($ifname, 0, 5) == 'vxlan') {
+			$used[] = $ifname;
+		}
+	}
+	return vxlan_next_ifname($used);
+}
+
+/*
+ * Recreate the VXLAN tunnels running over $interface, then reapply the
+ * assigned interface settings (address, MTU, bridge membership) that are
+ * lost when a tunnel is recreated.
+ */
+function interface_vxlan_reconfigure_children($interface, $family = 'any') {
+	$tunnels = link_interface_to_tunnelif($interface, 'vxlan', $family);
+	foreach ($tunnels as $vxlan) {
+		interface_vxlan_apply($vxlan);
+	}
+	return $tunnels;
+}
+
+/* (Re)create one tunnel and reapply its assigned interface. */
+function interface_vxlan_apply($vxlan) {
+	if (interface_vxlan_configure($vxlan) == -1) {
+		return false;
+	}
+	$confif = convert_real_interface_to_friendly_interface_name($vxlan['vxlanif']);
+	if (!empty($confif)) {
+		interface_configure($confif);
+		system_routing_configure($confif);
+		/* interface_configure() only restores these after boot; a lease
+		 * that arrives during boot recreates the tunnel too. */
+		if (is_platform_booting()) {
+			link_interface_to_vips($confif, "update");
+			$grouptmp = link_interface_to_group($confif);
+			if (!empty($grouptmp)) {
+				array_walk($grouptmp, 'interface_group_add_member');
+			}
+		}
+	}
+	return true;
+}
+
+/*
+ * Create the tunnels that are not up yet. At boot a parent that is a bridge,
+ * or another interface configured late, has no usable address during the
+ * tunnel passes, so this runs again once every interface is configured.
+ */
+function interfaces_vxlan_configure_missing() {
+	foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+		if (!empty($vxlan['vxlanif']) && does_interface_exist($vxlan['vxlanif'])) {
+			continue;
+		}
+		interface_vxlan_apply($vxlan);
+	}
+}
+
+/*
+ * Recreate the GRE, GIF and VXLAN tunnels sent from a VIP after the VIP was
+ * applied, so they use its new address. A tunnel parent stored as
+ * _vip<uniqid> keeps pointing at the same VIP when its address changes.
+ */
+function interface_tunnels_reconfigure_vip($vip) {
+	if (!is_array($vip) || empty($vip['uniqid'])) {
+		return;
+	}
+	$parent = "_vip{$vip['uniqid']}";
+
+	foreach (array('gre', 'gif') as $type) {
+		$tunnels = link_interface_to_tunnelif($parent, $type);
+		array_walk($tunnels, "interface_{$type}_configure");
+		/* as rc.newwanip does: reapply the assigned tunnel interface */
+		foreach ($tunnels as $tunnel) {
+			$confif = convert_real_interface_to_friendly_interface_name($tunnel["{$type}if"]);
+			if (!empty($confif)) {
+				interface_configure($confif);
+				system_routing_configure($confif);
+			}
+		}
+	}
+
+	interface_vxlan_reconfigure_children($parent);
 }
 
 /* Build a list of IPsec interfaces */
@@ -1673,6 +1958,8 @@ function interfaces_configure() {
 			$delayed_list[$if] = $ifname;
 		} elseif (strstr($realif, "gif")) {
 			$delayed_list[$if] = $ifname;
+		} elseif (substr($realif, 0, 5) == "vxlan") {
+			$delayed_list[$if] = $ifname;
 		} elseif (strstr($realif, "ovpn")) {
 			continue;
 		} elseif (strstr($realif, "ipsec")) {
@@ -1708,8 +1995,8 @@ function interfaces_configure() {
 
 	/*
 	 * NOTE: The following function parameter consists of
-	 *	1 - Do not load gre/gif/bridge with parent/member as vip
-	 *	2 - Do load gre/gif/bridge with parent/member as vip
+	 *	1 - Do not load gre/gif/vxlan/bridge with parent/member as vip
+	 *	2 - Do load gre/gif/vxlan/bridge with parent/member as vip
 	 */
 
 	/* set up GRE virtual interfaces */
@@ -1717,6 +2004,9 @@ function interfaces_configure() {
 
 	/* set up GIF virtual interfaces */
 	interfaces_tunnel_configure(1,'','gif');
+
+	/* set up VXLAN virtual interfaces before the bridges they may be members of */
+	interfaces_tunnel_configure(1,'','vxlan');
 
 	/* set up BRIDGE virtual interfaces */
 	interfaces_bridge_configure(1);
@@ -1744,6 +2034,9 @@ function interfaces_configure() {
 
 	/* set up GIF virtual interfaces */
 	interfaces_tunnel_configure(2,'','gif');
+
+	/* set up VXLAN virtual interfaces */
+	interfaces_tunnel_configure(2,'','vxlan');
 
 	foreach ($delayed_list as $if => $ifname) {
 		if (is_platform_booting()) {
@@ -1780,6 +2073,9 @@ function interfaces_configure() {
 			echo gettext("done.") . "\n";
 		}
 	}
+
+	/* VXLAN tunnels whose parent (e.g. a bridge) had no address earlier */
+	interfaces_vxlan_configure_missing();
 
 	foreach ($dhcp6c_list as $if => $ifname) {
 		if (is_platform_booting()) {
@@ -2059,7 +2355,7 @@ function interface_bring_down($interface = "wan", $destroy = false, $ifacecfg = 
 	}
 
 	if ($destroy == true) {
-		if (preg_match("/^[a-z0-9]+^tun|^ovpn|^ipsec|^gif|^gre|^lagg|^bridge|vlan|_stf$/i", $realif)) {
+		if (preg_match("/^[a-z0-9]+^tun|^ovpn|^ipsec|^gif|^gre|^vxlan|^lagg|^bridge|vlan|_stf$/i", $realif)) {
 			FreeSense_interface_destroy($realif);
 
 			/* Invalidate cache */
@@ -4088,6 +4384,8 @@ function interface_virtual_create($interface) {
 		interfaces_tunnel_configure(0, $interface, 'gre');
 	} elseif (substr($interface, 0, 3) == "gif") {
 		interfaces_tunnel_configure(0, $interface, 'gif');
+	} elseif (substr($interface, 0, 5) == "vxlan") {
+		interfaces_tunnel_configure(0, $interface, 'vxlan');
 	} elseif (substr($interface, 0, 5) == "ovpns") {
 		foreach (config_get_path('openvpn/openvpn-server', []) as $server) {
 			if ($interface == "ovpns{$server['vpnid']}") {
@@ -4270,7 +4568,8 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 	$vendor_mac = get_interface_vendor_mac($realhwif);
 
 	if ($current_mac != "ff:ff:ff:ff:ff:ff") {
-		$mac_addr = $mac_if_cfg['spoofmac'] ?: $vendor_mac;
+		/* A VXLAN keeps the MAC fixed in its config across re-creation. */
+		$mac_addr = $mac_if_cfg['spoofmac'] ?: (interface_vxlan_mac($realhwif) ?: $vendor_mac);
 
 		interface_set_macaddr($realhwif, $mac_addr);
 
@@ -4362,6 +4661,12 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 	}
 	if (($wantedmtu == 0) && interface_is_type($mtuif, 'gif')) {
 		$wantedmtu = 1280;
+	}
+	if ($wantedmtu == 0) {
+		$vxlan_mtu_cfg = interface_is_type($mtuif, 'vxlan');
+		if (is_array($vxlan_mtu_cfg)) {
+			$wantedmtu = interface_vxlan_default_mtu($vxlan_mtu_cfg);
+		}
 	}
 
 	/* Set the MTU to 1500 if no explicit MTU configured. */
@@ -4490,6 +4795,10 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 			array_walk($gif, 'interface_gif_configure');
 		}
 
+		if (substr($realif, 0, 5) != 'vxlan') {
+			interface_vxlan_reconfigure_children($interface);
+		}
+
 		$grouptmp = link_interface_to_group($interface);
 		if (!empty($grouptmp)) {
 			array_walk($grouptmp, 'interface_group_add_member');
@@ -4530,6 +4839,15 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 	};
 
 	interfaces_staticarp_configure($interface);
+
+	/* Setting an address brings a VXLAN up; keep a CARP standby tunnel down. */
+	if (substr($realif, 0, 5) == 'vxlan') {
+		$vxlan = interface_is_type($realif, 'vxlan');
+		if (is_array($vxlan) && interface_vxlan_carp_standby($vxlan)) {
+			mwexec("/sbin/ifconfig " . escapeshellarg($realif) . " down");
+		}
+	}
+
 	return 0;
 }
 
@@ -6336,6 +6654,8 @@ function link_interface_to_track6($int, $action = "") {
 		if (!empty($ifcfg['ipaddrv6']) && $ifcfg['track6-interface'] == $int) {
 			if ($action == "update") {
 				interface_track6_configure($ifname, $ifcfg);
+				/* IPv6 VXLANs sent from the tracking interface follow its new prefix */
+				interface_vxlan_reconfigure_children($ifname, 'inet6');
 			} elseif ($action == "") {
 				$list[$ifname] = $ifcfg;
 			}
@@ -6480,15 +6800,25 @@ function link_interface_to_tunnelif($interface, $type, $remote = 'any') {
 		return $result;
 	}
 
-	if (!in_array($type, array('gre', 'gif'))) {
+	if (!in_array($type, array('gre', 'gif', 'vxlan'))) {
 		return $result;
 	}
 
 	foreach (config_get_path("{$type}s/{$type}", []) as $tunnel) {
-		if (($tunnel['if'] == $interface) &&
-			(($remote == 'any') ||
-			 (is_ipaddrv4($tunnel['remote-addr']) && ($remote == 'inet')) ||
-			 (is_ipaddrv6($tunnel['remote-addr']) && ($remote == 'inet6')))) {
+		if ($tunnel['if'] != $interface) {
+			continue;
+		}
+		if ($type == 'vxlan') {
+			/* a multicast VXLAN has no remote address */
+			$family = (($tunnel['ipproto'] ?? 'inet') == 'inet6') ? 'inet6' : 'inet';
+		} elseif (is_ipaddrv4($tunnel['remote-addr'])) {
+			$family = 'inet';
+		} elseif (is_ipaddrv6($tunnel['remote-addr'])) {
+			$family = 'inet6';
+		} else {
+			$family = '';
+		}
+		if (($remote == 'any') || ($remote == $family)) {
 			$result[] = $tunnel;
 		}
 	}

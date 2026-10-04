@@ -389,6 +389,14 @@ class freesense_xmlrpc_server {
 
 		$vipbackup = array();
 		$oldvips = array();
+		/* VIP addresses before the merge: tunnels sent from a VIP are only
+		 * recreated when its address actually changes */
+		$oldvipaddrs = array();
+		foreach (config_get_path('virtualip/vip', []) as $vip) {
+			if (!empty($vip['uniqid'])) {
+				$oldvipaddrs[$vip['uniqid']] = "{$vip['mode']}|{$vip['interface']}|{$vip['subnet']}|{$vip['subnet_bits']}";
+			}
+		}
 		if (array_key_exists('virtualip', $sections)) {
 			foreach (config_get_path('virtualip/vip', []) as $vip) {
 				if (empty($vip)) {
@@ -667,6 +675,11 @@ class freesense_xmlrpc_server {
 					}
 					interface_carp_configure($vip, false, $ipalias_reload);
 					break;
+				}
+				/* GRE, GIF and VXLAN tunnels sent from this VIP follow its new address */
+				if (($oldvipaddrs[$vip['uniqid'] ?? ''] ?? '') !==
+				    "{$vip['mode']}|{$vip['interface']}|{$vip['subnet']}|{$vip['subnet_bits']}") {
+					interface_tunnels_reconfigure_vip($vip);
 				}
 				$force_filterconfigure = true;
 			}
