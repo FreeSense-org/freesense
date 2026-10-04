@@ -6283,7 +6283,8 @@ function upgrade_212_to_213() {
 	config_set_path('ipsec/phase1', $ipsec_phase1_config);
 }
 
-/* VXLAN support was removed */
+/* The legacy pfSense VXLAN schema was removed. Current VXLAN tunnels live in
+ * vxlans/vxlan again; this step only runs for configs older than 21.4. */
 function upgrade_213_to_214() {
 	config_del_path('vxlans');
 }
