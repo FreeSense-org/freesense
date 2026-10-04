@@ -1579,6 +1579,18 @@ function interface_vxlan_reconfigure_children($interface, $family = 'any') {
 	return $tunnels;
 }
 
+/*
+ * Recreate the VXLAN tunnels sent from a VIP after the VIP was applied, so
+ * they use its new address. A VXLAN parent stored as _vip<uniqid> keeps
+ * pointing at the same VIP when its address changes.
+ */
+function interface_vxlan_reconfigure_vip($vip) {
+	if (!is_array($vip) || empty($vip['uniqid'])) {
+		return array();
+	}
+	return interface_vxlan_reconfigure_children("_vip{$vip['uniqid']}");
+}
+
 /* Build a list of IPsec interfaces */
 function interface_ipsec_vti_list_p1($ph1ent) {
 	$iface_list = array();

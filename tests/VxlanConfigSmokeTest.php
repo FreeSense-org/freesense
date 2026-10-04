@@ -143,4 +143,10 @@ $interfaces = file_get_contents($root . '/src/etc/inc/interfaces.inc');
 check_vxlan(preg_match('/Failed to configure VXLAN %s.*?return -1;/s', $interfaces) === 1,
     'a failed ifconfig must not be reported as a configured tunnel');
 
+$vipinc = file_get_contents($root . '/src/usr/local/FreeSense/include/www/firewall_virtual_ip.inc');
+$xmlrpc = file_get_contents($root . '/src/usr/local/www/xmlrpc.php');
+check_vxlan(strpos($vipinc, 'interface_vxlan_reconfigure_vip(') !== false &&
+    strpos($xmlrpc, 'interface_vxlan_reconfigure_vip(') !== false,
+    'applying or syncing a VIP must recreate the VXLAN tunnels sent from it');
+
 echo "VXLAN config smoke test passed.\n";
