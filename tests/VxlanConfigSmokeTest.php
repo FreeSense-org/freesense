@@ -103,6 +103,14 @@ check_vxlan(vxlan_validate($multicast, '10.0.0.1', $v6_other) === [], 'the other
 check_vxlan(vxlan_validate($unicast, '192.0.2.1', $mc_other) !== [], 'unicast and multicast must not share a port in one family');
 check_vxlan(vxlan_validate(['localport' => '4790'] + $unicast, '192.0.2.1', $mc_other) === [], 'unicast on another port than multicast must pass');
 
+/* All IPv6 tunnels share the one zero-checksum port */
+$v6_peer = [['vxlanif' => 'vxlan8', 'ipproto' => 'inet6', 'mode' => 'unicast', 'localaddr' => '2001:db8::9', 'localport' => 4789, 'vni' => 9]];
+check_vxlan(vxlan_validate($v6, '2001:db8::1', $v6_peer) === [], 'IPv6 tunnels on the same local port must pass');
+check_vxlan(vxlan_validate(['localport' => '8472', 'remoteport' => '8472'] + $v6, '2001:db8::1', $v6_peer) !== [],
+    'IPv6 tunnels on different local ports must fail');
+check_vxlan(vxlan_validate(['localport' => '8472'] + $unicast, '192.0.2.1', $others) === [],
+    'IPv4 tunnels may use different local ports');
+
 /* Remote sanity */
 foreach (['0.0.0.0', '255.255.255.255', '127.0.0.1', '192.0.2.1'] as $remote) {
 	check_vxlan($bad(['remote-addr' => $remote]), "remote {$remote} must fail");
@@ -183,6 +191,10 @@ check_vxlan($order['PFCONFIG_FILTER_IF_VXLAN'] < min($order['PFCONFIG_FILTER_IF_
 
 check_vxlan(strpos($interfaces, 'FreeSense_interface_create2("vxlan")') === false,
     'a new VXLAN must not let the kernel pick a unit that a configured tunnel owns');
+check_vxlan(strpos($interfaces, "lock('vxlan', LOCK_EX)") !== false,
+    'concurrent configuration of a tunnel must be serialized');
+check_vxlan(strpos($interfaces, "set_single_sysctl('net.inet6.udp6.rfc6935_port'") !== false,
+    'IPv6 tunnels must set the zero-checksum port explicitly');
 check_vxlan(strpos($interfaces, 'vxlan_ifconfig_is_running(') !== false,
     'a tunnel that never reaches RUNNING must be reported');
 

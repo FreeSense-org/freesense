@@ -270,8 +270,16 @@ function vxlan_validate($vxlan, $localaddr, $others = []) {
 			if (($other['vxlanif'] ?? '') !== '' && ($other['vxlanif'] ?? '') === ($vxlan['vxlanif'] ?? null)) {
 				continue;
 			}
-			if (($other['ipproto'] ?? 'inet') !== $ipproto ||
-			    (int)$other['localport'] !== vxlan_localport($vxlan)) {
+			if (($other['ipproto'] ?? 'inet') !== $ipproto) {
+				continue;
+			}
+			/* FreeBSD accepts zero-checksum UDP over IPv6 on a single port */
+			if (($ipproto == 'inet6') && ((int)$other['localport'] !== vxlan_localport($vxlan))) {
+				$errors[] = sprintf(vxlan_text('%1$s uses local port %2$d. All IPv6 VXLAN tunnels must use the same local port, because FreeBSD accepts zero-checksum IPv6 UDP on one port only.'),
+				    $other['vxlanif'], (int)$other['localport']);
+				break;
+			}
+			if ((int)$other['localport'] !== vxlan_localport($vxlan)) {
 				continue;
 			}
 			$othermode = $other['mode'] ?? 'unicast';

@@ -1473,12 +1473,23 @@ function interface_vxlan_mac($realif) {
 	return NULL;
 }
 
-/* NOTE: $vxlankey is not used but useful for passing this function to array_walk. */
+/*
+ * NOTE: $vxlankey is not used but useful for passing this function to array_walk.
+ *
+ * Boot, rc.newwanip(v6), VIP changes and the WebUI can configure the same
+ * tunnel at once; each run destroys and recreates it, so serialize them.
+ */
 function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 	if (!is_array($vxlan)) {
 		return -1;
 	}
+	$lock = lock('vxlan', LOCK_EX);
+	$result = interface_vxlan_configure_locked($vxlan, $flush);
+	unlock($lock);
+	return $result;
+}
 
+function interface_vxlan_configure_locked(&$vxlan, $flush) {
 	$parentif = interface_vxlan_parent_real($vxlan);
 	$localaddr = interface_vxlan_local_address($vxlan);
 
@@ -1522,9 +1533,19 @@ function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 		}
 	}
 
-	/* vxlan(4) cannot bind a tentative IPv6 address */
-	if (is_ipaddrv6($localaddr) && !interface_wait_tentative($parentif)) {
-		logger(LOG_WARNING, localize_text('VXLAN %1$s: the IPv6 address of %2$s is still tentative', $vxlanif, $parentif));
+	if (is_ipaddrv6($localaddr)) {
+		/* vxlan(4) cannot bind a tentative IPv6 address */
+		if (!interface_wait_tentative($parentif)) {
+			logger(LOG_WARNING, localize_text('VXLAN %1$s: the IPv6 address of %2$s is still tentative', $vxlanif, $parentif));
+		}
+		/*
+		 * IPv6 VXLAN traffic to and from net.inet6.udp6.rfc6935_port uses a
+		 * zero UDP checksum (RFC 6935). vxlan(4) sets it once and never
+		 * resets it, so a changed port would drop zero-checksum packets
+		 * from FreeBSD peers until reboot. All IPv6 tunnels share one local
+		 * port (see vxlan_validate()), so set it to that port.
+		 */
+		set_single_sysctl('net.inet6.udp6.rfc6935_port', vxlan_localport($vxlan));
 	}
 
 	/* Do not leave a tunnel without its VNI, peer, port or MAC behind. */
