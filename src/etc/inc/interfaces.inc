@@ -1494,6 +1494,11 @@ function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 	/* amd64 ships if_vxlan as a module, arm64 has the device built in */
 	if (!is_module_loaded("if_vxlan")) {
 		mwexec("/sbin/kldload if_vxlan");
+		if (!is_module_loaded("if_vxlan")) {
+			logger(LOG_ERR, localize_text('Not configuring VXLAN %s: the if_vxlan kernel module could not be loaded',
+			    $vxlan['vxlanif'] ?? 'vxlan'));
+			return -1;
+		}
 	}
 
 	/* The tunnel parameters can only be set while the interface is down, so recreate it. */
@@ -1513,10 +1518,14 @@ function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 		}
 	}
 
+	/* Do not leave a tunnel without its VNI, peer, port or MAC behind. */
 	$args = vxlan_ifconfig_args($vxlan, $localaddr, $parentif);
 	if (mwexec("/sbin/ifconfig " . escapeshellarg($vxlanif) . " " .
 	    implode(" ", array_map('escapeshellarg', $args))) != 0) {
 		logger(LOG_ERR, localize_text('Failed to configure VXLAN %s', $vxlanif));
+		FreeSense_interface_destroy($vxlanif);
+		get_interface_arr(true);
+		return -1;
 	}
 
 	/* An MTU set on the assigned interface wins, see interface_configure() */
@@ -1556,6 +1565,15 @@ function interface_vxlan_reconfigure_children($interface, $family = 'any') {
 		if (!empty($confif)) {
 			interface_configure($confif);
 			system_routing_configure($confif);
+			/* interface_configure() only restores these after boot; a lease
+			 * that arrives during boot recreates the tunnel too. */
+			if (is_platform_booting()) {
+				link_interface_to_vips($confif, "update");
+				$grouptmp = link_interface_to_group($confif);
+				if (!empty($grouptmp)) {
+					array_walk($grouptmp, 'interface_group_add_member');
+				}
+			}
 		}
 	}
 	return $tunnels;

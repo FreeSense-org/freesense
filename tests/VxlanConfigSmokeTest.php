@@ -126,4 +126,21 @@ $back = parse_xml_config($file, 'freesense');
 unlink($file);
 check_vxlan(($back['vxlans']['vxlan'][0]['vni'] ?? null) === '100', 'a single vxlan must still parse as a list');
 
+/* Source-level regressions */
+$root = dirname(__DIR__);
+$newwanipv6 = file_get_contents($root . '/src/etc/rc.newwanipv6');
+$recreate = strpos($newwanipv6, 'interface_vxlan_reconfigure_children(');
+$bootexit = strpos($newwanipv6, '_dhcp6_complete');
+check_vxlan($recreate !== false && $bootexit !== false && $recreate < $bootexit,
+    'rc.newwanipv6 must recreate VXLAN tunnels before its boot-time exit');
+
+$fast = file_get_contents($root . '/src/etc/inc/interfaces_fast.inc');
+check_vxlan(preg_match("/isvxlan'\\]\\) \\{(.*?)\\} elseif/s", $fast, $branch) === 1 &&
+    strpos($branch[1], '$friendlyifnames') === false,
+    'the assignments label must not look up a VXLAN parent in the real-interface map');
+
+$interfaces = file_get_contents($root . '/src/etc/inc/interfaces.inc');
+check_vxlan(preg_match('/Failed to configure VXLAN %s.*?return -1;/s', $interfaces) === 1,
+    'a failed ifconfig must not be reported as a configured tunnel');
+
 echo "VXLAN config smoke test passed.\n";

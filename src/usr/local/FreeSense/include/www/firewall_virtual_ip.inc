@@ -417,6 +417,16 @@ function deleteVIP($id, $json = false) {
 			}
 		}
 
+		/* make sure no VXLAN tunnel is sent from this entry */
+		if (!empty($a_vip[$id]['uniqid'])) {
+			foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+				if ($vxlan['if'] == "_vip{$a_vip[$id]['uniqid']}") {
+					$input_errors[] = sprintf(gettext('This entry cannot be deleted because it is still the parent of VXLAN %s.'), $vxlan['vxlanif']);
+					break;
+				}
+			}
+		}
+
 		if (is_ipaddrv6($a_vip[$id]['subnet'])) {
 			$is_ipv6 = true;
 			$subnet = gen_subnetv6($a_vip[$id]['subnet'], $a_vip[$id]['subnet_bits']);

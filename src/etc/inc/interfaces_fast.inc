@@ -246,11 +246,9 @@ function interface_assign_description_fast($portlist, $friendlyifnames) {
 			}
 		} elseif ($portinfo['isvxlan']) {
 			$peer = ($portinfo['mode'] == 'multicast') ? $portinfo['mcastgroup'] : $portinfo['remote-addr'];
-			$descr = sprintf('VXLAN %1$s %2$s '.$gettext.' %3$s', $portinfo['vni'], $peer, $portinfo['if']);
-			$iface = $friendlyifnames[$portinfo['if']];
-			if (isset($iface) && strlen($iface) > 0) {
-				$descr .= " - $iface";
-			}
+			/* the parent is a friendly name or a VIP, not a real interface */
+			$descr = sprintf('VXLAN %1$s %2$s '.$gettext.' %3$s', $portinfo['vni'], $peer,
+			    convert_friendly_interface_to_friendly_descr($portinfo['if']));
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}

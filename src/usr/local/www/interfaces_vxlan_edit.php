@@ -69,7 +69,8 @@ if ($_POST['save']) {
 	$vxlan['descr'] = $_POST['descr'];
 	/* Keep the interface name and MAC of an existing tunnel; never take them from the form. */
 	$vxlan['vxlanif'] = $this_vxlan_config['vxlanif'] ?? '';
-	$vxlan['mac'] = $this_vxlan_config['mac'] ?? vxlan_generate_mac();
+	$vxlan['mac'] = vxlan_is_valid_mac($this_vxlan_config['mac'] ?? '') ?
+	    $this_vxlan_config['mac'] : vxlan_generate_mac();
 
 	if (!array_key_exists($vxlan['if'], build_parent_list())) {
 		$input_errors[] = gettext("A valid parent interface must be selected.");
@@ -97,7 +98,18 @@ if ($_POST['save']) {
 	if (!$input_errors) {
 		$vxlanif = interface_vxlan_configure($vxlan);
 		if (!is_string($vxlanif) || !preg_match("/^vxlan[0-9]+$/", $vxlanif)) {
-			$input_errors[] = gettext("Error occurred creating interface, please retry.");
+			$input_errors[] = gettext("The VXLAN interface could not be created with these settings. The system log has the details.");
+			/* the old tunnel was destroyed before the new one failed; bring it back */
+			if ($this_vxlan_config) {
+				$restore = $this_vxlan_config;
+				if (is_string(interface_vxlan_configure($restore))) {
+					$confif = convert_real_interface_to_friendly_interface_name($restore['vxlanif']);
+					if ($confif != "") {
+						interface_configure($confif);
+						system_routing_configure($confif);
+					}
+				}
+			}
 		} else {
 			$vxlan['vxlanif'] = $vxlanif;
 			if ($this_vxlan_config) {
@@ -112,6 +124,7 @@ if ($_POST['save']) {
 			$confif = convert_real_interface_to_friendly_interface_name($vxlanif);
 			if ($confif != "") {
 				interface_configure($confif);
+				system_routing_configure($confif);
 			}
 
 			/* the pass rule follows the peer, port and parent */

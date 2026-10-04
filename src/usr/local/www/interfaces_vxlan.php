@@ -125,9 +125,18 @@ display_top_tabs($tab_array);
 				</thead>
 				<tbody>
 <?php foreach (config_get_path('vxlans/vxlan', []) as $i => $vxlan): ?>
+<?php
+	$assigned = empty($vxlan['vxlanif']) ? '' : convert_real_interface_to_friendly_interface_name($vxlan['vxlanif']);
+?>
 					<tr>
 						<td>
 							<?=htmlspecialchars($vxlan['vxlanif'])?>
+<?php	if (!empty($assigned)): ?>
+							(<?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($assigned))?>)
+<?php	endif; ?>
+<?php	if (empty($vxlan['vxlanif']) || !does_interface_exist($vxlan['vxlanif'])): ?>
+							<i class="fa-solid fa-triangle-exclamation text-warning" title="<?=gettext('The interface does not exist. The parent may have no address of the selected family yet; the tunnel is created when it gets one. Check the system log.')?>"></i>
+<?php	endif; ?>
 						</td>
 						<td>
 							<?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($vxlan['if']))?>

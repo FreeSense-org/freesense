@@ -210,9 +210,20 @@ setup_gateways_monitor();
 /* reconfigure static routes (kernel may have deleted them) */
 system_routing_configure($interface);
 
+/* recreate VXLAN tunnels with the new local address and reapply their
+ * assigned interfaces; also during boot, when DHCPv6 usually delivers it */
+$vxlan = interface_vxlan_reconfigure_children($interface, 'inet6');
+
 if (is_platform_booting()) {
 	// avoid race conditions in many of the below functions that occur during boot
 	touch("/tmp/{$interface_real}_dhcp6_complete");
+	/* the VXLAN pass rule needs the new local address */
+	foreach ($vxlan as $vxlantun) {
+		if (isset($vxlantun['allowrule'])) {
+			filter_configure_sync();
+			break;
+		}
+	}
 	exit;
 }
 
@@ -279,9 +290,6 @@ foreach ($gre as $gretun) {
 		system_routing_configure($confif);
 	}
 }
-
-/* recreate VXLAN tunnels with the new local address and reapply their assigned interfaces */
-interface_vxlan_reconfigure_children($interface, 'inet6');
 
 if ($srvupdate) {
 	/* reload graphing functions */
