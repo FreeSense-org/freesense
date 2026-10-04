@@ -37,10 +37,22 @@ foreach (['if_wg'] as $module) {
 	}
 }
 
-$amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom ipmi ix ixv nmdm qlnx sfxge vmm';
+$amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom if_vxlan ipmi ix ixv nmdm qlnx sfxge vmm';
 if (strpos($defaults, 'MODULES_OVERRIDE_amd64="' . $amd64 . '"') === false) {
 	fwrite(STDERR, "amd64 kernel module policy changed unexpectedly\n");
 	exit(1);
+}
+
+/*
+ * VXLAN interfaces load if_vxlan at runtime. The amd64 kernel has no vxlan
+ * device, so amd64 ships the module; the arm64 kernel config has
+ * "device vxlan" built in, so a module there would duplicate it.
+ */
+foreach ([$base[1], $matches[1]] as $list) {
+	if (preg_match('/(^| )if_vxlan( |$)/', $list)) {
+		fwrite(STDERR, "if_vxlan must only be built as a module on amd64\n");
+		exit(1);
+	}
 }
 
 echo "Target-specific kernel module policy smoke test passed.\n";
