@@ -198,6 +198,14 @@ check_vxlan(strpos($interfaces, "set_single_sysctl('net.inet6.udp6.rfc6935_port'
 check_vxlan(strpos($interfaces, 'vxlan_ifconfig_is_running(') !== false,
     'a tunnel that never reaches RUNNING must be reported');
 
+$carpmaster = file_get_contents($root . '/src/etc/rc.carpmaster');
+$carpbackup = file_get_contents($root . '/src/etc/rc.carpbackup');
+check_vxlan(strpos($carpmaster, 'interface_vxlan_apply(') !== false &&
+    strpos($carpbackup, "link_interface_to_tunnelif(\"_vip{\$vip['uniqid']}\", 'vxlan')") !== false,
+    'VXLAN tunnels on a CARP VIP must start on MASTER and stop on BACKUP');
+check_vxlan(preg_match('/interface_vxlan_carp_standby\(\$vxlan\)\) \{\s*mwexec\("\/sbin\/ifconfig " \. escapeshellarg\(\$realif\) \. " down"\)/', $interfaces) === 1,
+    'interface_configure() must keep a CARP standby tunnel down after setting its address');
+
 $vipinc = file_get_contents($root . '/src/usr/local/FreeSense/include/www/firewall_virtual_ip.inc');
 $xmlrpc = file_get_contents($root . '/src/usr/local/www/xmlrpc.php');
 check_vxlan(strpos($vipinc, 'interface_tunnels_reconfigure_vip(') !== false &&

@@ -1464,6 +1464,27 @@ function interface_vxlan_default_mtu($vxlan) {
 	    $vxlan['ipproto'] ?? 'inet');
 }
 
+/*
+ * Whether a tunnel is sent from a CARP VIP (or an IP Alias on one) that is not
+ * MASTER here. Such a tunnel stays down so that a bridged backup node does not
+ * flood its segment to the remote VTEPs; rc.carpmaster brings it up.
+ */
+function interface_vxlan_carp_standby($vxlan) {
+	if (!is_array($vxlan) || (substr($vxlan['if'] ?? '', 0, 4) != '_vip')) {
+		return false;
+	}
+	$carpid = $vxlan['if'];
+	$vip = get_configured_vip($carpid);
+	if (is_array($vip) && ($vip['mode'] == 'ipalias') && (substr($vip['interface'], 0, 4) == '_vip')) {
+		$carpid = $vip['interface'];
+		$vip = get_configured_vip($carpid);
+	}
+	if (!is_array($vip) || ($vip['mode'] != 'carp')) {
+		return false;
+	}
+	return (get_carp_interface_status($carpid) != 'MASTER');
+}
+
 /* The configured MAC of a VXLAN interface, or NULL when it is not a configured VXLAN. */
 function interface_vxlan_mac($realif) {
 	$vxlan = interface_is_type($realif, 'vxlan');
@@ -1569,6 +1590,14 @@ function interface_vxlan_configure_locked(&$vxlan, $flush) {
 	}
 	if (get_interface_mtu($vxlanif) != $mtu) {
 		FreeSense_interface_mtu($vxlanif, $mtu);
+	}
+
+	if (interface_vxlan_carp_standby($vxlan)) {
+		logger(LOG_INFO, localize_text('VXLAN %s stays down while its CARP VIP is not MASTER', $vxlanif));
+		if ($flush) {
+			get_interface_arr(true);
+		}
+		return $vxlanif;
 	}
 
 	interfaces_bring_up($vxlanif);
@@ -4810,6 +4839,15 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 	};
 
 	interfaces_staticarp_configure($interface);
+
+	/* Setting an address brings a VXLAN up; keep a CARP standby tunnel down. */
+	if (substr($realif, 0, 5) == 'vxlan') {
+		$vxlan = interface_is_type($realif, 'vxlan');
+		if (is_array($vxlan) && interface_vxlan_carp_standby($vxlan)) {
+			mwexec("/sbin/ifconfig " . escapeshellarg($realif) . " down");
+		}
+	}
+
 	return 0;
 }
 

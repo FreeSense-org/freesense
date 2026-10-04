@@ -56,6 +56,15 @@ foreach ($vips as $vip) {
 }
 restart_ppp_interfaces_using_interfaces($vips);
 
+/* Stop VXLAN tunnels sent from this VIP so a bridged backup does not flood the segment. */
+foreach ($vips as $vip) {
+	foreach (link_interface_to_tunnelif("_vip{$vip['uniqid']}", 'vxlan') as $vxlan) {
+		if (!empty($vxlan['vxlanif']) && does_interface_exist($vxlan['vxlanif'])) {
+			mwexec("/sbin/ifconfig " . escapeshellarg($vxlan['vxlanif']) . " down");
+		}
+	}
+}
+
 /* Stop OpenVPN clients running on this VIP, since multiple active OpenVPN clients on a CARP cluster can be problematic. */
 $a_groups = return_gateway_groups_array(true);
 

@@ -57,6 +57,13 @@ foreach ($vips as $vip) {
 }
 restart_ppp_interfaces_using_interfaces($vips);
 
+/* Bring up VXLAN tunnels sent from this VIP; they stay down while it is BACKUP. */
+foreach ($vips as $vip) {
+	foreach (link_interface_to_tunnelif("_vip{$vip['uniqid']}", 'vxlan') as $vxlan) {
+		interface_vxlan_apply($vxlan);
+	}
+}
+
 /* Start OpenVPN clients running on this VIP, since they should be in the stopped state while the VIP is CARP Backup. */
 $a_groups = return_gateway_groups_array(true);
 
