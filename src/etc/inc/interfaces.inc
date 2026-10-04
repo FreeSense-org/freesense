@@ -1511,11 +1511,20 @@ function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 		}
 		$vxlanif = $vxlan['vxlanif'];
 	} else {
-		$vxlanif = FreeSense_interface_create2("vxlan");
-		if (!is_string($vxlanif)) {
-			logger(LOG_ERR, localize_text('Failed to configure interface %1$s: Could not create temporary interface %2$s', $vxlan['if'], 'vxlan'));
+		/*
+		 * Never let the kernel pick the unit: a configured VXLAN whose parent
+		 * has no address yet does not exist, and its name must stay free.
+		 */
+		$vxlanif = interface_vxlan_next_ifname();
+		if (!is_string(FreeSense_interface_create2($vxlanif))) {
+			logger(LOG_ERR, localize_text('Failed to configure interface %1$s: Could not create temporary interface %2$s', $vxlan['if'], $vxlanif));
 			return -1;
 		}
+	}
+
+	/* vxlan(4) cannot bind a tentative IPv6 address */
+	if (is_ipaddrv6($localaddr) && !interface_wait_tentative($parentif)) {
+		logger(LOG_WARNING, localize_text('VXLAN %1$s: the IPv6 address of %2$s is still tentative', $vxlanif, $parentif));
 	}
 
 	/* Do not leave a tunnel without its VNI, peer, port or MAC behind. */
@@ -1541,13 +1550,43 @@ function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 		FreeSense_interface_mtu($vxlanif, $mtu);
 	}
 
+	interfaces_bring_up($vxlanif);
+
+	/*
+	 * vxlan(4) ignores socket, port and multicast errors when the interface
+	 * comes up; it then just never runs. Treat that as a failure.
+	 */
+	$ifconfig = array();
+	exec("/sbin/ifconfig " . escapeshellarg($vxlanif) . " 2>/dev/null", $ifconfig);
+	if (!vxlan_ifconfig_is_running(implode("\n", $ifconfig))) {
+		logger(LOG_ERR, localize_text('VXLAN %1$s did not start: the kernel could not bind %2$s port %3$d or join the group (address not present yet, port or VNI already in use). See dmesg.',
+		    $vxlanif, $localaddr, vxlan_localport($vxlan)));
+		FreeSense_interface_destroy($vxlanif);
+		get_interface_arr(true);
+		return -1;
+	}
+
 	if ($flush) {
 		get_interface_arr(true);
 	}
 
-	interfaces_bring_up($vxlanif);
-
 	return $vxlanif;
+}
+
+/* Lowest vxlanN not used by a configured tunnel or an existing interface. */
+function interface_vxlan_next_ifname() {
+	$used = array();
+	foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+		if (!empty($vxlan['vxlanif'])) {
+			$used[] = $vxlan['vxlanif'];
+		}
+	}
+	foreach (get_interface_arr(true) as $ifname) {
+		if (substr($ifname, 0, 5) == 'vxlan') {
+			$used[] = $ifname;
+		}
+	}
+	return vxlan_next_ifname($used);
 }
 
 /*
@@ -1558,25 +1597,45 @@ function interface_vxlan_configure(&$vxlan, $vxlankey = "", $flush = true) {
 function interface_vxlan_reconfigure_children($interface, $family = 'any') {
 	$tunnels = link_interface_to_tunnelif($interface, 'vxlan', $family);
 	foreach ($tunnels as $vxlan) {
-		if (interface_vxlan_configure($vxlan) == -1) {
-			continue;
-		}
-		$confif = convert_real_interface_to_friendly_interface_name($vxlan['vxlanif']);
-		if (!empty($confif)) {
-			interface_configure($confif);
-			system_routing_configure($confif);
-			/* interface_configure() only restores these after boot; a lease
-			 * that arrives during boot recreates the tunnel too. */
-			if (is_platform_booting()) {
-				link_interface_to_vips($confif, "update");
-				$grouptmp = link_interface_to_group($confif);
-				if (!empty($grouptmp)) {
-					array_walk($grouptmp, 'interface_group_add_member');
-				}
+		interface_vxlan_apply($vxlan);
+	}
+	return $tunnels;
+}
+
+/* (Re)create one tunnel and reapply its assigned interface. */
+function interface_vxlan_apply($vxlan) {
+	if (interface_vxlan_configure($vxlan) == -1) {
+		return false;
+	}
+	$confif = convert_real_interface_to_friendly_interface_name($vxlan['vxlanif']);
+	if (!empty($confif)) {
+		interface_configure($confif);
+		system_routing_configure($confif);
+		/* interface_configure() only restores these after boot; a lease
+		 * that arrives during boot recreates the tunnel too. */
+		if (is_platform_booting()) {
+			link_interface_to_vips($confif, "update");
+			$grouptmp = link_interface_to_group($confif);
+			if (!empty($grouptmp)) {
+				array_walk($grouptmp, 'interface_group_add_member');
 			}
 		}
 	}
-	return $tunnels;
+	return true;
+}
+
+/*
+ * Create the tunnels that are not up yet. At boot a parent that is a bridge,
+ * or another interface configured late, has no usable address during the
+ * tunnel passes, so this runs again once every interface is configured.
+ */
+function interfaces_vxlan_configure_missing() {
+	foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+		if (!empty($vxlan['vxlanif']) && does_interface_exist($vxlan['vxlanif'])) {
+			continue;
+		}
+		interface_vxlan_apply($vxlan);
+	}
 }
 
 /*
@@ -1964,6 +2023,9 @@ function interfaces_configure() {
 			echo gettext("done.") . "\n";
 		}
 	}
+
+	/* VXLAN tunnels whose parent (e.g. a bridge) had no address earlier */
+	interfaces_vxlan_configure_missing();
 
 	foreach ($dhcp6c_list as $if => $ifname) {
 		if (is_platform_booting()) {
@@ -6533,6 +6595,8 @@ function link_interface_to_track6($int, $action = "") {
 		if (!empty($ifcfg['ipaddrv6']) && $ifcfg['track6-interface'] == $int) {
 			if ($action == "update") {
 				interface_track6_configure($ifname, $ifcfg);
+				/* IPv6 VXLANs sent from the tracking interface follow its new prefix */
+				interface_vxlan_reconfigure_children($ifname, 'inet6');
 			} elseif ($action == "") {
 				$list[$ifname] = $ifcfg;
 			}

@@ -83,6 +83,8 @@ if ($_POST['save']) {
 		}
 		$others[] = array(
 			'vxlanif' => $other['vxlanif'],
+			'ipproto' => $other['ipproto'],
+			'mode' => $other['mode'],
 			'localaddr' => interface_vxlan_local_address($other),
 			'localport' => vxlan_localport($other),
 			'vni' => $other['vni'],
@@ -90,6 +92,14 @@ if ($_POST['save']) {
 	}
 	$input_errors = array_merge($input_errors ?? array(),
 	    vxlan_validate($vxlan, interface_vxlan_local_address($vxlan), $others));
+
+	/* a tunnel sent from a bridge it is a member of would loop */
+	$parentbridge = get_real_interface($vxlan['if']);
+	$assignedas = empty($vxlan['vxlanif']) ? '' : convert_real_interface_to_friendly_interface_name($vxlan['vxlanif']);
+	if (!empty($assignedas) && (substr($parentbridge, 0, 6) == 'bridge') &&
+	    (link_interface_to_bridge($assignedas) == $parentbridge)) {
+		$input_errors[] = gettext("The parent interface is a bridge that this VXLAN is a member of.");
+	}
 
 	if (!empty($vxlan['vxlanif']) && !preg_match("/^vxlan[0-9]+$/", $vxlan['vxlanif'])) {
 		$input_errors[] = gettext("Invalid VXLAN interface.");

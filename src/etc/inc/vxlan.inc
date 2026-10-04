@@ -124,6 +124,43 @@ function vxlan_generate_mac() {
 	return implode(':', str_split(bin2hex($bytes), 2));
 }
 
+/* Lowest vxlanN that is in neither $used (configured or existing names). */
+function vxlan_next_ifname($used) {
+	for ($i = 0; ; $i++) {
+		if (!in_array("vxlan{$i}", $used, true)) {
+			return "vxlan{$i}";
+		}
+	}
+}
+
+/*
+ * Whether ifconfig(8) output shows the interface RUNNING. vxlan(4) ignores
+ * socket and multicast errors when it is brought up, so this is the only
+ * sign that the tunnel actually works.
+ */
+function vxlan_ifconfig_is_running($output) {
+	return preg_match('/flags=[0-9a-f]+<([^>]*,)?RUNNING[,>]/', (string)$output) === 1;
+}
+
+/* A peer address that cannot be a remote VTEP. */
+function vxlan_is_unusable_remote($addr, $localaddr) {
+	if ($addr === $localaddr) {
+		return true;
+	}
+	if (vxlan_is_ipv4($addr)) {
+		$n = ip2long($addr);
+		return ($n == 0) || ($n == ip2long('255.255.255.255')) ||
+		    (($n & 0xff000000) == (127 << 24));
+	}
+	if (vxlan_is_ipv6($addr)) {
+		$bin = inet_pton($addr);
+		return ($bin === inet_pton('::')) || ($bin === inet_pton('::1')) ||
+		    /* link-local needs a scope, which a tunnel cannot carry */
+		    ((ord($bin[0]) == 0xfe) && ((ord($bin[1]) & 0xc0) == 0x80));
+	}
+	return false;
+}
+
 function vxlan_default_mtu($parentmtu, $ipproto) {
 	$parentmtu = (int)$parentmtu;
 	if ($parentmtu <= 0) {
@@ -164,8 +201,14 @@ function vxlan_ifconfig_args($vxlan, $localaddr, $parentreal) {
 /*
  * Validate a VXLAN entry. $localaddr is the parent's current address of the
  * selected family ('' when it has none). $others lists the other tunnels as
- * ['vxlanif', 'localaddr', 'localport', 'vni'], so that two tunnels never
- * share the (local address, local port, VNI) key FreeBSD identifies them by.
+ * ['vxlanif', 'ipproto', 'mode', 'localaddr', 'localport', 'vni'].
+ *
+ * vxlan(4) binds a unicast tunnel to its local address and port, but every
+ * multicast tunnel of a family to the wildcard address on its port, and it
+ * accepts each VNI only once per socket. So two tunnels clash on (local
+ * address, port, VNI) in unicast mode and on (family, port, VNI) in multicast
+ * mode, and unicast and multicast tunnels cannot share a port in one family.
+ * The kernel reports none of this, so it is checked here.
  * Returns a list of error messages.
  */
 function vxlan_validate($vxlan, $localaddr, $others = []) {
@@ -204,6 +247,8 @@ function vxlan_validate($vxlan, $localaddr, $others = []) {
 			$errors[] = vxlan_text('The remote address must be an IP address of the selected address family.');
 		} elseif (vxlan_is_multicast($remote)) {
 			$errors[] = vxlan_text('The remote address must not be a multicast address. Use multicast mode instead.');
+		} elseif (vxlan_is_unusable_remote($remote, $localaddr)) {
+			$errors[] = vxlan_text('The remote address must be the address of another VTEP, not an unspecified, loopback, broadcast, link-local or local address.');
 		}
 	} elseif ($mode == 'multicast') {
 		if (!vxlan_is_valid_group($vxlan['mcastgroup'] ?? '', $ipproto)) {
@@ -225,10 +270,26 @@ function vxlan_validate($vxlan, $localaddr, $others = []) {
 			if (($other['vxlanif'] ?? '') !== '' && ($other['vxlanif'] ?? '') === ($vxlan['vxlanif'] ?? null)) {
 				continue;
 			}
-			if ($other['localaddr'] === $localaddr &&
-			    (int)$other['localport'] === vxlan_localport($vxlan) &&
-			    (int)$other['vni'] === (int)$vxlan['vni']) {
-				$errors[] = sprintf(vxlan_text('%s already uses VNI %d on local address %s port %d.'),
+			if (($other['ipproto'] ?? 'inet') !== $ipproto ||
+			    (int)$other['localport'] !== vxlan_localport($vxlan)) {
+				continue;
+			}
+			$othermode = $other['mode'] ?? 'unicast';
+			if ($othermode !== $mode) {
+				$errors[] = sprintf(vxlan_text('%1$s is a %2$s tunnel on local port %3$d. Unicast and multicast tunnels of one address family need different local ports.'),
+				    $other['vxlanif'], $othermode, vxlan_localport($vxlan));
+				break;
+			}
+			if ((int)$other['vni'] !== (int)$vxlan['vni']) {
+				continue;
+			}
+			if ($mode == 'multicast') {
+				$errors[] = sprintf(vxlan_text('%1$s already uses VNI %2$d on multicast port %3$d. Multicast tunnels of one address family share one socket per port, so the VNI or the port must differ.'),
+				    $other['vxlanif'], (int)$vxlan['vni'], vxlan_localport($vxlan));
+				break;
+			}
+			if ($other['localaddr'] === $localaddr) {
+				$errors[] = sprintf(vxlan_text('%1$s already uses VNI %2$d on local address %3$s port %4$d.'),
 				    $other['vxlanif'], (int)$vxlan['vni'], $localaddr, vxlan_localport($vxlan));
 				break;
 			}

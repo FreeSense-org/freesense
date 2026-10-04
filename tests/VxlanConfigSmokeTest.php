@@ -93,6 +93,32 @@ check_vxlan(vxlan_validate(['vni' => '101'] + $unicast, '192.0.2.1', $others) ==
 $self = [['vxlanif' => 'vxlan0', 'localaddr' => '192.0.2.1', 'localport' => 4789, 'vni' => 100]];
 check_vxlan(vxlan_validate($unicast, '192.0.2.1', $self) === [], 'editing a tunnel must not clash with itself');
 
+/* Multicast tunnels of a family share one wildcard socket per port */
+$mc_other = [['vxlanif' => 'vxlan7', 'ipproto' => 'inet', 'mode' => 'multicast', 'localaddr' => '10.9.9.9', 'localport' => 4789, 'vni' => 200]];
+check_vxlan(vxlan_validate($multicast, '10.0.0.1', $mc_other) !== [], 'same multicast VNI and port must clash even on another parent');
+check_vxlan(vxlan_validate(['vni' => '201'] + $multicast, '10.0.0.1', $mc_other) === [], 'another multicast VNI on the same port must pass');
+check_vxlan(vxlan_validate(['localport' => '4790'] + $multicast, '10.0.0.1', $mc_other) === [], 'another multicast port must pass');
+$v6_other = [['ipproto' => 'inet6'] + $mc_other[0]];
+check_vxlan(vxlan_validate($multicast, '10.0.0.1', $v6_other) === [], 'the other address family must not clash');
+check_vxlan(vxlan_validate($unicast, '192.0.2.1', $mc_other) !== [], 'unicast and multicast must not share a port in one family');
+check_vxlan(vxlan_validate(['localport' => '4790'] + $unicast, '192.0.2.1', $mc_other) === [], 'unicast on another port than multicast must pass');
+
+/* Remote sanity */
+foreach (['0.0.0.0', '255.255.255.255', '127.0.0.1', '192.0.2.1'] as $remote) {
+	check_vxlan($bad(['remote-addr' => $remote]), "remote {$remote} must fail");
+}
+foreach (['::', '::1', 'fe80::1', '2001:db8::1'] as $remote) {
+	check_vxlan(vxlan_validate(['remote-addr' => $remote] + $v6, '2001:db8::1') !== [], "remote {$remote} must fail");
+}
+
+/* Interface names and kernel state */
+check_vxlan(vxlan_next_ifname([]) === 'vxlan0', 'first name must be vxlan0');
+check_vxlan(vxlan_next_ifname(['vxlan0', 'vxlan2']) === 'vxlan1', 'names must fill the lowest gap');
+check_vxlan(vxlan_next_ifname(['vxlan0', 'vxlan1']) === 'vxlan2', 'names must skip configured and existing ones');
+check_vxlan(vxlan_ifconfig_is_running("vxlan0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1450"), 'RUNNING must be detected');
+check_vxlan(!vxlan_ifconfig_is_running("vxlan0: flags=8803<UP,BROADCAST,SIMPLEX,MULTICAST> metric 0 mtu 1450"), 'an interface that is up but not running must be detected');
+check_vxlan(!vxlan_ifconfig_is_running(""), 'missing output must not count as running');
+
 /* Filter rules */
 check_vxlan(vxlan_filter_rules($unicast, '$WAN', '192.0.2.1') === [], 'no rule unless allowrule is set');
 $rules = vxlan_filter_rules($unicast + ['allowrule' => ''], '$WAN', '192.0.2.1');
@@ -142,6 +168,23 @@ check_vxlan(preg_match("/isvxlan'\\]\\) \\{(.*?)\\} elseif/s", $fast, $branch) =
 $interfaces = file_get_contents($root . '/src/etc/inc/interfaces.inc');
 check_vxlan(preg_match('/Failed to configure VXLAN %s.*?return -1;/s', $interfaces) === 1,
     'a failed ifconfig must not be reported as a configured tunnel');
+
+/* The allow rule must sort before the parent's quick bogon and private blocks */
+$util = file_get_contents($root . '/src/etc/inc/util.inc');
+$categories = substr($util, strpos($util, "define('PFCONFIG_CATEGORIES'"));
+$order = [];
+foreach (['PFCONFIG_FILTER_IF_VXLAN', 'PFCONFIG_FILTER_IF_BOGON_IPV4', 'PFCONFIG_FILTER_IF_BOGON_IPV6', 'PFCONFIG_FILTER_IF_PRIVATE'] as $name) {
+	$order[$name] = strpos($categories, "{$name}['id']");
+	check_vxlan($order[$name] !== false, "{$name} must be in PFCONFIG_CATEGORIES");
+}
+check_vxlan($order['PFCONFIG_FILTER_IF_VXLAN'] < min($order['PFCONFIG_FILTER_IF_BOGON_IPV4'],
+    $order['PFCONFIG_FILTER_IF_BOGON_IPV6'], $order['PFCONFIG_FILTER_IF_PRIVATE']),
+    'the VXLAN allow rule must sort before the bogon and private network blocks');
+
+check_vxlan(strpos($interfaces, 'FreeSense_interface_create2("vxlan")') === false,
+    'a new VXLAN must not let the kernel pick a unit that a configured tunnel owns');
+check_vxlan(strpos($interfaces, 'vxlan_ifconfig_is_running(') !== false,
+    'a tunnel that never reaches RUNNING must be reported');
 
 $vipinc = file_get_contents($root . '/src/usr/local/FreeSense/include/www/firewall_virtual_ip.inc');
 $xmlrpc = file_get_contents($root . '/src/usr/local/www/xmlrpc.php');

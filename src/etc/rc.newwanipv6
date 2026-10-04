@@ -211,8 +211,12 @@ setup_gateways_monitor();
 system_routing_configure($interface);
 
 /* recreate VXLAN tunnels with the new local address and reapply their
- * assigned interfaces; also during boot, when DHCPv6 usually delivers it */
-$vxlan = interface_vxlan_reconfigure_children($interface, 'inet6');
+ * assigned interfaces; also during boot, when DHCPv6 usually delivers it.
+ * A RENEW that only changed DNS servers keeps the address. */
+$vxlan = array();
+if (($reason != 'RENEW') || $address_replaced) {
+	$vxlan = interface_vxlan_reconfigure_children($interface, 'inet6');
+}
 
 if (is_platform_booting()) {
 	// avoid race conditions in many of the below functions that occur during boot
