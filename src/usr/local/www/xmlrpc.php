@@ -668,8 +668,8 @@ class freesense_xmlrpc_server {
 					interface_carp_configure($vip, false, $ipalias_reload);
 					break;
 				}
-				/* VXLAN tunnels sent from this VIP follow its new address */
-				interface_vxlan_reconfigure_vip($vip);
+				/* GRE, GIF and VXLAN tunnels sent from this VIP follow its new address */
+				interface_tunnels_reconfigure_vip($vip);
 				$force_filterconfigure = true;
 			}
 

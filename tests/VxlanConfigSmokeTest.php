@@ -145,8 +145,10 @@ check_vxlan(preg_match('/Failed to configure VXLAN %s.*?return -1;/s', $interfac
 
 $vipinc = file_get_contents($root . '/src/usr/local/FreeSense/include/www/firewall_virtual_ip.inc');
 $xmlrpc = file_get_contents($root . '/src/usr/local/www/xmlrpc.php');
-check_vxlan(strpos($vipinc, 'interface_vxlan_reconfigure_vip(') !== false &&
-    strpos($xmlrpc, 'interface_vxlan_reconfigure_vip(') !== false,
-    'applying or syncing a VIP must recreate the VXLAN tunnels sent from it');
+check_vxlan(strpos($vipinc, 'interface_tunnels_reconfigure_vip(') !== false &&
+    strpos($xmlrpc, 'interface_tunnels_reconfigure_vip(') !== false,
+    'applying or syncing a VIP must recreate the tunnels sent from it');
+check_vxlan(preg_match("/function interface_tunnels_reconfigure_vip.*?array\('gre', 'gif'\).*?interface_vxlan_reconfigure_children/s", $interfaces) === 1,
+    'VIP changes must recreate GRE, GIF and VXLAN tunnels');
 
 echo "VXLAN config smoke test passed.\n";

@@ -1580,15 +1580,30 @@ function interface_vxlan_reconfigure_children($interface, $family = 'any') {
 }
 
 /*
- * Recreate the VXLAN tunnels sent from a VIP after the VIP was applied, so
- * they use its new address. A VXLAN parent stored as _vip<uniqid> keeps
- * pointing at the same VIP when its address changes.
+ * Recreate the GRE, GIF and VXLAN tunnels sent from a VIP after the VIP was
+ * applied, so they use its new address. A tunnel parent stored as
+ * _vip<uniqid> keeps pointing at the same VIP when its address changes.
  */
-function interface_vxlan_reconfigure_vip($vip) {
+function interface_tunnels_reconfigure_vip($vip) {
 	if (!is_array($vip) || empty($vip['uniqid'])) {
-		return array();
+		return;
 	}
-	return interface_vxlan_reconfigure_children("_vip{$vip['uniqid']}");
+	$parent = "_vip{$vip['uniqid']}";
+
+	foreach (array('gre', 'gif') as $type) {
+		$tunnels = link_interface_to_tunnelif($parent, $type);
+		array_walk($tunnels, "interface_{$type}_configure");
+		/* as rc.newwanip does: reapply the assigned tunnel interface */
+		foreach ($tunnels as $tunnel) {
+			$confif = convert_real_interface_to_friendly_interface_name($tunnel["{$type}if"]);
+			if (!empty($confif)) {
+				interface_configure($confif);
+				system_routing_configure($confif);
+			}
+		}
+	}
+
+	interface_vxlan_reconfigure_children($parent);
 }
 
 /* Build a list of IPsec interfaces */
