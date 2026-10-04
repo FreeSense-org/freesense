@@ -1400,7 +1400,8 @@ function interfaces_tunnel_configure($checkparent = 0, $realif = "", $type = "")
 			continue;
 		}
 
-		$ipaddrv6 = config_get_path("interfaces/{$tunnel}/if/ipaddrv6");
+		/* $tunnel['if'] is the parent's friendly name (or a _vip/_lloc reference) */
+		$ipaddrv6 = config_get_path("interfaces/{$tunnel['if']}/ipaddrv6");
 		if ($checkparent == 1) {
 			if (substr($tunnel['if'], 0, 4) == '_vip') {
 				continue;
