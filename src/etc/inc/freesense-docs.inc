@@ -32,6 +32,8 @@ function freesense_docs_topic_path($page) {
 		'webgateway' => '/packages/web-gateway/',
 		'webgateway-av' => '/packages/web-gateway/',
 		'openvpn-client-export' => '/packages/vpn-and-private-networking/',
+		'interfaces_vxlan' => '/configure/interfaces-vlans-bridges/#vxlan',
+		'interfaces_vxlan_edit' => '/configure/interfaces-vlans-bridges/#vxlan',
 	);
 	if (isset($exact[$key])) {
 		return $exact[$key];
