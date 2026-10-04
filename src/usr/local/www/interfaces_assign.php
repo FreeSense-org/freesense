@@ -97,6 +97,15 @@ foreach (config_get_path('gres/gre', []) as $gre) {
 	$portlist[$gre['greif']]['isgre'] = true;
 }
 
+/* add VXLAN interfaces */
+foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+	if (empty($vxlan['vxlanif'])) {
+		continue;
+	}
+	$portlist[$vxlan['vxlanif']] = $vxlan;
+	$portlist[$vxlan['vxlanif']]['isvxlan'] = true;
+}
+
 /* add LAGG interfaces */
 foreach (config_get_path('laggs/lagg', []) as $lagg) {
 	$portlist[$lagg['laggif']] = $lagg;
@@ -361,6 +370,8 @@ if (isset($_REQUEST['add']) && isset($_REQUEST['if_add'])) {
 			$input_errors[] = gettext("The interface is part of a gre tunnel. Please delete the tunnel to continue");
 		} else if (!empty(link_interface_to_tunnelif($id, 'gif'))) {
 			$input_errors[] = gettext("The interface is part of a gif tunnel. Please delete the tunnel to continue");
+		} else if (!empty(link_interface_to_tunnelif($id, 'vxlan'))) {
+			$input_errors[] = gettext("The interface is the parent of a VXLAN tunnel. Please delete the tunnel to continue");
 		} else if (interface_has_queue($id)) {
 			$input_errors[] = gettext("The interface has a traffic shaper queue configured.\nPlease remove all queues on the interface to continue.");
 		} else {
@@ -462,6 +473,7 @@ $tab_array[] = array(gettext("QinQs"), false, "interfaces_qinq.php");
 $tab_array[] = array(gettext("PPPs"), false, "interfaces_ppps.php");
 $tab_array[] = array(gettext("GREs"), false, "interfaces_gre.php");
 $tab_array[] = array(gettext("GIFs"), false, "interfaces_gif.php");
+$tab_array[] = array(gettext("VXLANs"), false, "interfaces_vxlan.php");
 $tab_array[] = array(gettext("Bridges"), false, "interfaces_bridge.php");
 $tab_array[] = array(gettext("LAGGs"), false, "interfaces_lagg.php");
 display_top_tabs($tab_array);
