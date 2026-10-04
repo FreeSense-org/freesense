@@ -4796,6 +4796,14 @@ function array_from_filter_lines(string|null $lines) {
 	return array_values(array_filter($lines_array));
 }
 
+/* Friendly interface a VXLAN parent (an interface or a VIP on one) belongs to. */
+function filter_vxlan_parent_interface($parent) {
+	for ($i = 0; ($i < 2) && (substr($parent, 0, 4) == '_vip'); $i++) {
+		$parent = get_configured_vip_interface($parent);
+	}
+	return $parent;
+}
+
 function filter_rules_generate() {
 	global $PFConfig, $FilterIflist, $time_based_rules, $GatewaysStatus, $GatewaysList, $log_preferences,
 	       $tracker, $vlanprio_values, $vpn_and_ppp_ifs, $use_floating_states_for_ipsec;
@@ -5083,6 +5091,27 @@ function filter_rules_generate() {
 				$rules_temp,
 				"allow our DHCPv6 client out to the {$oc['descr']}",
 				PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV6['id'],
+				$on
+			);
+		}
+
+		/* VXLAN tunnels with the allow rule enabled. These must come before the
+		 * quick bogon and private network blocks below, or a VTEP in those
+		 * ranges never matches. */
+		$rules_temp = [];
+		foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
+			if (!isset($vxlan['allowrule']) || (filter_vxlan_parent_interface($vxlan['if']) != $on)) {
+				continue;
+			}
+			foreach (vxlan_filter_rules($vxlan, "\${$oc['descr']}", interface_vxlan_local_address($vxlan)) as $vxlan_rule) {
+				$rules_temp[] = "pass in {$log_preferences['default_pass']} quick {$vxlan_rule['rule']} ridentifier {$increment_tracker()} {$make_rule_label_string($vxlan_rule['descr'])}";
+			}
+		}
+		if (!empty($rules_temp)) {
+			$PFConfig->set_config(PFCONFIG_ALL_FILTER_IF_RULES['id'],
+				$rules_temp,
+				"allow VXLAN tunnels on {$oc['descr']}",
+				PFCONFIG_FILTER_IF_VXLAN['id'],
 				$on
 			);
 		}

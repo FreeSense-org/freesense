@@ -96,6 +96,7 @@ define('PFCONFIG_FILTER_DHCP_BLOCK_ROUTING', ['id' => 'pfc_dhcpleak', 'descripti
 define('PFCONFIG_ALL_FILTER_IF_RULES', ['id' => 'pfc_allif', 'description' => 'Default interface rules']);
 define('PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV4', ['id' => 'pfc_ifdhcpc4', 'description' => 'Required rules for WAN interfaces using DHCPv4']);
 define('PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV6', ['id' => 'pfc_ifdhcpc6', 'description' => 'Required rules for WAN interfaces using DHCPv6']);
+define('PFCONFIG_FILTER_IF_VXLAN', ['id' => 'pfc_ifvxlan', 'description' => 'Rules to allow VXLAN tunnel traffic']);
 define('PFCONFIG_FILTER_IF_BOGON_IPV4', ['id' => 'pfc_ifbogon4', 'description' => 'Rules to block invalid IPv4 traffic on the WAN']);
 define('PFCONFIG_FILTER_IF_BOGON_IPV6', ['id' => 'pfc_ifbogon6', 'description' => 'Rules to block invalid IPv6 traffic on the WAN']);
 define('PFCONFIG_FILTER_IF_ANTISPOOF', ['id' => 'pfc_ifantispoof', 'description' => 'Required rules for antispoof protection']);
@@ -172,6 +173,7 @@ define('PFCONFIG_CATEGORIES', [
 	PFCONFIG_ALL_FILTER_IF_RULES['id'] => 'PFCONFIG_ALL_FILTER_IF_RULES',
 	PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV4['id'] => 'PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV4',
 	PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV6['id'] => 'PFCONFIG_FILTER_IF_DHCP_CLIENT_IPV6',
+	PFCONFIG_FILTER_IF_VXLAN['id'] => 'PFCONFIG_FILTER_IF_VXLAN',
 	PFCONFIG_FILTER_IF_BOGON_IPV4['id'] => 'PFCONFIG_FILTER_IF_BOGON_IPV4',
 	PFCONFIG_FILTER_IF_BOGON_IPV6['id'] => 'PFCONFIG_FILTER_IF_BOGON_IPV6',
 	PFCONFIG_FILTER_IF_ANTISPOOF['id'] => 'PFCONFIG_FILTER_IF_ANTISPOOF',
