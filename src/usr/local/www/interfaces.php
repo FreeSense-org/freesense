@@ -4211,7 +4211,7 @@ events.push(function() {
 	});
 
 	$("#cnx4").click(function() {
-		$("#gatewayname4").val('<?=$defgatewayname4;?>');
+		$("#gatewayname4").val(<?=json_encode($defgatewayname4, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>);
 		$("#gatewayip4").val('');
 		$("#gatewaydescr4").val('');
 		$("#defaultgw4").prop("checked", false);
@@ -4224,7 +4224,7 @@ events.push(function() {
 	});
 
 	$("#cnx6").click(function() {
-		$("#gatewayname6").val('<?=$defgatewayname6;?>');
+		$("#gatewayname6").val(<?=json_encode($defgatewayname6, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>);
 		$("#gatewayip6").val('');
 		$("#gatewaydescr6").val('');
 		$("#defaultgw6").prop("checked", false);
