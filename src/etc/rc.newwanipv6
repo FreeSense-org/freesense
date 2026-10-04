@@ -280,6 +280,9 @@ foreach ($gre as $gretun) {
 	}
 }
 
+/* recreate VXLAN tunnels with the new local address and reapply their assigned interfaces */
+interface_vxlan_reconfigure_children($interface, 'inet6');
+
 if ($srvupdate) {
 	/* reload graphing functions */
 	enable_rrd_graphing();

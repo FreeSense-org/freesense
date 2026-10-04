@@ -801,7 +801,7 @@ function get_interfaces_sorted() {
 		$assigned = false;
 		$description = "unassigned ({$i})";
 
-		if (preg_match('/^(lo\d+|gif\d+|gre\d+|ppp\d+|pppoe\d+|pptp\d+|l2tp\d+|enc\d+|ipsec\d+|ovpn[sc]\d+|tun_wg\d+)/i', $i)) {
+		if (preg_match('/^(lo\d+|gif\d+|gre\d+|vxlan\d+|ppp\d+|pppoe\d+|pptp\d+|l2tp\d+|enc\d+|ipsec\d+|ovpn[sc]\d+|tun_wg\d+)/i', $i)) {
 			$append = true;
 			if ($i == 'enc0') {
 				$assigned = true;

@@ -244,6 +244,16 @@ function interface_assign_description_fast($portlist, $friendlyifnames) {
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
+		} elseif ($portinfo['isvxlan']) {
+			$peer = ($portinfo['mode'] == 'multicast') ? $portinfo['mcastgroup'] : $portinfo['remote-addr'];
+			$descr = sprintf('VXLAN %1$s %2$s '.$gettext.' %3$s', $portinfo['vni'], $peer, $portinfo['if']);
+			$iface = $friendlyifnames[$portinfo['if']];
+			if (isset($iface) && strlen($iface) > 0) {
+				$descr .= " - $iface";
+			}
+			if ($portinfo['descr']) {
+				$descr .= " (" . $portinfo['descr'] . ")";
+			}
 		} elseif ($portinfo['islagg']) {
 			$descr = strtoupper($portinfo['laggif']);
 			if ($portinfo['descr']) {
