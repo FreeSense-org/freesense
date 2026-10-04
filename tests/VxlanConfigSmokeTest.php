@@ -19,8 +19,14 @@ $unicast = [
 
 /* ifconfig arguments */
 $args = vxlan_ifconfig_args($unicast, '192.0.2.1', 'em0');
-check_vxlan($args === ['vxlanid', '100', 'vxlanlocal', '192.0.2.1', 'vxlanremote', '198.51.100.2', 'ether', '02:aa:bb:cc:dd:ee'],
+check_vxlan($args === ['ether', '02:aa:bb:cc:dd:ee', 'vxlanid', '100', 'vxlanlocal', '192.0.2.1', 'vxlanremote', '198.51.100.2'],
     'unicast arguments: ' . implode(' ', $args));
+/* ifconfig(8) fails "ether: bad value" when ether follows the vxlan options. */
+check_vxlan(array_search('ether', $args, true) === 0,
+    'ether must come before the vxlan options: ' . implode(' ', $args));
+$nomac = vxlan_ifconfig_args(array_diff_key($unicast, ['mac' => '']), '192.0.2.1', 'em0');
+check_vxlan($nomac[0] === 'vxlanid' && !in_array('ether', $nomac, true),
+    'no stored MAC, no ether argument: ' . implode(' ', $nomac));
 
 $linux = $unicast + ['localport' => '8472', 'remoteport' => '8472', 'ttl' => '32', 'nolearn' => ''];
 $args = implode(' ', vxlan_ifconfig_args($linux, '192.0.2.1', 'em0'));

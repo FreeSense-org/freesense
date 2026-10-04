@@ -174,7 +174,16 @@ function vxlan_default_mtu($parentmtu, $ipproto) {
  * The caller escapes each element and brings the interface up afterwards.
  */
 function vxlan_ifconfig_args($vxlan, $localaddr, $parentreal) {
-	$args = ['vxlanid', (string)(int)$vxlan['vni'], 'vxlanlocal', $localaddr];
+	$args = [];
+	/*
+	 * ifconfig(8) rejects ether after the vxlan options in the same call
+	 * ("ether: bad value"), which failed every tunnel with a stored MAC.
+	 * It accepts it first.
+	 */
+	if (vxlan_is_valid_mac($vxlan['mac'] ?? null)) {
+		array_push($args, 'ether', strtolower($vxlan['mac']));
+	}
+	array_push($args, 'vxlanid', (string)(int)$vxlan['vni'], 'vxlanlocal', $localaddr);
 	if (($vxlan['mode'] ?? 'unicast') == 'multicast') {
 		array_push($args, 'vxlangroup', $vxlan['mcastgroup'], 'vxlandev', $parentreal);
 	} else {
@@ -191,9 +200,6 @@ function vxlan_ifconfig_args($vxlan, $localaddr, $parentreal) {
 	}
 	if (isset($vxlan['nolearn'])) {
 		$args[] = '-vxlanlearn';
-	}
-	if (vxlan_is_valid_mac($vxlan['mac'] ?? null)) {
-		array_push($args, 'ether', strtolower($vxlan['mac']));
 	}
 	return $args;
 }
