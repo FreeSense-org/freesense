@@ -55,4 +55,13 @@ foreach ([$base[1], $matches[1]] as $list) {
 	}
 }
 
+/* The build must fail when a runtime-loaded driver is missing from the kernel package. */
+$common = file_get_contents(__DIR__ . '/../tools/builder_common.sh');
+if ($common === false ||
+    !preg_match('/^\t\tensure_kernel_drivers \$KERNEL_DESTDIR$/m', $common) ||
+    !preg_match('/for _driver in if_wg: if_vxlan:vxlan; do/', $common)) {
+	fwrite(STDERR, "builder_common.sh must verify if_wg and if_vxlan/vxlan in every kernel package\n");
+	exit(1);
+}
+
 echo "Target-specific kernel module policy smoke test passed.\n";

@@ -222,6 +222,28 @@ get_pkg_name() {
 	echo "${PRODUCT_NAME}-${1}-${CORE_PKG_VERSION}"
 }
 
+# Drivers the system loads at runtime must ship in the kernel package, either
+# as a module or compiled into the kernel. A module that silently drops out of
+# MODULES_OVERRIDE only shows up on the appliance (e.g. "Unable to create
+# WireGuard tunnel(s)"), so fail the build instead.
+ensure_kernel_drivers() {
+	local _kerneldir="$1/boot/kernel"
+	local _kernconf_file="${FREEBSD_SRC_DIR}/sys/${TARGET}/conf/${KERNCONF}"
+	local _driver _device
+
+	# <module>:<config device>; the device is empty when it must be a module
+	for _driver in if_wg: if_vxlan:vxlan; do
+		_device=${_driver#*:}
+		_driver=${_driver%%:*}
+		[ -f "${_kerneldir}/${_driver}.ko" ] && continue
+		if [ -n "${_device}" ] && grep -Eq "^device[[:space:]]+${_device}([[:space:]]|\$)" "${_kernconf_file}"; then
+			continue
+		fi
+		echo ">>> ERROR: kernel ${KERNCONF} for ${TARGET} ships neither ${_driver}.ko nor a built-in ${_device:-${_driver}} device" | tee -a ${LOGFILE}
+		print_error_pfS
+	done
+}
+
 # This routine builds all related kernels
 build_all_kernels() {
 	# Set KERNEL_BUILD_PATH if it has not been set
@@ -256,6 +278,7 @@ build_all_kernels() {
 		installkernel
 
 		ensure_kernel_exists $KERNEL_DESTDIR
+		ensure_kernel_drivers $KERNEL_DESTDIR
 
 		echo ">>> Creating pkg of $KERNEL_NAME-debug kernel to staging area..."  | tee -a ${LOGFILE}
 		core_pkg_create kernel-debug ${KERNEL_NAME} ${CORE_PKG_VERSION} ${KERNEL_DESTDIR} \
