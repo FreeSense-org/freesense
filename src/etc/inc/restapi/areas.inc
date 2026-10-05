@@ -46,6 +46,7 @@ function restapi_areas() {
 		'firewall.schedules' => 'Firewall schedules',
 		'firewall.vips' => 'Firewall virtual IPs',
 		'routing' => 'Gateways and static routes',
+		'interfaces' => 'Interfaces (VLAN, VXLAN, GIF, GRE, LAGG, QinQ, bridges, groups, assignments)',
 	);
 }
 

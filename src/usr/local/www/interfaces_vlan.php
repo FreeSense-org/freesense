@@ -32,6 +32,7 @@
 
 require_once("guiconfig.inc");
 require_once("interfaces_fast.inc");
+require_once("interfaces_tunnels.inc");
 
 global $profile;
 
@@ -41,33 +42,7 @@ if ($_POST['act'] == "del") {
 	 * Otherwise users can end up in an inconsistent state where some changes are
 	 * performed and others denied. See upstream issue 15282
 	 */
-	phpsession_begin();
-	$guiuser = getUserEntry($_SESSION['Username']);
-	$read_only = (is_array($guiuser) && userHasPrivilege($guiuser['item'], "user-config-readonly"));
-	phpsession_end();
-
-	if ($read_only) {
-		$input_errors = array(gettext("Insufficient privileges to make the requested change (read only)."));
-	}
-
-	$this_vlan_config = config_get_path("vlans/vlan/{$_POST['id']}");
-	if (!isset($_POST['id'])) {
-		$input_errors[] = gettext("Wrong parameters supplied");
-	} else if (empty($this_vlan_config)) {
-		$input_errors[] = gettext("Wrong index supplied");
-	/* check if still in use */
-	} else if (vlan_inuse($this_vlan_config)) {
-		$input_errors[] = gettext("This VLAN cannot be deleted because it is still being used as an interface.");
-	}
-
-	if (!$input_errors) {
-		if (does_interface_exist($this_vlan_config['vlanif'])) {
-			FreeSense_interface_destroy($this_vlan_config['vlanif']);
-		}
-		config_del_path("vlans/vlan/{$_POST['id']}");
-
-		write_config("VLAN interface deleted");
-
+	if (interfaces_vlan_delete($_POST['id'] ?? null, interfaces_gui_read_only(), $input_errors)) {
 		header("Location: interfaces_vlan.php");
 		exit;
 	}

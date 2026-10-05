@@ -296,8 +296,84 @@ check_api(substr_count($routes_rt, 'write_config(') === 0 && substr_count($route
 check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('system_routing.inc');") !== false,
     'the API front controller loads system_routing.inc');
 
+/* Interfaces: VLAN, VXLAN, GIF, GRE */
+check_api(isset(restapi_areas()['interfaces']), 'the interfaces permission area exists');
+foreach (array('vlans', 'vxlans', 'gifs', 'gres') as $res) {
+	foreach (array('GET /v1/interfaces/' . $res, 'GET /v1/interfaces/' . $res . '/{id}', 'POST /v1/interfaces/' . $res,
+	    'PUT /v1/interfaces/' . $res . '/{id}', 'DELETE /v1/interfaces/' . $res . '/{id}') as $key) {
+		check_api(isset($seen[$key]), "route {$key} exists");
+	}
+	check_api(restapi_iftun_resource("/v1/interfaces/{$res}/em1.100") === $res, "{$res} is resolved from the path");
+}
+check_api(api_error_status(function () { restapi_iftun_resource('/v1/interfaces/bogus'); }) === 404, 'unknown interface resource is 404');
+list($route, $params) = restapi_match($v1, 'GET', '/v1/interfaces/vlans/em1.3999');
+check_api($params['id'] === 'em1.3999', 'a VLAN can be addressed by its interface name');
+
+check_api(restapi_iftun_ifname('vlans', array('if' => 'em1', 'tag' => '100')) === 'em1.100' &&
+    restapi_iftun_ifname('vlans', array('if' => 'em1', 'tag' => '100', 'vlanif' => 'em1.100')) === 'em1.100' &&
+    restapi_iftun_ifname('gres', array('greif' => 'gre0')) === 'gre0', 'interface names of stored entries');
+check_api(restapi_iftun_fields('vlans', array('if' => 'em1', 'tag' => '100', 'tag_type' => '', 'pcp' => '', 'descr' => 'd', 'vlanif' => 'em1.100')) ===
+    array('if' => 'em1', 'tag_type' => 'ctag', 'tag' => '100', 'pcp' => '', 'descr' => 'd'),
+    'VLAN fields: an empty tag type preselects C-Tag');
+$vx = restapi_iftun_fields('vxlans', array('if' => 'lan', 'ipproto' => 'inet', 'mode' => 'unicast', 'vni' => '5',
+    'remote-addr' => '192.0.2.9', 'nolearn' => '', 'allowrule' => '', 'vxlanif' => 'vxlan0', 'mac' => '02:00:00:00:00:01'));
+check_api(!isset($vx['learn']) && $vx['allowrule'] === 'yes' && $vx['mcastgroup'] === '' && !isset($vx['mac']) && !isset($vx['vxlanif']),
+    'VXLAN fields: nolearn unticks learning, allowrule ticks, no interface name or MAC');
+check_api(restapi_iftun_fields('vxlans', array('if' => 'lan'))['learn'] === 'yes', 'VXLAN learning is ticked unless nolearn is set');
+$gif = restapi_iftun_fields('gifs', array('if' => 'wan', 'ipaddr' => '198.51.100.5', 'link2' => '', 'tunnel-remote-net' => '30'));
+check_api($gif['if'] === 'wan|198.51.100.5' && $gif['link2'] === 'yes' && !isset($gif['link1']) && $gif['tunnel-remote-net'] === '30',
+    'GIF fields: an address parent is "parent|address" like the edit page');
+$gre = restapi_iftun_fields('gres', array('if' => 'lan', 'tunnel-remote-net' => '30', 'link1' => ''));
+check_api($gre['tunnel-remote-net'] === '30' && $gre['tunnel-remote-net6'] === '128' && $gre['link1'] === 'yes',
+    'GRE fields: an empty subnet select posts its first choice');
+
+$new = restapi_iftun_post('vxlans', array('if' => 'lan', 'vni' => 7, 'remote-addr' => '192.0.2.1'));
+check_api($new['learn'] === 'yes' && $new['ipproto'] === 'inet' && $new['mode'] === 'unicast' && $new['vni'] === '7' &&
+    $new['localport'] === '' && $new['mcastgroup'] === '', 'a new VXLAN posts what the new form posts');
+check_api(!isset(restapi_iftun_post('vxlans', array('learn' => false))['learn']), 'learn sent as false is unticked on create');
+$upd = restapi_iftun_post('gres', array('descr' => 'n', 'link1' => false), $gre);
+check_api($upd['descr'] === 'n' && $upd['tunnel-remote-net'] === '30' && !isset($upd['link1']) && $upd['tunnel-local-addr6'] === '',
+    'an update keeps omitted fields, unticks false checkboxes and posts every text field');
+check_api(restapi_iftun_post('vlans', array('if' => 'em1', 'tag' => 5))['tag_type'] === 'ctag', 'a new VLAN defaults to C-Tag');
+check_api(api_error_status(function () { restapi_iftun_post('vlans', array('tag' => array(1, 2))); }) === 400, 'a list is not a text field');
+
+/* The Interfaces pages are thin wrappers around interfaces_tunnels.inc */
+$tun_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/interfaces_tunnels.inc");
+check_api(strpos($tun_inc, '$_POST') === false && strpos($tun_inc, '$_REQUEST') === false,
+    'interfaces_tunnels.inc takes its form fields as parameters');
+check_api(strpos($tun_inc, '$_SESSION') === strrpos($tun_inc, '$_SESSION') && strpos($tun_inc, 'function interfaces_gui_read_only(') !== false,
+    'only interfaces_gui_read_only() reads the GUI session');
+check_api(strpos($tun_inc, "(\$gif['if'] == \$parent)") !== false && strpos($tun_inc, '$interface)') === false,
+    'the GIF duplicate check compares the parent (it used an undefined variable)');
+check_api(strpos($tun_inc, "\$gifif = \$this_gif_config['gifif'] ?? '';") !== false && strpos($tun_inc, "\$greif = \$this_gre_config['greif'] ?? '';") !== false,
+    'GIF and GRE keep the interface name of an existing tunnel instead of taking it from the form');
+check_api(strpos($tun_inc, '"/sbin/route -q delete -inet "') !== false && strpos($tun_inc, '"/sbin/route -q delete -inet6 "') !== false,
+    'deleting a GRE tunnel removes the route "Add Static Route" added');
+foreach (array('vlan', 'vxlan', 'gif', 'gre') as $type) {
+	$list = file_get_contents("{$root}/src/usr/local/www/interfaces_{$type}.php");
+	$edit = file_get_contents("{$root}/src/usr/local/www/interfaces_{$type}_edit.php");
+	check_api(strpos($list, "interfaces_{$type}_delete(") !== false && strpos($list, 'write_config(') === false &&
+	    strpos($list, 'FreeSense_interface_destroy(') === false && strpos($list, 'function ') === false,
+	    "interfaces_{$type}.php deletes through interfaces_{$type}_delete()");
+	check_api(strpos($edit, "interfaces_{$type}_save(\$_POST") !== false && strpos($edit, 'write_config(') === false &&
+	    strpos($edit, 'config_set_path(') === false && strpos($edit, "interface_{$type}_configure(") === false,
+	    "interfaces_{$type}_edit.php saves through interfaces_{$type}_save()");
+	check_api(strpos($edit, 'function build_parent_list(') === false, "interfaces_{$type}_edit.php has no build_parent_list()");
+}
+foreach (array('gif', 'gre', 'vxlan') as $type) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/interfaces_{$type}_edit.php"), "interfaces_tunnel_parent_list('{$type}')") !== false,
+	    "interfaces_{$type}_edit.php offers interfaces_tunnel_parent_list('{$type}')");
+}
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/interfaces_vlan_edit.php"), 'interfaces_vlan_tag_types()') !== false,
+    'the VLAN edit page uses interfaces_vlan_tag_types()');
+$routes_if = file_get_contents("{$root}/src/etc/inc/restapi/routes_interfaces.inc");
+check_api(substr_count($routes_if, 'write_config(') === 0 && substr_count($routes_if, 'config_set_path(') === 0 &&
+    substr_count($routes_if, '_configure(') === 0, 'interfaces API writes only through the GUI functions');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_tunnels.inc');") !== false,
+    'the API front controller loads interfaces_tunnels.inc');
+
 /* Static guards */
-$front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
+$front =file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');
 check_api(strpos($front, 'restapi_authenticate(') < strpos($front, 'call_user_func($route[\'handler\']'),
     'authentication happens before any handler runs');
