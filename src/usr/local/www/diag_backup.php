@@ -123,6 +123,38 @@ if ($_POST) {
 				}
 			}
 		}
+	} else if ($_POST['remote_restore']) {
+		/* A full restore of a backup fetched from a remote backup target. It
+		 * goes through the same package-restore preview as an upload. */
+		require_once('remote_backup.inc');
+		list(, $remote_target) = remote_backup_find_target((string)($_POST['target'] ?? ''));
+		$remote_name = (string)($_POST['name'] ?? '');
+		if ($remote_target === null) {
+			$input_errors[] = gettext('The remote backup target no longer exists.');
+		} else {
+			$fetched = remote_backup_fetch($remote_target, $remote_name);
+			if (isset($fetched['error'])) {
+				$input_errors[] = sprintf(gettext('Could not download %1$s: %2$s'),
+				    htmlspecialchars($remote_name), htmlspecialchars($fetched['error']));
+			} else {
+				$old_umask = umask(0077);
+				$remote_tmp = tempnam('/tmp', 'remote-restore-');
+				umask($old_umask);
+				file_put_contents($remote_tmp, $fetched['data']);
+				$package_restore_preview = freesense_package_restore_create_preview(array(
+					'restore' => 'restore',
+					'restorearea' => '',
+					'decrypt' => 'yes',
+					'decrypt_password' => config_get_path('remotebackup/passphrase', ''),
+				), array(), $remote_tmp);
+				@unlink($remote_tmp);
+				$input_errors = $package_restore_preview['input_errors'];
+				if (empty($input_errors)) {
+					$savemsg = sprintf(gettext('Downloaded %s from the remote backup target. Review the packages below and apply the restore.'),
+					    htmlspecialchars($remote_name));
+				}
+			}
+		}
 	} else if ($_POST['restore'] &&
 	    (empty($_POST['restorearea']) ||
 	    $_POST['restorearea'] === 'installedpackages')) {
@@ -199,6 +231,7 @@ include("head.inc");
 
 $tab_array[] = [htmlspecialchars(gettext('Backup & Restore')), true, 'diag_backup.php'];
 $tab_array[] = [gettext('Configuration History'), false, 'diag_confbak.php'];
+$tab_array[] = [gettext('Remote Backup'), false, 'diag_backup_remote.php'];
 
 display_top_tabs($tab_array);
 

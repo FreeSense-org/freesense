@@ -48,6 +48,7 @@ jobs:
               KernelConfigPreflightSmokeTest \
               KernelModulePolicySmokeTest \
               VxlanConfigSmokeTest \
+              RemoteBackupSmokeTest \
               XmlNumericKeySmokeTest; do
               php -d error_reporting=E_ALL "tests/$t.php"
             done

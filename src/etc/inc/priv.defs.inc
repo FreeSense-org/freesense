@@ -45,6 +45,14 @@ $priv_list['page-diagnostics-backup-restore']['warn'] = "standard-warning-root";
 $priv_list['page-diagnostics-backup-restore']['match'] = array();
 $priv_list['page-diagnostics-backup-restore']['match'][] = "diag_backup.php*";
 
+$priv_list['page-diagnostics-backup-restore-remote'] = array();
+$priv_list['page-diagnostics-backup-restore-remote']['name'] = gettext("WebCfg - Diagnostics: Backup & Restore: Remote Backup");
+$priv_list['page-diagnostics-backup-restore-remote']['descr'] = gettext("Allow access to the 'Diagnostics: Backup & Restore: Remote Backup' pages.");
+$priv_list['page-diagnostics-backup-restore-remote']['warn'] = "standard-warning-root";
+$priv_list['page-diagnostics-backup-restore-remote']['match'] = array();
+$priv_list['page-diagnostics-backup-restore-remote']['match'][] = "diag_backup_remote.php*";
+$priv_list['page-diagnostics-backup-restore-remote']['match'][] = "diag_backup_remote_edit.php*";
+
 $priv_list['page-diagnostics-command'] = array();
 $priv_list['page-diagnostics-command']['name'] = gettext("WebCfg - Diagnostics: Command");
 $priv_list['page-diagnostics-command']['descr'] = gettext("Allow access to the 'Diagnostics: Command' page.");
