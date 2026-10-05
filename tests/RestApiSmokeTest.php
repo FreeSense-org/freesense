@@ -24,9 +24,9 @@ function api_error_status(callable $fn) {
 
 /* Routing */
 $routes = array(
-	restapi_route('GET', '/v1/things', 'h_list', array('page' => 'things.php')),
-	restapi_route('POST', '/v1/things/{id}/run', 'h_run', array('page' => 'things.php', 'write' => true)),
-	restapi_route('GET', '/v1/things/{id}', 'h_get', array('page' => 'things.php')),
+	restapi_route('GET', '/v1/things', 'h_list', array('page' => 'things.php', 'area' => 'status')),
+	restapi_route('POST', '/v1/things/{id}/run', 'h_run', array('page' => 'things.php', 'area' => 'status', 'write' => true)),
+	restapi_route('GET', '/v1/things/{id}', 'h_get', array('page' => 'things.php', 'area' => 'status')),
 );
 list($route, $params) = restapi_match($routes, 'GET', '/v1/things/abc123');
 check_api($route['handler'] === 'h_get' && $params === array('id' => 'abc123'), 'path parameter extraction');
@@ -47,6 +47,40 @@ try {
 	$rejected = true;
 }
 check_api($rejected, 'a route without a privilege page is rejected');
+
+check_api($route['scope'] === 'status:write' && $routes[0]['scope'] === 'status:read', 'route scope is <area>:<action>');
+$rejected = false;
+try {
+	restapi_route('GET', '/v1/x', 'h', array('page' => 'x.php', 'area' => 'nope'));
+} catch (InvalidArgumentException $e) {
+	$rejected = true;
+}
+check_api($rejected, 'a route with an unknown permission area is rejected');
+
+/* RBAC scopes */
+check_api(restapi_area_privilege('firewall.aliases', 'write') === 'api-firewall-aliases-write', 'area privilege naming');
+check_api(restapi_parse_scopes('status:read bogus:write, firewall.nat:write status:read') === array('status:read', 'firewall.nat:write'),
+    'scope parsing drops unknown and duplicate scopes');
+check_api(restapi_scopes_allow(array(), 'firewall.rules', 'write'), 'an unlimited key allows every scope');
+check_api(restapi_scopes_allow(array('firewall.rules:write'), 'firewall.rules', 'read'), 'a write scope includes read');
+check_api(!restapi_scopes_allow(array('firewall.rules:read'), 'firewall.rules', 'write'), 'a read scope does not allow writes');
+check_api(!restapi_scopes_allow(array('status:read'), 'firewall.rules', 'read'), 'scopes of another area do not apply');
+check_api(count(restapi_all_scopes()) === 2 * count(restapi_areas()), 'every area has read and write scopes');
+if (!function_exists('gettext')) {
+	/* The CI image has no gettext extension. */
+	function gettext($text) {
+		return $text;
+	}
+}
+$priv_list = array();
+require("{$root}/src/etc/inc/priv/restapi.priv.inc");
+foreach (array_keys(restapi_areas()) as $area) {
+	foreach (restapi_actions() as $action) {
+		$p = restapi_area_privilege($area, $action);
+		check_api(isset($priv_list[$p]['name']) && strpos($priv_list[$p]['name'], 'REST API - ') === 0, "privilege {$p} is defined");
+		check_api(!isset($priv_list[$p]['match']), "privilege {$p} grants no GUI page");
+	}
+}
 
 /* JSON bodies */
 check_api(restapi_decode_body('') === array(), 'empty body is an empty object');
@@ -92,6 +126,7 @@ foreach ($v1 as $r) {
 	check_api(!empty($r['page']), "{$r['method']} {$r['path']} declares a privilege page");
 	check_api(function_exists($r['handler']), "{$r['method']} {$r['path']} handler {$r['handler']} exists");
 	check_api(($r['method'] === 'GET') || $r['write'], "{$r['method']} {$r['path']} that changes state is marked write");
+	check_api(($r['page'] === '@authenticated') || array_key_exists($r['area'], restapi_areas()), "{$r['method']} {$r['path']} has a permission area");
 	$key = "{$r['method']} {$r['path']}";
 	check_api(!isset($seen[$key]), "duplicate route {$key}");
 	$seen[$key] = true;

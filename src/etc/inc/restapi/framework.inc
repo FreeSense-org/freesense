@@ -25,6 +25,8 @@
  * Everything that touches config.xml lives in restapi.inc.
  */
 
+require_once('restapi/areas.inc');
+
 define('RESTAPI_TOKEN_PREFIX', 'fsk');
 
 class RestApiError extends Exception {
@@ -64,10 +66,13 @@ function restapi_validation_error(array $input_errors) {
 /*
  * Define a route. $path is a template such as "/v1/backup/{id}/test".
  * Options:
- *   page      GUI page whose privilege grants access (required)
- *   write     true when the route changes state (refused for read-only keys)
+ *   page      GUI page whose privilege grants access (required); "@authenticated"
+ *             means any valid key (and no area)
+ *   area      permission area from restapi/areas.inc (required otherwise)
+ *   write     true when the route changes state; its scope is <area>:write,
+ *             otherwise <area>:read
  *   summary   one line for the OpenAPI document
- *   tag       OpenAPI tag
+ *   tag       OpenAPI tag (defaults to the area)
  *   body      OpenAPI schema of the JSON body (array), optional
  *   query     array of query parameter name => description, optional
  *   produces  response media type, default application/json
@@ -76,7 +81,12 @@ function restapi_route($method, $path, $handler, array $opts) {
 	if (empty($opts['page'])) {
 		throw new InvalidArgumentException("route {$method} {$path} has no privilege page");
 	}
+	$area = $opts['area'] ?? '';
+	if (($opts['page'] !== '@authenticated') && !array_key_exists($area, restapi_areas())) {
+		throw new InvalidArgumentException("route {$method} {$path} has no valid permission area");
+	}
 	list($regex, $params) = restapi_compile_path($path);
+	$write = !empty($opts['write']);
 	return array(
 		'method' => strtoupper($method),
 		'path' => $path,
@@ -84,9 +94,11 @@ function restapi_route($method, $path, $handler, array $opts) {
 		'params' => $params,
 		'handler' => $handler,
 		'page' => $opts['page'],
-		'write' => !empty($opts['write']),
+		'area' => $area,
+		'write' => $write,
+		'scope' => ($area === '') ? '' : restapi_scope($area, $write ? 'write' : 'read'),
 		'summary' => $opts['summary'] ?? '',
-		'tag' => $opts['tag'] ?? 'general',
+		'tag' => $opts['tag'] ?? (($area === '') ? 'meta' : $area),
 		'body' => $opts['body'] ?? null,
 		'query' => $opts['query'] ?? array(),
 		'produces' => $opts['produces'] ?? 'application/json',
@@ -241,6 +253,7 @@ function restapi_openapi(array $routes, $version) {
 			'summary' => $route['summary'],
 			'tags' => array($route['tag']),
 			'x-freesense-privilege-page' => $route['page'],
+			'x-freesense-scope' => $route['scope'],
 			'responses' => array(
 				'200' => array('description' => 'Success', 'content' => array(
 				    $route['produces'] => array('schema' => ($route['produces'] === 'application/json') ?
@@ -279,8 +292,10 @@ function restapi_openapi(array $routes, $version) {
 		'info' => array(
 			'title' => 'FreeSense REST API',
 			'version' => $version,
-			'description' => 'Each endpoint is allowed when the token owner may open the GUI page named in ' .
-			    'x-freesense-privilege-page. Changes are validated by the same code as the GUI.',
+			'description' => 'Each endpoint needs the scope in x-freesense-scope: the key owner holds it by being allowed to ' .
+			    'open the GUI page in x-freesense-privilege-page, or by the matching "REST API - <area>" privilege, ' .
+			    'and a key limited to scopes must include it (a write scope includes read). ' .
+			    'Changes are validated by the same code as the GUI.',
 		),
 		'servers' => array(array('url' => '/')),
 		'security' => array(array('bearerAuth' => array())),

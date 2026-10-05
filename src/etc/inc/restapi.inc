@@ -23,7 +23,9 @@
  * REST API settings, API tokens, authentication and authorization.
  *
  * Config: <restapi> with enable, allowednetworks, allowhttp and an
- * <apitoken> list (id, username, descr, hash, created, expires, readonly).
+ * <apitoken> list (id, username, descr, hash, created, expires, readonly,
+ * scopes). "scopes" is a space-separated list such as "status:read
+ * firewall.aliases:write"; when present the key is limited to it.
  * Only the SHA-256 of a token secret is stored; the full token is shown
  * once when it is created.
  *
@@ -176,6 +178,14 @@ function restapi_create_token($post) {
 	if (!empty($post['readonly'])) {
 		$token['readonly'] = true;
 	}
+	/* Optional scope limit: only the chosen scopes, and still only what the user holds. */
+	if (($post['scope_mode'] ?? '') === 'limited') {
+		$scopes = restapi_parse_scopes(implode(' ', (array)($post['scopes'] ?? array())));
+		if (empty($scopes)) {
+			return array('input_errors' => array(gettext('Choose at least one scope for a limited key.')));
+		}
+		$token['scopes'] = implode(' ', $scopes);
+	}
 	config_set_path('restapi/apitoken/', $token);
 	write_config(sprintf(gettext('API key %1$s created for user %2$s.'), $id, $username));
 	return array('input_errors' => array(), 'id' => $id, 'token' => restapi_format_token($id, $secret));
@@ -279,12 +289,41 @@ function restapi_user_may_open($user, $page) {
 	return cmp_page_matches($page, $pages);
 }
 
+/*
+ * True when $user holds the scope $route needs: by GUI access to the page
+ * the route mirrors, or by the "REST API - <area>" privilege (write
+ * implies read). See restapi/areas.inc.
+ */
+function restapi_user_holds_route($user, $route) {
+	if ($route['page'] === '@authenticated') {
+		return true;
+	}
+	if (restapi_user_may_open($user, $route['page'])) {
+		return true;
+	}
+	if (userHasPrivilege($user, restapi_area_privilege($route['area'], 'write'))) {
+		return true;
+	}
+	return !$route['write'] && userHasPrivilege($user, restapi_area_privilege($route['area'], 'read'));
+}
+
+/* The scopes a key is limited to; empty means not limited. */
+function restapi_token_scopes($token) {
+	return restapi_parse_scopes($token['scopes'] ?? '');
+}
+
 /* Throws 403 unless the authenticated context may call $route. */
 function restapi_authorize($ctx, $route) {
-	if (($route['page'] !== '@authenticated') && !restapi_user_may_open($ctx['user'], $route['page'])) {
+	if (!restapi_user_holds_route($ctx['user'], $route)) {
 		throw new RestApiError(403, 'forbidden', sprintf(
-		    'User %s lacks the privilege for %s, which this endpoint requires.',
-		    $ctx['user']['name'], $route['page']));
+		    'User %1$s lacks the %2$s scope: it needs GUI access to %3$s or the "%4$s" privilege.',
+		    $ctx['user']['name'], $route['scope'], $route['page'],
+		    restapi_area_privilege($route['area'], $route['write'] ? 'write' : 'read')));
+	}
+	if (($route['page'] !== '@authenticated') &&
+	    !restapi_scopes_allow(restapi_token_scopes($ctx['token']), $route['area'], $route['write'] ? 'write' : 'read')) {
+		throw new RestApiError(403, 'scope_not_granted', sprintf(
+		    'This API key is limited to other scopes and does not include %s.', $route['scope']));
 	}
 	if ($route['write']) {
 		if (!empty($ctx['token']['readonly'])) {

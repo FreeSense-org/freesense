@@ -34,59 +34,59 @@ require_once('restapi/framework.inc');
 function restapi_routes_v1() {
 	$routes = array(
 		restapi_route('GET', '/v1/openapi.json', 'restapi_h_openapi', array(
-			'page' => '@authenticated', 'tag' => 'meta', 'summary' => 'This OpenAPI document')),
+			'page' => '@authenticated', 'summary' => 'This OpenAPI document')),
 		restapi_route('GET', '/v1/me', 'restapi_h_me', array(
-			'page' => '@authenticated', 'tag' => 'meta',
+			'page' => '@authenticated',
 			'summary' => 'The user and API key making the request')),
 
 		restapi_route('GET', '/v1/system/info', 'restapi_h_system_info', array(
-			'page' => 'index.php', 'tag' => 'system',
+			'page' => 'index.php', 'area' => 'system',
 			'summary' => 'Hostname, version, platform and uptime')),
 
 		restapi_route('GET', '/v1/status/interfaces', 'restapi_h_status_interfaces', array(
-			'page' => 'status_interfaces.php', 'tag' => 'status',
+			'page' => 'status_interfaces.php', 'area' => 'status',
 			'summary' => 'Status and counters of the assigned interfaces')),
 		restapi_route('GET', '/v1/status/gateways', 'restapi_h_status_gateways', array(
-			'page' => 'status_gateways.php', 'tag' => 'status',
+			'page' => 'status_gateways.php', 'area' => 'status',
 			'summary' => 'Gateway monitoring status (latency, loss, state)')),
 		restapi_route('GET', '/v1/status/services', 'restapi_h_status_services', array(
-			'page' => 'status_services.php', 'tag' => 'status',
+			'page' => 'status_services.php', 'area' => 'status',
 			'summary' => 'Services and whether they are running')),
 		restapi_route('GET', '/v1/status/arp', 'restapi_h_status_arp', array(
-			'page' => 'diag_arp.php', 'tag' => 'status', 'summary' => 'ARP table')),
+			'page' => 'diag_arp.php', 'area' => 'status', 'summary' => 'ARP table')),
 		restapi_route('GET', '/v1/status/dhcp-leases', 'restapi_h_status_dhcp_leases', array(
-			'page' => 'status_dhcp_leases.php', 'tag' => 'status', 'summary' => 'DHCPv4 leases')),
+			'page' => 'status_dhcp_leases.php', 'area' => 'status', 'summary' => 'DHCPv4 leases')),
 
 		restapi_route('GET', '/v1/config/revisions', 'restapi_h_revisions', array(
-			'page' => 'diag_confbak.php', 'tag' => 'config',
+			'page' => 'diag_confbak.php', 'area' => 'config',
 			'summary' => 'Configuration history (newest first)')),
 		restapi_route('GET', '/v1/config/revisions/{time}', 'restapi_h_revision_get', array(
-			'page' => 'diag_confbak.php', 'tag' => 'config', 'produces' => 'application/xml',
+			'page' => 'diag_confbak.php', 'area' => 'config', 'produces' => 'application/xml',
 			'summary' => 'Download a configuration revision as XML ("current" for the running one)')),
 		restapi_route('GET', '/v1/config/revisions/{time}/diff', 'restapi_h_revision_diff', array(
-			'page' => 'diag_confbak.php', 'tag' => 'config', 'produces' => 'text/plain',
+			'page' => 'diag_confbak.php', 'area' => 'config', 'produces' => 'text/plain',
 			'query' => array('against' => 'Revision time to compare with, or "current" (default)'),
 			'summary' => 'Unified diff between a revision and another revision')),
 		restapi_route('POST', '/v1/config/revisions/{time}/restore', 'restapi_h_revision_restore', array(
-			'page' => 'diag_confbak.php', 'tag' => 'config', 'write' => true,
+			'page' => 'diag_confbak.php', 'area' => 'config', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('confirm'),
 			    'properties' => array('confirm' => array('type' => 'boolean'))),
 			'summary' => 'Revert the running configuration to a revision')),
 
 		restapi_route('GET', '/v1/backup/remote', 'restapi_h_remote_backup', array(
-			'page' => 'diag_backup_remote.php', 'tag' => 'backup',
+			'page' => 'diag_backup_remote.php', 'area' => 'backup',
 			'summary' => 'Remote backup settings, targets and last results (no secrets)')),
 		restapi_route('POST', '/v1/backup/remote/run', 'restapi_h_remote_backup_run', array(
-			'page' => 'diag_backup_remote.php', 'tag' => 'backup', 'write' => true,
+			'page' => 'diag_backup_remote.php', 'area' => 'backup', 'write' => true,
 			'body' => array('type' => 'object', 'properties' => array(
 			    'target' => array('type' => 'string', 'description' => 'Target id; all enabled targets when omitted'),
 			    'force' => array('type' => 'boolean', 'description' => 'Upload even when the configuration is unchanged'))),
 			'summary' => 'Run remote backups now')),
 		restapi_route('POST', '/v1/backup/remote/targets/{id}/test', 'restapi_h_remote_backup_test', array(
-			'page' => 'diag_backup_remote.php', 'tag' => 'backup', 'write' => true,
+			'page' => 'diag_backup_remote.php', 'area' => 'backup', 'write' => true,
 			'summary' => 'Upload, list and delete a probe file on a target')),
 		restapi_route('GET', '/v1/backup/remote/targets/{id}/files', 'restapi_h_remote_backup_files', array(
-			'page' => 'diag_backup_remote.php', 'tag' => 'backup',
+			'page' => 'diag_backup_remote.php', 'area' => 'backup',
 			'summary' => 'Backups of this firewall stored on a target (newest first)')),
 	);
 
@@ -115,6 +115,21 @@ function restapi_h_openapi($req) {
 
 function restapi_h_me($req) {
 	$token = $req['token'];
+	/* What this key can call: the user's scopes, narrowed by the key. */
+	$allowed = array();
+	$scopes = array();
+	foreach (restapi_routes_v1() as $route) {
+		if ($route['page'] === '@authenticated') {
+			continue;
+		}
+		try {
+			restapi_authorize(array('user' => $req['user'], 'token' => $token), $route);
+		} catch (RestApiError $e) {
+			continue;
+		}
+		$allowed[] = "{$route['method']} /api{$route['path']}";
+		$scopes[$route['scope']] = true;
+	}
 	return array('data' => array(
 		'user' => $req['user']['name'],
 		'key' => array(
@@ -122,7 +137,10 @@ function restapi_h_me($req) {
 			'description' => $token['descr'] ?? '',
 			'readonly' => !empty($token['readonly']),
 			'expires' => empty($token['expires']) ? null : gmdate('c', (int)$token['expires']),
+			'limited_to_scopes' => restapi_token_scopes($token) ?: null,
 		),
+		'effective_scopes' => array_keys($scopes),
+		'endpoints' => $allowed,
 		'admin' => isset($req['user']['uid']) && ((string)$req['user']['uid'] === '0'),
 		'config_readonly' => userHasPrivilege($req['user'], 'user-config-readonly'),
 	));

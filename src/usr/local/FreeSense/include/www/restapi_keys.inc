@@ -111,7 +111,12 @@ function restapi_print_key_table(array $tokens, $show_user, $revoke_page) {
 						    '<br /><small class="text-danger">' . htmlspecialchars($problem) . '</small>' : ''?></td>
 <?php		endif; ?>
 						<td><?=htmlspecialchars($token['descr'] ?? '')?></td>
-						<td><?=!empty($token['readonly']) ? gettext('Read-only') : gettext('Read/write')?></td>
+						<td><?=!empty($token['readonly']) ? gettext('Read-only') : gettext('Read/write')?><br />
+							<small><?php
+		$scopes = restapi_token_scopes($token);
+		echo empty($scopes) ? gettext('All of the user\'s scopes') :
+		    htmlspecialchars(implode(', ', $scopes));
+?></small></td>
 						<td><?=htmlspecialchars(date('Y-m-d H:i', (int)$token['created']))?></td>
 						<td><?=empty($token['expires']) ? gettext('Never') : ($expired ? '<span class="text-danger">' : '') .
 						    htmlspecialchars(date('Y-m-d', (int)$token['expires'])) . ($expired ? ' (' . gettext('expired') . ')</span>' : '')?></td>
@@ -160,6 +165,44 @@ function restapi_print_create_form(array $users, array $create, $fixed_user = nu
 		gettext('Only allow requests that do not change anything'),
 		!empty($create['readonly'])
 	));
+
+	$limited = (($create['scope_mode'] ?? '') === 'limited');
+	$chosen = array_flip((array)($create['scopes'] ?? array()));
+	$group = new Form_Group(gettext('Scopes'));
+	$group->add(new Form_Checkbox(
+		'scope_mode',
+		gettext('Scopes'),
+		gettext('Everything the user may do'),
+		!$limited,
+		'all'
+	))->displayAsRadio();
+	$group->add(new Form_Checkbox(
+		'scope_mode',
+		gettext('Scopes'),
+		gettext('Only the scopes selected below'),
+		$limited,
+		'limited'
+	))->displayAsRadio();
+	$group->setHelp(gettext('Scopes only narrow a key: it never gets more than its user holds. ' .
+	    'A write scope includes reading.'));
+	$section->add($group);
+
+	$rows = '';
+	foreach (restapi_areas() as $area => $label) {
+		$cells = '';
+		foreach (restapi_actions() as $action) {
+			$scope = restapi_scope($area, $action);
+			$cells .= '<td class="text-center"><input type="checkbox" class="restapi-scope" name="scopes[]" value="' .
+			    htmlspecialchars($scope) . '"' . (isset($chosen[$scope]) ? ' checked' : '') . ' /></td>';
+		}
+		$rows .= '<tr><td>' . htmlspecialchars(gettext($label)) . ' <code>' . htmlspecialchars($area) . '</code></td>' . $cells . '</tr>';
+	}
+	$section->addInput(new Form_StaticText(
+		'',
+		'<div id="restapi-scope-table"><table class="table table-sm table-striped mb-0"><thead><tr><th>' .
+		gettext('Area') . '</th><th class="text-center">' . gettext('Read') . '</th><th class="text-center">' .
+		gettext('Write') . '</th></tr></thead><tbody>' . $rows . '</tbody></table></div>'
+	));
 	$section->addInput(new Form_Input(
 		'expires_days',
 		gettext('Expires after (days)'),
@@ -175,6 +218,20 @@ function restapi_print_create_form(array $users, array $create, $fixed_user = nu
 	))->addClass('btn-success');
 	$form->add($section);
 	print($form);
+?>
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	function showScopes() {
+		var limited = $('input[name="scope_mode"]:checked').val() === 'limited';
+		$('#restapi-scope-table').closest('.form-group, .row').toggle(limited);
+	}
+	$('input[name="scope_mode"]').on('change', showScopes);
+	showScopes();
+});
+//]]>
+</script>
+<?php
 }
 
 /* Enabled local users that hold REST API access, as username => label. */
