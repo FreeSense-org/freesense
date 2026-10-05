@@ -19,6 +19,16 @@
  * limitations under the License.
  */
 
+/*
+ * csrf-magic includes this page after a failed check. Requested directly,
+ * csrf-magic is not loaded (csrf_flattenpost() is undefined) and there is no
+ * form to resubmit, so go to the dashboard instead of failing fatally.
+ */
+if (!function_exists('csrf_flattenpost')) {
+	header('Location: /');
+	exit;
+}
+
 header($_SERVER['SERVER_PROTOCOL'] . ' 403 Forbidden');
 
 require_once('auth.inc');
