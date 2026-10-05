@@ -53,6 +53,8 @@ require_once('system_routing.inc');
 require_once('interfaces_tunnels.inc');
 /* The Interfaces pages' shared functions (LAGG, QinQ, interface groups, bridges). */
 require_once('interfaces_l2.inc');
+/* The Interface Assignments page's shared functions. */
+require_once('interfaces_assign.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

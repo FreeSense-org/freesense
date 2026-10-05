@@ -480,6 +480,88 @@ check_api(strpos(file_get_contents("{$root}/src/usr/local/www/interfaces_groups.
 check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_l2.inc');") !== false,
     'the API front controller loads interfaces_l2.inc');
 
+/* Interfaces: assignments */
+foreach (array('GET /v1/interfaces/assignments', 'GET /v1/interfaces/assignments/{name}', 'POST /v1/interfaces/assignments',
+    'PUT /v1/interfaces/assignments/{name}', 'DELETE /v1/interfaces/assignments/{name}') as $key) {
+	check_api(isset($seen[$key]), "route {$key} exists");
+}
+foreach ($v1 as $r) {
+	if (strpos($r['path'], '/v1/interfaces/assignments') === 0) {
+		check_api($r['page'] === 'interfaces_assign.php' && $r['area'] === 'interfaces', "{$r['method']} {$r['path']} is guarded by interfaces_assign.php");
+		if ($r['write']) {
+			check_api(in_array('confirm', $r['body']['required'] ?? array(), true), "{$r['method']} {$r['path']} documents the confirm flag");
+		}
+	}
+}
+check_api(api_error_status(function () { restapi_ifassign_confirm(array()); }) === 400 &&
+    api_error_status(function () { restapi_ifassign_confirm(array('confirm' => 'true')); }) === 400 &&
+    api_error_status(function () { restapi_ifassign_confirm(array('confirm' => 1)); }) === 400 &&
+    api_error_status(function () { restapi_ifassign_confirm(array('confirm' => true)); }) === null,
+    'assignment changes require {"confirm": true} (exactly true)');
+try {
+	restapi_ifassign_confirm(array('confirm' => false));
+	check_api(false, 'confirm false is refused');
+} catch (RestApiError $e) {
+	check_api($e->payload()['error']['code'] === 'confirmation_required', 'the missing confirmation is "confirmation_required"');
+}
+check_api(restapi_ifassign_protected('wan') && restapi_ifassign_protected('lan') && !restapi_ifassign_protected('opt1'),
+    'WAN and LAN are protected from API deletes');
+check_api(restapi_ifassign_port(array('port' => 'em1.3997')) === 'em1.3997' &&
+    api_error_status(function () { restapi_ifassign_port(array()); }) === 400 &&
+    api_error_status(function () { restapi_ifassign_port(array('port' => array('em1'))); }) === 400, 'the port must be a name');
+$ifs = array('wan' => array('if' => 'em0', 'enable' => ''), 'lan' => array('if' => 'em1'), 'opt1' => array('if' => 'em1.3997'));
+check_api(restapi_ifassign_name('opt1', $ifs) === 'opt1' && api_error_status(function () use ($ifs) { restapi_ifassign_name('opt2', $ifs); }) === 404 &&
+    api_error_status(function () use ($ifs) { restapi_ifassign_name('../wan', $ifs); }) === 404, 'assignments are addressed by an assigned interface name');
+check_api(restapi_ifassign_remap_post($ifs, 'opt1', 'em1.3996') === array('wan' => 'em0', 'lan' => 'em1', 'opt1' => 'em1.3996', 'Submit' => 'Save'),
+    'a remap posts what the page posts: every interface with its port, one of them moved');
+
+/* The assignment page is a thin wrapper around interfaces_assign.inc */
+$assign_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/interfaces_assign.inc");
+$assign_page = file_get_contents("{$root}/src/usr/local/www/interfaces_assign.php");
+check_api(strpos($assign_inc, '$_POST') === false && strpos($assign_inc, '$_REQUEST') === false && strpos($assign_inc, '$_SESSION') === false,
+    'interfaces_assign.inc takes its form fields as parameters');
+check_api(strpos($assign_page, 'interfaces_assign_add($_POST[\'if_add\']') !== false && strpos($assign_page, 'interfaces_assign_save($_POST') !== false &&
+    strpos($assign_page, 'interfaces_assign_delete($delbtn') !== false && strpos($assign_page, 'interfaces_assign_apply()') !== false &&
+    strpos($assign_page, 'interfaces_assign_port_list()') !== false, 'interfaces_assign.php adds, saves, deletes and applies through interfaces_assign.inc');
+check_api(strpos($assign_page, 'write_config(') === false && strpos($assign_page, 'config_set_path(') === false &&
+    strpos($assign_page, 'config_del_path(') === false && strpos($assign_page, 'interface_bring_down(') === false &&
+    strpos($assign_page, '$_REQUEST') === false && preg_match('/^function\s/m', $assign_page) === 0,
+    'interfaces_assign.php changes nothing itself and adds only on a POST');
+$assign_inuse = substr($assign_inc, strpos($assign_inc, 'function interfaces_assign_in_use('));
+$assign_inuse = substr($assign_inuse, 0, strpos($assign_inuse, "\n}\n"));
+foreach (array('link_interface_to_group(', 'link_interface_to_bridge(', "link_interface_to_tunnelif(\$id, 'gre')",
+    "link_interface_to_tunnelif(\$id, 'gif')", "link_interface_to_tunnelif(\$id, 'vxlan')", 'interface_has_queue(',
+    "'gateways/gateway_item'", "'staticroutes/route'", "'gateways/gateway_group'", "'virtualip/vip'", 'defaultgw4') as $needle) {
+	check_api(strpos($assign_inuse, $needle) !== false, "an interface in use by {$needle} cannot be deleted");
+}
+$assign_del = substr($assign_inc, strpos($assign_inc, 'function interfaces_assign_delete('));
+$assign_del = substr($assign_del, 0, strpos($assign_del, "\n}\n"));
+check_api(strpos($assign_del, 'interfaces_assign_in_use($id)') < strpos($assign_del, 'interface_bring_down(') &&
+    strpos($assign_del, "(\$id === 'wan')") !== false && strpos($assign_del, 'empty(config_get_path("interfaces/{$id}"))') !== false,
+    'a delete checks the interface exists, is not WAN and is not in use before bringing it down');
+$assign_add = substr($assign_inc, strpos($assign_inc, 'function interfaces_assign_add('));
+$assign_add = substr($assign_add, 0, strpos($assign_add, "\n}\n"));
+check_api(strpos($assign_add, 'array_key_exists($port, $portlist)') !== false && strpos($assign_add, "'enable'") === false,
+    'only listed ports can be added, and a new interface is not enabled');
+$assign_save = substr($assign_inc, strpos($assign_inc, 'function interfaces_assign_save('));
+$assign_save = substr($assign_save, 0, strpos($assign_save, "\n}\n"));
+check_api(strpos($assign_save, 'if ($input_errors) {') < strpos($assign_save, 'interface_bring_down(') &&
+    strpos($assign_save, 'empty(config_get_path("interfaces/{$ifname}"))') !== false,
+    'a remap validates (only assigned interfaces) before bringing anything down');
+$routes_if = file_get_contents("{$root}/src/etc/inc/restapi/routes_interfaces.inc");
+check_api(strpos($routes_if, 'system_reboot(') === false && strpos($routes_if, 'interfaces_assign_apply(') === false,
+    'the API never reboots for an interface mismatch (it reports reboot_needed)');
+foreach (array('restapi_h_ifassign_create', 'restapi_h_ifassign_update', 'restapi_h_ifassign_delete') as $fn) {
+	$body = substr($routes_if, strpos($routes_if, "function {$fn}("));
+	$body = substr($body, 0, strpos($body, "\n}\n"));
+	check_api(strpos($body, 'restapi_ifassign_confirm(') !== false &&
+	    strpos($body, 'restapi_ifassign_confirm(') < strpos($body, 'interfaces_assign_'), "{$fn} checks the confirmation before changing anything");
+}
+$del_fn = substr($routes_if, strpos($routes_if, 'function restapi_h_ifassign_delete('));
+check_api(strpos($del_fn, 'restapi_ifassign_protected($name)') < strpos($del_fn, 'interfaces_assign_delete('), 'the API refuses WAN/LAN deletes');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_assign.inc');") !== false,
+    'the API front controller loads interfaces_assign.inc');
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');

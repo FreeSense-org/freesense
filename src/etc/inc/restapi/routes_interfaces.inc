@@ -21,20 +21,21 @@
 
 /*
  * REST API v1 interface routes: VLANs, VXLANs, GIF and GRE tunnels, LAGGs,
- * QinQs, interface groups and bridges.
+ * QinQs, interface groups, bridges and interface assignments.
  *
  * Writes go through the functions the Interfaces pages call
- * (interfaces_tunnels.inc, interfaces_l2.inc), so validation and in-use
- * checks are the GUI's. Like the GUI, a change takes effect at once: the
- * interface is created, recreated or destroyed by the request itself (there
- * is no apply step).
+ * (interfaces_tunnels.inc, interfaces_l2.inc, interfaces_assign.inc), so
+ * validation and in-use checks are the GUI's. Like the GUI, a change takes
+ * effect at once: the interface is created, recreated or destroyed (or
+ * assigned and reconfigured) by the request itself (there is no apply step).
  *
  * Entries are addressed by their position in config.xml, like the GUI, or
  * by their interface name (em1.100, vxlan0, gif0, gre0, lagg0, em1.3998,
- * bridge0); interface groups by their name.
+ * bridge0); interface groups by their name, assignments by interface name
+ * (wan, lan, opt1). Assignment changes also require {"confirm": true}.
  *
- * The front controller loads interfaces_tunnels.inc and interfaces_l2.inc
- * at file scope.
+ * The front controller loads interfaces_tunnels.inc, interfaces_l2.inc and
+ * interfaces_assign.inc at file scope.
  */
 
 require_once('restapi/framework.inc');
@@ -172,7 +173,7 @@ function restapi_routes_interfaces() {
 		$routes[] = restapi_route('DELETE', "{$base}/{id}", 'restapi_h_iftun_delete', array(
 			'page' => $t['list'], 'area' => 'interfaces', 'write' => true, 'summary' => $delete));
 	}
-	return $routes;
+	return array_merge($routes, restapi_routes_ifassign());
 }
 
 /* ------------------------------------------------------------------ */
@@ -536,4 +537,171 @@ function restapi_h_iftun_delete($req) {
 	}
 	$key = ($res === 'groups') ? 'name' : 'interface';
 	return array('data' => array('deleted' => $id, $key => $ifname));
+}
+
+/* ------------------------------------------------------------------ */
+/* Interface assignments                                               */
+/* ------------------------------------------------------------------ */
+
+/*
+ * /v1/interfaces/assignments: the Interfaces > Interface Assignments page
+ * (interfaces_assign.inc). Assignments are addressed by their interface
+ * name (wan, lan, opt1, ...). Like the page, every change reconfigures the
+ * interfaces and the filter at once, so each one requires
+ * {"confirm": true}. WAN and LAN are never deleted through the API. When a
+ * configuration restore left an interface mismatch, responses carry
+ * "reboot_needed": the page's "Apply Changes" (a reboot) is not offered.
+ */
+function restapi_routes_ifassign() {
+	$base = '/v1/interfaces/assignments';
+	$page = 'interfaces_assign.php';
+	$confirm = array('type' => 'boolean', 'description' => 'Must be true: the change reconfigures interfaces at once');
+	$port_body = array('type' => 'object', 'required' => array('port', 'confirm'), 'properties' => array(
+	    'port' => array('type' => 'string', 'description' => 'A network port from "available_ports" (e.g. em2, em1.100, lagg0)'),
+	    'confirm' => $confirm));
+	return array(
+		restapi_route('GET', $base, 'restapi_h_ifassign_list', array('page' => $page, 'area' => 'interfaces',
+		    'summary' => 'Interface assignments (interface => port) and the ports that are not assigned')),
+		restapi_route('GET', "{$base}/{name}", 'restapi_h_ifassign_get', array('page' => $page, 'area' => 'interfaces',
+		    'summary' => 'Get an interface assignment by interface name (wan, lan, opt1, ...)')),
+		restapi_route('POST', $base, 'restapi_h_ifassign_create', array('page' => $page, 'area' => 'interfaces',
+		    'write' => true, 'body' => $port_body,
+		    'summary' => 'Assign a port as the next interface (LAN when there is none, else the next optN; not enabled)')),
+		restapi_route('PUT', "{$base}/{name}", 'restapi_h_ifassign_update', array('page' => $page, 'area' => 'interfaces',
+		    'write' => true, 'body' => $port_body,
+		    'summary' => 'Move an interface to another port (the interface is reconfigured at once)')),
+		restapi_route('DELETE', "{$base}/{name}", 'restapi_h_ifassign_delete', array('page' => $page, 'area' => 'interfaces',
+		    'write' => true, 'body' => array('type' => 'object', 'required' => array('confirm'),
+		    'properties' => array('confirm' => $confirm)),
+		    'summary' => 'Unassign an interface that is not in use (never WAN or LAN); removes its DHCP settings, rules and port forwards')),
+	);
+}
+
+/* 400 unless the body carries {"confirm": true}. */
+function restapi_ifassign_confirm(array $body) {
+	if (($body['confirm'] ?? null) !== true) {
+		throw new RestApiError(400, 'confirmation_required',
+		    'Interface assignment changes reconfigure interfaces at once and require {"confirm": true}.');
+	}
+}
+
+/* The port named in the body (400 when missing or not a string). */
+function restapi_ifassign_port(array $body) {
+	$port = $body['port'] ?? null;
+	if (!is_string($port) || ($port === '')) {
+		throw new RestApiError(400, 'invalid_field', 'Field "port" must be the name of a network port.');
+	}
+	return $port;
+}
+
+/* WAN and LAN are never unassigned through the API. */
+function restapi_ifassign_protected($name) {
+	return in_array((string)$name, array('wan', 'lan'), true);
+}
+
+/* The name of an assigned interface (404 otherwise). */
+function restapi_ifassign_name($name, array $interfaces) {
+	$name = (string)$name;
+	if (!preg_match('/^(wan|lan|opt[0-9]+)$/', $name) || !isset($interfaces[$name]) || !is_array($interfaces[$name])) {
+		throw new RestApiError(404, 'not_found', 'No assigned interface with that name.');
+	}
+	return $name;
+}
+
+/* The page's "Save" post: every assigned interface with its port, $name moved to $port. */
+function restapi_ifassign_remap_post(array $interfaces, $name, $port) {
+	$post = array();
+	foreach ($interfaces as $ifname => $ifcfg) {
+		if (is_array($ifcfg)) {
+			$post[(string)$ifname] = (string)($ifcfg['if'] ?? '');
+		}
+	}
+	$post[(string)$name] = (string)$port;
+	$post['Submit'] = 'Save';
+	return $post;
+}
+
+function restapi_ifassign_out($name, array $ifcfg, array $descrs) {
+	$port = (string)($ifcfg['if'] ?? '');
+	$real = get_real_interface($name);
+	return array(
+		'name' => (string)$name,
+		'descr' => (string)($ifcfg['descr'] ?? strtoupper($name)),
+		'port' => $port,
+		'port_descr' => (string)($descrs[$port] ?? $port),
+		'enabled' => restapi_iftun_flag($ifcfg, 'enable'),
+		'present' => !empty($real) && does_interface_exist($real),
+	);
+}
+
+function restapi_ifassign_interfaces() {
+	$interfaces = config_get_path('interfaces', []);
+	return is_array($interfaces) ? $interfaces : array();
+}
+
+/* One assignment, with the current reboot flag. */
+function restapi_ifassign_result($name, $status = 200) {
+	$portlist = interfaces_assign_port_list();
+	$out = restapi_ifassign_out($name, (array)config_get_path("interfaces/{$name}", []), interfaces_assign_port_descrs($portlist));
+	$out['reboot_needed'] = interfaces_assign_reboot_needed();
+	return array('status' => $status, 'data' => $out);
+}
+
+function restapi_h_ifassign_list($req) {
+	$portlist = interfaces_assign_port_list();
+	$descrs = interfaces_assign_port_descrs($portlist);
+	$assignments = array();
+	foreach (restapi_ifassign_interfaces() as $name => $ifcfg) {
+		if (is_array($ifcfg)) {
+			$assignments[] = restapi_ifassign_out($name, $ifcfg, $descrs);
+		}
+	}
+	$available = array();
+	foreach (array_keys(interfaces_assign_unused_ports($portlist)) as $port) {
+		$available[] = array('port' => (string)$port, 'descr' => (string)($descrs[$port] ?? $port));
+	}
+	return array('data' => array(
+		'assignments' => $assignments,
+		'available_ports' => $available,
+		'reboot_needed' => interfaces_assign_reboot_needed(),
+	));
+}
+
+function restapi_h_ifassign_get($req) {
+	return restapi_ifassign_result(restapi_ifassign_name($req['params']['name'], restapi_ifassign_interfaces()));
+}
+
+function restapi_h_ifassign_create($req) {
+	restapi_ifassign_confirm($req['body']);
+	$port = restapi_ifassign_port($req['body']);
+	$name = interfaces_assign_add($port, interfaces_assign_port_list(), $input_errors);
+	if ($name === null) {
+		throw restapi_validation_error($input_errors);
+	}
+	return restapi_ifassign_result($name, 201);
+}
+
+function restapi_h_ifassign_update($req) {
+	$interfaces = restapi_ifassign_interfaces();
+	$name = restapi_ifassign_name($req['params']['name'], $interfaces);
+	restapi_ifassign_confirm($req['body']);
+	$port = restapi_ifassign_port($req['body']);
+	if (!interfaces_assign_save(restapi_ifassign_remap_post($interfaces, $name, $port), interfaces_assign_port_list(), $input_errors)) {
+		throw restapi_validation_error($input_errors);
+	}
+	return restapi_ifassign_result($name);
+}
+
+function restapi_h_ifassign_delete($req) {
+	$name = restapi_ifassign_name($req['params']['name'], restapi_ifassign_interfaces());
+	if (restapi_ifassign_protected($name)) {
+		throw new RestApiError(403, 'protected_interface', 'WAN and LAN cannot be unassigned through the API.');
+	}
+	restapi_ifassign_confirm($req['body']);
+	if (!interfaces_assign_delete($name, $input_errors)) {
+		throw new RestApiError(409, 'in_use', implode(' ', array_map(function ($m) {
+			return html_entity_decode(strip_tags((string)$m), ENT_QUOTES);
+		}, $input_errors)));
+	}
+	return array('data' => array('deleted' => $name, 'reboot_needed' => interfaces_assign_reboot_needed()));
 }
