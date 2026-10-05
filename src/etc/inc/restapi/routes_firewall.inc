@@ -135,7 +135,7 @@ function restapi_routes_firewall() {
 			'summary' => 'Update a virtual IP (omitted fields keep their value)')),
 		restapi_route('DELETE', '/v1/firewall/virtual-ips/{id}', 'restapi_h_vip_delete', array(
 			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips', 'write' => true,
-			'summary' => 'Delete a virtual IP that nothing uses (applies at once)')),
+			'query' => $apply_query, 'summary' => 'Delete a virtual IP that nothing uses')),
 		restapi_route('POST', '/v1/firewall/virtual-ips/apply', 'restapi_h_vip_apply', array(
 			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips', 'write' => true,
 			'summary' => 'Apply pending virtual IP changes')),
@@ -551,7 +551,10 @@ function restapi_h_vip_delete($req) {
 	if (!empty($result['input_errors'])) {
 		throw new RestApiError(409, 'in_use', implode(' ', array_map('strip_tags', $result['input_errors'])));
 	}
-	return array('data' => array('deleted' => $id));
+	/* Honour ?apply=true when the delete left a VIP change pending. */
+	$extra = (restapi_want_apply($req) && is_subsystem_dirty('vip')) ?
+	    array('apply' => array('applied' => ((applyVIP()['retval'] ?? 1) == 0))) : array();
+	return array('data' => array('deleted' => $id, 'pending' => restapi_fw_pending_list()) + $extra);
 }
 
 function restapi_h_vip_apply($req) {
