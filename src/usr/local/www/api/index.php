@@ -38,6 +38,11 @@ require_once('priv.inc');
 /* backup.inc must be loaded at file scope: rrd_data_xml() uses its globals. */
 require_once('backup.inc');
 require_once('remote_backup.inc');
+/* The GUI's shared firewall save functions; they set globals at file scope. */
+require_once('alias-utils.inc');
+require_once('firewall_nat.inc');
+require_once('firewall_virtual_ip.inc');
+require_once('firewall_schedule.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
@@ -106,10 +111,11 @@ try {
 	}
 
 	$headers = array('ETag' => restapi_config_etag());
+	$status = (int)($result['status'] ?? 200);
 	if (isset($result['raw'])) {
-		restapi_respond(200, $result['raw'], $result['type'] ?? 'text/plain', $headers);
+		restapi_respond($status, $result['raw'], $result['type'] ?? 'text/plain', $headers);
 	}
-	restapi_respond(200, array('data' => $result['data'] ?? null), 'application/json', $headers);
+	restapi_respond($status, array('data' => $result['data'] ?? null), 'application/json', $headers);
 } catch (RestApiError $e) {
 	$headers = ($e->status === 401) ? array('WWW-Authenticate' => 'Bearer realm="FreeSense"') : array();
 	restapi_respond($e->status, $e->payload(), 'application/json', $headers);

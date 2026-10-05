@@ -243,23 +243,7 @@ $wlan_modes = array(
 	"adhoc" => gettext("Ad-hoc (IBSS)"),
 	"hostap" => gettext("Access Point"));
 
-function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_errors) {
-
-	/* check for bad control characters */
-	foreach ($postdata as $pn => $pd) {
-		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
-			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
-		}
-	}
-
-	if (is_array($reqdfields)) {
-		for ($i = 0; $i < count($reqdfields); $i++) {
-			if ($postdata[$reqdfields[$i]] == "") {
-				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
-			}
-		}
-	}
-}
+/* do_input_validation() lives in util.inc so the REST API can use it too. */
 
 function print_input_errors($input_errors) {
 	echo '<div class="alert alert-danger input-errors">';

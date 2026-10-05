@@ -140,6 +140,50 @@ check_api(isset($spec['paths']['/api/v1/backup/remote/targets/{id}/test']['post'
 check_api(count($spec['paths']) === count(array_unique(array_map(function ($r) { return $r['path']; }, $v1))),
     'every route path is in the OpenAPI document');
 
+/* Firewall: API bodies become the GUI forms' fields */
+$alias_post = restapi_alias_post(array('name' => 'lab', 'type' => 'network', 'description' => 'd',
+    'entries' => array(array('address' => '10.0.0.0/8', 'detail' => 'a'), array('address' => '192.0.2.1', 'detail' => ''))), 'old');
+check_api($alias_post['address0'] === '10.0.0.0' && $alias_post['address_subnet0'] === '8' &&
+    $alias_post['address1'] === '192.0.2.1' && $alias_post['address_subnet1'] === '' &&
+    $alias_post['detail0'] === 'a' && $alias_post['origname'] === 'old' && $alias_post['descr'] === 'd',
+    'network alias entries split into address/address_subnet rows');
+$host_post = restapi_alias_post(array('name' => 'h', 'type' => 'host', 'entries' => array(array('address' => '10.0.0.0/8'))), '');
+check_api($host_post['address0'] === '10.0.0.0/8' && $host_post['address_subnet0'] === '',
+    'host aliases are passed through for the GUI validation to judge');
+$url_post = restapi_alias_post(array('name' => 'u', 'type' => 'urltable', 'update_frequency' => 3,
+    'entries' => array(array('address' => 'https://example.org/list.txt'))), '');
+check_api($url_post['address_subnet0'] === '3', 'urltable update frequency goes in address_subnet0');
+check_api(api_error_status(function () { restapi_alias_post(array('type' => 'host', 'entries' => 'x'), ''); }) === 400,
+    'entries must be a list');
+
+$sched_post = restapi_sched_post(array('name' => 's', 'ranges' => array(
+    array('weekdays' => array(1, 5), 'start' => '08:00', 'stop' => '17:00', 'description' => 'w'),
+    array('dates' => array('12-24', '2026-1-5'), 'start' => '9:00', 'stop' => '10:00'))));
+check_api($sched_post['schedule0'] === '1,5' && $sched_post['starttime0'] === '08:00' && $sched_post['timedescr0'] === 'w',
+    'weekday ranges become a position list');
+check_api($sched_post['schedule1'] === 'w1p1-m12d24,w1p1-m1d5',
+    'dates become the GUI month/day tokens that saveSchedule() parses');
+check_api(api_error_status(function () { restapi_sched_post(array('ranges' => array(array('dates' => array('Dec 24'))))); }) === 400,
+    'invalid dates are rejected');
+
+check_api(restapi_body_as_post(array('a' => true, 'b' => false, 'c' => 5, 'd' => array('x', 'y'))) === array('a' => 'yes', 'c' => '5', 'd' => array('x', 'y')),
+    'booleans become checkbox fields like a form post');
+check_api(api_error_status(function () { restapi_body_as_post(array('o' => array('k' => 'v'))); }) === 400, 'objects are not form fields');
+check_api(restapi_json_result('{"input_errors":["x"]}') === array('input_errors' => array('x')) &&
+    restapi_json_result(array('k' => 1)) === array('k' => 1), 'JSON-mode GUI results are decoded');
+
+/* Refactors that let the GUI and the API share one code path */
+$guiconfig = file_get_contents("{$root}/src/usr/local/www/guiconfig.inc");
+$util = file_get_contents("{$root}/src/etc/inc/util.inc");
+check_api(strpos($guiconfig, 'function do_input_validation(') === false && strpos($util, 'function do_input_validation(') !== false,
+    'do_input_validation() lives in util.inc');
+$sched_page = file_get_contents("{$root}/src/usr/local/www/firewall_schedule_edit.php");
+check_api(strpos($sched_page, 'saveSchedule($_POST') !== false && strpos($sched_page, "write_config(") === false,
+    'the schedule edit page saves through saveSchedule()');
+$routes_fw = file_get_contents("{$root}/src/etc/inc/restapi/routes_firewall.inc");
+check_api(preg_match('/save(Alias|NATrule|VIP|Schedule)\(/', $routes_fw) === 1 &&
+    substr_count($routes_fw, 'write_config(') === 0, 'firewall API writes only through the GUI save functions');
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');

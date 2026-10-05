@@ -971,6 +971,29 @@ function is_module_loaded(string $module_name): bool
 }
 
 /* validate non-negative numeric string, or equivalent numeric variable */
+/*
+ * Shared form validation: rejects control characters in every posted field
+ * and reports missing required fields. Used by the GUI pages and by the
+ * REST API through the same save functions (moved here from guiconfig.inc).
+ */
+function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_errors) {
+
+	/* check for bad control characters */
+	foreach ($postdata as $pn => $pd) {
+		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
+			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
+		}
+	}
+
+	if (is_array($reqdfields)) {
+		for ($i = 0; $i < count($reqdfields); $i++) {
+			if ($postdata[$reqdfields[$i]] == "") {
+				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
+			}
+		}
+	}
+}
+
 function is_numericint($arg) {
 	return (((is_int($arg) && $arg >= 0) || (is_string($arg) && strlen($arg) > 0 && ctype_digit(strval($arg)))) ? true : false);
 }
