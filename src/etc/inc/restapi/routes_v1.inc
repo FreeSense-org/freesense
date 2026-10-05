@@ -32,6 +32,7 @@
 require_once('restapi/framework.inc');
 require_once('restapi/routes_firewall.inc');
 require_once('restapi/routes_nat.inc');
+require_once('restapi/routes_routing.inc');
 
 function restapi_routes_v1() {
 	$routes = array(
@@ -92,7 +93,7 @@ function restapi_routes_v1() {
 			'summary' => 'Backups of this firewall stored on a target (newest first)')),
 	);
 
-	$routes = array_merge($routes, restapi_routes_firewall(), restapi_routes_nat());
+	$routes = array_merge($routes, restapi_routes_firewall(), restapi_routes_nat(), restapi_routes_routing());
 
 	/* Packages may add resources: return a list of restapi_route() entries. */
 	if (function_exists('pkg_call_plugins')) {

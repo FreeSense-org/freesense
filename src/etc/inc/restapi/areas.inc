@@ -45,6 +45,7 @@ function restapi_areas() {
 		'firewall.nat' => 'Firewall NAT (port forward, 1:1, outbound, NPt)',
 		'firewall.schedules' => 'Firewall schedules',
 		'firewall.vips' => 'Firewall virtual IPs',
+		'routing' => 'Gateways and static routes',
 	);
 }
 

@@ -191,7 +191,7 @@ foreach (glob("{$root}/src/usr/local/FreeSense/include/www/*.inc") as $inc) {
 	preg_match_all('/^function\s+([A-Za-z0-9_]+)\s*\(/m', file_get_contents($inc), $m);
 	foreach ($m[1] as $fn) {
 		$key = strtolower($fn);
-		check_api(!isset($declared[$key]), "function {$fn}() is declared in both {$declared[$key]} and " . basename($inc));
+		check_api(!isset($declared[$key]), "function {$fn}() is declared in both " . ($declared[$key] ?? "") . " and " . basename($inc));
 		$declared[$key] = basename($inc);
 	}
 }
@@ -217,6 +217,84 @@ check_api(substr_count($rules_inc, 'firewall_rule_run_hook("/usr/local/pkg/firew
     'both firewall_rules custom code hooks still run');
 check_api(strpos(file_get_contents("{$root}/src/usr/local/www/guiconfig.inc"), '$firewall_rules_dscp_types = array(') === false &&
     strpos($rules_inc, '$firewall_rules_dscp_types = array(') !== false, 'the DSCP list moved with the rule editor');
+
+/* Routing: stored entries become the edit forms' fields */
+check_api(isset(restapi_areas()['routing']), 'the routing permission area exists');
+$gw_fields = restapi_routing_gateway_fields(array('name' => 'LAN_GW', 'friendlyiface' => 'lan', 'interface' => 'em1',
+    'gateway' => '192.0.2.1', 'monitor' => '192.0.2.1', 'ipprotocol' => 'inet', 'weight' => '1', 'descr' => 'd',
+    'monitor_disable' => true, 'force_down' => false, 'attribute' => 3, 'isdefaultgw' => true));
+check_api($gw_fields['interface'] === 'lan' && $gw_fields['friendlyiface'] === 'lan',
+    'the gateway interface field is the friendly name the edit page preselects');
+check_api($gw_fields['monitor'] === '' && $gw_fields['gateway'] === '192.0.2.1',
+    'a monitor IP equal to the gateway shows empty, like the edit page');
+check_api(($gw_fields['monitor_disable'] ?? null) === 'yes' && !isset($gw_fields['force_down']) && !isset($gw_fields['disabled']),
+    'gateway checkboxes are "yes" when ticked and absent otherwise');
+check_api($gw_fields['attribute'] === '3' && !isset($gw_fields['isdefaultgw']), 'only form fields are returned');
+$dyn_fields = restapi_routing_gateway_fields(array('name' => 'WAN_DHCP', 'friendlyiface' => 'wan', 'gateway' => '198.51.100.1',
+    'monitor' => '198.51.100.9', 'dynamic' => true, 'attribute' => 0));
+check_api($dyn_fields['gateway'] === 'dynamic' && $dyn_fields['monitor'] === '198.51.100.9', 'a dynamic gateway posts "dynamic"');
+
+$group = restapi_routing_group_out(array('name' => 'Failover', 'descr' => 'f', 'trigger' => 'down',
+    'item' => array('WAN_DHCP|1|address', 'LTE|2|')));
+check_api($group['items'] === array(array('gateway' => 'WAN_DHCP', 'tier' => 1, 'vip' => 'address'),
+    array('gateway' => 'LTE', 'tier' => 2, 'vip' => '')) && $group['keep_failover_states'] === '',
+    'gateway group members parse from "gateway|tier|vip"');
+$group_post = restapi_routing_group_post($group, array('WAN_DHCP', 'LTE', 'OTHER'));
+check_api($group_post['WAN_DHCP'] === '1' && $group_post['WAN_DHCP_vip'] === 'address' && $group_post['LTE'] === '2' &&
+    !isset($group_post['OTHER']) && $group_post['name'] === 'Failover' && $group_post['trigger'] === 'down',
+    'gateway group members become the per-gateway tier selects of the edit form');
+check_api(api_error_status(function () { restapi_routing_group_post(array('items' => array(array('gateway' => 'NOPE', 'tier' => 1))), array('WAN')); }) === 422,
+    'an unknown group member is rejected');
+check_api(api_error_status(function () { restapi_routing_group_post(array('items' => array(array('gateway' => 'WAN', 'tier' => 7))), array('WAN')); }) === 422,
+    'a tier outside 1-5 is rejected');
+check_api(api_error_status(function () { restapi_routing_group_post(array('items' => 'WAN'), array('WAN')); }) === 400,
+    'group items must be a list');
+
+$route_fields = restapi_routing_route_fields(array('network' => '10.250.0.0/24', 'gateway' => 'GW', 'descr' => 'r', 'disabled' => true));
+check_api($route_fields === array('network' => '10.250.0.0', 'network_subnet' => '24', 'gateway' => 'GW', 'descr' => 'r', 'disabled' => 'yes'),
+    'a static route splits into network and network_subnet like the edit page');
+check_api(restapi_routing_route_fields(array('network' => 'MyAlias', 'gateway' => 'GW'))['network_subnet'] === '',
+    'an alias destination has no bit count');
+check_api(restapi_routing_split_network(array('network' => '10.1.0.0/16')) === array('network' => '10.1.0.0', 'network_subnet' => '16') &&
+    restapi_routing_split_network(array('network' => '10.1.0.0/16', 'network_subnet' => '24'))['network_subnet'] === '24',
+    '"network" may carry the bit count');
+check_api(restapi_routing_merge(array('descr' => 'new', 'disabled' => false), array('descr' => 'old', 'disabled' => 'yes', 'gateway' => 'GW')) ===
+    array('descr' => 'new', 'gateway' => 'GW'), 'an update keeps omitted fields and unticks checkboxes sent as false');
+
+/* The routing pages are thin wrappers around system_routing.inc */
+$routing_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_routing.inc");
+check_api(strpos($routing_inc, '$_POST') === false && strpos($routing_inc, '$_REQUEST') === false,
+    'system_routing.inc takes its form fields as parameters');
+check_api(strpos($routing_inc, "\$route[0]['gateway']") === false && strpos($routing_inc, "\$rgateway = \$route['gateway'];") !== false,
+    'a static route edit compares the new gateway with the old one');
+foreach (array('system_gateways.php', 'system_gateway_groups.php', 'system_routes.php') as $page) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	check_api(strpos($src, 'routing_apply_changes()') !== false && strpos($src, '.system_routes.apply') === false &&
+	    strpos($src, 'system_routing_configure(') === false, "{$page} applies through routing_apply_changes()");
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_del_path(') === false,
+	    "{$page} changes the configuration only through system_routing.inc");
+}
+foreach (array('system_gateways_edit.php' => 'routing_save_gateway($_POST', 'system_gateway_groups_edit.php' => 'routing_save_gateway_group($_POST',
+    'system_routes_edit.php' => 'routing_save_static_route($_POST') as $page => $call) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	check_api(strpos($src, $call) !== false && strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false,
+	    "{$page} saves through system_routing.inc");
+}
+$gwpage = file_get_contents("{$root}/src/usr/local/www/system_gateways.php");
+foreach (array('routing_save_default_gateways(', 'routing_delete_gateway(', 'routing_delete_gateways(', 'routing_toggle_gateway(') as $call) {
+	check_api(strpos($gwpage, $call) !== false, "system_gateways.php uses {$call})");
+}
+$rtpage = file_get_contents("{$root}/src/usr/local/www/system_routes.php");
+foreach (array('routing_delete_static_route(', 'routing_delete_static_routes(', 'routing_toggle_static_route(', 'routing_move_static_routes(') as $call) {
+	check_api(strpos($rtpage, $call) !== false, "system_routes.php uses {$call})");
+}
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_gateway_groups.php"), 'routing_delete_gateway_group(') !== false,
+    'system_gateway_groups.php deletes through routing_delete_gateway_group()');
+$routes_rt = file_get_contents("{$root}/src/etc/inc/restapi/routes_routing.inc");
+check_api(substr_count($routes_rt, 'write_config(') === 0 && substr_count($routes_rt, 'config_set_path(') === 0,
+    'routing API writes only through the GUI functions');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('system_routing.inc');") !== false,
+    'the API front controller loads system_routing.inc');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

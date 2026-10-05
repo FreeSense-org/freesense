@@ -32,63 +32,19 @@ require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
 require_once("openvpn.inc");
+require_once("system_routing.inc");
 
 $a_gateways = config_get_path('gateways/gateway_item', []);
-$changedesc = gettext("Gateway Groups") . ": ";
 
 
 $pconfig = $_REQUEST;
 
 if ($_POST['apply']) {
-	$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-	if (file_exists($routes_apply_file)) {
-		foreach (unserialize_data(file_get_contents($routes_apply_file), []) as $toapply) {
-			mwexec("{$toapply}");
-		}
-		@unlink($routes_apply_file);
-	}
-
-	$retval = 0;
-
-	$retval |= system_routing_configure();
-	send_multiple_events(array("service reload dyndnsall", "service reload ipsecdns", "filter reload"));
-
-	/* reconfigure our gateway monitor */
-	setup_gateways_monitor();
-
-	if ($retval == 0) {
-		clear_subsystem_dirty('staticroutes');
-	}
-
-	foreach (config_get_path('gateways/gateway_group', []) as $gateway_group) {
-		$gw_subsystem = 'gwgroup.' . $gateway_group['name'];
-		if (is_subsystem_dirty($gw_subsystem)) {
-			openvpn_resync_gwgroup($gateway_group['name']);
-			clear_subsystem_dirty($gw_subsystem);
-		}
-	}
+	$retval = routing_apply_changes();
 }
 
-$a_gateway_groups = config_get_path('gateways/gateway_group', []);
-if (($_POST['act'] == "del") && $a_gateway_groups[$_POST['id']]) {
-	if ((config_get_path('gateways/defaultgw4', '') == $a_gateway_groups[$_POST['id']]['name']) ||
-	    (config_get_path('gateways/defaultgw6', '') == $a_gateway_groups[$_POST['id']]['name'])) {
-		$input_errors[] = gettext('Cannot remove a gateway group that is being used as the default gateway.');
-	} else {
-		$changedesc .= sprintf(gettext("removed gateway group %s"), $_POST['id']);
-		foreach (get_filter_rules_list() as $idx => $rule) {
-			if ($rule['gateway'] == $a_gateway_groups[$_REQUEST['id']]['name']) {
-				config_del_path("filter/rule/{$idx}/gateway");
-			}
-		}
-
-		config_del_path("gateways/gateway_group/{$_POST['id']}");
-		write_config($changedesc);
-		mark_subsystem_dirty('staticroutes');
-		$gw_subsystem = 'gwgroup.' . $a_gateway_groups[$_POST['id']]['name'];
-		if (is_subsystem_dirty($gw_subsystem)) {
-			clear_subsystem_dirty($gw_subsystem);
-		}
+if ($_POST['act'] == "del") {
+	if (routing_delete_gateway_group($_POST['id'], $input_errors)) {
 		header("Location: system_gateway_groups.php");
 		exit;
 	}

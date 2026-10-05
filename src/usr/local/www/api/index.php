@@ -47,6 +47,8 @@ require_once('firewall_nat_npt.inc');
 require_once('firewall_virtual_ip.inc');
 require_once('firewall_schedule.inc');
 require_once('firewall_rules.inc');
+/* The routing pages' shared functions (gateways, gateway groups, static routes). */
+require_once('system_routing.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
