@@ -354,6 +354,12 @@ if (isAllowedPage("system_usermanager.php")) {
 	$system_menu[] = array(gettext("User Manager"), "/system_usermanager.php");
 }
 
+if (isAllowedPage("system_restapi.php")) {
+	$system_menu[] = array(gettext("REST API"), "/system_restapi.php");
+} elseif (isAllowedPage("system_restapi_keys.php")) {
+	$system_menu[] = array(gettext("REST API"), "/system_restapi_keys.php");
+}
+
 if (isAllowedPage("system_usermanager_passwordmg.php")) {
 	$system_menu[] = array(gettext("User Password Manager"), "/system_usermanager_passwordmg.php");
 }

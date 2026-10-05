@@ -1,0 +1,299 @@
+<?php
+/*
+ * restapi/framework.inc
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Copyright (c) 2026 The FreeSense Project
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * REST API building blocks with no dependency on the rest of the system:
+ * routing, errors, token parsing, network checks and the OpenAPI document.
+ * Everything that touches config.xml lives in restapi.inc.
+ */
+
+define('RESTAPI_TOKEN_PREFIX', 'fsk');
+
+class RestApiError extends Exception {
+	public $status;
+	public $error_code;
+	public $details;
+
+	public function __construct($status, $error_code, $message, $details = array()) {
+		parent::__construct($message);
+		$this->status = (int)$status;
+		$this->error_code = $error_code;
+		$this->details = $details;
+	}
+
+	public function payload() {
+		$error = array('code' => $this->error_code, 'message' => $this->getMessage());
+		if (!empty($this->details)) {
+			$error['details'] = $this->details;
+		}
+		return array('error' => $error);
+	}
+}
+
+/* Turn the input_errors list a GUI save function returns into a 422. */
+function restapi_validation_error(array $input_errors) {
+	$messages = array_values(array_map(function ($m) {
+		return html_entity_decode(strip_tags((string)$m), ENT_QUOTES);
+	}, $input_errors));
+	return new RestApiError(422, 'validation_failed',
+	    'The request failed validation.', array('messages' => $messages));
+}
+
+/* ------------------------------------------------------------------ */
+/* Routing                                                             */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Define a route. $path is a template such as "/v1/backup/{id}/test".
+ * Options:
+ *   page      GUI page whose privilege grants access (required)
+ *   write     true when the route changes state (refused for read-only keys)
+ *   summary   one line for the OpenAPI document
+ *   tag       OpenAPI tag
+ *   body      OpenAPI schema of the JSON body (array), optional
+ *   query     array of query parameter name => description, optional
+ *   produces  response media type, default application/json
+ */
+function restapi_route($method, $path, $handler, array $opts) {
+	if (empty($opts['page'])) {
+		throw new InvalidArgumentException("route {$method} {$path} has no privilege page");
+	}
+	list($regex, $params) = restapi_compile_path($path);
+	return array(
+		'method' => strtoupper($method),
+		'path' => $path,
+		'regex' => $regex,
+		'params' => $params,
+		'handler' => $handler,
+		'page' => $opts['page'],
+		'write' => !empty($opts['write']),
+		'summary' => $opts['summary'] ?? '',
+		'tag' => $opts['tag'] ?? 'general',
+		'body' => $opts['body'] ?? null,
+		'query' => $opts['query'] ?? array(),
+		'produces' => $opts['produces'] ?? 'application/json',
+	);
+}
+
+function restapi_compile_path($template) {
+	preg_match_all('#\{([a-z_][a-z0-9_]*)\}#i', $template, $names);
+	/* preg_quote() escapes the braces, so match the escaped placeholders. */
+	$regex = preg_replace('#\\\\\{[a-z_][a-z0-9_]*\\\\\}#i', '([A-Za-z0-9._:-]+)',
+	    preg_quote($template, '#'));
+	return array('#^' . $regex . '$#D', $names[1]);
+}
+
+/*
+ * Find the route for a request. Returns array($route, $params).
+ * Throws 404 for an unknown path and 405 for a known path with another method.
+ */
+function restapi_match(array $routes, $method, $path) {
+	$allowed = array();
+	foreach ($routes as $route) {
+		if (!preg_match($route['regex'], $path, $m)) {
+			continue;
+		}
+		if ($route['method'] !== strtoupper($method)) {
+			$allowed[] = $route['method'];
+			continue;
+		}
+		$params = array();
+		foreach ($route['params'] as $i => $name) {
+			$params[$name] = $m[$i + 1];
+		}
+		return array($route, $params);
+	}
+	if (!empty($allowed)) {
+		throw new RestApiError(405, 'method_not_allowed',
+		    'Method not allowed. Allowed: ' . implode(', ', array_unique($allowed)) . '.');
+	}
+	throw new RestApiError(404, 'not_found', 'No such API endpoint.');
+}
+
+/* Decode a JSON request body; an empty body is an empty object. */
+function restapi_decode_body($raw) {
+	if (trim((string)$raw) === '') {
+		return array();
+	}
+	$body = json_decode($raw, true);
+	if (!is_array($body) || (array_is_list($body) && !empty($body))) {
+		throw new RestApiError(400, 'invalid_json', 'The request body must be a JSON object.');
+	}
+	return $body;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tokens and networks                                                 */
+/* ------------------------------------------------------------------ */
+
+function restapi_generate_secret() {
+	return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+}
+
+function restapi_format_token($id, $secret) {
+	return RESTAPI_TOKEN_PREFIX . "_{$id}_{$secret}";
+}
+
+/* Parse "Bearer fsk_<id>_<secret>". Returns array($id, $secret) or null. */
+function restapi_parse_authorization($header) {
+	/* The auth scheme is case-insensitive (RFC 9110); the token is not. */
+	if (!preg_match('/^\s*(?i:bearer)\s+' . RESTAPI_TOKEN_PREFIX . '_([0-9a-f]{12})_([A-Za-z0-9_-]{43})\s*$/D',
+	    (string)$header, $m)) {
+		return null;
+	}
+	return array($m[1], $m[2]);
+}
+
+function restapi_hash_secret($secret) {
+	return hash('sha256', $secret);
+}
+
+function restapi_verify_secret($secret, $stored_hash) {
+	return is_string($stored_hash) && (strlen($stored_hash) === 64) &&
+	    hash_equals($stored_hash, restapi_hash_secret($secret));
+}
+
+/* Parse a list of networks separated by spaces, commas or newlines. */
+function restapi_parse_networks($text) {
+	$out = array();
+	foreach (preg_split('/[\s,]+/', trim((string)$text)) as $net) {
+		if ($net !== '') {
+			$out[] = $net;
+		}
+	}
+	return $out;
+}
+
+function restapi_valid_network($net) {
+	$parts = explode('/', $net, 2);
+	$bin = @inet_pton($parts[0]);
+	if ($bin === false) {
+		return false;
+	}
+	if (!isset($parts[1])) {
+		return true;
+	}
+	$max = strlen($bin) * 8;
+	return ctype_digit($parts[1]) && ((int)$parts[1] <= $max);
+}
+
+/* True when $ip is inside $net (address or CIDR, IPv4 or IPv6). */
+function restapi_ip_in_network($ip, $net) {
+	$ip_bin = @inet_pton($ip);
+	$parts = explode('/', $net, 2);
+	$net_bin = @inet_pton($parts[0]);
+	if ($ip_bin === false || $net_bin === false || strlen($ip_bin) !== strlen($net_bin)) {
+		return false;
+	}
+	$bits = isset($parts[1]) ? (int)$parts[1] : strlen($net_bin) * 8;
+	$bytes = intdiv($bits, 8);
+	if (substr($ip_bin, 0, $bytes) !== substr($net_bin, 0, $bytes)) {
+		return false;
+	}
+	$rest = $bits % 8;
+	if ($rest === 0) {
+		return true;
+	}
+	$mask = (0xff << (8 - $rest)) & 0xff;
+	return (ord($ip_bin[$bytes]) & $mask) === (ord($net_bin[$bytes]) & $mask);
+}
+
+/* An empty list allows every address. */
+function restapi_ip_allowed($ip, array $networks) {
+	if (empty($networks)) {
+		return true;
+	}
+	foreach ($networks as $net) {
+		if (restapi_ip_in_network($ip, $net)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/* ------------------------------------------------------------------ */
+/* OpenAPI                                                             */
+/* ------------------------------------------------------------------ */
+
+function restapi_openapi(array $routes, $version) {
+	$error_ref = array('$ref' => '#/components/responses/Error');
+	$paths = array();
+	foreach ($routes as $route) {
+		$op = array(
+			'summary' => $route['summary'],
+			'tags' => array($route['tag']),
+			'x-freesense-privilege-page' => $route['page'],
+			'responses' => array(
+				'200' => array('description' => 'Success', 'content' => array(
+				    $route['produces'] => array('schema' => ($route['produces'] === 'application/json') ?
+				    array('type' => 'object', 'properties' => array('data' => new stdClass())) :
+				    array('type' => 'string')))),
+				'401' => $error_ref,
+				'403' => $error_ref,
+			),
+		);
+		if ($route['write']) {
+			$op['responses']['412'] = $error_ref;
+			$op['responses']['422'] = $error_ref;
+		}
+		$parameters = array();
+		foreach ($route['params'] as $name) {
+			$parameters[] = array('name' => $name, 'in' => 'path', 'required' => true,
+			    'schema' => array('type' => 'string'));
+		}
+		foreach ($route['query'] as $name => $description) {
+			$parameters[] = array('name' => $name, 'in' => 'query', 'required' => false,
+			    'description' => $description, 'schema' => array('type' => 'string'));
+		}
+		if (!empty($parameters)) {
+			$op['parameters'] = $parameters;
+		}
+		if (is_array($route['body'])) {
+			$op['requestBody'] = array('required' => false, 'content' => array(
+			    'application/json' => array('schema' => $route['body'])));
+		}
+		$paths['/api' . $route['path']][strtolower($route['method'])] = $op;
+	}
+	ksort($paths);
+
+	return array(
+		'openapi' => '3.0.3',
+		'info' => array(
+			'title' => 'FreeSense REST API',
+			'version' => $version,
+			'description' => 'Each endpoint is allowed when the token owner may open the GUI page named in ' .
+			    'x-freesense-privilege-page. Changes are validated by the same code as the GUI.',
+		),
+		'servers' => array(array('url' => '/')),
+		'security' => array(array('bearerAuth' => array())),
+		'paths' => $paths,
+		'components' => array(
+			'securitySchemes' => array('bearerAuth' => array('type' => 'http', 'scheme' => 'bearer',
+			    'bearerFormat' => RESTAPI_TOKEN_PREFIX . '_<id>_<secret>')),
+			'responses' => array('Error' => array('description' => 'Error', 'content' => array(
+			    'application/json' => array('schema' => array('type' => 'object', 'properties' => array(
+			    'error' => array('type' => 'object', 'properties' => array(
+			    'code' => array('type' => 'string'),
+			    'message' => array('type' => 'string'),
+			    'details' => array('type' => 'object'))))))))),
+		),
+	);
+}

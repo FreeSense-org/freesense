@@ -1152,6 +1152,19 @@ $priv_list['page-system-hasync']['descr'] = gettext("Allow access to the 'System
 $priv_list['page-system-hasync']['match'] = array();
 $priv_list['page-system-hasync']['match'][] = "system_hasync.php*";
 
+$priv_list['page-system-restapi'] = array();
+$priv_list['page-system-restapi']['name'] = gettext("WebCfg - System: REST API");
+$priv_list['page-system-restapi']['descr'] = gettext("Allow access to the 'System: REST API' page (API settings and the API keys of every user).");
+$priv_list['page-system-restapi']['warn'] = "standard-warning-root";
+$priv_list['page-system-restapi']['match'] = array();
+$priv_list['page-system-restapi']['match'][] = "system_restapi.php*";
+
+$priv_list['page-system-restapi-keys'] = array();
+$priv_list['page-system-restapi-keys']['name'] = gettext("WebCfg - System: REST API access");
+$priv_list['page-system-restapi-keys']['descr'] = gettext("Allow the user to use the REST API and to create and revoke their own API keys. The API still only allows what the user's other privileges allow.");
+$priv_list['page-system-restapi-keys']['match'] = array();
+$priv_list['page-system-restapi-keys']['match'][] = "system_restapi_keys.php*";
+
 $priv_list['page-system-staticroutes'] = array();
 $priv_list['page-system-staticroutes']['name'] = gettext("WebCfg - System: Static Routes");
 $priv_list['page-system-staticroutes']['descr'] = gettext("Allow access to the 'System: Static Routes' page.");

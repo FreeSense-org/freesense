@@ -984,6 +984,23 @@ if ($act == "new" || $act == "edit" || $input_errors):
 			build_priv_table()
 		));
 
+		/* REST API access is the "WebCfg - System: REST API access" privilege above. */
+		require_once('restapi.inc');
+		$api_keys = count(array_filter(restapi_tokens(), function ($t) use ($this_user) {
+			return ($t['username'] ?? '') === ($this_user['name'] ?? '');
+		}));
+		$api_text = restapi_user_has_access($this_user) ?
+		    '<i class="fa-solid fa-check text-success"></i> ' . gettext('Allowed') :
+		    '<i class="fa-solid fa-times text-muted"></i> ' . gettext('Not allowed (add the "WebCfg - System: REST API access" privilege)');
+		$api_text .= ' &middot; ' . sprintf(ngettext('%d API key', '%d API keys', $api_keys), $api_keys);
+		if (isAllowedPage('system_restapi.php')) {
+			$api_text .= ' &middot; <a href="system_restapi.php">' . gettext('Manage API keys') . '</a>';
+		}
+		$section->addInput(new Form_StaticText(
+			gettext('REST API'),
+			$api_text
+		));
+
 		$form->add($section);
 
 		// ==== Certificate table section =====================================
