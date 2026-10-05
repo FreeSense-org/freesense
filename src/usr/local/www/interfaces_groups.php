@@ -28,18 +28,10 @@
 
 require_once("guiconfig.inc");
 require_once("functions.inc");
+require_once("interfaces_l2.inc");
 
 if ($_POST['act'] == "del") {
-	if (is_numericint($_POST['id']) && config_get_path("ifgroups/ifgroupentry/{$_POST['id']}")) {
-		$members = explode(" ", config_get_path("ifgroups/ifgroupentry/{$_POST['id']}/members"));
-		foreach ($members as $ifs) {
-			$realif = get_real_interface($ifs);
-			if ($realif) {
-				mwexec("/sbin/ifconfig {$realif} -group " . config_get_path("ifgroups/ifgroupentry/{$_POST['id']}/ifname"));
-			}
-		}
-		config_del_path("ifgroups/ifgroupentry/{$_POST['id']}");
-		write_config("Interface Group deleted");
+	if (interfaces_group_delete($_POST['id'] ?? null, $input_errors)) {
 		header("Location: interfaces_groups.php");
 		exit;
 	}
@@ -49,6 +41,10 @@ $pgtitle = array(gettext("Interfaces"), gettext("Interface Groups"));
 $shortcut_section = "interfaces";
 
 include("head.inc");
+
+if ($input_errors) {
+	print_input_errors($input_errors);
+}
 
 $tab_array = array();
 $tab_array[] = array(gettext("Interface Assignments"), false, "interfaces_assign.php");

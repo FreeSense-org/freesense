@@ -372,8 +372,116 @@ check_api(substr_count($routes_if, 'write_config(') === 0 && substr_count($route
 check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_tunnels.inc');") !== false,
     'the API front controller loads interfaces_tunnels.inc');
 
+/* Interfaces: LAGG, QinQ, interface groups, bridges */
+foreach (array('laggs', 'qinqs', 'groups', 'bridges') as $res) {
+	foreach (array('GET /v1/interfaces/' . $res, 'GET /v1/interfaces/' . $res . '/{id}', 'POST /v1/interfaces/' . $res,
+	    'PUT /v1/interfaces/' . $res . '/{id}', 'DELETE /v1/interfaces/' . $res . '/{id}') as $key) {
+		check_api(isset($seen[$key]), "route {$key} exists");
+	}
+	check_api(restapi_iftun_resource("/v1/interfaces/{$res}/x") === $res, "{$res} is resolved from the path");
+}
+check_api(restapi_iftun_ifname('qinqs', array('if' => 'em1', 'tag' => '3998')) === 'em1.3998' &&
+    restapi_iftun_ifname('laggs', array('laggif' => 'lagg0')) === 'lagg0' &&
+    restapi_iftun_ifname('groups', array('ifname' => 'LANS')) === 'LANS' &&
+    restapi_iftun_ifname('bridges', array('bridgeif' => 'bridge1')) === 'bridge1', 'LAGG, QinQ, group and bridge names');
+
+$lg = restapi_iftun_fields('laggs', array('members' => 'igb2,igb3', 'proto' => 'lacp', 'laggif' => 'lagg0', 'descr' => 'd'));
+check_api($lg['members'] === array('igb2', 'igb3') && $lg['proto'] === 'lacp' && $lg['failovermaster'] === 'auto' &&
+    $lg['lacptimeout'] === 'slow' && $lg['lagghash'] === 'l2,l3,l4' && !isset($lg['laggif']),
+    'LAGG fields: members as a list, unset selects post their first choice, no interface name');
+$new = restapi_iftun_post('laggs', array('members' => 'igb2, igb3'));
+check_api($new['members'] === array('igb2', 'igb3') && $new['proto'] === 'none' && $new['descr'] === '',
+    'a new LAGG posts what the new form posts; a list may be a separated string');
+check_api(!isset(restapi_iftun_post('laggs', array('members' => array()), $lg)['members']), 'an empty list is not posted (like an empty multi-select)');
+check_api(restapi_iftun_post('laggs', array('descr' => 'x'), $lg)['members'] === array('igb2', 'igb3'), 'an update keeps the members');
+
+$qq = restapi_iftun_fields('qinqs', array('if' => 'em1', 'tag_type' => 'ctag', 'tag' => '3998', 'members' => '10 11',
+    'autogroup' => false, 'vlanif' => 'em1.3998', 'descr' => ''));
+check_api($qq['tag_type'] === 'ctag' && $qq['members'] === array('10', '11') && !isset($qq['autogroup']),
+    'QinQ fields: the stored tag type, members as a list, autogroup false is unticked');
+check_api(restapi_iftun_fields('qinqs', array('if' => 'em1', 'tag' => '5'))['tag_type'] === 'stag' &&
+    restapi_iftun_fields('qinqs', array('autogroup' => true))['autogroup'] === 'yes', 'QinQ tag type defaults to S-Tag; autogroup ticks');
+$qp = restapi_iftun_post('qinqs', array('if' => 'em1', 'tag' => 3998, 'members' => array(10, '20-21'), 'member7' => '99'));
+check_api($qp['member0'] === '10' && $qp['member1'] === '20-21' && !isset($qp['member2']) && !isset($qp['member7']) &&
+    !isset($qp['members']) && $qp['tag_type'] === 'stag' && $qp['tag'] === '3998',
+    'QinQ members become the member0, member1, ... rows (no others)');
+check_api(!isset(restapi_iftun_post('qinqs', array('autogroup' => false), $qq + array('autogroup' => 'yes'))['autogroup']),
+    'QinQ autogroup sent as false is unticked');
+
+$gr = restapi_iftun_fields('groups', array('ifname' => 'LANS', 'members' => 'lan opt1', 'descr' => 'g'));
+check_api($gr === array('ifname' => 'LANS', 'descr' => 'g', 'members' => array('lan', 'opt1')), 'group fields');
+$gp = restapi_iftun_post('groups', array('ifname' => 'NEWNAME'), $gr);
+check_api($gp['ifname'] === 'NEWNAME' && $gp['members'] === array('lan', 'opt1'), 'a group rename keeps the members');
+
+$br = restapi_iftun_fields('bridges', array('members' => 'lan,opt1', 'enablestp' => false, 'ip6linklocal' => '', 'proto' => '',
+    'stp' => 'opt1', 'ifpriority' => 'lan:128,opt1:64', 'ifpathcost' => '', 'maxage' => '20', 'bridgeif' => 'bridge0'));
+check_api($br['members'] === array('lan', 'opt1') && $br['stp'] === array('opt1') && $br['span'] === array() &&
+    !isset($br['enablestp']) && $br['ip6linklocal'] === 'yes' && $br['proto'] === 'rstp' && $br['maxage'] === '20' &&
+    $br['ifpriority'] === array('lan' => '128', 'opt1' => '64') && $br['ifpathcost'] === array() && !isset($br['bridgeif']),
+    'bridge fields: lists, flags (false is unticked), proto default, per-interface values as objects');
+$bp = restapi_iftun_post('bridges', array('ifpriority' => array('opt1' => 32, 'opt2' => ''), 'ifpathcost' => array('lan' => 5),
+    'enablestp' => true, 'stp' => array()), $br);
+check_api($bp['lan'] === '128' && $bp['opt1'] === '32' && $bp['opt2'] === '' && $bp['lan0'] === '5' &&
+    !isset($bp['ifpriority']) && !isset($bp['ifpathcost']) && $bp['enablestp'] === 'yes' && !isset($bp['stp']) &&
+    $bp['members'] === array('lan', 'opt1') && $bp['descr'] === '',
+    'bridge per-interface values merge over the current ones and become the "lan"/"lan0" form fields');
+check_api(restapi_iftun_post('bridges', array('members' => array('lan')))['proto'] === 'rstp', 'a new bridge posts RSTP');
+check_api(api_error_status(function () { restapi_iftun_post('bridges', array('ifpriority' => array('members' => '1'))); }) === 400,
+    'a per-interface value cannot overwrite another form field');
+check_api(api_error_status(function () { restapi_iftun_post('bridges', array('ifpriority' => array('1', '2'))); }) === 400 &&
+    api_error_status(function () { restapi_iftun_post('bridges', array('ifpathcost' => array('lan' => array(1)))); }) === 400,
+    'per-interface values must be an object of scalars');
+
+/* The LAGG, QinQ, group and bridge pages are thin wrappers around interfaces_l2.inc */
+$l2_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/interfaces_l2.inc");
+check_api(strpos($l2_inc, '$_POST') === false && strpos($l2_inc, '$_REQUEST') === false && strpos($l2_inc, '$_SESSION') === false,
+    'interfaces_l2.inc takes its form fields as parameters');
+foreach (array('lagg' => 'lagg', 'qinq' => 'qinq', 'groups' => 'group', 'bridge' => 'bridge') as $page => $fn) {
+	$list = file_get_contents("{$root}/src/usr/local/www/interfaces_{$page}.php");
+	$edit = file_get_contents("{$root}/src/usr/local/www/interfaces_{$page}_edit.php");
+	check_api(strpos($list, "interfaces_{$fn}_delete(") !== false && strpos($list, 'write_config(') === false &&
+	    strpos($list, 'config_del_path(') === false && preg_match('/^function\s/m', $list) === 0,
+	    "interfaces_{$page}.php deletes through interfaces_{$fn}_delete()");
+	check_api(strpos($edit, "interfaces_{$fn}_save(\$_POST") !== false && strpos($edit, 'write_config(') === false &&
+	    strpos($edit, 'config_set_path(') === false && preg_match('/interface_[a-z0-9]+_configure\(/', $edit) === 0,
+	    "interfaces_{$page}_edit.php saves through interfaces_{$fn}_save()");
+}
+$lagg_inuse = substr($l2_inc, strpos($l2_inc, 'function lagg_inuse('));
+$lagg_inuse = substr($lagg_inuse, 0, strpos($lagg_inuse, "\n}\n"));
+check_api(strpos($lagg_inuse, "config_get_path('qinqs/qinqentry'") !== false && strpos($lagg_inuse, 'link_interface_to_bridge(') !== false,
+    'a LAGG that is a QinQ parent or a bridge member is in use');
+check_api(strpos($l2_inc, "\$lagg['laggif'] = \$this_lagg_config['laggif'] ?? '';") !== false &&
+    strpos($l2_inc, "\$bridgeif = \$this_bridge_config['bridgeif'] ?? '';") !== false,
+    'LAGGs and bridges keep the stored interface name instead of taking it from the form');
+check_api(strpos($l2_inc, 'array_key_exists($member, $ports)') !== false,
+    'LAGG members must be ports the edit page offers (never an assigned interface)');
+check_api(strpos($l2_inc, 'array_key_exists($post[\'if\'], interfaces_vlan_parent_list())') !== false,
+    'a new QinQ needs a parent the edit page offers');
+$grp_del = substr($l2_inc, strpos($l2_inc, 'function interfaces_group_delete('));
+check_api(strpos(substr($grp_del, 0, strpos($grp_del, "\n}\n")), 'interfaces_group_users(') !== false,
+    'an interface group used by rules cannot be deleted');
+$grp_users = substr($l2_inc, strpos($l2_inc, 'function interfaces_group_users('));
+$grp_users = substr($grp_users, 0, strpos($grp_users, "\n}\n"));
+foreach (array("'filter/rule'", "'nat/rule'", "'nat/onetoone'", "'nat/outbound/rule'", "'nat/npt'", 'explode(","') as $needle) {
+	check_api(strpos($grp_users, $needle) !== false, "interface group users include {$needle}");
+}
+check_api(strpos($l2_inc, '$post["{$ifn}0"]') !== false && strpos($l2_inc, '{$ifn}{$i}') === false,
+    'the bridge path cost check looks at the posted path cost fields');
+$qinq_edit = file_get_contents("{$root}/src/usr/local/www/interfaces_qinq_edit.php");
+check_api(strpos($qinq_edit, "\$pconfig['tag_type'] = \$this_qinq_config['tag_type'];") !== false &&
+    strpos($qinq_edit, '$this_vlan_config') === false && strpos($qinq_edit, 'interfaces_vlan_tag_types()') !== false &&
+    preg_match('/^function\s/m', $qinq_edit) === 0, 'the QinQ edit page preselects the stored tag type');
+$bridge_edit = file_get_contents("{$root}/src/usr/local/www/interfaces_bridge_edit.php");
+check_api(strpos($bridge_edit, 'is_aoadv_used(') === false && strpos($bridge_edit, 'bridge_advanced_used($pconfig)') !== false &&
+    strpos($bridge_edit, 'build_port_list(') === false && preg_match('/^function\s/m', $bridge_edit) === 0,
+    'the bridge page uses bridge_advanced_used() and interfaces_bridge_port_list() (no clash with firewall_rules.inc)');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/interfaces_groups.php"), 'print_input_errors($input_errors)') !== false,
+    'the interface group list shows why a delete was refused');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_l2.inc');") !== false,
+    'the API front controller loads interfaces_l2.inc');
+
 /* Static guards */
-$front =file_get_contents("{$root}/src/usr/local/www/api/index.php");
+$front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');
 check_api(strpos($front, 'restapi_authenticate(') < strpos($front, 'call_user_func($route[\'handler\']'),
     'authentication happens before any handler runs');

@@ -27,38 +27,9 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("interfaces_l2.inc");
 
-function is_aoadv_used($pconfig) {
-	if (($pconfig['static'] !="") ||
-	    ($pconfig['private'] != "") ||
-	    $pconfig['ip6linklocal'] ||
-	    ($pconfig['stp'] != "") ||
-	    ($pconfig['span'] != "") ||
-	    ($pconfig['edge'] != "") ||
-	    ($pconfig['autoedge'] != "") ||
-	    ($pconfig['ptp'] != "") ||
-	    ($pconfig['autoptp'] != "") ||
-	    ($pconfig['maxaddr'] != "") ||
-	    ($pconfig['timeout'] != "") ||
-	    ($pconfig['maxage'] != "") ||
-	    ($pconfig['fwdelay'] != "") ||
-	    ($pconfig['hellotime'] != "") ||
-	    ($pconfig['priority'] != "") ||
-	    (($pconfig['proto'] != "") && ($pconfig['proto'] != "rstp")) ||
-	    ($pconfig['holdcnt'] != "")) {
-		return true;
-	}
-
-	return false;
-}
-
-$ifacelist = get_configured_interface_with_descr();
-
-foreach ($ifacelist as $bif => $bdescr) {
-	if (substr(get_real_interface($bif), 0, 3) == "gre") {
-		unset($ifacelist[$bif]);
-	}
-}
+$ifacelist = interfaces_bridge_iface_list();
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
@@ -132,280 +103,13 @@ if ($this_bridge_config) {
 
 if ($_POST['save']) {
 	unset($input_errors);
-	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "members");
-	$reqdfieldsn = array(gettext("Member Interfaces"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ($_POST['maxage'] && !is_numericint($_POST['maxage'])) {
-		$input_errors[] = gettext("Maxage needs to be an integer between 6 and 40.");
-	}
-	if ($_POST['maxaddr'] && !is_numericint($_POST['maxaddr'])) {
-		$input_errors[] = gettext("Maxaddr needs to be an integer.");
-	}
-	if ($_POST['timeout'] && !is_numericint($_POST['timeout'])) {
-		$input_errors[] = gettext("Timeout needs to be an integer.");
-	}
-	if ($_POST['fwdelay'] && !is_numericint($_POST['fwdelay'])) {
-		$input_errors[] = gettext("Forward Delay needs to be an integer between 4 and 30.");
-	}
-	if ($_POST['hellotime'] && !is_numericint($_POST['hellotime'])) {
-		$input_errors[] = gettext("Hello time for STP needs to be an integer between 1 and 2.");
-	}
-	if ($_POST['priority'] && !is_numericint($_POST['priority'])) {
-		$input_errors[] = gettext("Priority for STP needs to be an integer between 0 and 61440.");
-	}
-	if ($_POST['holdcnt'] && !is_numericint($_POST['holdcnt'])) {
-		$input_errors[] = gettext("Transmit Hold Count for STP needs to be an integer between 1 and 10.");
-	}
-	foreach ($ifacelist as $ifn => $ifdescr) {
-		if ($_POST[$ifn] <> "" && !is_numericint($_POST[$ifn])) {
-			$input_errors[] = sprintf(gettext("%s interface priority for STP needs to be an integer between 0 and 240."), $ifdescr);
-		}
-	}
-
-	$i = 0;
-
-	foreach ($ifacelist as $ifn => $ifdescr) {
-		if ($_POST["{$ifn}{$i}"] <> "" && !is_numeric($_POST["{$ifn}{$i}"])) {
-			$input_errors[] = sprintf(gettext("%s interface path cost for STP needs to be an integer between 1 and 200000000."), $ifdescr);
-		}
-		$i++;
-	}
-
-	if (!is_array($_POST['members']) || count($_POST['members']) < 1) {
-		$input_errors[] = gettext("At least one member interface must be selected for a bridge.");
-	}
-
-	if (is_array($_POST['members']) && is_array(config_get_path('captiveportal'))) {
-		foreach ($_POST['members'] as $member) {
-			foreach (config_get_path('captiveportal', []) as $cp) {
-				if (isset($cp['enable']) && in_array($member, explode(',', $cp['interface']))) {
-					$input_errors[] = sprintf(gettext('The interface (%s) is part of ' .
-						'the Captive Portal and cannot be part of the bridge. ' .
-						'Remove the interface to continue.'), $ifacelist[$cpint]);
-				}
-			}
-		}
-	}
-
-	if (is_array($_POST['static'])) {
-		foreach ($_POST['static'] as $ifstatic) {
-			if (is_array($_POST['members']) && !in_array($ifstatic, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('Sticky interface (%s) is not part of the bridge. Remove the sticky interface to continue.'), $ifacelist[$ifstatic]);
-			}
-		}
-		$pconfig['static'] = implode(',', $_POST['static']);
-	}
-	if (is_array($_POST['private'])) {
-		foreach ($_POST['private'] as $ifprivate) {
-			if (is_array($_POST['members']) && !in_array($ifprivate, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('Private interface (%s) is not part of the bridge. Remove the private interface to continue.'), $ifacelist[$ifprivate]);
-			}
-		}
-		$pconfig['private'] = implode(',', $_POST['private']);
-	}
-	if (is_array($_POST['stp'])) {
-		foreach ($_POST['stp'] as $ifstp) {
-			if (is_array($_POST['members']) && !in_array($ifstp, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('STP interface (%s) is not part of the bridge. Remove the STP interface to continue.'), $ifacelist[$ifstp]);
-			}
-			$realif = get_real_interface($ifstp);
-			if (is_pseudo_interface($realif) || interface_is_vlan($realif)) {
-				$input_errors[] = sprintf(gettext('STP interface (%s) must not be a pseudo-interface or a VLAN interface.'), $ifacelist[$ifstp]);
-			}
-		}
-		$pconfig['stp'] = implode(',', $_POST['stp']);
-	}
-	if (is_array($_POST['span'])) {
-		$pconfig['span'] = implode(',', $_POST['span']);
-	}
-	if (is_array($_POST['edge'])) {
-		foreach ($_POST['edge'] as $ifedge) {
-			if (is_array($_POST['members']) && !in_array($ifedge, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('Edge interface (%s) is not part of the bridge. Remove the edge interface to continue.'), $ifacelist[$ifedge]);
-			}
-		}
-		$pconfig['edge'] = implode(',', $_POST['edge']);
-	}
-	if (is_array($_POST['autoedge'])) {
-		foreach ($_POST['autoedge'] as $ifautoedge) {
-			if (is_array($_POST['members']) && !in_array($ifautoedge, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('Auto Edge interface (%s) is not part of the bridge. Remove the auto edge interface to continue.'), $ifacelist[$ifautoedge]);
-			}
-		}
-		$pconfig['autoedge'] = implode(',', $_POST['autoedge']);
-	}
-	if (is_array($_POST['ptp'])) {
-		foreach ($_POST['ptp'] as $ifptp) {
-			if (is_array($_POST['members']) && !in_array($ifptp, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('PTP interface (%s) is not part of the bridge. Remove the PTP interface to continue.'), $ifacelist[$ifptp]);
-			}
-		}
-		$pconfig['ptp'] = implode(',', $_POST['ptp']);
-	}
-	if (is_array($_POST['autoptp'])) {
-		foreach ($_POST['autoptp'] as $ifautoptp) {
-			if (is_array($_POST['members']) && !in_array($ifautoptp, $_POST['members'])) {
-				$input_errors[] = sprintf(gettext('Auto PTP interface (%s) is not part of the bridge. Remove the auto PTP interface to continue.'), $ifacelist[$ifautoptp]);
-			}
-		}
-		$pconfig['autoptp'] = implode(',', $_POST['autoptp']);
-	}
-	if (is_array($_POST['members'])) {
-		$if_config = config_get_path('interfaces', []);
-		foreach ($_POST['members'] as $ifmembers) {
-			if (empty($if_config[$ifmembers])) {
-				$input_errors[] = gettext("A member interface passed does not exist in configuration");
-			}
-			if (substr($if_config[$ifmembers]['if'], 0, 6) == "bridge") {
-				$input_errors[] = gettext("A bridge interface cannot be a member of a bridge.");
-			}
-			if (is_array($if_config[$ifmembers]['wireless']) &&
-			    $if_config[$ifmembers]['wireless']['mode'] != "hostap") {
-				$input_errors[] = gettext("Bridging a wireless interface is only possible in hostap mode.");
-			}
-			if (is_array($_POST['span']) && in_array($ifmembers, $_POST['span'])) {
-				$input_errors[] = sprintf(gettext('Span interface (%s) cannot be part of the bridge. Remove the span interface from bridge members to continue.'), $ifacelist[$ifmembers]);
-			}
-			foreach (config_get_path('bridges/bridged', []) as $a_bridge) {
-				if ($_POST['bridgeif'] === $a_bridge['bridgeif']) {
-					continue;
-				}
-				$a_members = explode(',', $a_bridge['members']);
-				foreach ($a_members as $a_member) {
-					if ($ifmembers === $a_member) {
-						$input_errors[] = sprintf(gettext("%s is part of another bridge. Remove the interface from bridge members to continue."), $ifacelist[$ifmembers]);
-					}
-				}
-			}
-		}
-		$pconfig['members'] = implode(',', $_POST['members']);
-	}
-
+	$input_errors = interfaces_bridge_save($_POST, $id);
 	if (!$input_errors) {
-		$bridge = array();
-		$bridge['members'] = implode(',', $_POST['members']);
-		$bridge['enablestp'] = $_POST['enablestp'] ? true : false;
-		$bridge['descr'] = $_POST['descr'];
-		$bridge['maxaddr'] = $_POST['maxaddr'];
-		$bridge['timeout'] = $_POST['timeout'];
-		$bridge['maxage'] = $_POST['maxage'];
-		$bridge['fwdelay'] = $_POST['fwdelay'];
-		$bridge['hellotime'] = $_POST['hellotime'];
-		$bridge['priority'] = $_POST['priority'];
-		$bridge['proto'] = $_POST['proto'];
-		$bridge['holdcnt'] = $_POST['holdcnt'];
-		$i = 0;
-		$j = 0;
-		$ifpriority = "";
-		$ifpathcost = "";
-
-		if ($_POST['ip6linklocal']) {
-			$bridge['ip6linklocal'] = true;
-		}
-
-		foreach ($ifacelist as $ifn => $ifdescr) {
-			if ($_POST[$ifn] <> "") {
-				if ($i > 0) {
-					$ifpriority .= ",";
-				}
-				$ifpriority .= $ifn.":".$_POST[$ifn];
-				$i++;
-			}
-			if ($_POST["{$ifn}0"] <> "") {
-				if ($j > 0) {
-					$ifpathcost .= ",";
-				}
-				$ifpathcost .= $ifn.":".$_POST["{$ifn}0"];
-				$j++;
-			}
-		}
-
-		$bridge['ifpriority'] = $ifpriority;
-		$bridge['ifpathcost'] = $ifpathcost;
-
-		if (isset($_POST['static'])) {
-			$bridge['static'] = implode(',', $_POST['static']);
-		}
-		if (isset($_POST['private'])) {
-			$bridge['private'] = implode(',', $_POST['private']);
-		}
-		if (isset($_POST['stp'])) {
-			$bridge['stp'] = implode(',', $_POST['stp']);
-		}
-		if (isset($_POST['span'])) {
-			$bridge['span'] = implode(',', $_POST['span']);
-		}
-		if (isset($_POST['edge'])) {
-			$bridge['edge'] = implode(',', $_POST['edge']);
-		}
-		if (isset($_POST['autoedge'])) {
-			$bridge['autoedge'] = implode(',', $_POST['autoedge']);
-		}
-		if (isset($_POST['ptp'])) {
-			$bridge['ptp'] = implode(',', $_POST['ptp']);
-		}
-		if (isset($_POST['autoptp'])) {
-			$bridge['autoptp'] = implode(',', $_POST['autoptp']);
-		}
-
-		if (empty($_POST['bridgeif']) ||
-		    preg_match("/^bridge[0-9]+$/", $_POST['bridgeif'])) {
-			/* Attempt initial configuration of the bridge if the
-			 * submitted interface is empty or looks like a bridge
-			 * interface. */
-			$bridge['bridgeif'] = $_POST['bridgeif'];
-			interface_bridge_configure($bridge);
-		} else {
-			$input_errors[] = gettext("Invalid bridge interface.");
-		}
-
-		if (empty($bridge['bridgeif']) ||
-		    !preg_match("/^bridge[0-9]+$/", $bridge['bridgeif'])) {
-			$input_errors[] = gettext("Error occurred creating interface, please retry.");
-		} else {
-
-			if ($this_bridge_config) {
-				config_set_path("bridges/bridged/{$id}", $bridge);
-			} else {
-				config_set_path('bridges/bridged/', $bridge);
-			}
-
-			write_config("Bridge interface created");
-
-			$confif = convert_real_interface_to_friendly_interface_name($bridge['bridgeif']);
-			if ($confif <> "") {
-				interface_configure($confif);
-			}
-
-			header("Location: interfaces_bridge.php");
-			exit;
-		}
+		header("Location: interfaces_bridge.php");
+		exit;
 	}
-}
-
-// port list with the exception of assigned bridge interfaces to prevent invalid configs
-function build_port_list($selection) {
-	global $ifacelist;
-
-	$portlist = array('list' => array(), 'selected' => array());
-
-	$if_config = config_get_path('interfaces', []);
-	foreach ($ifacelist as $ifn => $ifdescr) {
-		if (substr($if_config[$ifn]['if'], 0, 6) != "bridge") {
-			$portlist['list'][$ifn] = $ifdescr;
-
-			if (in_array($ifn, explode(',', $selection))) {
-				array_push($portlist['selected'], $ifn);
-			}
-		}
-	}
-
-	return($portlist);
+	$pconfig = interfaces_bridge_form_values($_POST);
 }
 
 $pgtitle = array(gettext("Interfaces"), gettext("Bridges"), gettext("Edit"));
@@ -421,7 +125,7 @@ $form = new Form();
 
 $section = new Form_Section('Bridge Configuration');
 
-$memberslist = build_port_list($pconfig['members']);
+$memberslist = interfaces_bridge_port_list($pconfig['members']);
 
 $section->addInput(new Form_Select(
 	'members',
@@ -473,7 +177,7 @@ $section->addInput(new Form_Input(
 	$pconfig['timeout']
 ))->setHelp('Set the timeout of address cache entries to this number of seconds. If seconds is zero, then address cache entries will not be expired. The default is 1200 seconds.');
 
-$spanlist = build_port_list($pconfig['span']);
+$spanlist = interfaces_bridge_port_list($pconfig['span']);
 
 $section->addInput(new Form_Select(
 	'span',
@@ -485,7 +189,7 @@ $section->addInput(new Form_Select(
 			'This is most useful for snooping a bridged network passively on another host connected to one of the span ports of the bridge. %1$s' .
 			'%2$sThe span interface cannot be part of the bridge member interfaces.%3$s', '<br />', '<strong>', '</strong>');
 
-$edgelist = build_port_list($pconfig['edge']);
+$edgelist = interfaces_bridge_port_list($pconfig['edge']);
 
 $section->addInput(new Form_Select(
 	'edge',
@@ -495,7 +199,7 @@ $section->addInput(new Form_Select(
 	true
 ))->setHelp('Set interface as an edge port. An edge port connects directly to end stations and cannot create bridging loops in the network; this allows it to transition straight to forwarding.');
 
-$edgelist = build_port_list($pconfig['autoedge']);
+$edgelist = interfaces_bridge_port_list($pconfig['autoedge']);
 
 $section->addInput(new Form_Select(
 	'autoedge',
@@ -506,7 +210,7 @@ $section->addInput(new Form_Select(
 ))->setHelp('Allow interface to automatically detect edge status. This is the default for all interfaces added to a bridge.' .
 			'%1$sThis will disable the autoedge status of interfaces. %2$s', '<strong>', '</strong>');
 
-$edgelist = build_port_list($pconfig['ptp']);
+$edgelist = interfaces_bridge_port_list($pconfig['ptp']);
 
 $section->addInput(new Form_Select(
 	'ptp',
@@ -516,7 +220,7 @@ $section->addInput(new Form_Select(
 	true
 ))->setHelp('Set the interface as a point-to-point link. This is required for straight transitions to forwarding and should be enabled on a direct link to another RSTP-capable switch.');
 
-$edgelist = build_port_list($pconfig['autoptp']);
+$edgelist = interfaces_bridge_port_list($pconfig['autoptp']);
 
 $section->addInput(new Form_Select(
 	'autoptp',
@@ -527,7 +231,7 @@ $section->addInput(new Form_Select(
 ))->setHelp('Automatically detect the point-to-point status on interface by checking the full duplex link status. This is the default for interfaces added to the bridge.' .
 			'%1$sThe interfaces selected here will be removed from default autoedge status. %2$s', '<strong>', '</strong>');
 
-$edgelist = build_port_list($pconfig['static']);
+$edgelist = interfaces_bridge_port_list($pconfig['static']);
 
 $section->addInput(new Form_Select(
 	'static',
@@ -538,7 +242,7 @@ $section->addInput(new Form_Select(
 ))->setHelp('Mark an interface as a "sticky" interface. Dynamically learned address entries are treated as static once entered into the cache. ' .
 			'Sticky entries are never aged out of the cache or replaced, even if the address is seen on a different interface.');
 
-$edgelist = build_port_list($pconfig['private']);
+$edgelist = interfaces_bridge_port_list($pconfig['private']);
 
 $section->addInput(new Form_Select(
 	'private',
@@ -577,7 +281,7 @@ $section->addInput(new Form_Select(
 		  'stp' => 'STP')
 ))->setHelp('Protocol used for spanning tree.');
 
-$edgelist = build_port_list($pconfig['stp']);
+$edgelist = interfaces_bridge_port_list($pconfig['stp']);
 
 $section->addInput(new Form_Select(
 	'stp',
@@ -682,7 +386,7 @@ events.push(function() {
 		var text;
 		// On page load decide the initial state based on the data.
 		if (ispageload) {
-			showadvopts = <?php if (is_aoadv_used($pconfig)) {echo 'true';} else {echo 'false';} ?>;
+			showadvopts = <?php if (bridge_advanced_used($pconfig)) {echo 'true';} else {echo 'false';} ?>;
 		} else {
 			// It was a click, swap the state.
 			showadvopts = !showadvopts;

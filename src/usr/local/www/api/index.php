@@ -51,6 +51,8 @@ require_once('firewall_rules.inc');
 require_once('system_routing.inc');
 /* The Interfaces pages' shared functions (VLAN, VXLAN, GIF, GRE). */
 require_once('interfaces_tunnels.inc');
+/* The Interfaces pages' shared functions (LAGG, QinQ, interface groups, bridges). */
+require_once('interfaces_l2.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
