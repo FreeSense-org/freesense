@@ -92,6 +92,26 @@ function freesense_package_restore_catalog_lookup($identity, $catalog) {
 	return array('status' => 'missing', 'target' => $identity);
 }
 
+/*
+ * Look a backed-up package up in the catalog. The identity is the
+ * internal_name when there is one, but some packages use a daemon name
+ * there (bind: "named", freeradius3: "radiusd") while the catalog lists
+ * the package name, so fall back to <name> before reporting it missing.
+ */
+function freesense_package_restore_catalog_lookup_package($package, $catalog) {
+	$identity = freesense_package_restore_identity($package);
+	$state = freesense_package_restore_catalog_lookup($identity, $catalog);
+	$name = trim((string)($package['name'] ?? ''));
+	if ($state['status'] === 'missing' && $name !== '' &&
+	    strcasecmp($name, $identity) !== 0) {
+		$by_name = freesense_package_restore_catalog_lookup($name, $catalog);
+		if ($by_name['status'] === 'available') {
+			return $by_name;
+		}
+	}
+	return $state;
+}
+
 function freesense_package_restore_match_roots($package, $roots) {
 	$matches = array();
 	$candidates = freesense_package_restore_candidates($package);
@@ -159,7 +179,7 @@ function freesense_package_restore_extract(&$config, $catalog = null, $selected 
 		if ($identity === '') {
 			continue;
 		}
-		$catalog_state = freesense_package_restore_catalog_lookup($identity, $catalog);
+		$catalog_state = freesense_package_restore_catalog_lookup_package($package, $catalog);
 		$target = $catalog_state['target'];
 		$is_selected = ($selected === null);
 		if (is_array($selected)) {
