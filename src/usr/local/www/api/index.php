@@ -55,6 +55,13 @@ require_once('interfaces_tunnels.inc');
 require_once('interfaces_l2.inc');
 /* The Interface Assignments page's shared functions. */
 require_once('interfaces_assign.inc');
+/* The Services pages' shared functions (DNS Forwarder, UPnP, Wake-on-LAN, IGMP Proxy, DHCP Relay, SNMP). */
+require_once('services_dnsmasq.inc');
+require_once('services_upnp.inc');
+require_once('services_wol.inc');
+require_once('services_igmpproxy.inc');
+require_once('services_dhcp_relay.inc');
+require_once('services_snmp.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

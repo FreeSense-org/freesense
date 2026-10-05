@@ -131,7 +131,7 @@ foreach ($v1 as $r) {
 	check_api(!isset($seen[$key]), "duplicate route {$key}");
 	$seen[$key] = true;
 	if ($r['page'] !== '@authenticated') {
-		check_api(is_file("{$root}/src/usr/local/www/{$r['page']}"), "{$key} privilege page {$r['page']} exists");
+		check_api(is_file("{$root}/src/usr/local/www/" . strtok($r['page'], '?')), "{$key} privilege page {$r['page']} exists");
 	}
 }
 $spec = restapi_openapi($v1, 'test');
@@ -561,6 +561,140 @@ $del_fn = substr($routes_if, strpos($routes_if, 'function restapi_h_ifassign_del
 check_api(strpos($del_fn, 'restapi_ifassign_protected($name)') < strpos($del_fn, 'interfaces_assign_delete('), 'the API refuses WAN/LAN deletes');
 check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_assign.inc');") !== false,
     'the API front controller loads interfaces_assign.inc');
+
+/* Services: DNS Forwarder, UPnP, Wake-on-LAN, IGMP Proxy, DHCP/DHCPv6 Relay, SNMP */
+check_api(isset(restapi_areas()['services.dns']) && isset(restapi_areas()['services.misc']), 'the services permission areas exist');
+foreach (array('GET /v1/services/dns-forwarder', 'PUT /v1/services/dns-forwarder', 'POST /v1/services/dns-forwarder/apply',
+    'GET /v1/services/upnp', 'PUT /v1/services/upnp', 'GET /v1/services/upnp/status', 'DELETE /v1/services/upnp/port-maps',
+    'POST /v1/services/wol/wake', 'POST /v1/services/wol/entries/{id}/wake', 'POST /v1/services/wol/wake-all',
+    'GET /v1/services/igmp-proxy', 'PUT /v1/services/igmp-proxy', 'POST /v1/services/igmp-proxy/apply',
+    'GET /v1/services/dhcp-relay', 'PUT /v1/services/dhcp-relay', 'GET /v1/services/dhcpv6-relay', 'PUT /v1/services/dhcpv6-relay',
+    'GET /v1/services/snmp', 'PUT /v1/services/snmp') as $key) {
+	check_api(isset($seen[$key]), "route {$key} exists");
+}
+foreach (array('dns-forwarder/host-overrides', 'dns-forwarder/domain-overrides', 'wol/entries', 'igmp-proxy/entries') as $res) {
+	foreach (array("GET /v1/services/{$res}", "GET /v1/services/{$res}/{id}", "POST /v1/services/{$res}",
+	    "PUT /v1/services/{$res}/{id}", "DELETE /v1/services/{$res}/{id}") as $key) {
+		check_api(isset($seen[$key]), "route {$key} exists");
+	}
+}
+foreach ($v1 as $r) {
+	if (strpos($r['path'], '/v1/services/') === 0) {
+		$want = (strpos($r['path'], '/v1/services/dns-forwarder') === 0) ? 'services.dns' : 'services.misc';
+		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
+		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
+		if ($r['path'] === '/v1/services/upnp') {
+			check_api($r['page'] === 'pkg_edit.php?xml=miniupnpd.xml', 'UPnP settings are guarded by the package page privilege');
+		}
+	}
+}
+
+$types = array('on' => 'bool', 'port' => 'string', 'ifs' => 'list', 'id' => 'ro');
+$merged = restapi_svc_merge(array('on' => false, 'port' => 5353, 'ifs' => array('lan', 2), 'id' => 9),
+    array('on' => true, 'port' => '', 'ifs' => array(), 'id' => 1, 'x' => 'k'), $types);
+check_api($merged === array('on' => false, 'port' => '5353', 'ifs' => array('lan', '2'), 'id' => 1, 'x' => 'k'),
+    'a settings update merges over the current values; read-only fields are ignored');
+check_api(api_error_status(function () use ($types) { restapi_svc_merge(array('bogus' => 1), array(), $types); }) === 400, 'unknown fields are 400');
+check_api(api_error_status(function () use ($types) { restapi_svc_merge(array('on' => 'yes'), array(), $types); }) === 400, 'a checkbox must be a boolean');
+check_api(api_error_status(function () use ($types) { restapi_svc_merge(array('ifs' => 'lan'), array(), $types); }) === 400 &&
+    api_error_status(function () use ($types) { restapi_svc_merge(array('ifs' => array(array('a'))), array(), $types); }) === 400,
+    'a multi-select must be a list of strings');
+check_api(api_error_status(function () use ($types) { restapi_svc_merge(array('port' => array(1)), array(), $types); }) === 400, 'a text field must be a string');
+check_api(restapi_svc_post(array('on' => true, 'off' => false, 'port' => '53', 'ifs' => array(), 'more' => array('a'), 'id' => 3),
+    array('on' => 'bool', 'off' => 'bool', 'port' => 'string', 'ifs' => 'list', 'more' => 'list', 'id' => 'ro')) ===
+    array('on' => 'yes', 'port' => '53', 'more' => array('a')), 'ticked checkboxes post "yes", unticked ones and empty lists are left out like a form');
+check_api(restapi_svc_post(array('enable' => true), array('enable' => 'bool'), 'on') === array('enable' => 'on'), 'package forms tick checkboxes with "on"');
+check_api(restapi_svc_split('a,,b') === array('a', 'b') && restapi_svc_split('') === array(), 'comma lists split without empty entries');
+check_api(restapi_svc_mask('public') === '(set)' && restapi_svc_mask('') === '', 'shared secrets are masked as "(set)"');
+check_api(restapi_dnsmasq_alias_rows(array(array('host' => 'a', 'domain' => 'example.org'), array('host' => 'b', 'domain' => 'x.org', 'description' => 'd'))) ===
+    array('aliashost0' => 'a', 'aliasdomain0' => 'example.org', 'aliasdescription0' => '', 'aliashost1' => 'b', 'aliasdomain1' => 'x.org', 'aliasdescription1' => 'd'),
+    'host override aliases become the edit form rows');
+check_api(api_error_status(function () { restapi_dnsmasq_alias_rows('a'); }) === 400 && api_error_status(function () { restapi_dnsmasq_alias_rows(array('a')); }) === 400,
+    'aliases must be a list of objects');
+check_api(restapi_igmp_network_rows(array('239.0.0.0/8', '10.0.0.1')) ===
+    array('address0' => '239.0.0.0', 'address_subnet0' => '8', 'address1' => '10.0.0.1', 'address_subnet1' => ''), 'IGMP networks become address/address_subnet rows');
+check_api(restapi_relay_server_rows(array('192.0.2.1', '192.0.2.2')) === array('server0' => '192.0.2.1', 'server1' => '192.0.2.2'), 'relay servers become server rows');
+check_api(restapi_upnp_acl_rows(array('allow 1-65535 10.0.0.0/8 1-65535')) === array('permuser0' => 'allow 1-65535 10.0.0.0/8 1-65535'),
+    'UPnP ACL entries become permuser rows');
+
+/* The DNS Forwarder functions validate in every mode, stage every change and never redirect */
+$fn_body = function ($src, $fn) {
+	$body = substr($src, strpos($src, "function {$fn}("));
+	return substr($body, 0, strpos($body, "\n}\n"));
+};
+$dnsmasq_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_dnsmasq.inc");
+check_api(strpos($dnsmasq_inc, 'header(') === false && strpos($dnsmasq_inc, 'exit;') === false, 'services_dnsmasq.inc never redirects (the pages do)');
+check_api(strpos($dnsmasq_inc, 'if (!$json) {') === false, 'services_dnsmasq.inc validates the same way in JSON mode');
+check_api(substr_count($dnsmasq_inc, "mark_subsystem_dirty('hosts');") === 4, 'settings, host and domain override saves and deletes mark the forwarder dirty');
+$save_dom = $fn_body($dnsmasq_inc, 'saveDomainOverride');
+check_api(strpos($save_dom, 'services_dnsmasq_configure(') === false && strpos($save_dom, "mark_subsystem_dirty('hosts')") !== false,
+    'a domain override is staged like the other changes (it reconfigured dnsmasq at once)');
+check_api(strpos($save_dom, "\$post['dnssrcip'] && ((\$post['ip'] == '#') || (\$post['ip'] == '!'))") !== false,
+    'an exclusion (# or !) cannot have a source address (dnsmasq refused to start)');
+$save_cfg = $fn_body($dnsmasq_inc, 'saveDNSMasqConfig');
+check_api(strpos($save_cfg, 'config_set_path(') > strpos($save_cfg, 'if (!$input_errors) {') &&
+    strpos($save_cfg, 'config_del_path(') > strpos($save_cfg, 'if (!$input_errors) {'), 'DNS Forwarder settings are validated before the configuration changes');
+check_api(strpos($fn_body($dnsmasq_inc, 'getDNSMasqConfig'), 'config_set_path(') === false, 'reading the forwarder settings does not change the configuration');
+check_api(strpos($fn_body($dnsmasq_inc, 'applyDNSMasqConfig'), "clear_subsystem_dirty('hosts')") !== false, 'apply clears the pending flag');
+foreach (array('services_dnsmasq.php' => 'deleteDNSMasqEntry($_POST);', 'services_dnsmasq_edit.php' => 'saveDNSMasqHost($_POST, $id);',
+    'services_dnsmasq_domainoverride_edit.php' => 'saveDomainOverride($_POST, $id);') as $page => $call) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	check_api(strpos($src, $call) !== false && strpos($src, 'header("Location: services_dnsmasq.php");') > strpos($src, $call),
+	    "{$page} redirects after {$call}");
+}
+
+/* The other service pages are thin wrappers around their includes */
+foreach (array('services_dnsmasq.inc', 'services_wol.inc', 'services_igmpproxy.inc', 'services_dhcp_relay.inc', 'services_snmp.inc', 'services_upnp.inc') as $inc) {
+	$src = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/{$inc}");
+	check_api(strpos($src, '$_POST') === false && strpos($src, '$_REQUEST') === false && strpos($src, '$_SESSION') === false &&
+	    strpos($src, 'header(') === false, "{$inc} takes its form fields as parameters and never redirects");
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false,
+	    "the API front controller loads {$inc}");
+}
+foreach (array('services_wol.php' => array('wol_wake_all(', 'wol_wake_device(', 'wol_delete_entry('),
+    'services_wol_edit.php' => array('wol_save_entry($_POST, $id)'),
+    'services_igmpproxy.php' => array('igmpproxy_apply()', 'igmpproxy_save_settings($_POST)', 'igmpproxy_delete_entry('),
+    'services_igmpproxy_edit.php' => array('igmpproxy_save_entry($_POST, $id)', 'igmpproxy_interface_list()'),
+    'services_dhcp_relay.php' => array('dhcp_relay_save($_POST, false)'), 'services_dhcpv6_relay.php' => array('dhcp_relay_save($_POST, true)'),
+    'services_snmp.php' => array('snmp_save($_POST)', 'snmp_build_if_list('), 'status_upnp.php' => array('upnp_port_maps()')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false &&
+	    strpos($src, 'config_del_path(') === false && preg_match('/^function\s/m', $src) === 0 && strpos($src, '_configure(') === false,
+	    "{$page} changes nothing itself and declares no functions");
+}
+$snmp_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_snmp.inc");
+check_api(strpos($snmp_inc, 'function build_if_list(') === false && strpos($snmp_inc, 'function snmp_build_if_list(') !== false,
+    'the SNMP page build_if_list() is renamed (no clash with services_dnsmasq.inc)');
+$snmp_save = $fn_body($snmp_inc, 'snmp_save');
+foreach (array("!is_port(\$post['pollport'])", "!is_port(\$post['trapserverport'])", 'snmp_ip_protocols()', '$bindoptions') as $needle) {
+	check_api(strpos($snmp_save, $needle) !== false, "SNMP settings validate {$needle}");
+}
+check_api(strpos($snmp_save, 'config_set_path(') > strpos($snmp_save, 'if (!$input_errors) {'), 'SNMP settings are validated before the configuration changes');
+$relay_save = $fn_body(file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_dhcp_relay.inc"), 'dhcp_relay_save');
+check_api(strpos($relay_save, 'dhcp_relay_dhcpd_enabled($v6)') !== false && strpos($relay_save, 'dhcp_relay_interface_list($v6)') !== false &&
+    strpos($relay_save, 'dhcp_relay_carp_list($v6)') !== false, 'the relay refuses a forged enable next to a DHCP server and unknown interfaces or VIPs');
+$igmp_save = $fn_body(file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_igmpproxy.inc"), 'igmpproxy_save_entry');
+check_api(strpos($igmp_save, 'igmpproxy_interface_list()') !== false && strpos($igmp_save, 'igmpproxy_types()') !== false &&
+    strpos($igmp_save, "['interface']") === false, 'an IGMP entry needs an offered interface and a valid type');
+$upnp_validate = file_get_contents("{$root}/src/usr/local/pkg/miniupnpd.inc");
+$upnp_validate = substr($upnp_validate, strpos($upnp_validate, 'function validate_form_miniupnpd('));
+$upnp_validate = substr($upnp_validate, 0, strpos($upnp_validate, 'function sync_package_miniupnpd('));
+check_api(strpos($upnp_validate, '$enabled_ifaces') !== false && strpos($upnp_validate, '[\r\n]') !== false,
+    'UPnP settings need enabled interfaces and no line breaks');
+$upnp_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_upnp.inc");
+check_api(strpos($upnp_inc, 'validate_form_miniupnpd($post, $input_errors);') !== false && strpos($upnp_inc, 'sync_package_miniupnpd();') !== false &&
+    strpos($upnp_inc, 'do_input_validation($post, $reqfields') !== false, 'UPnP settings save like pkg_edit.php (required fields, package validation, resync)');
+$routes_svc = file_get_contents("{$root}/src/etc/inc/restapi/routes_services.inc");
+check_api(substr_count($routes_svc, 'write_config(') === 0 && substr_count($routes_svc, 'config_set_path(') === 0 &&
+    substr_count($routes_svc, 'config_del_path(') === 0 && substr_count($routes_svc, '_configure(') === 0,
+    'services API writes only through the GUI functions');
+$snmp_out = $fn_body($routes_svc, 'restapi_snmp_out');
+check_api(strpos($snmp_out, "restapi_svc_mask(\$settings['rocommunity'])") !== false && strpos($snmp_out, "restapi_svc_mask(\$settings['trapstring'])") !== false &&
+    strpos($fn_body($routes_svc, 'restapi_h_snmp_get'), 'restapi_snmp_out(') !== false && strpos($fn_body($routes_svc, 'restapi_h_snmp_set'), 'restapi_snmp_out(') !== false,
+    'SNMP community and trap strings are never returned');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

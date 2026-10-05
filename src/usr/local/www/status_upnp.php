@@ -28,6 +28,7 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("services_upnp.inc");
 
 $pgtitle = array(gettext("Status"), gettext("UPnP IGD &amp; PCP"));
 $shortcut_section = "upnp";
@@ -47,8 +48,7 @@ if ($_POST) {
 	}
 }
 
-$rdr_entries = array();
-exec("/sbin/pfctl -a miniupnpd -s nat -P", $rdr_entries, $pf_ret);
+$port_maps = upnp_port_maps();
 
 if ($savemsg) {
 	print_info_box($savemsg, 'success');
@@ -75,42 +75,35 @@ if ($savemsg) {
 				</thead>
 				<tbody>
 <?php
-$i = 0;
-
-foreach ($rdr_entries as $rdr_entry) {
-	/* rdr log quick on igb2 inet proto tcp from any to any port = xxxxx keep state label "xxxxx" rtable 0 -> xxx.xxx.xxx.xxx port xxxxx */
-	/* rdr log quick on igb2 inet proto udp from any to xxx.xxx.xxx.xxx port = xxxxxx keep state label "xxxxx" rtable 0 -> xxx.xxx.xxx.xxx port xxxxx */
-	if (preg_match("/on (?P<iface>.*) inet proto (?P<proto>.*) from (?P<srcaddr>.*) (port (?P<srcport>.*) )?to (?P<extaddr>.*) port = (?P<extport>.*) keep state (label \"(?P<descr>.*)\" )?rtable [0-9] -> (?P<intaddr>.*) port (?P<intport>.*)/", $rdr_entry, $matches)) {
+foreach ($port_maps as $map) {
 ?>
 					<tr>
 						<td>
-							<?= htmlspecialchars(convert_real_interface_to_friendly_descr($matches['iface'])) ?>
+							<?= htmlspecialchars(convert_real_interface_to_friendly_descr($map['iface'])) ?>
 						</td>
 						<td>
-							<?= htmlspecialchars($matches['extport']) ?>
+							<?= htmlspecialchars($map['extport']) ?>
 						</td>
 						<td>
-							<?= htmlspecialchars($matches['intaddr']) ?>
+							<?= htmlspecialchars($map['intaddr']) ?>
 						</td>
 						<td>
-							<?= htmlspecialchars($matches['intport']) ?>
+							<?= htmlspecialchars($map['intport']) ?>
 						</td>
 						<td>
-							<?= htmlspecialchars(strtoupper($matches['proto'])) ?>
+							<?= htmlspecialchars(strtoupper($map['proto'])) ?>
 						</td>
 						<td>
-							<?= htmlspecialchars($matches['srcaddr']) ?>
+							<?= htmlspecialchars($map['srcaddr']) ?>
 						</td>
 						<td>
-							<?= htmlspecialchars($matches['srcport'] ?: "any") ?>
+							<?= htmlspecialchars($map['srcport'] ?: "any") ?>
 						</td>
 						<td>
-							<?= htmlspecialchars(strval(preg_replace('/^' . RULE_LABEL_KEY_DESCRIPTION . RULE_LABEL_DELIMITER . '/', '', $matches['descr'], 1))) ?>
+							<?= htmlspecialchars($map['descr']) ?>
 						</td>
 					</tr>
 <?php
-	}
-	$i++;
 }
 ?>
 				</tbody>

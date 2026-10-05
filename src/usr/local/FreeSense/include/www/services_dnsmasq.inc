@@ -1,6 +1,6 @@
 <?php
 /*
- * firewall_nat_out.inc
+ * services_dnsmasq.inc
  *
  * part of FreeSense (https://www.freesense.org)
  * Copyright (c) 2004-2026 The FreeSense Project
@@ -20,7 +20,13 @@
  */
 
 // Functions to support services_dnsmasq.php, services_dnsmasq_edit.php
-// and services_dnsmaq_domainoverride_edit.php
+// and services_dnsmasq_domainoverride_edit.php, shared with the REST API.
+//
+// Every change is staged like in the GUI: it is written to the configuration
+// and marks the "hosts" subsystem dirty until applyDNSMasqConfig() runs (the
+// page's "Apply Changes"). Validation is the same in every mode. With $json
+// the results are JSON-encoded and a change is applied at once. None of the
+// functions sends a redirect: the pages do that after a successful change.
 
 require_once("config.gui.inc");
 require_once("interfaces.inc");
@@ -30,7 +36,8 @@ require_once("system.inc");
 require_once("util.inc");
 
 // Retrieve the current DNS forwarder config, the list of hosts & DNS overrides and the
-// possible interfaces
+// possible interfaces. The lists are sorted for display; "idx" is each entry's
+// position in the configuration. The configuration itself is not changed.
 function getDNSMasqConfig($json = false) {
     $pconfig = array();
 
@@ -51,26 +58,24 @@ function getDNSMasqConfig($json = false) {
     } else {
         $pconfig['interface'] = array();
     }
-    
+
     $a_hosts = config_get_path('dnsmasq/hosts', []);
-    
+
     // Add a temporary index so we don't lose the order after sorting
     for ($idx=0; $idx<count($a_hosts); $idx++) {
         $a_hosts[$idx]['idx'] = $idx;
     }
-    
+
     hosts_sort($a_hosts);
-    config_set_path('dnsmasq/hosts', $a_hosts);
-    
+
     $a_domainOverrides = config_get_path('dnsmasq/domainoverrides', []);
-    
+
     // Add a temporary index so we don't lose the order after sorting
     for ($idx=0; $idx<count($a_domainOverrides); $idx++) {
         $a_domainOverrides[$idx]['idx'] = $idx;
     }
-    
+
     domains_sort($a_domainOverrides);
-    config_set_path('dnsmasq/domainoverrides', $a_domainOverrides);
 
     $rv = array();
 
@@ -108,33 +113,44 @@ function domains_sort(&$a_domainOverrides) {
 	uasort($a_domainOverrides, "domaincmp");
 }
 
-// Delete a DNS host or override (depending on "type")
+// Delete a DNS host or override (depending on "type"). Returns true when an
+// entry was deleted. The change is staged (applied at once with $json).
 function deleteDNSMasqEntry($post, $json=false) {
+    $deleted = false;
+    $id = $post['id'] ?? null;
+
+    if (!is_numericint($id)) {
+        return false;
+    }
+
     if ($post['type'] == 'host') {
         $a_hosts = config_get_path('dnsmasq/hosts', []);
 
-        if ($a_hosts[$post['id']]) {
-            unset($a_hosts[$post['id']]);
-            config_set_path('dnsmasq/hosts', $a_hosts);
-            write_config("DNS Forwarder host override deleted"); 
+        if ($a_hosts[$id]) {
+            unset($a_hosts[$id]);
+            config_set_path('dnsmasq/hosts', array_values($a_hosts));
+            write_config("DNS Forwarder host override deleted");
+            $deleted = true;
         }
     } elseif ($post['type'] == 'doverride') {
         $a_domainOverrides = config_get_path('dnsmasq/domainoverrides', []);
 
-        if ($a_domainOverrides[$post['id']]) {
-            unset($a_domainOverrides[$post['id']]);
-            config_set_path('dnsmasq/domainoverrides', $a_domainOverrides);
+        if ($a_domainOverrides[$id]) {
+            unset($a_domainOverrides[$id]);
+            config_set_path('dnsmasq/domainoverrides', array_values($a_domainOverrides));
             write_config("DNS Forwarder domain override deleted");
+            $deleted = true;
         }
     }
 
-    if (!$json) {
+    if ($deleted) {
         mark_subsystem_dirty('hosts');
-        header("Location: services_dnsmasq.php");
-        exit;
-    } else {
-        applyDNSMasqConfig(true);
+        if ($json) {
+            applyDNSMasqConfig(true);
+        }
     }
+
+    return $deleted;
 }
 
 function build_if_list($pconfig) {
@@ -160,25 +176,13 @@ function build_if_list($pconfig) {
 }
 
 // Save the DNS forwarder configuration (only). Does not affect the host or override list.
+// Everything is validated before the configuration is changed.
 function saveDNSMasqConfig($post, $json=false) {
     $pconfig = $post;
     $input_errors = array();
 
-	config_set_path('dnsmasq/enable', ($post['enable']) ? true : false);
-	config_set_path('dnsmasq/regdhcp', ($post['regdhcp']) ? true : false);
-	config_set_path('dnsmasq/regdhcpstatic', ($post['regdhcpstatic']) ? true : false);
-	config_set_path('dnsmasq/dhcpfirst', ($post['dhcpfirst']) ? true : false);
-	config_set_path('dnsmasq/no_system_dns', ($post['no_system_dns']) ? true : false);
-	config_set_path('dnsmasq/strict_order', ($post['strict_order']) ? true : false);
-	config_set_path('dnsmasq/domain_needed', ($post['domain_needed']) ? true : false);
-	config_set_path('dnsmasq/no_private_reverse', ($post['no_private_reverse']) ? true : false);
-	config_set_path('dnsmasq/strictbind', ($post['strictbind']) ? true : false);
-
 	if (!empty(trim($post['custom_options']))) {
 		$custom_options_source = str_replace("\r\n", "\n", trim($post['custom_options']));
-		config_set_path('dnsmasq/custom_options', base64_encode($custom_options_source));
-	} else {
-		config_del_path('dnsmasq/custom_options');
 	}
 
 	if (isset($post['enable']) && config_path_enabled('unbound')) {
@@ -191,20 +195,17 @@ function saveDNSMasqConfig($post, $json=false) {
 		$input_errors[] = gettext("DHCP Server must be enabled for DHCP Registration to work in DNS Forwarder.");
 	}
 
-	if ($post['port']) {
-		if (is_port($post['port'])) {
-			config_set_path('dnsmasq/port', $post['port']);
-		} else {
-			$input_errors[] = gettext("A valid port number must be specified.");
-		}
-	} else if (config_get_path('dnsmasq/port')) {
-		config_del_path('dnsmasq/port');
+	if ($post['port'] && !is_port($post['port'])) {
+		$input_errors[] = gettext("A valid port number must be specified.");
 	}
 
 	if (is_array($post['interface'])) {
-		config_set_path('dnsmasq/interface', implode(",", $post['interface']));
-	} elseif (config_get_path('dnsmasq/interface')) {
-		config_del_path('dnsmasq/interface');
+		$listen_ips = get_possible_listen_ips(true);
+		foreach ($post['interface'] as $laddr) {
+			if (($laddr !== '') && !array_key_exists($laddr, $listen_ips)) {
+				$input_errors[] = sprintf(gettext("%s is not an interface the DNS Forwarder can listen on."), $laddr);
+			}
+		}
 	}
 
 	if (isset($custom_options_source)) {
@@ -221,12 +222,42 @@ function saveDNSMasqConfig($post, $json=false) {
 	}
 
 	if (!$input_errors) {
+		config_set_path('dnsmasq/enable', ($post['enable']) ? true : false);
+		config_set_path('dnsmasq/regdhcp', ($post['regdhcp']) ? true : false);
+		config_set_path('dnsmasq/regdhcpstatic', ($post['regdhcpstatic']) ? true : false);
+		config_set_path('dnsmasq/dhcpfirst', ($post['dhcpfirst']) ? true : false);
+		config_set_path('dnsmasq/no_system_dns', ($post['no_system_dns']) ? true : false);
+		config_set_path('dnsmasq/strict_order', ($post['strict_order']) ? true : false);
+		config_set_path('dnsmasq/domain_needed', ($post['domain_needed']) ? true : false);
+		config_set_path('dnsmasq/no_private_reverse', ($post['no_private_reverse']) ? true : false);
+		config_set_path('dnsmasq/strictbind', ($post['strictbind']) ? true : false);
+
+		if (isset($custom_options_source)) {
+			config_set_path('dnsmasq/custom_options', base64_encode($custom_options_source));
+		} else {
+			config_del_path('dnsmasq/custom_options');
+		}
+
+		if ($post['port']) {
+			config_set_path('dnsmasq/port', $post['port']);
+		} else if (config_get_path('dnsmasq/port')) {
+			config_del_path('dnsmasq/port');
+		}
+
+		if (is_array($post['interface'])) {
+			config_set_path('dnsmasq/interface', implode(",", $post['interface']));
+		} elseif (config_get_path('dnsmasq/interface')) {
+			config_del_path('dnsmasq/interface');
+		}
+
 		write_config("DNS Forwarder settings saved");
 		mark_subsystem_dirty('hosts');
 	}
 
     if ($json) {
-        applyDNSMasqConfig(true);
+        if (!$input_errors) {
+            applyDNSMasqConfig(true);
+        }
         return json_encode($input_errors);
     } else {
         $rv = array();
@@ -237,8 +268,8 @@ function saveDNSMasqConfig($post, $json=false) {
     }
 }
 
-// Applies the changes. This is called automatically in JSON mode, manually
-// if vie the web UI
+// Applies the staged changes (the page's "Apply Changes"; called at once in
+// JSON mode). Returns 0 on success.
 function applyDNSMasqConfig($json=false) {
     $retval = 0;
 
@@ -251,27 +282,24 @@ function applyDNSMasqConfig($json=false) {
 	/* Start or restart dhcpleases when it's necessary */
 	system_dhcpleases_configure();
 
-    if (!$json) {
-        if ($retval == 0) {
-            clear_subsystem_dirty('hosts');
-        }
+	if ($retval == 0) {
+		clear_subsystem_dirty('hosts');
+	}
 
-        return $retval;
-    }
+	return $retval;
 }
 
-// DNSMasq host table update
+// DNSMasq host table update. Returns input_errors (empty when saved) and the
+// form fields to show again.
 function saveDNSMasqHost($post, $id, $json=false) {
 	$input_errors = array();
 	$pconfig = $post;
 
-    if (!$json) {
-        /* input validation */
-        $reqdfields = explode(" ", "domain ip");
-        $reqdfieldsn = array(gettext("Domain"), gettext("IP address"));
+	/* input validation */
+	$reqdfields = explode(" ", "domain ip");
+	$reqdfieldsn = array(gettext("Domain"), gettext("IP address"));
 
-        do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
-    }
+	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
 	if ($post['host']) {
 		if (!is_hostname($post['host'])) {
@@ -316,12 +344,10 @@ function saveDNSMasqHost($post, $id, $json=false) {
 
 		/* validate aliases */
 		foreach ($aliases as $idx => $alias) {
-			if (!$json) {
-                $aliasreqdfields = array('aliasdomain' . $idx);
-			    $aliasreqdfieldsn = array(gettext("Alias Domain"));
+			$aliasreqdfields = array('aliasdomain' . $idx);
+			$aliasreqdfieldsn = array(gettext("Alias Domain"));
 
-			    do_input_validation($post, $aliasreqdfields, $aliasreqdfieldsn, $input_errors);
-            }
+			do_input_validation($post, $aliasreqdfields, $aliasreqdfieldsn, $input_errors);
 
 			if ($alias['host']) {
 				if (!is_hostname($alias['host'])) {
@@ -374,13 +400,12 @@ function saveDNSMasqHost($post, $id, $json=false) {
 		}
 		config_set_path('dnsmasq/hosts', $a_hosts);
 
-        write_config("DNS Forwarder host override saved");
+		write_config("DNS Forwarder host override saved");
+		mark_subsystem_dirty('hosts');
 
-        if (!$json) {
-            mark_subsystem_dirty('hosts');
-            header("Location: services_dnsmasq.php");
-            exit;
-        }
+		if ($json) {
+			applyDNSMasqConfig(true);
+		}
 	}
 
     $rv = array();
@@ -409,18 +434,17 @@ function getDomainOverride($id, $json = false) {
     return $pconfig;
 }
 
-// Domain override table update
+// Domain override table update. Staged like host overrides (it used to
+// reconfigure dnsmasq at once and never showed "Apply Changes").
 function saveDomainOverride($post, $id, $json=false) {
     $input_errors = array();
     $pconfig = $post;
 
-    if (!$json) {
-        /* input validation */
-        $reqdfields = explode(" ", "domain ip");
-        $reqdfieldsn = array(gettext("Domain"), gettext("IP address"));
+    /* input validation */
+    $reqdfields = explode(" ", "domain ip");
+    $reqdfieldsn = array(gettext("Domain"), gettext("IP address"));
 
-        do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
-    }
+    do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
     if (str_starts_with($post['domain'], '_msdcs')) {
         $subdomainstr = substr($post['domain'], 7);
@@ -438,6 +462,11 @@ function saveDomainOverride($post, $id, $json=false) {
 
     if ($post['dnssrcip'] && !in_array($post['dnssrcip'], get_configured_ip_addresses())) {
         $input_errors[] = gettext("An interface IP address must be specified for the DNS query source.");
+    }
+
+    /* dnsmasq refuses to start with "#@source" or "!@source". */
+    if ($post['dnssrcip'] && (($post['ip'] == '#') || ($post['ip'] == '!'))) {
+        $input_errors[] = gettext("A source IP address can only be used with a DNS server IP address, not with # or !.");
     }
 
     if (!$input_errors) {
@@ -458,19 +487,16 @@ function saveDomainOverride($post, $id, $json=false) {
             config_set_path('dnsmasq/domainoverrides/', $doment);
         }
 
-        $retval = services_dnsmasq_configure();
-
         write_config("DNS Forwarder domain override saved");
+        mark_subsystem_dirty('hosts');
 
-        if (!$json) {
-            header("Location: services_dnsmasq.php");
-            exit;
-        } 
+        if ($json) {
+            applyDNSMasqConfig(true);
+        }
 	}
 
     $rv = array();
     $rv['config'] = $pconfig;
-    $rv['retval'] = $retval;
     $rv['input_errors'] = $input_errors;
 
     return $json ? json_encode($rv) : $rv;

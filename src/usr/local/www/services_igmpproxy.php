@@ -31,6 +31,7 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("services_igmpproxy.inc");
 
 //igmpproxy_sort();
 
@@ -38,57 +39,24 @@ if ($_POST['apply']) {
 	$pconfig = $_POST;
 
 	$changes_applied = true;
-	/* reload all components that use igmpproxy */
-	if (services_igmpproxy_configure()) {
-		$retval = 0;
-	} else {
-		$retval = 1;
-	}
-
-	clear_subsystem_dirty('igmpproxy');
+	$retval = igmpproxy_apply();
 }
 
-if (config_path_enabled('igmpproxy')) {
-	$pconfig['enable'] = true;
-}
-$pconfig['igmpxverbose'] = config_path_enabled('syslog', 'igmpxverbose');
+$pconfig = array_merge((array)$pconfig, igmpproxy_settings());
 
 if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	if (isset($pconfig['enable'])) {
-		foreach (config_get_path('igmpproxy/igmpentry', []) as $igmpcf) {
-			if ($igmpcf['type'] == 'upstream') {
-				$upstream = true;	
-			} else {
-				$downstream = true;	
-			}
-		}
-		if (!$upstream || !$downstream) {
-			$input_errors[] = gettext("At least one upstream and one downstream interface must be added.");
-		}
-	}
-
+	$input_errors = igmpproxy_save_settings($_POST);
 	if (!$input_errors) {
-		if (isset($pconfig['enable'])) {
-			config_set_path('igmpproxy/enable', true);
-		} else {
-			config_del_path('igmpproxy/enable');
-		}
-		config_set_path('syslog/igmpxverbose', $_POST['igmpxverbose'] ? true : false);
-		write_config("IGMP Proxy settings saved");
-		mark_subsystem_dirty('igmpproxy');
 		header("Location: services_igmpproxy.php");
 		exit;
 	}
 }
 
 if ($_POST['act'] == "del") {
-	if (config_get_path("igmpproxy/igmpentry/{$_POST['id']}")) {
-		config_del_path("igmpproxy/igmpentry/{$_POST['id']}");
-		write_config("IGMP Proxy item deleted");
-		mark_subsystem_dirty('igmpproxy');
+	if (igmpproxy_delete_entry($_POST['id'])) {
 		header("Location: services_igmpproxy.php");
 		exit;
 	}

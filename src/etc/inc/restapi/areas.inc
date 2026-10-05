@@ -47,6 +47,12 @@ function restapi_areas() {
 		'firewall.vips' => 'Firewall virtual IPs',
 		'routing' => 'Gateways and static routes',
 		'interfaces' => 'Interfaces (VLAN, VXLAN, GIF, GRE, LAGG, QinQ, bridges, groups, assignments)',
+		/*
+		 * Services, one area per family. services.dns also covers the DNS
+		 * Resolver and services.dhcp the DHCP servers as they are added.
+		 */
+		'services.dns' => 'DNS services (DNS Forwarder, DNS Resolver)',
+		'services.misc' => 'Other services (UPnP IGD & PCP, Wake-on-LAN, IGMP Proxy, SNMP, DHCP/DHCPv6 Relay)',
 	);
 }
 
