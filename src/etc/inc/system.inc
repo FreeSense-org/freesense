@@ -2267,6 +2267,9 @@ EOD;
 			# Fix httpoxy - https://httpoxy.org/#fix-now
 			fastcgi_param  HTTP_PROXY  "";
 			fastcgi_read_timeout 180;
+			# nginx adds X-Frame-Options to every response; guiconfig.inc
+			# sends it too, so drop PHP's copy to send exactly one header.
+			fastcgi_hide_header X-Frame-Options;
 {$fastcgi_buffers}{$intercept_errors}
 			include        /usr/local/etc/nginx/fastcgi_params;
 		}
