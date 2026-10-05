@@ -184,6 +184,40 @@ $routes_fw = file_get_contents("{$root}/src/etc/inc/restapi/routes_firewall.inc"
 check_api(preg_match('/save(Alias|NATrule|VIP|Schedule)\(/', $routes_fw) === 1 &&
     substr_count($routes_fw, 'write_config(') === 0, 'firewall API writes only through the GUI save functions');
 
+/* The API front controller loads every shared page include at once, so no
+ * function may be declared in two of them. */
+$declared = array();
+foreach (glob("{$root}/src/usr/local/FreeSense/include/www/*.inc") as $inc) {
+	preg_match_all('/^function\s+([A-Za-z0-9_]+)\s*\(/m', file_get_contents($inc), $m);
+	foreach ($m[1] as $fn) {
+		$key = strtolower($fn);
+		check_api(!isset($declared[$key]), "function {$fn}() is declared in both {$declared[$key]} and " . basename($inc));
+		$declared[$key] = basename($inc);
+	}
+}
+foreach (array('alias-utils.inc', 'firewall_nat.inc', 'firewall_nat_1to1.inc', 'firewall_nat_out.inc',
+    'firewall_nat_npt.inc', 'firewall_virtual_ip.inc', 'firewall_schedule.inc', 'firewall_rules.inc') as $inc) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false,
+	    "the API front controller loads {$inc}");
+}
+
+/* The rule pages are thin wrappers around firewall_rules.inc */
+$rules_edit = file_get_contents("{$root}/src/usr/local/www/firewall_rules_edit.php");
+check_api(strpos($rules_edit, 'saveFilterRule($_POST') !== false && strpos($rules_edit, 'write_config(') === false &&
+    strpos($rules_edit, 'add_filter_rules(') === false, 'firewall_rules_edit.php saves through saveFilterRule()');
+$rules_list = file_get_contents("{$root}/src/usr/local/www/firewall_rules.php");
+foreach (array('applyFilterRules(', 'deleteFilterRule(', 'deleteFilterRules(', 'toggleFilterRule(', 'toggleFilterRules(',
+    'reorderFilterRules(') as $call) {
+	check_api(strpos($rules_list, $call) !== false, "firewall_rules.php uses {$call})");
+}
+check_api(strpos($rules_list, 'set_filter_rules_order(') === false, 'firewall_rules.php no longer reorders inline');
+$rules_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/firewall_rules.inc");
+check_api(strpos($rules_inc, '$_POST[') === false, 'firewall_rules.inc reads its form fields from $post, not $_POST');
+check_api(substr_count($rules_inc, 'firewall_rule_run_hook("/usr/local/pkg/firewall_rules/') === 2,
+    'both firewall_rules custom code hooks still run');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/guiconfig.inc"), '$firewall_rules_dscp_types = array(') === false &&
+    strpos($rules_inc, '$firewall_rules_dscp_types = array(') !== false, 'the DSCP list moved with the rule editor');
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');

@@ -35,6 +35,7 @@ require_once("functions.inc");
 require_once("filter.inc");
 require_once("ipsec.inc");
 require_once("shaper.inc");
+require_once("firewall_rules.inc");
 
 $XmoveTitle = gettext("Move checked rules above this one. Shift+Click to move checked rules below.");
 $ShXmoveTitle = gettext("Move checked rules below this one. Release shift to move checked rules above.");
@@ -144,21 +145,11 @@ if (!$if || !isset($iflist[$if])) {
 }
 
 if ($_POST['apply']) {
-	$retval = 0;
-	$retval |= filter_configure();
-
-	clear_subsystem_dirty('filter');
+	$retval = applyFilterRules();
 }
 
 if ($_POST['act'] == "del") {
-	$rule = is_numericint($_POST['id']) ? config_get_path("filter/rule/{$_POST['id']}") : null;
-	if (isset($rule)) {
-		remove_filter_rules($_POST['id'], $if);
-
-		if (write_config(gettext("Firewall: Rules - deleted a firewall rule."))) {
-			mark_subsystem_dirty('filter');
-		}
-
+	if (deleteFilterRule($_POST['id'], $if)) {
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
@@ -179,83 +170,25 @@ if ($_REQUEST['savemsg']) {
 
 if (isset($_POST['del_x'])) {
 	if (is_array($_POST['rule']) && count($_POST['rule'])) {
-		$changes = [];
-		remove_filter_rules($_POST['rule'], $if, true, $changes);
-		if (isset($changes['filter_rules']) && write_config(gettext("Firewall: Rules - deleted selected firewall rules."))) {
-			mark_subsystem_dirty('filter');
-		}
+		deleteFilterRules($_POST['rule'], $if);
 
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
 } elseif (isset($_POST['toggle_x'])) {
 	if (is_array($_POST['rule']) && count($_POST['rule'])) {
-		foreach ($_POST['rule'] as $rulei) {
-			if (config_path_enabled("filter/rule/{$rulei}", 'disabled')) {
-				config_del_path("filter/rule/{$rulei}/disabled");
-			} else {
-				config_set_path("filter/rule/{$rulei}/disabled", true);
-			}
-		}
-		if (write_config(gettext("Firewall: Rules - toggle selected firewall rules."))) {
-			mark_subsystem_dirty('filter');
-		}
+		toggleFilterRules($_POST['rule']);
 
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
 } else if ($_POST['act'] == "toggle") {
-	if (config_get_path("filter/rule/{$_POST['id']}")) {
-		if (config_path_enabled("filter/rule/{$_POST['id']}", 'disabled')) {
-			config_del_path("filter/rule/{$_POST['id']}/disabled");
-			$wc_msg = gettext('Firewall: Rules - enabled a firewall rule.');
-		} else {
-			config_set_path("filter/rule/{$_POST['id']}/disabled", true);
-			$wc_msg = gettext('Firewall: Rules - disabled a firewall rule.');
-		}
-		if (write_config($wc_msg)) {
-			mark_subsystem_dirty('filter');
-		}
-
+	if (toggleFilterRule($_POST['id']) !== false) {
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
 } else if ($_POST['order-store']) {
-	$updated = false;
-	$dirty = false;
-	/* update rule order, POST[rule] is an array of ordered IDs */
-	if (is_array($_POST['rule']) && !empty($_POST['rule'])) {
-		$dirty = set_filter_rules_order($_POST['rule']);
-	}
-
-	$a_separators = config_get_path('filter/separator/' . strtolower($if), []);
-
-	/* update separator order, POST[separator] is an array of ordered IDs */
-	if (is_array($_POST['separator']) && !empty($_POST['separator'])) {
-		$new_separator = array();
-		$idx = 0;
-
-		foreach ($_POST['separator'] as $separator) {
-			$new_separator['sep' . $idx++] = $separator;
-		}
-
-		if ($a_separators !== $new_separator) {
-			$a_separators = $new_separator;
-			$updated = true;
-		}
-	} else if (!empty($a_separators)) {
-		$a_separators = "";
-		$updated = true;
-	}
-
-	if ($updated || $dirty) {
-		config_set_path('filter/separator/' . strtolower($if), $a_separators);
-		if (write_config(gettext("Firewall: Rules - reordered firewall rules."))) {
-			if ($dirty) {
-				mark_subsystem_dirty('filter');
-			}
-		}
-	}
+	reorderFilterRules($_POST['rule'], $_POST['separator'], $if);
 
 	header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 	exit;

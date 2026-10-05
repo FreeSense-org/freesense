@@ -93,31 +93,7 @@ if (!$ignorefirmwarelock) {
 	}
 }
 
-$firewall_rules_dscp_types = array(
-	"af11",
-	"af12",
-	"af13",
-	"af21",
-	"af22",
-	"af23",
-	"af31",
-	"af32",
-	"af33",
-	"af41",
-	"af42",
-	"af43",
-	"VA",
-	"EF",
-	"cs1",
-	"cs2",
-	"cs3",
-	"cs4",
-	"cs5",
-	"cs6",
-	"cs7",
-	"0x01",
-	"0x02",
-	"0x04");
+/* $firewall_rules_dscp_types moved to firewall_rules.inc with the rest of the rule editor tables. */
 
 $auth_server_types = array(
 	'ldap' => "LDAP",

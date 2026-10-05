@@ -41,8 +41,12 @@ require_once('remote_backup.inc');
 /* The GUI's shared firewall save functions; they set globals at file scope. */
 require_once('alias-utils.inc');
 require_once('firewall_nat.inc');
+require_once('firewall_nat_1to1.inc');
+require_once('firewall_nat_out.inc');
+require_once('firewall_nat_npt.inc');
 require_once('firewall_virtual_ip.inc');
 require_once('firewall_schedule.inc');
+require_once('firewall_rules.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
@@ -87,6 +91,7 @@ try {
 	}
 
 	$req = array(
+		'path' => $path,
 		'params' => $params,
 		'query' => $_GET,
 		'body' => in_array($method, array('POST', 'PUT', 'PATCH', 'DELETE'), true) ?

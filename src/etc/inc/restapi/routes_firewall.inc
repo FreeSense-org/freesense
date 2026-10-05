@@ -68,6 +68,12 @@ function restapi_routes_firewall() {
 		    'description' => array('type' => 'string')))),
 	));
 	$apply_query = array('apply' => 'true to apply the change at once (default: stage it like the GUI)');
+	$rule_body = array('type' => 'object', 'description' => 'The same fields as the rule edit page: ' .
+	    'type (pass|block|reject|match), interface (a list for floating rules), floating, direction, quick, ' .
+	    'ipprotocol (inet|inet6|inet46), proto, icmptype (list), srctype, src, srcmask, srcnot, srcbeginport, ' .
+	    'srcendport, dsttype, dst, dstmask, dstnot, dstbeginport, dstendport, descr, disabled, log, gateway, ' .
+	    'sched, defaultqueue, ackqueue, dnpipe, pdnpipe, tag, tagged, statetype, max, ... and "after" (create: ' .
+	    'insert after this rule id, -1 for the top). GET /firewall/rules/{id} returns them as "fields".');
 
 	return array(
 		restapi_route('GET', '/v1/firewall/pending', 'restapi_h_fw_pending', array(
@@ -149,13 +155,34 @@ function restapi_routes_firewall() {
 			'page' => 'firewall_schedule.php', 'area' => 'firewall.schedules', 'write' => true,
 			'summary' => 'Delete a schedule that no rule uses')),
 
-		/* Filter rules (read and apply; editing follows in a later phase) */
+		/* Filter rules */
 		restapi_route('GET', '/v1/firewall/rules', 'restapi_h_rule_list', array(
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
 			'query' => array('interface' => 'Only rules of this interface (e.g. lan, wan, or "floating")'),
 			'summary' => 'List filter rules in evaluation order')),
 		restapi_route('GET', '/v1/firewall/rules/{id}', 'restapi_h_rule_get', array(
-			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'summary' => 'Get a filter rule')),
+			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
+			'summary' => 'Get a filter rule (stored form, plus "fields": the edit form fields)')),
+		restapi_route('POST', '/v1/firewall/rules', 'restapi_h_rule_create', array(
+			'page' => 'firewall_rules_edit.php', 'area' => 'firewall.rules', 'write' => true,
+			'body' => $rule_body, 'query' => $apply_query, 'summary' => 'Create a filter rule')),
+		restapi_route('PUT', '/v1/firewall/rules/{id}', 'restapi_h_rule_update', array(
+			'page' => 'firewall_rules_edit.php', 'area' => 'firewall.rules', 'write' => true,
+			'body' => $rule_body, 'query' => $apply_query,
+			'summary' => 'Update a filter rule (omitted fields keep their value)')),
+		restapi_route('POST', '/v1/firewall/rules/{id}/toggle', 'restapi_h_rule_toggle', array(
+			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'write' => true,
+			'query' => $apply_query, 'summary' => 'Enable or disable a filter rule')),
+		restapi_route('DELETE', '/v1/firewall/rules/{id}', 'restapi_h_rule_delete', array(
+			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'write' => true,
+			'query' => $apply_query, 'summary' => 'Delete a filter rule')),
+		restapi_route('POST', '/v1/firewall/rules/order', 'restapi_h_rule_order', array(
+			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('interface', 'order'), 'properties' => array(
+			    'interface' => array('type' => 'string', 'description' => 'Rules tab: an interface or "floating"'),
+			    'order' => array('type' => 'array', 'items' => array('type' => 'integer'),
+			    'description' => 'Every rule id of that tab, in the new order'))),
+			'query' => $apply_query, 'summary' => 'Reorder the rules of one interface')),
 		restapi_route('POST', '/v1/firewall/rules/apply', 'restapi_h_rule_apply', array(
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'write' => true,
 			'summary' => 'Apply pending filter rule changes (reloads the filter)')),
@@ -640,7 +667,90 @@ function restapi_rule_out($id, $rule) {
 	return array('id' => (int)$id) + $rule;
 }
 
+/* Rule ids are positions after the same sort firewall_rules.php applies. */
+function restapi_rules() {
+	filter_rules_sort();
+	return get_filter_rules_list();
+}
+
+function restapi_rule_result($result, $req, $status = 200) {
+	if (!empty($result['input_errors'])) {
+		throw restapi_validation_error($result['input_errors']);
+	}
+	$extra = restapi_want_apply($req) ? array('apply' => restapi_fw_apply(array('filter'))) : array();
+	$rules = get_filter_rules_list();
+	$id = $result['id'];
+	return array('status' => $status, 'data' => (($id !== null && isset($rules[$id])) ?
+	    restapi_rule_out($id, $rules[$id]) : array('id' => $id)) + $extra);
+}
+
+function restapi_h_rule_create($req) {
+	restapi_rules();
+	$post = restapi_body_as_post($req['body']);
+	$after = $post['after'] ?? null;
+	unset($post['after']);
+	if (($after !== null) && !is_numericint($after) && ($after !== '-1')) {
+		throw new RestApiError(400, 'invalid_field', '"after" must be a rule id or -1.');
+	}
+	$if = isset($post['floating']) ? 'FloatingRules' : (string)($post['interface'] ?? '');
+	return restapi_rule_result(saveFilterRule($post, null, $after, $if), $req, 201);
+}
+
+function restapi_h_rule_update($req) {
+	$rules = restapi_rules();
+	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
+	$post = restapi_body_as_post($req['body']) + filter_rule_form_fields(getFilterRule($id));
+	unset($post['after']);
+	return restapi_rule_result(saveFilterRule($post, $id), $req);
+}
+
+function restapi_h_rule_toggle($req) {
+	$rules = restapi_rules();
+	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
+	$state = toggleFilterRule($id);
+	$extra = restapi_want_apply($req) ? array('apply' => restapi_fw_apply(array('filter'))) : array();
+	return array('data' => array('id' => $id, 'state' => $state, 'pending' => restapi_fw_pending_list()) + $extra);
+}
+
+function restapi_h_rule_delete($req) {
+	$rules = restapi_rules();
+	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
+	deleteFilterRule($id, filter_rule_tab($rules[$id]));
+	$extra = restapi_want_apply($req) ? array('apply' => restapi_fw_apply(array('filter'))) : array();
+	return array('data' => array('deleted' => $id, 'pending' => restapi_fw_pending_list()) + $extra);
+}
+
+function restapi_h_rule_order($req) {
+	$rules = restapi_rules();
+	$tab = strtolower((string)($req['body']['interface'] ?? ''));
+	$tab = ($tab === 'floating') ? 'FloatingRules' : $tab;
+	$order = $req['body']['order'] ?? null;
+	if (!is_array($order) || !array_is_list($order)) {
+		throw new RestApiError(400, 'invalid_field', '"order" must be a list of rule ids.');
+	}
+	$ids = array();
+	foreach ($rules as $id => $rule) {
+		if (strcasecmp(filter_rule_tab($rule), $tab) === 0) {
+			$ids[] = $id;
+		}
+	}
+	$given = array_map('intval', $order);
+	$sorted_given = $given;
+	sort($sorted_given);
+	if (empty($ids) || ($sorted_given !== $ids)) {
+		throw new RestApiError(422, 'validation_failed', 'The request failed validation.', array('messages' =>
+		    array("\"order\" must list every rule id of interface \"{$tab}\" exactly once: " . implode(', ', $ids))));
+	}
+	/* Keep the tab's separators as they are; the GUI sends them with every reorder. */
+	$separators = config_get_path('filter/separator/' . strtolower($tab), []);
+	$changed = reorderFilterRules($given, is_array($separators) ? array_values($separators) : null,
+	    ($tab === 'FloatingRules') ? 'FloatingRules' : $tab);
+	$extra = restapi_want_apply($req) ? array('apply' => restapi_fw_apply(array('filter'))) : array();
+	return array('data' => array('changed' => (bool)$changed, 'pending' => restapi_fw_pending_list()) + $extra);
+}
+
 function restapi_h_rule_list($req) {
+	restapi_rules();
 	$want = strtolower((string)($req['query']['interface'] ?? ''));
 	$out = array();
 	foreach (get_filter_rules_list() as $id => $rule) {
@@ -659,9 +769,10 @@ function restapi_h_rule_list($req) {
 }
 
 function restapi_h_rule_get($req) {
-	$rules = get_filter_rules_list();
+	$rules = restapi_rules();
 	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
-	return array('data' => restapi_rule_out($id, $rules[$id]));
+	return array('data' => restapi_rule_out($id, $rules[$id]) +
+	    array('fields' => filter_rule_form_fields(getFilterRule($id))));
 }
 
 function restapi_h_rule_apply($req) {
