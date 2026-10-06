@@ -126,9 +126,10 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | status_gateway_groups | Status | standard | E | |
 | status_services | Status | Start/Stop/Restart as row actions; badges | E | M |
 | status_interfaces | Status | one card per interface; mono addresses; badges up/down | E | |
-| status_dhcp_leases, status_dhcpv6_leases | Status | the existing search becomes the toolbar (server-side kept); badges online/offline/static | E | |
+| status_dhcp_leases, status_dhcpv6_leases | Status | **done**: tiles (active / static / expired / total or prefixes), searchable lease list with state + online badges and state / client / interface filters, `?all=` kept as the Show / Hide expired toolbar button, row actions (static mapping, WoL mapping, send WoL, confirmed delete), confirmed Clear all leases header action; Leases / (Prefix delegation) / Pools views | E | |
 | status_carp, status_ntpd, status_unbound, status_upnp, status_wireless, status_queues, status_openvpn | Status | standard; row actions where they exist (disconnect, kill) | E | |
-| status_ipsec, _leases, _sad, _spd | Status | registry group `status-ipsec`; badges connected/connecting/down | E | M |
+| status_ipsec, _leases, _sad, _spd | Status | **done**: registry group `status-ipsec`; Overview tiles + tunnel list (connected / connecting / disconnected / waiting badges, state filter), expandable child SAs kept across the 5 s refresh, connect / disconnect as row actions (disconnect confirmed, same AJAX handler); leases, SADs (confirmed delete) and SPDs as searchable lists | E | M |
+| status_openvpn, status_unbound, status_upnp, status_wireless, status_queues | Status | **done** (status-b): OpenVPN one card per server (service badge + controls, client list with confirmed Disconnect / Halt, collapsible routing table) and instance lists; Unbound speed / stats views; UPnP confirmed Delete all; Wireless Rescan header action; Queues tree with live stats and collapse toggles | E | |
 | status_captiveportal, _vouchers, _voucher_rolls, _expire, _test | Status / Tool | registry group with zone param | E | |
 | status_graph | Status | chart card + controls row (themed nvd3) | E | |
 | status_restapi | Status | already near-standard; align with tokens | E | |

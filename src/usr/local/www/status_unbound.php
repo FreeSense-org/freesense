@@ -27,184 +27,131 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("service-utils.inc");
 
 $pgtitle = array(gettext("Status"), gettext("DNS Resolver"));
 $shortcut_section = "resolver";
 
-include("head.inc");
-
 $infra_cache_entries = array();
 $errors = "";
+$running = config_path_enabled('unbound') && is_service_running('unbound');
 
-// Check if unbound is enabled and running, bail if not
-if (!config_path_enabled('unbound') || !is_service_running('unbound')) {
-	print_info_box(gettext("The DNS Resolver is disabled or stopped."), 'warning', false);
-} else {
+if ($running) {
 	exec("/usr/local/sbin/unbound-control -c {$g['unbound_chroot_path']}/unbound.conf dump_infra", $infra_cache_entries, $ubc_ret);
 }
 
-?>
+$view = fs_view_param(['speed', 'stats'], 'speed');
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("DNS Resolver Infrastructure Cache Speed")?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-				<thead>
-					<tr>
-						<th><?=gettext("Server")?></th>
-						<th><?=gettext("Zone")?></th>
-						<th><?=gettext("TTL")?></th>
-						<th><?=gettext("Ping")?></th>
-						<th><?=gettext("Var")?></th>
-						<th><?=gettext("RTT")?></th>
-						<th><?=gettext("RTO")?></th>
-						<th><?=gettext("Timeout A")?></th>
-						<th><?=gettext("Timeout AAAA")?></th>
-						<th><?=gettext("Timeout Other")?></th>
-					</tr>
-				</thead>
-				<tbody>
-<?php if (empty($infra_cache_entries)): ?>
-					<tr>
-						<td colspan="10">
-							<i><?= gettext("No Data") ?></i>
-						</td>
-					</tr>
-<?php endif; ?>
-<?php
+/*
+ * dump_infra: "<server> <zone> ttl <n> ping <n> var <n> rtt <n> rto <n> tA <n> tAAAA <n> tother <n>
+ * ednsknown <n> edns <n> delay <n> lame dnssec <n> rec <n> A <n> other <n>"; an expired entry is
+ * "<server> <zone> ttl expired rto <n>".
+ */
+$entries = [];
+$zones = [];
+$expired = 0;
+$rtt_sum = 0;
+$rtt_n = 0;
 foreach ($infra_cache_entries as $ice) {
 	$line = explode(' ', $ice);
-?>
-					<tr>
-						<td>
-							<?=$line[0]?>
-						</td>
-						<td>
-							<?=$line[1]?>
-						</td>
-<?php
-	if ($line[3] == "expired"):
-?>
-						<td colspan="4">
-							<?=$line[3]?>
-						</td>
-						<td>
-							<?=$line[5]?>
-						</td>
-						<td colspan="4">
-							&nbsp;
-						</td>
-<?php	else: ?>
-						<td>
-							<?=$line[3]?>
-						</td>
-						<td>
-							<?=$line[5]?>
-						</td>
-						<td>
-							<?=$line[7]?>
-						</td>
-						<td>
-							<?=$line[9]?>
-						</td>
-						<td>
-							<?=$line[11]?>
-						</td>
-						<td>
-							<?=$line[13]?>
-						</td>
-						<td>
-							<?=$line[15]?>
-						</td>
-						<td>
-							<?=$line[17]?>
-						</td>
-					</tr>
+	$is_expired = (($line[3] ?? '') == "expired");
+	$entries[] = [$line, $is_expired];
+	$zones[$line[1] ?? ''] = true;
+	if ($is_expired) {
+		$expired++;
+	} elseif (is_numeric($line[9] ?? null)) {
+		$rtt_sum += (int)$line[9];
+		$rtt_n++;
+	}
+}
 
-<?php	endif;
+include("head.inc");
+
+if (!$running) {
+	print_info_box(gettext("The DNS Resolver is disabled or stopped."), 'warning', false);
 }
 ?>
-				</tbody>
-			</table>
-		</div>
-	</div>
+
+<style>
+.fs-unbound-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+
+<?php fs_view_switch(['speed' => gettext('Infrastructure speed'), 'stats' => gettext('Infrastructure stats')], $view); ?>
+
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('Servers'), count($entries));
+fs_tile(gettext('Zones'), count($zones));
+fs_tile(gettext('Average RTT'), $rtt_n ? sprintf(gettext('%d ms'), round($rtt_sum / $rtt_n)) : '–');
+fs_tile(gettext('Expired'), $expired);
+?>
 </div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("DNS Resolver Infrastructure Cache Stats")?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-				<thead>
-					<tr>
-						<th><?=gettext("Server")?></th>
-						<th><?=gettext("Zone")?></th>
-						<th><?=gettext("eDNS Lame Known")?></th>
-						<th><?=gettext("eDNS Version")?></th>
-						<th><?=gettext("Probe Delay")?></th>
-						<th><?=gettext("Lame DNSSEC")?></th>
-						<th><?=gettext("Lame Rec")?></th>
-						<th><?=gettext("Lame A")?></th>
-						<th><?=gettext("Lame Other")?></th>
-					</tr>
-				</thead>
-				<tbody>
-<?php if (empty($infra_cache_entries)): ?>
-					<tr>
-						<td colspan="17">
-							<i><?= gettext("No Data") ?></i>
-						</td>
-					</tr>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => ($view === 'speed') ? gettext('Infrastructure cache speed') : gettext('Infrastructure cache stats'),
+	'search' => gettext('Search servers, zones…'),
+	'noun' => gettext('servers'),
+	'noun_one' => gettext('server'),
+	'filters' => ['state' => [gettext('All entries'), 'valid' => gettext('Cached'), 'expired' => gettext('Expired')]],
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th class="fs-col-status"><?=gettext("Status")?></th>
+					<th data-fs-search><?=gettext("Server")?></th>
+					<th data-fs-search><?=gettext("Zone")?></th>
+<?php if ($view === 'speed'): ?>
+					<th><?=gettext("TTL")?></th>
+					<th><?=gettext("Ping")?></th>
+					<th><?=gettext("Var")?></th>
+					<th><?=gettext("RTT")?></th>
+					<th><?=gettext("RTO")?></th>
+					<th><?=gettext("Timeout A")?></th>
+					<th><?=gettext("Timeout AAAA")?></th>
+					<th><?=gettext("Timeout other")?></th>
+<?php else: ?>
+					<th><?=gettext("eDNS lame known")?></th>
+					<th><?=gettext("eDNS version")?></th>
+					<th><?=gettext("Probe delay")?></th>
+					<th><?=gettext("Lame DNSSEC")?></th>
+					<th><?=gettext("Lame rec")?></th>
+					<th><?=gettext("Lame A")?></th>
+					<th><?=gettext("Lame other")?></th>
 <?php endif; ?>
-<?php
-foreach ($infra_cache_entries as $ice) {
-	$line = explode(' ', $ice);
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($entries as list($line, $is_expired)):
+	$cols = ($view === 'speed') ? [3, 5, 7, 9, 11, 13, 15, 17] : [19, 21, 23, 26, 28, 30, 32];
 ?>
-					<tr>
-						<td>
-							<?=$line[0]?>
-						</td>
-						<td>
-							<?=$line[1]?>
-						</td>
-<?php
-	if ($line[3] == "expired"):
+				<tr data-fs-filter-state="<?=$is_expired ? 'expired' : 'valid'?>">
+					<td><?=$is_expired ? fs_badge('expired') : fs_badge('active', gettext('Cached'))?></td>
+					<td class="fs-mono"><?=htmlspecialchars($line[0] ?? '')?></td>
+					<td class="fs-mono"><?=htmlspecialchars($line[1] ?? '')?></td>
+<?php if ($is_expired):
+	/* an expired entry only carries its RTO */
+	foreach ($cols as $idx):
+		$value = (($view === 'speed') && ($idx == 11)) ? ($line[5] ?? '') : '';
 ?>
-						<td colspan="7">
-							<?=$line[3]?>
-							&nbsp;
-						</td>
-<?php	else: ?>
-						<td>
-							<?=$line[19]?>
-						</td>
-						<td>
-							<?=$line[21]?>
-						</td>
-						<td>
-							<?=$line[23]?>
-						</td>
-						<td>
-							<?=$line[26]?>
-						</td>
-						<td>
-							<?=$line[28]?>
-						</td>
-						<td>
-							<?=$line[30]?>
-						</td>
-						<td>
-							<?=$line[32]?>
-						</td>
-					</tr>
-
-<?php	endif;
-}
-?>
-				</tbody>
-			</table>
-		</div>
+					<td class="fs-mono fs-unbound-num<?=($value === '') ? ' fs-muted' : ''?>"><?=($value === '') ? '–' : htmlspecialchars($value)?></td>
+<?php endforeach;
+else:
+	foreach ($cols as $idx): ?>
+					<td class="fs-mono fs-unbound-num"><?=htmlspecialchars($line[$idx] ?? '')?></td>
+<?php endforeach;
+endif; ?>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($entries)) {
+	fs_empty_row(($view === 'speed') ? 11 : 10, $running ? gettext('The infrastructure cache is empty.') : gettext('No data while the DNS Resolver is stopped.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<?=gettext('TTL is in seconds, all other times in milliseconds. RTO is the retransmit timeout the resolver uses for the server.')?>
 	</div>
 </div>
 

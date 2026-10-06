@@ -33,9 +33,10 @@ require_once("services_upnp.inc");
 $pgtitle = array(gettext("Status"), gettext("UPnP IGD &amp; PCP"));
 $shortcut_section = "upnp";
 
-include("head.inc");
+$enabled = (config_get_path('installedpackages/miniupnpd/config/0/enable') == 'on');
 
-if (config_get_path('installedpackages/miniupnpd/config/0/enable') != 'on') {
+if (!$enabled) {
+	include("head.inc");
 	print_info_box(sprintf(gettext('Service is currently disabled. It can be enabled here: %1$s%2$s%3$s.'), '<a href="pkg_edit.php?xml=miniupnpd.xml">', gettext('Services &gt; UPnP IGD &amp; PCP'), '</a>'), 'danger');
 	include("foot.inc");
 	exit;
@@ -50,77 +51,76 @@ if ($_POST) {
 
 $port_maps = upnp_port_maps();
 
+$protos = [];
+$clients = [];
+foreach ($port_maps as $map) {
+	$protos[strtolower($map['proto'])] = strtoupper($map['proto']);
+	$clients[$map['intaddr']] = true;
+}
+ksort($protos);
+
+fs_page_action(gettext('Delete all port maps'), 'status_upnp.php?delete-all=delete-all', 'fa-trash-can', 'danger', [
+	'usepost' => true,
+	'data-fs-confirm' => gettext('Delete all UPnP and PCP port maps?'),
+	'data-fs-confirm-detail' => gettext('The service restarts. Clients add their port maps again when they need them.'),
+	'data-fs-confirm-action' => gettext('Delete all'),
+]);
+
+include("head.inc");
+
 if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
-
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=htmlentities(gettext("Active UPnP IGD & PCP/NAT-PMP Port Maps"))?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-				<thead>
-					<tr>
-						<th><?=gettext("Ext Interface")?></th>
-						<th><?=gettext("Ext Port")?></th>
-						<th><?=gettext("Int IP")?></th>
-						<th><?=gettext("Int Port")?></th>
-						<th><?=gettext("Protocol")?></th>
-						<th><?=gettext("Source IP")?></th>
-						<th><?=gettext("Source Port")?></th>
-						<th><?=gettext("Description")?></th>
-					</tr>
-				</thead>
-				<tbody>
+<div class="fs-tiles">
 <?php
-foreach ($port_maps as $map) {
+fs_tile(gettext('Port maps'), count($port_maps));
+fs_tile(gettext('Clients'), count($clients));
 ?>
-					<tr>
-						<td>
-							<?= htmlspecialchars(convert_real_interface_to_friendly_descr($map['iface'])) ?>
-						</td>
-						<td>
-							<?= htmlspecialchars($map['extport']) ?>
-						</td>
-						<td>
-							<?= htmlspecialchars($map['intaddr']) ?>
-						</td>
-						<td>
-							<?= htmlspecialchars($map['intport']) ?>
-						</td>
-						<td>
-							<?= htmlspecialchars(strtoupper($map['proto'])) ?>
-						</td>
-						<td>
-							<?= htmlspecialchars($map['srcaddr']) ?>
-						</td>
-						<td>
-							<?= htmlspecialchars($map['srcport'] ?: "any") ?>
-						</td>
-						<td>
-							<?= htmlspecialchars($map['descr']) ?>
-						</td>
-					</tr>
-<?php
-}
-?>
-				</tbody>
-			</table>
-		</div>
-	</div>
 </div>
 
-<div>
-	<form action="status_upnp.php" method="post">
-		<nav class="action-buttons">
-			<button class="btn btn-danger btn-sm" type="submit" name="delete-all" value="delete-all">
-				<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-				<?=gettext("Delete all port maps")?>
-			</button>
-		</nav>
-	</form>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Active port maps'),
+	'search' => gettext('Search ports, addresses, descriptions…'),
+	'noun' => gettext('port maps'),
+	'noun_one' => gettext('port map'),
+	'filters' => (count($protos) > 1) ? ['proto' => [gettext('All protocols')] + $protos] : [],
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("External interface")?></th>
+					<th data-fs-search><?=gettext("External port")?></th>
+					<th data-fs-search><?=gettext("Internal IP")?></th>
+					<th data-fs-search><?=gettext("Internal port")?></th>
+					<th data-fs-search><?=gettext("Protocol")?></th>
+					<th data-fs-search><?=gettext("Source IP")?></th>
+					<th data-fs-search><?=gettext("Source port")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($port_maps as $map): ?>
+				<tr data-fs-filter-proto="<?=htmlspecialchars(strtolower($map['proto']))?>">
+					<td><?=htmlspecialchars(convert_real_interface_to_friendly_descr($map['iface']))?></td>
+					<td class="fs-mono"><?=htmlspecialchars($map['extport'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($map['intaddr'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($map['intport'])?></td>
+					<td><?=htmlspecialchars(strtoupper($map['proto']))?></td>
+					<td class="fs-mono"><?=htmlspecialchars($map['srcaddr'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($map['srcport'] ?: gettext("any"))?></td>
+					<td><?=htmlspecialchars($map['descr'])?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($port_maps)) {
+	fs_empty_row(8, gettext('No active port maps.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
 </div>
 
 <?php
