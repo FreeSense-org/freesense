@@ -235,7 +235,9 @@ body:has(> #topmenu.fixed-top) > .fs-main { padding-top: calc(var(--fs-navbar-h)
 /* contain absolutely positioned cell content (e.g. .visually-hidden labels) in
  * the scroller, so a wide table scrolls instead of widening the page */
 .table-responsive { position: relative; }
-.contains-table table, .panel .table { border: 0; }
+/* border-width only: the `border` shorthand would reset border-color to
+ * currentColor, which the cells inherit for their row lines */
+.contains-table table, .panel .table { border-width: 0; }
 .panel .table > :not(caption) > tr > :first-child { padding-left: var(--fs-sp-4); }
 .panel .table > :not(caption) > tr > :last-child { padding-right: var(--fs-sp-4); }
 .table > tbody > tr > td { height: var(--fs-row-h); padding-top: .4rem; padding-bottom: .4rem; }

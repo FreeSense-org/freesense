@@ -245,13 +245,15 @@ var pie = new d3pie("pieChart<?=$chartnum?>", {
 	for ($i = 0; $i < $num; $i++) {
 		if ($k[$i]) {
 			$total += $summary[$stat][$k[$i]];
-			$numentries++;
-			if ($i > 0) {
+			// separate from the previous printed entry; an empty key is skipped and
+			// must not leave a hole ("[ ,{...}") that d3pie trips over
+			if ($numentries > 0) {
 				print(",\r\n");
 			}
+			$numentries++;
 
 			print("{");
-			print('"label": "' . $k[$i] . '", "value": ');
+			print('"label": ' . json_encode((string)$k[$i]) . ', "value": ');
 			print($summary[$stat][$k[$i]]);
 			print(', "color": "' . $segcolors[$i % $numcolors] . '"');
 			print("}");
@@ -262,7 +264,9 @@ var pie = new d3pie("pieChart<?=$chartnum?>", {
 	$leftover = $gotlines - $total;
 
 	if ($leftover > 0) {
-		print(",\r\n");
+		if ($numentries > 0) {
+			print(",\r\n");
+		}
 		print("{");
 		print('"label": "Other", "value": ');
 		print($leftover);
