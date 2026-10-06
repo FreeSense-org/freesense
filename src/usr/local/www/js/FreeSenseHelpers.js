@@ -810,28 +810,39 @@ function interceptGET() {
 		var attr = $(this).attr('usepost');
 
 		if (typeof attr !== typeof undefined && attr !== false) {
-			// Automatically apply a confirmation dialog to "Delete" icons
-			if (!($(this).hasClass('no-confirm')) && !($(this).hasClass('icon-embed-btn')) &&
-			   (($(this).hasClass('do-confirm')) || ($(this).hasClass('fa-trash-can')))) {
-				var msg = (this.textContent || '').trim().toLowerCase();
+			var anchor = this;
+			var go = function () {
+				var target = $(anchor).attr("href").split("?");
 
-				if (!msg)
-					var msg = (this.value || '').trim().toLowerCase();
+				// the usepost attribute value is prepended to the POST action URI
+				postSubmit(get2post(target[1]),target[0].concat(attr));
+			};
 
-				var q = 'Are you sure you wish to '+ msg +'?';
-
-				if ($(this).attr('title') != undefined)
-					q = 'Are you sure you wish to '+ $(this).attr('title').toLowerCase() + '?';
-
-				if (!confirm(q)) {
-					return false;
-				}
+			// fs_row_actions() anchors carry their own question (data-fs-confirm).
+			// Legacy "Delete" icons (.fa-trash-can / .do-confirm anchors, still
+			// used by package pages) get a question built from their title.
+			var question = $(anchor).attr('data-fs-confirm');
+			if (!question && !($(anchor).hasClass('no-confirm')) && !($(anchor).hasClass('icon-embed-btn')) &&
+			   (($(anchor).hasClass('do-confirm')) || ($(anchor).hasClass('fa-trash-can')) ||
+			    ($(anchor).find('.fa-trash-can').length > 0))) {
+				var msg = $(anchor).attr('title') || anchor.textContent || anchor.value || '';
+				question = 'Are you sure you wish to ' + msg.trim().toLowerCase() + '?';
 			}
 
-			var target = $(this).attr("href").split("?");
-
-			// the usepost attribute value is prepended to the POST action URI
-			postSubmit(get2post(target[1]),target[0].concat(attr));
+			if (question) {
+				fsConfirm({
+					title: question,
+					detail: $(anchor).attr('data-fs-confirm-detail'),
+					action: $(anchor).attr('data-fs-confirm-action') || $(anchor).attr('title'),
+					returnFocus: anchor
+				}).then(function (ok) {
+					if (ok) {
+						go();
+					}
+				});
+			} else {
+				go();
+			}
 			return false;
 		}
 	});

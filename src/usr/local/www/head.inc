@@ -72,7 +72,9 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 	<link rel="stylesheet" href="/vendor/sortable/sortable-theme-bootstrap.css?v=<?=filemtime('/usr/local/www/vendor/sortable/sortable-theme-bootstrap.css')?>">
 	<link rel="stylesheet" href="/vendor/jquery-treegrid/css/jquery.treegrid.css?v=<?=filemtime('/usr/local/www/vendor/jquery-treegrid/css/jquery.treegrid.css')?>">
 	<link rel="stylesheet" href="/css/_freesense-bs5-shim.css?v=<?=filemtime('/usr/local/www/css/_freesense-bs5-shim.css')?>">
+	<link rel="stylesheet" href="/css/_freesense-tokens.css?v=<?=filemtime('/usr/local/www/css/_freesense-tokens.css')?>">
 	<link rel="stylesheet" href="/css/_freesense-core.css?v=<?=filemtime('/usr/local/www/css/_freesense-core.css')?>">
+	<link rel="stylesheet" href="/css/_freesense-components.css?v=<?=filemtime('/usr/local/www/css/_freesense-components.css')?>">
 	<link rel="stylesheet" href="<?=$cssfile?>?v=<?=filemtime('/usr/local/www/' . $cssfile)?>" />
 
 	<title><?=$tabtitle?></title>
@@ -574,7 +576,7 @@ if (are_notices_pending()) {
 ?>
 <body id="<?=$numColumns?>">
 <nav id="topmenu" class="navbar navbar-expand-lg<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
-	<div class="container">
+	<div class="container fs-page">
 		<a class="navbar-brand" href="/">
 			<?php include("/usr/local/www/header-logo.svg"); ?>
 		</a>
@@ -644,7 +646,8 @@ if (are_notices_pending()) {
 	</div>
 </nav>
 
-<div class="container <?=$menuclass?>" <?=$columnsContainer?>>
+<main class="fs-main">
+<div class="container fs-page <?=$menuclass?>" <?=$columnsContainer?>>
 
 <?php
 /* Password Security warnings */
@@ -719,21 +722,19 @@ if (are_notices_pending()) {
 /* End Password Security Warnings */
 ?>
 
-	<header class="header">
-
+	<header class="header fs-pagehead">
+		<div class="fs-pagehead-main">
 <?php
 	// If you set $notitle = true BEFORE including head.inc, the page title will be supressed
 	if (isset($notitle)) {
-		print('<br />');
 		unset($notitle);
 	} else {
-		if (isset($pglinks)) {
-			print(genhtmltitle($pgtitle, $pglinks));
-		} else {
-			print(genhtmltitle($pgtitle));
-		}
+		print(fs_page_title($pgtitle, isset($pglinks) ? $pglinks : true));
 	}
 ?>
+		</div>
+		<div class="fs-pagehead-actions">
+		<?=fs_render_page_actions()?>
 		<ul class="context-links">
 
 	<?php if (isset($widgets)): ?>
@@ -839,6 +840,7 @@ if (('' != ($link = get_shortcut_log_link($shortcut_section, false))) && (isAllo
 		</li>
 	<?php endif?>
 		</ul>
+		</div>
 	</header>
 <?php
 /* if upgrade in progress, alert user */

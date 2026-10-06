@@ -25,8 +25,29 @@
  */
 ?>
 	</div>
+	</main>
+
+	<!-- shared confirmation dialog (js/freesense-ui.js: fsConfirm) -->
+	<div class="modal fade" id="fs-confirm" tabindex="-1" aria-labelledby="fs-confirm-title" aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h2 class="modal-title" id="fs-confirm-title"></h2>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?=gettext('Close')?>"></button>
+				</div>
+				<div class="modal-body">
+					<p class="fs-confirm-detail"></p>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><?=gettext('Cancel')?></button>
+					<button type="button" class="btn btn-danger" data-fs-confirm-ok data-default-label="<?=gettext('Confirm')?>"><?=gettext('Confirm')?></button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<footer class="footer">
-		<div class="container">
+		<div class="container fs-page">
 			<p class="text-muted">
 				<a id="tpl" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up float-start"></i></a>
 				<?=print_credit();?>
@@ -45,6 +66,7 @@
 	<script src="/js/FreeSenseHelpers.js?v=<?=filemtime('/usr/local/www/js/FreeSenseHelpers.js')?>"></script>
 	<script src="/js/polyfills.js?v=<?=filemtime('/usr/local/www/js/polyfills.js')?>"></script>
 	<script src="/vendor/sortable/sortable.js?v=<?=filemtime('/usr/local/www/vendor/sortable/sortable.js')?>"></script>
+	<script src="/js/freesense-ui.js?v=<?=filemtime('/usr/local/www/js/freesense-ui.js')?>"></script>
 
 	<script type="text/javascript" src="/vendor/jquery-treegrid/js/jquery.treegrid.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery-treegrid/js/jquery.treegrid.min.js')?>"></script>
 	<script type="text/javascript" src="/vendor/js-cookie/js.cookie.min.js?v=<?=filemtime('/usr/local/www/vendor/js-cookie/js.cookie.min.js')?>"></script>

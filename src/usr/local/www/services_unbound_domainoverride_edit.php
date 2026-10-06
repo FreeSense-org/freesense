@@ -48,13 +48,14 @@ if ($_POST['save']) {
 	$input_errors = unbound_save_domain_override($_POST, $id);
 
 	if (!$input_errors) {
-		header("Location: services_unbound.php");
+		header("Location: services_unbound.php?view=domains");
 		exit;
 	}
 }
 
-$pgtitle = array(gettext("Services"), gettext("DNS Resolver"), gettext("General Settings"), gettext("Edit Domain Override"));
-$pglinks = array("", "services_unbound.php", "services_unbound.php", "@self");
+$pgtitle = array(gettext("Services"), gettext("DNS Resolver"), gettext("Domain Overrides"),
+    $this_domainOverrides_config ? gettext("Edit domain override") : gettext("Add domain override"));
+$pglinks = array("", "services_unbound.php", "services_unbound.php?view=domains", "@self");
 $shortcut_section = "resolver";
 include("head.inc");
 
@@ -123,6 +124,7 @@ $section->addInput(new Form_StaticText(
 
 $form->add($section);
 
+fs_form_cancel($form, 'services_unbound.php?view=domains');
 print $form;
 
 include("foot.inc");

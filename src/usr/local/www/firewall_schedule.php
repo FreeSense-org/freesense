@@ -30,7 +30,6 @@
 ##|*MATCH=firewall_schedule.php*
 ##|-PRIV
 
-define('CLOCK', '<i class="fa-regular fa-clock"></i>');
 
 $dayArray = array (gettext('Mon'), gettext('Tues'), gettext('Wed'), gettext('Thur'), gettext('Fri'), gettext('Sat'), gettext('Sun'));
 $monthArray = array (gettext('January'), gettext('February'), gettext('March'), gettext('April'), gettext('May'), gettext('June'), gettext('July'), gettext('August'), gettext('September'), gettext('October'), gettext('November'), gettext('December'));
@@ -46,6 +45,8 @@ if ($_POST['act'] == "del") {
 	$errmsg = deleteSchedule($_POST);
 }
 
+fs_page_action(gettext('Add schedule'), 'firewall_schedule_edit.php', 'fa-plus');
+
 include("head.inc");
 
 if ($errmsg) {
@@ -53,17 +54,22 @@ if ($errmsg) {
 }
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Schedules')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Schedules'),
+	'search' => gettext('Search schedules…'),
+	'noun' => gettext('schedules'),
+	'noun_one' => gettext('schedule'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+		<table class="table table-hover table-rowdblclickedit">
 			<thead>
 				<tr>
-					<th><!--"Active" indicator--></th>
-					<th><?=gettext("Name")?></th>
-					<th><?=gettext("Range: Date / Times / Name")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th class="fs-col-status"><?=gettext("Status")?></th>
+					<th data-fs-search><?=gettext("Name")?></th>
+					<th data-fs-search><?=gettext("Range: Date / Times / Name")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -74,10 +80,10 @@ foreach (config_get_path('schedules/schedule', []) as $schedule):
 ?>
 				<tr>
 					<td>
-						<?=($schedstatus) ? '<a title="' . gettext("Schedule is currently active") . '">' . CLOCK . '</a>':''?>
+						<?=$schedstatus ? fs_badge('active', null, gettext("Schedule is currently active")) : fs_badge('idle')?>
 					</td>
 					<td>
-						 <?=htmlspecialchars($schedule['name'])?>
+						<a href="firewall_schedule_edit.php?id=<?=$i?>"><?=htmlspecialchars($schedule['name'])?></a>
 					</td>
 					<td>
 <?php
@@ -189,32 +195,29 @@ foreach (config_get_path('schedules/schedule', []) as $schedule):
 					</td>
 
 					<td>
-						<?=htmlspecialchars($schedule['descr'])?>&nbsp;
+						<?=htmlspecialchars($schedule['descr'])?>
 					</td>
 
-					<td>
-						<a class="fa-solid fa-pencil" title="<?=gettext("Edit schedule"); ?>" href="firewall_schedule_edit.php?id=<?=$i?>"></a>
-						<a class="fa-solid fa-trash-can" title="<?=gettext("Delete schedule")?>" href="firewall_schedule.php?act=del&amp;id=<?=$i?>" usepost></a>
-
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', "firewall_schedule_edit.php?id={$i}", $schedule['name']],
+							['delete', "firewall_schedule.php?act=del&id={$i}", $schedule['name'],
+							    ['thing' => gettext('schedule'), 'detail' => gettext('Rules that use this schedule must be changed first.')]],
+						])?>
 					</td>
 				</tr>
 <?php
 	$i++;
 endforeach;
+
+if ($i == 0) {
+	fs_empty_row(5, gettext('No schedules yet.'), 'firewall_schedule_edit.php', gettext('Add schedule'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
-
-<?=($i > 0) ? CLOCK . gettext(' Indicates that the schedule is currently active.'):''?>
-
-<nav class="action-buttons">
-	<a href="firewall_schedule_edit.php" class="btn btn-sm btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box(gettext('Schedules act as placeholders for time ranges to be used in firewall rules.'), 'info', false); ?>

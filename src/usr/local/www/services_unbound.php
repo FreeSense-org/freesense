@@ -55,15 +55,30 @@ if ($pconfig['custom_options']) {
 	$customoptions = false;
 }
 
+/* the overrides are views of this page (docs/webui/PLAN.md, rule R1) */
+$view = fs_view_param(['general', 'hosts', 'domains'], 'general');
+$view_url = 'services_unbound.php' . (($view === 'general') ? '' : '?view=' . $view);
+
 if ($_POST['act'] == "del") {
 	if (unbound_delete_override($_POST['type'], $_POST['id'])) {
-		header("Location: services_unbound.php");
+		header("Location: " . $view_url);
 		exit;
 	}
 }
 
-$pgtitle = array(gettext("Services"), gettext("DNS Resolver"), gettext("General Settings"));
-$pglinks = array("", "@self", "@self");
+$view_titles = [
+	'general' => gettext("General Settings"),
+	'hosts' => gettext("Host Overrides"),
+	'domains' => gettext("Domain Overrides"),
+];
+$pgtitle = array(gettext("Services"), gettext("DNS Resolver"), $view_titles[$view]);
+$pglinks = array("", "services_unbound.php", "@self");
+
+if ($view === 'hosts') {
+	fs_page_action(gettext('Add host override'), 'services_unbound_host_edit.php', 'fa-plus');
+} elseif ($view === 'domains') {
+	fs_page_action(gettext('Add domain override'), 'services_unbound_domainoverride_edit.php', 'fa-plus');
+}
 $shortcut_section = "resolver";
 
 include_once("head.inc");
@@ -82,11 +97,9 @@ if (is_subsystem_dirty('unbound')) {
 
 display_isc_warning();
 
-$tab_array = array();
-$tab_array[] = array(gettext("General Settings"), true, "services_unbound.php");
-$tab_array[] = array(gettext("Advanced Settings"), false, "services_unbound_advanced.php");
-$tab_array[] = array(gettext("Access Lists"), false, "/services_unbound_acls.php");
-display_top_tabs($tab_array, true);
+fs_tabs('services-dnsresolver', $view_url);
+
+if ($view === 'general'):
 
 $form = new Form();
 
@@ -328,145 +341,134 @@ events.push(function() {
 //]]>
 </script>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Host Overrides")?></h2></div>
+<?php endif; /* general */ ?>
+
+<?php if ($view === 'hosts'): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Host Overrides'),
+	'search' => gettext('Search host overrides…'),
+	'noun' => gettext('host overrides'),
+	'noun_one' => gettext('host override'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Host")?></th>
-					<th><?=gettext("Parent domain of host")?></th>
-					<th><?=gettext("IP to return for host")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Host")?></th>
+					<th data-fs-search><?=gettext("Parent domain of host")?></th>
+					<th data-fs-search><?=gettext("IP to return for host")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
 <?php
-foreach (config_get_path('unbound/hosts', []) as $idx => $hostent):
+$hosts = config_get_path('unbound/hosts', []);
+foreach ($hosts as $idx => $hostent):
+	$fqdn = $hostent['host'] ? $hostent['host'] . '.' . $hostent['domain'] : $hostent['domain'];
+	$aliases = [];
+	foreach (array_get_path($hostent, 'aliases/item', []) as $alias) {
+		$aliases[] = $alias['host'] ? $alias['host'] . '.' . $alias['domain'] : $alias['domain'];
+	}
 ?>
 				<tr>
 					<td>
-						<?=$hostent['host']?>
+						<a href="services_unbound_host_edit.php?id=<?=$idx?>"><?=htmlspecialchars($hostent['host'])?></a>
+<?php	if (!empty($aliases)): ?>
+						<div class="fs-muted fs-mono small"><?=gettext("Aliases:")?> <?=htmlspecialchars(implode(', ', $aliases))?></div>
+<?php	endif; ?>
 					</td>
-					<td>
-						<?=$hostent['domain']?>
-					</td>
-					<td>
-						<?=$hostent['ip']?>
-					</td>
-					<td>
-						<?=htmlspecialchars($hostent['descr'])?>
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit host override')?>" href="services_unbound_host_edit.php?id=<?=$idx?>"></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete host override')?>" href="services_unbound.php?type=host&amp;act=del&amp;id=<?=$idx?>" usepost></a>
-					</td>
-				</tr>
-
-<?php
-	foreach (array_get_path($hostent, 'aliases/item', []) as $alias):
-?>
-				<tr>
-					<td>
-						<?=$alias['host']?>
-					</td>
-					<td>
-						<?=$alias['domain']?>
-					</td>
-					<td>
-						<?=gettext("Alias for ");?><?=$hostent['host'] ? $hostent['host'] . '.' . $hostent['domain'] : $hostent['domain']?>
-					</td>
-					<td>
-						<i class="fa-solid fa-angles-right text-info"></i>
-						<?=htmlspecialchars($alias['description'])?>
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit host override')?>" 	href="services_unbound_host_edit.php?id=<?=$idx?>"></a>
+					<td><?=htmlspecialchars($hostent['domain'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars(is_array($hostent['ip']) ? implode(', ', $hostent['ip']) : $hostent['ip'])?></td>
+					<td><?=htmlspecialchars($hostent['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', "services_unbound_host_edit.php?id={$idx}", $fqdn],
+							['delete', "services_unbound.php?type=host&act=del&id={$idx}&view=hosts", $fqdn, ['thing' => gettext('host override')]],
+						])?>
 					</td>
 				</tr>
 <?php
-	endforeach;
 endforeach;
+
+if (empty($hosts)) {
+	fs_empty_row(5, gettext('No host overrides yet.'), 'services_unbound_host_edit.php', gettext('Add host override'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<span class="help-block">
+<p class="help-block">
 	Enter any individual hosts for which the resolver's standard DNS lookup process should be overridden and a specific
 	IPv4 or IPv6 address should automatically be returned by the resolver. Standard and also non-standard names and parent domains
 	can be entered, such as 'test', 'nas.home.arpa', 'mycompany.localdomain', '1.168.192.in-addr.arpa', or 'somesite.com'. Any lookup attempt for
 	the host will automatically return the given IP address, and the usual lookup server for the domain will not be queried for
 	the host's records.
-</span>
+</p>
+<?php endif; /* hosts */ ?>
 
-<nav class="action-buttons">
-	<a href="services_unbound_host_edit.php" class="btn btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
-
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Domain Overrides")?></h2></div>
+<?php if ($view === 'domains'): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Domain Overrides'),
+	'search' => gettext('Search domain overrides…'),
+	'noun' => gettext('domain overrides'),
+	'noun_one' => gettext('domain override'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Domain")?></th>
-					<th><?=gettext("Lookup Server IP Address")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Domain")?></th>
+					<th data-fs-search><?=gettext("Lookup Server IP Address")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
-
 			<tbody>
 <?php
+$domains = config_get_path('unbound/domainoverrides', []);
 $i = 0;
-foreach (config_get_path('unbound/domainoverrides', []) as $doment):
+foreach ($domains as $doment):
 ?>
 				<tr>
-					<td>
-						<?=$doment['domain']?>&nbsp;
-					</td>
-					<td>
-						<?=$doment['ip']?>&nbsp;
-					</td>
-					<td>
-						<?=htmlspecialchars($doment['descr'])?>&nbsp;
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit domain override')?>" href="services_unbound_domainoverride_edit.php?id=<?=$i?>"></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete domain override')?>" href="services_unbound.php?act=del&amp;type=doverride&amp;id=<?=$i?>" usepost></a>
+					<td><a href="services_unbound_domainoverride_edit.php?id=<?=$i?>"><?=htmlspecialchars($doment['domain'])?></a></td>
+					<td class="fs-mono"><?=htmlspecialchars($doment['ip'])?></td>
+					<td><?=htmlspecialchars($doment['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', "services_unbound_domainoverride_edit.php?id={$i}", $doment['domain']],
+							['delete', "services_unbound.php?act=del&type=doverride&id={$i}&view=domains", $doment['domain'], ['thing' => gettext('domain override')]],
+						])?>
 					</td>
 				</tr>
 <?php
 	$i++;
 endforeach;
+
+if (empty($domains)) {
+	fs_empty_row(4, gettext('No domain overrides yet.'), 'services_unbound_domainoverride_edit.php', gettext('Add domain override'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<span class="help-block">
+<p class="help-block">
 	Enter any domains for which the resolver's standard DNS lookup process should be overridden and a different (non-standard)
 	lookup server should be queried instead. Non-standard, 'invalid' and local domains, and subdomains, can also be entered,
 	such as 'test', 'nas.home.arpa', 'mycompany.localdomain', '1.168.192.in-addr.arpa', or 'somesite.com'. The IP address is treated as the
 	authoritative lookup server for the domain (including all of its subdomains), and other lookup servers will not be queried.
 	If there are multiple authoritative DNS servers available for a domain then make a separate entry for each,
 	using the same domain name.
-</span>
+</p>
+<?php endif; /* domains */ ?>
 
-<nav class="action-buttons">
-	<a href="services_unbound_domainoverride_edit.php" class="btn btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
-
+<?php if ($view === 'general'): ?>
 <div class="infoblock">
 	<?php print_info_box(sprintf(gettext('If the DNS Resolver is enabled, the DHCP'.
 		' service (if enabled) will automatically serve the LAN IP'.
@@ -477,6 +479,7 @@ endforeach;
 		' DNS server list to be overridden by DHCP/PPP on WAN&quot;'.
 		' is checked.'), '<a href="system.php">', '</a>'), 'info', false); ?>
 </div>
+<?php endif; /* general */ ?>
 
 <?php
 include("foot.inc");

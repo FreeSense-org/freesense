@@ -200,6 +200,11 @@ function stat_block($summary, $stat, $num) {
 // Todo: Be good to investigate building this with json_encode and friends some time
 function pie_block($summary, $stat, $num, $chartnum) {
 	global $fields, $segcolors, $gotlines, $numcolors;
+
+	// d3pie throws on an empty data set (no log entries to summarize)
+	if (empty($summary[$stat]) && ($gotlines <= 0)) {
+		return;
+	}
 ?>
 <script type="text/javascript">
 //<![CDATA[
@@ -240,13 +245,15 @@ var pie = new d3pie("pieChart<?=$chartnum?>", {
 	for ($i = 0; $i < $num; $i++) {
 		if ($k[$i]) {
 			$total += $summary[$stat][$k[$i]];
-			$numentries++;
-			if ($i > 0) {
+			// separate from the previous printed entry; an empty key is skipped and
+			// must not leave a hole ("[ ,{...}") that d3pie trips over
+			if ($numentries > 0) {
 				print(",\r\n");
 			}
+			$numentries++;
 
 			print("{");
-			print('"label": "' . $k[$i] . '", "value": ');
+			print('"label": ' . json_encode((string)$k[$i]) . ', "value": ');
 			print($summary[$stat][$k[$i]]);
 			print(', "color": "' . $segcolors[$i % $numcolors] . '"');
 			print("}");
@@ -257,7 +264,9 @@ var pie = new d3pie("pieChart<?=$chartnum?>", {
 	$leftover = $gotlines - $total;
 
 	if ($leftover > 0) {
-		print(",\r\n");
+		if ($numentries > 0) {
+			print(",\r\n");
+		}
 		print("{");
 		print('"label": "Other", "value": ');
 		print($leftover);

@@ -118,7 +118,8 @@ class Form extends Form_Element
 		if (!empty($buttons))
 		{
 			$group = new Form_Element;
-			$group->addClass('col-sm-'. Form::MAX_INPUT_WIDTH, 'col-sm-offset-'. Form::LABEL_WIDTH);
+			/* fs-actionbar: sticky Save/Apply bar (docs/webui/03-components.md) */
+			$group->addClass('col-sm-'. Form::MAX_INPUT_WIDTH, 'col-sm-offset-'. Form::LABEL_WIDTH, 'fs-actionbar');
 
 			$html .= $group . $buttons .'</div>';
 		}

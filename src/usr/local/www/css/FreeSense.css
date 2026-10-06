@@ -38,9 +38,10 @@
 	--bs-tertiary-bg:      #eef1f5;
 	--bs-border-color:     #dde3ea;
 
-	--bs-link-color:       #d8442a;
-	--bs-link-hover-color: #ea4f2d;
-	--bs-link-color-rgb:   216, 68, 42;
+	/* coral link text darkened to >= 4.5:1 on the surface and the page bg */
+	--bs-link-color:       #b8371f;
+	--bs-link-hover-color: #9c2e19;
+	--bs-link-color-rgb:   184, 55, 31;
 }
 
 /* infoblock toggle — duplicated from _freesense-core.css into the theme file

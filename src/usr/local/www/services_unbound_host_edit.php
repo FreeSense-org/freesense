@@ -45,13 +45,14 @@ if ($_POST['save']) {
 	$pconfig = $rv['pconfig'];
 
 	if (!$input_errors) {
-		header("Location: services_unbound.php");
+		header("Location: services_unbound.php?view=hosts");
 		exit;
 	}
 }
 
-$pgtitle = array(gettext("Services"), gettext("DNS Resolver"), gettext("General Settings"), gettext("Edit Host Override"));
-$pglinks = array("", "services_unbound.php", "services_unbound.php", "@self");
+$pgtitle = array(gettext("Services"), gettext("DNS Resolver"), gettext("Host Overrides"),
+    (isset($id) && config_get_path("unbound/hosts/{$id}")) ? gettext("Edit host override") : gettext("Add host override"));
+$pglinks = array("", "services_unbound.php", "services_unbound.php?view=hosts", "@self");
 $shortcut_section = "resolver";
 include("head.inc");
 
@@ -177,6 +178,7 @@ $section->addInput(new Form_StaticText(
 ));
 
 $form->add($section);
+fs_form_cancel($form, 'services_unbound.php?view=hosts');
 print($form);
 
 include("foot.inc");

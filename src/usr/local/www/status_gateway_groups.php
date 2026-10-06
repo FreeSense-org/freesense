@@ -54,10 +54,7 @@ $pglinks = array("", "status_gateways.php", "@self");
 $shortcut_section = "gateway-groups";
 include("head.inc");
 
-$tab_array = array();
-$tab_array[0] = array(gettext("Gateways"), false, "status_gateways.php");
-$tab_array[1] = array(gettext("Gateway Groups"), true, "status_gateway_groups.php");
-display_top_tabs($tab_array);
+fs_tabs('status-gateways', 'status_gateway_groups.php');
 ?>
 <div class="panel panel-default">
 	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Gateway Groups')?></h2></div>

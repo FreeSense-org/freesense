@@ -58,6 +58,14 @@ if (isset($id) && $a_schedules[$id]) {
 	$getSchedule = true;
 }
 
+if (isset($id) && $a_schedules[$id]) {
+	$pgtitle = array(gettext("Firewall"), gettext("Schedules"), htmlspecialchars($a_schedules[$id]['name']), gettext("Edit schedule"));
+	$pglinks = array("", "firewall_schedule.php", "", "@self");
+} else {
+	$pgtitle = array(gettext("Firewall"), gettext("Schedules"), gettext("Add schedule"));
+	$pglinks = array("", "firewall_schedule.php", "@self");
+}
+
 if ($_POST['save']) {
 	$result = saveSchedule($_POST, (isset($id) && $a_schedules[$id]) ? $id : null);
 	$input_errors = $result['input_errors'];
@@ -510,6 +518,7 @@ $section->addInput(new Form_Input(
 ))->addClass('noranges');
 
 $form->add($section);
+fs_form_cancel($form, 'firewall_schedule.php');
 
 print($form);
 ?>

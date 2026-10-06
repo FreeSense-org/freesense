@@ -66,15 +66,6 @@ if ($_POST || $_REQUEST['host']) {
 }
 
 if ($do_ping) {
-?>
-	<script type="text/javascript">
-	//<![CDATA[
-	window.onload=function() {
-		document.getElementById("pingCaptured").wrap='off';
-	}
-	//]]>
-	</script>
-<?php
 	$result = diag_exec(diag_ping_command($host, $ipproto, $sourceip, $count, $wait))['stdout'];
 
 	if (empty($result)) {
@@ -135,8 +126,8 @@ $form->addGlobal(new Form_Button(
 	'Submit',
 	'Ping',
 	null,
-	'fa-solid fa-rss'
-))->addClass('btn-primary');
+	'fa-solid fa-play'
+))->addClass('btn-primary')->setAttribute('data-fs-busy', 'true');
 
 print $form;
 
@@ -145,11 +136,11 @@ if ($do_ping && !empty($result) && !$input_errors) {
 	<div class="panel panel-default">
 		<div class="panel-heading">
 			<h2 class="panel-title"><?=gettext('Results')?></h2>
+			<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#ping-output">
+				<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+			</button>
 		</div>
-
-		<div class="panel-body">
-			<pre><?= htmlspecialchars($result) ?></pre>
-		</div>
+		<pre class="fs-console" id="ping-output"><?= htmlspecialchars($result) ?></pre>
 	</div>
 <?php
 }

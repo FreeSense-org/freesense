@@ -1,9 +1,28 @@
 # 03 — Components and helpers
 
-Phase A builds these in `includes/fs_ui.inc` (PHP), `css/_freesense-components.css`
-and `js/freesense-ui.js`. **The signatures below are the contract.** Phase A
-implements them exactly, and workers use only these. All helpers escape their
-arguments; you pass raw strings, already passed through `gettext()`.
+Implemented in `includes/fs_ui.inc` (PHP), `css/_freesense-tokens.css`,
+`css/_freesense-components.css` and `js/freesense-ui.js`. **The signatures below are
+the contract**; workers use only these. All helpers escape their arguments: pass
+raw strings, already passed through `gettext()`. Inline helpers (`fs_badge`,
+`fs_row_actions`) return a string for `<?=…?>`; block helpers (`fs_tabs`,
+`fs_view_switch`, `fs_table_toolbar`, `fs_empty_row`, `fs_tile`) echo.
+
+Pilot pages to copy: `firewall_schedule.php` (List), `firewall_schedule_edit.php`
+(Editor), `system_advanced_misc.php` (Settings), `status_gateways.php` (Status),
+`diag_ping.php` (Tool), `services_unbound.php` (List views split out of a Settings
+page, rule R1).
+
+## Page title
+
+`head.inc` renders `$pgtitle` as a breadcrumb plus an `<h1>`: every element but the
+last is a crumb, the last one is the `<h1>`. `$pglinks` links crumbs as before
+(`'@self'` = current URL). A trailing empty element is dropped. Editors end with
+**"Add {thing}"** or **"Edit {thing}"** and put the record name in the crumb before it:
+
+```php
+$pgtitle = [gettext('Firewall'), gettext('Schedules'), htmlspecialchars($name), gettext('Edit schedule')];
+$pglinks = ['', 'firewall_schedule.php', '', '@self'];
+```
 
 ---
 
@@ -23,8 +42,10 @@ appends to the global `$page_actions`, which `head.inc` renders right-aligned be
 The first `primary` wins; there can only be one. Check privileges before adding an action
 (`isAllowedPage()`), exactly like the current code does for its links.
 
-The legacy flags (`$system_logs_filter_form_hidden`, `$monitoring_settings_form_hidden`, …) keep
-working, and Phase A re-implements them as page actions inside `head.inc`.
+The legacy flags (`$system_logs_filter_form_hidden`, `$monitoring_settings_form_hidden`, …) and the
+service/shortcut/help icons keep rendering as icon buttons after the page actions
+(`.context-links`, now with accessible names). Pages converting to the standard replace their
+flag with an explicit `fs_page_action()`.
 
 ## Tabs
 
@@ -44,16 +65,25 @@ fs_tabs('firewall-nat', 'firewall_nat_out.php');
 `fs_tabs(string $group, string $active_url, array $query = [])` builds the classic
 `[label, active, url]` array and calls `display_top_tabs()`, so privilege filtering
 (`isAllowedPage`) is unchanged. `$query` appends parameters to every tab URL (e.g. `['zone' => $cpzone]`).
+Registry labels are plain text (`fs_tabs` escapes them). A group whose packages add tabs is
+declared as `['package_group' => 'NAT', 'tabs' => [...]]`.
+
+A list split out of a settings page (rule R1) is a **peer tab** pointing at a view of the same
+file, e.g. `[gettext('Host Overrides'), 'services_unbound.php?view=hosts']`, and the page passes
+the same URL as `$active_url`. No new file and no new privilege are needed.
 
 Dynamic groups (one tab per interface or per zone) keep building `$tab_array` in the page
 and call `display_top_tabs($tab_array)` directly. They get the same rendering.
 
 Rendering (Phase A changes `display_top_tabs()` but keeps its signature): an underline tab bar.
 The active tab has `aria-current="page"` and a 2px coral underline. When tabs don't fit, the
-rest move into a **More ▾** dropdown; on phones the bar scrolls horizontally. The old
-`<select>` fallback is removed.
+rest move into a **More ▾** dropdown (the active tab always stays visible); without JS the bar
+scrolls horizontally. The old `<select>` fallback is removed.
 
-## View switch (second level inside one page)
+## View switch (second level inside one tab)
+
+Use it only for a second level *below* a tab, e.g. DHCP's interface tabs, then
+General / Address pools / Static mappings. Peer-level views belong in the tab registry (above).
 
 ```php
 $view = fs_view_param(['general', 'hosts', 'domains'], 'general');   // validated $_GET['view']
@@ -66,7 +96,8 @@ fs_view_switch([
 
 This renders a segmented control of links (`?view=…`, preserving the other GET params).
 `fs_view_param()` falls back to the default for unknown values; never echo `$_GET['view']` directly.
-POST handlers redirect back to the same view.
+POST handlers redirect back to the same view, and the view's delete/toggle links carry `view=`
+so the POST keeps it. Editors reached from a view return to it (redirect after save and Cancel).
 
 ## Card (section)
 
@@ -138,11 +169,14 @@ The `data-fs-table` enhancer (JS, progressive; the page works without it) adds:
 |---|---|
 | Search | case-insensitive substring over `th[data-fs-search]` columns (all columns if none are marked); 150ms debounce; `/` focuses the field, Esc clears it; the term is kept in `?q=` via `history.replaceState` so filtered lists can be linked |
 | Filters | each `filters` key matches the `data-fs-filter-<key>` value on `<tr>` |
-| Count | "12 of 40" (`aria-live="polite"`) |
+| Count | "40 schedules" unfiltered, "12 of 40" while filtered (`aria-live="polite"`); pass `noun` and `noun_one` to the toolbar |
 | No results | inserts a "No {things} match “term”. Clear search" row; never a blank table |
 | Bulk | the select-all checkbox is tri-state; while ≥ 1 row is selected the toolbar swaps to the bulk bar ("3 selected" + actions + Clear); hidden rows are deselected when search hides them |
 | Sort | keeps `data-sortable`; sets `aria-sort` on the sorted `<th>` |
-| Sticky header | `thead` sticks below the navbar |
+| Static rows | rows with `data-fs-static` (e.g. rule separators) are never hidden or counted |
+
+A sticky `thead` is **not** implemented yet: `.table-responsive` scrolls horizontally, which disables
+`position: sticky` for its descendants. It needs a different scroll container and is tracked for Phase B.
 
 Bulk buttons are `type="submit"` with the **existing** `name` (`del_x`, `toggle_x`, …) inside the page's existing
 `<form>`. The server handlers are unchanged. Only offer bulk for actions whose handler already accepts arrays.
@@ -208,8 +242,12 @@ Use it when each row has ≤ 3 simple fields and no per-row options. Otherwise, 
 ## Sticky action bar
 
 The Form classes render the global buttons (`$form->addGlobal(...)`, default Save) in `.fs-actionbar`, which
-sticks to the viewport bottom when the form is taller than the screen. **Workers add nothing.** Don't add your own
-Save buttons mid-form. Secondary page buttons (Cancel, Test, Download) go into the same bar via `addGlobal`.
+sticks to the viewport bottom when the form is taller than the screen. Don't add your own Save buttons mid-form.
+Secondary page buttons (Test, Download) go into the same bar via `addGlobal`. Editors add Cancel with:
+
+```php
+fs_form_cancel($form, 'firewall_schedule.php');   // before print($form)
+```
 
 ## Alerts
 
@@ -221,6 +259,9 @@ your own `.alert` markup.
 
 Use `<pre class="fs-console">` for command and tool output: mono, surface-raised background, scrolls inside the card
 (max 60vh), with a Copy button in the card header (`data-fs-copy="#id"`).
+
+The Run button of a Tool page gets `->setAttribute('data-fs-busy', 'true')`: on submit it shows a spinner
+and the form is marked `aria-busy`; the button stays enabled so its name/value is still posted.
 
 ## Summary tile
 
