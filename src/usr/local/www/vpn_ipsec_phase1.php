@@ -121,45 +121,60 @@ fs_tabs('vpn-ipsec', 'vpn_ipsec.php');
 
 /* ------------------------------------------------------------ header summary */
 
+$fs_ipsec_pick = function ($value, array $options) {
+	$picked = null;
+	foreach (array_keys($options) as $key) {
+		$cmp = ((gettype($key) == "integer") && (gettype($value) == "string")) ? strval($key) : $key;
+		if ($value == $cmp) {
+			$picked = $key;
+		}
+	}
+	return ($picked === null) ? array_key_first($options) : $picked;
+};
+
+/* every select-backed fact uses the option list of the field below it */
 $p1_iflist = ipsec_p1_interface_list();
 $p1_protocols = array("inet" => gettext("IPv4"), "inet6" => gettext("IPv6"), "both" => gettext("Dual stack"));
 $p1_sum_facts = array();
 
-$p1_sum_ike = array("ikev1" => "IKEv1", "ikev2" => "IKEv2", "auto" => gettext("Auto (IKEv1 or IKEv2)"))[$p1_summary['iketype']] ?? strtoupper((string)$p1_summary['iketype']);
-if ($p1_summary['iketype'] != 'ikev2') {
-	$p1_sum_ike .= ' · ' . (($p1_summary['mode'] == 'aggressive') ? gettext("Aggressive mode") : gettext("Main mode"));
+$p1_sum_ike = array("ikev1" => "IKEv1", "ikev2" => "IKEv2", "auto" => gettext("Auto (IKEv1 or IKEv2)"))[$fs_ipsec_pick($p1_summary['iketype'], array("ikev1" => 1, "ikev2" => 1, "auto" => 1))];
+if ($fs_ipsec_pick($p1_summary['iketype'], array("ikev1" => 1, "ikev2" => 1, "auto" => 1)) != 'ikev2') {
+	$p1_sum_ike .= ' · ' . (($fs_ipsec_pick($p1_summary['mode'], array("main" => 1, "aggressive" => 1)) == 'aggressive') ? gettext("Aggressive mode") : gettext("Main mode"));
 }
 $p1_sum_facts[] = array(gettext("Key exchange"), fs_h($p1_sum_ike));
 
-$p1_sum_if = ($p1_iflist[$p1_summary['interface']] ?? strtoupper((string)$p1_summary['interface'])) .
-    ' · ' . ($p1_protocols[$p1_summary['protocol']] ?? gettext("IPv4"));
+$p1_sum_if = (empty($p1_iflist) ? '' : $p1_iflist[$fs_ipsec_pick($p1_summary['interface'], $p1_iflist)] . ' · ') .
+    $p1_protocols[$fs_ipsec_pick($p1_summary['protocol'], $p1_protocols)];
 if (isset($p1_summary['mobile'])) {
 	$p1_sum_facts[] = array(gettext("Remote gateway"), fs_h(gettext("Mobile clients")) .
 	    '<span class="fs-ipsec-sum-note">' . fs_h($p1_sum_if) . '</span>');
 } else {
 	$p1_sum_gw = trim((string)$p1_summary['remotegw']);
 	if (!empty($p1_summary['ikeport'])) {
-		$p1_sum_if .= ' � ' . sprintf(gettext("port %s"), $p1_summary['ikeport']);
+		$p1_sum_if .= ' · ' . sprintf(gettext("port %s"), $p1_summary['ikeport']);
 	}
 	$p1_sum_facts[] = array(gettext("Remote gateway"),
 	    (($p1_sum_gw === '') ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : '<span class="fs-mono">' . fs_h($p1_sum_gw) . '</span>') .
 	    '<span class="fs-ipsec-sum-note">' . fs_h($p1_sum_if) . '</span>');
 }
 
-$p1_sum_auth = $p1_authentication_methods[$p1_summary['authentication_method']]['name'] ?? '';
+$p1_sum_authlist = ipsec_p1_auth_method_list(isset($p1_summary['mobile']));
+$p1_sum_auth = empty($p1_sum_authlist) ? '' : $p1_authentication_methods[$fs_ipsec_pick($p1_summary['authentication_method'], $p1_sum_authlist)]['name'];
 $p1_sum_facts[] = array(gettext("Authentication"), ($p1_sum_auth === '') ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : fs_h($p1_sum_auth));
 
 $p1_sum_props = array();
 foreach (array_get_path($p1_summary, 'encryption/item', []) as $p1_sum_item) {
-	$p1_sum_alg = (string)array_get_path($p1_sum_item, 'encryption-algorithm/name', '');
-	$p1_sum_txt = $p1_ealgos[$p1_sum_alg]['name'] ?? strtoupper($p1_sum_alg);
+	$p1_sum_alg = $fs_ipsec_pick(array_get_path($p1_sum_item, 'encryption-algorithm/name', []), $p1_ealgos);
+	$p1_sum_txt = $p1_ealgos[$p1_sum_alg]['name'];
+	/* the page script selects the saved key length when it is one of the algorithm's lengths */
 	$p1_sum_keylen = array_get_path($p1_sum_item, 'encryption-algorithm/keylen');
-	if (is_numericint($p1_sum_keylen) && is_array($p1_ealgos[$p1_sum_alg]['keysel'] ?? null)) {
+	$p1_sum_keysel = $p1_ealgos[$p1_sum_alg]['keysel'] ?? null;
+	if (is_array($p1_sum_keysel) && is_numericint($p1_sum_keylen) && ($p1_sum_keylen >= $p1_sum_keysel['lo']) &&
+	    ($p1_sum_keylen <= $p1_sum_keysel['hi']) && ((($p1_sum_keysel['hi'] - $p1_sum_keylen) % $p1_sum_keysel['step']) == 0)) {
 		$p1_sum_txt .= ' ' . $p1_sum_keylen;
 	}
-	$p1_sum_hash = (string)array_get_path($p1_sum_item, 'hash-algorithm', '');
-	$p1_sum_txt .= ' · ' . ($p1_halgos[$p1_sum_hash] ?? strtoupper($p1_sum_hash));
-	$p1_sum_txt .= ' · ' . sprintf(gettext("DH %s"), array_get_path($p1_sum_item, 'dhgroup', ''));
+	$p1_sum_txt .= ' · ' . $p1_halgos[$fs_ipsec_pick(array_get_path($p1_sum_item, 'hash-algorithm'), $p1_halgos)];
+	$p1_sum_txt .= ' · ' . sprintf(gettext("DH %s"), $fs_ipsec_pick(array_get_path($p1_sum_item, 'dhgroup'), $p1_dhgroups));
 	$p1_sum_props[] = $p1_sum_txt;
 }
 $p1_sum_prop = empty($p1_sum_props) ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : fs_h($p1_sum_props[0]);

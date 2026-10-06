@@ -115,12 +115,26 @@ fs_tabs('vpn-ipsec', 'vpn_ipsec.php');
 
 /* ------------------------------------------------------------ header summary */
 
+$fs_ipsec_pick = function ($value, array $options) {
+	$picked = null;
+	foreach (array_keys($options) as $key) {
+		$cmp = ((gettype($key) == "integer") && (gettype($value) == "string")) ? strval($key) : $key;
+		if ($value == $cmp) {
+			$picked = $key;
+		}
+	}
+	return ($picked === null) ? array_key_first($options) : $picked;
+};
+
+/* every select-backed fact uses the option list of the field below it */
 $p2_sum_facts = array();
-$p2_sum_mode = (string)$p2_summary['mode'];
-if ($p2_sum_mode === '') {
-	$p2_sum_mode = 'tunnel';
-}
-$p2_sum_facts[] = array(gettext("Mode"), fs_h($p2_modes[$p2_sum_mode] ?? strtoupper($p2_sum_mode)));
+$p2_sum_mode = $fs_ipsec_pick($p2_summary['mode'], $p2_modes);
+$p2_sum_facts[] = array(gettext("Mode"), fs_h($p2_modes[$p2_sum_mode]));
+$p2_sum_typelists = array(
+	'local' => get_specialnet('', $ipsec_lidtype_flags),
+	'remote' => array('address' => gettext('Address'), 'network' => gettext('Network')),
+	'natlocal' => get_specialnet('', $ipsec_nlitype_flags),
+);
 
 if ($p2_sum_mode == 'transport') {
 	$p2_sum_net = '<span class="fs-muted">' . fs_h(gettext("Host to host, no networks")) . '</span>';
@@ -128,7 +142,8 @@ if ($p2_sum_mode == 'transport') {
 	$p2_sum_ids = array();
 	foreach (array('local', 'remote') as $p2_sum_side) {
 		$p2_sum_id = array(
-			'type' => (string)$p2_summary[$p2_sum_side . 'id_type'],
+			'type' => (isset($p2_summary['mobile']) && ($p2_sum_side == 'remote')) ? 'mobile' :
+			    (string)$fs_ipsec_pick($p2_summary[$p2_sum_side . 'id_type'], $p2_sum_typelists[$p2_sum_side]),
 			'address' => (string)$p2_summary[$p2_sum_side . 'id_address'],
 			'netbits' => (string)$p2_summary[$p2_sum_side . 'id_netbits'],
 		);
@@ -144,9 +159,10 @@ if ($p2_sum_mode == 'transport') {
 	}
 	$p2_sum_net = $p2_sum_ids[0] . ' <i class="fa-solid fa-arrow-right-arrow-left fs-ipsec-sum-arrow" aria-hidden="true"></i><span class="visually-hidden">' .
 	    fs_h(gettext("to")) . '</span> ' . $p2_sum_ids[1];
-	if (!empty($p2_summary['natlocalid_type']) && ($p2_summary['natlocalid_type'] != 'none')) {
+	$p2_sum_nattype = (string)$fs_ipsec_pick($p2_summary['natlocalid_type'], $p2_sum_typelists['natlocal']);
+	if (($p2_sum_mode != 'vti') && ($p2_sum_nattype !== '') && ($p2_sum_nattype != 'none')) {
 		$p2_sum_nat = array(
-			'type' => (string)$p2_summary['natlocalid_type'],
+			'type' => $p2_sum_nattype,
 			'address' => (string)$p2_summary['natlocalid_address'],
 			'netbits' => (string)$p2_summary['natlocalid_netbits'],
 		);
@@ -155,33 +171,46 @@ if ($p2_sum_mode == 'transport') {
 }
 $p2_sum_facts[] = array(($p2_sum_mode == 'vti') ? gettext("Tunnel addresses") : gettext("Local and remote networks"), $p2_sum_net);
 
-$p2_sum_proto = (string)$p2_summary['proto'];
-$p2_sum_prop = array($p2_protos[$p2_sum_proto] ?? strtoupper($p2_sum_proto));
+$p2_sum_proto = $fs_ipsec_pick($p2_summary['proto'], $p2_protos);
+$p2_sum_prop = array($p2_protos[$p2_sum_proto]);
 if ($p2_sum_proto == 'esp') {
 	$p2_sum_algs = array();
-	foreach ((is_array($p2_summary['ealgos']) ? $p2_summary['ealgos'] : array()) as $p2_sum_alg) {
-		$p2_sum_txt = $p2_ealgos[$p2_sum_alg]['name'] ?? strtoupper($p2_sum_alg);
-		$p2_sum_keylen = $p2_summary['keylen_' . $p2_sum_alg] ?? '';
-		if (is_numericint($p2_sum_keylen)) {
-			$p2_sum_txt .= ' ' . $p2_sum_keylen;
+	/* in form order: one checkbox per algorithm, plus its key length select */
+	foreach ($p2_ealgos as $p2_sum_alg => $p2_sum_algdata) {
+		if (!is_array($p2_summary['ealgos']) || !in_array($p2_sum_alg, $p2_summary['ealgos'])) {
+			continue;
+		}
+		$p2_sum_txt = $p2_sum_algdata['name'];
+		if (is_array($p2_sum_algdata['keysel'])) {
+			$p2_sum_keys = array('auto' => 1);
+			for ($p2_sum_k = $p2_sum_algdata['keysel']['hi']; $p2_sum_k >= $p2_sum_algdata['keysel']['lo']; $p2_sum_k -= $p2_sum_algdata['keysel']['step']) {
+				$p2_sum_keys[$p2_sum_k] = 1;
+			}
+			$p2_sum_keylen = $fs_ipsec_pick($p2_summary['keylen_' . $p2_sum_alg], $p2_sum_keys);
+			if ($p2_sum_keylen !== 'auto') {
+				$p2_sum_txt .= ' ' . $p2_sum_keylen;
+			}
 		}
 		$p2_sum_algs[] = $p2_sum_txt;
 	}
 	$p2_sum_prop[] = empty($p2_sum_algs) ? gettext("no encryption selected") : implode(', ', $p2_sum_algs);
 }
 $p2_sum_hashes = array();
-foreach ((is_array($p2_summary['halgos']) ? $p2_summary['halgos'] : array()) as $p2_sum_hash) {
-	$p2_sum_hashes[] = $p2_halgos[$p2_sum_hash] ?? strtoupper($p2_sum_hash);
+/* like the page script: with ESP the hashes are only used (enabled) when AES is selected */
+$p2_sum_hash_on = ($p2_sum_proto != 'esp') || (is_array($p2_summary['ealgos']) && in_array('aes', $p2_summary['ealgos']));
+foreach ($p2_halgos as $p2_sum_hash => $p2_sum_hashname) {
+	if ($p2_sum_hash_on && !empty($p2_summary['halgos']) && in_array($p2_sum_hash, $p2_summary['halgos'])) {
+		$p2_sum_hashes[] = $p2_sum_hashname;
+	}
 }
 if (!empty($p2_sum_hashes)) {
 	$p2_sum_prop[] = implode(', ', $p2_sum_hashes);
 }
 if (isset($p2_summary['mobile']) && !empty(config_get_path('ipsec/client/pfs_group'))) {
 	$p2_sum_prop[] = gettext("PFS from mobile client settings");
-} elseif (empty($p2_summary['pfsgroup'])) {
-	$p2_sum_prop[] = gettext("PFS off");
 } else {
-	$p2_sum_prop[] = sprintf(gettext("PFS %s"), $p2_summary['pfsgroup']);
+	$p2_sum_pfs = $fs_ipsec_pick($p2_summary['pfsgroup'], $p2_pfskeygroups);
+	$p2_sum_prop[] = empty($p2_sum_pfs) ? gettext("PFS off") : sprintf(gettext("PFS %s"), $p2_sum_pfs);
 }
 $p2_sum_facts[] = array(gettext("Proposal"), fs_h(implode(' · ', $p2_sum_prop)));
 
