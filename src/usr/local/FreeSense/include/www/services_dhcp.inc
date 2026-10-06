@@ -57,7 +57,7 @@ function kea_earlydnsreg_enabled(array $dhcpdconf, array $mapent): array|false {
 
 	$policies = [];
 	$policies[] = config_path_enabled('kea', 'earlydnsreg') ? 'enable' : 'disable';
-	$policies[] = array_get_path($dhcpdconf, 'earlydnsregpolicy', 'default');
+	$policies[] = array_get_path((array)$dhcpdconf, 'earlydnsregpolicy', 'default');
 	$policies[] = array_get_path($mapent, 'earlydnsregpolicy', 'default');
 
 	$domain = kea_defaults('fallback');
@@ -102,7 +102,7 @@ function kea6_earlydnsreg_enabled(array $dhcpdconf, array $mapent): array|false 
 
 	$policies = [];
 	$policies[] = config_path_enabled('kea6', 'earlydnsreg') ? 'enable' : 'disable';
-	$policies[] = array_get_path($dhcpdconf, 'earlydnsregpolicy', 'default');
+	$policies[] = array_get_path((array)$dhcpdconf, 'earlydnsregpolicy', 'default');
 	$policies[] = array_get_path($mapent, 'earlydnsregpolicy', 'default');
 
 	$domain = kea_defaults('fallback');
@@ -1868,7 +1868,7 @@ function dhcp_server_save(string $if, $pool, $act, array $post): array {
 
 	/* validate custom config */
 	if (dhcp_is_backend('kea')) {
-		kea_custom_config_enforce(array_get_path($dhcpdconf, 'custom_kea_config'), $input_errors, $post);
+		kea_custom_config_enforce(is_array($dhcpdconf) ? array_get_path($dhcpdconf, 'custom_kea_config') : null, $input_errors, $post);
 		if (!empty($post['custom_kea_config'])) {
 			$json = json_decode($post['custom_kea_config'], true);
 			if (!is_array($json) || (json_last_error() !== JSON_ERROR_NONE)) {
