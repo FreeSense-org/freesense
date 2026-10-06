@@ -479,7 +479,6 @@ $vpn_menu = msort(array_merge($vpn_menu, return_ext_menu("VPN")), 0);
 $status_menu = array();
 $status_menu[] = array(gettext("Captive Portal"), "/status_captiveportal.php", 'group' => 'security');
 $status_menu[] = array(gettext("CARP (failover)"), "/status_carp.php", 'group' => 'network');
-$status_menu[] = array(gettext("Dashboard"), "/index.php", 'group' => 'overview');
 $status_menu[] = array(gettext("Gateways"), "/status_gateways.php", 'group' => 'overview');
 $status_menu[] = array(gettext("DHCP Leases"), "/status_dhcp_leases.php", 'group' => 'network');
 $status_menu[] = array(gettext("DHCPv6 Leases"), "/status_dhcpv6_leases.php", 'group' => 'network');
@@ -599,6 +598,13 @@ if (are_notices_pending()) {
 		</button>
 		<div class="collapse navbar-collapse" id="pf-navbar">
 			<ul class="navbar-nav me-auto">
+			<?php if (isAllowedPage('index.php')): ?>
+				<li class="nav-item">
+					<a class="nav-link navlnk<?=($fs_current_page === 'index.php') ? ' active' : ''?>" href="/"<?=($fs_current_page === 'index.php') ? ' aria-current="page"' : ''?>>
+						<i class="fa-solid fa-house fs-menu-icon" aria-hidden="true"></i><?=gettext('Home')?>
+					</a>
+				</li>
+			<?php endif; ?>
 			<?php
                 if ($user_settings['webgui']['webguihostnamemenu'] == 'hostonly') {
                     $help_menu_title = htmlspecialchars(config_get_path('system/hostname'));

@@ -133,7 +133,7 @@ function fs_menu_owns_page($name, $current) {
 		'Firewall' => ['firewall_'],
 		'Services' => ['services_'],
 		'VPN' => ['vpn_'],
-		'Status' => ['status_', 'index.php'],
+		'Status' => ['status_'],
 		'Diagnostics' => ['diag_'],
 	];
 	foreach ($prefixes[$name] ?? [] as $p) {
@@ -165,7 +165,7 @@ function fs_menu_visible_items($name, $items, $target, $current) {
 			'target' => $target,
 			'post' => ($url == "/index.php?logout"),
 			'class' => $item['class'] ?? '',
-			'current' => fs_menu_item_current($url, $current),
+			'current' => ($url != "/index.php?logout") && fs_menu_item_current($url, $current),
 			'group' => $item['group'] ?? null,
 		];
 	}

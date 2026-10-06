@@ -519,6 +519,10 @@
 
 	function paletteEntries() {
 		var out = [];
+		document.querySelectorAll('#topmenu .navbar-nav > .nav-item > a.navlnk').forEach(function (a) {
+			var label = a.textContent.trim();
+			out.push({link: a, label: label, path: '', text: label.toLowerCase()});
+		});
 		document.querySelectorAll('#topmenu .nav-item.dropdown').forEach(function (li) {
 			var toggle = li.querySelector(':scope > .dropdown-toggle');
 			var menuName = toggle ? toggle.textContent.trim() : '';
