@@ -300,6 +300,20 @@ whose text the page flips while it shows / hides its own fields) are restyled by
 (`initAdvancedToggles`) as quiet disclosure buttons with a chevron and `aria-expanded`. Keep that convention
 for new toggles; the open state is read from the translated "Hide Advanced" / "Hide Advanced Options" text.
 
+## Collapsible section
+
+For whole groups of rarely changed settings (lifetimes, advanced options), use a collapsible `Form_Section`
+instead of a per-field toggle:
+
+```php
+$state = COLLAPSIBLE | (!empty($input_errors) ? SEC_OPEN : SEC_CLOSED);
+$section = new Form_Section('Advanced Options', 'ph1-advanced', $state);   // an id is required
+```
+
+The heading becomes one disclosure button (chevron, `aria-expanded`, keyboard). Closed sections still post
+their fields. Open them after a failed save as above; if the browser rejects a field inside a closed
+section, `js/freesense-ui.js` opens that section so the field can be shown.
+
 ## Searchable checklist
 
 For a long multiple choice (privileges): `<select multiple data-fs-checklist>` becomes a searchable
