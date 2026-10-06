@@ -231,8 +231,8 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 	<div class="fs-graph-controls">
 <?php foreach ($graph_selects as $name => list($label, $value, $choices)): ?>
 		<div>
-			<label for="<?=$name?>"><?=htmlspecialchars($label)?></label>
-			<select class="form-select form-select-sm" id="<?=$name?>" name="<?=$name?>">
+			<label for="<?=htmlspecialchars($name)?>"><?=htmlspecialchars($label)?></label>
+			<select class="form-select form-select-sm" id="<?=htmlspecialchars($name)?>" name="<?=htmlspecialchars($name)?>">
 <?php foreach ($choices as $k => $v): ?>
 				<option value="<?=htmlspecialchars($k)?>"<?=((string)$k === (string)$value) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
 <?php endforeach; ?>
@@ -256,8 +256,8 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 			<div class="fs-graph-controls">
 <?php foreach ($graph_more as $name => list($label, $value, $choices)): ?>
 				<div>
-					<label for="<?=$name?>"><?=htmlspecialchars($label)?></label>
-					<select class="form-select form-select-sm" id="<?=$name?>" name="<?=$name?>">
+					<label for="<?=htmlspecialchars($name)?>"><?=htmlspecialchars($label)?></label>
+					<select class="form-select form-select-sm" id="<?=htmlspecialchars($name)?>" name="<?=htmlspecialchars($name)?>">
 <?php foreach ($choices as $k => $v): ?>
 						<option value="<?=htmlspecialchars($k)?>"<?=((string)$k === (string)$value) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
 <?php endforeach; ?>
@@ -267,8 +267,8 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 				<div>
 					<label for="smoothfactor"><?=gettext('Graph smoothing')?></label>
 					<div class="fs-graph-range">
-						<input type="range" class="form-range" id="smoothfactor" name="smoothfactor" min="0" max="5" step="1" value="<?=intval($cursmoothing)?>">
-						<output for="smoothfactor" id="smoothfactor-value"><?=intval($cursmoothing)?></output>
+						<input type="range" class="form-range" id="smoothfactor" name="smoothfactor" min="0" max="5" step="1" value="<?=htmlspecialchars((string)intval($cursmoothing))?>">
+						<output for="smoothfactor" id="smoothfactor-value"><?=htmlspecialchars((string)intval($cursmoothing))?></output>
 					</div>
 				</div>
 			</div>
@@ -276,7 +276,7 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 	</div>
 	<div class="fs-graph-body">
 		<div id="traffic-chart-error" class="alert alert-danger" style="display: none;" role="alert"></div>
-		<div id="traffic-chart-<?=htmlspecialchars($curif)?>" class="d3-chart traffic-widget-chart">
+		<div id="traffic-chart-<?=htmlspecialchars($curif)?>" class="d3-chart traffic-widget-chart" data-if="<?=htmlspecialchars($curif)?>" data-realif="<?=htmlspecialchars($realif)?>">
 			<svg role="img" aria-label="<?=htmlspecialchars(sprintf(gettext('Traffic on %s'), $if_label))?>"></svg>
 		</div>
 	</div>
@@ -317,8 +317,9 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 //<![CDATA[
 events.push(function() {
 
-	var InterfaceString = <?=json_encode((string)$curif, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
-	var RealInterfaceString = <?=json_encode((string)$realif, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
+	var chartEl = $('.fs-graph-body .traffic-widget-chart');
+	var InterfaceString = String(chartEl.attr('data-if') || '');
+	var RealInterfaceString = String(chartEl.attr('data-realif') || '');
 	window.graph_backgroundupdate = $('#backgroundupdate').val() === "true";
 	window.smoothing = $('#smoothfactor').val();
 	window.interval = 1;

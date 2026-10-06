@@ -118,22 +118,13 @@ if (!empty($cpzone)) {
 	$pglinks[] = "@self";
 
 	if ($vouchers_on) {
-		/* same counting as the Active Vouchers and Voucher Rolls pages (read only) */
+		/* same counting as the Voucher Rolls page */
 		$voucherlck = lock("voucher{$cpzone}");
 		foreach (config_get_path("voucher/{$cpzone}/roll", []) as $rollent) {
 			$roll = $rollent['number'];
 			$voucher_stats['rolls']++;
 			$voucher_stats['tickets'] += intval($rollent['count']);
-			$active = 0;
-			$dbfile = "{$g['vardb_path']}/voucher_{$cpzone}_active_{$roll}.db";
-			if (file_exists($dbfile)) {
-				foreach (file($dbfile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-					list(, $timestamp, $minutes) = array_pad(explode(",", $line), 3, 0);
-					if ((intval($timestamp) + 60 * intval($minutes)) > time()) {
-						$active++;
-					}
-				}
-			}
+			$active = count(voucher_read_active_db($roll));
 			$voucher_stats['active'] += $active;
 			$voucher_stats['used'] += max(0, voucher_used_count($roll) - $active);
 		}
