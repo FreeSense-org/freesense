@@ -113,6 +113,7 @@ define('PFCONFIG_FILTER_SELF', ['id' => 'pfc_self', 'description' => 'Required r
 define('PFCONFIG_FILTER_GATEWAY_MONITORING', ['id' => 'pfc_gwmon', 'description' => 'Rules to prevent incorrect routing of gateway monitoring traffic']);
 define('PFCONFIG_FILTER_IPSEC_INTERNAL', ['id' => 'pfc_ipsecint', 'description' => 'Required rules for IPsec host connectivity']);
 define('PFCONFIG_FILTER_ANTILOCKOUT', ['id' => 'pfc_antilock', 'description' => 'Rules to prevent accidental lockout from the firewall']);
+define('PFCONFIG_FILTER_RESTAPI', ['id' => 'pfc_restapi', 'description' => 'Rules for the REST API listeners']);
 define('PFCONFIG_FILTER_NAT_REFLECTION', ['id' => 'pfc_rnat', 'description' => 'Rules for NAT reflection']);
 define('PFCONFIG_FILTER_CAPTIVE_PORTAL', ['id' => 'pfc_cp', 'description' => 'Rules for the Captive Portal service']);
 define('PFCONFIG_ANCHOR_FILTER_USER', ['id' => 'pfc_anchorusr', 'description' => 'Anchor for user rules']);
@@ -190,6 +191,7 @@ define('PFCONFIG_CATEGORIES', [
 	PFCONFIG_FILTER_GATEWAY_MONITORING['id'] => 'PFCONFIG_FILTER_GATEWAY_MONITORING',
 	PFCONFIG_FILTER_IPSEC_INTERNAL['id'] => 'PFCONFIG_FILTER_IPSEC_INTERNAL',
 	PFCONFIG_FILTER_ANTILOCKOUT['id'] => 'PFCONFIG_FILTER_ANTILOCKOUT',
+	PFCONFIG_FILTER_RESTAPI['id'] => 'PFCONFIG_FILTER_RESTAPI',
 	PFCONFIG_FILTER_NAT_REFLECTION['id'] => 'PFCONFIG_FILTER_NAT_REFLECTION',
 	PFCONFIG_FILTER_CAPTIVE_PORTAL['id'] => 'PFCONFIG_FILTER_CAPTIVE_PORTAL',
 	PFCONFIG_ANCHOR_FILTER_USER['id'] => 'PFCONFIG_ANCHOR_FILTER_USER',

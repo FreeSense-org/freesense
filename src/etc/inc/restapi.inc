@@ -41,6 +41,7 @@ require_once('auth.inc');
 require_once('priv.inc');
 require_once('auth_func.inc');
 require_once('restapi/framework.inc');
+require_once('restapi_log.inc');
 
 define('RESTAPI_LAST_USED', '/var/db/restapi_last_used.json');
 define('RESTAPI_MAX_TOKENS_PER_USER', 20);
@@ -58,11 +59,17 @@ function restapi_user_has_access($user) {
 function restapi_settings() {
 	$s = config_get_path('restapi', []);
 	$s = is_array($s) ? $s : [];
-	unset($s['apitoken']);
-	foreach (array('enable', 'allowhttp') as $flag) {
+	unset($s['apitoken'], $s['apilistener']);
+	foreach (array('enable', 'allowhttp', 'noguiapi') as $flag) {
 		$s[$flag] = isset($s[$flag]) && ($s[$flag] !== false);
 	}
 	$s['allowednetworks'] = (string)($s['allowednetworks'] ?? '');
+	/* Served on the WebGUI port unless turned off (then only on the listeners). */
+	$s['guiapi'] = !$s['noguiapi'];
+	$log = restapi_reqlog_settings($s);
+	$s['log_level'] = $log['level'];
+	$s['log_days'] = $log['days'];
+	$s['log_mb'] = $log['mb'];
 	return $s;
 }
 
@@ -77,6 +84,17 @@ function restapi_validate_settings($post) {
 			$input_errors[] = sprintf(gettext('"%s" is not a valid address or network.'), htmlspecialchars($net));
 		}
 	}
+	if (!in_array((string)($post['log_level'] ?? RESTAPI_REQLOG_DEFAULT_LEVEL), RESTAPI_REQLOG_LEVELS, true)) {
+		$input_errors[] = gettext('Choose what to log.');
+	}
+	$days = (string)($post['log_days'] ?? RESTAPI_REQLOG_DEFAULT_DAYS);
+	if (!ctype_digit($days) || ((int)$days < 1) || ((int)$days > 365)) {
+		$input_errors[] = gettext('Keep the log for 1 to 365 days.');
+	}
+	$mb = (string)($post['log_mb'] ?? RESTAPI_REQLOG_DEFAULT_MB);
+	if (!ctype_digit($mb) || ((int)$mb < 1) || ((int)$mb > 500)) {
+		$input_errors[] = gettext('The log size limit must be from 1 to 500 MB.');
+	}
 	return $input_errors;
 }
 
@@ -87,6 +105,8 @@ function restapi_save_settings($post) {
 	}
 	$section = config_get_path('restapi', []);
 	$section = is_array($section) ? $section : [];
+	$was_enabled = !empty($section['enable']);
+	$old_networks = (string)($section['allowednetworks'] ?? '');
 	foreach (array('enable', 'allowhttp') as $flag) {
 		if (!empty($post[$flag])) {
 			$section[$flag] = true;
@@ -94,9 +114,25 @@ function restapi_save_settings($post) {
 			unset($section[$flag]);
 		}
 	}
+	if (empty($post['guiapi'])) {
+		$section['noguiapi'] = true;
+	} else {
+		unset($section['noguiapi']);
+	}
 	$section['allowednetworks'] = implode(' ', restapi_parse_networks($post['allowednetworks'] ?? ''));
+	$section['log_level'] = (string)($post['log_level'] ?? RESTAPI_REQLOG_DEFAULT_LEVEL);
+	$section['log_days'] = (int)($post['log_days'] ?? RESTAPI_REQLOG_DEFAULT_DAYS);
+	$section['log_mb'] = (int)($post['log_mb'] ?? RESTAPI_REQLOG_DEFAULT_MB);
 	config_set_path('restapi', $section);
+	restapi_reqlog_configure_cron();
 	write_config(gettext('REST API settings saved.'));
+	restapi_reqlog_prune();
+	/* Listeners stop when the API is turned off, and their firewall rules use the allowed networks. */
+	if (!empty(config_get_path('restapi/apilistener', [])) &&
+	    (($was_enabled !== !empty($section['enable'])) || ($old_networks !== $section['allowednetworks']))) {
+		require_once('restapi_listener.inc');
+		restapi_listeners_apply();
+	}
 	return array('input_errors' => array());
 }
 
@@ -166,7 +202,8 @@ function restapi_create_token($post) {
 		return ($t['username'] ?? '') === $username;
 	}));
 	if ($count >= RESTAPI_MAX_TOKENS_PER_USER) {
-		$input_errors[] = sprintf(gettext('A user may have at most %d API keys.'), RESTAPI_MAX_TOKENS_PER_USER);
+		$input_errors[] = sprintf(gettext('A user may have at most %d API keys, revoked keys included; delete keys that are no longer needed.'),
+		    RESTAPI_MAX_TOKENS_PER_USER);
 	}
 	if (!empty($input_errors)) {
 		return array('input_errors' => $input_errors);
@@ -200,21 +237,6 @@ function restapi_create_token($post) {
 	return array('input_errors' => array(), 'id' => $id, 'token' => restapi_format_token($id, $secret));
 }
 
-/* Revoke a key; with $only_user set, only a key that user owns. */
-function restapi_revoke_token($id, $only_user = null) {
-	list($idx, $token) = restapi_find_token($id);
-	if ($idx === null || (($only_user !== null) && ($token['username'] !== $only_user))) {
-		return false;
-	}
-	config_del_path("restapi/apitoken/{$idx}");
-	config_set_path('restapi/apitoken', array_values(config_get_path('restapi/apitoken', [])));
-	write_config(sprintf(gettext('API key %1$s of user %2$s revoked.'), $token['id'], $token['username']));
-	$used = restapi_last_used_read();
-	unset($used[$id]);
-	@file_put_contents(RESTAPI_LAST_USED, json_encode($used), LOCK_EX);
-	return true;
-}
-
 /*
  * Revoke every API key of $username and save ("Revoke all keys", for an
  * account that may be compromised; a password change does not revoke keys).
@@ -237,6 +259,61 @@ function restapi_revoke_user_tokens($username) {
 		@file_put_contents(RESTAPI_LAST_USED, json_encode($used), LOCK_EX);
 	}
 	return $removed;
+}
+
+/*
+ * Revoke the API keys with the IDs in $ids and save once. A revoked key is
+ * refused at once and for good (restapi_authenticate()), but stays listed,
+ * with its last use, until it is deleted. With $only_user, only that user's
+ * keys are revoked. Returns the number of keys newly revoked.
+ */
+function restapi_revoke_tokens(array $ids, $only_user = null) {
+	$wanted = array_flip(array_map('strval', $ids));
+	$tokens = config_get_path('restapi/apitoken', []);
+	$revoked = array();
+	foreach ($tokens as $idx => $token) {
+		if (is_array($token) && isset($wanted[(string)($token['id'] ?? '')]) && empty($token['revoked']) &&
+		    (($only_user === null) || (($token['username'] ?? null) === $only_user))) {
+			$tokens[$idx]['revoked'] = time();
+			$revoked[] = $token['id'] . ' (' . ($token['username'] ?? '') . ')';
+		}
+	}
+	if (empty($revoked)) {
+		return 0;
+	}
+	config_set_path('restapi/apitoken', $tokens);
+	write_config(sprintf(gettext('API key(s) revoked: %s.'), implode(', ', $revoked)));
+	return count($revoked);
+}
+
+/*
+ * Delete the API keys with the IDs in $ids (revoked or not) and save once.
+ * With $only_user, only that user's keys are deleted. Returns the number of
+ * keys removed.
+ */
+function restapi_delete_tokens(array $ids, $only_user = null) {
+	$wanted = array_flip(array_map('strval', $ids));
+	$keep = array();
+	$removed = array();
+	foreach (config_get_path('restapi/apitoken', []) as $token) {
+		if (is_array($token) && isset($wanted[(string)($token['id'] ?? '')]) &&
+		    (($only_user === null) || (($token['username'] ?? null) === $only_user))) {
+			$removed[(string)$token['id']] = $token['id'] . ' (' . ($token['username'] ?? '') . ')';
+			continue;
+		}
+		$keep[] = $token;
+	}
+	if (empty($removed)) {
+		return 0;
+	}
+	config_set_path('restapi/apitoken', $keep);
+	write_config(sprintf(gettext('API key(s) deleted: %s.'), implode(', ', $removed)));
+	$used = restapi_last_used_read();
+	foreach (array_keys($removed) as $id) {
+		unset($used[$id]);
+	}
+	@file_put_contents(RESTAPI_LAST_USED, json_encode($used), LOCK_EX);
+	return count($removed);
 }
 
 function restapi_last_used_read() {
@@ -280,6 +357,9 @@ function restapi_authenticate($authorization, $remote_ip) {
 	}
 	if (!empty($token['expires']) && ((int)$token['expires'] < time())) {
 		throw $fail($token['username'], "expired API key {$id}");
+	}
+	if (!empty($token['revoked'])) {
+		throw $fail($token['username'], "revoked API key {$id}");
 	}
 	$user = restapi_local_user($token['username']);
 	if ($user === null) {

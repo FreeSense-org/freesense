@@ -2325,10 +2325,61 @@ check_api(strpos(substr($set_pw, 0, strpos($set_pw, "\n}\n")), 'local_user_revok
 $restapi_inc_rk = file_get_contents("{$root}/src/etc/inc/restapi.inc");
 check_api(strpos($restapi_inc_rk, 'function restapi_revoke_user_tokens($username)') !== false &&
     strpos($restapi_inc_rk, 'local_user_revoke_api_keys($username)') !== false, '"Revoke all keys" revokes through local_user_revoke_api_keys() and saves');
-check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_restapi_keys.php"), 'restapi_revoke_user_tokens($me)') !== false,
-    'My API Keys can revoke all of the signed-in user\'s keys (and only theirs)');
-check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_restapi.php"), "=== 'revoke_all'") !== false,
-    'the REST API admin page can revoke all keys of a user');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_restapi_keys.php"), 'restapi_key_action($_POST, $me)') !== false,
+    'My API Keys revokes and deletes only the signed-in user\'s own keys');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_restapi.php"), 'restapi_key_action($_POST)') !== false,
+    'the REST API admin page revokes and deletes keys of any user');
+$rk_keys_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/restapi_keys.inc");
+$rk_action = $fn_body($rk_keys_inc, 'restapi_key_action');
+check_api(strpos($rk_action, 'restapi_revoke_tokens($ids, $only_user)') !== false && strpos($rk_action, 'restapi_delete_tokens($ids, $only_user)') !== false &&
+    strpos($rk_action, "array_filter((array)(\$post['ids'] ?? array()), 'is_string')") !== false, 'key actions pass the user restriction on and take only string IDs');
+$rk_auth = $fn_body($restapi_inc_rk, 'restapi_authenticate');
+check_api(strpos($rk_auth, "if (!empty(\$token['revoked'])) {") !== false &&
+    strpos($rk_auth, "if (!empty(\$token['revoked'])) {") < strpos($rk_auth, 'restapi_touch_last_used('), 'a revoked key is refused before it is marked used');
+/* restapi_revoke_tokens() marks keys revoked, restapi_delete_tokens() removes them: selected IDs only, the user restriction, one write. */
+$rk_harness = <<<'PHP'
+<?php
+define('RESTAPI_LAST_USED', tempnam(sys_get_temp_dir(), 'rkused'));
+function gettext($t) { return $t; }
+function config_get_path($path, $default = null) { return $GLOBALS['cfg'][$path] ?? $default; }
+function config_set_path($path, $value) { $GLOBALS['cfg'][$path] = $value; }
+function write_config($msg) { $GLOBALS['writes'][] = $msg; }
+function restapi_last_used_read() { return json_decode((string)file_get_contents(RESTAPI_LAST_USED), true) ?: array(); }
+$fail = 0;
+function t($ok, $what) { global $fail; if (!$ok) { $fail++; echo "FAIL: {$what}\n"; } }
+function reset_cfg() {
+	$GLOBALS['cfg'] = array('restapi/apitoken' => array(array('id' => 'aaa', 'username' => 'admin'), array('id' => 'bbb', 'username' => 'bob'),
+	    array('id' => 'ccc', 'username' => 'bob', 'revoked' => 5), 'junk'));
+	$GLOBALS['writes'] = array();
+	file_put_contents(RESTAPI_LAST_USED, json_encode(array('aaa' => 1, 'bbb' => 2, 'ccc' => 3)));
+}
+function ids() { return array_map(function ($t) { return is_array($t) ? $t['id'] : $t; }, $GLOBALS['cfg']['restapi/apitoken']); }
+function revoked() { return array_values(array_map(function ($t) { return $t['id']; }, array_filter($GLOBALS['cfg']['restapi/apitoken'], function ($t) { return is_array($t) && !empty($t['revoked']); }))); }
+PHP;
+$rk_tests = <<<'PHP'
+reset_cfg();
+t(restapi_revoke_tokens(array('aaa', 'ccc', 'nope')) === 1 && ids() === array('aaa', 'bbb', 'ccc', 'junk') && revoked() === array('aaa', 'ccc') &&
+    $GLOBALS['cfg']['restapi/apitoken'][2]['revoked'] === 5 && count($GLOBALS['writes']) === 1 && strpos($GLOBALS['writes'][0], 'aaa (admin)') !== false &&
+    count(restapi_last_used_read()) === 3, 'revoke marks the selected keys (not again), keeps them listed, one write');
+reset_cfg();
+t(restapi_revoke_tokens(array('aaa', 'bbb'), 'bob') === 1 && revoked() === array('bbb', 'ccc'), 'revoke with a user touches only that user\'s keys');
+reset_cfg();
+t(restapi_delete_tokens(array('aaa', 'ccc', 'nope')) === 2 && ids() === array('bbb', 'junk') && count($GLOBALS['writes']) === 1 &&
+    array_keys(restapi_last_used_read()) === array('bbb'), 'delete removes the selected keys, revoked or not, with one write');
+reset_cfg();
+t(restapi_delete_tokens(array('aaa', 'bbb'), 'bob') === 1 && ids() === array('aaa', 'ccc', 'junk'), 'delete with a user removes only that user\'s keys');
+reset_cfg();
+t(restapi_revoke_tokens(array()) === 0 && restapi_revoke_tokens(array('ccc')) === 0 && restapi_delete_tokens(array('nope')) === 0 && empty($GLOBALS['writes']),
+    'nothing to do: no write');
+unlink(RESTAPI_LAST_USED);
+echo ($fail === 0) ? "ALL OK\n" : "{$fail} failed\n";
+PHP;
+$rk_file = tempnam(sys_get_temp_dir(), 'rktest');
+file_put_contents($rk_file, $rk_harness . "\n" . $fn_body($restapi_inc_rk, 'restapi_revoke_tokens') . "\n}\n\n" .
+    $fn_body($restapi_inc_rk, 'restapi_delete_tokens') . "\n}\n\n" . $rk_tests);
+$rk_out = (string)shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($rk_file) . ' 2>&1');
+unlink($rk_file);
+check_api(trim($rk_out) === 'ALL OK', "revoking and deleting keys touch exactly the selected keys:\n{$rk_out}");
 $rk_users = file_get_contents("{$root}/src/etc/inc/restapi/routes_users.inc");
 $rk_fn = substr($rk_users, strpos($rk_users, 'function restapi_h_users_keys_revoke('));
 check_api(strpos(substr($rk_fn, 0, strpos($rk_fn, "\n}\n")), 'usermgr_manage_user_refusal($req[\'user\']') !== false,
@@ -3383,7 +3434,7 @@ foreach (array('page-system-restapi', 'page-system-restapi-keys') as $priv) {
 	check_api(strpos($defs, "\$priv_list['{$priv}'] = array();") !== false, "{$priv} is in priv.defs.inc");
 }
 $self = file_get_contents("{$root}/src/usr/local/www/system_restapi_keys.php");
-check_api(strpos($self, "\$post['username'] = \$me;") !== false && strpos($self, "restapi_revoke_token((string)(\$_POST['id'] ?? ''), \$me)") !== false,
+check_api(strpos($self, "\$post['username'] = \$me;") !== false && strpos($self, 'restapi_key_action($_POST, $me)') !== false,
     'My API Keys only creates and revokes the signed-in user\'s own keys');
 
 
@@ -3497,4 +3548,145 @@ check_api(is_array(json_decode($fx_full, true)) && json_last_error() === JSON_ER
     'the embedded explorer JSON is valid');
 $fx_access = restapi_explorer_access_for(null);
 check_api($fx_access($v1[0], array()) !== '', 'a non-local GUI user is told keys are for local users only');
+/* Request log (restapi_log.inc) */
+require_once('restapi_log.inc');
+$lg = array('level' => 'failures', 'days' => 30, 'mb' => 10);
+check_api(!restapi_reqlog_wanted('off', 500, true) && restapi_reqlog_wanted('failures', 401, false) && !restapi_reqlog_wanted('failures', 200, true) &&
+    restapi_reqlog_wanted('changes', 200, true) && !restapi_reqlog_wanted('changes', 200, false) && restapi_reqlog_wanted('changes', 404, false) &&
+    restapi_reqlog_wanted('all', 200, false) && !restapi_reqlog_wanted('bogus', 500, true), 'log levels: off, failures, changes (writes and failures), all');
+$ll = json_decode(restapi_reqlog_line(array('t' => 1000.12345, 'ip' => "10.0.0.1\n", 'm' => 'GET', 'p' => '/api/v1/x' . str_repeat('a', 400),
+    's' => '200', 'k' => 'abcdef012345', 'u' => 'bob', 'w' => 1, 'ua' => "curl\x00/8", 'body' => 'secret', 'secret' => 'x')), true);
+check_api($ll['t'] === 1000.123 && $ll['ip'] === '10.0.0.1' && strlen($ll['p']) === 300 && $ll['s'] === 200 && $ll['w'] === true &&
+    $ll['ua'] === 'curl/8' && !isset($ll['body']) && !isset($ll['secret']) &&
+    array_keys($ll) === array('t', 'ip', 'm', 'p', 's', 'ms', 'k', 'u', 'l', 'w', 'c', 'ua'), 'a log line has fixed fields only, cleaned and cut');
+$lf = tempnam(sys_get_temp_dir(), 'rlog');
+@unlink($lf);
+check_api(!restapi_reqlog_request(array('s' => 200), $lg, $lf) && !is_file($lf) && restapi_reqlog_request(array('s' => 403, 'p' => '/api/v1/a'), $lg, $lf) &&
+    count(restapi_reqlog_read($lf)) === 1, 'only wanted requests are written');
+$now = 2000000000;
+file_put_contents($lf, implode("\n", array(
+    restapi_reqlog_line(array('t' => $now - 40 * 86400, 's' => 200, 'p' => '/old')),
+    'not json',
+    restapi_reqlog_line(array('t' => $now - 10, 's' => 500, 'p' => '/new', 'm' => 'POST', 'w' => true, 'l' => 'abcd1234')),
+    restapi_reqlog_line(array('t' => $now - 5, 's' => 200, 'p' => '/v1/me', 'm' => 'GET', 'k' => 'aaaaaaaaaaaa', 'u' => 'svc', 'ip' => '10.1.1.1')),
+)) . "\n");
+check_api(restapi_reqlog_prune($lg, $lf, $now) === 2 && array_column(restapi_reqlog_read($lf), 'p') === array('/new', '/v1/me'),
+    'pruning drops expired and unreadable entries');
+$big = array('level' => 'all', 'days' => 30, 'mb' => 1);
+file_put_contents($lf, '');
+for ($i = 0; $i < 6000; $i++) {
+	file_put_contents($lf, restapi_reqlog_line(array('t' => $now - 6000 + $i, 's' => 200, 'p' => '/api/v1/' . str_repeat('x', 150))) . "\n", FILE_APPEND);
+}
+restapi_reqlog_prune($big, $lf, $now);
+$kept = restapi_reqlog_read($lf);
+check_api(filesize($lf) <= 0.8 * 1048576 && count($kept) > 1000 && end($kept)['t'] == $now - 1, 'over the size limit the oldest entries go first');
+$es = array(
+    array('t' => $now - 7200, 's' => 200, 'm' => 'GET', 'p' => '/api/v1/me', 'k' => 'aaaaaaaaaaaa', 'u' => 'svc', 'ip' => '10.1.1.1', 'ms' => 10, 'w' => false, 'l' => ''),
+    array('t' => $now - 100, 's' => 401, 'm' => 'GET', 'p' => '/api/v1/me', 'k' => '', 'u' => '', 'ip' => '203.0.113.9', 'ms' => 2, 'w' => false, 'l' => 'abcd1234', 'c' => 'unauthorized'),
+    array('t' => $now - 50, 's' => 201, 'm' => 'POST', 'p' => '/api/v1/firewall/aliases', 'k' => 'aaaaaaaaaaaa', 'u' => 'svc', 'ip' => '10.1.1.1', 'ms' => 30, 'w' => true, 'l' => ''),
+);
+$fq = function ($f) use ($es) { return array_column(restapi_reqlog_filter($es, $f), 's'); };
+check_api($fq(array()) === array(201, 401, 200) && $fq(array('status' => 'failed')) === array(401) && $fq(array('status' => '2xx')) === array(201, 200) &&
+    $fq(array('status' => 'ok', 'kind' => 'write')) === array(201) && $fq(array('listener' => 'gui')) === array(201, 200) &&
+    $fq(array('listener' => 'abcd1234')) === array(401) && $fq(array('q' => 'unauthorized 203.0')) === array(401) &&
+    $fq(array('since' => $now - 3600, 'method' => 'post')) === array(201), 'log filters: status, kind, listener, words, time, method; newest first');
+$st = restapi_reqlog_stats($es, $now);
+check_api($st['total'] === 3 && $st['failed'] === 1 && $st['clients'] === 2 && $st['avg_ms'] === 14 && count($st['buckets']) === 24 &&
+    array_sum(array_column($st['buckets'], 'ok')) === 2 && array_sum(array_column($st['buckets'], 'failed')) === 1 &&
+    $st['top_keys'] === array("aaaaaaaaaaaa\tsvc" => 2) && $st['top_failing'] === array('203.0.113.9' => 1), 'log statistics of the last 24 hours');
+unlink($lf);
+check_api(restapi_reqlog_settings(array('log_level' => 'nope', 'log_days' => 0, 'log_mb' => 9999)) === array('level' => 'failures', 'days' => 30, 'mb' => 10) &&
+    restapi_reqlog_settings(array('log_level' => 'all', 'log_days' => '7', 'log_mb' => '50')) === array('level' => 'all', 'days' => 7, 'mb' => 50),
+    'log settings fall back to defaults when out of range');
+
+/* REST API listeners (restapi_listener.inc), run in a separate PHP process */
+$ln_inc = file_get_contents("{$root}/src/etc/inc/restapi_listener.inc");
+$ln_harness = <<<'PHP'
+<?php
+function is_ipaddrv6($a) { return strpos($a, ':') !== false; }
+$fail = 0;
+function t($ok, $what) { global $fail; if (!$ok) { $fail++; echo "FAIL: {$what}\n"; } }
+PHP;
+$ln_tests = <<<'PHP'
+$conf = restapi_listener_nginx_conf(array(
+	array('id' => 'abcd1234', 'port' => 8443, 'addresses' => array('203.0.113.5', '2001:db8::5'), 'ratelimit' => 10, 'crt' => '/var/etc/restapi-abcd1234.crt', 'key' => '/var/etc/restapi-abcd1234.key'),
+	array('id' => '0000ffff', 'port' => 9443, 'addresses' => array('127.0.0.1'), 'ratelimit' => 0, 'crt' => '/c', 'key' => '/k'),
+), '/var/run/nginx-restapi-abcd1234.pid');
+t(strpos($conf, "listen 203.0.113.5:8443 ssl;") !== false && strpos($conf, "listen [2001:db8::5]:8443 ssl;") !== false &&
+    strpos($conf, "listen 127.0.0.1:9443 ssl;") !== false && !preg_match('/listen\s+(\d+|\[::\]:\d+)( ssl)?;/', $conf), 'listeners bind only their own addresses');
+t(substr_count($conf, 'location ^~ /api/ {') === 2 && substr_count($conf, 'location / {') === 2 && substr_count($conf, 'return 404') === 2 &&
+    substr_count($conf, '.php') === substr_count($conf, 'SCRIPT_FILENAME /usr/local/www/api/index.php;') && substr_count($conf, '.php') === 2 &&
+    strpos($conf, 'location ~') === false,
+    'a listener serves only /api/ through the front controller; every other path is 404');
+t(substr_count($conf, 'fastcgi_param RESTAPI_LISTENER abcd1234;') === 1 && substr_count($conf, 'fastcgi_param RESTAPI_LISTENER 0000ffff;') === 1,
+    'nginx tells the front controller which listener received the request');
+t(strpos($conf, 'limit_req_zone $binary_remote_addr zone=restapi_abcd1234:2m rate=10r/s;') !== false &&
+    strpos($conf, 'limit_req zone=restapi_abcd1234 burst=20 nodelay;') !== false && strpos($conf, 'restapi_0000ffff') === false &&
+    strpos($conf, 'limit_req_status 429;') !== false, 'per-client rate limit per listener (0 turns it off)');
+t(strpos($conf, 'ssl_protocols TLSv1.2 TLSv1.3;') !== false && strpos($conf, 'server_tokens off;') !== false &&
+    strpos($conf, 'pid /var/run/nginx-restapi-abcd1234.pid;') !== false && strpos($conf, 'nginx-webConfigurator') === false, 'HTTPS only, own nginx instance');
+$rules = restapi_listener_filter_rules(array(
+	array('id' => 'abcd1234', 'realif' => 'em0', 'to' => '(em0)', 'port' => 8443, 'sources' => array('198.51.100.0/24', '2001:db8::/48')),
+	array('id' => '0000ffff', 'realif' => 'em1', 'to' => '203.0.113.7', 'port' => 9443, 'sources' => array()),
+), 'log', function () { return 77; }, function ($l) { return "label \"{$l}\""; });
+t($rules === array(
+	'pass in log quick on em0 proto tcp from { 198.51.100.0/24 2001:db8::/48 } to (em0) port 8443 ridentifier 77 keep state label "REST API listener abcd1234"',
+	'pass in log quick on em1 proto tcp from any to 203.0.113.7 port 9443 ridentifier 77 keep state label "REST API listener 0000ffff"',
+), 'listener firewall rules pass only the port on the interface, from the allowed networks');
+t(restapi_listener_nginx_error(array('nginx: [emerg] bind() to 203.0.113.5:8443 failed (49: Can\'t assign requested address)', 'nginx: configuration file test failed')) ===
+    'bind() to 203.0.113.5:8443 failed (49: Can\'t assign requested address)' &&
+    restapi_listener_nginx_error(array('2026/10/06 12:00:00 [emerg] 123#0: unknown directive "x"')) === 'unknown directive "x"',
+    'nginx errors are summarized from nginx -t and error log lines');
+t(restapi_listener_parse_sockstat(array('USER    COMMAND      PID FD PROTO LOCAL ADDRESS         FOREIGN ADDRESS',
+    'unbound unbound    47845  4 tcp4  *:53                  *:*', 'unbound unbound    47845  5 tcp6  *:53                  *:*',
+    'root    nginx      83823  5 tcp4  192.168.228.2:8443    *:*', 'root    nginx      83617  5 tcp4  192.168.228.2:8443    *:*',
+    'root    sshd       11  4 tcp6  [2001:db8::5]:8443    *:*', ''), array('192.168.228.2', '2001:db8::5')) ===
+    array('unbound (*:53)', 'nginx (192.168.228.2:8443)', 'sshd ([2001:db8::5]:8443)'), 'services on all addresses or on the same address conflict');
+t(restapi_listener_parse_sockstat(array('root    nginx      83823  5 tcp4  192.168.228.2:8443    *:*'), array('192.168.27.131')) === array(),
+    'the same port on another address does not conflict');
+echo ($fail === 0) ? "ALL OK\n" : "{$fail} failed\n";
+PHP;
+$ln_code = '';
+foreach (array('restapi_listener_nginx_conf', 'restapi_listener_filter_rules', 'restapi_listener_nginx_error', 'restapi_listener_parse_sockstat') as $fn) {
+	check_api(strpos($ln_inc, "function {$fn}(") !== false, "restapi_listener.inc defines {$fn}()");
+	$ln_code .= $fn_body($ln_inc, $fn) . "\n}\n\n";
+}
+$ln_file = tempnam(sys_get_temp_dir(), 'lntest');
+file_put_contents($ln_file, $ln_harness . "\n" . $ln_code . $ln_tests);
+$ln_out = (string)shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($ln_file) . ' 2>&1');
+unlink($ln_file);
+check_api(trim($ln_out) === 'ALL OK', "the listener configuration and firewall rules hold:\n{$ln_out}");
+
+/* Listener wiring: the front controller trusts only nginx's parameter and checks the listener before authenticating. */
+$front_l = file_get_contents("{$root}/src/usr/local/www/api/index.php");
+check_api(strpos($ln_inc, "\$_SERVER['RESTAPI_LISTENER']") !== false && strpos($ln_inc, 'HTTP_RESTAPI_LISTENER') === false &&
+    strpos($front_l, '$listener = restapi_request_listener();') < strpos($front_l, 'restapi_authenticate(') &&
+    strpos($front_l, "'listener_read_only'") < strpos($front_l, 'restapi_authenticate(') &&
+    strpos($front_l, "elseif (!\$settings['guiapi'])") < strpos($front_l, 'restapi_authenticate('),
+    'listener, read-only and WebGUI-port checks come before authentication');
+check_api(strpos($ln_inc, "return (\$l !== null && \$l['enable']) ? \$l : array('id' => \$id, 'enable' => false);") !== false,
+    'a request for a removed or disabled listener is refused, not treated as the WebGUI port');
+check_api(strpos($front_l, 'restapi_log_response($status') !== false && strpos($front_l, "'k' => \$restapi_log_ctx['k']") !== false &&
+    strpos($fn_body($front_l, 'restapi_log_response'), 'php://input') === false && strpos($fn_body($front_l, 'restapi_log_response'), "'body'") === false,
+    'every response is logged, without the request body');
+$filter_l = file_get_contents("{$root}/src/etc/inc/filter.inc");
+check_api(strpos($filter_l, 'restapi_listener_ports()') !== false && strpos($filter_l, 'from <sshguard> to (self) port {$lockout_ports}') !== false &&
+    strpos($filter_l, 'PFCONFIG_FILTER_RESTAPI') !== false, 'login protection also blocks the listener ports; listener rules have their own section');
+$util_l = file_get_contents("{$root}/src/etc/inc/util.inc");
+check_api(strpos($util_l, "PFCONFIG_FILTER_ANTILOCKOUT['id'] => 'PFCONFIG_FILTER_ANTILOCKOUT',\n\tPFCONFIG_FILTER_RESTAPI['id'] => 'PFCONFIG_FILTER_RESTAPI',") !== false,
+    'listener rules come right after the anti-lockout rules');
+check_api(strpos(file_get_contents("{$root}/src/etc/inc/xmlparse.inc"), "'apilistener'") !== false, 'restapi/apilistener is a list in config.xml');
+$certs_l = file_get_contents("{$root}/src/etc/inc/certs.inc");
+check_api(strpos($certs_l, 'is_restapi_cert($certref) ||') !== false && strpos($certs_l, "\$services['restapi'] = true;") !== false,
+    'a listener certificate cannot be deleted, and renewing it restarts the listeners');
+check_api(strpos(file_get_contents("{$root}/src/etc/rc.bootup"), 'restapi_listeners_configure();') !== false &&
+    strpos(file_get_contents("{$root}/src/etc/rc.newwanip"), 'restapi_listeners_interface_changed($interface);') !== false &&
+    strpos(file_get_contents("{$root}/src/etc/rc.newwanipv6"), 'restapi_listeners_interface_changed($interface);') !== false,
+    'listeners start at boot and follow interface address changes');
+$status_page = file_get_contents("{$root}/src/usr/local/www/status_restapi.php");
+check_api(strpos($status_page, "##|*IDENT=page-status-restapi\n") !== false && strpos($defs, "\$priv_list['page-status-restapi']['match'][] = \"status_restapi.php*\";") !== false &&
+    strpos(file_get_contents("{$root}/src/usr/local/www/head.inc"), '"/status_restapi.php"') !== false, 'Status > REST API has its own privilege and menu entry');
+check_api(!preg_match('/\$g\b(?!\[)/', $status_page), 'the status page never assigns the GUI\'s global $g (foot.inc needs it)');
+check_api(strpos($status_page, "if (\$can_manage && restapi_reqlog_clear())") !== false && strpos($status_page, "\$can_manage = isAllowedPage('system_restapi.php');") !== false,
+    'clearing the log needs the REST API settings page');
 echo "REST API smoke test passed.\n";

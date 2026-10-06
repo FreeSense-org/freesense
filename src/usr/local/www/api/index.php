@@ -104,7 +104,12 @@ require_once('status_services.inc');
 require_once('diag_system.inc');
 require_once('pkg_mgr_install.inc');
 require_once('restapi.inc');
+require_once('restapi_listener.inc');
+require_once('restapi_log.inc');
 require_once('restapi/routes_v1.inc');
+
+/* What the request log records about this request (filled in as it is handled). */
+$restapi_log_ctx = array('t' => microtime(true), 'k' => '', 'u' => '', 'w' => null, 'l' => '');
 
 function restapi_respond($status, $body, $type = 'application/json', array $headers = array()) {
 	http_response_code($status);
@@ -115,7 +120,25 @@ function restapi_respond($status, $body, $type = 'application/json', array $head
 		header("{$name}: {$value}");
 	}
 	echo is_string($body) ? $body : json_encode($body, JSON_UNESCAPED_SLASHES | JSON_PARTIAL_OUTPUT_ON_ERROR);
+	restapi_log_response($status, is_array($body) ? (string)($body['error']['code'] ?? '') : '');
 	exit;
+}
+
+/* Log the finished request (after the response has been sent to the client). */
+function restapi_log_response($status, $code) {
+	global $restapi_log_ctx, $method, $path, $remote_ip;
+	$ms = (int)round((microtime(true) - $restapi_log_ctx['t']) * 1000);
+	if (function_exists('fastcgi_finish_request')) {
+		fastcgi_finish_request();
+	}
+	$write = $restapi_log_ctx['w'] ?? !in_array($method, array('GET', 'HEAD', 'OPTIONS'), true);
+	try {
+		restapi_reqlog_request(array('t' => $restapi_log_ctx['t'], 'ip' => $remote_ip, 'm' => $method, 'p' => '/api' . $path,
+		    's' => $status, 'ms' => $ms, 'k' => $restapi_log_ctx['k'], 'u' => $restapi_log_ctx['u'], 'l' => $restapi_log_ctx['l'],
+		    'w' => $write, 'c' => $code, 'ua' => (string)($_SERVER['HTTP_USER_AGENT'] ?? '')));
+	} catch (Throwable $e) {
+		/* Logging never changes the answer. */
+	}
 }
 
 $remote_ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
@@ -128,16 +151,37 @@ try {
 		throw new RestApiError(404, 'api_disabled', 'The REST API is disabled (System > REST API).');
 	}
 	$settings = restapi_settings();
+	/* An API listener (System > REST API > Listeners), or the WebGUI port (null). */
+	$listener = restapi_request_listener();
+	if ($listener !== null) {
+		$restapi_log_ctx['l'] = $listener['id'];
+		if (!$listener['enable']) {
+			throw new RestApiError(404, 'listener_disabled', 'This API listener is disabled.');
+		}
+	} elseif (!$settings['guiapi']) {
+		throw new RestApiError(404, 'not_on_webgui', 'The REST API is not served on the WebGUI port; use an API listener.');
+	}
 	$local = in_array($remote_ip, array('127.0.0.1', '::1'), true);
 	if (!$settings['allowhttp'] && !$local && (($_SERVER['HTTPS'] ?? '') !== 'on')) {
 		throw new RestApiError(403, 'https_required', 'The REST API only accepts HTTPS requests.');
 	}
-	if (!restapi_ip_allowed($remote_ip, restapi_parse_networks($settings['allowednetworks']))) {
+	/* A listener's own allowed networks replace the general ones. */
+	$networks = restapi_parse_networks((($listener !== null) && ($listener['allowednetworks'] !== '')) ?
+	    $listener['allowednetworks'] : $settings['allowednetworks']);
+	if (!restapi_ip_allowed($remote_ip, $networks)) {
 		throw new RestApiError(403, 'source_not_allowed', 'Requests from this address are not allowed.');
 	}
 
 	list($route, $params) = restapi_match(restapi_routes_v1(), $method, $path);
+	$restapi_log_ctx['w'] = !empty($route['write']);
+	if (($listener !== null) && $listener['readonly'] && $route['write']) {
+		throw new RestApiError(403, 'listener_read_only', 'This API listener only allows requests that do not change anything.');
+	}
+	/* The key ID (never the secret) for the log, also when authentication fails. */
+	$claimed = restapi_parse_authorization($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+	$restapi_log_ctx['k'] = is_array($claimed) ? $claimed[0] : '';
 	$ctx = restapi_authenticate($_SERVER['HTTP_AUTHORIZATION'] ?? '', $remote_ip);
+	$restapi_log_ctx['u'] = (string)$ctx['user']['name'];
 	restapi_authorize($ctx, $route);
 
 	if ($route['write'] && !empty($_SERVER['HTTP_IF_MATCH']) &&

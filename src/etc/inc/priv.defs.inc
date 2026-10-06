@@ -1011,6 +1011,12 @@ $priv_list['page-status-trafficshaper-queues']['descr'] = gettext("Allow access 
 $priv_list['page-status-trafficshaper-queues']['match'] = array();
 $priv_list['page-status-trafficshaper-queues']['match'][] = "status_queues.php*";
 
+$priv_list['page-status-restapi'] = array();
+$priv_list['page-status-restapi']['name'] = gettext("WebCfg - Status: REST API");
+$priv_list['page-status-restapi']['descr'] = gettext("Allow access to the 'Status: REST API' page (API activity, the request log and the listener state). Clearing the log also needs the 'System: REST API' page.");
+$priv_list['page-status-restapi']['match'] = array();
+$priv_list['page-status-restapi']['match'][] = "status_restapi.php*";
+
 $priv_list['page-status-services'] = array();
 $priv_list['page-status-services']['name'] = gettext("WebCfg - Status: Services");
 $priv_list['page-status-services']['descr'] = gettext("Allow access to the 'Status: Services' page.");

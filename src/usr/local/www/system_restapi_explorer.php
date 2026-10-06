@@ -76,6 +76,10 @@ if (!restapi_enabled()) {
 	    sprintf(gettext('The REST API is disabled. Enable it in %1$sSettings%2$s before trying requests.'),
 	    '<a href="system_restapi.php">', '</a>') :
 	    gettext('The REST API is disabled by the administrator; requests will fail until it is enabled.'), 'warning', false);
+} elseif (empty($settings['guiapi'])) {
+	print_info_box(sprintf(gettext('The REST API is not served on the WebGUI port, so "Try it" cannot reach it from this page. ' .
+	    'Turn on "Serve the API on the WebGUI port" in %1$sSettings%2$s, or call a listener with the copied curl command.'),
+	    $can_settings ? '<a href="system_restapi.php">' : '<span>', $can_settings ? '</a>' : '</span>'), 'warning', false);
 } elseif (empty($settings['allowhttp']) && (($_SERVER['HTTPS'] ?? '') !== 'on')) {
 	print_info_box(gettext('This page was loaded over HTTP, but the REST API only accepts HTTPS requests. Open the WebGUI over HTTPS to try requests.'),
 	    'warning', false);

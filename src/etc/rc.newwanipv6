@@ -273,6 +273,10 @@ if (substr($interface_real, 0, 4) != "ovpn") {
 	openvpn_resync_all($interface, 'inet6');
 }
 
+/* rebind REST API listeners on this interface */
+require_once('restapi_listener.inc');
+restapi_listeners_interface_changed($interface);
+
 /* reconfigure GRE/GIF tunnels */
 $gre = link_interface_to_tunnelif($interface, 'gre', 'inet6');
 array_walk($gre, 'interface_gre_configure');

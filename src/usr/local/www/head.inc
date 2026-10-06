@@ -474,6 +474,7 @@ $status_menu[] = array(gettext("IPsec"), "/status_ipsec.php");
 $status_menu[] = array(gettext("NTP"), "/status_ntpd.php");
 $status_menu[] = array(gettext("OpenVPN"), "/status_openvpn.php");
 $status_menu[] = array(gettext("Queues"), "/status_queues.php");
+$status_menu[] = array(gettext("REST API"), "/status_restapi.php");
 $status_menu[] = array(gettext("Services"), "/status_services.php");
 $status_menu[] = array(gettext("System Logs"), "/status_logs.php");
 $status_menu[] = array(gettext("Traffic Graph"), "/status_graph.php");

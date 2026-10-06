@@ -40,6 +40,7 @@ $me = (string)($_SESSION['Username'] ?? '');
 $me_user = restapi_local_user($me);
 $new_token = null;
 $create = array();
+$create_errors = array();
 
 if ($me_user === null) {
 	$input_errors[] = gettext('API keys are available to local users only.');
@@ -47,20 +48,16 @@ if ($me_user === null) {
 	$post = $_POST;
 	$post['username'] = $me;
 	$result = restapi_create_token($post);
-	$input_errors = $result['input_errors'];
-	if (empty($input_errors)) {
+	if (empty($result['input_errors'])) {
 		$new_token = $result['token'];
 	} else {
+		/* Shown in the create modal, which opens again with the entered values. */
+		$create_errors = $result['input_errors'];
 		$create = $_POST;
 	}
-} elseif (($_POST['act'] ?? '') === 'revoke') {
-	if (restapi_revoke_token((string)($_POST['id'] ?? ''), $me)) {
-		$savemsg = gettext('The API key was revoked.');
-	} else {
-		$input_errors[] = gettext('The API key no longer exists.');
-	}
-} elseif (($_POST['act'] ?? '') === 'revoke_all') {
-	$savemsg = sprintf(gettext('%d API key(s) revoked.'), restapi_revoke_user_tokens($me));
+} elseif (($action = restapi_key_action($_POST, $me)) !== null) {
+	/* Only the signed-in user's own keys, whatever IDs were posted. */
+	list($savemsg, $input_errors) = $action;
 }
 
 $pgtitle = array(gettext('System'), gettext('REST API'), gettext('My API Keys'));
@@ -87,11 +84,8 @@ if ($me_user !== null) {
 	$mine = array_values(array_filter(restapi_tokens(), function ($t) use ($me) {
 		return ($t['username'] ?? '') === $me;
 	}));
-	$footer = empty($mine) ? '' : '<a href="system_restapi_keys.php?act=revoke_all" class="btn btn-sm btn-outline-danger do-confirm" usepost title="' .
-	    htmlspecialchars(gettext('Revoke every one of your API keys, e.g. if your account may be compromised. Changing your password does not revoke keys.')) . '">' .
-	    '<i class="fa-solid fa-ban icon-embed-btn"></i>' . gettext('Revoke all my keys') . '</a>';
-	restapi_print_key_table($mine, false, 'system_restapi_keys.php', $footer);
-	restapi_print_create_form(array(), $create, $me);
+	restapi_print_key_table($mine, false, 'system_restapi_keys.php');
+	restapi_print_create_form(array(), $create, $me, $create_errors);
 
 	print_info_box(gettext('A key can do exactly what your account can do in the GUI, and nothing more. ' .
 	    'Use a read-only key and an expiry date where you can, and revoke keys you no longer use.'), 'info', false);

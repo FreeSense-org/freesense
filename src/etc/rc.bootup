@@ -450,6 +450,10 @@ $ipsec_dynamic_hosts = ipsec_configure();
 /* start SNMP service */
 services_snmpd_configure();
 
+/* start the REST API listeners (after the interfaces and virtual IPs have their addresses) */
+require_once('restapi_listener.inc');
+restapi_listeners_configure();
+
 /* power down hard drive if needed/set */
 system_set_harddisk_standby();
 
