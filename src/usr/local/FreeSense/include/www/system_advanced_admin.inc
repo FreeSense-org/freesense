@@ -82,7 +82,15 @@ function getAdvancedAdminConfig($json = false) {
 	return $json ? json_encode($pconfig) : $pconfig;
 }
 
-function doAdvancedAdminPOST($post, $json = false) {
+/*
+ * Validate, save and apply the Admin Access form. With $json the result is
+ * JSON text and the pass list is one space separated value
+ * (sshguard_whitelist) instead of the page's address/address_subnet rows.
+ * The webConfigurator and sshd restarts the save needs run at the end
+ * (restartui, restartsshd); with $json and $restart_now false they are left
+ * to the caller (the REST API restarts them after its response is sent).
+ */
+function doAdvancedAdminPOST($post, $json = false, $restart_now = true) {
 	$valid_webguiproto = array('http', 'https');
 	$input_errors = array();
 	$pconfig = $post;
@@ -120,8 +128,24 @@ function doAdvancedAdminPOST($post, $json = false) {
 		}
 	}
 
+	/* The login protection values are written to sshguard.conf, which is read by a shell. */
+	foreach (array('sshguard_threshold' => gettext('Threshold'), 'sshguard_blocktime' => gettext('Blocktime'),
+	    'sshguard_detection_time' => gettext('Detection time')) as $field => $label) {
+		if (($post[$field] != '') && (!is_numericint($post[$field]) || ($post[$field] < 1))) {
+			$input_errors[] = sprintf(gettext("Login Protection %s must be a positive whole number."), $label);
+		}
+	}
+
 	if ($json) {
 		$pconfig['sshguard_whitelist'] = $post['sshguard_whitelist'];
+		foreach (explode(' ', (string)$post['sshguard_whitelist']) as $whitelist_address) {
+			if (($whitelist_address !== '') && !is_subnet($whitelist_address)) {
+				$input_errors[] = sprintf(gettext(
+				    "Invalid subnet '%s' added to Login Protection pass list"),
+				    $whitelist_address);
+				break;
+			}
+		}
 	} else {
 		$whitelist_addresses = array();
 		for ($i = 0; isset($post['address' . $i]); $i++) {
@@ -398,11 +422,11 @@ function doAdvancedAdminPOST($post, $json = false) {
 		echo "<meta http-equiv=\"refresh\" content=\"20;url={$url}\" />";
 	}
 
-	if ($restart_sshd && $json) {
+	if ($restart_sshd && $json && $restart_now) {
 		restart_SSHD();
 	}
 
-	if ($restart_webgui && $json) {
+	if ($restart_webgui && $json && $restart_now) {
 		restart_GUI();
 	}
 

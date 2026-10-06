@@ -80,9 +80,14 @@ require_once('system_certificates.inc');
 require_once('system_usermanager.inc');
 require_once('system_authservers.inc');
 /*
- * System > Advanced (not Admin Access) and the System Tunables; they set globals at file scope.
+ * System > General Setup, High Availability, Update Settings, System > Advanced (Admin Access, Firewall & NAT,
+ * Networking, Miscellaneous, Notifications) and the System Tunables; they set globals at file scope.
  * The log and package libraries for the read-only status routes.
  */
+require_once('system_general.inc');
+require_once('system_hasync.inc');
+require_once('system_update_settings.inc');
+require_once('system_advanced_admin.inc');
 require_once('system_advanced_firewall.inc');
 require_once('system_advanced_network.inc');
 require_once('system_advanced_misc.inc');

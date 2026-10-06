@@ -972,6 +972,47 @@ function is_module_loaded(string $module_name): bool
 
 /* validate non-negative numeric string, or equivalent numeric variable */
 /*
+ * Update the changedesc and changecount(er) variables (moved here from
+ * guiconfig.inc, unchanged, for the shared page functions and the REST API).
+ */
+function update_changedesc($update) {
+	global $changedesc;
+	global $changecount;
+
+	$changedesc .= " {$update}";
+	$changecount++;
+}
+
+/* Check if variable has changed, update and log if it has
+ * returns true if var changed
+ * varname = variable name in plain text
+ * orig = original value
+ * new = new value
+ */
+function update_if_changed($varname, & $orig, $new) {
+	if (is_array($orig) && is_array($new)) {
+		$a_diff = array_diff($orig, $new);
+		foreach ($a_diff as $diff) {
+			update_changedesc("removed {$varname}: \"{$diff}\"");
+		}
+		$a_diff = array_diff($new, $orig);
+		foreach ($a_diff as $diff) {
+			update_changedesc("added {$varname}: \"{$diff}\"");
+		}
+		$orig = $new;
+		return true;
+
+	} else {
+		if ($orig != $new) {
+			update_changedesc("{$varname}: \"{$orig}\" -> \"{$new}\"");
+			$orig = $new;
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
  * Shared form validation: rejects control characters in every posted field
  * and reports missing required fields. Used by the GUI pages and by the
  * REST API through the same save functions (moved here from guiconfig.inc).

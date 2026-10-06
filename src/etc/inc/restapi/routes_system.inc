@@ -20,12 +20,28 @@
  */
 
 /*
- * REST API v1 routes for System > Advanced (area system.settings): the
- * Firewall & NAT, Networking, Miscellaneous and Notifications tabs and the
- * System Tunables. Admin Access is not part of this area.
+ * REST API v1 routes for the system settings (area system.settings): System >
+ * General Setup, High Availability, Update Settings and System > Advanced
+ * (Admin Access, Firewall & NAT, Networking, Miscellaneous, Notifications
+ * and the System Tunables).
  *
- * Writes go through the functions the pages call
- * (system_advanced_{firewall,network,misc,notifications,sysctl}.inc), so the
+ * General Setup, High Availability, Update Settings and Admin Access save
+ * through the pages' functions (system_general.inc, system_hasync.inc,
+ * system_update_settings.inc, system_advanced_admin.inc) and apply at once
+ * like the pages. The High Availability sync password reads as "(set)".
+ * Update Settings only selects the firmware branch (from the page's list) and
+ * the dashboard check: the GitSync fields (repository URL and branch, synced
+ * on the next upgrade) are neither returned nor accepted. Admin Access
+ * changes that can lock users out (webConfigurator protocol or port, the
+ * anti-lockout rule, the DNS rebind and HTTP_REFERER checks, disabling SSH,
+ * the SSH port or key mode) need {"confirm": true}; the error and the answer
+ * name the address the webConfigurator and the API will be at. A port another
+ * service listens on is refused. When the save needs a webConfigurator or
+ * sshd restart, it runs a few seconds after the answer has been sent
+ * ("restart" in the answer); the page restarts them after rendering.
+ *
+ * The other System > Advanced tabs write through the functions their pages
+ * call (system_advanced_{firewall,network,misc,notifications,sysctl}.inc), so the
  * validation is the GUI's. Like the pages, the four settings tabs apply at
  * once (filter reload, sysctls, services). Settings are flat objects of the
  * form fields with checkboxes as booleans; a PUT changes only the fields it
@@ -86,7 +102,53 @@ function restapi_routes_system() {
 	$apply_q = array('apply' => 'true: apply the tunables at once (otherwise the change is pending, like in the GUI)');
 	$t_page = 'system_advanced_sysctl.php';
 
+	$gen_body = array('type' => 'object', 'description' => 'The General Setup form: hostname, domain, dnsservers (list of {address, ' .
+	    'hostname (for TLS verification), gateway (only with more than one gateway of an address family; "none")}), dnslocalhost, ' .
+	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, logincss (from the choices), timeservers (space ' .
+	    'separated), dashboardcolumns (1-6), login_message, dnsallowoverride, interfacessort, dashboardavailablewidgetspanel, ' .
+	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
+	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost (booleans). ' .
+	    'Omitted fields keep their value. Applied at once (hostname, DNS, timezone, NTP, filter).');
+	$hasync_body = array('type' => 'object', 'description' => 'The High Availability form: pfsyncenabled, synctlsinsecure, adminsync ' .
+	    'and the synchronize* options (booleans; synchronizekea6 only with the Kea DHCP backend), pfsyncinterface (from the ' .
+	    'choices), pfhostid (hex, up to 8 digits), pfsyncpeerip, synchronizetoip, username, password ("(set)" or leaving it ' .
+	    'out keeps it). Omitted fields keep their value. Applied at once.');
+	$update_body = array('type' => 'object', 'properties' => array(
+	    'fwbranch' => array('type' => 'string', 'description' => 'Firmware branch, one of choices.fwbranch (switches the package repository)'),
+	    'disablecheck' => array('type' => 'boolean', 'description' => 'Disable the dashboard update check')),
+	    'description' => 'GitSync settings are not available through the API.');
+	$admin_body = array('type' => 'object', 'description' => 'The Admin Access form: webguiproto (http|https), ssl-certref, ' .
+	    'webguiport, max_procs, althostnames (space separated), sshdkeyonly (disabled|enabled|both), sshport, sshguard_threshold, ' .
+	    'sshguard_blocktime, sshguard_detection_time, sshguard_whitelist (list of subnets), serialspeed, primaryconsole ' .
+	    '(serial|video); webgui-redirect, webgui-hsts, ocsp-staple, loginautocomplete, webgui-login-messages, roaming, ' .
+	    'noantilockout, nodnsrebindcheck, nohttpreferercheck, pagenamefirst, enablesshd, sshdagentforwarding, enableserial, ' .
+	    'disableconsolemenu (booleans); confirm (boolean). Changing webguiproto, webguiport, nodnsrebindcheck, ' .
+	    'nohttpreferercheck, sshport or sshdkeyonly, setting noantilockout or clearing enablesshd needs "confirm": true. ' .
+	    'Omitted fields keep their value. Applied at once; a needed webConfigurator or sshd restart runs a few seconds ' .
+	    'after the answer ("restart").');
+
 	return array(
+		restapi_route('GET', '/v1/system/general', 'restapi_h_sysgen_get', array(
+			'page' => 'system.php', 'area' => $area,
+			'summary' => 'General Setup (hostname, domain, DNS servers, timezone, NTP servers, language, webConfigurator preferences)')),
+		restapi_route('PUT', '/v1/system/general', 'restapi_h_sysgen_set',
+			$w('system.php', 'Change General Setup (applied at once; omitted fields keep their value)', $gen_body)),
+		restapi_route('GET', '/v1/system/hasync', 'restapi_h_hasync_get', array(
+			'page' => 'system_hasync.php', 'area' => $area,
+			'summary' => 'High Availability sync settings (password as "(set)")')),
+		restapi_route('PUT', '/v1/system/hasync', 'restapi_h_hasync_set',
+			$w('system_hasync.php', 'Change High Availability sync settings (applied at once; omitted fields keep their value)', $hasync_body)),
+		restapi_route('GET', '/v1/system/update-settings', 'restapi_h_update_settings_get', array(
+			'page' => 'system_update_settings.php', 'area' => $area,
+			'summary' => 'Firmware branch and dashboard update check (GitSync is not available through the API)')),
+		restapi_route('PUT', '/v1/system/update-settings', 'restapi_h_update_settings_set',
+			$w('system_update_settings.php', 'Select the firmware branch or change the dashboard update check', $update_body)),
+		restapi_route('GET', '/v1/system/advanced/admin', 'restapi_h_admin_get', array(
+			'page' => 'system_advanced_admin.php', 'area' => $area,
+			'summary' => 'Admin Access settings (webConfigurator, SSH, login protection, console)')),
+		restapi_route('PUT', '/v1/system/advanced/admin', 'restapi_h_admin_set',
+			$w('system_advanced_admin.php', 'Change Admin Access settings (lock-out risks need "confirm": true; restarts run after the answer)',
+			    $admin_body)),
 		restapi_route('GET', '/v1/system/advanced/firewall', 'restapi_h_sysadv_fw_get', array(
 			'page' => 'system_advanced_firewall.php', 'area' => $area,
 			'summary' => 'Advanced Firewall & NAT settings')),
@@ -777,4 +839,614 @@ function restapi_h_tunables_delete($req) {
 function restapi_h_tunables_apply($req) {
 	restapi_tunables_do_apply();
 	return array('data' => array('applied' => true, 'pending' => is_subsystem_dirty('sysctl')));
+}
+
+/* ------------------------------------------------------------------ */
+/* General Setup (system.php)                                          */
+/* ------------------------------------------------------------------ */
+
+/* The checkboxes of the General Setup form. */
+function restapi_sysgen_flags() {
+	return array('dnsallowoverride', 'interfacessort', 'dashboardavailablewidgetspanel', 'systemlogsfilterpanel',
+	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'requirestatefilter', 'requirefirewallinterface',
+	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'roworderdragging', 'loginshowhost');
+}
+
+function restapi_sysgen_types() {
+	$types = array('dnsservers' => 'objects', 'choices' => 'ro', 'applied' => 'ro');
+	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language', 'webguicss', 'webguifixedmenu',
+	    'webguihostnamemenu', 'dashboardcolumns', 'logincss', 'login_message') as $field) {
+		$types[$field] = 'string';
+	}
+	foreach (restapi_sysgen_flags() as $flag) {
+		$types[$flag] = 'bool';
+	}
+	return $types;
+}
+
+/* Whether the page offers a gateway per DNS server (more than one gateway of an address family). */
+function restapi_sysgen_multiwan(array $gateways) {
+	$multiwan = 0;
+	$multiwan6 = 0;
+	foreach ($gateways as $gw) {
+		if ($gw['ipprotocol'] == 'inet') {
+			$multiwan++;
+		} else {
+			$multiwan6++;
+		}
+	}
+	return ($multiwan > 1) || ($multiwan6 > 1);
+}
+
+function restapi_sysgen_choices() {
+	$timezones = system_get_timezone_list();
+	$gateways = get_gateways();
+	$choices = array(
+		'dnslocalhost' => array('' => 'Use local DNS (127.0.0.1), fall back to remote DNS Servers (Default)',
+		    'local' => 'Use local DNS (127.0.0.1), ignore remote DNS Servers', 'remote' => 'Use remote DNS Servers, ignore local DNS'),
+		'timezone' => array_combine($timezones, system_general_timezone_descr($timezones)),
+		'language' => get_locale_list(),
+		'webguicss' => get_css_files(),
+		'webguifixedmenu' => array('' => gettext("Scrolls with page"), 'fixed' => gettext("Fixed (Remains visible at top of page)")),
+		'webguihostnamemenu' => array('' => gettext("Default (No hostname)"), 'hostonly' => gettext("Hostname only"),
+		    'fqdn' => gettext("Fully Qualified Domain Name")),
+		'logincss' => array("1e3f75;" => gettext("Dark Blue"), "003300" => gettext("Dark green"), "770101" => gettext("Crimson red"),
+		    "4b1263" => gettext("Purple"), "424142" => gettext("Gray"), "333333" => gettext("Dark gray"), "000000" => gettext("Black"),
+		    "633215" => gettext("Dark brown"), "bf7703" => gettext("Brown"), "008000" => gettext("Green"),
+		    "007faa" => gettext("Light Blue"), "dc2a2a" => gettext("Red"), "9b59b6" => gettext("Violet")),
+	);
+	if (restapi_sysgen_multiwan($gateways)) {
+		$options = array('none' => 'none');
+		foreach ($gateways as $gwname => $gwitem) {
+			$options[$gwname] = $gwname . ' - ' . $gwitem['friendlyiface'] . ' - ' . $gwitem['gateway'];
+		}
+		$choices['dnsgw'] = $options;
+	}
+	return $choices;
+}
+
+/* The page's form (pconfig) as API values; DNS servers as {address, hostname[, gateway]}. */
+function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
+	$servers = array();
+	foreach (array_values((array)($p['dnsserver'] ?? array())) as $i => $address) {
+		$server = array('address' => (string)$address, 'hostname' => (string)($p["dnshost{$i}"] ?? ''));
+		if ($with_gateways) {
+			$gw = (string)($p["dnsgw{$i}"] ?? '');
+			$server['gateway'] = ($gw === '') ? 'none' : $gw;
+		}
+		$servers[] = $server;
+	}
+	$out = array(
+		'hostname' => (string)$p['hostname'],
+		'domain' => (string)$p['domain'],
+		'dnsservers' => $servers,
+		'dnsallowoverride' => (bool)$p['dnsallowoverride'],
+		'dnslocalhost' => (string)$p['dnslocalhost'],
+		'timezone' => (string)$p['timezone'],
+		'timeservers' => (string)$p['timeservers'],
+		'language' => (string)$p['language'],
+		/* The theme select shows FreeSense.css when the stored theme is not installed. */
+		'webguicss' => isset($csslist[(string)$p['webguicss']]) ? (string)$p['webguicss'] : 'FreeSense.css',
+		'webguifixedmenu' => (string)$p['webguifixedmenu'],
+		'webguihostnamemenu' => (string)$p['webguihostnamemenu'],
+		'dashboardcolumns' => (string)$p['dashboardcolumns'],
+		'logincss' => (string)$p['logincss'],
+		/* The page shows the stored message HTML encoded; the API returns the text. */
+		'login_message' => html_entity_decode((string)$p['login_message'], ENT_QUOTES | ENT_HTML401),
+	);
+	foreach (restapi_sysgen_flags() as $flag) {
+		$out[$flag] = (bool)$p[$flag];
+	}
+	return $out;
+}
+
+function restapi_sysgen_settings() {
+	return restapi_sysgen_values(system_general_settings(), isset(restapi_sysgen_choices()['dnsgw']), get_css_files());
+}
+
+/* The dnsservers list as the page's rows (dnsN, dnshostN and dnsgwN when the gateway select is shown). */
+function restapi_sysgen_dns_rows($servers, $with_gateways) {
+	$shape = '"dnsservers" must be a list of {address, hostname, gateway}.';
+	if (!is_array($servers) || !array_is_list($servers)) {
+		throw new RestApiError(400, 'invalid_field', $shape);
+	}
+	$post = array();
+	foreach ($servers as $i => $server) {
+		if (!is_array($server) || (array_is_list($server) && !empty($server))) {
+			throw new RestApiError(400, 'invalid_field', $shape);
+		}
+		foreach ($server as $key => $value) {
+			if (!in_array($key, array('address', 'hostname', 'gateway'), true)) {
+				throw new RestApiError(400, 'unknown_field', "Unknown DNS server field \"{$key}\".");
+			}
+			if (!is_string($value) && !is_null($value)) {
+				throw new RestApiError(400, 'invalid_field', "DNS server field \"{$key}\" must be a string.");
+			}
+		}
+		$gw = (string)($server['gateway'] ?? '');
+		if (!$with_gateways && ($gw !== '') && ($gw !== 'none')) {
+			throw restapi_validation_error(array('A gateway per DNS server can only be selected with more than one gateway of an address family.'));
+		}
+		$post["dns{$i}"] = (string)($server['address'] ?? '');
+		$post["dnshost{$i}"] = (string)($server['hostname'] ?? '');
+		if ($with_gateways) {
+			$post["dnsgw{$i}"] = ($gw === '') ? 'none' : $gw;
+		}
+	}
+	if (empty($post)) {
+		/* The page always posts at least one (empty) row. */
+		$post = array('dns0' => '', 'dnshost0' => '');
+		if ($with_gateways) {
+			$post['dnsgw0'] = 'none';
+		}
+	}
+	return $post;
+}
+
+/*
+ * Selects must hold one of the page's options. A stored value the page does
+ * not offer (e.g. an unset login page color) may be kept as it is.
+ */
+function restapi_settings_check_changed_choices(array $values, array $current, array $choices, array $fields) {
+	$changed = array();
+	foreach ($fields as $field) {
+		if (array_key_exists($field, $values) && ((string)$values[$field] !== (string)($current[$field] ?? ''))) {
+			$changed[$field] = $values[$field];
+		}
+	}
+	restapi_sysadv_check_choices($changed, $choices, array_keys($changed));
+}
+
+function restapi_sysgen_out(array $settings, array $choices) {
+	$settings['choices'] = array_map('restapi_svc_choices', $choices);
+	return $settings;
+}
+
+function restapi_h_sysgen_get($req) {
+	return array('data' => restapi_sysgen_out(restapi_sysgen_settings(), restapi_sysgen_choices()));
+}
+
+function restapi_h_sysgen_set($req) {
+	$types = restapi_sysgen_types();
+	$choices = restapi_sysgen_choices();
+	$with_gateways = isset($choices['dnsgw']);
+	$current = restapi_sysgen_settings();
+	$values = restapi_svc_merge($req['body'], $current, $types);
+	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language', 'webguicss',
+	    'webguifixedmenu', 'webguihostnamemenu', 'logincss'));
+	$rows = restapi_sysgen_dns_rows($values['dnsservers'], $with_gateways);
+	if ($with_gateways) {
+		foreach ($rows as $key => $gw) {
+			if ((strpos($key, 'dnsgw') === 0) && !array_key_exists($gw, $choices['dnsgw'])) {
+				throw restapi_validation_error(array(sprintf('"%s" is not a valid choice for the DNS server gateway.', $gw)));
+			}
+		}
+	}
+	unset($values['dnsservers']);
+	$post = restapi_svc_post($values, $types) + $rows;
+	/* Like the page: the firewall log daemon is (re)started when the timezone changes. */
+	if ($post['timezone'] !== $current['timezone']) {
+		filter_pflog_start();
+	}
+	$rv = system_general_save($post);
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => restapi_sysgen_out(restapi_sysgen_settings(), restapi_sysgen_choices()) +
+	    array('applied' => ($rv['retval'] == 0)));
+}
+
+/* ------------------------------------------------------------------ */
+/* High Availability (system_hasync.php)                               */
+/* ------------------------------------------------------------------ */
+
+/* The checkboxes the page shows (Kea DHCPv6 sync only with the Kea backend). */
+function restapi_hasync_flags($kea) {
+	return array_values(array_filter(system_hasync_checkbox_names(), function ($name) use ($kea) {
+		return $kea || ($name !== 'synchronizekea6');
+	}));
+}
+
+function restapi_hasync_types($kea) {
+	$types = array('pfhostid' => 'string', 'pfsyncpeerip' => 'string', 'pfsyncinterface' => 'string', 'synchronizetoip' => 'string',
+	    'username' => 'string', 'password' => 'string', 'choices' => 'ro');
+	foreach (restapi_hasync_flags($kea) as $flag) {
+		$types[$flag] = 'bool';
+	}
+	return $types;
+}
+
+function restapi_hasync_choices() {
+	$ifaces = get_configured_interface_with_descr();
+	$ifaces['lo0'] = 'loopback';
+	return array('pfsyncinterface' => $ifaces);
+}
+
+/* A stored hasync section as the form shows it, with the password in clear (never returned). */
+function restapi_hasync_values(array $h, $kea) {
+	$out = array();
+	foreach (restapi_hasync_flags($kea) as $flag) {
+		/* The page ticks "TLS verification" when it is set at all, the others when they are "on". */
+		$out[$flag] = ($flag === 'synctlsinsecure') ? !empty($h[$flag]) : (($h[$flag] ?? null) === 'on');
+	}
+	foreach (array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'username', 'password') as $field) {
+		$out[$field] = (string)($h[$field] ?? '');
+	}
+	return $out;
+}
+
+/*
+ * API values to the page's post: the checkboxes post "on" ("yes" for TLS
+ * verification); the password pair posts the placeholder to keep the stored
+ * password unless a new one is sent.
+ */
+function restapi_hasync_post(array $values, $kea, $current_password, array $body) {
+	$post = array();
+	foreach (restapi_hasync_flags($kea) as $flag) {
+		if (!empty($values[$flag])) {
+			$post[$flag] = ($flag === 'synctlsinsecure') ? 'yes' : 'on';
+		}
+	}
+	foreach (array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'username') as $field) {
+		$post[$field] = (string)$values[$field];
+	}
+	if (array_key_exists('password', $body)) {
+		$password = (string)$body['password'];
+	} else {
+		$password = ((string)$current_password !== '') ? DMYPWD : '';
+	}
+	$post['passwordfld'] = $password;
+	$post['passwordfld_confirm'] = $password;
+	return $post;
+}
+
+function restapi_hasync_out(array $values) {
+	$values = restapi_sysadv_mask($values, array('password'));
+	$values['choices'] = array_map('restapi_svc_choices', restapi_hasync_choices());
+	return $values;
+}
+
+function restapi_h_hasync_get($req) {
+	return array('data' => restapi_hasync_out(restapi_hasync_values(config_get_path('hasync', []), dhcp_is_backend('kea'))));
+}
+
+function restapi_h_hasync_set($req) {
+	$kea = dhcp_is_backend('kea');
+	$types = restapi_hasync_types($kea);
+	$current = restapi_hasync_values(config_get_path('hasync', []), $kea);
+	$body = restapi_sysadv_keep_secrets($req['body'], array('password'));
+	$values = restapi_svc_merge($body, $current, $types);
+	restapi_settings_check_changed_choices($values, $current, restapi_hasync_choices(), array('pfsyncinterface'));
+	$rv = system_hasync_save(restapi_hasync_post($values, $kea, $current['password'], $body));
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => restapi_hasync_out(restapi_hasync_values(config_get_path('hasync', []), $kea)));
+}
+
+/* ------------------------------------------------------------------ */
+/* Update settings (system_update_settings.php)                        */
+/* ------------------------------------------------------------------ */
+
+/* The page's GitSync fields: they are never read or written through the API. */
+function restapi_update_gitsync_fields() {
+	return array('synconupgrade', 'repositoryurl', 'branch', 'minimal', 'diff', 'show_files', 'show_command', 'dryrun');
+}
+
+function restapi_update_settings() {
+	return array(
+		'fwbranch' => (string)pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path')),
+		'disablecheck' => config_path_enabled('system/firmware', 'disablecheck'),
+	);
+}
+
+function restapi_update_out(array $settings) {
+	$settings['gitsync_configured'] = !empty(config_get_path('system/gitsync'));
+	$settings['choices'] = array('fwbranch' => array_map('trim', restapi_svc_choices(pkg_build_repo_list())));
+	return $settings;
+}
+
+function restapi_h_update_settings_get($req) {
+	return array('data' => restapi_update_out(restapi_update_settings()));
+}
+
+function restapi_h_update_settings_set($req) {
+	foreach (array_keys($req['body']) as $key) {
+		if (in_array($key, restapi_update_gitsync_fields(), true)) {
+			throw new RestApiError(400, 'not_available', 'The GitSync settings cannot be read or changed through the API.');
+		}
+	}
+	restapi_pkg_not_busy();
+	$types = array('fwbranch' => 'string', 'disablecheck' => 'bool', 'gitsync_configured' => 'ro', 'choices' => 'ro');
+	$values = restapi_svc_merge($req['body'], restapi_update_settings(), $types);
+	/* The branch must be one the page offers (the save function also takes an empty one). */
+	restapi_sysadv_check_choices(array('fwbranch' => $values['fwbranch']), array('fwbranch' => pkg_build_repo_list()), array('fwbranch'));
+	$rv = system_update_settings_save(restapi_svc_post($values, $types), pkg_list_repos(), false);
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => restapi_update_out(restapi_update_settings()));
+}
+
+/* ------------------------------------------------------------------ */
+/* Admin Access (system_advanced_admin.php)                            */
+/* ------------------------------------------------------------------ */
+
+/* Seconds between the API's response and a webConfigurator or sshd restart. */
+define('RESTAPI_ADMIN_RESTART_DELAY', 2);
+
+/* The checkboxes of the Admin Access form (form name => getAdvancedAdminConfig() key). */
+function restapi_admin_flags() {
+	return array('webgui-redirect' => 'disablehttpredirect', 'webgui-hsts' => 'disablehsts', 'ocsp-staple' => 'ocsp-staple',
+	    'loginautocomplete' => 'loginautocomplete', 'webgui-login-messages' => 'quietlogin', 'roaming' => 'roaming',
+	    'noantilockout' => 'noantilockout', 'nodnsrebindcheck' => 'nodnsrebindcheck', 'nohttpreferercheck' => 'nohttpreferercheck',
+	    'pagenamefirst' => 'pagenamefirst', 'enablesshd' => 'enablesshd', 'sshdagentforwarding' => 'sshdagentforwarding',
+	    'enableserial' => 'enableserial', 'disableconsolemenu' => 'disableconsolemenu');
+}
+
+/*
+ * Changes that can lock users out of the webConfigurator, the API or SSH need
+ * {"confirm": true}. field => the change that needs it ("any" change, or the
+ * new value that needs it).
+ */
+function restapi_admin_lockout_fields() {
+	return array('webguiproto' => 'any', 'webguiport' => 'any', 'noantilockout' => true, 'nodnsrebindcheck' => 'any',
+	    'nohttpreferercheck' => 'any', 'enablesshd' => false, 'sshport' => 'any', 'sshdkeyonly' => 'any');
+}
+
+/* The guarded fields a change from $current to $values touches. */
+function restapi_admin_lockout_changes(array $current, array $values) {
+	$changes = array();
+	foreach (restapi_admin_lockout_fields() as $field => $when) {
+		if (!array_key_exists($field, $values) || ($values[$field] === ($current[$field] ?? null))) {
+			continue;
+		}
+		if (($when === 'any') || ($values[$field] === $when)) {
+			$changes[] = $field;
+		}
+	}
+	return $changes;
+}
+
+function restapi_admin_types() {
+	$types = array('webguiproto' => 'string', 'ssl-certref' => 'string', 'webguiport' => 'string', 'max_procs' => 'string',
+	    'althostnames' => 'string', 'sshdkeyonly' => 'string', 'sshport' => 'string', 'sshguard_threshold' => 'string',
+	    'sshguard_blocktime' => 'string', 'sshguard_detection_time' => 'string', 'sshguard_whitelist' => 'list',
+	    'serialspeed' => 'string', 'choices' => 'ro', 'webgui_url' => 'ro');
+	foreach (array_keys(restapi_admin_flags()) as $flag) {
+		$types[$flag] = 'bool';
+	}
+	/* Like the page: no serial terminal checkbox when it is forced on, no console select when either is forced. */
+	if (g_get('enableserial_force')) {
+		unset($types['enableserial']);
+	}
+	if (!g_get('enableserial_force') && !g_get('primaryconsole_force')) {
+		$types['primaryconsole'] = 'string';
+	}
+	return $types;
+}
+
+function restapi_admin_choices() {
+	return array(
+		'webguiproto' => array('http' => 'HTTP', 'https' => 'HTTPS (SSL/TLS)'),
+		'ssl-certref' => cert_build_list('cert', 'HTTPS'),
+		'sshdkeyonly' => array('disabled' => 'Password or Public Key', 'enabled' => 'Public Key Only',
+		    'both' => 'Require Both Password and Public Key'),
+		'serialspeed' => array_combine(array(115200, 57600, 38400, 19200, 14400, 9600), array(115200, 57600, 38400, 19200, 14400, 9600)),
+		'primaryconsole' => array('serial' => gettext('Serial Console'), 'video' => gettext('Video Console')),
+	);
+}
+
+/*
+ * The settings as the API shows them: the page's form, except that selects
+ * keep their stored value (an unset serial speed or primary console, or a
+ * certificate the list does not offer) instead of the page's preselection.
+ */
+function restapi_admin_values(array $p, array $types, array $choices) {
+	$out = array(
+		'webguiproto' => (string)$p['webguiproto'],
+		'ssl-certref' => (string)$p['ssl-certref'],
+		'webguiport' => (string)$p['webguiport'],
+		'max_procs' => (string)$p['max_procs'],
+		'althostnames' => (string)$p['althostnames'],
+		'sshdkeyonly' => restapi_select_choice((string)$p['sshdkeyonly'], $choices['sshdkeyonly']),
+		'sshport' => (string)$p['sshport'],
+		'sshguard_threshold' => (string)$p['sshguard_threshold'],
+		'sshguard_blocktime' => (string)$p['sshguard_blocktime'],
+		'sshguard_detection_time' => (string)$p['sshguard_detection_time'],
+		'sshguard_whitelist' => array_values(array_filter(explode(' ', (string)$p['sshguard_whitelist']), 'strlen')),
+		'serialspeed' => (string)$p['serialspeed'],
+	);
+	foreach (restapi_admin_flags() as $flag => $key) {
+		/* The page ticks the serial terminal when the setting exists at all. */
+		$out[$flag] = ($flag === 'enableserial') ? isset($p['enableserial']) : (bool)$p[$key];
+	}
+	if (!isset($types['enableserial'])) {
+		unset($out['enableserial']);
+	}
+	if (isset($types['primaryconsole'])) {
+		$out['primaryconsole'] = (string)$p['primaryconsole'];
+	}
+	return $out;
+}
+
+/* API values to the page's post (checkboxes "yes", the pass list as one space separated value). */
+function restapi_admin_post(array $values, array $types) {
+	$post = restapi_svc_post($values, $types);
+	$post['sshguard_whitelist'] = implode(' ', (array)$values['sshguard_whitelist']);
+	return $post;
+}
+
+/* The port the webConfigurator listens on with these settings. */
+function restapi_admin_gui_port(array $values) {
+	if ((string)$values['webguiport'] !== '') {
+		return (int)$values['webguiport'];
+	}
+	return ($values['webguiproto'] === 'https') ? 443 : 80;
+}
+
+/* The SSH port with these settings (null: SSH disabled). */
+function restapi_admin_ssh_port(array $values) {
+	if (empty($values['enablesshd'])) {
+		return null;
+	}
+	return ((string)$values['sshport'] !== '') ? (int)$values['sshport'] : 22;
+}
+
+/*
+ * Ports the new settings would make the webConfigurator or sshd share with
+ * something else. $listeners: TCP port => commands listening on it now. Only
+ * a changed port is checked against the listeners (the running nginx or sshd
+ * on it is expected).
+ */
+function restapi_admin_port_conflicts(array $current, array $values, array $listeners) {
+	$errors = array();
+	$gui = restapi_admin_gui_port($values);
+	$redirect = ($values['webguiproto'] === 'https') && empty($values['webgui-redirect']);
+	$ssh = restapi_admin_ssh_port($values);
+	if ($redirect && ($gui === 80)) {
+		$errors[] = 'The webConfigurator cannot use port 80 for HTTPS while its HTTP redirect (port 80) is enabled.';
+	}
+	if (($ssh !== null) && ($ssh === $gui)) {
+		$errors[] = sprintf('The webConfigurator and SSH cannot both use port %d.', $ssh);
+	}
+	if (($ssh !== null) && $redirect && ($ssh === 80)) {
+		$errors[] = 'SSH cannot use port 80 while the webConfigurator redirects HTTP (port 80) to HTTPS.';
+	}
+	if ($gui !== restapi_admin_gui_port($current)) {
+		/* The webConfigurator's nginx (and sshd when SSH is being disabled) give their ports up. */
+		$others = array_diff($listeners[$gui] ?? array(), ($ssh === null) ? array('nginx', 'sshd') : array('nginx'));
+		if (!empty($others)) {
+			$errors[] = sprintf('Port %d is already used by %s.', $gui, implode(', ', $others));
+		}
+	}
+	if (($ssh !== null) && ($ssh !== restapi_admin_ssh_port($current))) {
+		$others = array_diff($listeners[$ssh] ?? array(), array('sshd'));
+		if (!empty($others)) {
+			$errors[] = sprintf('Port %d is already used by %s.', $ssh, implode(', ', $others));
+		}
+	}
+	return $errors;
+}
+
+/* sockstat lines (USER COMMAND PID FD PROTO LOCAL FOREIGN) as TCP port => listening commands. */
+function restapi_admin_parse_sockstat(array $lines) {
+	$ports = array();
+	foreach ($lines as $line) {
+		$f = preg_split('/\s+/', trim($line));
+		if ((count($f) < 6) || !preg_match('/[:.](\d+)$/D', $f[5], $m)) {
+			continue;
+		}
+		$ports[(int)$m[1]][$f[1]] = $f[1];
+	}
+	return array_map('array_values', $ports);
+}
+
+/* TCP ports with listening sockets and the commands that hold them. */
+function restapi_admin_listeners() {
+	$lines = array();
+	exec('/usr/bin/sockstat -46lq -P tcp 2>/dev/null', $lines);
+	return restapi_admin_parse_sockstat($lines);
+}
+
+/* The webConfigurator's address with the given settings, built from the request's host like the page's redirect. */
+function restapi_admin_gui_url($http_host, $proto, $port) {
+	$http_host = (string)$http_host;
+	if (strpos($http_host, ']') !== false) {
+		$host = substr($http_host, 0, strrpos($http_host, ']') + 1);
+	} else {
+		list($host) = explode(':', $http_host);
+	}
+	if (!preg_match('/^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9.-]+)$/D', $host)) {
+		$host = '<firewall address>';
+	}
+	$default = ($proto === 'https') ? '443' : '80';
+	$port = (string)$port;
+	return "{$proto}://{$host}" . ((($port !== '') && ($port !== $default)) ? ":{$port}" : '') . '/';
+}
+
+function restapi_admin_settings() {
+	return restapi_admin_values(getAdvancedAdminConfig(), restapi_admin_types(), restapi_admin_choices());
+}
+
+function restapi_admin_out(array $settings) {
+	$settings['webgui_url'] = restapi_admin_gui_url($_SERVER['HTTP_HOST'] ?? '', $settings['webguiproto'], $settings['webguiport']);
+	$choices = restapi_admin_choices();
+	if (!isset($settings['primaryconsole'])) {
+		unset($choices['primaryconsole']);
+	}
+	$settings['choices'] = array_map('restapi_svc_choices', $choices);
+	return $settings;
+}
+
+/*
+ * Restart the webConfigurator and/or sshd once the response has been sent:
+ * the webConfigurator restart stops the web server that answers this request.
+ */
+function restapi_admin_restart_after_response($webgui, $sshd) {
+	register_shutdown_function(function () use ($webgui, $sshd) {
+		/* Output after the response would otherwise end the script once the client has gone (restart_GUI() flushes). */
+		ignore_user_abort(true);
+		if (function_exists('fastcgi_finish_request')) {
+			fastcgi_finish_request();
+		}
+		sleep(RESTAPI_ADMIN_RESTART_DELAY);
+		if ($sshd) {
+			restart_SSHD();
+		}
+		if ($webgui) {
+			/* restart_GUI() flushes an output buffer. */
+			ob_start();
+			restart_GUI();
+			ob_end_clean();
+		}
+	});
+}
+
+function restapi_h_admin_get($req) {
+	return array('data' => restapi_admin_out(restapi_admin_settings()));
+}
+
+function restapi_h_admin_set($req) {
+	$body = $req['body'];
+	$confirm = $body['confirm'] ?? null;
+	unset($body['confirm']);
+	if (($confirm !== null) && !is_bool($confirm)) {
+		throw new RestApiError(400, 'invalid_field', 'Field "confirm" must be a boolean.');
+	}
+	$types = restapi_admin_types();
+	$choices = restapi_admin_choices();
+	$current = restapi_admin_settings();
+	$values = restapi_svc_merge($body, $current, $types);
+	restapi_sysadv_check_choices($values, $choices, array('webguiproto', 'sshdkeyonly'));
+	restapi_settings_check_changed_choices($values, $current, $choices, array('ssl-certref', 'serialspeed', 'primaryconsole'));
+	$lockout = restapi_admin_lockout_changes($current, $values);
+	$after = restapi_admin_gui_url($_SERVER['HTTP_HOST'] ?? '', $values['webguiproto'], $values['webguiport']);
+	if (!empty($lockout) && ($confirm !== true)) {
+		throw new RestApiError(400, 'confirm_required', 'These changes can lock you out of the webConfigurator, the API or SSH (' .
+		    implode(', ', $lockout) . '); send them again with "confirm": true. After the restart the webConfigurator will be at ' .
+		    $after . ' and the API at ' . $after . 'api/v1.', array('fields' => $lockout, 'webgui_url' => $after,
+		    'api_url' => "{$after}api/v1"));
+	}
+	$conflicts = restapi_admin_port_conflicts($current, $values, restapi_admin_listeners());
+	if (!empty($conflicts)) {
+		throw restapi_validation_error($conflicts);
+	}
+	/* The page's function saves and applies; the restarts are left to restapi_admin_restart_after_response(). */
+	$rv = restapi_json_result(doAdvancedAdminPOST(restapi_admin_post($values, $types), true, false));
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	$webgui = !empty($rv['restartui']);
+	$sshd = !empty($rv['restartsshd']);
+	if ($webgui || $sshd) {
+		restapi_admin_restart_after_response($webgui, $sshd);
+	}
+	$settings = restapi_admin_out(restapi_admin_settings());
+	return array('data' => $settings + array(
+		'applied' => ($rv['retval'] == 0),
+		'restart' => array('webgui' => $webgui, 'sshd' => $sshd,
+		    'after_seconds' => ($webgui || $sshd) ? RESTAPI_ADMIN_RESTART_DELAY : 0,
+		    'webgui_url' => $settings['webgui_url'], 'api_url' => "{$settings['webgui_url']}api/v1"),
+		'lockout_fields_changed' => $lockout));
 }
