@@ -240,50 +240,56 @@ if ($_REQUEST['ajax']) {
 	exit;
 }
 
+/* peer status label (set while parsing ntpq above) => [filter key, badge state] */
+function ntp_peer_state($label) {
+	static $map = null;
+	if ($map === null) {
+		$map = [
+			gettext("Active Peer") => ['active', 'online'],
+			gettext("PPS Peer") => ['pps', 'online'],
+			gettext("Candidate") => ['candidate', 'info'],
+			gettext("Selected") => ['selected', 'info'],
+			gettext("Excess Peer") => ['excess', 'idle'],
+			gettext("Pool Placeholder") => ['pool', 'idle'],
+			gettext("Unreach/Pending") => ['pending', 'pending'],
+			gettext("Outlier") => ['outlier', 'warn'],
+			gettext("False Ticker") => ['falseticker', 'error'],
+		];
+	}
+	return $map[$label] ?? ['unknown', 'unknown'];
+}
+
 function print_status() {
 	global $ntpq_servers, $allow_query;
 
-	if (config_get_path('ntpd/enable') == 'disabled'):
-		print("<tr>\n");
-		print('<td class="warning" colspan="11">');
-		printf(gettext('NTP Server is disabled'));
-		print("</td>\n");
-		print("</tr>\n");
-	elseif (!$allow_query):
-		print("<tr>\n");
-		print('<td class="warning" colspan="11">');
-		printf(gettext('Statistics unavailable because ntpq and ntpdc queries are disabled in the %1$sNTP service settings%2$s'), '<a href="services_ntpd.php">', '</a>');
-		print("</td>\n");
-		print("</tr>\n");
-	elseif (count($ntpq_servers) == 0):
-		print("<tr>\n");
-		print('<td class="warning" colspan="11">');
-		printf(gettext('No peers found, %1$sis the ntp service running?%2$s'), '<a href="status_services.php">', '</a>');
-		print("</td>\n");
-		print("</tr>\n");
-	else:
+	$message = null;
+	if (config_get_path('ntpd/enable') == 'disabled') {
+		$message = htmlspecialchars(gettext('NTP Server is disabled'));
+	} elseif (!$allow_query) {
+		$message = sprintf(htmlspecialchars(gettext('Statistics unavailable because ntpq and ntpdc queries are disabled in the %1$sNTP service settings%2$s')), '<a href="services_ntpd.php">', '</a>');
+	} elseif (count($ntpq_servers) == 0) {
+		$message = sprintf(htmlspecialchars(gettext('No peers found, %1$sis the ntp service running?%2$s')), '<a href="status_services.php">', '</a>');
+	}
+	if ($message !== null) {
+		print('<tr class="fs-empty" data-fs-static><td colspan="14"><span class="fs-empty-message">' . $message . "</span></td></tr>\n");
+		return;
+	}
 
-		$i = 0;
-		foreach ($ntpq_servers as $server):
-			print("<tr>\n");
-			print("<td>" . $server['status'] . "</td>\n");
-			print("<td>" . $server['server'] . "</td>\n");
-			print("<td>" . $server['refid'] . "</td>\n");
-			print("<td>" . $server['stratum'] . "</td>\n");
-			print("<td>" . $server['type'] . "</td>\n");
-			print("<td>" . $server['when'] . "</td>\n");
-			print("<td>" . $server['poll'] . "</td>\n");
-			print("<td>" . $server['reach'] . "</td>\n");
-			print("<td>" . $server['delay'] . "</td>\n");
-			print("<td>" . $server['offset'] . "</td>\n");
-			print("<td>" . $server['jitter'] . "</td>\n");
-			print("<td>" . $server['assid'] . "</td>\n");
-			print("<td>" . $server['status_word'] . "</td>\n");
-			print("<td>" . $server['auth'] . "</td>\n");
-			print("</tr>\n");
-			$i++;
-		endforeach;
-	endif;
+	foreach ($ntpq_servers as $server) {
+		list($key, $badge) = ntp_peer_state($server['status']);
+		$label = ($key === 'pool') ? gettext('Pool') : $server['status'];
+		print('<tr data-fs-filter-state="' . htmlspecialchars($key) . '" data-ntp-stratum="' . htmlspecialchars($server['stratum']) . '">');
+		print('<td>' . fs_badge($badge, $label ?: gettext('Unknown')) . '</td>');
+		print('<td class="fs-mono">' . htmlspecialchars($server['server']) . '</td>');
+		print('<td class="fs-mono">' . htmlspecialchars($server['refid']) . '</td>');
+		/* the less used columns are hidden on narrow screens (see the th classes) */
+		foreach (['stratum' => '', 'type' => ' d-none d-lg-table-cell', 'when' => ' d-none d-lg-table-cell', 'poll' => ' d-none d-md-table-cell',
+		    'reach' => ' d-none d-md-table-cell', 'delay' => '', 'offset' => '', 'jitter' => ' d-none d-md-table-cell',
+		    'assid' => ' d-none d-xl-table-cell', 'status_word' => ' d-none d-xl-table-cell', 'auth' => ' d-none d-xl-table-cell'] as $field => $class) {
+			print('<td class="fs-mono' . $class . '">' . htmlspecialchars((string)$server[$field]) . '</td>');
+		}
+		print("</tr>\n");
+	}
 }
 
 function print_gps() {
@@ -291,26 +297,26 @@ function print_gps() {
 			$gps_alt, $gps_alt_unit, $gps_sat, $gps_satview, $gps_goo_lnk;
 
 	print("<tr>\n");
-	print("<td>\n");
+	print('<td class="fs-mono">');
 	printf("%.5f", $gps_lat);
 	print(" (");
 	printf("%d%s", $gps_lat_deg, "&deg;");
 	printf("%.5f", $gps_lat_min);
-	print($gps_lat_dir);
+	print(htmlspecialchars($gps_lat_dir));
 	print(")");
 	print("</td>\n");
-	print("<td>\n");
+	print('<td class="fs-mono">');
 	printf("%.5f", $gps_lon);
 	print(" (");
 	printf("%d%s", $gps_lon_deg, "&deg;");
 	printf("%.5f", $gps_lon_min);
-	print($gps_lon_dir);
+	print(htmlspecialchars($gps_lon_dir));
 	print(")");
 	print("</td>\n");
 
 	if (isset($gps_alt)) {
-		print("<td>\n");
-		print($gps_alt . ' ' . $gps_alt_unit);
+		print('<td class="fs-mono">');
+		print(htmlspecialchars($gps_alt . ' ' . $gps_alt_unit));
 		print("</td>\n");
 	}
 
@@ -325,7 +331,7 @@ function print_gps() {
 			print(', ');
 		}
 		if (isset($gps_sat)) {
-			print(gettext('in use ') . $gps_sat);
+			print(gettext('in use ') . intval($gps_sat));
 		}
 
 		print("</td>\n");
@@ -333,7 +339,8 @@ function print_gps() {
 
 	print("</tr>\n");
 	print("<tr>\n");
-	print('<td colspan="' . $gps_goo_lnk . '"><a target="_gmaps" href="https://maps.google.com/?q=' . $gps_lat . ',' . $gps_lon . '">' . gettext("Google Maps Link") . '</a></td>');
+	print('<td colspan="' . (int)$gps_goo_lnk . '"><a target="_gmaps" rel="noopener noreferrer" href="https://maps.google.com/?q=' . urlencode($gps_lat . ',' . $gps_lon) . '">' .
+	    '<i class="fa-solid fa-map-location-dot icon-embed-btn" aria-hidden="true"></i>' . gettext("Google Maps Link") . '</a></td>');
 	print("</tr>\n");
 }
 
@@ -341,28 +348,84 @@ $pgtitle = array(gettext("Status"), gettext("NTP"));
 $shortcut_section = "ntp";
 
 include("head.inc");
+
+/* summary from the peers; the script below updates it with every refresh */
+$ntp_peers = 0;
+$ntp_reach = 0;
+$ntp_active = null;
+foreach ((array)$ntpq_servers as $server) {
+	list($key) = ntp_peer_state($server['status']);
+	if ($key === 'pool') {
+		continue;
+	}
+	$ntp_peers++;
+	if ($key !== 'pending') {
+		$ntp_reach++;
+	}
+	if (($key === 'active' || $key === 'pps') && $ntp_active === null) {
+		$ntp_active = $server;
+	}
+}
+$ntp_stratum = ($ntp_active !== null && is_numeric($ntp_active['stratum'])) ? (int)$ntp_active['stratum'] + 1 : null;
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Network Time Protocol Status");?></h2></div>
+<style>
+.fs-ntp-sync[hidden] { display: none; }
+.fs-ntp-peers thead th { vertical-align: bottom; white-space: nowrap; }
+#ntp-tiles .fs-tile-label { flex-wrap: wrap; }
+.fs-ntp-server { font-size: var(--fs-fs-md); overflow-wrap: anywhere; }
+</style>
+
+<div class="fs-tiles" id="ntp-tiles">
+	<div class="fs-tile">
+		<div class="fs-tile-label"><?=gettext('Synchronization')?>
+			<span class="fs-ntp-sync" data-ntp-sync="yes"<?=($ntp_active === null) ? ' hidden' : ''?>><?=fs_badge('online', gettext('Synced'))?></span>
+			<span class="fs-ntp-sync" data-ntp-sync="no"<?=($ntp_active !== null) ? ' hidden' : ''?>><?=fs_badge('warn', gettext('Not synced'))?></span>
+		</div>
+		<div class="fs-tile-value fs-mono fs-ntp-server" data-ntp-tile="server"><?=htmlspecialchars($ntp_active['server'] ?? '–')?></div>
+		<div class="fs-tile-hint"><?=gettext('Active peer')?></div>
+	</div>
+	<div class="fs-tile">
+		<div class="fs-tile-label"><?=gettext('Stratum')?></div>
+		<div class="fs-tile-value" data-ntp-tile="stratum"><?=htmlspecialchars($ntp_stratum ?? '–')?></div>
+		<div class="fs-tile-hint"><?=gettext('Of this server')?></div>
+	</div>
+	<div class="fs-tile">
+		<div class="fs-tile-label"><?=gettext('Peers')?></div>
+		<div class="fs-tile-value" data-ntp-tile="peers"><?=$ntp_reach?> / <?=$ntp_peers?></div>
+		<div class="fs-tile-hint"><?=gettext('Reachable of configured')?></div>
+	</div>
+</div>
+
+<div class="panel panel-default fs-table fs-ntp-peers">
+<?php fs_table_toolbar([
+	'title' => gettext('Peers'),
+	'search' => gettext('Search peers…'),
+	'noun' => gettext('peers'),
+	'noun_one' => gettext('peer'),
+	'filters' => ['state' => [gettext('All states'), 'active' => gettext('Active Peer'), 'pps' => gettext('PPS Peer'),
+	    'candidate' => gettext('Candidate'), 'selected' => gettext('Selected'), 'excess' => gettext('Excess Peer'),
+	    'outlier' => gettext('Outlier'), 'falseticker' => gettext('False Ticker'), 'pending' => gettext('Unreach/Pending'),
+	    'pool' => gettext('Pool')]],
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Status")?></th>
-					<th><?=gettext("Server")?></th>
-					<th><?=gettext("Ref ID")?></th>
+					<th class="fs-col-status"><?=gettext("Status")?></th>
+					<th data-fs-search><?=gettext("Server")?></th>
+					<th data-fs-search><?=gettext("Ref ID")?></th>
 					<th><?=gettext("Stratum")?></th>
-					<th><?=gettext("Type")?></th>
-					<th><?=gettext("When")?></th>
-					<th><?=gettext("Poll (s)")?></th>
-					<th><?=gettext("Reach")?></th>
+					<th class="d-none d-lg-table-cell"><?=gettext("Type")?></th>
+					<th class="d-none d-lg-table-cell"><?=gettext("When")?></th>
+					<th class="d-none d-md-table-cell"><?=gettext("Poll (s)")?></th>
+					<th class="d-none d-md-table-cell"><?=gettext("Reach")?></th>
 					<th><?=gettext("Delay (ms)")?></th>
 					<th><?=gettext("Offset (ms)")?></th>
-					<th><?=gettext("Jitter (ms)")?></th>
-					<th><?=gettext("AssocID")?></th>
-					<th><?=gettext("Status Word")?></th>
-					<th><?=gettext("Auth")?></th>
+					<th class="d-none d-md-table-cell"><?=gettext("Jitter (ms)")?></th>
+					<th class="d-none d-xl-table-cell"><?=gettext("AssocID")?></th>
+					<th class="d-none d-xl-table-cell"><?=gettext("Status Word")?></th>
+					<th class="d-none d-xl-table-cell"><?=gettext("Auth")?></th>
 				</tr>
 			</thead>
 			<tbody id="ntpbody">
@@ -382,17 +445,17 @@ if (($gps_ok) && ($gps_lat) && ($gps_lon)):
 ?>
 
 <div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("GPS Information");?></h2></div>
-	<div class="panel-body">
-		<table class="table table-striped table-hover table-sm">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext("GPS information");?></h2></div>
+	<div class="panel-body table-responsive">
+		<table class="table table-sm">
 			<thead>
 				<tr>
-					<th><?=gettext("Clock Latitude")?></th>
-					<th><?=gettext("Clock Longitude")?></th>
+					<th><?=gettext("Clock latitude")?></th>
+					<th><?=gettext("Clock longitude")?></th>
 <?php
 	if (isset($gps_alt)) {
 ?>
-					<th><?=gettext("Clock Altitude")?></th>
+					<th><?=gettext("Clock altitude")?></th>
 <?php
 		$gps_goo_lnk++;
 	}
@@ -424,6 +487,32 @@ events.push(function() {
 	ajax_lock = false;		// Mutex so we don't make a call until the previous call is finished
 	do_gps = "no";
 
+	// Recount the summary tiles from the refreshed peer rows
+	function update_tiles() {
+		var rows = document.querySelectorAll('#ntpbody tr[data-fs-filter-state]');
+		var peers = 0, reach = 0, active = null;
+		rows.forEach(function (tr) {
+			var state = tr.getAttribute('data-fs-filter-state');
+			if (state === 'pool') {
+				return;
+			}
+			peers++;
+			if (state !== 'pending') {
+				reach++;
+			}
+			if (!active && (state === 'active' || state === 'pps')) {
+				active = tr;
+			}
+		});
+		var stratum = active ? parseInt(active.getAttribute('data-ntp-stratum'), 10) : NaN;
+		var tiles = document.getElementById('ntp-tiles');
+		tiles.querySelector('[data-ntp-sync="yes"]').hidden = !active;
+		tiles.querySelector('[data-ntp-sync="no"]').hidden = !!active;
+		tiles.querySelector('[data-ntp-tile="server"]').textContent = active ? active.cells[1].textContent : '–';
+		tiles.querySelector('[data-ntp-tile="stratum"]').textContent = isNaN(stratum) ? '–' : String(stratum + 1);
+		tiles.querySelector('[data-ntp-tile="peers"]').textContent = reach + ' / ' + peers;
+	}
+
 	// Fetch the tbody contents from the server
 	function update_tables() {
 
@@ -450,6 +539,12 @@ events.push(function() {
 				$('#gpsbody').html(response);
 			} else {
 				$('#ntpbody').html(response);
+				update_tiles();
+				// re-apply the list search and filter to the new rows
+				var list = document.getElementById('ntpbody').closest('.fs-table');
+				if (list && list._fsTable) {
+					list._fsTable.apply(false);
+				}
 			}
 
 			ajax_lock = false;

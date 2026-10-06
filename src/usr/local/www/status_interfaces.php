@@ -53,49 +53,6 @@ if ($_POST['ifdescr'] && $_POST['submit']) {
 	exit;
 }
 
-$formtemplate = '<form name="%s" action="status_interfaces.php" method="post">' .
-					'<input type="hidden" name="ifdescr" value="%s" />' .
-					'<input type="hidden" name="status" value="%s" />' .
-					'%s' .
-					'<button type="submit" name="submit" class="btn btn-danger btn-sm" value="%s">' .
-					'<i class="fa-solid fa-arrows-rotate icon-embed-btn"></i>' .
-					'%s' .
-					'</button>' .
-					'%s' .
-					'</form>';
-
-// Display a term/definition pair
-function showDef($show, $term, $def) {
-	// Choose an icon by interface status
-	if ($term == "Status") {
-		if ($def == "up" || $def == "associated") {
-			$icon = 'fa-solid fa-arrow-up text-success';
-		} elseif ($def == "no carrier") {
-			$icon = 'fa-solid fa-circle-xmark text-danger';
-		} elseif ($def == "down") {
-			$icon = 'fa-solid fa-arrow-down text-danger';
-		} else {
-			$icon = '';
-		}
-	}
-	if ($show) {
-		print('<dt>' . $term . '</dt>');
-		print('<dd>' . htmlspecialchars($def) . ' <i class="' . $icon . '"></i></dd>');
-	}
-}
-
-// Display a term/definition pair with a button
-function showDefBtn($show, $term, $def, $ifdescr, $btnlbl, $chkbox_relinquish_lease) {
-	global $formtemplate;
-
-	if ($show) {
-		print('<dt>' . $term . '</dt>');
-		print('<dd>');
-		printf($formtemplate, $term, $ifdescr, $show, htmlspecialchars($def)	. ' ', $btnlbl, $btnlbl, $chkbox_relinquish_lease);
-		print('</dd>');
-	}
-}
-
 // Relinquish the DHCP lease from the server.
 function dhcp_relinquish_lease($if, $ifdescr, $ipv) {
 	$leases_db = '/var/db/dhclient.leases.' . $if;
@@ -119,15 +76,43 @@ $ifdescrs = get_configured_interface_with_descr(true);
 $ifinterrupts = interfaces_interrupts();
 $switch_config = config_get_path('switches/switch/0/vlangroups/vlangroup', []);
 $if_config = config_get_path('interfaces', []);
+$mac_man = load_mac_manufacturer_table();
+$has_dialup = false;
+$modals = [];
+?>
+
+<style>
+.fs-if-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; }
+@media (min-width: 1200px) { .fs-if-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fs-if-grid > .panel { margin-bottom: 0; }
+.fs-if-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2) var(--fs-sp-3); }
+.fs-if-head > .panel-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: .15rem var(--fs-sp-2); margin: 0; }
+.fs-if-name { color: var(--fs-text-strong); font-weight: 600; }
+.fs-if-dev { color: var(--fs-text-muted); font-family: var(--fs-font-mono); font-size: var(--fs-fs-xs); font-weight: 400; }
+.fs-if-media { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-if-actions { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); margin-left: auto; }
+.fs-if-actions form { margin: 0; }
+.fs-if-body { padding: var(--fs-sp-4); }
+.fs-if-facts { display: grid; grid-template-columns: 9.5rem minmax(0, 1fr); gap: .35rem var(--fs-sp-4); margin: 0; }
+.fs-if-facts dt { color: var(--fs-text-muted); font-weight: 500; }
+.fs-if-facts dd { margin: 0; overflow-wrap: anywhere; }
+.fs-if-facts .fs-if-sub { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+@media (max-width: 575.98px) { .fs-if-facts { grid-template-columns: minmax(0, 1fr); gap: 0; } .fs-if-facts dd { margin-bottom: .45rem; } }
+.fs-if-traffic { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: var(--fs-sp-2); margin-top: var(--fs-sp-4); }
+.fs-if-stat { padding: var(--fs-sp-2) var(--fs-sp-3); border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); background: var(--fs-surface-raised); }
+.fs-if-stat-label { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-if-stat-value { display: flex; flex-wrap: wrap; gap: 0 var(--fs-sp-3); font-family: var(--fs-font-mono); font-size: var(--fs-fs-sm); font-variant-numeric: tabular-nums; color: var(--fs-text-strong); }
+.fs-if-stat-value i { color: var(--fs-text-muted); font-size: .75em; margin-right: .2rem; }
+.fs-if-stat-sub { color: var(--fs-text-muted); font-family: var(--fs-font-mono); font-size: var(--fs-fs-xs); }
+.fs-if-stat.is-bad .fs-if-stat-label { color: var(--fs-block); }
+.fs-if-note { display: flex; gap: var(--fs-sp-2); margin-top: var(--fs-sp-4); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-if-note > i { margin-top: .2rem; color: var(--fs-warn); }
+</style>
+
+<div class="fs-if-grid">
+<?php
 foreach ($ifdescrs as $ifdescr => $ifname):
 	$ifinfo = get_interface_info($ifdescr);
-	$mac_man = load_mac_manufacturer_table();
-
-	$chkbox_relinquish_lease = 	'&nbsp;&nbsp;&nbsp;' .
-								'<input type="checkbox" name="relinquish_lease" value="true" title="' . gettext("Send a gratuitous DHCP release packet to the server.") . '" /> ' . gettext("Relinquish Lease") .
-								'<input type="hidden" name="if" value='.$ifinfo['if'].' />';
-	$chkbox_relinquish_lease_v4 = $chkbox_relinquish_lease . '<input type="hidden" name="ipv" value=4 />';
-	$chkbox_relinquish_lease_v6 = $chkbox_relinquish_lease . '<input type="hidden" name="ipv" value=6 />';
 
 	$ifhwinfo = $ifinfo['hwif'];
 	$vlan = interface_is_vlan($ifinfo['hwif']);
@@ -139,114 +124,231 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 			}
 		}
 	}
-?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($ifname)?><?=gettext(" Interface "); ?>(<?=htmlspecialchars($ifdescr)?>, <?=htmlspecialchars($ifhwinfo)?>)</h2></div>
-	<div class="panel-body">
-		<dl class="dl-horizontal">
-<?php
-		showDef(true, gettext("Status"), $ifinfo['enable'] ? $ifinfo['status'] : gettext('disabled'));
-		showDefBtn($ifinfo['dhcplink'], 'DHCP', $ifinfo['dhcplink'], $ifdescr, (($ifinfo['dhcplink'] == "up") ? gettext("Release") : gettext("Renew")) . " {$ifname}", $ifinfo['dhcplink'] == "up" ? $chkbox_relinquish_lease_v4 : '');
-		showDefBtn($ifinfo['dhcp6link'], 'DHCP6', $ifinfo['dhcp6link'], $ifdescr, (($ifinfo['dhcp6link'] == "up") ? gettext("Release") : gettext("Renew")) . " {$ifname}", $ifinfo['dhcp6link'] == "up" ? $chkbox_relinquish_lease_v6 : '');
-		showDefBtn($ifinfo['pppoelink'], 'PPPoE', $ifinfo['pppoelink'], $ifdescr, (($ifinfo['pppoelink'] == "up") ? gettext("Disconnect") : gettext("Connect")) . " {$ifname}", '');
-		showDefBtn($ifinfo['pptplink'], 'PPTP', $ifinfo['pptplink'], $ifdescr, (($ifinfo['pptplink'] == "up") ? gettext("Disconnect") : gettext("Connect")) . " {$ifname}", '');
-		showDefBtn($ifinfo['l2tplink'], 'L2TP', $ifinfo['l2tplink'], $ifdescr, (($ifinfo['l2tplink'] == "up") ? gettext("Disconnect") : gettext("Connect")) . " {$ifname}", '');
-		showDefBtn($ifinfo['ppplink'], 'PPP', $ifinfo['ppplink'], $ifdescr, (($ifinfo['ppplink'] == "up" && !$ifinfo['nodevice']) ? gettext("Disconnect") : gettext("Connect")) . " {$ifname}", '');
-		showDef($ifinfo['ppp_uptime'] || $ifinfo['ppp_uptime_accumulated'], gettext("Uptime") . ' ' . ($ifinfo['ppp_uptime_accumulated'] ? gettext('(historical)'):''), $ifinfo['ppp_uptime'] . $ifinfo['ppp_uptime_accumulated']);
-		showDef($ifinfo['cell_rssi'], gettext("Cell Signal (RSSI)"), $ifinfo['cell_rssi']);
-		showDef($ifinfo['cell_mode'], gettext("Cell Mode"), $ifinfo['cell_mode']);
-		showDef($ifinfo['cell_simstate'], gettext("Cell SIM State"), $ifinfo['cell_simstate']);
-		showDef($ifinfo['cell_service'], gettext("Cell Service"), $ifinfo['cell_service']);
-		showDef($ifinfo['cell_bwupstream'], gettext("Cell Upstream"), $ifinfo['cell_bwupstream']);
-		showDef($ifinfo['cell_bwdownstream'], gettext("Cell Downstream"), $ifinfo['cell_bwdownstream']);
-		showDef($ifinfo['cell_upstream'], gettext("Cell Current Up"), $ifinfo['cell_upstream']);
-		showDef($ifinfo['cell_downstream'], gettext("Cell Current Down"), $ifinfo['cell_downstream']);
+	/* status badge */
+	if (!$ifinfo['enable']) {
+		$badge = fs_badge('disabled');
+	} elseif ($ifinfo['status'] == 'up' || $ifinfo['status'] == 'associated') {
+		$badge = fs_badge('up', ($ifinfo['status'] == 'up') ? gettext('Up') : gettext('Associated'));
+	} elseif ($ifinfo['status'] == 'no carrier') {
+		$badge = fs_badge('down', gettext('No carrier'));
+	} elseif ($ifinfo['status'] == 'down') {
+		$badge = fs_badge('down');
+	} else {
+		$badge = fs_badge('neutral', $ifinfo['status']);
+	}
 
-		if ($ifinfo['macaddr']) {
-			$mac=$ifinfo['macaddr'];
-			$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
-			showDef( $ifinfo['macaddr'], gettext('MAC Address'), $mac . (isset($mac_man[$mac_hi]) ? ' - ' . $mac_man[$mac_hi] : ''));
+	/*
+	 * Link actions: the same form fields as before (ifdescr, status = link
+	 * state, submit, and relinquish_lease / if / ipv for a DHCP release).
+	 */
+	$actions = [];
+	foreach ([
+	    'dhcplink' => ['DHCP', 4],
+	    'dhcp6link' => ['DHCP6', 6],
+	    'pppoelink' => ['PPPoE', null],
+	    'pptplink' => ['PPTP', null],
+	    'l2tplink' => ['L2TP', null],
+	    'ppplink' => ['PPP', null],
+	] as $key => list($type, $ipv)) {
+		if (empty($ifinfo[$key])) {
+			continue;
 		}
+		$up = ($ifinfo[$key] == 'up') && !(($key == 'ppplink') && $ifinfo['nodevice']);
+		if ($ipv === null) {
+			$has_dialup = true;
+			$btnlbl = ($up ? gettext("Disconnect") : gettext("Connect")) . " {$ifname}";
+			$text = sprintf($up ? gettext('Disconnect %s') : gettext('Connect %s'), $type);
+		} else {
+			$btnlbl = (($ifinfo[$key] == "up") ? gettext("Release") : gettext("Renew")) . " {$ifname}";
+			$text = sprintf(($ifinfo[$key] == "up") ? gettext('Release %s') : gettext('Renew %s'), $type);
+		}
+		$actions[] = ['key' => $key, 'type' => $type, 'ipv' => $ipv, 'up' => $up, 'state' => $ifinfo[$key], 'value' => $btnlbl, 'text' => $text];
+	}
 
-		if ($ifinfo['status'] != "down") {
-			if ($ifinfo['dhcplink'] != "down" && $ifinfo['pppoelink'] != "down" && $ifinfo['pptplink'] != "down") {
-				showDef($ifinfo['ipaddr'], gettext('IPv4 Address'), $ifinfo['ipaddr']);
-				showDef($ifinfo['subnet'], gettext('Subnet mask IPv4'), $ifinfo['subnet']);
-				showDef($ifinfo['gateway'], gettext('Gateway IPv4'), $ifinfo['gateway']);
-				showDef($ifinfo['linklocal'], gettext('IPv6 Link Local'), $ifinfo['linklocal']);
-				showDef($ifinfo['ipaddrv6'], gettext('IPv6 Address'), $ifinfo['ipaddrv6']);
-				showDef($ifinfo['subnetv6'], gettext('Subnet mask IPv6'), $ifinfo['subnetv6']);
-				showDef($ifinfo['gatewayv6'], gettext("Gateway IPv6"), $if_config[$ifdescr]['gatewayv6'] . " " . $ifinfo['gatewayv6']);
+	/* facts: [label, value, mono, sub] */
+	$facts = [];
+	$facts[] = [gettext('Device'), $ifhwinfo, true, null];
+	if ($ifinfo['macaddr']) {
+		$mac = $ifinfo['macaddr'];
+		$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
+		$facts[] = [gettext('MAC address'), $mac, true, $mac_man[$mac_hi] ?? null];
+	}
+	foreach ($actions as $a) {
+		$facts[] = [$a['type'], $a['state'], false, null];
+	}
+	if ($ifinfo['ppp_uptime'] || $ifinfo['ppp_uptime_accumulated']) {
+		$facts[] = [$ifinfo['ppp_uptime_accumulated'] ? gettext('Uptime (historical)') : gettext('Uptime'),
+		    $ifinfo['ppp_uptime'] . $ifinfo['ppp_uptime_accumulated'], false, null];
+	}
+	foreach ([
+	    'cell_rssi' => gettext("Cell signal (RSSI)"), 'cell_mode' => gettext("Cell mode"), 'cell_simstate' => gettext("Cell SIM state"),
+	    'cell_service' => gettext("Cell service"), 'cell_bwupstream' => gettext("Cell upstream"), 'cell_bwdownstream' => gettext("Cell downstream"),
+	    'cell_upstream' => gettext("Cell current up"), 'cell_downstream' => gettext("Cell current down"),
+	] as $key => $label) {
+		if ($ifinfo[$key]) {
+			$facts[] = [$label, $ifinfo[$key], false, null];
+		}
+	}
 
-				$dns_servers = get_dynamic_nameservers($ifdescr);
-				$dnscnt = 0;
-				foreach ($dns_servers as $dns) {
-					showDef(true, $dnscnt == 0 ? gettext('DNS servers'):'', $dns);
-					$dnscnt++;
+	$traffic = [];
+	if ($ifinfo['status'] != "down") {
+		if ($ifinfo['dhcplink'] != "down" && $ifinfo['pppoelink'] != "down" && $ifinfo['pptplink'] != "down") {
+			if ($ifinfo['ipaddr']) {
+				$prefix = $ifinfo['subnet'];
+				if (is_ipaddrv4($prefix)) {
+					$prefix = substr_count(decbin(ip2long($prefix)), '1');
 				}
+				$facts[] = [gettext('IPv4 address'), $ifinfo['ipaddr'] . ($prefix ? '/' . $prefix : ''), true, null];
 			}
-
-			if ($ifinfo['laggport']) {
-				$laggport = get_lagg_ports($ifinfo['laggport']);
+			if ($ifinfo['gateway']) {
+				$facts[] = [gettext('IPv4 gateway'), $ifinfo['gateway'], true, null];
 			}
-
-			showDef($ifinfo['mtu'], gettext("MTU"), $ifinfo['mtu']);
-			showDef($ifinfo['media'], gettext("Media"), $ifinfo['media']);
-			if ($ifinfo['plugged']) {
-				showDef($ifinfo['plugged'], gettext("Plugged"), $ifinfo['plugged']);
+			if ($ifinfo['ipaddrv6']) {
+				$facts[] = [gettext('IPv6 address'), $ifinfo['ipaddrv6'] . ($ifinfo['subnetv6'] ? '/' . $ifinfo['subnetv6'] : ''), true, null];
 			}
-			if ($ifinfo['vendor']) {
-				showDef($ifinfo['vendor'], gettext("Vendor"), $ifinfo['vendor']);
+			if ($ifinfo['linklocal']) {
+				$facts[] = [gettext('IPv6 link-local'), $ifinfo['linklocal'], true, null];
 			}
-			if ($ifinfo['temperature']) {
-				showDef($ifinfo['temperature'], gettext("Temperature"), $ifinfo['temperature']);
+			if ($ifinfo['gatewayv6']) {
+				$facts[] = [gettext("IPv6 gateway"), trim(($if_config[$ifdescr]['gatewayv6'] ?? '') . " " . $ifinfo['gatewayv6']), true, null];
 			}
-			if ($ifinfo['voltage']) {
-				showDef($ifinfo['voltage'], gettext("Voltage"), $ifinfo['voltage']);
+			$dns_servers = get_dynamic_nameservers($ifdescr);
+			if (!empty($dns_servers)) {
+				$facts[] = [gettext('DNS servers'), implode(', ', $dns_servers), true, null];
 			}
-			if ($ifinfo['rx']) {
-				showDef($ifinfo['rx'], gettext("RX"), $ifinfo['rx']);
-			}
-			if ($ifinfo['tx']) {
-				showDef($ifinfo['tx'], gettext("TX"), $ifinfo['tx']);
-			}
-			showDef($ifinfo['laggproto'], gettext("LAGG Protocol"), $ifinfo['laggproto']);
-			showDef($ifinfo['laggport'], gettext("LAGG Ports"), $laggport);
-			showDef($ifinfo['channel'], gettext("Channel"), $ifinfo['channel']);
-			showDef($ifinfo['ssid'], gettext("SSID"), $ifinfo['ssid']);
-			showDef($ifinfo['bssid'], gettext("BSSID"), $ifinfo['bssid']);
-			showDef($ifinfo['rate'], gettext("Rate"), $ifinfo['rate']);
-			showDef($ifinfo['rssi'], gettext("RSSI"), $ifinfo['rssi']);
-			showDef(true, gettext("In/out packets"),
-			    $ifinfo['inpkts'] . '/' . $ifinfo['outpkts'] . " (" . format_bytes($ifinfo['inbytes']) . "/" . format_bytes($ifinfo['outbytes']) . ")");
-			showDef(true, gettext("In/out packets (pass)"),
-			    $ifinfo['inpktspass'] . '/' . $ifinfo['outpktspass'] . " (" . format_bytes($ifinfo['inbytespass']) . "/" . format_bytes($ifinfo['outbytespass']) . ")");
-			showDef(true, gettext("In/out packets (block)"),
-			    $ifinfo['inpktsblock'] . '/' . $ifinfo['outpktsblock'] . " (" . format_bytes($ifinfo['inbytesblock']) . "/" . format_bytes($ifinfo['outbytesblock']) . ")");
-			showDef(isset($ifinfo['inerrs']), gettext("In/out errors"), $ifinfo['inerrs'] . "/" . $ifinfo['outerrs']);
-			showDef(isset($ifinfo['collisions']), gettext("Collisions"), $ifinfo['collisions']);
-		} // e-o-if ($ifinfo['status'] != "down")
-
-		showDef($ifinfo['bridge'], sprintf(gettext('Bridge (%1$s)'), $ifinfo['bridgeint']), $ifinfo['bridge']);
-
-		if (is_array($ifinterrupts[$ifinfo['hwif']])) {
-			$interrupt_total = $ifinterrupts[$ifinfo['hwif']]['total'];
-			$interrupt_sec = $ifinterrupts[$ifinfo['hwif']]['rate'];
-			showDef($interrupt_total, gettext('Interrupts'), $interrupt_total . " (" . $interrupt_sec . "/s)");
 		}
+
+		foreach ([
+		    'mtu' => [gettext("MTU"), true], 'media' => [gettext("Media"), false], 'plugged' => [gettext("Plugged"), false],
+		    'vendor' => [gettext("Vendor"), false], 'temperature' => [gettext("Temperature"), false], 'voltage' => [gettext("Voltage"), false],
+		    'rx' => [gettext("RX"), false], 'tx' => [gettext("TX"), false], 'laggproto' => [gettext("LAGG protocol"), false],
+		] as $key => list($label, $mono)) {
+			if ($ifinfo[$key]) {
+				$facts[] = [$label, $ifinfo[$key], $mono, null];
+			}
+		}
+		if ($ifinfo['laggport']) {
+			$facts[] = [gettext("LAGG ports"), implode(', ', (array)get_lagg_ports($ifinfo['laggport'])), true, null];
+		}
+		foreach (['channel' => gettext("Channel"), 'ssid' => gettext("SSID"), 'bssid' => gettext("BSSID"),
+		    'rate' => gettext("Rate"), 'rssi' => gettext("RSSI")] as $key => $label) {
+			if ($ifinfo[$key]) {
+				$facts[] = [$label, $ifinfo[$key], ($key == 'bssid'), null];
+			}
+		}
+
+		$traffic[] = [gettext('Packets'), $ifinfo['inpkts'], $ifinfo['outpkts'], false];
+		$traffic[] = [gettext('Bytes'), format_bytes($ifinfo['inbytes']), format_bytes($ifinfo['outbytes']), false];
+		$traffic[] = [gettext('Passed'), $ifinfo['inpktspass'], $ifinfo['outpktspass'], false,
+		    format_bytes($ifinfo['inbytespass']) . ' / ' . format_bytes($ifinfo['outbytespass'])];
+		$traffic[] = [gettext('Blocked'), $ifinfo['inpktsblock'], $ifinfo['outpktsblock'], false,
+		    format_bytes($ifinfo['inbytesblock']) . ' / ' . format_bytes($ifinfo['outbytesblock'])];
+		if (isset($ifinfo['inerrs'])) {
+			$traffic[] = [gettext('Errors'), $ifinfo['inerrs'], $ifinfo['outerrs'], ($ifinfo['inerrs'] > 0 || $ifinfo['outerrs'] > 0)];
+		}
+		if (isset($ifinfo['collisions'])) {
+			$traffic[] = [gettext('Collisions'), $ifinfo['collisions'], null, ($ifinfo['collisions'] > 0)];
+		}
+	}
+
+	if ($ifinfo['bridge']) {
+		$facts[] = [sprintf(gettext('Bridge (%1$s)'), $ifinfo['bridgeint']), $ifinfo['bridge'], true, null];
+	}
+	if (is_array($ifinterrupts[$ifinfo['hwif']] ?? null) && $ifinterrupts[$ifinfo['hwif']]['total']) {
+		$facts[] = [gettext('Interrupts'), $ifinterrupts[$ifinfo['hwif']]['total'] . " (" . $ifinterrupts[$ifinfo['hwif']]['rate'] . "/s)", true, null];
+	}
 ?>
-		</dl>
-	</div>
+	<section class="panel panel-default" aria-labelledby="if-<?=htmlspecialchars($ifdescr)?>-title">
+		<div class="panel-heading fs-if-head">
+			<h2 class="panel-title" id="if-<?=htmlspecialchars($ifdescr)?>-title">
+				<span class="fs-if-name"><?=htmlspecialchars($ifname)?></span>
+				<span class="fs-if-dev"><?=htmlspecialchars($ifdescr)?> · <?=htmlspecialchars($ifinfo['if'] ?: $ifinfo['hwif'])?></span>
+			</h2>
+			<?=$badge?>
+<?php	if ($ifinfo['media'] && $ifinfo['status'] != "down"): ?>
+			<span class="fs-if-media"><?=htmlspecialchars($ifinfo['media'])?></span>
+<?php	endif; ?>
+<?php	if (!empty($actions)): ?>
+			<div class="fs-if-actions">
+<?php		foreach ($actions as $a):
+			$icon = ($a['ipv'] === null) ? ($a['up'] ? 'fa-plug-circle-xmark' : 'fa-plug') : ($a['up'] ? 'fa-arrow-right-from-bracket' : 'fa-arrows-rotate');
+			if ($a['ipv'] !== null && $a['state'] == 'up'):
+				/* DHCP release: a modal asks first and offers to relinquish the lease */
+				$modal_id = 'if-release-' . $ifdescr . '-' . $a['ipv'];
+				$modals[] = [$modal_id, $ifdescr, $ifname, $a, $ifinfo['if']];
+?>
+				<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-modal="#<?=htmlspecialchars($modal_id)?>"><i class="fa-solid <?=$icon?> icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars($a['text'])?></button>
+<?php		else: ?>
+				<form action="status_interfaces.php" method="post">
+					<input type="hidden" name="ifdescr" value="<?=htmlspecialchars($ifdescr)?>">
+					<input type="hidden" name="status" value="<?=htmlspecialchars($a['state'])?>">
+					<button<?=fs_attrs([
+					    'type' => 'submit', 'name' => 'submit', 'value' => $a['value'], 'class' => 'btn btn-sm btn-outline-secondary',
+					    'data-fs-confirm' => $a['up'] ? sprintf(gettext('Disconnect %1$s on %2$s?'), $a['type'], $ifname) : null,
+					    'data-fs-confirm-detail' => $a['up'] ? gettext('Traffic through this interface stops until it is connected again.') : null,
+					    'data-fs-confirm-action' => $a['up'] ? gettext('Disconnect') : null,
+					])?>><i class="fa-solid <?=$icon?> icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars($a['text'])?></button>
+				</form>
+<?php		endif;
+		endforeach; ?>
+			</div>
+<?php	endif; ?>
+		</div>
+		<div class="panel-body fs-if-body">
+			<dl class="fs-if-facts">
+<?php	foreach ($facts as list($label, $value, $mono, $sub)): ?>
+				<dt><?=htmlspecialchars($label)?></dt>
+				<dd<?=$mono ? ' class="fs-mono"' : ''?>><?=htmlspecialchars((string)$value)?><?php if ($sub): ?><span class="fs-if-sub"><?=htmlspecialchars($sub)?></span><?php endif; ?></dd>
+<?php	endforeach; ?>
+			</dl>
+<?php	if (!empty($traffic)): ?>
+			<div class="fs-if-traffic">
+<?php		foreach ($traffic as $t): list($label, $in, $out, $bad) = $t; ?>
+				<div class="fs-if-stat<?=$bad ? ' is-bad' : ''?>">
+					<div class="fs-if-stat-label"><?=htmlspecialchars($label)?></div>
+					<div class="fs-if-stat-value">
+<?php			if ($out === null): ?>
+						<span><?=htmlspecialchars((string)$in)?></span>
+<?php			else: ?>
+						<span title="<?=gettext('In')?>"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i><span class="visually-hidden"><?=gettext('In')?> </span><?=htmlspecialchars((string)$in)?></span>
+						<span title="<?=gettext('Out')?>"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i><span class="visually-hidden"><?=gettext('Out')?> </span><?=htmlspecialchars((string)$out)?></span>
+<?php			endif; ?>
+					</div>
+<?php			if (!empty($t[4])): ?>
+					<div class="fs-if-stat-sub" title="<?=gettext('Bytes in / out')?>"><?=htmlspecialchars($t[4])?></div>
+<?php			endif; ?>
+				</div>
+<?php		endforeach; ?>
+			</div>
+<?php	endif; ?>
+		</div>
+	</section>
+<?php endforeach; ?>
 </div>
 
-<?php
-	endforeach;
+<?php if (empty($ifdescrs)): ?>
+<div class="panel panel-default"><div class="panel-body fs-if-body fs-muted"><?=gettext('No interfaces are assigned.')?></div></div>
+<?php endif; ?>
 
-print_info_box(sprintf(gettext('Using dial-on-demand will bring the connection up again if any packet ' .
-	    'triggers it. To substantiate this point: disconnecting manually ' .
-	    'will %1$snot%2$s prevent dial-on-demand from making connections ' .
-	    'to the outside! Don\'t use dial-on-demand if the line ' .
-	    'is to be kept disconnected.'), '<strong>', '</strong>'), 'warning', false);
+<?php if ($has_dialup): ?>
+<p class="fs-if-note"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><?=gettext('With dial-on-demand, any packet that triggers it brings the connection up again: disconnecting manually does not prevent it. Do not use dial-on-demand if the line must stay disconnected.')?></span></p>
+<?php endif; ?>
+
+<?php
+foreach ($modals as list($modal_id, $ifdescr, $ifname, $a, $realif)):
+	fs_modal_form_begin($modal_id, sprintf(gettext('Release the %1$s lease on %2$s'), $a['type'], $ifname), 'status_interfaces.php',
+	    ['ifdescr' => $ifdescr, 'status' => $a['state'], 'if' => $realif, 'ipv' => $a['ipv']]);
+?>
+	<p><?=gettext('The interface loses its address until the lease is renewed.')?></p>
+	<div class="form-check">
+		<input class="form-check-input" type="checkbox" name="relinquish_lease" value="true" id="<?=htmlspecialchars($modal_id)?>-relinquish">
+		<label class="form-check-label" for="<?=htmlspecialchars($modal_id)?>-relinquish"><?=gettext('Relinquish lease')?></label>
+		<div class="form-text"><?=gettext('Send a gratuitous DHCP release packet to the server.')?></div>
+	</div>
+<?php
+	fs_modal_form_end(gettext('Release'), 'submit', $a['value'], 'fa-arrow-right-from-bracket');
+endforeach;
+
 include("foot.inc");
 ?>
