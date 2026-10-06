@@ -25,7 +25,7 @@
  * Every helper escapes its arguments: pass raw strings, already passed
  * through gettext(). Inline helpers (fs_badge, fs_row_actions) return a
  * string for <?=...?>; block helpers (fs_tabs, fs_view_switch,
- * fs_table_toolbar, fs_empty_row, fs_tile) echo.
+ * fs_table_toolbar, fs_empty_row, fs_tile, fs_summary_card) echo.
  */
 
 function fs_h($s) {
@@ -441,6 +441,103 @@ function fs_badge($state, $label = null, $title = null) {
 
 	return '<span' . fs_attrs($attrs) . '><i class="fa-solid ' . $icon . '" aria-hidden="true"></i>'
 	    . fs_h($label ?? $default) . '</span>';
+}
+
+/* ---------------------------------------------------------------- summary card */
+
+/*
+ * Header summary card of an Editor page: what is being edited, its state and a
+ * few key facts (docs/webui/03-components.md). Echoes. Every text is escaped.
+ *
+ *   fs_summary_card([
+ *       'icon' => 'fa-server',                       // Font Awesome name or full class
+ *       'title' => $descr,                           // text; '' shows 'placeholder' muted
+ *       'placeholder' => gettext('New server'),
+ *       'subtitle' => gettext('Remote access'),      // text, optional
+ *       'badges' => [fs_badge('enabled')],           // fs_badge() output only
+ *       'meta' => 'ovpns1',                          // short id beside the badges (mono)
+ *       'label' => gettext('Server summary'),        // region name for screen readers
+ *       'facts' => [
+ *           [gettext('Mode'), $mode],
+ *           [gettext('Port'), $port, 'mono' => true, 'empty' => gettext('Not set')],
+ *           [gettext('Phase 1'), $p1name, 'href' => $url, 'note' => 'IKE ID 1'],
+ *           [gettext('Applies to'), '', 'chips' => $names, 'empty' => gettext('All servers')],
+ *           [gettext('Networks'), '', 'html' => $prebuilt_escaped_html],
+ *       ],
+ *       'actions' => [[gettext('View status'), 'status_openvpn.php', 'fa-chart-line']],
+ *   ]);
+ *
+ * A fact value is text. 'empty' is shown muted when the value (and chips) is
+ * empty; 'note' adds a muted second line ('note_title' becomes its tooltip);
+ * 'html' replaces the value with caller-built markup that must already be escaped.
+ */
+function fs_summary_card(array $opts) {
+	$title = trim((string)($opts['title'] ?? ''));
+	$label = $opts['label'] ?? null;
+
+	echo '<div class="panel panel-default fs-summary"' . (($label !== null) ? ' role="region" aria-label="' . fs_h($label) . '"' : '') . '>';
+	echo '<div class="fs-summary-head">';
+	if (!empty($opts['icon'])) {
+		echo '<span class="fs-summary-icon"><i class="' . fs_h(fs_icon_class($opts['icon'])) . '" aria-hidden="true"></i></span>';
+	}
+	echo '<div class="fs-summary-name"><h2 class="fs-summary-title">';
+	echo ($title === '') ? '<span class="fs-muted">' . fs_h($opts['placeholder'] ?? gettext('No description')) . '</span>' : fs_h($title);
+	echo '</h2>';
+	if (($opts['subtitle'] ?? '') !== '') {
+		echo '<div class="fs-summary-sub">' . fs_h($opts['subtitle']) . '</div>';
+	}
+	echo '</div>';
+
+	$badges = array_filter((array)($opts['badges'] ?? []), function ($b) { return (string)$b !== ''; });
+	$meta = (string)($opts['meta'] ?? '');
+	$actions = (array)($opts['actions'] ?? []);
+	if ($badges || $meta !== '' || $actions) {
+		echo '<div class="fs-summary-status">' . implode('', $badges);
+		if ($meta !== '') {
+			echo '<span class="fs-summary-meta">' . fs_h($meta) . '</span>';
+		}
+		foreach ($actions as $action) {
+			echo '<a class="btn btn-sm btn-outline-secondary" href="' . fs_h($action[1]) . '">'
+			    . (empty($action[2]) ? '' : '<i class="' . fs_h(fs_icon_class($action[2])) . ' icon-embed-btn" aria-hidden="true"></i>')
+			    . fs_h($action[0]) . '</a>';
+		}
+		echo '</div>';
+	}
+	echo '</div>';
+
+	$facts = (array)($opts['facts'] ?? []);
+	if ($facts) {
+		echo '<dl class="fs-summary-facts">';
+		foreach ($facts as $fact) {
+			echo '<div><dt>' . fs_h($fact[0]) . '</dt><dd>';
+			$value = (string)($fact[1] ?? '');
+			$chips = (array)($fact['chips'] ?? []);
+			if (isset($fact['html'])) {
+				echo $fact['html'];
+			} elseif ($value === '' && !$chips) {
+				echo '<span class="fs-muted">' . fs_h($fact['empty'] ?? gettext('Not set')) . '</span>';
+			} else {
+				if ($value !== '') {
+					$text = empty($fact['mono']) ? fs_h($value) : '<span class="fs-mono">' . fs_h($value) . '</span>';
+					echo isset($fact['href']) ? '<a href="' . fs_h($fact['href']) . '">' . $text . '</a>' : $text;
+				}
+				if ($chips) {
+					echo '<span class="fs-chips">';
+					foreach ($chips as $chip) {
+						echo '<span class="fs-chip">' . fs_h($chip) . '</span>';
+					}
+					echo '</span>';
+				}
+			}
+			if (($fact['note'] ?? '') !== '') {
+				echo '<span class="fs-summary-note"' . (isset($fact['note_title']) ? ' title="' . fs_h($fact['note_title']) . '"' : '') . '>'
+				    . fs_h($fact['note']) . '</span>';
+			}
+			echo '</dd></div>';
+		}
+		echo '</dl>';
+	}
+	echo '</div>';
 }
 
 /* --------------------------------------------------------------- form helpers */

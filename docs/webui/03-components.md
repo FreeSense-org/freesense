@@ -446,6 +446,64 @@ fs_tile(gettext('RTT'), '12 ms', null, 'Average of all gateways');
 
 Tiles sit in a `.fs-tiles` row: 2–4 per row on desktop, 2 per row on phones.
 
+## Summary card (Editor header)
+
+An Editor page opens with one card that names the item, shows its state and a few saved facts
+(reference: `vpn_ipsec_phase1.php`, `vpn_openvpn_server.php`). Build it with `fs_summary_card()`;
+never copy its markup or CSS into a page.
+
+```php
+fs_summary_card([
+	'icon' => 'fa-server',                         // Font Awesome name or full class
+	'title' => $server['description'],             // text; '' shows 'placeholder' muted
+	'placeholder' => gettext('New server'),
+	'subtitle' => gettext('Remote access'),        // optional
+	'badges' => [fs_badge('enabled')],             // fs_badge() output only
+	'meta' => 'ovpns1',                            // short id beside the badges (mono, muted)
+	'label' => gettext('Server summary'),          // region name for screen readers
+	'facts' => [
+		[gettext('Mode'), $mode],
+		[gettext('Server'), $addr, 'mono' => true],                       // '' → "Not set" (muted)
+		[gettext('Tunnel network'), $net, 'mono' => true, 'empty' => gettext('From server')],
+		[gettext('Phase 1'), $p1, 'href' => $url, 'note' => 'IKE ID 1'], // link + muted second line
+		[gettext('Protocol'), '', 'chips' => ['UDP4', 'TUN']],            // value as chips
+		[gettext('Networks'), '', 'html' => $escaped_html],               // escape hatch, caller escapes
+	],
+	'actions' => [[gettext('Status'), 'status_openvpn.php', 'fa-chart-line']],   // optional small buttons
+]);
+```
+
+- Every string is escaped by the helper; pass raw text. Only `'html'` is output as is.
+- Show **saved** values (the stored item, or the defaults of a new one), not live form input.
+- A new item gets an `info` or `pending` badge ("New", "Not saved yet"); a saved one `enabled` / `disabled`.
+- 3–5 facts. The facts sit in a grid under a hairline; two columns on phones. Omit `facts` when there
+  is nothing useful to show (e.g. a new user).
+
+## Chips
+
+Small outlined labels for algorithms, capabilities, protocols or group names. Several sit in a
+`.fs-chips` row (a `<div>`, `<span>` or `<ul>` — list bullets are removed).
+
+```html
+<div class="fs-chips">
+	<span class="fs-chip fs-chip--mono">AES-256-GCM</span>
+	<span class="fs-chip fs-chip--mono is-warn" title="weak algorithm">3DES<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>
+	<span class="fs-chip is-on">TLS crypt</span>
+</div>
+```
+
+| Class | Use |
+|---|---|
+| `.fs-chip--mono` | technical tokens: algorithms, capability names |
+| `.fs-chip--strong` | short codes that should read as tags (`UDP4`, `TSO`) |
+| `.fs-chip--muted` / `.is-off` | secondary or switched-off values |
+| `.is-on` | enabled / active (pass color on a light tint) |
+| `.is-warn` | needs attention (weak algorithm); add a warning icon and a tooltip |
+| `.is-na` | not supported (struck through, faded) |
+
+A chip is not a badge: state of the item itself is a `fs_badge()`. When a chip carries meaning by
+color (`is-on`, `is-warn`), the meaning is also in its text, title or a legend.
+
 ## Navigation and package menus
 
 `head.inc` renders the top menus through `includes/fs_menu.inc`. System, Services, Status and

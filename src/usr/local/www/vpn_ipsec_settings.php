@@ -78,35 +78,19 @@ foreach ($ipsec_log_cats as $cat => $desc) {
 }
 $saved_filtermode = config_get_path('ipsec/filtermode', 'enc');
 $saved_bypass = config_path_enabled('ipsec', 'ipsecbypass') ? count(config_get_path('ipsec/bypassrules/rule', [])) : 0;
-?>
-<style>
-.fs-ipsec-sum { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; padding: 1rem 1.25rem; }
-.fs-ipsec-sum-head { display: flex; align-items: center; gap: .75rem; min-width: 0; }
-.fs-ipsec-sum-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
-.fs-ipsec-sum-title { font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); }
-.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
-.fs-ipsec-sum-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
-.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
-.fs-ipsec-sum-facts dd { margin: 0; color: var(--fs-text-strong); }
-</style>
-<div class="panel panel-default">
-	<div class="fs-ipsec-sum">
-		<div class="fs-ipsec-sum-head">
-			<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-sliders" aria-hidden="true"></i></span>
-			<div>
-				<div class="fs-ipsec-sum-title"><?=gettext('IPsec daemon')?></div>
-				<div class="fs-ipsec-sum-sub"><?=gettext('Settings shared by all tunnels')?></div>
-			</div>
-		</div>
-		<dl class="fs-ipsec-sum-facts">
-			<div><dt><?=gettext('Filter mode')?></dt><dd><?=($saved_filtermode == 'if_ipsec') ? gettext('Assigned VTI and transport interfaces') : gettext('IPsec tab (enc0)')?></dd></div>
-			<div><dt><?=gettext('IKE / NAT-T ports')?></dt><dd class="fs-mono"><?=htmlspecialchars(config_get_path('ipsec/port', '') ?: '500')?> / <?=htmlspecialchars(config_get_path('ipsec/port_nat_t', '') ?: '4500')?></dd></div>
-			<div><dt><?=gettext('Logging')?></dt><dd><?=$raised ? htmlspecialchars(sprintf(gettext('Raised for %d categories'), $raised)) : gettext('Default (Control)')?></dd></div>
-			<div><dt><?=gettext('Bypass rules')?></dt><dd><?=$saved_bypass ? (int)$saved_bypass : gettext('none')?></dd></div>
-		</dl>
-	</div>
-</div>
-<?php
+
+fs_summary_card([
+	'icon' => 'fa-sliders',
+	'title' => gettext('IPsec daemon'),
+	'subtitle' => gettext('Settings shared by all tunnels'),
+	'facts' => [
+		[gettext('Filter mode'), ($saved_filtermode == 'if_ipsec') ? gettext('Assigned VTI and transport interfaces') : gettext('IPsec tab (enc0)')],
+		[gettext('IKE / NAT-T ports'), (config_get_path('ipsec/port', '') ?: '500') . ' / ' . (config_get_path('ipsec/port_nat_t', '') ?: '4500'), 'mono' => true],
+		[gettext('Logging'), $raised ? sprintf(gettext('Raised for %d categories'), $raised) : gettext('Default (Control)')],
+		[gettext('Bypass rules'), $saved_bypass ? (string)(int)$saved_bypass : gettext('none')],
+	],
+	'label' => gettext('IPsec settings summary'),
+]);
 
 $form = new Form;
 

@@ -36,6 +36,18 @@
 	--fs-info:    #0b63c4;
 	--fs-neutral: #5b6573;
 
+	/* chart series: categorical, assigned in this order and never cycled;
+	   more than 8 series fold into "Other" (--fs-series-other) */
+	--fs-series-1: #2a78d6;   /* blue */
+	--fs-series-2: #eb6834;   /* orange */
+	--fs-series-3: #1baf7a;   /* aqua */
+	--fs-series-4: #eda100;   /* yellow */
+	--fs-series-5: #e87ba4;   /* magenta */
+	--fs-series-6: #008300;   /* green */
+	--fs-series-7: #4a3aa7;   /* violet */
+	--fs-series-8: #e34948;   /* red */
+	--fs-series-other: #9aa3ae;
+
 	/* typography */
 	--fs-font-ui:   'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 	--fs-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
@@ -86,6 +98,17 @@
 	--fs-warn:    #facc15;
 	--fs-info:    #60a5fa;
 	--fs-neutral: #9aa4b2;
+
+	/* chart series: the same hues stepped for the dark surface */
+	--fs-series-1: #3987e5;
+	--fs-series-2: #d95926;
+	--fs-series-3: #199e70;
+	--fs-series-4: #c98500;
+	--fs-series-5: #d55181;
+	--fs-series-6: #008300;
+	--fs-series-7: #9085e9;
+	--fs-series-8: #e66767;
+	--fs-series-other: #6b7380;
 
 	--fs-shadow-overlay: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
 	--fs-shadow-sticky:  0 -8px 20px rgba(0, 0, 0, 0.35);
