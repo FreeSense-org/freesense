@@ -89,6 +89,13 @@ if ($act == "edit") {
 	$pglinks[] = "@self";
 }
 
+if ($act != "edit") {
+	fs_page_action(gettext('Add tunable'), '#', 'fa-plus', 'primary', [
+		'data-fs-modal' => '#sysctl-edit',
+		'data-fs-modal-title' => gettext('Add tunable'),
+	]);
+}
+
 include("head.inc");
 
 if ($input_errors) {
@@ -105,54 +112,107 @@ if (is_subsystem_dirty('sysctl') && ($act != "edit" )) {
 
 fs_tabs('system-advanced', 'system_advanced_sysctl.php');
 
-if ($act != "edit"): ?>
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title"><?=gettext('System Tunables'); ?></h2>
-	</div>
-	<div class="panel-body">
-		<div class="form-group">
-			<table class="table table-responsive table-hover table-sm" data-sortable>
-				<caption><strong><?=gettext('NOTE: '); ?></strong><?=gettext('The options on this page are intended for use by advanced users only.'); ?></caption>
-				<thead>
-					<tr>
-						<th class="col-sm-3"><?=gettext("Tunable Name"); ?></th>
-						<th><?=gettext("Description"); ?></th>
-						<th class="col-sm-1"><?=gettext("Value"); ?></th>
-						<th><a class="btn btn-sm btn-success" href="system_advanced_sysctl.php?act=edit"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('New'); ?></a></th>
-					</tr>
-				</thead>
-				<?php
-					foreach ($tunables as $i => $tunable):
-						if (!isset($tunable['modified'])) {
-							$i = $tunable['tunable'];
-						}
-				?>
+if ($act != "edit"):
+	$tn = static function ($v) { return htmlspecialchars_decode((string)$v); };
+?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('System Tunables'),
+	'search' => gettext('Search tunables…'),
+	'noun' => gettext('tunables'),
+	'noun_one' => gettext('tunable'),
+	'filters' => ['state' => [gettext('All'), 'custom' => gettext('Custom'), 'default' => gettext('Default')]],
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
+			<thead>
 				<tr>
-					<td><?=$tunable['tunable']; ?></td>
-					<td><?=$tunable['descr']; ?></td>
-					<td><?=$tunable['value']; ?>
-					<?php
-						if ($tunable['value'] == "default") {
-							echo "(" . get_default_sysctl_value($tunable['tunable']) . ")";
-						}
-					?>
-					</td>
-					<td>
-					<a class="fa-solid fa-pencil" title="<?=gettext("Edit tunable"); ?>" href="system_advanced_sysctl.php?act=edit&amp;id=<?=$i;?>"></a>
-						<?php if (isset($tunable['modified'])): ?>
-						<a class="fa-solid fa-trash-can" title="<?=gettext("Delete/Reset tunable")?>" href="system_advanced_sysctl.php?act=del&amp;id=<?=$i;?>" usepost></a>
-						<?php endif; ?>
-					</td>
+					<th data-fs-search><?=gettext("Tunable")?></th>
+					<th data-fs-search><?=gettext("Value")?></th>
+					<th><?=gettext("State")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
-				<?php
-					endforeach;
-					unset($tunables);
-				?>
-			</table>
-		</div>
+			</thead>
+			<tbody>
+<?php
+	foreach ($tunables as $i => $tunable):
+		$custom = isset($tunable['modified']);
+		if (!$custom) {
+			$i = $tunable['tunable'];
+		}
+		$name = $tn($tunable['tunable']);
+		$actions = [
+			['edit', 'system_advanced_sysctl.php?act=edit&id=' . urlencode($i), $name, ['attrs' => [
+				'data-fs-modal' => '#sysctl-edit',
+				'data-fs-modal-title' => sprintf(gettext('Edit %s'), $name),
+				'data-fs-fill' => json_encode([
+					'id' => $custom ? (string)$i : '',
+					'tunable' => $name,
+					'value' => $tn($tunable['value']),
+					'descr' => $tn($tunable['descr']),
+				]),
+			]]],
+		];
+		if ($custom) {
+			$actions[] = ['delete', 'system_advanced_sysctl.php?act=del&id=' . urlencode($i), $name, [
+				'thing' => gettext('custom tunable'),
+				'detail' => gettext('A built-in tunable returns to its default value once the change is applied.'),
+			]];
+		}
+?>
+				<tr data-fs-filter-state="<?=$custom ? 'custom' : 'default'?>">
+					<td>
+						<span class="fs-mono"><?=htmlspecialchars($name)?></span>
+<?php		if ($tunable['descr'] !== ''): ?>
+						<div class="fs-muted small"><?=htmlspecialchars($tn($tunable['descr']))?></div>
+<?php		endif; ?>
+					</td>
+					<td class="fs-mono">
+						<?=htmlspecialchars($tn($tunable['value']))?>
+<?php		if ($tunable['value'] == "default"): ?>
+						<span class="fs-muted">(<?=htmlspecialchars(get_default_sysctl_value($tunable['tunable']))?>)</span>
+<?php		endif; ?>
+					</td>
+					<td><?=$custom ? fs_badge('info', gettext('Custom')) : '<span class="fs-muted">' . gettext('Default') . '</span>'?></td>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+				</tr>
+<?php
+	endforeach;
+	unset($tunables);
+?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+		<?=gettext('These options are intended for advanced users. Saved changes take effect after Apply.')?>
 	</div>
 </div>
+<?php
+	/* add / edit a tunable (posts to the existing save handler) */
+	$reopen = null;
+	if ($input_errors && isset($_POST['save'])) {
+		$reopen = ['id' => (string)($_POST['id'] ?? ''), 'tunable' => $_POST['tunable'] ?? '', 'value' => $_POST['value'] ?? '', 'descr' => $_POST['descr'] ?? ''];
+	}
+	fs_modal_form_begin('sysctl-edit', gettext('Add tunable'), 'system_advanced_sysctl.php', [], $reopen);
+?>
+	<input type="hidden" name="id" value="">
+	<div class="mb-3">
+		<label class="form-label" for="sysctl-tunable"><?=gettext('Tunable')?></label>
+		<input class="form-control fs-mono" id="sysctl-tunable" name="tunable" required placeholder="net.inet.tcp.blackhole">
+	</div>
+	<div class="mb-3">
+		<label class="form-label" for="sysctl-value"><?=gettext('Value')?></label>
+		<input class="form-control fs-mono" id="sysctl-value" name="value" required>
+		<div class="form-text"><?=gettext('Letters, digits, "-", "_", "%" and "/". Use "default" for the built-in value.')?></div>
+	</div>
+	<div class="mb-3">
+		<label class="form-label" for="sysctl-descr"><?=gettext('Description')?></label>
+		<input class="form-control" id="sysctl-descr" name="descr">
+	</div>
+<?php
+	fs_modal_form_end(gettext('Save'), 'save', gettext('Save'), 'fa-floppy-disk');
+?>
 
 <?php else:
 	$form = new Form;
@@ -190,6 +250,7 @@ if ($act != "edit"): ?>
 
 	$form->add($section);
 
+	fs_form_cancel($form, 'system_advanced_sysctl.php');
 	print $form;
 
 endif;

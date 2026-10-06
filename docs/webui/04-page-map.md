@@ -99,7 +99,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system | Settings | DNS servers become the entry grid | D | M |
 | system_advanced_misc | Settings | **pilot**; registry group `system-advanced` (6 tabs) | A | |
 | system_advanced_admin, _firewall, _network, _notifications | Settings | standard | D | |
-| system_advanced_sysctl | List + Editor (`act=edit`) | **R1**: today the list and the edit form show together; make them separate views; list search on tunable name | C | |
+| system_advanced_sysctl | List + Editor (`act=edit`) | **done**: searchable list (Custom / Default filter, description under the name); Add and Edit in a modal (reopens with the input after a validation error); delete confirms; the act=edit page stays for links | C | |
 | system_usermanager | List + Editor (`act=edit`) | existing bulk becomes the bulk bar; badges (disabled, expired); search | B | M |
 | system_groupmanager | List + Editor | standard | B | |
 | system_usermanager_addprivs, _groupmanager_addprivs | Editor | the privilege multi-select becomes a **searchable checklist** (component added in Phase D) | D | |

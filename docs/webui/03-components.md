@@ -241,6 +241,16 @@ A row trigger (a `<button type="button" class="fs-action">` or a `custom` row ac
 The form is reset before filling, the first field gets focus, and the form posts to the page itself, so the
 existing POST handler stays the source of truth. Use the Editor page for anything bigger.
 
+After a failed save, pass the posted values as the fifth argument so the modal reopens with them
+(the errors show above the list):
+
+```php
+fs_modal_form_begin('sysctl-edit', gettext('Add tunable'), '', [], $input_errors ? ['tunable' => $_POST['tunable'] ?? '', /* … */] : null);
+```
+
+When adding or editing has its own privilege (e.g. `services_wol_edit.php`), render the modal and
+accept its POST only when `isAllowedPage()` allows that page.
+
 ## Empty state
 
 `fs_empty_row(int $colspan, string $message, ?string $add_href = null, ?string $add_label = null)` renders a centered

@@ -173,16 +173,7 @@
 	 * and can set the title with data-fs-modal-title. Fields not named in
 	 * data-fs-fill are reset, so a modal never shows the previous row's values.
 	 */
-	document.addEventListener('click', function (e) {
-		var trigger = e.target.closest ? e.target.closest('[data-fs-modal]') : null;
-		if (!trigger || !window.bootstrap || !window.bootstrap.Modal) {
-			return;
-		}
-		var modal = document.querySelector(trigger.getAttribute('data-fs-modal'));
-		if (!modal) {
-			return;
-		}
-		e.preventDefault();
+	function openModalForm(modal, trigger) {
 
 		var form = modal.querySelector('form');
 		var fill = {};
@@ -222,7 +213,33 @@
 			}
 		});
 		window.bootstrap.Modal.getOrCreateInstance(modal).show();
+	}
+
+	document.addEventListener('click', function (e) {
+		var trigger = e.target.closest ? e.target.closest('[data-fs-modal]') : null;
+		if (!trigger || !window.bootstrap || !window.bootstrap.Modal) {
+			return;
+		}
+		var modal = document.querySelector(trigger.getAttribute('data-fs-modal'));
+		if (!modal) {
+			return;
+		}
+		e.preventDefault();
+		openModalForm(modal, trigger);
 	});
+
+	/* fs_modal_form_begin(..., $reopen): reopen with the posted values after a failed save */
+	function reopenModalForm() {
+		var modal = document.querySelector('.fs-modal-form[data-fs-open]');
+		if (modal && window.bootstrap && window.bootstrap.Modal) {
+			openModalForm(modal, modal);
+		}
+	}
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', reopenModalForm);
+	} else {
+		setTimeout(reopenModalForm, 0);
+	}
 
 	/* --------------------------------------------------------------------- tabs */
 

@@ -189,7 +189,9 @@ fs_modal_form_end(gettext('Wake'), 'Submit', 'Send', 'fa-power-off');
 
 if ($can_edit) {
 	/* add / edit a saved device */
-	fs_modal_form_begin('wol-device', gettext('Add device'));
+	fs_modal_form_begin('wol-device', gettext('Add device'), '', [], isset($device_errors)
+	    ? ['id' => (string)($_POST['id'] ?? ''), 'descr' => $_POST['descr'] ?? '', 'interface' => $_POST['interface'] ?? '', 'mac' => $_POST['mac'] ?? '']
+	    : null);
 ?>
 	<input type="hidden" name="id" value="">
 	<div class="mb-3">

@@ -651,7 +651,8 @@ check_api(strpos($fn_body($dnsmasq_inc, 'applyDNSMasqConfig'), "clear_subsystem_
 foreach (array('services_dnsmasq.php' => 'deleteDNSMasqEntry($_POST);', 'services_dnsmasq_edit.php' => 'saveDNSMasqHost($_POST, $id);',
     'services_dnsmasq_domainoverride_edit.php' => 'saveDomainOverride($_POST, $id);') as $page => $call) {
 	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
-	check_api(strpos($src, $call) !== false && strpos($src, 'header("Location: services_dnsmasq.php");') > strpos($src, $call),
+	/* back to the list view the change was made from (services_dnsmasq.php?view=...) */
+	check_api(strpos($src, $call) !== false && preg_match('/header\("Location: (services_dnsmasq\.php[?"]|" \. \$view_url\))/', substr($src, strpos($src, $call))) === 1,
 	    "{$page} redirects after {$call}");
 }
 
