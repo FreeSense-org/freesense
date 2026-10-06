@@ -40,10 +40,22 @@
  * tunnel list's actions are staged like the GUI (the "ipsec" dirty flag) until
  * POST /v1/vpn/ipsec/apply; add ?apply=true to a write to apply it at once.
  * Tunnels (phase 1 entries, addressed by ikeid, with their phase 2 entries,
- * addressed by uniqid) can be read, enabled/disabled and deleted; editing them
- * is not part of the API yet. A VTI phase 2 whose interface is assigned cannot
- * be disabled or deleted, nor can its phase 1 (409). Secrets of a phase 1
- * (pre-shared key, PKCS#11 PIN, private keys) read as "(set)".
+ * addressed by uniqid) can be read, created, edited, enabled/disabled and
+ * deleted. A VTI phase 2 whose interface is assigned cannot be disabled or
+ * deleted, nor can its phase 1 (409). Secrets of a phase 1 (pre-shared key,
+ * PKCS#11 PIN, private keys) read as "(set)"; sending "(set)" keeps them.
+ * GET of a tunnel or phase 2 entry returns the stored fields plus "fields":
+ * the edit page's form, the shape a POST/PUT takes (a PUT merges its body over
+ * the current "fields"; selects read as the option the page preselects;
+ * "encryption" is a list of {algorithm, keylen, hash, prf, dhgroup} for a
+ * phase 1 and of {algorithm, keylen} for a phase 2). The form is posted the
+ * way the browser posts it (fields the selected options hide on the page are
+ * left out), so validation is the page's. The mobile client settings
+ * (/v1/vpn/ipsec/mobile) are staged too; ?apply=true applies them like that
+ * page's Apply (IPsec is restarted). The advanced settings
+ * (/v1/vpn/ipsec/settings) are applied at once, like their page (filter reload,
+ * IPsec reconfigured and the system tunables set; the page also clears the
+ * "sysctl" pending flag).
  *
  * The front controller loads vpn_l2tp.inc and vpn_ipsec.inc at file scope.
  */
@@ -78,6 +90,32 @@ function restapi_routes_vpn() {
 	    'e-mail address or "any"), type (PSK|EAP), psk (the key; "(set)" keeps it), ident_type (EAP identifier type: ' .
 	    'none|email|fqdn|userfqdn|keyid|asn1dn), pool_address, pool_netbits (EAP virtual address pool), dns_address ' .
 	    '(EAP DNS server). Omitted fields keep their value (create: type PSK, ident_type none, pool_netbits 32).');
+
+	$p1_body = array('type' => 'object', 'description' => 'A phase 1 as its edit page\'s form ("fields" of GET): descr, ' .
+	    'disabled, iketype (ikev1|ikev2|auto), protocol (inet|inet6|both), interface, remotegw, authentication_method, mode ' .
+	    '(main|aggressive, IKEv1), myid_type, myid_data, peerid_type, peerid_data, pskey ("(set)" keeps it), certref, caref, ' .
+	    'pkcs11certref, pkcs11pin, encryption (list of {algorithm, keylen, hash, prf, dhgroup}), lifetime, rekey_time, ' .
+	    'reauth_time, rand_time, startaction, closeaction, nat_traversal (on|force), mobike (on|off), gw_duplicates, splitconn, ' .
+	    'prfselect_enable, dpd_enable (booleans), ikeport, nattport, dpd_delay, dpd_maxfail; create only: mobile (boolean). ' .
+	    'Omitted fields keep their value (create: the page\'s defaults).');
+	$p2_body = array('type' => 'object', 'description' => 'A phase 2 as its edit page\'s form ("fields" of GET): descr, disabled, ' .
+	    'mode (tunnel|tunnel6|transport|vti), localid_type (address|network|<interface>), localid_address, localid_netbits, ' .
+	    'natlocalid_type (none|address|network), natlocalid_address, natlocalid_netbits, remoteid_type (address|network), ' .
+	    'remoteid_address, remoteid_netbits, proto (esp|ah), encryption (list of {algorithm, keylen}; keylen "auto" or bits), ' .
+	    'halgos (list; sent only when AES-CBC is selected or with AH, like the page), pfsgroup, lifetime, rekey_time, rand_time, ' .
+	    'pinghost, keepalive. Omitted fields keep their value (create: the page\'s defaults).');
+	$mobile_body = array('type' => 'object', 'description' => 'The Mobile Clients page: enable, group_source, radiusaccounting, ' .
+	    'pool_enable, pool_enable_v6, radius_ip_priority_enable, radius_advanced, net_list_enable, save_passwd_enable, ' .
+	    'dns_domain_enable, dns_split_enable, dns_server_enable, wins_server_enable, pfs_group_enable, login_banner_enable ' .
+	    '(booleans); user_source, auth_groups (lists, from the *_choices); pool_address, pool_netbits, pool_address_v6, ' .
+	    'pool_netbits_v6, radius_retransmit_base, radius_retransmit_timeout, radius_retransmit_tries, radius_sockets, dns_domain, ' .
+	    'dns_split, dns_server1-4, wins_server1-2, pfs_group, login_banner. Omitted fields keep their value.');
+	$settings_body = array('type' => 'object', 'description' => 'The Advanced Settings page: logging (object category => level, ' .
+	    'from "choices"), uniqueids, filtermode, ikev2_retransmit_tries/_timeout/_base/_jitter/_limit, maxexchange, dns-interval, ' .
+	    'port, port_nat_t (strings); ikev2_retransmit_enable, compression, pkcs11support, enableinterfacesuse, ' .
+	    'acceptunencryptedmainmode, unityplugin, strictcrlpolicy, makebeforebreak, async_crypto, autoexcludelanaddress, ' .
+	    'ipsecbypass (booleans); bypassrules (list of {source, srcmask, destination, dstmask}). Omitted fields keep their ' .
+	    'value. Applied at once, like the page.');
 
 	$l2 = 'vpn.l2tp';
 	$ip = 'vpn.ipsec';
@@ -116,17 +154,35 @@ function restapi_routes_vpn() {
 		$route('GET', $tun, 'restapi_h_ipsec_tunnel_list', 'vpn_ipsec.php', $ip,
 		    'List the IPsec tunnels (phase 1 entries with a summary of their phase 2 entries) and whether changes are pending'),
 		$route('GET', "{$tun}/{ikeid}", 'restapi_h_ipsec_tunnel_get', 'vpn_ipsec.php', $ip,
-		    'Get an IPsec tunnel (phase 1, secrets read as "(set)") with its phase 2 entries'),
+		    'Get an IPsec tunnel (phase 1, secrets read as "(set)") with its phase 2 entries and its edit form ("fields")'),
+		$route('POST', $tun, 'restapi_h_ipsec_tunnel_create', 'vpn_ipsec_phase1.php', $ip,
+		    'Create an IPsec tunnel (phase 1; the response has its ikeid)', true, $p1_body, true),
+		$route('PUT', "{$tun}/{ikeid}", 'restapi_h_ipsec_tunnel_update', 'vpn_ipsec_phase1.php', $ip,
+		    'Update an IPsec tunnel (phase 1; omitted fields keep their value)', true, $p1_body, true),
+		$route('POST', "{$tun}/{ikeid}/phase2", 'restapi_h_ipsec_p2_create', 'vpn_ipsec_phase2.php', $ip,
+		    'Create a phase 2 entry of an IPsec tunnel (the response has its uniqid)', true, $p2_body, true),
+		$route('PUT', "{$tun}/{ikeid}/phase2/{uniqid}", 'restapi_h_ipsec_p2_update', 'vpn_ipsec_phase2.php', $ip,
+		    'Update a phase 2 entry (omitted fields keep their value)', true, $p2_body, true),
 		$route('POST', "{$tun}/{ikeid}/toggle", 'restapi_h_ipsec_tunnel_toggle', 'vpn_ipsec.php', $ip,
 		    'Enable or disable an IPsec tunnel (phase 1)', true, null, true),
 		$route('DELETE', "{$tun}/{ikeid}", 'restapi_h_ipsec_tunnel_delete', 'vpn_ipsec.php', $ip,
 		    'Delete an IPsec tunnel (phase 1) with its phase 2 entries', true, null, true),
 		$route('GET', "{$tun}/{ikeid}/phase2/{uniqid}", 'restapi_h_ipsec_p2_get', 'vpn_ipsec.php', $ip,
-		    'Get a phase 2 entry of an IPsec tunnel'),
+		    'Get a phase 2 entry of an IPsec tunnel with its edit form ("fields")'),
 		$route('POST', "{$tun}/{ikeid}/phase2/{uniqid}/toggle", 'restapi_h_ipsec_p2_toggle', 'vpn_ipsec.php', $ip,
 		    'Enable or disable a phase 2 entry', true, null, true),
 		$route('DELETE', "{$tun}/{ikeid}/phase2/{uniqid}", 'restapi_h_ipsec_p2_delete', 'vpn_ipsec.php', $ip,
 		    'Delete a phase 2 entry', true, null, true),
+		$route('GET', '/v1/vpn/ipsec/mobile', 'restapi_h_ipsec_mobile_get', 'vpn_ipsec_mobile.php', $ip,
+		    'IPsec mobile client settings, their choices and the mobile phase 1 (ikeid, or null)'),
+		$route('PUT', '/v1/vpn/ipsec/mobile', 'restapi_h_ipsec_mobile_set', 'vpn_ipsec_mobile.php', $ip,
+		    'Change the IPsec mobile client settings (omitted fields keep their value; ?apply=true restarts IPsec like the page)',
+		    true, $mobile_body, true),
+		$route('GET', '/v1/vpn/ipsec/settings', 'restapi_h_ipsec_settings_get', 'vpn_ipsec_settings.php', $ip,
+		    'IPsec advanced settings and their choices'),
+		$route('PUT', '/v1/vpn/ipsec/settings', 'restapi_h_ipsec_settings_set', 'vpn_ipsec_settings.php', $ip,
+		    'Change the IPsec advanced settings (applied at once like the page; omitted fields keep their value)', true,
+		    $settings_body),
 	);
 }
 
@@ -531,7 +587,7 @@ function restapi_h_ipsec_tunnel_list($req) {
 }
 
 function restapi_h_ipsec_tunnel_get($req) {
-	return array('data' => restapi_ipsec_p1_out(restapi_ipsec_p1_pos($req['params']['ikeid']), true));
+	return array('data' => restapi_ipsec_tunnel_full(restapi_ipsec_p1_pos($req['params']['ikeid'])));
 }
 
 function restapi_h_ipsec_tunnel_toggle($req) {
@@ -548,7 +604,7 @@ function restapi_h_ipsec_tunnel_delete($req) {
 }
 
 function restapi_h_ipsec_p2_get($req) {
-	return array('data' => restapi_ipsec_p2_out(restapi_ipsec_p2_pos($req['params']['ikeid'], $req['params']['uniqid']), true));
+	return array('data' => restapi_ipsec_p2_full(restapi_ipsec_p2_pos($req['params']['ikeid'], $req['params']['uniqid'])));
 }
 
 function restapi_h_ipsec_p2_toggle($req) {
@@ -595,4 +651,723 @@ function restapi_h_ipsec_status($req) {
 		);
 	}
 	return array('data' => array('enabled' => ipsec_enabled(), 'tunnels' => $tunnels));
+}
+
+/* ------------------------------------------------------------------ */
+/* IPsec tunnel editing: pure helpers (choices are passed in)          */
+/* ------------------------------------------------------------------ */
+
+/* The API types of a phase 1 ("fields"); "encryption" is a list of {algorithm, keylen, hash, prf, dhgroup}. */
+function restapi_ipsec_p1_types() {
+	$types = array('ikeid' => 'ro', 'mobile' => 'ro', 'encryption' => 'rows');
+	foreach (array('disabled', 'gw_duplicates', 'splitconn', 'prfselect_enable', 'dpd_enable') as $flag) {
+		$types[$flag] = 'bool';
+	}
+	foreach (array('descr', 'iketype', 'protocol', 'interface', 'remotegw', 'authentication_method', 'mode', 'myid_type',
+	    'myid_data', 'peerid_type', 'peerid_data', 'pskey', 'certref', 'caref', 'pkcs11certref', 'pkcs11pin', 'lifetime',
+	    'rekey_time', 'reauth_time', 'rand_time', 'startaction', 'closeaction', 'nat_traversal', 'mobike', 'ikeport',
+	    'nattport', 'dpd_delay', 'dpd_maxfail') as $field) {
+		$types[$field] = 'string';
+	}
+	return $types;
+}
+
+/* The secret fields of the phase 1 form. */
+function restapi_ipsec_p1_form_secrets() {
+	return array('pskey', 'pkcs11pin');
+}
+
+/*
+ * A phase 1 edit form (ipsec_p1_form() shape) in API shape, the way the page
+ * shows it: selects read as the option the form preselects ($c: field =>
+ * choices; "ealgo", "halgo" and "dhgroup" for the encryption rows), DPD delay
+ * and retries as the page fills them in (10, 5) when empty. Secrets in clear.
+ */
+function restapi_ipsec_p1_fields(array $p, array $c) {
+	$mobile = isset($p['mobile']);
+	$sel = function ($field, $value = null) use ($p, $c) {
+		return restapi_vpn_select(($value === null) ? ($p[$field] ?? '') : $value, $c[$field] ?? array());
+	};
+	$rows = array();
+	foreach ((array)($p['encryption']['item'] ?? array()) as $item) {
+		$item = (array)$item;
+		$rows[] = array(
+			'algorithm' => restapi_vpn_select($item['encryption-algorithm']['name'] ?? '', $c['ealgo'] ?? array()),
+			'keylen' => (string)($item['encryption-algorithm']['keylen'] ?? ''),
+			'hash' => restapi_vpn_select($item['hash-algorithm'] ?? '', $c['halgo'] ?? array()),
+			'prf' => restapi_vpn_select($item['prf-algorithm'] ?? '', $c['halgo'] ?? array()),
+			'dhgroup' => restapi_vpn_select($item['dhgroup'] ?? '', $c['dhgroup'] ?? array()),
+		);
+	}
+	$str = function ($field) use ($p) {
+		return is_scalar($p[$field] ?? null) ? (string)$p[$field] : '';
+	};
+	return array(
+		'ikeid' => $str('ikeid'),
+		'mobile' => $mobile,
+		'descr' => $str('descr'),
+		'disabled' => !empty($p['disabled']),
+		'iketype' => $sel('iketype'),
+		'protocol' => $sel('protocol'),
+		'interface' => $sel('interface'),
+		'remotegw' => $mobile ? '' : $str('remotegw'),
+		'authentication_method' => $sel('authentication_method'),
+		'mode' => $sel('mode'),
+		'myid_type' => $sel('myid_type'),
+		'myid_data' => $str('myid_data'),
+		'peerid_type' => $sel('peerid_type'),
+		'peerid_data' => $str('peerid_data'),
+		'pskey' => $str('pskey'),
+		'certref' => $sel('certref'),
+		'caref' => $sel('caref'),
+		'pkcs11certref' => $str('pkcs11certref'),
+		'pkcs11pin' => $str('pkcs11pin'),
+		'encryption' => $rows,
+		'lifetime' => $str('lifetime'),
+		'rekey_time' => $str('rekey_time'),
+		'reauth_time' => $str('reauth_time'),
+		'rand_time' => $str('rand_time'),
+		'startaction' => $mobile ? '' : $sel('startaction'),
+		'closeaction' => $sel('closeaction'),
+		'nat_traversal' => $sel('nat_traversal'),
+		'mobike' => $sel('mobike'),
+		'gw_duplicates' => !$mobile && !empty($p['gw_duplicates']),
+		'splitconn' => !empty($p['splitconn']),
+		'prfselect_enable' => !empty($p['prfselect_enable']),
+		'ikeport' => $mobile ? '' : $str('ikeport'),
+		'nattport' => $mobile ? '' : $str('nattport'),
+		'dpd_enable' => !empty($p['dpd_enable']),
+		'dpd_delay' => ($str('dpd_delay') !== '') ? $str('dpd_delay') : '10',
+		'dpd_maxfail' => ($str('dpd_maxfail') !== '') ? $str('dpd_maxfail') : '5',
+	);
+}
+
+/* The "encryption" rows of a body: a non-empty list of objects with the row fields (strings), or a 400. */
+function restapi_ipsec_p1_rows($rows) {
+	$fields = array('algorithm', 'keylen', 'hash', 'prf', 'dhgroup');
+	if (!is_array($rows) || !array_is_list($rows)) {
+		throw new RestApiError(400, 'invalid_field', '"encryption" must be a list of {' . implode(', ', $fields) . '}.');
+	}
+	$out = array();
+	foreach ($rows as $row) {
+		if (!is_array($row) || array_is_list($row) && !empty($row)) {
+			throw new RestApiError(400, 'invalid_field', '"encryption" must be a list of {' . implode(', ', $fields) . '}.');
+		}
+		$item = array();
+		foreach ($row as $key => $value) {
+			if (!in_array($key, $fields, true)) {
+				throw new RestApiError(400, 'unknown_field', "Unknown encryption field \"{$key}\".");
+			}
+			if (!is_scalar($value) && !is_null($value)) {
+				throw new RestApiError(400, 'invalid_field', "Encryption field \"{$key}\" must be a string.");
+			}
+			$item[$key] = (string)$value;
+		}
+		foreach ($fields as $field) {
+			$item[$field] = $item[$field] ?? '';
+		}
+		$out[] = $item;
+	}
+	return $out;
+}
+
+/*
+ * The phase 1 form post for $v (API shape) as the browser sends it: ticked
+ * checkboxes post "yes"; a mobile entry posts mobile=true and has no remote
+ * gateway, ports, start action or gateway duplicates; only the certificate,
+ * CA and PKCS#11 fields the selected authentication method shows are posted;
+ * encryption rows post ealgo_algoN, ealgo_keylenN (only for an algorithm with
+ * key lengths, listed in $keylen_algos), halgoN, dhgroupN and prfalgoN.
+ */
+function restapi_ipsec_p1_post(array $v, array $keylen_algos) {
+	$post = array();
+	foreach (restapi_ipsec_p1_types() as $field => $type) {
+		if ($type === 'string') {
+			$post[$field] = (string)$v[$field];
+		} elseif (($type === 'bool') && !empty($v[$field])) {
+			$post[$field] = 'yes';
+		}
+	}
+	$post['ikeid'] = (string)$v['ikeid'];
+	if (!empty($v['mobile'])) {
+		$post['mobile'] = 'true';
+		unset($post['remotegw'], $post['startaction'], $post['gw_duplicates'], $post['ikeport'], $post['nattport']);
+	}
+	switch ($v['authentication_method']) {
+		case 'eap-mschapv2':
+		case 'eap-radius':
+		case 'hybrid_cert_server':
+			$shown = array('certref');
+			break;
+		case 'eap-tls':
+		case 'xauth_cert_server':
+		case 'cert':
+			$shown = array('certref', 'caref');
+			break;
+		case 'pkcs11':
+			$shown = array('caref', 'pkcs11certref', 'pkcs11pin');
+			break;
+		default:
+			$shown = array();
+	}
+	foreach (array('certref', 'caref', 'pkcs11certref', 'pkcs11pin') as $field) {
+		if (!in_array($field, $shown, true)) {
+			unset($post[$field]);
+		}
+	}
+	foreach (array_values($v['encryption']) as $i => $row) {
+		$post["ealgo_algo{$i}"] = (string)$row['algorithm'];
+		if (in_array((string)$row['algorithm'], $keylen_algos, true)) {
+			$post["ealgo_keylen{$i}"] = (string)$row['keylen'];
+		}
+		$post["halgo{$i}"] = (string)$row['hash'];
+		$post["dhgroup{$i}"] = (string)$row['dhgroup'];
+		$post["prfalgo{$i}"] = (string)$row['prf'];
+	}
+	return $post;
+}
+
+/* The API types of a phase 2 ("fields"); "encryption" is a list of {algorithm, keylen}, "halgos" a list of hash algorithms. */
+function restapi_ipsec_p2_types() {
+	$types = array('uniqid' => 'ro', 'ikeid' => 'ro', 'reqid' => 'ro', 'mobile' => 'ro', 'encryption' => 'rows',
+	    'halgos' => 'list', 'disabled' => 'bool', 'keepalive' => 'bool');
+	foreach (array('descr', 'mode', 'localid_type', 'localid_address', 'localid_netbits', 'natlocalid_type',
+	    'natlocalid_address', 'natlocalid_netbits', 'remoteid_type', 'remoteid_address', 'remoteid_netbits', 'proto',
+	    'pfsgroup', 'lifetime', 'rekey_time', 'rand_time', 'pinghost') as $field) {
+		$types[$field] = 'string';
+	}
+	return $types;
+}
+
+/*
+ * A phase 2 edit form (ipsec_p2_form() shape) in API shape, the way the page
+ * shows it ($c: field => choices for mode, proto, localid_type,
+ * natlocalid_type, pfsgroup (empty when the mobile client settings set the
+ * PFS group), and "keylens": algorithm => its key lengths (empty: none)).
+ */
+function restapi_ipsec_p2_fields(array $p, array $c) {
+	$mobile = isset($p['mobile']);
+	$str = function ($field) use (&$p) {
+		return is_scalar($p[$field] ?? null) ? (string)$p[$field] : '';
+	};
+	$rows = array();
+	foreach ((array)($p['ealgos'] ?? array()) as $algo) {
+		$algo = (string)$algo;
+		$keylens = $c['keylens'][$algo] ?? array();
+		$rows[] = array('algorithm' => $algo, 'keylen' => empty($keylens) ? '' :
+		    restapi_vpn_select($p["keylen_{$algo}"] ?? '', array_flip(array_merge(array('auto'), $keylens))));
+	}
+	/* the page fills in the mask of an empty network: 24, or 64 for IPv6 tunnels */
+	$mode = restapi_vpn_select($p['mode'] ?? '', $c['mode']);
+	foreach (array('local', 'natlocal', 'remote') as $prefix) {
+		if ((($p["{$prefix}id_type"] ?? '') === 'network') && ($str("{$prefix}id_address") === '') && ($str("{$prefix}id_netbits") === '')) {
+			$p["{$prefix}id_netbits"] = ($mode === 'tunnel6') ? '64' : '24';
+		}
+	}
+	return array(
+		'uniqid' => $str('uniqid'),
+		'ikeid' => $str('ikeid'),
+		'reqid' => $str('reqid'),
+		'mobile' => $mobile,
+		'descr' => $str('descr'),
+		'disabled' => !empty($p['disabled']),
+		'mode' => restapi_vpn_select($p['mode'] ?? '', $c['mode']),
+		'localid_type' => restapi_vpn_select($p['localid_type'] ?? '', $c['localid_type']),
+		'localid_address' => $str('localid_address'),
+		'localid_netbits' => $str('localid_netbits'),
+		'natlocalid_type' => restapi_vpn_select($p['natlocalid_type'] ?? '', $c['natlocalid_type']),
+		'natlocalid_address' => $str('natlocalid_address'),
+		'natlocalid_netbits' => $str('natlocalid_netbits'),
+		'remoteid_type' => $mobile ? 'mobile' : restapi_vpn_select($p['remoteid_type'] ?? '', array('address' => 1, 'network' => 1)),
+		'remoteid_address' => $mobile ? '' : $str('remoteid_address'),
+		'remoteid_netbits' => $mobile ? '' : $str('remoteid_netbits'),
+		'proto' => restapi_vpn_select($p['proto'] ?? '', $c['proto']),
+		'encryption' => $rows,
+		'halgos' => array_values(array_map('strval', array_filter((array)($p['halgos'] ?? array()), 'is_scalar'))),
+		'pfsgroup' => empty($c['pfsgroup']) ? '' : restapi_vpn_select($p['pfsgroup'] ?? '', $c['pfsgroup']),
+		'lifetime' => $str('lifetime'),
+		'rekey_time' => $str('rekey_time'),
+		'rand_time' => $str('rand_time'),
+		'pinghost' => $mobile ? '' : $str('pinghost'),
+		'keepalive' => !$mobile && !empty($p['keepalive']),
+	);
+}
+
+/* The "encryption" rows of a phase 2 body: a list of {algorithm, keylen} (strings), or a 400. */
+function restapi_ipsec_p2_rows($rows) {
+	if (!is_array($rows) || !array_is_list($rows)) {
+		throw new RestApiError(400, 'invalid_field', '"encryption" must be a list of {algorithm, keylen}.');
+	}
+	$out = array();
+	foreach ($rows as $row) {
+		if (is_string($row)) {
+			$row = array('algorithm' => $row);
+		}
+		if (!is_array($row) || (array_is_list($row) && !empty($row))) {
+			throw new RestApiError(400, 'invalid_field', '"encryption" must be a list of {algorithm, keylen}.');
+		}
+		foreach ($row as $key => $value) {
+			if (!in_array($key, array('algorithm', 'keylen'), true)) {
+				throw new RestApiError(400, 'unknown_field', "Unknown encryption field \"{$key}\".");
+			}
+			if (!is_scalar($value) && !is_null($value)) {
+				throw new RestApiError(400, 'invalid_field', "Encryption field \"{$key}\" must be a string.");
+			}
+		}
+		$out[] = array('algorithm' => (string)($row['algorithm'] ?? ''), 'keylen' => (string)($row['keylen'] ?? ''));
+	}
+	return $out;
+}
+
+/*
+ * The phase 2 form post for $v (API shape) as the browser sends it ($c as for
+ * restapi_ipsec_p2_fields()): the address and mask of a local, NAT or remote
+ * network only as far as its type uses them; ealgos[] and a key length for
+ * every algorithm that has them (an unchecked one posts "auto"); the hash
+ * algorithms only when the page enables them (AES-CBC checked, or AH); no PFS
+ * group when the mobile client settings set it; mobile entries post
+ * mobile=true and have no remote network or keep alive.
+ */
+function restapi_ipsec_p2_post(array $v, array $c) {
+	$post = array('descr' => (string)$v['descr'], 'mode' => (string)$v['mode'], 'proto' => (string)$v['proto'],
+	    'lifetime' => (string)$v['lifetime'], 'rekey_time' => (string)$v['rekey_time'], 'rand_time' => (string)$v['rand_time'],
+	    'ikeid' => (string)$v['ikeid'], 'uniqid' => (string)$v['uniqid']);
+	if (!empty($v['disabled'])) {
+		$post['disabled'] = 'yes';
+	}
+	if ((string)$v['reqid'] !== '') {
+		$post['reqid'] = (string)$v['reqid'];
+	}
+	$net = function ($prefix) use ($v, &$post) {
+		$post["{$prefix}id_type"] = (string)$v["{$prefix}id_type"];
+		$type = (string)$v["{$prefix}id_type"];
+		if (in_array($type, array('address', 'network'), true)) {
+			$post["{$prefix}id_address"] = (string)$v["{$prefix}id_address"];
+		}
+		if ($type === 'network') {
+			$post["{$prefix}id_netbits"] = (string)$v["{$prefix}id_netbits"];
+		}
+	};
+	$net('local');
+	$net('natlocal');
+	if (!empty($v['mobile'])) {
+		$post['mobile'] = 'true';
+	} else {
+		$net('remote');
+		$post['pinghost'] = (string)$v['pinghost'];
+		if (!empty($v['keepalive'])) {
+			$post['keepalive'] = 'yes';
+		}
+	}
+	$algos = array();
+	$keylen = array();
+	foreach ($v['encryption'] as $row) {
+		$algos[] = (string)$row['algorithm'];
+		$keylen[(string)$row['algorithm']] = (string)$row['keylen'];
+	}
+	if (!empty($algos)) {
+		$post['ealgos'] = $algos;
+	}
+	foreach ($c['keylens'] as $algo => $lens) {
+		if (!empty($lens)) {
+			$post["keylen_{$algo}"] = (isset($keylen[$algo]) && ($keylen[$algo] !== '')) ? $keylen[$algo] : 'auto';
+		}
+	}
+	if (!empty($v['halgos']) && (($v['proto'] !== 'esp') || in_array('aes', $algos, true))) {
+		$post['halgos'] = array_values($v['halgos']);
+	}
+	if (!empty($c['pfsgroup'])) {
+		$post['pfsgroup'] = (string)$v['pfsgroup'];
+	}
+	return $post;
+}
+
+/* The API types of the mobile client settings. */
+function restapi_ipsec_mobile_types() {
+	$types = array('user_source' => 'list', 'auth_groups' => 'list', 'user_source_choices' => 'ro',
+	    'auth_groups_choices' => 'ro', 'pfs_group_choices' => 'ro', 'phase1' => 'ro', 'pending' => 'ro');
+	foreach (array('enable', 'group_source', 'radiusaccounting', 'pool_enable', 'pool_enable_v6', 'radius_ip_priority_enable',
+	    'radius_advanced', 'net_list_enable', 'save_passwd_enable', 'dns_domain_enable', 'dns_split_enable', 'dns_server_enable',
+	    'wins_server_enable', 'pfs_group_enable', 'login_banner_enable') as $flag) {
+		$types[$flag] = 'bool';
+	}
+	foreach (array('pool_address', 'pool_netbits', 'pool_address_v6', 'pool_netbits_v6', 'radius_retransmit_base',
+	    'radius_retransmit_timeout', 'radius_retransmit_tries', 'radius_sockets', 'dns_domain', 'dns_split', 'dns_server1',
+	    'dns_server2', 'dns_server3', 'dns_server4', 'wins_server1', 'wins_server2', 'pfs_group', 'login_banner') as $field) {
+		$types[$field] = 'string';
+	}
+	return $types;
+}
+
+/* The mobile clients form (ipsec_mobile_form() shape) in API shape, the way the page shows it ($pfs_groups: the PFS group choices). */
+function restapi_ipsec_mobile_fields(array $p, array $pfs_groups) {
+	$out = array();
+	foreach (restapi_ipsec_mobile_types() as $field => $type) {
+		if ($type === 'bool') {
+			$out[$field] = !empty($p[$field]);
+		} elseif ($type === 'string') {
+			$out[$field] = is_scalar($p[$field] ?? null) ? (string)$p[$field] : '';
+		} elseif ($type === 'list') {
+			$out[$field] = is_array($p[$field] ?? null) ? array_values(array_map('strval', $p[$field])) : restapi_svc_split($p[$field] ?? '');
+		}
+	}
+	$out['radiusaccounting'] = !empty($p['radiusaccounting']);
+	$out['pool_netbits'] = restapi_vpn_select(($out['pool_netbits'] !== '') ? $out['pool_netbits'] : '24', array_flip(range(32, 0)));
+	$out['pool_netbits_v6'] = restapi_vpn_select(($out['pool_netbits_v6'] !== '') ? $out['pool_netbits_v6'] : '120', array_flip(range(128, 0)));
+	$out['pfs_group'] = restapi_vpn_select($out['pfs_group'], $pfs_groups);
+	return $out;
+}
+
+/* The API types of the advanced settings; "logging" is an object (category => level), "bypassrules" a list of {source, srcmask, destination, dstmask}. */
+function restapi_ipsec_settings_types() {
+	$types = array('logging' => 'object', 'bypassrules' => 'rows', 'choices' => 'ro');
+	foreach (array('ikev2_retransmit_enable', 'compression', 'pkcs11support', 'enableinterfacesuse', 'acceptunencryptedmainmode',
+	    'unityplugin', 'strictcrlpolicy', 'makebeforebreak', 'async_crypto', 'autoexcludelanaddress', 'ipsecbypass') as $flag) {
+		$types[$flag] = 'bool';
+	}
+	foreach (array('uniqueids', 'filtermode', 'ikev2_retransmit_tries', 'ikev2_retransmit_timeout', 'ikev2_retransmit_base',
+	    'ikev2_retransmit_jitter', 'ikev2_retransmit_limit', 'maxexchange', 'dns-interval', 'port', 'port_nat_t') as $field) {
+		$types[$field] = 'string';
+	}
+	return $types;
+}
+
+/*
+ * The advanced settings form (ipsec_settings_form() shape plus async_crypto)
+ * in API shape, the way the page shows it ($c: "logging" => the levels,
+ * "categories" => the log categories, "uniqueids", "filtermode" => choices).
+ */
+function restapi_ipsec_settings_fields(array $p, array $c) {
+	$out = array();
+	foreach (restapi_ipsec_settings_types() as $field => $type) {
+		if ($type === 'bool') {
+			$out[$field] = !empty($p[$field]);
+		} elseif ($type === 'string') {
+			$out[$field] = is_scalar($p[$field] ?? null) ? (string)$p[$field] : '';
+		}
+	}
+	$out['logging'] = array();
+	foreach (array_keys($c['categories']) as $cat) {
+		$out['logging'][$cat] = restapi_vpn_select($p['logging'][$cat] ?? '', $c['logging']);
+	}
+	$out['uniqueids'] = restapi_vpn_select($out['uniqueids'], $c['uniqueids']);
+	$out['filtermode'] = restapi_vpn_select($out['filtermode'], $c['filtermode']);
+	$out['async_crypto'] = (($p['async_crypto'] ?? '') === 'enabled');
+	$out['autoexcludelanaddress'] = empty($p['noshuntlaninterfaces']);
+	$out['bypassrules'] = array();
+	foreach ((array)($p['bypassrules']['rule'] ?? array()) as $rule) {
+		$out['bypassrules'][] = array('source' => (string)($rule['source'] ?? ''), 'srcmask' => (string)($rule['srcmask'] ?? ''),
+		    'destination' => (string)($rule['destination'] ?? ''), 'dstmask' => (string)($rule['dstmask'] ?? ''));
+	}
+	return $out;
+}
+
+/* The "bypassrules" of a body: a list of {source, srcmask, destination, dstmask} (strings), or a 400. */
+function restapi_ipsec_bypass_rows($rows) {
+	$fields = array('source', 'srcmask', 'destination', 'dstmask');
+	if (!is_array($rows) || !array_is_list($rows)) {
+		throw new RestApiError(400, 'invalid_field', '"bypassrules" must be a list of {source, srcmask, destination, dstmask}.');
+	}
+	$out = array();
+	foreach ($rows as $row) {
+		if (!is_array($row) || (array_is_list($row) && !empty($row))) {
+			throw new RestApiError(400, 'invalid_field', '"bypassrules" must be a list of {source, srcmask, destination, dstmask}.');
+		}
+		$item = array();
+		foreach ($row as $key => $value) {
+			if (!in_array($key, $fields, true)) {
+				throw new RestApiError(400, 'unknown_field', "Unknown bypass rule field \"{$key}\".");
+			}
+			if (!is_scalar($value) && !is_null($value)) {
+				throw new RestApiError(400, 'invalid_field', "Bypass rule field \"{$key}\" must be a string.");
+			}
+			$item[$key] = (string)$value;
+		}
+		foreach ($fields as $field) {
+			$item[$field] = $item[$field] ?? '';
+		}
+		$out[] = $item;
+	}
+	return $out;
+}
+
+/* The "logging" of a body merged over the current levels; an unknown category is a 400. */
+function restapi_ipsec_logging_body($logging, array $current) {
+	if (!is_array($logging) || (array_is_list($logging) && !empty($logging))) {
+		throw new RestApiError(400, 'invalid_field', '"logging" must be an object of category => level.');
+	}
+	foreach ($logging as $cat => $level) {
+		if (!array_key_exists($cat, $current)) {
+			throw new RestApiError(400, 'unknown_field', "Unknown log category \"{$cat}\".");
+		}
+		if (!is_scalar($level)) {
+			throw new RestApiError(400, 'invalid_field', "Log level of \"{$cat}\" must be a string.");
+		}
+		$current[$cat] = (string)$level;
+	}
+	return $current;
+}
+
+/* The advanced settings form post for $v (API shape) as the browser sends it. */
+function restapi_ipsec_settings_post(array $v) {
+	$post = restapi_svc_post($v, restapi_ipsec_settings_types());
+	foreach ($v['logging'] as $cat => $level) {
+		$post["logging_{$cat}"] = (string)$level;
+	}
+	foreach (array_values($v['bypassrules']) as $i => $rule) {
+		foreach (array('source', 'srcmask', 'destination', 'dstmask') as $field) {
+			$post["{$field}{$i}"] = (string)$rule[$field];
+		}
+	}
+	return $post;
+}
+
+/* ------------------------------------------------------------------ */
+/* IPsec tunnel editing                                                */
+/* ------------------------------------------------------------------ */
+
+/* The choices of the phase 1 page's selects for a mobile or site-to-site entry. */
+function restapi_ipsec_p1_choices($mobile) {
+	global $p1_ealgos, $p1_halgos, $p1_dhgroups, $ipsec_startactions, $ipsec_closeactions;
+	return array(
+		'iketype' => array('ikev1' => 'IKEv1', 'ikev2' => 'IKEv2', 'auto' => 'Auto'),
+		'protocol' => array('inet' => 'IPv4', 'inet6' => 'IPv6', 'both' => 'Both (Dual Stack)'),
+		'interface' => ipsec_p1_interface_list(),
+		'authentication_method' => ipsec_p1_auth_method_list($mobile),
+		'mode' => array('main' => 'Main', 'aggressive' => 'Aggressive'),
+		'myid_type' => ipsec_p1_myid_list(),
+		'peerid_type' => ipsec_p1_peerid_list(),
+		'certref' => cert_build_list('cert', 'IPsec'),
+		'caref' => cert_build_list('ca', 'IPsec'),
+		'startaction' => $ipsec_startactions,
+		'closeaction' => $ipsec_closeactions,
+		'nat_traversal' => array('on' => 'Auto', 'force' => 'Force'),
+		'mobike' => array('on' => 'Enable', 'off' => 'Disable'),
+		'ealgo' => ipsec_p1_eal_list(),
+		'halgo' => $p1_halgos,
+		'dhgroup' => $p1_dhgroups,
+	);
+}
+
+/* The algorithms of the phase 1 page that have key lengths. */
+function restapi_ipsec_p1_keylen_algos() {
+	global $p1_ealgos;
+	return array_keys(array_filter($p1_ealgos, function ($a) {
+		return is_array($a['keysel'] ?? null);
+	}));
+}
+
+function restapi_ipsec_p1_form_fields(array $form) {
+	return restapi_ipsec_p1_fields($form, restapi_ipsec_p1_choices(isset($form['mobile'])));
+}
+
+function restapi_ipsec_mask_fields(array $fields, array $secrets) {
+	foreach ($secrets as $secret) {
+		if (array_key_exists($secret, $fields)) {
+			$fields[$secret] = restapi_svc_mask($fields[$secret]);
+		}
+	}
+	return $fields;
+}
+
+/* Create ($pos null) or update a phase 1 through the page's save; returns the tunnel's ikeid. */
+function restapi_ipsec_p1_write(array $body, $pos) {
+	foreach (restapi_ipsec_p1_form_secrets() as $secret) {
+		$body = restapi_vpn_secret_body($body, $secret);
+	}
+	if ($pos === null) {
+		$mobile = false;
+		if (array_key_exists('mobile', $body)) {
+			if (!is_bool($body['mobile'])) {
+				throw new RestApiError(400, 'invalid_field', 'Field "mobile" must be a boolean.');
+			}
+			$mobile = $body['mobile'];
+			unset($body['mobile']);
+		}
+		$old = null;
+		$form = ipsec_p1_form(null, false, $mobile);
+	} else {
+		$old = config_get_path("ipsec/phase1/{$pos}");
+		$form = ipsec_p1_form($old);
+	}
+	$current = restapi_ipsec_p1_form_fields($form);
+	$rows = null;
+	if (array_key_exists('encryption', $body)) {
+		$rows = restapi_ipsec_p1_rows($body['encryption']);
+	}
+	$values = restapi_svc_merge($body, $current, restapi_ipsec_p1_types());
+	if ($rows !== null) {
+		$values['encryption'] = $rows;
+	}
+	$post = restapi_ipsec_p1_post($values, restapi_ipsec_p1_keylen_algos());
+	$errors = ipsec_p1_save($post, $pos, $old);
+	if (!empty($errors)) {
+		throw restapi_validation_error($errors);
+	}
+	return (string)$post['ikeid'];
+}
+
+/* A tunnel for the API: its stored entry (secrets masked), its phase 2 entries and its edit form ("fields", secrets masked). */
+function restapi_ipsec_tunnel_full($pos) {
+	$form = ipsec_p1_form(config_get_path("ipsec/phase1/{$pos}"));
+	return restapi_ipsec_p1_out($pos, true) + array('fields' =>
+	    restapi_ipsec_mask_fields(restapi_ipsec_p1_form_fields($form), restapi_ipsec_p1_form_secrets()));
+}
+
+function restapi_h_ipsec_tunnel_create($req) {
+	$ikeid = restapi_ipsec_p1_write($req['body'], null);
+	$extra = restapi_ipsec_maybe_apply($req);
+	return array('status' => 201, 'data' => restapi_ipsec_tunnel_full(restapi_ipsec_p1_pos($ikeid)) + $extra);
+}
+
+function restapi_h_ipsec_tunnel_update($req) {
+	$ikeid = restapi_ipsec_p1_write($req['body'], restapi_ipsec_p1_pos($req['params']['ikeid']));
+	$extra = restapi_ipsec_maybe_apply($req);
+	return array('data' => restapi_ipsec_tunnel_full(restapi_ipsec_p1_pos($ikeid)) + $extra);
+}
+
+/* The choices of the phase 2 page for an entry (mobile: the PFS group may be set by the mobile client settings). */
+function restapi_ipsec_p2_choices($mobile) {
+	global $p2_modes, $p2_protos, $p2_ealgos, $p2_pfskeygroups;
+	$keylens = array();
+	foreach ($p2_ealgos as $algo => $data) {
+		$keylens[$algo] = ipsec_ealgo_keylens($data);
+	}
+	return array(
+		'mode' => $p2_modes,
+		'proto' => $p2_protos,
+		'localid_type' => ipsec_p2_localid_types(),
+		'natlocalid_type' => ipsec_p2_natlocalid_types(),
+		'keylens' => $keylens,
+		'pfsgroup' => (!$mobile || empty(config_get_path('ipsec/client/pfs_group'))) ? $p2_pfskeygroups : array(),
+	);
+}
+
+/* Create (the tunnel's phase 1 at $p1pos, $pos null) or update a phase 2 through the page's save; returns its uniqid. */
+function restapi_ipsec_p2_write(array $body, $p1pos, $pos) {
+	$p1 = config_get_path("ipsec/phase1/{$p1pos}");
+	if ($pos === null) {
+		$form = ipsec_p2_form(null, $p1['ikeid'], isset($p1['mobile']));
+	} else {
+		$form = ipsec_p2_form(config_get_path("ipsec/phase2/{$pos}"));
+	}
+	$c = restapi_ipsec_p2_choices(isset($form['mobile']));
+	$current = restapi_ipsec_p2_fields($form, $c);
+	$rows = null;
+	if (array_key_exists('encryption', $body)) {
+		$rows = restapi_ipsec_p2_rows($body['encryption']);
+	}
+	$values = restapi_svc_merge($body, $current, restapi_ipsec_p2_types());
+	if ($rows !== null) {
+		$values['encryption'] = $rows;
+	}
+	$post = restapi_ipsec_p2_post($values, $c);
+	$errors = ipsec_p2_save($post, $pos);
+	if (!empty($errors)) {
+		throw restapi_validation_error($errors);
+	}
+	return (string)$post['uniqid'];
+}
+
+/* A phase 2 entry for the API: its stored fields and its edit form ("fields"). */
+function restapi_ipsec_p2_full($pos) {
+	$form = ipsec_p2_form(config_get_path("ipsec/phase2/{$pos}"));
+	return restapi_ipsec_p2_out($pos, true) + array('fields' => restapi_ipsec_p2_fields($form,
+	    restapi_ipsec_p2_choices(isset($form['mobile']))));
+}
+
+function restapi_h_ipsec_p2_create($req) {
+	$ikeid = $req['params']['ikeid'];
+	$uniqid = restapi_ipsec_p2_write($req['body'], restapi_ipsec_p1_pos($ikeid), null);
+	$extra = restapi_ipsec_maybe_apply($req);
+	return array('status' => 201, 'data' => restapi_ipsec_p2_full(restapi_ipsec_p2_pos($ikeid, $uniqid)) + $extra);
+}
+
+function restapi_h_ipsec_p2_update($req) {
+	$ikeid = $req['params']['ikeid'];
+	$uniqid = restapi_ipsec_p2_write($req['body'], restapi_ipsec_p1_pos($ikeid),
+	    restapi_ipsec_p2_pos($ikeid, $req['params']['uniqid']));
+	$extra = restapi_ipsec_maybe_apply($req);
+	return array('data' => restapi_ipsec_p2_full(restapi_ipsec_p2_pos($ikeid, $uniqid)) + $extra);
+}
+
+/* ------------------------------------------------------------------ */
+/* IPsec mobile clients                                                */
+/* ------------------------------------------------------------------ */
+
+function restapi_ipsec_mobile_out() {
+	global $p2_pfskeygroups;
+	$out = restapi_ipsec_mobile_fields(ipsec_mobile_form(), $p2_pfskeygroups);
+	$out['user_source_choices'] = restapi_svc_choices(ipsec_mobile_user_sources());
+	$out['auth_groups_choices'] = restapi_svc_choices(ipsec_mobile_auth_groups());
+	$out['pfs_group_choices'] = restapi_svc_choices($p2_pfskeygroups);
+	$out['phase1'] = null;
+	foreach (config_get_path('ipsec/phase1', []) as $p1) {
+		if (is_array($p1) && isset($p1['mobile'])) {
+			$out['phase1'] = (string)($p1['ikeid'] ?? '');
+		}
+	}
+	$out['pending'] = is_subsystem_dirty('ipsec');
+	return $out;
+}
+
+function restapi_h_ipsec_mobile_get($req) {
+	return array('data' => restapi_ipsec_mobile_out());
+}
+
+function restapi_h_ipsec_mobile_set($req) {
+	$types = restapi_ipsec_mobile_types();
+	$current = restapi_ipsec_mobile_out();
+	$values = restapi_svc_merge($req['body'], $current, $types);
+	$post = restapi_svc_post($values, $types);
+	$errors = ipsec_mobile_save($post);
+	if (!empty($errors)) {
+		throw restapi_validation_error($errors);
+	}
+	$extra = array();
+	if (restapi_want_apply($req)) {
+		$extra = array('apply' => array('applied' => (ipsec_mobile_apply() == 0)));
+	}
+	return array('data' => restapi_ipsec_mobile_out() + $extra);
+}
+
+/* ------------------------------------------------------------------ */
+/* IPsec advanced settings                                             */
+/* ------------------------------------------------------------------ */
+
+function restapi_ipsec_settings_out() {
+	global $ipsec_log_cats, $ipsec_log_sevs, $ipsec_idhandling, $ipsec_filtermodes;
+	$form = ipsec_settings_form();
+	$form['async_crypto'] = config_get_path('ipsec/async_crypto', 'disabled');
+	$c = array('categories' => $ipsec_log_cats, 'logging' => $ipsec_log_sevs, 'uniqueids' => $ipsec_idhandling,
+	    'filtermode' => $ipsec_filtermodes);
+	$out = restapi_ipsec_settings_fields($form, $c);
+	$out['choices'] = array('logging' => restapi_svc_choices($ipsec_log_sevs), 'categories' => restapi_svc_choices($ipsec_log_cats),
+	    'uniqueids' => restapi_svc_choices($ipsec_idhandling), 'filtermode' => restapi_svc_choices($ipsec_filtermodes));
+	return $out;
+}
+
+function restapi_h_ipsec_settings_get($req) {
+	return array('data' => restapi_ipsec_settings_out());
+}
+
+function restapi_h_ipsec_settings_set($req) {
+	$body = $req['body'];
+	$current = restapi_ipsec_settings_out();
+	$logging = $current['logging'];
+	$rules = $current['bypassrules'];
+	if (array_key_exists('logging', $body)) {
+		$logging = restapi_ipsec_logging_body($body['logging'], $current['logging']);
+	}
+	if (array_key_exists('bypassrules', $body)) {
+		$rules = restapi_ipsec_bypass_rows($body['bypassrules']);
+	}
+	$values = restapi_svc_merge($body, $current, restapi_ipsec_settings_types());
+	$values['logging'] = $logging;
+	$values['bypassrules'] = $rules;
+	$rv = ipsec_settings_save(restapi_ipsec_settings_post($values));
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => restapi_ipsec_settings_out() + array('applied' => ($rv['retval'] == 0)));
 }

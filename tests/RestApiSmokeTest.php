@@ -1226,6 +1226,14 @@ $e1_routes = array(
 	'GET /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}' => array('restapi_h_ipsec_p2_get', 'vpn_ipsec.php', 'vpn.ipsec', false),
 	'POST /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}/toggle' => array('restapi_h_ipsec_p2_toggle', 'vpn_ipsec.php', 'vpn.ipsec', true),
 	'DELETE /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}' => array('restapi_h_ipsec_p2_delete', 'vpn_ipsec.php', 'vpn.ipsec', true),
+	'POST /v1/vpn/ipsec/tunnels' => array('restapi_h_ipsec_tunnel_create', 'vpn_ipsec_phase1.php', 'vpn.ipsec', true),
+	'PUT /v1/vpn/ipsec/tunnels/{ikeid}' => array('restapi_h_ipsec_tunnel_update', 'vpn_ipsec_phase1.php', 'vpn.ipsec', true),
+	'POST /v1/vpn/ipsec/tunnels/{ikeid}/phase2' => array('restapi_h_ipsec_p2_create', 'vpn_ipsec_phase2.php', 'vpn.ipsec', true),
+	'PUT /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}' => array('restapi_h_ipsec_p2_update', 'vpn_ipsec_phase2.php', 'vpn.ipsec', true),
+	'GET /v1/vpn/ipsec/mobile' => array('restapi_h_ipsec_mobile_get', 'vpn_ipsec_mobile.php', 'vpn.ipsec', false),
+	'PUT /v1/vpn/ipsec/mobile' => array('restapi_h_ipsec_mobile_set', 'vpn_ipsec_mobile.php', 'vpn.ipsec', true),
+	'GET /v1/vpn/ipsec/settings' => array('restapi_h_ipsec_settings_get', 'vpn_ipsec_settings.php', 'vpn.ipsec', false),
+	'PUT /v1/vpn/ipsec/settings' => array('restapi_h_ipsec_settings_set', 'vpn_ipsec_settings.php', 'vpn.ipsec', false),
 );
 foreach ($v1 as $r) {
 	$key = "{$r['method']} {$r['path']}";
@@ -1339,6 +1347,183 @@ check_api(strpos($fn_body($routes_vpn, 'restapi_h_ipsec_status'), "'pre-shared-k
 foreach (array('vpn_l2tp.inc', 'vpn_ipsec.inc') as $inc) {
 	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false, "the API front controller loads {$inc}");
 }
+
+
+/* VPN: IPsec phase 1/2 editing, mobile clients and advanced settings */
+$p1c = array('iketype' => array('ikev1' => 1, 'ikev2' => 1, 'auto' => 1), 'protocol' => array('inet' => 1, 'inet6' => 1, 'both' => 1),
+    'interface' => array('wan' => 'WAN', 'lan' => 'LAN'), 'authentication_method' => array('cert' => 1, 'pre_shared_key' => 1),
+    'mode' => array('main' => 1, 'aggressive' => 1), 'myid_type' => array('myaddress' => 1, 'fqdn' => 1), 'peerid_type' => array('any' => 1, 'peeraddress' => 1),
+    'certref' => array('c1' => 'Cert'), 'caref' => array(), 'startaction' => array('' => 'Default', 'none' => 1), 'closeaction' => array('' => 'Default'),
+    'nat_traversal' => array('on' => 1, 'force' => 1), 'mobike' => array('on' => 1, 'off' => 1), 'ealgo' => array('aes' => 1, 'chacha20poly1305' => 1),
+    'halgo' => array('sha1' => 1, 'sha256' => 1), 'dhgroup' => array(1 => 1, 14 => 1));
+$p1form = array('ikeid' => '5', 'interface' => 'lan', 'remotegw' => '192.0.2.1', 'iketype' => 'ikev2', 'protocol' => 'inet', 'authentication_method' => 'pre_shared_key',
+    'myid_type' => 'myaddress', 'peerid_type' => 'peeraddress', 'pskey' => 'k', 'encryption' => array('item' => array(array('encryption-algorithm' =>
+    array('name' => 'aes', 'keylen' => '256'), 'hash-algorithm' => 'sha256', 'prf-algorithm' => 'md5', 'dhgroup' => '14'))), 'dpd_enable' => true,
+    'nat_traversal' => null, 'startaction' => 'none', 'prfselect_enable' => 'yes');
+$f = restapi_ipsec_p1_fields($p1form, $p1c);
+check_api($f['ikeid'] === '5' && $f['mobile'] === false && $f['interface'] === 'lan' && $f['mode'] === 'main' && $f['certref'] === 'c1' && $f['caref'] === '' &&
+    $f['nat_traversal'] === 'on' && $f['closeaction'] === '' && $f['startaction'] === 'none' && $f['pskey'] === 'k' && $f['dpd_enable'] === true &&
+    $f['dpd_delay'] === '10' && $f['dpd_maxfail'] === '5' && $f['prfselect_enable'] === true && $f['gw_duplicates'] === false &&
+    $f['encryption'] === array(array('algorithm' => 'aes', 'keylen' => '256', 'hash' => 'sha256', 'prf' => 'sha1', 'dhgroup' => '14')),
+    'a phase 1 reads as its form: selects as the page preselects them, DPD delay/retries as the page fills them in, encryption rows');
+$fm = restapi_ipsec_p1_fields(array('mobile' => 'true', 'remotegw' => 'x', 'startaction' => 'none', 'gw_duplicates' => true) + $p1form, $p1c);
+check_api($fm['mobile'] === true && $fm['remotegw'] === '' && $fm['startaction'] === '' && $fm['gw_duplicates'] === false, 'a mobile phase 1 has no remote gateway, start action or duplicates');
+check_api(count(array_diff(array_keys($f), array_keys(restapi_ipsec_p1_types()))) === 0 && count(array_diff(array_keys(restapi_ipsec_p1_types()), array_keys($f))) === 0,
+    'the phase 1 fields and their types match');
+$masked = restapi_ipsec_mask_fields(array_merge($f, array('pkcs11pin' => '1234')), restapi_ipsec_p1_form_secrets());
+check_api($masked['pskey'] === '(set)' && $masked['pkcs11pin'] === '(set)' && restapi_ipsec_mask_fields(array('pskey' => ''), array('pskey'))['pskey'] === '',
+    'the phase 1 form\'s key and PKCS#11 PIN read as "(set)"');
+$f['encryption'][] = array('algorithm' => 'chacha20poly1305', 'keylen' => '', 'hash' => 'sha256', 'prf' => 'sha256', 'dhgroup' => '14');
+$f['certref'] = 'c1'; $f['caref'] = 'ca1'; $f['pkcs11certref'] = 'p'; $f['pkcs11pin'] = '1';
+$post = restapi_ipsec_p1_post($f, array('aes'));
+check_api($post['ealgo_algo0'] === 'aes' && $post['ealgo_keylen0'] === '256' && $post['halgo0'] === 'sha256' && $post['prfalgo0'] === 'sha1' &&
+    $post['ealgo_algo1'] === 'chacha20poly1305' && !isset($post['ealgo_keylen1']) && $post['dpd_enable'] === 'yes' && !isset($post['disabled']) &&
+    !isset($post['certref']) && !isset($post['caref']) && !isset($post['pkcs11pin']) && $post['pskey'] === 'k' && $post['ikeid'] === '5' && !isset($post['mobile']) &&
+    $post['remotegw'] === '192.0.2.1' && $post['startaction'] === 'none',
+    'the phase 1 post: encryption rows as numbered fields (no key length for ChaCha20), ticked boxes "yes", no certificate fields for a PSK');
+$post = restapi_ipsec_p1_post(array('authentication_method' => 'cert') + $f, array('aes'));
+check_api($post['certref'] === 'c1' && $post['caref'] === 'ca1' && !isset($post['pkcs11certref']), 'certificate methods post the certificate and CA');
+$post = restapi_ipsec_p1_post(array('authentication_method' => 'pkcs11') + $f, array('aes'));
+check_api(!isset($post['certref']) && $post['caref'] === 'ca1' && $post['pkcs11certref'] === 'p' && $post['pkcs11pin'] === '1', 'PKCS#11 posts the token fields and the CA');
+$post = restapi_ipsec_p1_post(array('mobile' => true, 'gw_duplicates' => true, 'authentication_method' => 'eap-radius') + $f, array('aes'));
+check_api($post['mobile'] === 'true' && !isset($post['remotegw']) && !isset($post['startaction']) && !isset($post['gw_duplicates']) && $post['certref'] === 'c1' &&
+    !isset($post['caref']), 'a mobile phase 1 posts mobile=true and none of the fields its page lacks');
+check_api(api_error_status(function () { restapi_ipsec_p1_rows('aes'); }) === 400 && api_error_status(function () { restapi_ipsec_p1_rows(array(array('bits' => 1))); }) === 400 &&
+    api_error_status(function () { restapi_ipsec_p1_rows(array(array('algorithm' => array()))); }) === 400 &&
+    restapi_ipsec_p1_rows(array(array('algorithm' => 'aes'))) === array(array('algorithm' => 'aes', 'keylen' => '', 'hash' => '', 'prf' => '', 'dhgroup' => '')),
+    'phase 1 encryption rows: a list of objects with known string fields');
+
+$p2c = array('mode' => array('tunnel' => 1, 'tunnel6' => 1, 'transport' => 1, 'vti' => 1), 'proto' => array('esp' => 1, 'ah' => 1),
+    'localid_type' => array('address' => 1, 'network' => 1, 'lan' => 1), 'natlocalid_type' => array('none' => 1, 'address' => 1, 'network' => 1),
+    'keylens' => array('aes' => array('256', '192', '128'), 'aes128gcm' => array('128', '96', '64'), 'chacha20poly1305' => array()),
+    'pfsgroup' => array(0 => 'off', 14 => 1));
+$p2form = array('ikeid' => '5', 'uniqid' => 'u1', 'localid_type' => 'lan', 'remoteid_type' => 'network', 'proto' => 'esp', 'ealgos' => array('aes', 'aes128gcm'),
+    'keylen_aes' => 128, 'halgos' => array('hmac_sha256'), 'pfsgroup' => '14', 'lifetime' => '3600');
+$f2 = restapi_ipsec_p2_fields($p2form, $p2c);
+check_api($f2['mode'] === 'tunnel' && $f2['natlocalid_type'] === 'none' && $f2['remoteid_netbits'] === '24' && $f2['localid_netbits'] === '' && $f2['reqid'] === '' &&
+    $f2['encryption'] === array(array('algorithm' => 'aes', 'keylen' => '128'), array('algorithm' => 'aes128gcm', 'keylen' => 'auto')) &&
+    $f2['halgos'] === array('hmac_sha256') && $f2['pfsgroup'] === '14' && $f2['keepalive'] === false && $f2['mobile'] === false,
+    'a phase 2 reads as its form (an empty network\'s mask as the page fills it in, key lengths as preselected)');
+check_api(restapi_ipsec_p2_fields(array('mode' => 'tunnel6') + $p2form, $p2c)['remoteid_netbits'] === '64', 'an empty IPv6 network\'s mask is 64');
+$f2m = restapi_ipsec_p2_fields(array('mobile' => true, 'remoteid_type' => 'mobile', 'pinghost' => 'x', 'keepalive' => true) + $p2form, array('pfsgroup' => array()) + $p2c);
+check_api($f2m['remoteid_type'] === 'mobile' && $f2m['pinghost'] === '' && $f2m['keepalive'] === false && $f2m['pfsgroup'] === '',
+    'a mobile phase 2: no remote network or keep alive; no PFS group when the mobile client settings set it');
+check_api(count(array_diff(array_keys($f2), array_keys(restapi_ipsec_p2_types()))) === 0 && count(array_diff(array_keys(restapi_ipsec_p2_types()), array_keys($f2))) === 0,
+    'the phase 2 fields and their types match');
+$p = restapi_ipsec_p2_post(array('localid_type' => 'address', 'localid_address' => '10.0.0.1', 'localid_netbits' => '24', 'remoteid_address' => '10.1.0.0',
+    'disabled' => true) + $f2, $p2c);
+check_api($p['localid_address'] === '10.0.0.1' && !isset($p['localid_netbits']) && $p['remoteid_address'] === '10.1.0.0' && $p['remoteid_netbits'] === '24' &&
+    !isset($p['natlocalid_address']) && $p['ealgos'] === array('aes', 'aes128gcm') && $p['keylen_aes'] === '128' && $p['keylen_aes128gcm'] === 'auto' &&
+    !isset($p['keylen_chacha20poly1305']) && $p['halgos'] === array('hmac_sha256') && $p['pfsgroup'] === '14' && $p['disabled'] === 'yes' && !isset($p['reqid']) &&
+    $p['pinghost'] === '' && !isset($p['keepalive']) && !isset($p['mobile']) && $p['uniqid'] === 'u1' && $p['ikeid'] === '5',
+    'the phase 2 post: addresses and masks only as their types use them, a key length per algorithm, hashes with AES-CBC');
+$p = restapi_ipsec_p2_post(array('encryption' => array(array('algorithm' => 'aes128gcm', 'keylen' => '96')), 'reqid' => '7') + $f2, $p2c);
+check_api(!isset($p['halgos']) && $p['keylen_aes128gcm'] === '96' && $p['keylen_aes'] === 'auto' && $p['reqid'] === '7' && !isset($p['localid_address']),
+    'no hashes with only AEAD algorithms (the page disables them); an interface network posts no address');
+check_api(restapi_ipsec_p2_post(array('proto' => 'ah', 'encryption' => array()) + $f2, $p2c)['halgos'] === array('hmac_sha256') &&
+    !isset(restapi_ipsec_p2_post(array('proto' => 'ah', 'encryption' => array()) + $f2, $p2c)['ealgos']), 'AH posts its hashes and no encryption');
+$p = restapi_ipsec_p2_post($f2m, array('pfsgroup' => array()) + $p2c);
+check_api($p['mobile'] === 'true' && !isset($p['remoteid_type']) && !isset($p['pinghost']) && !isset($p['pfsgroup']), 'a mobile phase 2 posts mobile=true, no remote network, no PFS group when set globally');
+check_api(restapi_ipsec_p2_rows(array('aes128gcm', array('algorithm' => 'aes', 'keylen' => 256))) === array(array('algorithm' => 'aes128gcm', 'keylen' => ''),
+    array('algorithm' => 'aes', 'keylen' => '256')) && api_error_status(function () { restapi_ipsec_p2_rows(array(array('name' => 'aes'))); }) === 400,
+    'phase 2 encryption rows: algorithm names or {algorithm, keylen}');
+
+$mf = restapi_ipsec_mobile_fields(array('user_source' => 'Local Database,radius1', 'auth_groups' => 'admins', 'group_source' => true, 'radiusaccounting' => true,
+    'pool_netbits' => 24, 'pfs_group' => '99', 'pool_netbits_v6' => ''), array(0 => 'off', 14 => '14'));
+check_api($mf['user_source'] === array('Local Database', 'radius1') && $mf['auth_groups'] === array('admins') && $mf['group_source'] === true &&
+    $mf['radiusaccounting'] === true && $mf['pool_netbits'] === '24' && $mf['pool_netbits_v6'] === '120' && $mf['pfs_group'] === '0' && $mf['enable'] === false,
+    'the mobile client settings read as the page shows them');
+$mp = restapi_svc_post($mf, restapi_ipsec_mobile_types());
+check_api($mp['user_source'] === array('Local Database', 'radius1') && $mp['group_source'] === 'yes' && $mp['radiusaccounting'] === 'yes' && !isset($mp['enable']) &&
+    !isset($mp['user_source_choices']) && !isset($mp['phase1']), 'the mobile post: lists as multi-selects, ticked boxes "yes" (the page compares with "yes")');
+
+$sc = array('categories' => array('dmn' => 'Daemon', 'ike' => 'IKE SA'), 'logging' => array('-1' => 'Silent', '1' => 'Control', '2' => 'Diag'),
+    'uniqueids' => array('replace' => 1, 'keep' => 1), 'filtermode' => array('enc' => 1));
+$sf = restapi_ipsec_settings_fields(array('logging' => array('dmn' => '-1', 'ike' => '9'), 'noshuntlaninterfaces' => true, 'async_crypto' => 'enabled',
+    'compression' => true, 'bypassrules' => array('rule' => array(array('source' => '10.0.0.0', 'srcmask' => '8', 'destination' => '10.1.0.0', 'dstmask' => '16')))), $sc);
+check_api($sf['logging'] === array('dmn' => '-1', 'ike' => '-1') && $sf['uniqueids'] === 'replace' && $sf['filtermode'] === 'enc' && $sf['async_crypto'] === true &&
+    $sf['autoexcludelanaddress'] === false && $sf['compression'] === true && $sf['bypassrules'][0]['dstmask'] === '16',
+    'the advanced settings read as the page shows them (Auto-exclude LAN is the inverse of noshuntlaninterfaces)');
+$sp = restapi_ipsec_settings_post($sf);
+check_api($sp['logging_dmn'] === '-1' && $sp['logging_ike'] === '-1' && $sp['async_crypto'] === 'yes' && !isset($sp['autoexcludelanaddress']) && $sp['compression'] === 'yes' &&
+    $sp['source0'] === '10.0.0.0' && $sp['dstmask0'] === '16' && !isset($sp['logging']) && !isset($sp['bypassrules']) && !isset($sp['choices']),
+    'the advanced settings post: logging_<category>, numbered bypass rule rows');
+check_api(restapi_ipsec_logging_body(array('ike' => 2), array('dmn' => '1', 'ike' => '1')) === array('dmn' => '1', 'ike' => '2') &&
+    api_error_status(function () { restapi_ipsec_logging_body(array('xyz' => '1'), array('ike' => '1')); }) === 400 &&
+    api_error_status(function () { restapi_ipsec_bypass_rows(array(array('src' => 'x'))); }) === 400, 'log levels merge per category; unknown categories and rule fields are 400');
+
+/* the pages are thin wrappers around the shared include */
+foreach (array('vpn_ipsec_phase1.php' => array('ipsec_p1_form($p1,', 'ipsec_p1_save($pconfig,', 'ipsec_p1_interface_list()', 'ipsec_p1_auth_method_list(isset($pconfig[\'mobile\']))',
+    'ipsec_p1_myid_list()', 'ipsec_p1_peerid_list()', 'ipsec_p1_pkcs11cert_list()', 'ipsec_p1_eal_list()'),
+    'vpn_ipsec_phase2.php' => array('ipsec_p2_index($uindex)', 'ipsec_p2_form(', 'ipsec_p2_save($pconfig, $p2index)'),
+    'vpn_ipsec_mobile.php' => array('ipsec_mobile_auth_groups()', 'ipsec_mobile_form()', 'ipsec_mobile_apply()', 'ipsec_mobile_save($pconfig)', 'ipsec_mobile_user_sources()'),
+    'vpn_ipsec_settings.php' => array('ipsec_settings_form()', 'ipsec_settings_save($_POST)')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false && strpos($src, 'config_del_path(') === false &&
+	    strpos($src, 'mark_subsystem_dirty(') === false && strpos($src, 'ipsec_configure(') === false && !preg_match('/^function /m', $src),
+	    "{$page} changes the configuration only through the shared include and defines no functions");
+}
+foreach (array('vpn_ipsec_phase1.php' => 4, 'vpn_ipsec_phase2.php' => 3) as $page => $n) {
+	check_api(substr_count(file_get_contents("{$root}/src/usr/local/www/{$page}"), '(ipsec_timer_entry($pconfig))') === $n,
+	    "{$page}: the timer placeholders are computed from ipsec_timer_entry() (a Life Time that is not a number crashed the page)");
+}
+$p1_save = $fn_body($ipsec_inc, 'ipsec_p1_save');
+check_api(strpos($p1_save, '$_POST') === false && strpos($p1_save, "if (\$pconfig['peerid_type'] == \"peeraddress\") {") !== false &&
+    strpos($p1_save, "if (\$pconfig['myid_type'] == \"peeraddress\")") === false, 'the peer address identifier clears the peer identifier data (it tested myid_type)');
+foreach (array('A valid authentication method must be selected.', 'A valid Internet Protocol must be selected.', 'A valid negotiation mode must be selected.',
+    "A valid type must be selected for 'My identifier'.", "A valid type must be selected for 'Peer identifier'.", 'A valid NAT Traversal option must be selected.',
+    'A valid MOBIKE option must be selected.', 'At least one encryption algorithm must be selected.', 'A valid encryption algorithm must be selected.',
+    'A valid hash and PRF algorithm must be selected.', 'A valid DH group must be selected.', 'ipsec_ealgo_keylens($p1_ealgos[$algo])') as $needle) {
+	check_api(strpos($p1_save, $needle) !== false, "phase 1 save checks: {$needle}");
+}
+check_api(strpos($p1_save, "config_set_path('ipsec/phase1/' . \$p1index, \$ph1ent);") !== false && strpos($p1_save, "mark_subsystem_dirty('ipsec');") !== false &&
+    strpos($p1_save, 'route_del($old_ph1ent[\'remote-gateway\']);') !== false, 'phase 1 save stores in place or appends, stages IPsec, removes the old gateway route');
+$p2_save = $fn_body($ipsec_inc, 'ipsec_p2_save');
+check_api(strpos($p2_save, '$uindex') === false && strpos($p2_save, "is_interface_ipsec_vti_assigned(config_get_path('ipsec/phase2/' . \$p2index))") !== false,
+    'switching away from VTI checks the edited entry\'s interface (it looked up the uniqid as a position)');
+check_api(strpos($p2_save, "!is_array(ipsec_get_phase1(\$pconfig['ikeid']))") !== false, 'a phase 2 needs an existing phase 1 (an orphan was stored)');
+foreach (array('A valid mode must be selected.', 'A valid protocol must be selected.', 'A valid local network type must be selected.',
+    'A valid NAT/BINAT translation type must be selected.', 'A valid remote network type must be selected.', 'A valid hash algorithm must be selected.',
+    'A valid PFS key group must be selected.', "array_merge(array('auto'), \$keylens)", "\$ealgos = ipsec_p2_pconfig_to_ealgos(\$pconfig);") as $needle) {
+	check_api(strpos($p2_save, $needle) !== false, "phase 2 save checks: {$needle}");
+}
+check_api(strpos($fn_body($ipsec_inc, 'ipsec_p2_pconfig_to_ealgos'), "\$pconfig[\"keylen_\".\$algo_name]") !== false, 'the key lengths come from the form passed in');
+$m_save = $fn_body($ipsec_inc, 'ipsec_mobile_save');
+check_api(strpos($m_save, "unset(\$pconfig['radius_sockets']);") !== false && strpos($m_save, 'radius_retransmit_sockets') === false,
+    'RADIUS sockets are dropped with the other advanced RADIUS parameters (it unset a field that does not exist)');
+check_api(substr_count($m_save, "if (is_array(\$pconfig['user_source'])) {") === 2 && strpos($m_save, "(array)\$pconfig['user_source']") !== false,
+    'the user sources are imploded at most once (implode() of the text or of nothing crashed the page)');
+foreach (array('A valid User Authentication Source must be selected.', 'A valid Authentication Group must be selected.',
+    "A valid mask for 'Virtual Address Pool Network' must be selected.", "A valid mask for 'Virtual IPv6 Address Pool Network' must be selected.",
+    'A valid Phase2 PFS Group must be selected.') as $needle) {
+	check_api(strpos($m_save, $needle) !== false, "mobile save checks: {$needle}");
+}
+check_api(strpos($fn_body($ipsec_inc, 'ipsec_mobile_apply'), 'ipsec_configure(true)') !== false, 'the mobile clients Apply restarts IPsec (#4353)');
+$s_save = $fn_body($ipsec_inc, 'ipsec_settings_save');
+check_api(strpos($s_save, "config_set_path('ipsec/ikev2_retransmit_jitter', \$post['ikev2_retransmit_jitter']);") !== false &&
+    strpos($s_save, "config_get_path('ipsec/ikev2_retransmit_jitter', \$post") === false, 'the retransmit jitter is saved (it was config_get_path())');
+check_api(strpos($s_save, "} elseif (config_path_enabled('ipsec', 'acceptunencryptedmainmode')) {") !== false, 'unencrypted IKEv1 main mode payloads can be turned off again');
+check_api(substr_count($s_save, '$needsrestart = false;') === 1, 'the retransmission parameters no longer cancel a restart other changes need');
+check_api(strpos($s_save, 'Unable to disable PKCS#11 support') < strpos($s_save, 'if (!$input_errors) {'),
+    'PKCS#11 support in use is refused before anything is saved (the rest was saved and applied)');
+check_api(strpos($s_save, 'A valid Unique IDs setting must be selected.') !== false && strpos($s_save, 'A valid IPsec Filter Mode must be selected.') !== false,
+    'unique IDs and filter mode must be one of the page\'s choices');
+check_api(strpos($s_save, 'ipsec_configure($needsrestart, $needsfilterdnsrestart);') !== false && strpos($s_save, 'system_setup_sysctl();') !== false &&
+    strpos($s_save, "clear_subsystem_dirty('sysctl');") !== false && strpos($s_save, 'filter_configure()') !== false,
+    'the advanced settings are applied at once like the page (filter, IPsec, tunables; the sysctl pending flag is cleared)');
+foreach (array('restapi_ipsec_p1_write' => 'ipsec_p1_save($post, $pos, $old)', 'restapi_ipsec_p2_write' => 'ipsec_p2_save($post, $pos)',
+    'restapi_h_ipsec_mobile_set' => 'ipsec_mobile_save($post)', 'restapi_h_ipsec_settings_set' => 'ipsec_settings_save(restapi_ipsec_settings_post($values))') as $fn => $call) {
+	check_api(strpos($fn_body($routes_vpn, $fn), $call) !== false, "{$fn} goes through the page's {$call}");
+}
+check_api(strpos($fn_body($routes_vpn, 'restapi_ipsec_tunnel_full'), 'restapi_ipsec_mask_fields(restapi_ipsec_p1_form_fields($form), restapi_ipsec_p1_form_secrets())') !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_h_ipsec_tunnel_get'), 'restapi_ipsec_tunnel_full(') !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_ipsec_p1_write'), 'restapi_vpn_secret_body($body, $secret)') !== false,
+    'a tunnel\'s form reads with its secrets as "(set)"; sending "(set)" keeps them');
+check_api(strpos($fn_body($routes_vpn, 'restapi_h_ipsec_mobile_set'), 'ipsec_mobile_apply()') !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_h_ipsec_settings_set'), 'restapi_want_apply') === false, 'mobile ?apply restarts IPsec like its page; settings apply at once');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
