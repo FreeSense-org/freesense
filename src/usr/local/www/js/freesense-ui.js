@@ -956,6 +956,93 @@
 			noteGroup.appendChild(nCol);
 			anchor.parentNode.insertBefore(noteGroup, anchor.nextSibling);
 		}
+
+		if (rows.length > ENTRYGRID_FILTER_MIN) {
+			initEntryGridFilter(head, headLabel.className);
+		}
+	}
+
+	var ENTRYGRID_FILTER_MIN = 20;
+
+	/*
+	 * Long grids (aliases with hundreds of entries) get a filter above the header.
+	 * Rows are only hidden, never removed, so the page still posts every row.
+	 * Empty rows (just added) always stay visible.
+	 */
+	function initEntryGridFilter(head, labelClass) {
+		var group = document.createElement('div');
+		group.className = 'form-group fs-entrygrid-filter';
+		var spacer = document.createElement('div');
+		spacer.className = labelClass;
+		var col = document.createElement('div');
+		col.className = 'col-sm-10';
+		var input = document.createElement('input');
+		input.type = 'search';
+		input.className = 'form-control';
+		input.placeholder = I18N.filterEntries || 'Filter entries';
+		input.setAttribute('aria-label', input.placeholder);
+		input.setAttribute('data-fs-entrygrid-filter', '');
+		var count = document.createElement('span');
+		count.className = 'fs-entrygrid-count';
+		count.setAttribute('aria-live', 'polite');
+		col.appendChild(input);
+		col.appendChild(count);
+		group.appendChild(spacer);
+		group.appendChild(col);
+		head.parentNode.insertBefore(group, head);
+
+		function rowText(row) {
+			return Array.prototype.map.call(row.querySelectorAll('input:not([type=hidden]):not([type=checkbox]), select, textarea'), function (el) {
+				if (el.tagName === 'SELECT') {
+					return Array.prototype.map.call(el.selectedOptions, function (o) {
+						return o.textContent;
+					}).join(' ');
+				}
+				return el.value;
+			}).join(' ').trim();
+		}
+		/* a fresh row: its text fields are empty (selects such as a subnet mask keep a default) */
+		function isBlank(row) {
+			return Array.prototype.every.call(row.querySelectorAll('input:not([type=hidden]):not([type=checkbox]), textarea'), function (el) {
+				return el.value === '';
+			});
+		}
+		function apply() {
+			var q = input.value.trim().toLowerCase();
+			var all = document.querySelectorAll('.form-group.repeatable');
+			var shown = 0;
+			all.forEach(function (row) {
+				var show = !q || isBlank(row) || rowText(row).toLowerCase().indexOf(q) !== -1;
+				row.classList.toggle('fs-entrygrid-filtered', !show);
+				if (show) {
+					shown++;
+				}
+			});
+			count.textContent = q ? (I18N.entriesShown || '%1$s of %2$s shown').replace('%1$s', shown).replace('%2$s', all.length) : '';
+		}
+		input.addEventListener('input', apply);
+		/* Enter must not submit the page's form */
+		input.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+			}
+		});
+		var form = input.closest('form');
+		if (form) {
+			form.addEventListener('click', function (e) {
+				var btn = input.value && e.target.closest ? e.target.closest('[id$=addrow], [id^=deleterow]') : null;
+				if (btn) {
+					setTimeout(function () {
+						apply();
+						/* a row the user just added stays in view, whatever the filter */
+						if (/addrow$/.test(btn.id)) {
+							var all = document.querySelectorAll('.form-group.repeatable');
+							all[all.length - 1].classList.remove('fs-entrygrid-filtered');
+						}
+					}, 0);
+				}
+			});
+		}
 	}
 
 	/* ------------------------------------------------------------ advanced toggles */
