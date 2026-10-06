@@ -368,6 +368,7 @@ $form->addGlobal(new Form_Button(
 
 $form->add($section);
 
+fs_form_cancel($form, 'firewall_aliases.php' . (empty($tab) ? '' : '?tab=' . urlencode($tab)));
 print $form;
 ?>
 

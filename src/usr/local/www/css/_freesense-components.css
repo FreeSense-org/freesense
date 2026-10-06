@@ -572,3 +572,48 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 
 /* modal forms */
 .fs-modal-form .modal-body > p:first-child { margin-top: 0; }
+
+/* entry grid: repeatable Form rows (js/freesense-ui.js initEntryGrid) */
+.fs-entrygrid-head { margin-bottom: 0 !important; padding-bottom: 0 !important; border-bottom: 0 !important; }
+.fs-entrygrid-head > div {
+	padding-top: .6rem; padding-bottom: .25rem;
+	color: var(--fs-text-muted); font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.form-group.fs-entrygrid-row { padding-top: .3rem !important; padding-bottom: .3rem !important; border-bottom: 0 !important; align-items: center; }
+.fs-entrygrid-row .help-block { display: none; }
+.fs-entrygrid-row .checkbox { display: flex; align-items: center; min-height: 2.4rem; margin: 0; }
+.fs-entrygrid-row [id^=deleterow] {
+	font-size: 0; padding: .4rem .55rem; background: none; border: 1px solid transparent; color: var(--fs-text-muted);
+}
+.fs-entrygrid-row [id^=deleterow] i { font-size: .95rem; margin: 0; }
+.fs-entrygrid-row [id^=deleterow]:hover,
+.fs-entrygrid-row [id^=deleterow]:focus-visible { color: var(--fs-block); border-color: var(--fs-border-color); background: none; }
+.form-group.fs-entrygrid-add { padding-top: .35rem !important; border-bottom: 0 !important; }
+.fs-entrygrid-add [id$=addrow] {
+	--bs-btn-padding-y: .25rem; --bs-btn-padding-x: .6rem; --bs-btn-font-size: .85rem;
+	background: none; border-color: var(--fs-border-color); color: var(--fs-text);
+}
+.fs-entrygrid-add [id$=addrow]:hover, .fs-entrygrid-add [id$=addrow]:focus-visible { border-color: var(--fs-coral); color: var(--fs-text-strong); background: none; }
+.form-group.fs-entrygrid-notes { padding-top: .25rem !important; }
+.fs-entrygrid-notes p { margin: 0 0 .35rem; color: var(--fs-text-muted); font-size: .85rem; }
+.fs-entrygrid-notes strong { color: var(--fs-text); font-weight: 600; }
+@media (max-width: 575.98px) { .fs-entrygrid-head { display: none !important; } }
+
+/* searchable checklist (select[multiple][data-fs-checklist], js/freesense-ui.js) */
+.fs-checklist { border: 1px solid var(--fs-border-color); border-radius: var(--fs-radius, 6px); background: var(--bs-body-bg); }
+.fs-checklist-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .6rem .75rem; border-bottom: 1px solid var(--fs-border-color); }
+.fs-checklist-search { position: relative; flex: 1 1 18rem; max-width: 28rem; }
+.fs-checklist-search > i { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); color: var(--fs-text-muted); font-size: .8rem; }
+.fs-checklist-search input { padding-left: 2rem; }
+.fs-checklist-only { display: inline-flex; align-items: center; gap: .4rem; margin: 0; font-size: .85rem; cursor: pointer; }
+.fs-checklist-count { margin-left: auto; color: var(--fs-text-muted); font-size: .85rem; }
+.fs-checklist-list { max-height: 28rem; overflow: auto; padding: .25rem .75rem .5rem; }
+.fs-checklist-group-title {
+	position: sticky; top: 0; z-index: 1; margin: 0 -.75rem; padding: .45rem .75rem .3rem;
+	background: var(--bs-body-bg); color: var(--fs-text-muted); font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.fs-checklist-item { margin: 0; padding: .3rem 0 .3rem 1.75rem; }
+.fs-checklist-item .form-check-input { margin-left: -1.75rem; margin-top: .2rem; }
+.fs-checklist-name { color: var(--fs-text-strong); }
+.fs-checklist-desc { display: block; color: var(--fs-text-muted); font-size: .82rem; }
+.fs-checklist-empty { padding: .75rem; color: var(--fs-text-muted); }

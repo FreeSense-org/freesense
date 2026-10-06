@@ -485,6 +485,7 @@ $form->addGlobal(new Form_Input(
 	$after
 ));
 
+fs_form_cancel($form, 'firewall_nat.php');
 print($form);
 ?>
 

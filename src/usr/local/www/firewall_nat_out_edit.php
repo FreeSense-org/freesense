@@ -300,6 +300,7 @@ if (isset($id)) {
 	gen_created_updated_fields($form, config_get_path("nat/outbound/rule/{$id}/created"), config_get_path("nat/outbound/rule/{$id}/updated"));
 }
 
+fs_form_cancel($form, 'firewall_nat_out.php');
 print($form);
 
 ?>

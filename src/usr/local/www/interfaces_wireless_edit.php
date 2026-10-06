@@ -206,6 +206,7 @@ if ($this_clone_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_wireless.php');
 print($form);
 
 include("foot.inc");

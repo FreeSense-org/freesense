@@ -273,6 +273,33 @@ Entries                                            4 entries
 
 Use it when each row has ≤ 3 simple fields and no per-row options. Otherwise, convert to List + Editor (rule R2).
 
+**Implemented** in `js/freesense-ui.js` (`initEntryGrid`), applied to every page automatically:
+
+- The header row is built from each column's help title: the text before the first `<br>` in
+  `setHelp()`, or the whole help if it is short, else the field's placeholder. Explanations after the
+  `<br>` are shown once under the grid as notes, so write help as `'Address<br>Enter IP addresses …'`.
+- Per-row help is hidden; the delete button is icon-only; the Add button (`addrow`, or any button
+  whose id ends in `addrow`) moves directly under the rows. It keeps `.btn-success` / `.addbtn`,
+  which some pages use to find it.
+- Column visibility (`.hidden`) and placeholder-based titles follow the page on change, click and load
+  (alias type, IPsec PRF). Row labels, field names, numbering and `add_row()` / `delete_row()` are untouched.
+
+## Searchable checklist
+
+For a long multiple choice (privileges): `<select multiple data-fs-checklist>` becomes a searchable
+checklist grouped by the label prefix before " - ", with a "Selected only" toggle and a live count.
+Ticking an item selects its option, so the form posts exactly as before.
+
+```php
+$section->addInput(new Form_Select('sysprivs', '*Assigned privileges', null, $choices, true))
+    ->setAttribute('data-fs-checklist', '')
+    ->setAttribute('data-fs-descs', json_encode($descs))   // value => description (searched too)
+    ->setAttribute('data-fs-warn', json_encode($admin))    // values flagged "Admin-level"
+    ->setAttribute('data-fs-text-search', gettext('Search privileges…'));
+```
+
+Other labels: `data-fs-text-only`, `-count` (`%d selected`), `-empty`, `-warn`.
+
 ## Sticky action bar
 
 The Form classes render the global buttons (`$form->addGlobal(...)`, default Save) in `.fs-actionbar`, which

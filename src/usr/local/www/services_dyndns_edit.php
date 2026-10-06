@@ -294,6 +294,7 @@ if ($this_dyndns_config) {
 
 $form->add($section);
 
+fs_form_cancel($form, 'services_dyndns.php');
 print($form);
 
 // Certain input elements are hidden/shown based on the service type in the following script

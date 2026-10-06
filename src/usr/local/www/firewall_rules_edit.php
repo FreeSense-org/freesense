@@ -800,6 +800,7 @@ if (is_numericint($id)) {
 	gen_created_updated_fields($form, $a_filter[$id]['created'], $a_filter[$id]['updated'], $a_filter[$id]['tracker']);
 }
 
+fs_form_cancel($form, $pglinks[count($pglinks) - 2]);
 echo $form;
 ?>
 

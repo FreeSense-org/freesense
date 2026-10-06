@@ -150,6 +150,7 @@ if ($this_vlan_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_vlan.php');
 print $form;
 
 include("foot.inc");

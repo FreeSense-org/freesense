@@ -599,6 +599,7 @@ if (isset($pconfig['pppoeid'])) {
 
 $form->add($section);
 
+fs_form_cancel($form, 'services_pppoe.php');
 print($form);
 
 print_info_box(gettext('Don\'t forget to add a firewall rule to permit traffic from PPPoE clients.'));

@@ -425,6 +425,7 @@ $section->addInput(new Form_Checkbox(
 
 $form->add($section);
 
+fs_form_cancel($form, 'system_gateways.php');
 print $form;
 ?>
 

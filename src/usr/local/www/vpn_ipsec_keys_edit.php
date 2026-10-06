@@ -122,6 +122,7 @@ if (isset($id) && config_get_path('ipsec/mobilekey/' . $id)) {
 
 $form->add($section);
 
+fs_form_cancel($form, 'vpn_ipsec_keys.php');
 print $form;
 ?>
 <div class="infoblock blockopen">

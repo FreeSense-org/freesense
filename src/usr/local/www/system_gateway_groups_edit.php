@@ -276,6 +276,7 @@ if ($this_gateway_group_config) {
 
 $form->add($section);
 
+fs_form_cancel($form, 'system_gateway_groups.php');
 print($form);
 ?>
 

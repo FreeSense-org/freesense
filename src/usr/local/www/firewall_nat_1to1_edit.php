@@ -231,6 +231,7 @@ $section->addInput(new Form_Select(
 
 $form->add($section);
 
+fs_form_cancel($form, 'firewall_nat_1to1.php');
 print($form);
 ?>
 

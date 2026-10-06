@@ -181,6 +181,7 @@ if ($this_checkip_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'services_checkip.php');
 print($form);
 
 include("foot.inc");

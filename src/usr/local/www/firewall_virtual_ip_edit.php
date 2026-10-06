@@ -233,6 +233,7 @@ $form->addGlobal(new Form_Input(
 
 $form->add($section);
 
+fs_form_cancel($form, 'firewall_virtual_ip.php');
 print($form);
 ?>
 

@@ -172,6 +172,7 @@ if ($this_vxlan_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_vxlan.php');
 print($form);
 ?>
 

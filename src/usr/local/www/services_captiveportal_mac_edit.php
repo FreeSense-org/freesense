@@ -276,6 +276,7 @@ if (isset($pconfig['username']) && $pconfig['username']) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'services_captiveportal_mac.php?zone=' . urlencode($cpzone));
 print($form);
 ?>
 

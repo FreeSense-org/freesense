@@ -232,6 +232,7 @@ if ($this_lagg_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_lagg.php');
 print($form);
 ?>
 

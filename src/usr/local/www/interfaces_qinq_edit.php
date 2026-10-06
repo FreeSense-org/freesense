@@ -184,6 +184,7 @@ $form->addGlobal(new Form_Button(
 
 $form->add($section);
 
+fs_form_cancel($form, 'interfaces_qinq.php');
 print($form);
 
 ?>

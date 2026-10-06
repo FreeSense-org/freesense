@@ -131,6 +131,7 @@ $section->addInput(new Form_Input(
 
 $form->add($section);
 
+fs_form_cancel($form, 'system_routes.php');
 print $form;
 
 ?>

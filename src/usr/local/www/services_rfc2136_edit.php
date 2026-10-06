@@ -215,6 +215,7 @@ if ($this_rfc2136_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'services_rfc2136.php');
 print($form);
 
 print_info_box(sprintf(gettext('A DNS server must be configured in %1$sSystem: ' .

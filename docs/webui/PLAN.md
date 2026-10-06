@@ -101,7 +101,7 @@ Each phase ships as several small PRs. `main` must never sit in a half-migrated 
 | **N. Navigation** | grouped mega-menu, menu search (Ctrl+K), mobile panel; `<group>` in package menu XML (see 4a) | 2 (+1 cleanup) | Yes, alongside B: only `head.inc`, new menu files and package XML |
 | **B. Lists** | all List pages: toolbar, search, badges, row actions, empty state, Add in header. 10-03 phase 3 | one per area (8) | **Yes**, by menu area |
 | **C. Consolidation** | R1/R2 splits: Unbound, DNSmasq, DHCP/DHCPv6, WoL, remote backup, config history, CP vouchers, NTP ACLs, Unbound ACLs, sysctl | one per page | Yes, after B for that area |
-| **D. Settings and editors** | Form class grid and sticky bar (10-03 phase 4), the entry grid, consistent "advanced" toggles, all Settings/Editor pages | 1 central + one per area | Central first, then areas in parallel |
+| **D. Settings and editors** | Form class grid and sticky bar (10-03 phase 4), the entry grid, consistent "advanced" toggles, all Settings/Editor pages. **Central PR done**: entry grid (all repeatable rows), searchable checklist (privileges), Cancel on every editor | 1 central + one per area | Central first, then areas in parallel |
 | **E. Status, logs, tools, dashboard** | summary tiles, refresh control, tool output console, log toolbar, widget cards (10-03 phase 6) | one per area | Yes |
 | **F. Cleanup and QA** | inline styles, `onclick`, BS3 leftovers, shim removal, login page, a11y pass (10-03 phases 5, 7, 8) | 2–3 | Partly |
 
