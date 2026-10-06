@@ -140,19 +140,7 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Interface Assignments"), true, "interfaces_assign.php");
-$tab_array[] = array(gettext("Interface Groups"), false, "interfaces_groups.php");
-$tab_array[] = array(gettext("Wireless"), false, "interfaces_wireless.php");
-$tab_array[] = array(gettext("VLANs"), false, "interfaces_vlan.php");
-$tab_array[] = array(gettext("QinQs"), false, "interfaces_qinq.php");
-$tab_array[] = array(gettext("PPPs"), false, "interfaces_ppps.php");
-$tab_array[] = array(gettext("GREs"), false, "interfaces_gre.php");
-$tab_array[] = array(gettext("GIFs"), false, "interfaces_gif.php");
-$tab_array[] = array(gettext("VXLANs"), false, "interfaces_vxlan.php");
-$tab_array[] = array(gettext("Bridges"), false, "interfaces_bridge.php");
-$tab_array[] = array(gettext("LAGGs"), false, "interfaces_lagg.php");
-display_top_tabs($tab_array);
+fs_tabs('interfaces', 'interfaces_assign.php');
 
 /*Generate the port select box only once.
 Not indenting the HTML to produce smaller code

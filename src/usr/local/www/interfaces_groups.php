@@ -40,37 +40,31 @@ if ($_POST['act'] == "del") {
 $pgtitle = array(gettext("Interfaces"), gettext("Interface Groups"));
 $shortcut_section = "interfaces";
 
+fs_page_action(gettext('Add group'), 'interfaces_groups_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Interface Assignments"), false, "interfaces_assign.php");
-$tab_array[] = array(gettext("Interface Groups"), true, "interfaces_groups.php");
-$tab_array[] = array(gettext("Wireless"), false, "interfaces_wireless.php");
-$tab_array[] = array(gettext("VLANs"), false, "interfaces_vlan.php");
-$tab_array[] = array(gettext("QinQs"), false, "interfaces_qinq.php");
-$tab_array[] = array(gettext("PPPs"), false, "interfaces_ppps.php");
-$tab_array[] = array(gettext("GREs"), false, "interfaces_gre.php");
-$tab_array[] = array(gettext("GIFs"), false, "interfaces_gif.php");
-$tab_array[] = array(gettext("VXLANs"), false, "interfaces_vxlan.php");
-$tab_array[] = array(gettext("Bridges"), false, "interfaces_bridge.php");
-$tab_array[] = array(gettext("LAGGs"), false, "interfaces_lagg.php");
-display_top_tabs($tab_array);
+fs_tabs('interfaces', 'interfaces_groups.php');
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Interface Groups')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Interface Groups'),
+	'search' => gettext('Search interface groups…'),
+	'noun' => gettext('interface groups'),
+	'noun_one' => gettext('interface group'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext('Name');?></th>
-						<th><?=gettext('Members');?></th>
-						<th><?=gettext('Description');?></th>
-						<th><?=gettext('Actions');?></th>
+						<th data-fs-search><?=gettext('Name');?></th>
+						<th data-fs-search><?=gettext('Members');?></th>
+						<th data-fs-search><?=gettext('Description');?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -99,24 +93,23 @@ display_top_tabs($tab_array);
 						<td>
 							<?=htmlspecialchars($ifgroupentry['descr']);?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit group')?>"	href="interfaces_groups_edit.php?id=<?=$i; ?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete group')?>"	href="interfaces_groups.php?act=del&amp;id=<?=$i; ?>" usepost></a>
+						<td class="fs-col-actions">
+							<?=fs_row_actions([
+								['edit', "interfaces_groups_edit.php?id={$i}", $ifgroupentry['ifname'] ?: $ifgroupentry['descr']],
+								['delete', "interfaces_groups.php?act=del&id={$i}", $ifgroupentry['ifname'] ?: $ifgroupentry['descr'], ['thing' => gettext('interface group')]],
+							])?>
 						</td>
 					</tr>
 <?php endforeach; ?>
+<?php if (empty(config_get_path('ifgroups/ifgroupentry', []))) {
+	fs_empty_row(4, gettext('No interface groups yet.'), 'interfaces_groups_edit.php', gettext('Add group'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a class="btn btn-success btn-sm" href="interfaces_groups_edit.php" role="button">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add");?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box(sprintf(gettext('Interface Groups allow setting up rules for multiple interfaces without duplicating the rules.%s' .

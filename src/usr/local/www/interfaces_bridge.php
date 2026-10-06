@@ -38,36 +38,30 @@ if ($_POST['act'] == "del") {
 
 $pgtitle = array(gettext("Interfaces"), gettext("Bridges"));
 $shortcut_section = "interfaces";
+fs_page_action(gettext('Add bridge'), 'interfaces_bridge_edit.php', 'fa-plus');
 include("head.inc");
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Interface Assignments"), false, "interfaces_assign.php");
-$tab_array[] = array(gettext("Interface Groups"), false, "interfaces_groups.php");
-$tab_array[] = array(gettext("Wireless"), false, "interfaces_wireless.php");
-$tab_array[] = array(gettext("VLANs"), false, "interfaces_vlan.php");
-$tab_array[] = array(gettext("QinQs"), false, "interfaces_qinq.php");
-$tab_array[] = array(gettext("PPPs"), false, "interfaces_ppps.php");
-$tab_array[] = array(gettext("GREs"), false, "interfaces_gre.php");
-$tab_array[] = array(gettext("GIFs"), false, "interfaces_gif.php");
-$tab_array[] = array(gettext("VXLANs"), false, "interfaces_vxlan.php");
-$tab_array[] = array(gettext("Bridges"), true, "interfaces_bridge.php");
-$tab_array[] = array(gettext("LAGGs"), false, "interfaces_lagg.php");
-display_top_tabs($tab_array);
+fs_tabs('interfaces', 'interfaces_bridge.php');
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Bridge Interfaces')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Bridge Interfaces'),
+	'search' => gettext('Search bridges…'),
+	'noun' => gettext('bridges'),
+	'noun_one' => gettext('bridge'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext("Interface"); ?></th>
-						<th><?=gettext("Members"); ?></th>
-						<th><?=gettext("Description"); ?></th>
-						<th><?=gettext("Actions"); ?></th>
+						<th data-fs-search><?=gettext("Interface"); ?></th>
+						<th data-fs-search><?=gettext("Members"); ?></th>
+						<th data-fs-search><?=gettext("Description"); ?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -100,26 +94,25 @@ foreach (config_get_path('bridges/bridged', []) as $bridge) {
 						<td>
 							<?=htmlspecialchars($bridge['descr'])?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit interface bridge')?>"	href="interfaces_bridge_edit.php?id=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete interface bridge')?>"	href="interfaces_bridge.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+							<?=fs_row_actions([
+								['edit', "interfaces_bridge_edit.php?id={$i}", $bridge['bridgeif'] ?: $bridge['descr']],
+								['delete', "interfaces_bridge.php?act=del&id={$i}", $bridge['bridgeif'] ?: $bridge['descr'], ['thing' => gettext('bridge')]],
+							])?>
 						</td>
 					</tr>
 <?php
 	$i++;
 }
 ?>
+<?php if (empty(config_get_path('bridges/bridged', []))) {
+	fs_empty_row(4, gettext('No bridges yet.'), 'interfaces_bridge_edit.php', gettext('Add bridge'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="interfaces_bridge_edit.php" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <?php include("foot.inc");

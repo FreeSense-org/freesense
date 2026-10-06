@@ -38,39 +38,33 @@ if ($_POST['act'] == "del") {
 
 $pgtitle = array(gettext("Interfaces"), gettext("VXLANs"));
 $shortcut_section = "interfaces";
+fs_page_action(gettext('Add VXLAN'), 'interfaces_vxlan_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Interface Assignments"), false, "interfaces_assign.php");
-$tab_array[] = array(gettext("Interface Groups"), false, "interfaces_groups.php");
-$tab_array[] = array(gettext("Wireless"), false, "interfaces_wireless.php");
-$tab_array[] = array(gettext("VLANs"), false, "interfaces_vlan.php");
-$tab_array[] = array(gettext("QinQs"), false, "interfaces_qinq.php");
-$tab_array[] = array(gettext("PPPs"), false, "interfaces_ppps.php");
-$tab_array[] = array(gettext("GREs"), false, "interfaces_gre.php");
-$tab_array[] = array(gettext("GIFs"), false, "interfaces_gif.php");
-$tab_array[] = array(gettext("VXLANs"), true, "interfaces_vxlan.php");
-$tab_array[] = array(gettext("Bridges"), false, "interfaces_bridge.php");
-$tab_array[] = array(gettext("LAGGs"), false, "interfaces_lagg.php");
-display_top_tabs($tab_array);
+fs_tabs('interfaces', 'interfaces_vxlan.php');
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('VXLAN Interfaces')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('VXLAN Interfaces'),
+	'search' => gettext('Search VXLANs…'),
+	'noun' => gettext('VXLANs'),
+	'noun_one' => gettext('VXLAN'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext("Interface"); ?></th>
-						<th><?=gettext("Parent"); ?></th>
-						<th><?=gettext("VNI"); ?></th>
-						<th><?=gettext("Remote / Group"); ?></th>
-						<th><?=gettext("Description"); ?></th>
-						<th><?=gettext("Actions"); ?></th>
+						<th data-fs-search><?=gettext("Interface"); ?></th>
+						<th data-fs-search><?=gettext("Parent"); ?></th>
+						<th data-fs-search><?=gettext("VNI"); ?></th>
+						<th data-fs-search><?=gettext("Remote / Group"); ?></th>
+						<th data-fs-search><?=gettext("Description"); ?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -101,23 +95,22 @@ display_top_tabs($tab_array);
 						<td>
 							<?=htmlspecialchars($vxlan['descr'])?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit VXLAN interface')?>"	href="interfaces_vxlan_edit.php?id=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete VXLAN interface')?>"	href="interfaces_vxlan.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+							<?=fs_row_actions([
+								['edit', "interfaces_vxlan_edit.php?id={$i}", $vxlan['vxlanif'] ?: $vxlan['descr']],
+								['delete', "interfaces_vxlan.php?act=del&id={$i}", $vxlan['vxlanif'] ?: $vxlan['descr'], ['thing' => gettext('VXLAN')]],
+							])?>
 						</td>
 					</tr>
 <?php endforeach; ?>
+<?php if (empty(config_get_path('vxlans/vxlan', []))) {
+	fs_empty_row(6, gettext('No VXLANs yet.'), 'interfaces_vxlan_edit.php', gettext('Add VXLAN'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="interfaces_vxlan_edit.php" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <?php include("foot.inc");
