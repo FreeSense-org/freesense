@@ -150,7 +150,7 @@ $show_results = (!$input_errors && $type);
 <?php if ($resolved): ?>
 		<div class="panel panel-default fs-table">
 			<div class="panel-heading">
-				<h2 class="panel-title"><?=gettext('Results')?> <span class="fs-count"><?=(int)count((array)$resolved)?></span></h2>
+				<h2 class="panel-title"><?=gettext('Results')?></h2>
 			</div>
 			<div class="panel-body table-responsive">
 				<table class="table table-hover">
