@@ -583,7 +583,7 @@ foreach ($v1 as $r) {
 		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' :
 		    (preg_match('#^/v1/services/ntp(/|$)#', $r['path']) ? 'services.time' :
 		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' :
-		    (preg_match('#^/v1/services/dhcp(v6)?/#', $r['path']) ? 'services.dhcp' : 'services.misc')));
+		    (preg_match('#^/v1/services/(dhcp(v6)?|router-advertisements)/#', $r['path']) ? 'services.dhcp' : 'services.misc')));
 		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
 		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
 		if ($r['path'] === '/v1/services/upnp') {
@@ -1103,6 +1103,96 @@ check_api(preg_match("/header\('Location: \/services_dhcp.php\?if='\.\\\$if\);\n
     'a saved pool redirects to the interface without exit (the page goes on like before)');
 check_api(preg_match('/\$rv\[\'missing_pool\'\]\) \{\n[^\n]*\n\t\theader\("Location: services_dhcp.php"\);\n\t\texit;/', $dhcp_page) === 1,
     'saving a missing pool goes back to the start');
+
+/* DHCPv6 server of an interface, its address pools and router advertisements */
+$d6_routes = array('GET /v1/services/dhcpv6/{if}' => 'restapi_h_dhcp6_server_get', 'PUT /v1/services/dhcpv6/{if}' => 'restapi_h_dhcp6_server_set',
+    'GET /v1/services/dhcpv6/{if}/pools' => 'restapi_h_dhcp6_pool_list', 'GET /v1/services/dhcpv6/{if}/pools/{id}' => 'restapi_h_dhcp6_pool_get',
+    'POST /v1/services/dhcpv6/{if}/pools' => 'restapi_h_dhcp6_pool_create', 'PUT /v1/services/dhcpv6/{if}/pools/{id}' => 'restapi_h_dhcp6_pool_update',
+    'DELETE /v1/services/dhcpv6/{if}/pools/{id}' => 'restapi_h_dhcp6_pool_delete');
+$d6_ra = array('GET /v1/services/router-advertisements/{if}' => 'restapi_h_radvd_get', 'PUT /v1/services/router-advertisements/{if}' => 'restapi_h_radvd_set');
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (isset($d6_routes[$key])) {
+		check_api($r['handler'] === $d6_routes[$key] && $r['page'] === 'services_dhcpv6.php' && $r['area'] === 'services.dhcp',
+		    "{$key} is handled by {$d6_routes[$key]} and guarded by services_dhcpv6.php");
+		if ($r['write']) {
+			check_api(isset($r['query']['apply']), "{$key} takes ?apply=true");
+		}
+		unset($d6_routes[$key]);
+	} elseif (isset($d6_ra[$key])) {
+		check_api($r['handler'] === $d6_ra[$key] && $r['page'] === 'services_radvd.php' && $r['area'] === 'services.dhcp',
+		    "{$key} is handled by {$d6_ra[$key]} and guarded by services_radvd.php");
+		check_api(!isset($r['query']['apply']), "{$key} has no ?apply (the page applies at once)");
+		unset($d6_ra[$key]);
+	}
+}
+check_api(empty($d6_routes) && empty($d6_ra), 'every DHCPv6 server, pool and router advertisement route exists');
+foreach (array('GET /v1/services/dhcpv6/settings' => 'restapi_h_dhcp6_settings_get', 'GET /v1/services/dhcpv6/interfaces' => 'restapi_h_dhcp_interfaces',
+    'POST /v1/services/dhcpv6/apply' => 'restapi_h_dhcp6_apply', 'GET /v1/services/dhcpv6/opt1' => 'restapi_h_dhcp6_server_get',
+    'GET /v1/services/dhcpv6/opt1/pools/2' => 'restapi_h_dhcp6_pool_get', 'GET /v1/services/dhcpv6/opt1/static-mappings' => 'restapi_h_dhcp6_map_list',
+    'GET /v1/services/dhcp/lan' => 'restapi_h_dhcp_server_get', 'PUT /v1/services/router-advertisements/lan' => 'restapi_h_radvd_set') as $key => $handler) {
+	list($m, $p) = explode(' ', $key);
+	check_api(restapi_match($v1, $m, $p)[0]['handler'] === $handler, "{$key} reaches {$handler} (the fixed paths come before {if})");
+}
+check_api(restapi_dhcp_option_rows(array(array('number' => 23, 'value' => 'x')), false) === array('number0' => '23', 'value0' => 'x') &&
+    api_error_status(function () { restapi_dhcp_option_rows(array(array('number' => 23, 'type' => 'text', 'value' => 'x')), false); }) === 400,
+    'DHCPv6 custom options are {number, value} rows (no type)');
+check_api(restapi_dhcp_options_out(array('item' => array(array('number' => '23', 'value' => base64_encode('v')))), false) ===
+    array(array('number' => '23', 'value' => 'v')), 'stored DHCPv6 custom options read without a type');
+check_api(restapi_radvd_subnet_rows(array('2001:db8::/64', 'lanhosts')) ===
+    array('subnet_address0' => '2001:db8::', 'subnet_bits0' => '64', 'subnet_address1' => 'lanhosts', 'subnet_bits1' => ''),
+    'RA subnets become the form rows (an alias has no bits)');
+check_api(restapi_radvd_dns_rows(array('2001:db8::53')) === array('radns1' => '2001:db8::53', 'radns2' => '', 'radns3' => '', 'radns4' => '') &&
+    api_error_status(function () { restapi_radvd_dns_rows(array_fill(0, 5, '::1')); }) === 400, 'at most 4 RA DNS servers (the form fields)');
+check_api(restapi_dhcp6_server_mask(array('ddnsdomainkey' => 'k', 'domain' => 'd')) === array('ddnsdomainkey' => '(set)', 'domain' => 'd') &&
+    restapi_dhcp6_server_mask(array('descr' => 'x')) === array('descr' => 'x'), 'the DHCPv6 dynamic DNS key reads as "(set)"');
+check_api(array_keys(restapi_dhcp6_prefixrange_lengths()) === array(48, 52, 56, 59, 60, 61, 62, 63, 64), 'the prefix delegation sizes are the page\'s');
+check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp6_server_iface'), 'dhcp6_server_offered($if)') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp6_server_iface'), "dhcp_is_backend('kea')") !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp6_server_write'), 'dhcp6_server_save($if, $id, $act, $post)') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp6_server_out'), 'restapi_dhcp6_server_mask(') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_h_dhcp6_server_set'), "restapi_ddns_secret_body(\$req['body'], 'ddnsdomainkey')") !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_h_dhcp6_pool_delete'), 'dhcp6_pool_delete($if, $id)') !== false,
+    'DHCPv6 server routes need an interface the page offers (pools: Kea), save and delete through the page functions and mask the key');
+check_api(strpos($fn_body($routes_dhcp, 'restapi_radvd_iface'), 'radvd_offered($if)') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_h_radvd_set'), 'radvd_save($if, restapi_radvd_post($if, $values))') !== false,
+    'router advertisement routes need an interface the page offers and save through the page function');
+$d6_save = $fn_body($dhcp_inc, 'dhcp6_server_save');
+check_api(strpos($d6_save, 'if (!dhcp6_server_offered($if)) {') !== false, 'the DHCPv6 server is saved only for an interface the page offers');
+check_api(strpos($d6_save, "kea_custom_config_enforce(is_array(\$dhcpdconf) ? array_get_path(\$dhcpdconf, 'custom_kea_config') : null, \$input_errors, \$post);") !== false,
+    'the first DHCPv6 save of an interface works (array_get_path() on null was a TypeError) and the Kea custom configuration privilege applies to the form');
+check_api(strpos($d6_save, "(inet_pton(\$map['ipaddrv6']) >= \$dynsubnet_start) &&") !== false &&
+    strpos($d6_save, "(inet_pton(\$map['ipaddrv6']) <= \$dynsubnet_end)") !== false, 'a static mapping at either end of the DHCPv6 range overlaps it');
+check_api(strpos($d6_save, "\$ret['missing_pool'] = true;") !== false && strpos($d6_save, "mark_subsystem_dirty('dhcpd6');") !== false &&
+    strpos($d6_save, "dhcp_is_backend('kea')") !== false && strpos($d6_save, "\$dhcpdconf['prefixrange']['prefixlength'] = \$post['prefixrange_length'];") !== false,
+    'dhcp6_server_save() keeps the ISC and Kea fields, reports a missing pool and stages the DHCPv6 server');
+check_api(strpos($fn_body($dhcp_inc, 'dhcp6_pool_delete'), 'is_numericint($id)') !== false && strpos($fn_body($dhcp_inc, 'dhcp6_build_pooltable'), 'global $if') === false,
+    'deleting a DHCPv6 pool needs the position of an existing pool; the pool table takes the interface as a parameter');
+$ra_save = $fn_body($dhcp_inc, 'radvd_save');
+check_api(strpos($ra_save, 'if (!radvd_offered($if)) {') !== false && strpos($ra_save, 'radvd_ramode_values()') !== false &&
+    strpos($ra_save, 'radvd_rapriority_values()') !== false && strpos($ra_save, 'radvd_rainterface_values($if)') !== false,
+    'router advertisements are saved only for an interface the page offers, with a mode, priority and RA interface the page offers');
+check_api(strpos($ra_save, '$retval |= services_radvd_configure();') !== false && strpos($ra_save, 'mark_subsystem_dirty(') === false,
+    'router advertisements apply at once like the page (nothing staged)');
+$dhcp6_page = file_get_contents("{$root}/src/usr/local/www/services_dhcpv6.php");
+foreach (array('dhcp6_server_iflist()', 'dhcp6_server_conf($if, $pool, $act)', 'dhcp6_server_form($dhcpdconf ?? null,', 'dhcp6_server_prefix((string)$if)',
+    'dhcp6_server_relay_enabled($iflist)', 'dhcp6_server_save((string)$if, $pool ?? null, $act, $_POST)', 'dhcp6_pool_delete((string)$if, $_POST[\'id\'])',
+    'dhcp6_build_pooltable($if)', 'dhcp_server_dnsregpolicy_values()') as $call) {
+	check_api(strpos($dhcp6_page, $call) !== false, "services_dhcpv6.php uses {$call}");
+}
+$radvd_page = file_get_contents("{$root}/src/usr/local/www/services_radvd.php");
+foreach (array("require_once('services_dhcp.inc');", 'radvd_form((string)$if)', 'radvd_save((string)$if, $_POST)', 'radvd_ramode_values()',
+    'radvd_rapriority_values()', 'radvd_rainterface_values((string)$if)') as $call) {
+	check_api(strpos($radvd_page, $call) !== false, "services_radvd.php uses {$call}");
+}
+foreach (array('services_dhcpv6.php' => $dhcp6_page, 'services_radvd.php' => $radvd_page) as $page => $src) {
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false && strpos($src, 'config_del_path(') === false &&
+	    strpos($src, 'services_radvd_configure(') === false && preg_match('/^function\s/m', $src) === 0, "{$page} changes nothing itself and declares no functions");
+}
+check_api(preg_match("/header\('Location: \/services_dhcpv6.php\?if='\.\\\$if\);\n\t\t}\n\t}\n}/", $dhcp6_page) === 1,
+    'a saved DHCPv6 pool redirects to the interface without exit (the page goes on like before)');
+check_api(preg_match('/\$rv\[\'missing_pool\'\]\) \{\n\t\theader\("Location: services_dhcpv6.php"\);\n\t\texit;/', $dhcp6_page) === 1,
+    'saving a missing DHCPv6 pool goes back to the start');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

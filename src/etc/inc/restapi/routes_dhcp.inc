@@ -45,6 +45,21 @@
  * The ISC dynamic DNS and OMAPI keys read as "(set)"; sending "(set)" keeps
  * them.
  *
+ * The DHCPv6 server of an interface (GET/PUT /v1/services/dhcpv6/{if}) and its
+ * additional pools (/v1/services/dhcpv6/{if}/pools, Kea backend only, like the
+ * page) carry the DHCPv6 Server page's fields for the running backend; DNS and
+ * NTP servers and the ISC custom options are lists. Only interfaces the page
+ * offers (a static IPv6 address, Track Interface or DHCPv6 already enabled)
+ * have a DHCPv6 server (409 otherwise). The ISC dynamic DNS key reads as
+ * "(set)"; sending "(set)" keeps it.
+ *
+ * Router advertisements of an interface (GET/PUT
+ * /v1/services/router-advertisements/{if}) carry the Router Advertisement
+ * page's fields. Like the page, a change is applied at once (the RA daemon is
+ * reconfigured; there is nothing to stage). Only interfaces the page offers
+ * (a static IPv6 address, Track Interface or no IPv6 configuration, the latter
+ * only to disable advertisements) can be changed (409 otherwise).
+ *
  * The front controller loads services_dhcp.inc at file scope.
  */
 
@@ -97,6 +112,23 @@ function restapi_routes_dhcp() {
 	    'domain, domainsearchlist, mac_allow, mac_deny, tftp, ldap, netboot and the boot file names; Kea: custom_kea_config; ' .
 	    'ISC: also ignoreclientuids, deftime, maxtime, nextserver, the OMAPI, dynamic DNS and custom option fields. ' .
 	    'Omitted fields keep their value (create: empty).');
+	$server6_body = array('type' => 'object', 'description' => 'The DHCPv6 Server page of the interface: enable, dhcp6c-dns ' .
+	    '(provide DNS servers), netboot (booleans); range_from, range_to, denyunknown (disabled|enabled|class), domain, ' .
+	    'domainsearchlist, deftime, maxtime, bootfile_url (strings); dnsserver, ntpserver (lists of at most 4 IPv6 addresses). ' .
+	    'Kea backend: dnsregpolicy, earlydnsregpolicy (default|enable|disable), pdprefix, pdprefixlen, pddellen (delegated ' .
+	    'prefixes), custom_kea_config (JSON text). ISC backend: prefixrange_from, prefixrange_to, prefixrange_length, ldap, ' .
+	    'ddnsdomain, ddnsdomainprimary, ddnsdomainsecondary, ddnsdomainkeyname, ddnsdomainkeyalgorithm, ddnsdomainkey ("(set)" ' .
+	    'keeps it), ddnsclientupdates (strings); dhcpv6leaseinlocaltime, ddnsupdate, ddnsforcehostname, ddnsreverse (booleans); ' .
+	    'numberoptions (list of {number, value}). Omitted fields keep their value.');
+	$pool6_body = array('type' => 'object', 'description' => 'An additional DHCPv6 address pool (Kea backend): descr, ' .
+	    'range_from, range_to (required), denyunknown, domain, domainsearchlist, bootfile_url, custom_kea_config (strings); ' .
+	    'dnsserver, ntpserver (lists); netboot (boolean). Omitted fields keep their value (create: empty).');
+	$ra_body = array('type' => 'object', 'description' => 'The Router Advertisement page of the interface: ramode, rapriority ' .
+	    '(from "choices"), rainterface (the interface or one of its IPv6 CARP VIPs, from "choices"; empty without such a VIP), ' .
+	    'ravalidlifetime, rapreferredlifetime, raminrtradvinterval, ramaxrtradvinterval, raadvdefaultlifetime, pref64_lifetime, ' .
+	    'pref64_prefix (only when the NAT64 prefix override is allowed), radomainsearchlist (strings); pref64_enable, radvd-dns, ' .
+	    'rasamednsasdhcp6 (booleans); subnets (list of "address/bits" or aliases), radnsserver (list of at most 4). Omitted ' .
+	    'fields keep their value. Applied at once, like the page.');
 	$map6_body = array('type' => 'object', 'description' => 'The DHCPv6 static mapping edit form: duid (required), ' .
 	    'ipaddrv6, hostname, descr, earlydnsregpolicy (default|enable|disable). Kea backend: pdprefix (delegated ' .
 	    'prefix/length), custom_kea_config (JSON text). ISC backend with network booting enabled on the interface: ' .
@@ -152,6 +184,30 @@ function restapi_routes_dhcp() {
 		$route('DELETE', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp_pool_delete', 'services_dhcp.php',
 		    'Delete an address pool', true),
 	));
+	/* likewise after the fixed DHCPv6 paths */
+	$base = '/v1/services/dhcpv6';
+	$routes = array_merge($routes, array(
+		$route('GET', "{$base}/{if}", 'restapi_h_dhcp6_server_get', 'services_dhcpv6.php',
+		    'The DHCPv6 server of an interface: its settings for the running backend, choices and whether changes are pending'),
+		$route('PUT', "{$base}/{if}", 'restapi_h_dhcp6_server_set', 'services_dhcpv6.php',
+		    'Change the DHCPv6 server of an interface (omitted fields keep their value)', true, $server6_body),
+		$route('GET', "{$base}/{if}/pools", 'restapi_h_dhcp6_pool_list', 'services_dhcpv6.php',
+		    'List the additional DHCPv6 address pools of an interface (Kea backend)'),
+		$route('GET', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp6_pool_get', 'services_dhcpv6.php',
+		    'Get an additional DHCPv6 address pool by position (Kea backend)'),
+		$route('POST', "{$base}/{if}/pools", 'restapi_h_dhcp6_pool_create', 'services_dhcpv6.php',
+		    'Add a DHCPv6 address pool (Kea backend; the response has its id)', true, $pool6_body),
+		$route('PUT', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp6_pool_update', 'services_dhcpv6.php',
+		    'Change a DHCPv6 address pool (Kea backend; omitted fields keep their value)', true, $pool6_body),
+		$route('DELETE', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp6_pool_delete', 'services_dhcpv6.php',
+		    'Delete a DHCPv6 address pool (Kea backend)', true),
+		$route('GET', '/v1/services/router-advertisements/{if}', 'restapi_h_radvd_get', 'services_radvd.php',
+		    'Router advertisements of an interface: the settings and their choices'),
+		/* applied at once like the page: no ?apply */
+		restapi_route('PUT', '/v1/services/router-advertisements/{if}', 'restapi_h_radvd_set', array('page' => 'services_radvd.php',
+		    'area' => $area, 'write' => true, 'body' => $ra_body,
+		    'summary' => 'Change the router advertisements of an interface (applied at once; omitted fields keep their value)')),
+	));
 	return $routes;
 }
 
@@ -175,41 +231,76 @@ function restapi_dhcp_server_rows(array $values) {
 	return $post;
 }
 
-/* Custom DHCP options (ISC): API list of {number, type, value} as the edit form's rows. */
-function restapi_dhcp_option_rows($options) {
+/*
+ * Custom DHCP options (ISC): API list of {number, type, value} as the edit
+ * form's rows; with $typed false (DHCPv6) a list of {number, value}.
+ */
+function restapi_dhcp_option_rows($options, $typed = true) {
+	$shape = $typed ? '{number, type, value}' : '{number, value}';
+	$keys = $typed ? array('number', 'type', 'value') : array('number', 'value');
 	if (!is_array($options) || !array_is_list($options)) {
-		throw new RestApiError(400, 'invalid_field', '"numberoptions" must be a list of {number, type, value}.');
+		throw new RestApiError(400, 'invalid_field', "\"numberoptions\" must be a list of {$shape}.");
 	}
 	if (count($options) > 99) {
 		throw new RestApiError(400, 'invalid_field', 'At most 99 custom options.');
 	}
 	$post = array();
 	foreach ($options as $i => $opt) {
-		if (!is_array($opt) || array_diff(array_keys($opt), array('number', 'type', 'value'))) {
-			throw new RestApiError(400, 'invalid_field', '"numberoptions" must be a list of {number, type, value}.');
+		if (!is_array($opt) || array_diff(array_keys($opt), $keys)) {
+			throw new RestApiError(400, 'invalid_field', "\"numberoptions\" must be a list of {$shape}.");
 		}
 		foreach ($opt as $v) {
 			if (!is_scalar($v)) {
-				throw new RestApiError(400, 'invalid_field', '"numberoptions" must be a list of {number, type, value}.');
+				throw new RestApiError(400, 'invalid_field', "\"numberoptions\" must be a list of {$shape}.");
 			}
 		}
 		$post["number{$i}"] = (string)($opt['number'] ?? '');
-		$post["itemtype{$i}"] = (string)($opt['type'] ?? 'text');
+		if ($typed) {
+			$post["itemtype{$i}"] = (string)($opt['type'] ?? 'text');
+		}
 		$post["value{$i}"] = (string)($opt['value'] ?? '');
 	}
 	return $post;
 }
 
-/* Stored custom options ({item: [{number, type, value (base64)}]}) as the API list. */
-function restapi_dhcp_options_out($numberoptions) {
+/* Stored custom options ({item: [{number, type, value (base64)}]}) as the API list; $typed false: DHCPv6 (no type). */
+function restapi_dhcp_options_out($numberoptions, $typed = true) {
 	$out = array();
 	foreach ((array)($numberoptions['item'] ?? array()) as $item) {
 		if (is_array($item)) {
-			$out[] = array('number' => (string)($item['number'] ?? ''), 'type' => (string)($item['type'] ?? ''),
-			    'value' => base64_decode((string)($item['value'] ?? '')));
+			$out[] = $typed ? array('number' => (string)($item['number'] ?? ''), 'type' => (string)($item['type'] ?? ''),
+			    'value' => base64_decode((string)($item['value'] ?? ''))) :
+			    array('number' => (string)($item['number'] ?? ''), 'value' => base64_decode((string)($item['value'] ?? '')));
 		}
 	}
 	return $out;
+}
+
+/* RA subnets (API list of "address/bits" or an alias) as the Router Advertisement form's rows. */
+function restapi_radvd_subnet_rows(array $subnets) {
+	if (count($subnets) > 5000) {
+		throw new RestApiError(400, 'invalid_field', 'Field "subnets" has at most 5000 entries.');
+	}
+	$post = array();
+	foreach (array_values($subnets) as $i => $subnet) {
+		$parts = explode('/', (string)$subnet, 2);
+		$post["subnet_address{$i}"] = $parts[0];
+		$post["subnet_bits{$i}"] = $parts[1] ?? '';
+	}
+	return $post;
+}
+
+/* RA DNS servers (API list of at most 4) as the form's radns1..radns4 fields. */
+function restapi_radvd_dns_rows(array $servers) {
+	if (count($servers) > 4) {
+		throw new RestApiError(400, 'invalid_field', 'Field "radnsserver" has at most 4 entries.');
+	}
+	$servers = array_values($servers);
+	$post = array();
+	for ($i = 1; $i <= 4; $i++) {
+		$post["radns{$i}"] = (string)($servers[$i - 1] ?? '');
+	}
+	return $post;
 }
 
 /* A stored address list without empty entries. */
@@ -873,4 +964,334 @@ function restapi_h_dhcp6_map_delete($req) {
 		throw new RestApiError(404, 'not_found', 'No static mapping with that id.');
 	}
 	return array('data' => array('deleted' => $id) + restapi_dhcp_maybe_apply($req, true));
+}
+
+/* ------------------------------------------------------------------ */
+/* DHCPv6 server of an interface and its address pools                */
+/* ------------------------------------------------------------------ */
+
+/* The "Prefix Delegation Size" choices of the DHCPv6 Server page (ISC). */
+function restapi_dhcp6_prefixrange_lengths() {
+	$out = array();
+	foreach (array('48', '52', '56', '59', '60', '61', '62', '63', '64') as $len) {
+		$out[$len] = $len;
+	}
+	return $out;
+}
+
+/*
+ * The DHCPv6 Server page's fields for the running backend: the interface's
+ * form, or with $pool an additional pool's form (pools: Kea backend only).
+ */
+function restapi_dhcp6_server_types($pool) {
+	$kea = dhcp_is_backend('kea');
+	$types = $pool ? array('id' => 'ro', 'descr' => 'string') :
+	    array('interface' => 'ro', 'backend' => 'ro', 'prefix' => 'ro', 'track6' => 'ro', 'ramode' => 'ro', 'pending' => 'ro',
+	    'pools' => 'ro', 'choices' => 'ro', 'enable' => 'bool');
+	$types += array('denyunknown' => 'string', 'range_from' => 'string', 'range_to' => 'string');
+	if (!$pool) {
+		if ($kea) {
+			foreach (array('dnsregpolicy', 'earlydnsregpolicy', 'pdprefix', 'pdprefixlen', 'pddellen') as $field) {
+				$types[$field] = 'string';
+			}
+		} else {
+			foreach (array('prefixrange_from', 'prefixrange_to', 'prefixrange_length') as $field) {
+				$types[$field] = 'string';
+			}
+		}
+		$types['dhcp6c-dns'] = 'bool';
+	}
+	$types += array('dnsserver' => 'list', 'domain' => 'string', 'domainsearchlist' => 'string');
+	if (!$kea || !$pool) {
+		$types += array('deftime' => 'string', 'maxtime' => 'string');
+	}
+	if (!$kea) {
+		$types += array('dhcpv6leaseinlocaltime' => 'bool', 'ddnsupdate' => 'bool', 'ddnsforcehostname' => 'bool', 'ddnsreverse' => 'bool');
+		foreach (array('ddnsdomain', 'ddnsdomainprimary', 'ddnsdomainsecondary', 'ddnsdomainkeyname', 'ddnsdomainkeyalgorithm',
+		    'ddnsdomainkey', 'ddnsclientupdates', 'ldap') as $field) {
+			$types[$field] = 'string';
+		}
+	}
+	$types += array('ntpserver' => 'list', 'netboot' => 'bool', 'bootfile_url' => 'string');
+	if ($kea) {
+		$types['custom_kea_config'] = 'string';
+	} else {
+		$types['numberoptions'] = 'objects';
+	}
+	return $types;
+}
+
+/*
+ * The interface of a DHCPv6 server route: a configured interface (else 404)
+ * the page offers (else 409); pools need the Kea backend (else 409).
+ */
+function restapi_dhcp6_server_iface($req, $pools = false) {
+	$if = restapi_dhcp_iface($req, true);
+	if (!dhcp6_server_offered($if)) {
+		throw new RestApiError(409, 'not_available',
+		    'The DHCPv6 server can only serve an interface with a static IPv6 address or Track Interface.');
+	}
+	if ($pools && !dhcp_is_backend('kea')) {
+		throw new RestApiError(409, 'not_available', 'Additional DHCPv6 address pools exist only with the Kea DHCP backend.');
+	}
+	return $if;
+}
+
+function restapi_dhcp6_pools($if) {
+	$pools = config_get_path("dhcpdv6/{$if}/pool", []);
+	return is_array($pools) ? $pools : array();
+}
+
+/*
+ * The form values the DHCPv6 Server page shows for the interface ($id null),
+ * pool $id, or with $act "newpool" a new pool (the key unmasked). Checkboxes
+ * the page reads with isset() come from the stored settings; selects read as
+ * the form preselects them.
+ */
+function restapi_dhcp6_server_values($if, $id, $act = '') {
+	$pool = (($id !== null) || ($act === 'newpool'));
+	$conf = dhcp6_server_conf($if, $id, $act);
+	$p = dhcp6_server_form($conf, $pool);
+	$stored = is_array($conf) ? $conf : array();
+	$out = array();
+	foreach (restapi_dhcp6_server_types($pool) as $key => $type) {
+		if ($type === 'bool') {
+			if ($key === 'dhcp6c-dns') {
+				$out[$key] = (($p[$key] ?? '') === 'enabled');
+			} elseif ($key === 'dhcpv6leaseinlocaltime') {
+				$out[$key] = (($p[$key] ?? '') == 'yes');
+			} else {
+				$out[$key] = restapi_dhcp_flag($stored, $key);
+			}
+		} elseif ($type === 'string') {
+			$out[$key] = (string)($p[$key] ?? '');
+		}
+	}
+	$out['dnsserver'] = restapi_dhcp_addr_list($stored['dnsserver'] ?? array());
+	$out['ntpserver'] = restapi_dhcp_addr_list($stored['ntpserver'] ?? array());
+	$out['denyunknown'] = restapi_select_choice($p['denyunknown'] ?? 'disabled', restapi_dhcp_denyunknown_choices());
+	if (array_key_exists('dnsregpolicy', $out)) {
+		$out['dnsregpolicy'] = restapi_select_choice($p['dnsregpolicy'] ?? 'default', dhcp_server_dnsregpolicy_values());
+		$out['earlydnsregpolicy'] = restapi_select_choice($p['earlydnsregpolicy'] ?? 'default', dhcp_server_dnsregpolicy_values());
+	}
+	if (array_key_exists('prefixrange_length', $out)) {
+		$out['prefixrange_length'] = restapi_select_choice($p['prefixrange_length'] ?? '', restapi_dhcp6_prefixrange_lengths());
+	}
+	if (!dhcp_is_backend('kea')) {
+		$out['ddnsdomainkeyalgorithm'] = restapi_select_choice($p['ddnsdomainkeyalgorithm'] ?? '', restapi_dhcp_omapi_algorithms());
+		$out['ddnsclientupdates'] = restapi_select_choice($p['ddnsclientupdates'] ?? '', restapi_dhcp_ddnsclientupdates_choices());
+		$out['numberoptions'] = restapi_dhcp_options_out($stored['numberoptions'] ?? array(), false);
+	}
+	return $out;
+}
+
+/* The dynamic DNS key reads as "(set)". */
+function restapi_dhcp6_server_mask(array $out) {
+	if (array_key_exists('ddnsdomainkey', $out)) {
+		$out['ddnsdomainkey'] = restapi_svc_mask($out['ddnsdomainkey']);
+	}
+	return $out;
+}
+
+function restapi_dhcp6_server_out($if) {
+	$choices = array('denyunknown' => restapi_svc_choices(restapi_dhcp_denyunknown_choices()));
+	if (dhcp_is_backend('kea')) {
+		$choices['dnsregpolicy'] = restapi_svc_choices(dhcp_server_dnsregpolicy_values());
+	} else {
+		$choices['prefixrange_length'] = restapi_svc_choices(restapi_dhcp6_prefixrange_lengths());
+		$choices['ddnsdomainkeyalgorithm'] = restapi_svc_choices(restapi_dhcp_omapi_algorithms());
+		$choices['ddnsclientupdates'] = restapi_svc_choices(restapi_dhcp_ddnsclientupdates_choices());
+	}
+	$prefix = dhcp6_server_prefix($if);
+	return array('interface' => $if, 'backend' => (string)dhcp_get_backend(),
+	    'prefix' => is_ipaddrv6($prefix['ip']) ? gen_subnetv6($prefix['ip'], $prefix['sn']) . '/' . $prefix['sn'] : '',
+	    'track6' => (config_get_path("interfaces/{$if}/ipaddrv6") == 'track6'),
+	    'ramode' => (string)config_get_path("dhcpdv6/{$if}/ramode", 'disabled'),
+	    'pending' => restapi_dhcp_pending(true), 'pools' => count(restapi_dhcp6_pools($if))) +
+	    restapi_dhcp6_server_mask(restapi_dhcp6_server_values($if, null)) + array('choices' => $choices);
+}
+
+function restapi_dhcp6_pool_out($if, $id) {
+	return array('id' => (int)$id) + restapi_dhcp6_server_values($if, (int)$id);
+}
+
+/* The page's form for $values as the browser posts it. */
+function restapi_dhcp6_server_post($if, array $values, $pool) {
+	$types = restapi_dhcp6_server_types($pool);
+	$post = restapi_svc_post($values, $types);
+	unset($post['dnsserver'], $post['ntpserver']);
+	$rows = restapi_dhcp_server_rows(array('dnsserver' => $values['dnsserver'] ?? array(), 'ntpserver' => $values['ntpserver'] ?? array()));
+	unset($rows['wins1'], $rows['wins2']);
+	$post += $rows;
+	if (array_key_exists('numberoptions', $types)) {
+		$post += restapi_dhcp_option_rows($values['numberoptions'] ?? array(), false);
+	}
+	$post['if'] = $if;
+	$post['save'] = 'Save';
+	return $post;
+}
+
+/* Save the interface ($id null), pool $id or a new pool ($act "newpool") through the page's save. */
+function restapi_dhcp6_server_write($req, $if, array $values, $id, $act = '', $status = 200) {
+	$pool = (($id !== null) || ($act === 'newpool'));
+	$post = restapi_dhcp6_server_post($if, $values, $pool);
+	if ($act === 'newpool') {
+		$post['act'] = 'newpool';
+	} elseif ($id !== null) {
+		$post['pool'] = (string)$id;
+	}
+	$rv = dhcp6_server_save($if, $id, $act, $post);
+	if ($rv['missing_pool']) {
+		throw new RestApiError(404, 'not_found', 'No pool with that id.');
+	}
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	if (!$rv['saved'] || ($pool && !isset($rv['id']))) {
+		throw new RestApiError(500, 'internal_error', 'The DHCPv6 server settings were not saved.');
+	}
+	$extra = restapi_dhcp_maybe_apply($req, true);
+	$data = $pool ? restapi_dhcp6_pool_out($if, $rv['id']) : restapi_dhcp6_server_out($if);
+	return array('status' => $status, 'data' => array_merge($data, $extra));
+}
+
+function restapi_h_dhcp6_server_get($req) {
+	$if = restapi_dhcp6_server_iface($req);
+	return array('data' => restapi_dhcp6_server_out($if));
+}
+
+function restapi_h_dhcp6_server_set($req) {
+	$if = restapi_dhcp6_server_iface($req);
+	$values = restapi_svc_merge(restapi_ddns_secret_body($req['body'], 'ddnsdomainkey'), restapi_dhcp6_server_values($if, null),
+	    restapi_dhcp6_server_types(false));
+	return restapi_dhcp6_server_write($req, $if, $values, null);
+}
+
+function restapi_h_dhcp6_pool_list($req) {
+	$if = restapi_dhcp6_server_iface($req, true);
+	return array('data' => array_map(function ($id) use ($if) {
+		return restapi_dhcp6_pool_out($if, $id);
+	}, array_keys(restapi_dhcp6_pools($if))));
+}
+
+function restapi_h_dhcp6_pool_get($req) {
+	$if = restapi_dhcp6_server_iface($req, true);
+	return array('data' => restapi_dhcp6_pool_out($if, restapi_index_param($req['params']['id'], restapi_dhcp6_pools($if), 'pool')));
+}
+
+function restapi_h_dhcp6_pool_create($req) {
+	$if = restapi_dhcp6_server_iface($req, true);
+	$values = restapi_svc_merge($req['body'], restapi_dhcp6_server_values($if, null, 'newpool'), restapi_dhcp6_server_types(true));
+	return restapi_dhcp6_server_write($req, $if, $values, null, 'newpool', 201);
+}
+
+function restapi_h_dhcp6_pool_update($req) {
+	$if = restapi_dhcp6_server_iface($req, true);
+	$id = restapi_index_param($req['params']['id'], restapi_dhcp6_pools($if), 'pool');
+	$values = restapi_svc_merge($req['body'], restapi_dhcp6_server_values($if, $id), restapi_dhcp6_server_types(true));
+	return restapi_dhcp6_server_write($req, $if, $values, $id);
+}
+
+function restapi_h_dhcp6_pool_delete($req) {
+	$if = restapi_dhcp6_server_iface($req, true);
+	$id = restapi_index_param($req['params']['id'], restapi_dhcp6_pools($if), 'pool');
+	if (!dhcp6_pool_delete($if, $id)) {
+		throw new RestApiError(404, 'not_found', 'No pool with that id.');
+	}
+	return array('data' => array('deleted' => $id) + restapi_dhcp_maybe_apply($req, true));
+}
+
+/* ------------------------------------------------------------------ */
+/* Router advertisements                                               */
+/* ------------------------------------------------------------------ */
+
+/* The Router Advertisement page's fields on interface $if. */
+function restapi_radvd_types($if) {
+	$types = array('interface' => 'ro', 'choices' => 'ro', 'ramode' => 'string', 'rapriority' => 'string', 'rainterface' => 'string');
+	foreach (array('ravalidlifetime', 'rapreferredlifetime', 'raminrtradvinterval', 'ramaxrtradvinterval', 'raadvdefaultlifetime') as $field) {
+		$types[$field] = 'string';
+	}
+	$types += array('pref64_enable' => 'bool', 'pref64_lifetime' => 'string');
+	if (config_path_enabled('system', 'allow_nat64_prefix_override')) {
+		$types['pref64_prefix'] = 'string';
+	}
+	$types += array('subnets' => 'list', 'radvd-dns' => 'bool', 'rasamednsasdhcp6' => 'bool', 'radnsserver' => 'list',
+	    'radomainsearchlist' => 'string');
+	return $types;
+}
+
+/* The interface of a router advertisement route: a configured interface (else 404) the page offers (else 409). */
+function restapi_radvd_iface($req) {
+	restapi_dhcp_available();
+	$if = (string)($req['params']['if'] ?? '');
+	if (($if === '') || !isset(get_configured_interface_with_descr()[$if])) {
+		throw new RestApiError(404, 'not_found', 'No configured interface with that name.');
+	}
+	if (!radvd_offered($if)) {
+		throw new RestApiError(409, 'not_available',
+		    'Router advertisements can only be configured on interfaces with a static IPv6 address, Track Interface or no IPv6 configuration.');
+	}
+	return $if;
+}
+
+/* The form values the Router Advertisement page shows (selects as the form preselects them). */
+function restapi_radvd_values($if) {
+	$p = radvd_form($if);
+	$stored = config_get_path("dhcpdv6/{$if}", []);
+	$stored = is_array($stored) ? $stored : array();
+	$rainterfaces = radvd_rainterface_values($if);
+	$out = array();
+	foreach (restapi_radvd_types($if) as $key => $type) {
+		if ($type === 'string') {
+			$out[$key] = (string)($p[$key] ?? '');
+		}
+	}
+	$out['ramode'] = restapi_select_choice($p['ramode'] ?? '', radvd_ramode_values());
+	$out['rapriority'] = restapi_select_choice($p['rapriority'] ?? '', radvd_rapriority_values());
+	/* the page has no RA Interface field without an IPv6 CARP VIP on the interface (nothing is posted) */
+	$out['rainterface'] = $rainterfaces ? restapi_select_choice($p['rainterface'] ?? '', $rainterfaces) : '';
+	$out['pref64_enable'] = !empty($p['pref64_enable']);
+	$out['subnets'] = array_values(array_map('strval', (array)$p['subnets']));
+	$out['radvd-dns'] = !empty($p['radvd-dns']);
+	$out['rasamednsasdhcp6'] = restapi_dhcp_flag($stored, 'rasamednsasdhcp6');
+	$out['radnsserver'] = restapi_dhcp_addr_list($stored['radnsserver'] ?? array());
+	return $out;
+}
+
+function restapi_radvd_out($if) {
+	$choices = array('ramode' => restapi_svc_choices(radvd_ramode_values()), 'rapriority' => restapi_svc_choices(radvd_rapriority_values()),
+	    'rainterface' => restapi_svc_choices(radvd_rainterface_values($if)));
+	return array('interface' => $if) + restapi_radvd_values($if) + array('choices' => $choices);
+}
+
+/* The page's form for $values as the browser posts it. */
+function restapi_radvd_post($if, array $values) {
+	$post = restapi_svc_post($values, restapi_radvd_types($if));
+	unset($post['subnets'], $post['radnsserver']);
+	$post += restapi_radvd_subnet_rows($values['subnets'] ?? array());
+	$post += restapi_radvd_dns_rows($values['radnsserver'] ?? array());
+	if (($post['rainterface'] ?? '') === '') {
+		unset($post['rainterface']);
+	}
+	$post['if'] = $if;
+	$post['save'] = 'Save';
+	return $post;
+}
+
+function restapi_h_radvd_get($req) {
+	$if = restapi_radvd_iface($req);
+	return array('data' => restapi_radvd_out($if));
+}
+
+function restapi_h_radvd_set($req) {
+	$if = restapi_radvd_iface($req);
+	$values = restapi_svc_merge($req['body'], restapi_radvd_values($if), restapi_radvd_types($if));
+	$rv = radvd_save($if, restapi_radvd_post($if, $values));
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	if (!$rv['saved']) {
+		throw new RestApiError(500, 'internal_error', 'The router advertisement settings were not saved.');
+	}
+	return array('data' => restapi_radvd_out($if) + array('apply' => array('applied' => ($rv['retval'] == 0))));
 }
