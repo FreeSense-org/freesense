@@ -2067,6 +2067,13 @@ if ($show_address_controls) {
 	));
 }
 
+$form->add($section);
+
+// rarely changed link settings: closed unless one is set or a save failed
+$link_set = !empty($input_errors) || array_get_path($pconfig, 'spoofmac') || array_get_path($pconfig, 'mtu') ||
+    array_get_path($pconfig, 'mss') || config_get_path("interfaces/{$if}/media");
+$section = new Form_Section('Link Settings', 'link-settings', COLLAPSIBLE | ($link_set ? SEC_OPEN : SEC_CLOSED));
+
 if (!is_pseudo_interface($intrealname, true)) {
 	$macaddress = new Form_Input(
 		'spoofmac',
