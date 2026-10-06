@@ -44,14 +44,6 @@ include("head.inc");
 ?>
 
 <style>
-.fs-danger-card { max-width: 48rem; }
-.fs-danger-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
-.fs-danger-card .panel-title > i { color: var(--fs-block); }
-.fs-danger-body { padding: var(--fs-sp-4); }
-.fs-danger-body > p { margin-bottom: var(--fs-sp-3); }
-.fs-danger-list { margin: 0 0 var(--fs-sp-3); padding-left: 1.25rem; }
-.fs-danger-list li + li { margin-top: var(--fs-sp-1); }
-.fs-danger-card .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
 .fs-defaults-hint { display: flex; gap: var(--fs-sp-2); margin: 0; padding: var(--fs-sp-2) var(--fs-sp-3); border-radius: var(--fs-r-sm); background: var(--fs-surface-raised); font-size: var(--fs-fs-sm); }
 .fs-defaults-hint > i { margin-top: .2rem; color: var(--fs-info); }
 </style>

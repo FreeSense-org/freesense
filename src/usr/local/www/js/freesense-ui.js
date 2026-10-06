@@ -75,6 +75,8 @@
 
 		return new Promise(function (resolve) {
 			var confirmed = false;
+			var shown = false;
+			var escPending = false;
 			var modal = window.bootstrap.Modal.getOrCreateInstance(el);
 
 			function onOk() {
@@ -82,12 +84,40 @@
 				modal.hide();
 			}
 			function onShown() {
+				shown = true;
+				if (escPending) {
+					modal.hide();
+					return;
+				}
 				cancel.focus();
+			}
+			/*
+			 * Esc cancels from the moment the dialog opens. Bootstrap only
+			 * listens on the modal itself and ignores keys during the fade-in,
+			 * while focus is still on the trigger; listen on the document
+			 * (capture) instead, and stop the key here so an underlying modal
+			 * or list search does not react to it as well.
+			 */
+			function onKey(e) {
+				if (e.key !== 'Escape' && e.key !== 'Esc') {
+					return;
+				}
+				e.preventDefault();
+				e.stopPropagation();
+				if (confirmed) {
+					return;    // already closing after Confirm
+				}
+				if (shown) {
+					modal.hide();
+				} else {
+					escPending = true;
+				}
 			}
 			function onHidden() {
 				ok.removeEventListener('click', onOk);
 				el.removeEventListener('shown.bs.modal', onShown);
 				el.removeEventListener('hidden.bs.modal', onHidden);
+				document.removeEventListener('keydown', onKey, true);
 				if (opts.returnFocus && opts.returnFocus.focus) {
 					opts.returnFocus.focus();
 				}
@@ -97,6 +127,7 @@
 			ok.addEventListener('click', onOk);
 			el.addEventListener('shown.bs.modal', onShown);
 			el.addEventListener('hidden.bs.modal', onHidden);
+			document.addEventListener('keydown', onKey, true);
 			modal.show();
 		});
 	};

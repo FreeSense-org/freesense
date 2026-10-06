@@ -140,7 +140,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
-| diag_ping | Tool | **pilot** | A | |
+| diag_ping | Tool | **pilot**; **done** (E): rebuilt into the shared two-column tool layout (options card, results card with Copy and empty state) | A | |
 | diag_traceroute, _dns, _testport, _authentication, _smart, _pf_info, _pftop, _system_activity, _limiter_info, _packet_capture | Tool | same as the pilot. **done** (traceroute, dns, testport, authentication, smart): two-column tool layout, compact options card + result card (mono output, Copy); smart uses a view switch Information / Logs / Self-tests. **done** (pf_info): tiles + view switch Counters / Interfaces (IPv4/IPv6 filter) / Limits and timeouts, live refresh in place. **done** (limiter_info): tiles + output cards, live refresh | E | |
 | diag_routes, _sockets, _states_summary, _gmirror | Status | table styling. **done** (routes, sockets, states_summary): tiles, searchable lists, IPv4/IPv6 view switch (routes, sockets), view switch per summary (states_summary) | E | |
 | diag_arp, diag_ndp | Status | **done**: tiles, toolbar search + interface/state filters, status badges, mono IP/MAC, Wake-on-LAN + delete row actions (confirmed), clear table as a confirmed header action | E | |

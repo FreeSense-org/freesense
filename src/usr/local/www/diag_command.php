@@ -246,7 +246,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 <?php endif; ?>
 
 <form action="diag_command.php" method="post" enctype="multipart/form-data" name="frmExecPlus">
-	<div class="panel panel-default fs-danger-card fs-cmd-card">
+	<div class="panel panel-default fs-danger-card fs-danger-card--wide fs-cmd-card">
 		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Execute shell command')?></h2></div>
 		<div class="fs-cmd-body">
 			<p class="fs-muted small"><?=gettext('Runs as root. Commands that wait for input or never finish will hang this page.')?></p>
@@ -391,7 +391,7 @@ END_FILE;
 <?php
 }
 ?>
-	<div class="panel panel-default fs-danger-card fs-cmd-card">
+	<div class="panel panel-default fs-danger-card fs-danger-card--wide fs-cmd-card">
 		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Execute PHP commands')?></h2></div>
 		<div class="fs-cmd-body">
 			<label class="visually-hidden" for="txtPHPCommand"><?=gettext('PHP code')?></label>

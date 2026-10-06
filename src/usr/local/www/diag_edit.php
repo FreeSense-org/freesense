@@ -121,7 +121,7 @@ print_callout(gettext("The capabilities offered here can be dangerous. No suppor
 	<div id="fileStatus"></div>
 </div>
 
-<div class="panel panel-default fs-danger-card fs-edit-card">
+<div class="panel panel-default fs-danger-card fs-danger-card--wide fs-edit-card">
 	<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext("Load and save a file")?></h2></div>
 	<form id="fbForm" class="fs-edit-bar">
 		<div class="input-group fs-edit-path">

@@ -47,14 +47,6 @@ include("head.inc");
 ?>
 
 <style>
-.fs-danger-card { max-width: 48rem; }
-.fs-danger-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
-.fs-danger-card .panel-title > i { color: var(--fs-block); }
-.fs-danger-body { padding: var(--fs-sp-4); }
-.fs-danger-body > p { margin-bottom: var(--fs-sp-3); }
-.fs-danger-list { margin: 0 0 var(--fs-sp-4); padding-left: 1.25rem; }
-.fs-danger-list li + li { margin-top: var(--fs-sp-1); }
-.fs-danger-card .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
 .fs-reboot-modes { display: grid; gap: var(--fs-sp-2); }
 .fs-reboot-mode {
 	position: relative; display: flex; flex-direction: column; gap: .15rem; padding: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-3) 2.6rem;
@@ -66,10 +58,6 @@ include("head.inc");
 .fs-reboot-mode > input { position: absolute; top: 1.05rem; left: 1rem; accent-color: var(--fs-coral); }
 .fs-reboot-mode-name { color: var(--fs-text-strong); font-weight: 600; }
 .fs-reboot-mode-help { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
-.fs-reboot-wait { display: flex; flex-direction: column; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; }
-.fs-reboot-wait > i { color: var(--fs-coral); font-size: var(--fs-fs-xl); }
-.fs-reboot-wait h2 { margin: 0; font-size: var(--fs-fs-lg); }
-.fs-reboot-wait p { margin: 0; color: var(--fs-text-muted); }
 </style>
 
 <?php
@@ -86,7 +74,7 @@ if (isset($_POST['rebootmode'])):
 ?>
 
 <div class="panel panel-default">
-	<div class="fs-reboot-wait" aria-live="polite">
+	<div class="fs-danger-wait" aria-live="polite">
 		<i class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
 		<h2 id="reboot-title"><?=gettext('Rebooting')?></h2>
 		<p><span id="reboot-text"><?=gettext('The page reloads automatically in')?></span> <span id="secs" class="fs-mono"><?=$guitimeout?></span> <?=gettext('seconds')?></p>
