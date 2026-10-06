@@ -580,7 +580,9 @@ foreach (array('dns-forwarder/host-overrides', 'dns-forwarder/domain-overrides',
 }
 foreach ($v1 as $r) {
 	if (strpos($r['path'], '/v1/services/') === 0) {
-		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' : 'services.misc';
+		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' :
+		    (preg_match('#^/v1/services/ntp(/|$)#', $r['path']) ? 'services.time' :
+		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' : 'services.misc'));
 		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
 		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
 		if ($r['path'] === '/v1/services/upnp') {
@@ -792,6 +794,140 @@ $routes_ub = file_get_contents("{$root}/src/etc/inc/restapi/routes_unbound.inc")
 check_api(substr_count($routes_ub, 'write_config(') === 0 && substr_count($routes_ub, 'config_set_path(') === 0 &&
     substr_count($routes_ub, 'config_del_path(') === 0 && substr_count($routes_ub, '_configure(') === 0 &&
     substr_count($routes_ub, 'mark_subsystem_dirty(') === 0, 'DNS Resolver API writes only through the GUI functions');
+
+/* NTP, Dynamic DNS and RFC 2136 */
+check_api(isset(restapi_areas()['services.time']) && isset(restapi_areas()['services.ddns']), 'the NTP and Dynamic DNS permission areas exist');
+foreach (array('GET /v1/services/ntp', 'PUT /v1/services/ntp', 'GET /v1/services/ntp/acls', 'PUT /v1/services/ntp/acls',
+    'GET /v1/services/dyndns/choices', 'GET /v1/services/rfc2136/choices') as $key) {
+	check_api(isset($seen[$key]), "route {$key} exists");
+}
+foreach (array('dyndns', 'rfc2136') as $res) {
+	foreach (array("GET /v1/services/{$res}/clients", "GET /v1/services/{$res}/clients/{id}", "POST /v1/services/{$res}/clients",
+	    "PUT /v1/services/{$res}/clients/{id}", "DELETE /v1/services/{$res}/clients/{id}", "POST /v1/services/{$res}/clients/{id}/toggle",
+	    "POST /v1/services/{$res}/clients/{id}/update") as $key) {
+		check_api(isset($seen[$key]), "route {$key} exists");
+	}
+}
+$d3_pages = array('PUT /v1/services/ntp' => 'services_ntpd.php', 'PUT /v1/services/ntp/acls' => 'services_ntpd_acls.php',
+    'GET /v1/services/dyndns/clients' => 'services_dyndns.php', 'POST /v1/services/dyndns/clients' => 'services_dyndns_edit.php',
+    'PUT /v1/services/dyndns/clients/{id}' => 'services_dyndns_edit.php', 'DELETE /v1/services/dyndns/clients/{id}' => 'services_dyndns.php',
+    'POST /v1/services/dyndns/clients/{id}/toggle' => 'services_dyndns.php', 'POST /v1/services/dyndns/clients/{id}/update' => 'services_dyndns_edit.php',
+    'GET /v1/services/rfc2136/clients' => 'services_rfc2136.php', 'POST /v1/services/rfc2136/clients' => 'services_rfc2136_edit.php',
+    'PUT /v1/services/rfc2136/clients/{id}' => 'services_rfc2136_edit.php', 'DELETE /v1/services/rfc2136/clients/{id}' => 'services_rfc2136.php',
+    'POST /v1/services/rfc2136/clients/{id}/toggle' => 'services_rfc2136.php', 'POST /v1/services/rfc2136/clients/{id}/update' => 'services_rfc2136_edit.php');
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (isset($d3_pages[$key])) {
+		check_api($r['page'] === $d3_pages[$key], "{$key} is guarded by {$d3_pages[$key]}");
+	}
+}
+
+check_api(restapi_ntp_server_rows(array(array('server' => '0.pool.ntp.org', 'type' => 'pool'),
+    array('server' => '192.0.2.1', 'prefer' => true, 'noselect' => false, 'auth' => true, 'type' => 'peer'), 'ntp.example.org')) ===
+    array('server0' => '0.pool.ntp.org', 'servistype0' => 'pool', 'server1' => '192.0.2.1', 'servprefer1' => 'yes', 'servauth1' => 'yes',
+    'servistype1' => 'peer', 'server2' => 'ntp.example.org', 'servistype2' => 'server'), 'time servers become the settings form rows');
+check_api(api_error_status(function () { restapi_ntp_server_rows('pool.ntp.org'); }) === 400 &&
+    api_error_status(function () { restapi_ntp_server_rows(array(array('server' => 'a', 'type' => 'x'))); }) === 400 &&
+    api_error_status(function () { restapi_ntp_server_rows(array(array('server' => 'a', 'prefer' => 'yes'))); }) === 400 &&
+    api_error_status(function () { restapi_ntp_server_rows(array(array('server' => 'a', 'bogus' => 1))); }) === 400 &&
+    api_error_status(function () { restapi_ntp_server_rows(array_fill(0, 11, 'a')); }) === 400, 'time servers are validated (at most 10, like the form)');
+check_api(restapi_ntp_acl_rows(array(array('network' => '192.0.2.0/24', 'kod' => true, 'notrap' => false), array('network' => '2001:db8::/64'))) ===
+    array('acl_network0' => '192.0.2.0', 'mask0' => '24', 'kod0' => 'yes', 'acl_network1' => '2001:db8::', 'mask1' => '64'),
+    'NTP restriction networks become the ACLs form rows');
+check_api(restapi_ntp_acl_rows(array()) === array('acl_network0' => '', 'mask0' => '128'), 'no networks post the empty row the form posts');
+check_api(api_error_status(function () { restapi_ntp_acl_rows(array('192.0.2.0/24')); }) === 400 &&
+    api_error_status(function () { restapi_ntp_acl_rows(array(array('network' => '192.0.2.0/24', 'kod' => 'yes'))); }) === 400 &&
+    api_error_status(function () { restapi_ntp_acl_rows(array_fill(0, 51, array('network' => '192.0.2.0/24'))); }) === 400,
+    'NTP restriction networks are validated (at most 50)');
+check_api(restapi_ntp_acl_networks(array(array('acl_network' => '', 'mask' => '128'), array('acl_network' => '10.0.0.0', 'mask' => '8', 'nopeer' => 'yes'))) ===
+    array(array('network' => '10.0.0.0/8', 'kod' => false, 'nomodify' => false, 'noquery' => false, 'noserve' => false, 'nopeer' => true, 'notrap' => false)),
+    'stored restriction rows read as networks (the empty row is left out)');
+check_api(restapi_select_choice('inet', array('auto' => 1, 'inet' => 2)) === 'inet' && restapi_select_choice(null, array('auto' => 1)) === 'auto' &&
+    restapi_select_choice(6, array('' => 0, 6 => 1)) === '6' && restapi_select_choice('', array('' => 0, 3 => 1)) === '', 'a select reads as the form preselects it');
+check_api(restapi_ddns_secret_body(array('password' => '(set)', 'host' => 'h'), 'password') === array('host' => 'h') &&
+    restapi_ddns_secret_body(array('password' => 'p'), 'password') === array('password' => 'p'), '"(set)" keeps a stored secret');
+if (!defined('DMYPWD')) {
+	define('DMYPWD', '********');
+}
+$dd_post = restapi_dyndns_post(array('enable' => false, 'type' => 'custom', 'wildcard' => true, 'proxied' => false, 'password' => 'x', 'id' => 3), null);
+check_api($dd_post === array('type' => 'custom', 'wildcard' => 'yes', 'enable' => 'yes', 'passwordfld' => DMYPWD, 'passwordfld_confirm' => DMYPWD, 'save' => 'Save'),
+    'a disabled Dynamic DNS client posts the "Disable" checkbox; an unchanged password posts the placeholder');
+$dd_post = restapi_dyndns_post(array('enable' => true), 'secret');
+check_api(!isset($dd_post['enable']) && $dd_post['passwordfld'] === 'secret' && $dd_post['passwordfld_confirm'] === 'secret',
+    'an enabled client leaves "Disable" unticked; a new password is posted with its confirmation');
+
+$ntpd_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_ntpd.inc");
+$ddns_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_dyndns.inc");
+foreach (array('services_ntpd.inc' => $ntpd_inc, 'services_dyndns.inc' => $ddns_inc) as $inc => $src) {
+	check_api(strpos($src, '$_POST') === false && strpos($src, '$_REQUEST') === false && strpos($src, '$_FILES') === false &&
+	    strpos($src, 'header(') === false && strpos($src, 'exit;') === false, "{$inc} takes its form fields as parameters and never redirects");
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false,
+	    "the API front controller loads {$inc}");
+}
+check_api(strpos($ntpd_inc, 'function build_interface_list(') === false && strpos($ntpd_inc, 'function ntpd_build_interface_list(') !== false,
+    'the NTP build_interface_list() is renamed ntpd_build_interface_list() (it clashed with the PPPoE and IPsec pages)');
+foreach (array('build_if_list' => 'dyndns_build_if_list', 'build_type_list' => 'dyndns_type_list',
+    'build_check_ip_mode_list' => 'dyndns_check_ip_mode_list', 'build_us_list' => 'rfc2136_build_us_list') as $old => $new) {
+	check_api(strpos($ddns_inc, "function {$old}(") === false && strpos($ddns_inc, "function {$new}(") !== false, "the page's {$old}() is {$new}()");
+}
+$ntp_save = $fn_body($ntpd_inc, 'ntpd_save_settings');
+check_api(strpos($ntp_save, "ntpd_build_interface_list(array())['options']") !== false, 'NTP interfaces must be ones the page offers (they are written into ntpd.conf)');
+check_api(strpos($ntp_save, "array_key_exists(\$pconfig['serverauthalgo'], \$ntp_auth_halgos)") !== false &&
+    strpos($ntp_save, 'ntpd_dnsresolv_choices()') !== false, 'the NTP digest algorithm and DNS resolution must be listed ones');
+check_api(strpos($ntp_save, 'system_ntp_configure()') !== false && strpos($ntp_save, '$leapfile !== null') !== false,
+    'NTP settings apply at once; an uploaded leap seconds file replaces the text');
+$acl_save = $fn_body($ntpd_inc, 'ntpd_save_acls');
+check_api(strpos($acl_save, "|| (strlen(\$networkacl[\$x]['acl_network']) > 0)) {") !== false && strpos($acl_save, 'system_ntp_configure()') !== false,
+    'an NTP restriction row with a network is validated even without flags');
+$dd_save = $fn_body($ddns_inc, 'dyndns_save_client');
+check_api(strpos($dd_save, 'dyndns_type_list()') !== false && strpos($dd_save, '$iflist = dyndns_build_if_list();') !== false &&
+    strpos($dd_save, 'services_dyndns_configure_client($dyndns)') !== false,
+    'Dynamic DNS service types and interfaces must be listed ones (they name the cache file)');
+$rfc_save = $fn_body($ddns_inc, 'rfc2136_save_client');
+foreach (array("(string)\$post['keydata'])", 'is_hostname($m[1])', 'dyndns_build_if_list()', 'rfc2136_build_us_list()',
+    'rfc2136_source_families()', 'rfc2136_record_types()', 'services_dnsupdate_process(') as $needle) {
+	check_api(strpos($rfc_save, $needle) !== false, "rfc2136_save_client() checks {$needle}");
+}
+foreach (array('dyndns_delete_client', 'dyndns_toggle_client', 'rfc2136_delete_client', 'rfc2136_toggle_client') as $fn) {
+	check_api(strpos($fn_body($ddns_inc, $fn), 'is_numericint($id)') !== false, "{$fn}() only takes the position of an existing client");
+}
+check_api(strpos($fn_body($ddns_inc, 'dyndns_client_cache_files'), '_v6.cache') !== false &&
+    strpos($fn_body($ddns_inc, 'dyndns_delete_client'), 'dyndns_client_cache_files(') !== false &&
+    strpos($fn_body($ddns_inc, 'rfc2136_delete_client'), 'rfc2136_client_cache_files(') !== false, 'deleting a client removes its IPv4 and IPv6 cache files');
+
+foreach (array('services_ntpd.php' => array('ntpd_save_settings($_POST, $leapfile)', 'ntpd_settings()', 'ntpd_timeserver_rows()', 'ntpd_build_interface_list('),
+    'services_ntpd_acls.php' => array('ntpd_save_acls($_POST)', 'ntpd_acl_rows()'),
+    'services_dyndns.php' => array('dyndns_delete_client($_POST[\'id\'])', 'dyndns_toggle_client($_POST[\'id\'])'),
+    'services_dyndns_edit.php' => array('dyndns_save_client($_POST, $id, $dup)', 'dyndns_client_settings($id, $dup)', 'dyndns_build_if_list()'),
+    'services_rfc2136.php' => array('rfc2136_delete_client($_POST[\'id\'])', 'rfc2136_toggle_client($_POST[\'id\'])'),
+    'services_rfc2136_edit.php' => array('rfc2136_save_client($_POST, $id, $dup)', 'rfc2136_client_settings($id, $dup)', 'rfc2136_build_us_list()')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_del_path(') === false &&
+	    preg_match('/^function\s/m', $src) === 0 && strpos($src, '_configure(') === false && strpos($src, 'services_dnsupdate_process(') === false,
+	    "{$page} changes nothing itself and declares no functions");
+}
+$routes_ntp = file_get_contents("{$root}/src/etc/inc/restapi/routes_ntp.inc");
+$routes_ddns = file_get_contents("{$root}/src/etc/inc/restapi/routes_ddns.inc");
+foreach (array('NTP' => $routes_ntp, 'Dynamic DNS' => $routes_ddns) as $what => $src) {
+	check_api(substr_count($src, 'write_config(') === 0 && substr_count($src, 'config_set_path(') === 0 && substr_count($src, 'config_del_path(') === 0 &&
+	    substr_count($src, '_configure(') === 0 && substr_count($src, 'services_dnsupdate_process(') === 0 && substr_count($src, 'dyndnsCheckIP(') === 0,
+	    "{$what} API writes only through the GUI functions and never runs a check IP query");
+}
+check_api(strpos($fn_body($routes_ntp, 'restapi_ntp_out'), "restapi_svc_mask(\$settings['serverauthkey'])") !== false &&
+    strpos($fn_body($routes_ntp, 'restapi_h_ntp_get'), 'restapi_ntp_out(') !== false && strpos($fn_body($routes_ntp, 'restapi_h_ntp_set'), 'restapi_ntp_out(') !== false,
+    'the NTP authentication key is never returned');
+check_api(strpos($fn_body($routes_ddns, 'restapi_dyndns_out'), "restapi_svc_mask(\$out['password'])") !== false &&
+    strpos($fn_body($routes_ddns, 'restapi_rfc2136_out'), "restapi_svc_mask(\$out['keydata'])") !== false,
+    'Dynamic DNS passwords and RFC 2136 keys are never returned');
+foreach (array('restapi_h_dyndns_list', 'restapi_h_dyndns_get', 'restapi_h_dyndns_toggle', 'restapi_h_rfc2136_list', 'restapi_h_rfc2136_get',
+    'restapi_h_rfc2136_toggle') as $fn) {
+	check_api(preg_match('/restapi_(dyndns|rfc2136)_out\(/', $fn_body($routes_ddns, $fn)) === 1, "{$fn}() returns the masked client");
+}
+check_api(strpos($fn_body($routes_ddns, 'restapi_dyndns_save'), "'data' => restapi_dyndns_out(") !== false &&
+    strpos($fn_body($routes_ddns, 'restapi_rfc2136_save'), "'data' => restapi_rfc2136_out(") !== false, 'saves return the masked client');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

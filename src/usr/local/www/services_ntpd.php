@@ -27,253 +27,35 @@
 ##|*MATCH=services_ntpd.php*
 ##|-PRIV
 
-define('NUMTIMESERVERS', 10);		// The maximum number of configurable time servers
 require_once("guiconfig.inc");
 require_once('rrd.inc');
 require_once("shaper.inc");
+require_once("services_ntpd.inc");
 
 global $ntp_poll_min_default, $ntp_poll_max_default, $ntp_server_types;
 $ntp_poll_values = system_ntp_poll_values();
-$auto_pool_suffix = "pool.ntp.org";
-$max_candidate_peers = 25;
-$min_candidate_peers = 4;
+$max_candidate_peers = ntpd_candidate_peer_limits()['max'];
+$min_candidate_peers = ntpd_candidate_peer_limits()['min'];
 
-if (empty(config_get_path('ntpd/interface'))) {
-	$old_ifs = config_get_path('installedpackages/openntpd/config/0/interface');
-	if (!empty($old_ifs)) {
-		config_set_path('ntpd/interface', $old_ifs);
-		$pconfig['interface'] = explode(",", $old_ifs);
-		config_del_path('installedpackages/openntpd');
-		write_config(gettext("Upgraded settings from openntpd"));
-	} else {
-		$pconfig['interface'] = array();
-	}
-} else {
-	$pconfig['interface'] = explode(",", config_get_path('ntpd/interface'));
-}
+ntpd_migrate_openntpd();
 
 if ($_POST) {
 	unset($input_errors);
-	$pconfig = $_POST;
-
-	if (!empty($_POST['ntpmaxpeers']) && (!is_numericint($_POST['ntpmaxpeers']) ||
-	    ($_POST['ntpmaxpeers'] < $min_candidate_peers) || ($_POST['ntpmaxpeers'] > $max_candidate_peers))) {
-		$input_errors[] = sprintf(gettext("Max candidate pool peers must be a number between %d and %d"), $min_candidate_peers, $max_candidate_peers);
-	}
-	
-	if ((strlen($pconfig['ntporphan']) > 0) && (!is_numericint($pconfig['ntporphan']) || ($pconfig['ntporphan'] < 1) || ($pconfig['ntporphan'] > 15))) {
-		$input_errors[] = gettext("The supplied value for NTP Orphan Mode is invalid.");
-	}
-
-	if (!array_key_exists($pconfig['ntpminpoll'], $ntp_poll_values)) {
-		$input_errors[] = gettext("The supplied value for Minimum Poll Interval is invalid.");
-	}
-
-	if (!array_key_exists($pconfig['ntpmaxpoll'], $ntp_poll_values)) {
-		$input_errors[] = gettext("The supplied value for Maximum Poll Interval is invalid.");
-	}
-
-	for ($i = 0; $i < NUMTIMESERVERS; $i++) {
-		if (isset($pconfig["servselect{$i}"]) && (($pconfig["servistype{$i}"] == 'pool') || 
-		    (substr_compare($pconfig["server{$i}"], $auto_pool_suffix, strlen($pconfig["server{$i}"]) - strlen($auto_pool_suffix), strlen($auto_pool_suffix)) === 0))) {
-			$input_errors[] = gettext("It is not possible to use 'No Select' for pools.");
-		}
-		if (!empty($pconfig["server{$i}"]) && !is_domain($pconfig["server{$i}"]) &&
-		    !is_ipaddr($pconfig["server{$i}"])) {
-			$input_errors[] = gettext("NTP Time Server names must be valid domain names, IPv4 addresses, or IPv6 addresses");
-		}
-		if (isset($pconfig["servauth{$i}"]) && (($pconfig["servistype{$i}"] == 'pool') ||
-		    (substr_compare($pconfig["server{$i}"], $auto_pool_suffix, strlen($pconfig["server{$i}"]) - strlen($auto_pool_suffix), strlen($auto_pool_suffix)) === 0))) {
-			$input_errors[] = gettext("It is not possible to use 'Authenticated' for pools.");
-		}
-		if (isset($pconfig["servauth{$i}"]) && empty($pconfig['serverauth'])) {
-			$input_errors[] = gettext("The NTP authentication key information must be set to use 'Authenticated' for a server or peer.");
-		}
-	}
-
-	if (is_numericint($pconfig['ntpminpoll']) &&
-	    is_numericint($pconfig['ntpmaxpoll']) &&
-	    ($pconfig['ntpmaxpoll'] < $pconfig['ntpminpoll'])) {
-		$input_errors[] = gettext("The supplied value for Minimum Poll Interval is higher than NTP Maximum Poll Interval.");
-	}
-
-	if (isset($pconfig['serverauth'])) {
-		if (empty($pconfig['serverauthkey'])) {
-			$input_errors[] = gettext("The supplied value for NTP Authentication key can't be empty.");
-		} elseif (empty($pconfig['serverauthkeyid'])) {
-			$input_errors[] = gettext("The authentication Key ID can't be empty.");
-		} elseif (!ctype_digit($pconfig['serverauthkeyid'])) {
-			$input_errors[] = gettext("The authentication Key ID must be a positive integer.");
-		} elseif ($pconfig['serverauthkeyid'] < 1 || $pconfig['serverauthkeyid'] > 65535) {
-			$input_errors[] = gettext("The authentication Key ID must be between 1-65535.");
-		} elseif (($pconfig['serverauthalgo'] == 'md5') && ((strlen($pconfig['serverauthkey']) > 20) ||
-		    !ctype_print($pconfig['serverauthkey']))) {
-			$input_errors[] = gettext("The supplied value for NTP Authentication key for MD5 digest must be from 1 to 20 printable characters.");
-		} elseif (($pconfig['serverauthalgo'] == 'sha1') && ((strlen($pconfig['serverauthkey']) != 40) ||
-		    !ctype_xdigit($pconfig['serverauthkey']))) {
-			$input_errors[] = gettext("The supplied value for NTP Authentication key for SHA1 digest must be hex-encoded string of 40 characters.");
-		} elseif (($pconfig['serverauthalgo'] == 'sha256') && ((strlen($pconfig['serverauthkey']) != 64) ||
-		    !ctype_xdigit($pconfig['serverauthkey']))) {
-			$input_errors[] = gettext("The supplied value for NTP Authentication key for SHA256 digest must be hex-encoded string of 64 characters.");
-		}
-	}
-
-	if (!$input_errors) {
-		config_set_path('ntpd/enable', isset($_POST['enable']) ? 'enabled' : 'disabled');
-		if (is_array($_POST['interface'])) {
-			config_set_path('ntpd/interface', implode(",", $_POST['interface']));
-		} else {
-			config_del_path('ntpd/interface');
-		}
-
-		config_del_path('ntpd/prefer');
-		config_del_path('ntpd/noselect');
-		config_del_path('ntpd/ispool');
-		config_del_path('ntpd/ispeer');
-		config_del_path('ntpd/isauth');
-		$timeservers = '';
-
-		for ($i = 0; $i < NUMTIMESERVERS; $i++) {
-			$tserver = trim($_POST["server{$i}"]);
-			if (!empty($tserver)) {
-				$timeservers .= "{$tserver} ";
-				if (isset($_POST["servprefer{$i}"])) {
-					config_set_path('ntpd/prefer', (config_get_path('ntpd/prefer') . "{$tserver} "));
-				}
-				if (isset($_POST["servselect{$i}"])) {
-					config_set_path('ntpd/noselect', (config_get_path('ntpd/noselect') . "{$tserver} "));
-				}
-				if (isset($_POST["servauth{$i}"])) {
-					config_set_path('ntpd/isauth', (config_get_path('ntpd/isauth') . "{$tserver} "));
-				}
-				if ($_POST["servistype{$i}"] == 'pool') {
-					config_set_path('ntpd/ispool', (config_get_path('ntpd/ispool') . "{$tserver} "));
-				} elseif ($_POST["servistype{$i}"] == 'peer') {
-					config_set_path('ntpd/ispeer', (config_get_path('ntpd/ispeer') . "{$tserver} "));
-				}
-			}
-		}
-		if (trim($timeservers) == "") {
-			$timeservers = "pool.ntp.org";
-		}
-		config_set_path('system/timeservers', trim($timeservers));
-
-		if (!empty($pconfig['ntpmaxpeers'])) {
-			config_set_path('ntpd/ntpmaxpeers', $pconfig['ntpmaxpeers']);
-		} else {
-			config_del_path('ntpd/ntpmaxpeers');
-		}
-		config_set_path('ntpd/orphan', trim($pconfig['ntporphan']));
-		config_set_path('ntpd/ntpminpoll', $pconfig['ntpminpoll']);
-		config_set_path('ntpd/ntpmaxpoll', $pconfig['ntpmaxpoll']);
-		config_set_path('ntpd/dnsresolv', $pconfig['dnsresolv']);
-
-		if (!empty($_POST['logpeer'])) {
-			config_set_path('ntpd/logpeer', $_POST['logpeer']);
-		} elseif (config_path_enabled('ntpd', 'logpeer')) {
-			config_del_path('ntpd/logpeer');
-		}
-
-		if (!empty($_POST['logsys'])) {
-			config_set_path('ntpd/logsys', $_POST['logsys']);
-		} elseif (config_path_enabled('ntpd', 'logsys')) {
-			config_del_path('ntpd/logsys');
-		}
-
-		if (!empty($_POST['clockstats'])) {
-			config_set_path('ntpd/clockstats', $_POST['clockstats']);
-		} elseif (config_path_enabled('ntpd', 'clockstats')) {
-			config_del_path('ntpd/clockstats');
-		}
-
-		if (!empty($_POST['loopstats'])) {
-			config_set_path('ntpd/loopstats', $_POST['loopstats']);
-		} elseif (config_path_enabled('ntpd', 'loopstats')) {
-			config_del_path('ntpd/loopstats');
-		}
-
-		if (!empty($_POST['peerstats'])) {
-			config_set_path('ntpd/peerstats', $_POST['peerstats']);
-		} elseif (config_path_enabled('ntpd', 'peerstats')) {
-			config_del_path('ntpd/peerstats');
-		}
-
-		if ((empty($_POST['statsgraph'])) == (config_path_enabled('ntpd', 'statsgraph'))) {
-			$enable_rrd_graphing = true;
-		}
-		if (!empty($_POST['statsgraph'])) {
-			config_set_path('ntpd/statsgraph', $_POST['statsgraph']);
-		} elseif (config_path_enabled('ntpd', 'statsgraph')) {
-			config_del_path('ntpd/statsgraph');
-		}
-		if (isset($enable_rrd_graphing)) {
-			enable_rrd_graphing();
-		}
-
-		if (!empty($_POST['leaptext'])) {
-			config_set_path('ntpd/leapsec', base64_encode($_POST['leaptext']));
-		} elseif (config_path_enabled('ntpd', 'leapsec')) {
-			config_del_path('ntpd/leapsec');
-		}
-
-		if (is_uploaded_file($_FILES['leapfile']['tmp_name'])) {
-			config_set_path('ntpd/leapsec', base64_encode(file_get_contents($_FILES['leapfile']['tmp_name'])));
-		}
-
-		if (!empty($_POST['serverauth'])) {
-			config_set_path('ntpd/serverauth', $_POST['serverauth']);
-			config_set_path('ntpd/serverauthkey', base64_encode(trim($_POST['serverauthkey'])));
-			config_set_path('ntpd/serverauthkeyid', $_POST['serverauthkeyid']);
-			config_set_path('ntpd/serverauthalgo', $_POST['serverauthalgo']);
-		} elseif (config_path_enabled('ntpd', 'serverauth')) {
-			config_del_path('ntpd/serverauth');
-			config_del_path('ntpd/serverauthkey');
-			config_del_path('ntpd/serverauthkeyid');
-			config_del_path('ntpd/serverauthalgo');
-		}
-
-		write_config("Updated NTP Server Settings");
-
+	$leapfile = is_uploaded_file($_FILES['leapfile']['tmp_name']) ? file_get_contents($_FILES['leapfile']['tmp_name']) : null;
+	$rv = ntpd_save_settings($_POST, $leapfile);
+	$input_errors = $rv['input_errors'];
+	if ($rv['changes_applied']) {
 		$changes_applied = true;
-		$retval = 0;
-		$retval |= system_ntp_configure();
+		$retval = $rv['retval'];
 	}
 }
 
-function build_interface_list() {
-	global $pconfig;
-
-	$iflist = array('options' => array(), 'selected' => array());
-
-	$interfaces = get_configured_interface_with_descr();
-	$interfaces['lo0'] = "Localhost";
-
-	foreach ($interfaces as $iface => $ifacename) {
-		if (!is_ipaddr(get_interface_ip($iface)) &&
-		    !is_ipaddrv6(get_interface_ipv6($iface))) {
-			continue;
-		}
-
-		$iflist['options'][$iface] = $ifacename;
-
-		if (in_array($iface, $pconfig['interface'])) {
-			array_push($iflist['selected'], $iface);
-		}
-	}
-
-	return($iflist);
-}
-
-$pconfig = config_get_path('ntpd', []);
-$pconfig['enable'] = ($pconfig['enable'] != 'disabled') ? 'enabled' : 'disabled';
+$pconfig = ntpd_settings();
 if (config_get_path('ntpd/enable') != $pconfig['enable']) {
 	config_set_path('ntpd/enable', $pconfig['enable']);
 }
 if (empty($pconfig['interface'])) {
-	$pconfig['interface'] = array();
 	config_set_path('ntpd/interface', '');
-} else {
-	$pconfig['interface'] = explode(",", $pconfig['interface']);
 }
 
 $pgtitle = array(gettext("Services"), gettext("NTP"), gettext("Settings"));
@@ -308,7 +90,7 @@ $section->addInput(new Form_Checkbox(
 	($pconfig['enable'] == 'enabled')
 ))->setHelp('You may need to disable NTP if %1$s is running in a virtual machine and the host is responsible for the clock.', g_get('product_label'));
 
-$iflist = build_interface_list();
+$iflist = ntpd_build_interface_list($pconfig['interface']);
 
 $section->addInput(new Form_Select(
 	'interface',
@@ -320,9 +102,8 @@ $section->addInput(new Form_Select(
 			'Selecting no interfaces will listen on all interfaces with a wildcard.%1$s' .
 			'Selecting all interfaces will explicitly listen on only the interfaces/IPs specified.', '<br />');
 
-$timeservers = explode(' ', config_get_path('system/timeservers'));
-$maxrows = max(count($timeservers), 1);
-for ($counter=0; $counter < $maxrows; $counter++) {
+$timeserver_rows = ntpd_timeserver_rows();
+foreach ($timeserver_rows as $counter => $row) {
 	$group = new Form_Group($counter == 0 ? 'Time Servers':'');
 	$group->addClass('repeatable');
 	$group->setAttribute('max_repeats', NUMTIMESERVERS);
@@ -332,7 +113,7 @@ for ($counter=0; $counter < $maxrows; $counter++) {
 		'server' . $counter,
 		null,
 		'text',
-		$timeservers[$counter],
+		$row['server'],
 		['placeholder' => 'Hostname']
 	 ))->setWidth(3);
 
@@ -340,37 +121,27 @@ for ($counter=0; $counter < $maxrows; $counter++) {
 		'servprefer' . $counter,
 		null,
 		null,
-		config_path_enabled('ntpd', 'prefer') && isset($timeservers[$counter]) && substr_count(config_get_path('ntpd/prefer'), $timeservers[$counter])
+		$row['prefer']
 	 ))->sethelp('Prefer');
 
 	 $group->add(new Form_Checkbox(
 		'servselect' . $counter,
 		null,
 		null,
-		config_path_enabled('ntpd', 'noselect') && isset($timeservers[$counter]) && substr_count(config_get_path('ntpd/noselect'), $timeservers[$counter])
+		$row['noselect']
 	 ))->sethelp('No Select');
 
 	 $group->add(new Form_Checkbox(
 		'servauth' . $counter,
 		null,
 		null,
-		config_path_enabled('ntpd', 'isauth') && isset($timeservers[$counter]) && substr_count(config_get_path('ntpd/isauth', ''), $timeservers[$counter])
+		$row['auth']
 	 ))->setHelp('Authenticated');
-
-	if ((substr_compare($timeservers[$counter], $auto_pool_suffix, strlen($timeservers[$counter]) - strlen($auto_pool_suffix), strlen($auto_pool_suffix)) === 0) ||
-	    ((config_get_path('ntpd/ispool') !== null) && isset($timeservers[$counter]) &&
-	    substr_count(config_get_path('ntpd/ispool'), $timeservers[$counter]))) {
-		$servertype = 'pool';
-	} elseif ((config_get_path('ntpd/ispeer') !== null) && isset($timeservers[$counter]) && substr_count(config_get_path('ntpd/ispeer'), $timeservers[$counter])) {
-		$servertype = 'peer';
-	} else {
-		$servertype = 'server';
-	}
 
 	$group->add(new Form_Select(
 		'servistype' . $counter,
 		null,
-		$servertype,
+		$row['type'],
 		$ntp_server_types
 	 ))->sethelp('Type')->setWidth(2);
 
@@ -548,11 +319,7 @@ $section->addInput(new Form_Select(
 	'dnsresolv',
 	'DNS Resolution',
 	$pconfig['dnsresolv'],
-	array(
-		'auto' => 'Auto',
-		'inet' => 'IPv4',
-		'inet6' => 'IPv6',
-	)
+	ntpd_dnsresolv_choices()
 ))->setHelp('Force NTP peer DNS resolution IP protocol.');
 
 $section->addInput(new Form_Checkbox(

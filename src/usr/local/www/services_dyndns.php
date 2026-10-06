@@ -27,36 +27,17 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("services_dyndns.inc");
 
 global $dyndns_split_domain_types;
 
 if ($_POST['act'] == "del") {
-	$conf = config_get_path("dyndnses/dyndns/{$_POST['id']}");
-	if (in_array($conf['type'], $dyndns_split_domain_types)) {
-		$hostname = $conf['host'] . "." . $conf['domainname'];
-	} else {
-		$hostname = $conf['host'];
-	}
-	@unlink("{$g['conf_path']}/dyndns_{$conf['interface']}{$conf['type']}" . escapeshellarg($hostname) . "{$conf['id']}.cache");
-	config_del_path("dyndnses/dyndns/{$_POST['id']}");
-
-	write_config(gettext("Dynamic DNS client deleted."));
-	services_dyndns_configure();
+	dyndns_delete_client($_POST['id']);
 
 	header("Location: services_dyndns.php");
 	exit;
 } else if ($_POST['act'] == "toggle") {
-	if (config_get_path("dyndnses/dyndns/{$_POST['id']}")) {
-		if (config_path_enabled("dyndnses/dyndns/{$_POST['id']}")) {
-			config_del_path("dyndnses/dyndns/{$_POST['id']}/enable");
-			$wc_msg = gettext('Dynamic DNS client disabled.');
-		} else {
-			config_set_path("dyndnses/dyndns/{$_POST['id']}/enable", true);
-			$wc_msg = gettext('Dynamic DNS client enabled.');
-		}
-		write_config($wc_msg);
-		services_dyndns_configure();
-
+	if (dyndns_toggle_client($_POST['id'])) {
 		header("Location: services_dyndns.php");
 		exit;
 	}

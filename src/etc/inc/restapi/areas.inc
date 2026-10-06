@@ -53,6 +53,8 @@ function restapi_areas() {
 		 */
 		'services.dns' => 'DNS services (DNS Forwarder, DNS Resolver)',
 		'services.misc' => 'Other services (UPnP IGD & PCP, Wake-on-LAN, IGMP Proxy, SNMP, DHCP/DHCPv6 Relay)',
+		'services.time' => 'NTP server (settings and access restrictions)',
+		'services.ddns' => 'Dynamic DNS (Dynamic DNS and RFC 2136 clients)',
 	);
 }
 

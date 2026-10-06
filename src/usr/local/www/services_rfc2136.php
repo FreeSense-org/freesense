@@ -27,25 +27,14 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("services_dyndns.inc");
 
 if ($_POST['act'] == "del") {
-	config_del_path("dnsupdates/dnsupdate/{$_POST['id']}");
-
-	write_config("RFC 2136 client deleted");
-
+	rfc2136_delete_client($_POST['id']);
 	header("Location: services_rfc2136.php");
 	exit;
 } else if ($_POST['act'] == "toggle") {
-	if (config_get_path("dnsupdates/dnsupdate/{$_POST['id']}")) {
-		if (config_path_enabled("dnsupdates/dnsupdate/{$_POST['id']}")) {
-			config_del_path("dnsupdates/dnsupdate/{$_POST['id']}/enable");
-			$action = "disabled";
-		} else {
-			config_set_path("dnsupdates/dnsupdate/{$_POST['id']}/enable", true);
-			$action = "enabled";
-		}
-		write_config("RFC 2136 {$action}");
-
+	if (rfc2136_toggle_client($_POST['id'])) {
 		header("Location: services_rfc2136.php");
 		exit;
 	}

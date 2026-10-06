@@ -64,6 +64,9 @@ require_once('services_dhcp_relay.inc');
 require_once('services_snmp.inc');
 /* The DNS Resolver pages' shared functions. */
 require_once('services_unbound.inc');
+/* The NTP, Dynamic DNS and RFC 2136 pages' shared functions (they define constants at file scope). */
+require_once('services_ntpd.inc');
+require_once('services_dyndns.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
