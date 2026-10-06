@@ -16,6 +16,19 @@
  * limitations under the License.
  */
 
+/*
+ * Series colors from the chart tokens (--fs-series-1 … 8, light and dark
+ * themes); falls back to the d3 category10 palette when they are not defined.
+ */
+function graph_series_colors() {
+	var fallback = d3.scale.category10().range();
+	var style = getComputedStyle(document.body);
+	return fallback.slice(0, 8).map(function(color, i) {
+		var token = style.getPropertyValue('--fs-series-' + (i + 1)).trim();
+		return token || color;
+	});
+}
+
 function graph_init() {
 
 	window.charts = {};
@@ -168,7 +181,7 @@ function draw_graph(then) {
 
 			charts[value] = nv.models.lineChart()
 						.useInteractiveGuideline(true)
-						.color(d3.scale.category10().range())
+						.color(graph_series_colors())
 						.rightAlignYAxis(true)
 						.margin({top: 0, left:25, bottom: 30, right: 45});
 

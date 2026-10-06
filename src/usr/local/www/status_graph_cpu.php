@@ -43,8 +43,8 @@ include("head.inc");
 .fs-cpu-chart svg { display: block; width: 100%; height: 260px; overflow: visible; }
 .fs-cpu-chart .fs-cpu-grid { stroke: var(--fs-border); stroke-width: 1; shape-rendering: crispEdges; }
 .fs-cpu-chart .fs-cpu-tick { fill: var(--fs-text-muted) !important; font-size: 11px; font-variant-numeric: tabular-nums; }
-.fs-cpu-chart .fs-cpu-line { fill: none; stroke: var(--fs-series-1, #3b82f6); stroke-width: 1.75; stroke-linejoin: round; }
-.fs-cpu-chart .fs-cpu-area { fill: var(--fs-series-1, #3b82f6); fill-opacity: .14; stroke: none; }
+.fs-cpu-chart .fs-cpu-line { fill: none; stroke: var(--fs-series-1, #2a78d6); stroke-width: 1.75; stroke-linejoin: round; }
+.fs-cpu-chart .fs-cpu-area { fill: var(--fs-series-1, #2a78d6); fill-opacity: .14; stroke: none; }
 .fs-cpu-wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); pointer-events: none; }
 .fs-cpu-wait[hidden] { display: none; }
 .fs-graph-live { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 400; }

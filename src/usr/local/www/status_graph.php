@@ -317,21 +317,6 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 //<![CDATA[
 events.push(function() {
 
-	/*
-	 * Theme the series: traffic-graphs.js colors the lines with
-	 * d3.scale.category10(); on this page that scale uses the chart tokens,
-	 * so the graph matches the light and dark themes.
-	 */
-	var css = getComputedStyle(document.documentElement);
-	var fallback = ['#3b82f6', '#f97316', '#10b981', '#a855f7', '#ef4444', '#eab308', '#06b6d4', '#ec4899'];
-	var seriesColors = fallback.map(function(c, i) {
-		var v = css.getPropertyValue('--fs-series-' + (i + 1)).trim();
-		return v || c;
-	});
-	d3.scale.category10 = function() {
-		return d3.scale.ordinal().range(seriesColors);
-	};
-
 	var InterfaceString = <?=json_encode((string)$curif, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
 	var RealInterfaceString = <?=json_encode((string)$realif, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
 	window.graph_backgroundupdate = $('#backgroundupdate').val() === "true";
