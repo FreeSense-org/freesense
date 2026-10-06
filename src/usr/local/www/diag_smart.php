@@ -34,13 +34,6 @@ require_once("guiconfig.inc");
 $action = $_POST['action'];
 
 $pgtitle = array(gettext("Diagnostics"), gettext("S.M.A.R.T. Status"));
-$pglinks = array("", "@self", "@self");
-
-if ($action != 'config') {
-	$pgtitle[] = htmlspecialchars(gettext('Information & Tests'));
-} else {
-	$pgtitle[] = gettext('Config');
-}
 
 $smartctl = "/usr/local/sbin/smartctl";
 
@@ -73,320 +66,182 @@ $log_types = array(
 	'ssd' => gettext('SSD Device Statistics (ATA/SCSI)'),
 );
 
+/* the form card follows the posted action, else ?view= */
+$views = ['info' => gettext('Information'), 'logs' => gettext('Logs'), 'test' => gettext('Self-tests')];
+$view = in_array($action, ['info', 'logs'], true) ? $action : (in_array($action, ['test', 'abort'], true) ? 'test' : fs_view_param(array_keys($views), 'info'));
+
 include("head.inc");
 
-// Highlights the words "PASSED", "FAILED", and "WARNING".
+// Escapes smartctl output and highlights the words "PASSED", "FAILED", and "WARNING".
 function add_colors($string) {
 	// To add words keep arrays matched by numbers
 	$patterns[0] = '/PASSED/';
 	$patterns[1] = '/FAILED/';
 	$patterns[2] = '/Warning/';
-	$replacements[0] = '<span class="text-success">' . gettext("PASSED") . '</span>';
-	$replacements[1] = '<span class="text-alert">' . gettext("FAILED") . '</span>';
-	$replacements[2] = '<span class="text-warning">' . gettext("Warning") . '</span>';
+	$replacements[0] = '<span class="fs-smart-pass">' . gettext("PASSED") . '</span>';
+	$replacements[1] = '<span class="fs-smart-fail">' . gettext("FAILED") . '</span>';
+	$replacements[2] = '<span class="fs-smart-warn">' . gettext("Warning") . '</span>';
 	ksort($patterns);
 	ksort($replacements);
-	return preg_replace($patterns, $replacements, $string);
+	return preg_replace($patterns, $replacements, htmlspecialchars((string)$string));
 }
 
 $targetdev = basename($_POST['device']);
 
 if (!file_exists('/dev/' . $targetdev)) {
-	echo gettext("Device does not exist, bailing.");
-	return;
-}
-
-$specplatform = system_identify_specific_platform();
-if (($specplatform['name'] == "Hyper-V") || ($specplatform['name'] == "uFW")) {
-	echo sprintf(gettext("S.M.A.R.T. is not supported on this system (%s)."), $specplatform['descr']);
+	print_info_box(gettext("Device does not exist, bailing."), 'danger');
 	include("foot.inc");
 	exit;
 }
 
+$specplatform = system_identify_specific_platform();
+if (($specplatform['name'] == "Hyper-V") || ($specplatform['name'] == "uFW")) {
+	print_info_box(htmlspecialchars(sprintf(gettext("S.M.A.R.T. is not supported on this system (%s)."), $specplatform['descr'])), 'warning', false);
+	include("foot.inc");
+	exit;
+}
+
+$output = null;
+$error = null;
+$result_title = gettext('Output');
+
 switch ($action) {
 	// Testing devices
 	case 'test':
-	{
 		$test = $_POST['type'];
 		if (!in_array($test, array_keys($test_types))) {
-			echo gettext("Invalid test type, bailing.");
-			return;
+			$error = gettext("Invalid test type, bailing.");
+			break;
 		}
-
 		$output = add_colors(shell_exec($smartctl . " -t " . escapeshellarg($test) . " /dev/" . escapeshellarg($targetdev)));
-?>
-		<div class="panel  panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Test Results')?></h2></div>
-			<div class="panel-body">
-				<pre><?=$output?></pre>
-			</div>
-		</div>
-
-		<form action="diag_smart.php" method="post" name="abort">
-			<input type="hidden" name="device" value="<?=$targetdev?>" />
-			<input type="hidden" name="action" value="abort" />
-			<nav class="action-buttons">
-				<button type="submit" name="submit" class="btn btn-danger" value="<?=gettext("Abort Tests")?>">
-					<i class="fa-solid fa-xmark icon-embed-btn"></i>
-					<?=gettext("Abort Test")?>
-				</button>
-				<a href="<?=$_SERVER['PHP_SELF']?>" class="btn btn-info">
-					<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
-					<?=gettext("Back")?>
-				</a>
-			</nav>
-		</form>
-
-<?php
+		$result_title = sprintf(gettext('%1$s on %2$s'), $test_types[$test], $targetdev);
 		break;
-	}
 
 	// Info on devices
 	case 'info':
-	{
 		$type = $_POST['type'];
-
 		if (!in_array($type, array_keys($info_types))) {
-			print_info_box(gettext("Invalid info type, bailing."), 'danger');
-			return;
+			$error = gettext("Invalid info type, bailing.");
+			break;
 		}
-
 		$output = add_colors(shell_exec($smartctl . " -" . escapeshellarg($type) . " /dev/" . escapeshellarg($targetdev)));
-?>
-		<div class="panel  panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Information')?></h2></div>
-			<div class="panel-body">
-				<pre><?=$output?></pre>
-			</div>
-		</div>
-
-		<nav class="action-buttons">
-			<a href="<?=$_SERVER['PHP_SELF']?>" class="btn btn-info">
-				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
-				<?=gettext("Back")?>
-			</a>
-		</nav>
-<?php
+		$result_title = sprintf(gettext('%1$s of %2$s'), $info_types[$type], $targetdev);
 		break;
-	}
 
 	// View logs
 	case 'logs':
-	{
 		$type = $_POST['type'];
 		if (!in_array($type, array_keys($log_types))) {
-			print_info_box(gettext("Invalid log type, bailing."), 'danger');
-			return;
+			$error = gettext("Invalid log type, bailing.");
+			break;
 		}
-
 		$output = add_colors(shell_exec($smartctl . " -l " . escapeshellarg($type) . " /dev/" . escapeshellarg($targetdev)));
-?>
-		<div class="panel  panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Logs')?></h2></div>
-			<div class="panel-body">
-				<pre><?=$output?></pre>
-			</div>
-		</div>
-
-		<nav class="action-buttons">
-			<a href="<?=$_SERVER['PHP_SELF']?>" class="btn btn-info">
-				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
-				<?=gettext("Back")?>
-			</a>
-		</nav>
-<?php
+		$result_title = sprintf(gettext('%1$s of %2$s'), $log_types[$type], $targetdev);
 		break;
-	}
 
 	// Abort tests
 	case 'abort':
-	{
-		$output = shell_exec($smartctl . " -X /dev/" . escapeshellarg($targetdev));
-?>
-		<div class="panel  panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Abort')?></h2></div>
-			<div class="panel-body">
-				<pre><?=$output?></pre>
-			</div>
-		</div>
-<?php
+		$output = add_colors(shell_exec($smartctl . " -X /dev/" . escapeshellarg($targetdev)));
+		$result_title = sprintf(gettext('Abort tests on %s'), $targetdev);
 		break;
-	}
-
-	// Default page, prints the forms to view info, test, etc...
-	default: {
-// Information
-		$devs = get_drive_list();
-
-		$form = new Form(false);
-
-		$btnview = new Form_Button(
-			'submit',
-			'View',
-			null,
-			'fa-regular fa-file-lines'
-		);
-		$btnview->addClass('btn-primary');
-		$btnview->setAttribute('id');
-
-		$section = new Form_Section('Information');
-		$group = new Form_Group('Select a drive and type:');
-		$form->addGlobal(new Form_Input(
-			'action',
-			null,
-			'hidden',
-			'info'
-		))->setAttribute('id');
-
-		$group->add(new Form_Select(
-			'device',
-			'Device: /dev/',
-			false,
-			array_combine($devs, $devs)
-		))->setHelp(gettext("Device: /dev/"));
-
-		$group->add(new Form_Select(
-			'type',
-			'Type',
-			false,
-			$info_types
-		))->setHelp(gettext("Information Type"));
-
-		$group->add(new Form_StaticText(
-			'',
-			$btnview
-		));
-		$section->add($group);
-		$form->add($section);
-		print($form);
-
-// Logs
-		$form = new Form(false);
-
-		$btnview =  new Form_Button(
-			'submit',
-			'View',
-			null,
-			'fa-regular fa-file-lines'
-		);
-		$btnview->addClass('btn-primary');
-		$btnview->setAttribute('id');
-
-		$section = new Form_Section('View Logs');
-		$group = new Form_Group('Select a device and log');
-		$form->addGlobal(new Form_Input(
-			'action',
-			null,
-			'hidden',
-			'logs'
-		))->setAttribute('id');
-
-		$group->add(new Form_Select(
-			'device',
-			'Device: /dev/',
-			false,
-			array_combine($devs, $devs)
-		))->setHelp(gettext("Device: /dev/"));
-
-		$group->add(new Form_Select(
-			'type',
-			'Log',
-			false,
-			$log_types
-		))->setHelp(gettext("Log"));
-
-		$group->add(new Form_StaticText(
-			'',
-			$btnview
-		));
-
-		$section->add($group);
-		$form->add($section);
-		print($form);
-
-// Tests
-		$form = new Form(false);
-
-		$btntest = new Form_Button(
-			'submit',
-			'Test',
-			null,
-			'fa-solid fa-wrench'
-		);
-		$btntest->addClass('btn-primary');
-		$btntest->setAttribute('id');
-
-		$section = new Form_Section('Perform self-tests');
-		$group = new Form_Group('Select a drive and test');
-		$form->addGlobal(new Form_Input(
-			'action',
-			null,
-			'hidden',
-			'test'
-		))->setAttribute('id');
-
-		$group->add(new Form_Select(
-			'device',
-			'Device: /dev/',
-			false,
-			array_combine($devs, $devs)
-		))->setHelp(gettext("Device: /dev/"));
-
-		$group->add(new Form_Select(
-			'type',
-			'Test',
-			false,
-			$test_types
-		))->setHelp(gettext("Self-Test Type"));
-
-		$group->add(new Form_StaticText(
-			'',
-			$btntest
-		));
-
-		$group->setHelp('Select "Conveyance" for ATA disks only.');
-		$section->add($group);
-		$form->add($section);
-		print($form);
-
-// Abort
-		$btnabort = new Form_Button(
-			'submit',
-			'Abort Tests',
-			null,
-			'fa-solid fa-xmark'
-		);
-
-		$btnabort->addClass('btn-danger')->setAttribute('id');
-
-		$form = new Form(false);
-
-		$section = new Form_Section('Abort Tests');
-
-		$form->addGlobal(new Form_Input(
-			'action',
-			null,
-			'hidden',
-			'abort'
-		))->setAttribute('id');
-
-		$section->addInput(new Form_Select(
-			'device',
-			'Device: /dev/',
-			false,
-			array_combine($devs, $devs)
-		))->setHelp(gettext("Aborts all self-tests running on the selected device."));
-
-		$section->addInput(new Form_StaticText(
-			'',
-			$btnabort
-		));
-
-		$form->add($section);
-		print($form);
-
-		break;
-	}
 }
 
+$devs = get_drive_list();
+$type_lists = ['info' => $info_types, 'logs' => $log_types, 'test' => $test_types];
+$type_labels = ['info' => gettext('Information type'), 'logs' => gettext('Log'), 'test' => gettext('Test type')];
+$posted_type = $_POST['type'] ?? null;
+
+fs_view_switch($views, $view);
+?>
+
+<style>
+.fs-tool { display: grid; grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; margin-bottom: var(--fs-sp-5); }
+.fs-tool .panel { margin-bottom: 0; }
+.fs-tool-form .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-tool-form .form-label { margin-bottom: var(--fs-sp-1); font-weight: 500; }
+.fs-tool-form .form-text { margin-top: var(--fs-sp-1); }
+.fs-tool-form .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+.fs-tool-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--fs-sp-2); min-height: 16rem; padding: var(--fs-sp-5); color: var(--fs-text-muted); text-align: center; }
+.fs-tool-empty > i { font-size: var(--fs-fs-xl); opacity: .6; }
+.fs-smart-pass { color: var(--fs-pass); font-weight: 600; }
+.fs-smart-fail { color: var(--fs-block); font-weight: 600; }
+.fs-smart-warn { color: var(--fs-warn); font-weight: 600; }
+@media (max-width: 991.98px) { .fs-tool { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="fs-tool">
+	<form method="post" action="diag_smart.php?view=<?=htmlspecialchars($view)?>" class="fs-tool-form">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($views[$view])?></h2></div>
+<?php if (empty($devs)): ?>
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-hard-drive" aria-hidden="true"></i>
+				<span><?=gettext('No drives were found.')?></span>
+			</div>
+<?php else: ?>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="device"><?=gettext('Drive')?></label>
+					<select class="form-select fs-mono" id="device" name="device">
+<?php foreach ($devs as $dev): ?>
+						<option value="<?=htmlspecialchars($dev)?>"<?=($dev === $targetdev) ? ' selected' : ''?>>/dev/<?=htmlspecialchars($dev)?></option>
+<?php endforeach; ?>
+					</select>
+				</div>
+				<div>
+					<label class="form-label" for="type"><?=$type_labels[$view]?></label>
+					<select class="form-select" id="type" name="type">
+<?php foreach ($type_lists[$view] as $k => $v): ?>
+						<option value="<?=htmlspecialchars($k)?>"<?=($posted_type === (string)$k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+					</select>
+<?php if ($view === 'test'): ?>
+					<div class="form-text"><?=gettext('Conveyance tests are for ATA disks only. Tests run in the background on the drive; check the self-test log for the result.')?></div>
+<?php endif; ?>
+				</div>
+			</div>
+			<div class="panel-footer">
+<?php if ($view === 'test'): ?>
+				<button type="submit" class="btn btn-primary" name="action" value="test" data-fs-busy="true">
+					<i class="fa-solid fa-stethoscope icon-embed-btn" aria-hidden="true"></i><?=gettext('Start test')?>
+				</button>
+				<button type="submit" class="btn btn-outline-danger" name="action" value="abort"
+				    data-fs-confirm="<?=gettext('Abort all self-tests on the selected drive?')?>" data-fs-confirm-action="<?=gettext('Abort tests')?>">
+					<i class="fa-solid fa-xmark icon-embed-btn" aria-hidden="true"></i><?=gettext('Abort tests')?>
+				</button>
+<?php else: ?>
+				<button type="submit" class="btn btn-primary" name="action" value="<?=htmlspecialchars($view)?>" data-fs-busy="true">
+					<i class="fa-regular fa-file-lines icon-embed-btn" aria-hidden="true"></i><?=gettext('View')?>
+				</button>
+<?php endif; ?>
+			</div>
+<?php endif; ?>
+		</div>
+	</form>
+
+	<div class="panel panel-default">
+		<div class="panel-heading">
+			<h2 class="panel-title"><?=htmlspecialchars($result_title)?></h2>
+<?php if ($output !== null): ?>
+			<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#smart-output">
+				<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+			</button>
+<?php endif; ?>
+		</div>
+<?php if ($error !== null): ?>
+		<div class="fs-tool-empty">
+			<?=fs_badge('error', $error)?>
+		</div>
+<?php elseif ($output !== null): ?>
+		<pre class="fs-console" id="smart-output"><?=$output?></pre>
+<?php else: ?>
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-hard-drive" aria-hidden="true"></i>
+			<span><?=gettext('Pick a drive to read its S.M.A.R.T. health, attributes and logs, or to run a self-test.')?></span>
+		</div>
+<?php endif; ?>
+	</div>
+</div>
+
+<?php
 include("foot.inc");

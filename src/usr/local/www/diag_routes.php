@@ -72,160 +72,181 @@ if (isset($_POST['isAjax'])) {
 $pgtitle = array(gettext("Diagnostics"), gettext("Routes"));
 $shortcut_section = "routing";
 
+$view = fs_view_param(['ipv4', 'ipv6'], 'ipv4');
+$resolve = isset($_REQUEST['resolve']);
+$validLimits = array('10', '50', '100', '200', '500', '1000', 'all');
+if (isset($_REQUEST['limit']) && in_array($_REQUEST['limit'], $validLimits, true)) {
+	$limit = $_REQUEST['limit'];
+}
+
+/* read the routing table: header line, then one route per line */
+$netstat = '/usr/bin/netstat -rW -f ' . (($view === 'ipv6') ? 'inet6' : 'inet') . ($resolve ? '' : ' -n');
+$lines = array();
+exec($netstat, $lines);
+
+$columns = array();
+$routes = array();
+foreach ($lines as $line) {
+	if (empty($columns)) {
+		if (strncmp($line, 'Destination', 11) === 0) {
+			$columns = preg_split('/\s+/', trim($line));
+		}
+		continue;
+	}
+	if (trim($line) === '') {
+		continue;
+	}
+	$fields = preg_split('/\s+/', trim($line));
+	$route = array();
+	foreach ($columns as $i => $col) {
+		$route[$col] = $fields[$i] ?? '';
+	}
+	$routes[] = $route;
+}
+
+$total = count($routes);
+$default_gw = '';
+$route_ifs = array();
+foreach ($routes as $route) {
+	if ($route['Destination'] === 'default' && $default_gw === '') {
+		$default_gw = $route['Gateway'];
+	}
+	$route_ifs[$route['Netif'] ?? ''] = true;
+}
+if ($limit !== 'all') {
+	$routes = array_slice($routes, 0, (int)$limit);
+}
+
+$friendly = array();
+foreach (array_keys($route_ifs) as $netif) {
+	$name = convert_real_interface_to_friendly_descr($netif);
+	$friendly[$netif] = $name ?: $netif;
+}
+$if_filter = array();
+foreach ($friendly as $netif => $name) {
+	$if_filter[$netif] = ($name !== $netif) ? "{$name} ({$netif})" : $netif;
+}
+natcasesort($if_filter);
+
+$labels = array(
+	'Destination' => gettext('Destination'),
+	'Gateway' => gettext('Gateway'),
+	'Flags' => gettext('Flags'),
+	'Nhop#' => gettext('Next hop'),
+	'Refs' => gettext('Refs'),
+	'Use' => gettext('Uses'),
+	'Mtu' => gettext('MTU'),
+	'Netif' => gettext('Interface'),
+	'Metric' => gettext('Metric'),
+	'Expire' => gettext('Expire'),
+);
+$mono = array('Destination', 'Gateway', 'Flags', 'Nhop#', 'Refs', 'Use', 'Mtu', 'Metric', 'Expire');
+
+fs_page_action(gettext('Refresh'), 'diag_routes.php?' . http_build_query(array_filter([
+	'view' => $view,
+	'resolve' => $resolve ? 'yes' : null,
+	'limit' => ($limit !== '100') ? $limit : null,
+])), 'fa-arrows-rotate', 'secondary');
+
 include('head.inc');
 
-$form = new Form(false);
-$form->addGlobal(new Form_Input(
-	'isAjax',
-	null,
-	'hidden',
-	1
-));
-$section = new Form_Section('Routing Table Display Options');
+fs_view_switch(['ipv4' => gettext('IPv4'), 'ipv6' => gettext('IPv6')], $view);
 
-$section->addInput(new Form_Checkbox(
-	'resolve',
-	'Resolve names',
-	'Enable',
-	$resolve
-))->setHelp('Enabling name resolution may cause the query to take longer.'.
-	' It can be stopped at any time by clicking the Stop button in the browser.');
-
-$validLimits = array('10', '50', '100', '200', '500', '1000', 'all');
-$section->addInput(new Form_Select(
-	'limit',
-	'Rows to display',
-	$limit,
-	array_combine($validLimits, $validLimits)
-));
-
-$section->addInput(new Form_Input(
-	'filter',
-	'Filter',
-	'text',
-	null
-))->setHelp('Use a regular expression to filter the tables. Invalid or potentially dangerous patterns will be ignored.');
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Update',
-	null,
-	'fa-solid fa-arrows-rotate'
-))->addClass('btn-primary');
-
-print $form;
+/* display options, kept as GET parameters */
+$options = '<form method="get" action="diag_routes.php" class="fs-routes-options">'
+    . '<input type="hidden" name="view" value="' . fs_h($view) . '">'
+    . '<div class="form-check form-check-inline mb-0" title="' . fs_h(gettext('Name resolution can make the page slower.')) . '">'
+    . '<input class="form-check-input" type="checkbox" id="resolve" name="resolve" value="yes"' . ($resolve ? ' checked' : '') . '>'
+    . '<label class="form-check-label" for="resolve">' . fs_h(gettext('Resolve names')) . '</label></div>'
+    . '<label class="visually-hidden" for="limit">' . fs_h(gettext('Rows to display')) . '</label>'
+    . '<select class="form-select form-select-sm" id="limit" name="limit">';
+foreach ($validLimits as $l) {
+	$options .= '<option value="' . fs_h($l) . '"' . (($l === $limit) ? ' selected' : '') . '>'
+	    . fs_h(($l === 'all') ? gettext('All rows') : sprintf(gettext('%s rows'), $l)) . '</option>';
+}
+$options .= '</select><noscript><button type="submit" class="btn btn-sm btn-outline-secondary">' . fs_h(gettext('Apply')) . '</button></noscript></form>';
 ?>
+
+<style>
+.fs-routes-options { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); }
+.fs-routes-flags { display: flex; flex-wrap: wrap; gap: var(--fs-sp-1) var(--fs-sp-4); }
+</style>
+
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('Routes'), $total);
+fs_tile(gettext('Default gateway'), ($default_gw !== '') ? $default_gw : gettext('None'), ($default_gw !== '') ? null : 'warn');
+fs_tile(gettext('Interfaces'), count($route_ifs));
+?>
+</div>
+
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'search' => gettext('Search destination, gateway…'),
+	'noun' => gettext('routes'),
+	'noun_one' => gettext('route'),
+	'filters' => ['if' => [gettext('All interfaces')] + $if_filter],
+	'custom' => $options,
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+<?php foreach ($columns as $col): ?>
+					<th<?=in_array($col, ['Destination', 'Gateway', 'Netif'], true) ? ' data-fs-search' : ''?>><?=htmlspecialchars($labels[$col] ?? $col)?></th>
+<?php endforeach; ?>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($routes as $route): ?>
+				<tr data-fs-filter-if="<?=htmlspecialchars($route['Netif'] ?? '')?>">
+<?php foreach ($columns as $col): $value = $route[$col]; ?>
+<?php if ($col === 'Netif'): ?>
+					<td>
+						<?=htmlspecialchars($friendly[$value] ?? $value)?>
+<?php if (($friendly[$value] ?? $value) !== $value): ?>
+						<div class="fs-muted small fs-mono"><?=htmlspecialchars($value)?></div>
+<?php endif; ?>
+					</td>
+<?php elseif ($col === 'Destination' && $value === 'default'): ?>
+					<td><?=fs_badge('info', gettext('default'))?></td>
+<?php else: ?>
+					<td class="<?=in_array($col, $mono, true) ? 'fs-mono' : ''?>"><?=htmlspecialchars($value)?></td>
+<?php endif; ?>
+<?php endforeach; ?>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($routes)) {
+	fs_empty_row(max(count($columns), 1), gettext('No routes were found.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+<?php if ($limit !== 'all' && $total > count($routes)): ?>
+		<p class="mb-1"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> <?=htmlspecialchars(sprintf(gettext('Showing the first %1$s of %2$s routes.'), count($routes), $total))?></p>
+<?php endif; ?>
+		<div class="fs-routes-flags">
+			<span><span class="fs-mono">U</span> <?=gettext('up')?></span>
+			<span><span class="fs-mono">G</span> <?=gettext('via a gateway')?></span>
+			<span><span class="fs-mono">H</span> <?=gettext('host route')?></span>
+			<span><span class="fs-mono">S</span> <?=gettext('static')?></span>
+			<span><span class="fs-mono">B</span> <?=gettext('blackhole')?></span>
+			<span><span class="fs-mono">R</span> <?=gettext('reject')?></span>
+			<span><span class="fs-mono">1</span> <?=gettext('protocol specific')?></span>
+		</div>
+	</div>
+</div>
+
 <script type="text/javascript">
 //<![CDATA[
-function update_routes(section) {
-	$.ajax(
-		'/diag_routes.php',
-		{
-			type: 'post',
-			data: $(document.forms[0]).serialize() +'&'+ section +'=true',
-			success: update_routes_callback,
-	});
-}
-
-function update_routes_callback(html) {
-	// First line contains section
-	var responseTextArr = html.split("\n");
-	var section = responseTextArr.shift();
-	var tbody = '';
-	var field = '';
-	var tr_class = '';
-
-	for (var i = 0; i < responseTextArr.length; i++) {
-
-		if (responseTextArr[i] == "") {
-			continue;
-		}
-
-		var tmp = '<tr>';
-
-		var j = 0;
-		var entry = responseTextArr[i].split(" ");
-		for (var k = 0; k < entry.length; k++) {
-			if (entry[k] == "") {
-				continue;
-			}
-			tmp += '<td>' + entry[k] + '<\/td>';
-			j++;
-		}
-
-		tmp += '<td><\/td>'
-		tbody += tmp;
-	}
-
-	$('#' + section + ' > tbody').html(tbody);
-}
-
-function update_all_routes() {
-	update_routes("IPv4");
-	update_routes("IPv6");
-}
-
 events.push(function() {
-	setInterval('update_all_routes()', 15000);
-	update_all_routes();
-
-	$(document.forms[0]).on('submit', function(e) {
-		update_all_routes();
-
-		e.preventDefault();
+	// apply display options right away
+	$('.fs-routes-options').on('change', 'input, select', function() {
+		this.form.submit();
 	});
 });
 //]]>
 </script>
-
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("IPv4 Routes")?></h2></div>
-	<div class="panel panel-body">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" id="IPv4" data-sortable>
-		<thead>
-			<tr>
-				<th><?= gettext('Destination') ?></th>
-				<th><?= gettext('Gateway') ?></th>
-				<th><?= gettext('Flags') ?></th>
-				<th><?= gettext('Uses') ?></th>
-				<th><?= gettext('MTU') ?></th>
-				<th><?= gettext('Interface') ?></th>
-				<th><?= gettext('Expire') ?></th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr>
-				<td colspan="7"><?=gettext("Gathering data, please wait...")?></td>
-			</tr>
-		</tbody>
-		</table>
-	</div>
-</div>
-
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("IPv6 Routes")?></h2></div>
-	<div class="panel panel-body">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" id="IPv6" data-sortable>
-		<thead>
-			<tr>
-				<th><?= gettext('Destination') ?></th>
-				<th><?= gettext('Gateway') ?></th>
-				<th><?= gettext('Flags') ?></th>
-				<th><?= gettext('Uses') ?></th>
-				<th><?= gettext('MTU') ?></th>
-				<th><?= gettext('Interface') ?></th>
-				<th><?= gettext('Expire') ?></th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr>
-				<td colspan="7"><?=gettext("Gathering data, please wait...")?></td>
-			</tr>
-		</tbody>
-		</table>
-	</div>
-</div>
 
 <?php include("foot.inc");

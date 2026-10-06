@@ -42,45 +42,66 @@ if ($_POST['save'] == 'No') {
 
 $pgtitle = array(gettext("Diagnostics"), gettext("Halt System"));
 include('head.inc');
+?>
 
+<style>
+.fs-danger-card { max-width: 48rem; }
+.fs-danger-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
+.fs-danger-card .panel-title > i { color: var(--fs-block); }
+.fs-danger-body { padding: var(--fs-sp-4); }
+.fs-danger-body > p { margin-bottom: var(--fs-sp-3); }
+.fs-danger-list { margin: 0; padding-left: 1.25rem; }
+.fs-danger-list li + li { margin-top: var(--fs-sp-1); }
+.fs-danger-card .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+.fs-halt-wait { display: flex; flex-direction: column; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; }
+.fs-halt-wait > i { color: var(--fs-block); font-size: var(--fs-fs-xl); }
+.fs-halt-wait h2 { margin: 0; font-size: var(--fs-fs-lg); }
+.fs-halt-wait p { margin: 0; color: var(--fs-text-muted); }
+</style>
+
+<?php
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 ?>
 	<meta http-equiv="refresh" content="70;url=/">
+	<div class="panel panel-default">
+		<div class="fs-halt-wait" aria-live="polite">
+			<i class="fa-solid fa-power-off" aria-hidden="true"></i>
+			<h2><?=gettext('The system is halting')?></h2>
+			<p><?=gettext("The system is halting now. This may take one minute or so.")?></p>
+		</div>
+	</div>
 <?php
-	print_info_box(gettext("The system is halting now. This may take one minute or so."), 'success', false);
-
 	if (g_get('debug')) {
 	   printf(gettext("Not actually halting (DEBUG is set true)%s"), "<br />");
 	} else {
-		print('<pre>');
+		print('<pre class="fs-console">');
 		diag_halt_run();
 		print('</pre>');
 	}
 } else {
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title"><?=gettext('System Halt Confirmation')?></h2>
-	</div>
-	<div class="panel-body">
-		<div class="content">
-			<p><?=gettext('Click "Halt" to halt the system immediately, or "Cancel" to go to the system dashboard. (There will be a brief delay before the dashboard appears.)')?></p>
-			<form action="diag_halt.php" method="post">
-				<button type="submit" class="btn btn-danger pull-center" name="save" value="<?=gettext("Halt")?>" title="<?=gettext("Halt the system and power off")?>">
-					<i class="fa-solid fa-circle-stop"></i>
-					<?=gettext("Halt")?>
-				</button>
-				<a href="/" class="btn btn-info">
-					<i class="fa-solid fa-arrow-rotate-left"></i>
-					<?=gettext("Cancel")?>
-				</a>
-			</form>
+<form action="diag_halt.php" method="post">
+	<div class="panel panel-default fs-danger-card">
+		<div class="panel-heading">
+			<h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Halt the system')?></h2>
+		</div>
+		<div class="panel-body fs-danger-body">
+			<p><?=gettext('Halting shuts the system down and powers it off. It stays off until someone turns it on again.')?></p>
+			<ul class="fs-danger-list">
+				<li><?=gettext('Routing, firewalling and NAT stop: clients lose internet and network access.')?></li>
+				<li><?=gettext('VPN tunnels, DHCP, DNS and every other service stay down.')?></li>
+				<li><?=gettext('The web interface cannot start the system again. It needs physical, console or hypervisor access.')?></li>
+			</ul>
+		</div>
+		<div class="panel-footer">
+			<button type="submit" class="btn btn-danger" name="save" value="<?=gettext("Halt")?>" title="<?=gettext("Halt the system and power off")?>">
+				<i class="fa-solid fa-power-off icon-embed-btn" aria-hidden="true"></i><?=gettext('Halt now')?>
+			</button>
+			<a href="/index.php" class="btn btn-outline-secondary"><?=gettext("Cancel")?></a>
 		</div>
 	</div>
-</div>
-
-
+</form>
 
 <?php
 }

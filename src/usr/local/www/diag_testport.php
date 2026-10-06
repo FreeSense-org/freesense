@@ -85,15 +85,6 @@ if ($_POST || $_REQUEST['host']) {
 	$ipprotocol = $_REQUEST['ipprotocol'];
 
 	if ($do_testport) {
-?>
-		<script type="text/javascript">
-			//<![CDATA[
-			window.onload=function() {
-				document.getElementById("testportCaptured").wrap='off';
-			}
-			//]]>
-		</script>
-<?php
 		$result = "";
 		$ncoutput = "";
 		$nc_base_cmd = '/usr/bin/nc';
@@ -171,120 +162,125 @@ if ($_POST || $_REQUEST['host']) {
 
 		$nc_cmd = "{$nc_base_cmd} {$nc_args} " . escapeshellarg($host) . ' ' . escapeshellarg($port) . ' 2>&1';
 		exec($nc_cmd, $result, $retval);
-	//	echo "NC CMD: {$nc_cmd}\n\n";
 
 		if (!empty($result)) {
 			if (is_array($result)) {
 				foreach ($result as $resline) {
-					$ncoutput .= htmlspecialchars($resline) . "\n";
+					$ncoutput .= $resline . "\n";
 				}
 			} else {
-				$ncoutput .= htmlspecialchars($result);
+				$ncoutput .= $result;
 			}
 		}
 	}
 }
 
-// Handle the display of all messages here where the user can readily see them
 if ($input_errors) {
 	print_input_errors($input_errors);
-} elseif ($do_testport) {
-	// User asked for a port test
-	if ($retval == 0) {
-		// Good host & port
-		$alert_text = sprintf(gettext('Port test to host: %1$s Port: %2$s successful.'), $host, $port);
-		if ($showtext) {
-			$alert_text .= ' ' . gettext('Any text received from the host will be shown below the form.');
-		}
-		print_info_box($alert_text, 'success', false);
-	} else {
-		// netcat exit value != 0
-		if ($showtext) {
-			$alert_text = gettext('No output received, or connection failed. Try with "Show Remote Text" unchecked first.');
-		} else {
-			$alert_text = gettext('Connection failed.');
-		}
-		print_info_box($alert_text, 'danger', false);
-	}
-} else {
-	// First time, new page
-	print_info_box(gettext('This page performs a simple TCP connection test to determine if a host is up and accepting connections on a given port.') . " " .
-		gettext('This test does not function for UDP since there is no way to reliably determine if a UDP port accepts connections in this manner.'), 'warning', false);
 }
 
-$form = new Form(false);
-
-$section = new Form_Section('Test Port');
-
-$section->addInput(new Form_Input(
-	'host',
-	'*Hostname',
-	'text',
-	$host,
-	['placeholder' => 'Hostname to look up.']
-));
-
-$section->addInput(new Form_Input(
-	'port',
-	'*Port',
-	'text',
-	$port,
-	['placeholder' => 'Port to test.']
-));
-
-$section->addInput(new Form_Input(
-	'srcport',
-	'Source Port',
-	'text',
-	$srcport,
-	['placeholder' => 'Typically left blank.']
-));
-
-$section->addInput(new Form_Checkbox(
-	'showtext',
-	'Remote text',
-	'Show remote text',
-	$showtext
-))->setHelp("Shows the text given by the server when connecting to the port. If checked it will take 10+ seconds to display in a panel below this form.");
-
-$section->addInput(new Form_Select(
-	'sourceip',
-	'*Source Address',
-	$sourceip,
-	['' => 'Any'] + get_possible_traffic_source_addresses(true)
-))->setHelp('Select source address for the trace.');
-
-$section->addInput(new Form_Select(
-	'ipprotocol',
-	'*IP Protocol',
-	$ipprotocol,
-	array('ipv4' => 'IPv4', 'ipv6' => 'IPv6')
-))->setHelp("If IPv4 or IPv6 is forced and a hostname is used that does not contain a result using that protocol, it will result in an error." .
-					" For example if IPv4 is forced and a hostname is used that only returns an AAAA IPv6 IP address, it will not work.");
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Test',
-	null,
-	'fa-solid fa-wrench'
-))->addClass('btn-primary');
-
-print $form;
-
-// If the command succeeded, the user asked to see the output and there is output, then show it.
-if ($retval == 0 && $showtext && !empty($ncoutput)):
+$sources = ['' => gettext('Any')] + get_possible_traffic_source_addresses(true);
 ?>
+
+<style>
+.fs-tool { display: grid; grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; margin-bottom: var(--fs-sp-5); }
+.fs-tool .panel { margin-bottom: 0; }
+.fs-tool-form .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-tool-form .form-label { margin-bottom: var(--fs-sp-1); font-weight: 500; }
+.fs-tool-form .form-text { margin-top: var(--fs-sp-1); }
+.fs-tool-form .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+.fs-tool-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fs-sp-3); }
+.fs-tool-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--fs-sp-2); min-height: 16rem; padding: var(--fs-sp-5); color: var(--fs-text-muted); text-align: center; }
+.fs-tool-empty > i { font-size: var(--fs-fs-xl); opacity: .6; }
+.fs-tool-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-tool-verdict + .fs-console { border-top: 1px solid var(--fs-border); }
+@media (max-width: 991.98px) { .fs-tool { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="fs-tool">
+	<form method="post" action="diag_testport.php" class="fs-tool-form">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Options')?></h2></div>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="host"><?=gettext('Hostname or IP address')?></label>
+					<input class="form-control fs-mono" type="text" id="host" name="host" value="<?=htmlspecialchars($host)?>" placeholder="<?=gettext('Host to connect to')?>" required autofocus>
+				</div>
+				<div class="fs-tool-row">
+					<div>
+						<label class="form-label" for="port"><?=gettext('Port')?></label>
+						<input class="form-control fs-mono" type="text" inputmode="numeric" id="port" name="port" value="<?=htmlspecialchars($port)?>" placeholder="443" required>
+					</div>
+					<div>
+						<label class="form-label" for="srcport"><?=gettext('Source port')?></label>
+						<input class="form-control fs-mono" type="text" inputmode="numeric" id="srcport" name="srcport" value="<?=htmlspecialchars($srcport)?>" placeholder="<?=gettext('Any')?>">
+					</div>
+				</div>
+				<div class="fs-tool-row">
+					<div>
+						<label class="form-label" for="ipprotocol"><?=gettext('IP protocol')?></label>
+						<select class="form-select" id="ipprotocol" name="ipprotocol">
+<?php foreach (['ipv4' => 'IPv4', 'ipv6' => 'IPv6'] as $k => $v): ?>
+							<option value="<?=$k?>"<?=($ipprotocol == $k) ? ' selected' : ''?>><?=$v?></option>
+<?php endforeach; ?>
+						</select>
+					</div>
+					<div>
+						<label class="form-label" for="sourceip"><?=gettext('Source address')?></label>
+						<select class="form-select" id="sourceip" name="sourceip">
+<?php foreach ($sources as $k => $v): ?>
+							<option value="<?=htmlspecialchars($k)?>"<?=((string)$sourceip === (string)$k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+						</select>
+					</div>
+				</div>
+				<div>
+					<div class="form-check">
+						<input class="form-check-input" type="checkbox" id="showtext" name="showtext" value="yes"<?=$showtext ? ' checked' : ''?>>
+						<label class="form-check-label" for="showtext"><?=gettext('Show remote text')?></label>
+					</div>
+					<div class="form-text"><?=gettext('Shows what the server sends after connecting. Takes 10 seconds or more.')?></div>
+				</div>
+			</div>
+			<div class="panel-footer">
+				<button type="submit" class="btn btn-primary" name="Submit" value="Test" data-fs-busy="true">
+					<i class="fa-solid fa-plug icon-embed-btn" aria-hidden="true"></i><?=gettext('Test port')?>
+				</button>
+			</div>
+		</div>
+	</form>
+
 	<div class="panel panel-default">
 		<div class="panel-heading">
-			<h2 class="panel-title"><?=gettext('Received Remote Text')?></h2>
+			<h2 class="panel-title"><?=gettext('Result')?></h2>
+<?php if ($do_testport && $retval == 0 && $showtext && $ncoutput !== ''): ?>
+			<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#testport-output">
+				<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+			</button>
+<?php endif; ?>
 		</div>
-		<div class="panel-body">
-			<pre><?= $ncoutput ?></pre>
+<?php if ($do_testport): ?>
+		<div class="fs-tool-verdict">
+<?php if ($retval == 0): ?>
+			<?=fs_badge('pass', gettext('Connected'))?>
+			<span><?=htmlspecialchars(sprintf(gettext('Port test to host: %1$s Port: %2$s successful.'), $host, $port))?></span>
+<?php else: ?>
+			<?=fs_badge('block', gettext('Failed'))?>
+			<span><?=$showtext ? gettext('No output received, or connection failed. Try with "Show Remote Text" unchecked first.') : gettext('Connection failed.')?></span>
+<?php endif; ?>
 		</div>
+<?php if ($retval == 0 && $showtext && $ncoutput !== ''): ?>
+		<pre class="fs-console" id="testport-output"><?=htmlspecialchars($ncoutput)?></pre>
+<?php endif; ?>
+<?php else: ?>
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-plug" aria-hidden="true"></i>
+			<span><?=gettext('Tests whether a host accepts TCP connections on a port.')?></span>
+			<span class="small"><?=gettext('UDP cannot be tested this way, because there is no reliable way to tell whether a UDP port accepts connections.')?></span>
+		</div>
+<?php endif; ?>
 	</div>
-<?php
-endif;
+</div>
 
+<?php
 include("foot.inc");

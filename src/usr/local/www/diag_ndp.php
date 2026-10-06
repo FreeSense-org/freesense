@@ -52,7 +52,7 @@ if (isset($_POST['deleteentry'])) {
 		: sprintf(gettext("%s is not a valid IPv6 address or could not be deleted."), $ip);
 	$deleteResultMessageType = ($deleteSucceededFlag)
 		? 'success'
-		: 'alert-warning';
+		: 'warning';
 } elseif (isset($_POST['clearndptable'])) {
 	$out = "";
 	$ret = exec("/usr/sbin/ndp -c", $out, $ndpTableRetVal);
@@ -61,11 +61,9 @@ if (isset($_POST['deleteentry'])) {
 		$deleteResultMessageType = 'success';
 	} else {
 		$deleteResultMessage = gettext("Unable to clear NDP Table.");
-		$deleteResultMessageType = 'alert-warning';
+		$deleteResultMessageType = 'warning';
 	}
 }
-
-$i = 0;
 
 /* if list */
 $ifdescrs = get_configured_interface_with_descr();
@@ -79,7 +77,43 @@ $data = diag_ndp_table();
 // Load MAC-Manufacturer table
 $mac_man = load_mac_manufacturer_table();
 
+/* interface names, vendors and per-entry state */
+$ndp_ifs = [];
+$ndp_counts = ['dynamic' => 0, 'permanent' => 0, 'other' => 0];
+foreach ($data as &$entry) {
+	$entry['ifname'] = $hwif[$entry['interface']] ?? $entry['interface'];
+	$ndp_ifs[$entry['ifname']] = $entry['ifname'];
+
+	$mac = trim($entry['mac']);
+	$entry['vendor'] = null;
+	if (strlen($mac) >= 8) {
+		$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
+		$entry['vendor'] = $mac_man[$mac_hi] ?? null;
+	}
+
+	if (stripos($mac, 'incomplete') !== false) {
+		$entry['state'] = 'incomplete';
+	} elseif ($entry['expiration'] === 'permanent') {
+		$entry['state'] = 'permanent';
+	} elseif ($entry['expiration'] === 'expired') {
+		$entry['state'] = 'expired';
+	} else {
+		$entry['state'] = 'dynamic';
+	}
+	$ndp_counts[isset($ndp_counts[$entry['state']]) ? $entry['state'] : 'other']++;
+}
+unset($entry);
+natcasesort($ndp_ifs);
+
 $pgtitle = array(gettext("Diagnostics"), gettext("NDP Table"));
+if (!empty($data)) {
+	fs_page_action(gettext('Clear NDP table'), 'diag_ndp.php?clearndptable=true', 'fa-trash-can', 'danger', [
+		'usepost' => true,
+		'data-fs-confirm' => gettext('Clear the NDP table?'),
+		'data-fs-confirm-detail' => gettext('All neighbor entries are removed. Neighbors are discovered again as soon as they send traffic.'),
+		'data-fs-confirm-action' => gettext('Clear table'),
+	]);
+}
 include("head.inc");
 
 // Show message if defined.
@@ -88,178 +122,86 @@ if (isset($deleteResultMessage, $deleteResultMessageType)) {
 }
 ?>
 
-<div class="panel panel-default" id="search-panel">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-			<?=gettext('Search')?>
-			<span class="widget-heading-icon float-end">
-				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-circle-plus"></i>
-				</a>
-			</span>
-		</h2>
-	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse show">
-		<div class="form-group">
-			<label class="col-sm-2 control-label">
-				<?=gettext('Search Term')?>
-			</label>
-			<div class="col-sm-5"><input class="form-control" name="searchstr" id="searchstr" type="text"/></div>
-			<div class="col-sm-2">
-				<select id="where" class="form-control">
-					<option value="0"><?=gettext('IPv6 Address')?></option>
-					<option value="1"><?=gettext('MAC Address')?></option>
-					<option value="2"><?=gettext('Hostname')?></option>
-					<option value="3"><?=gettext('Interface')?></option>
-					<option value="4"><?=gettext('Expiration')?></option>
-					<option value="5" selected><?=gettext('All')?></option>
-				</select>
-			</div>
-			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext('Search')?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext('Clear')?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
-			</div>
-			<div class="col-sm-10 col-sm-offset-2">
-				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to filter entries.')?></span>
-			</div>
-		</div>
-	</div>
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('Neighbors'), count($data));
+fs_tile(gettext('Dynamic'), $ndp_counts['dynamic']);
+fs_tile(gettext('Permanent'), $ndp_counts['permanent']);
+fs_tile(gettext('Incomplete or expired'), $ndp_counts['other'], $ndp_counts['other'] ? 'warn' : null);
+?>
 </div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('NDP Table')?></h2></div>
-	<div class="panel-body">
-
-<div class="table-responsive">
-	<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
-		<thead>
-			<tr>
-				<th><?=gettext('IPv6 Address')?></th>
-				<th><?=gettext('MAC Address')?></th>
-				<th><?=gettext('Hostname')?></th>
-				<th><?=gettext('Interface')?></th>
-				<th><?=gettext('Expiration')?></th>
-				<th data-sortable="false"><?=gettext('Actions')?></th>
-			</tr>
-	</thead>
-	<tbody>
-			<?php foreach ($data as $entry): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'search' => gettext('Search IPv6, MAC, hostname…'),
+	'noun' => gettext('neighbors'),
+	'noun_one' => gettext('neighbor'),
+	'filters' => [
+		'if' => [gettext('All interfaces')] + $ndp_ifs,
+		'state' => [gettext('All states'), 'dynamic' => gettext('Dynamic'), 'permanent' => gettext('Permanent'), 'incomplete' => gettext('Incomplete'), 'expired' => gettext('Expired')],
+	],
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
 				<tr>
-					<td><?=$entry['ipv6']?></td>
-					<td>
-						<?php
-						$mac=trim($entry['mac']);
-						$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
-						?>
-						<?=$mac?>
-
-						<?php if (isset($mac_man[$mac_hi])):?>
-							(<?=$mac_man[$mac_hi]?>)
-						<?php endif; ?>
-
-					</td>
-					<td>
-						<?=htmlspecialchars(str_replace("Z_ ", "", $entry['dnsresolve']))?>
-					</td>
-					<td>
-						<?php
-						if (isset($hwif[$entry['interface']])) {
-							echo $hwif[$entry['interface']];
-						} else {
-							echo $entry['interface'];
-						}
-						?>
-					</td>
-					<td>
-						<?=$entry['expiration']?>
-					</td>
-					<td>
-						<a class="fa-solid fa-trash-can" title="<?=gettext('Delete NDP entry')?>"	href="diag_ndp.php?deleteentry=<?=$entry['ipv6']?>" usepost></a>
-					</td>
+					<th class="fs-col-status"><?=gettext('Status')?></th>
+					<th data-fs-search><?=gettext('IPv6 address')?></th>
+					<th data-fs-search><?=gettext('MAC address')?></th>
+					<th data-fs-search><?=gettext('Hostname')?></th>
+					<th data-fs-search><?=gettext('Interface')?></th>
+					<th class="fs-col-actions" data-sortable="false"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
 				</tr>
-			<?php endforeach; ?>
-	</tbody>
-	</table>
-</div>
-
+			</thead>
+			<tbody>
+<?php foreach ($data as $entry):
+	$ip = $entry['ipv6'];
+?>
+				<tr data-fs-filter-if="<?=htmlspecialchars($entry['ifname'])?>" data-fs-filter-state="<?=$entry['state']?>">
+					<td>
+<?php if ($entry['state'] === 'incomplete'): ?>
+						<?=fs_badge('warn', gettext('Incomplete'))?>
+<?php elseif ($entry['state'] === 'permanent'): ?>
+						<?=fs_badge('info', gettext('Permanent'))?>
+<?php elseif ($entry['state'] === 'expired'): ?>
+						<?=fs_badge('neutral', gettext('Expired'))?>
+<?php else: ?>
+						<?=fs_badge('pass', gettext('Dynamic'))?>
+						<div class="fs-muted small fs-mono text-nowrap" title="<?=gettext('Expires in')?>"><?=htmlspecialchars($entry['expiration'])?></div>
+<?php endif; ?>
+					</td>
+					<td class="fs-mono"><?=htmlspecialchars($ip)?></td>
+					<td>
+						<span class="fs-mono"><?=htmlspecialchars(trim($entry['mac']))?></span>
+<?php if ($entry['vendor']): ?>
+						<div class="fs-muted small"><?=htmlspecialchars($entry['vendor'])?></div>
+<?php endif; ?>
+					</td>
+					<td><?=htmlspecialchars(str_replace("Z_ ", "", $entry['dnsresolve']))?></td>
+					<td>
+						<?=htmlspecialchars($entry['ifname'])?>
+<?php if ($entry['ifname'] !== $entry['interface']): ?>
+						<div class="fs-muted small fs-mono"><?=htmlspecialchars($entry['interface'])?></div>
+<?php endif; ?>
+					</td>
+					<td class="fs-col-actions"><?=fs_row_actions([
+						['delete', 'diag_ndp.php?deleteentry=' . rawurlencode($ip), $ip,
+						    ['thing' => gettext('NDP entry'), 'detail' => gettext('The neighbor is discovered again as soon as it sends traffic.')]],
+					])?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($data)) {
+	fs_empty_row(6, gettext('The NDP table is empty.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('The Neighbor Discovery Protocol (NDP) table lists IPv6 neighbors, the IPv6 counterpart of the ARP table.')?>
+		<?=sprintf(gettext('IPv4 hosts are listed in the %1$sARP table%2$s.'), '<a href="diag_arp.php">', '</a>')?>
 	</div>
 </div>
-
-<nav class="action-buttons">
-	<button id="clearndp" class="btn btn-danger no-confirm">
-		<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-		<?=gettext("Clear NDP Table")?>
-	</button>
-</nav>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	// Make these controls plain buttons
-	$("#btnsearch").prop('type', 'button');
-	$("#btnclear").prop('type', 'button');
-
-	// Search for a term in the entry name and/or dn
-	$("#btnsearch").click(function() {
-		var searchstr = $('#searchstr').val().toLowerCase();
-		var table = $("table tbody");
-		var where = $('#where').val();
-
-		table.find('tr').each(function (i) {
-			var $tds = $(this).find('td'),
-				ipaddr   = $tds.eq(0).text().trim().toLowerCase();
-				macaddr  = $tds.eq(1).text().trim().toLowerCase();
-				hostname = $tds.eq(2).text().trim().toLowerCase();
-				iface    = $tds.eq(3).text().trim().toLowerCase(),
-				stat     = $tds.eq(4).text().trim().toLowerCase();
-
-			regexp = new RegExp(searchstr);
-			if (searchstr.length > 0) {
-				if (!(regexp.test(ipaddr)   && ((where == 0) || (where == 5))) &&
-				    !(regexp.test(macaddr)  && ((where == 1) || (where == 5))) &&
-				    !(regexp.test(hostname) && ((where == 2) || (where == 5))) &&
-				    !(regexp.test(iface)    && ((where == 3) || (where == 5))) &&
-				    !(regexp.test(stat)     && ((where == 4) || (where == 5)))
-				    ) {
-					$(this).hide();
-				} else {
-					$(this).show();
-				}
-			} else {
-				$(this).show();	// A blank search string shows all
-			}
-		});
-	});
-
-	// Clear the search term and unhide all rows (that were hidden during a previous search)
-	$("#btnclear").click(function() {
-		var table = $("table tbody");
-
-		$('#searchstr').val("");
-
-		$('#where option[value="5"]').prop('selected', true);
-
-		table.find('tr').each(function (i) {
-			$(this).show();
-		});
-	});
-
-	// Hitting the enter key will do the same as clicking the search button
-	$("#searchstr").on("keyup", function (event) {
-		if (event.keyCode == 13) {
-			$("#btnsearch").get(0).click();
-		}
-	});
-
-	$('#clearndp').click(function() {
-		if (confirm("<?=gettext('Are you sure you wish to clear NDP table?')?>")) {
-			postSubmit({clearndptable: 'true'}, 'diag_ndp.php');
-		}
-	});
-
-});
-//]]>
-</script>
 
 <?php
 include('foot.inc');

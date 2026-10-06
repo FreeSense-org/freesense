@@ -109,66 +109,16 @@ if ($_POST['Download'] && ($bogons || $urltable)) {
 
 $entries = array();
 exec("/sbin/pfctl -t " . escapeshellarg($tablename) . " -T show", $entries);
+$entries = array_values(array_filter(array_map('trim', $entries), 'strlen'));
 
-include("head.inc");
-
-if ($savemsg) {
-	print_info_box($savemsg, 'success');
-}
-
-if ($tablename == "sshguard") {
-	$displayname = gettext("SSH and GUI Lockout Table");
-} else {
-	$displayname = sprintf(gettext("%s Table"), ucfirst($tablename));
-}
-
-$form = new Form(false);
-
-$section = new Form_Section('Table to Display');
-$group = new Form_Group("Table");
-
-$group->add(new Form_Select(
-	'type',
-	null,
-	$tablename,
-	array_combine($tables, $tables)
-))->setHelp('Select a user-defined alias name or system table name to view its contents. %s' .
-	'Aliases become Tables when loaded into the active firewall ruleset. ' .
-	'The contents displayed on this page reflect the current addresses inside tables used by the firewall.', '<br/><br/>');
-
-if ($bogons || $urltable || !empty($entries)) {
-	if ($bogons || $urltable) {
-		$group->add(new Form_Button(
-			'Download',
-			'Update',
-			null,
-			'fa-solid fa-arrows-rotate'
-		))->addClass('btn-success btn-sm');
-	} elseif (!empty($entries)) {
-		$group->add(new Form_Button(
-			'clearall',
-			'Empty Table',
-			null,
-			'fa-solid fa-trash-can'
-		))->addClass('btn-danger btn-sm');
-	}
-}
-
-$section->add($group);
-$form->add($section);
-print $form;
-
-if ($bogons || $urltable || !empty($entries)) {
-?>
-<div>
-	<div class="infoblock blockopen">
-<?php
+/* last update and file comments of bogons / URL tables */
+$last_updated = '';
+$table_comments = array();
+if ($bogons || $urltable) {
 	if ($bogons) {
 		$table_file = '/etc/' . escapeshellarg($tablename);
-	} else if ($urltable) {
-		$table_file = '/var/db/aliastables/' . escapeshellarg($tablename) . '.txt';
 	} else {
-		$table_file = '';
+		$table_file = '/var/db/aliastables/' . escapeshellarg($tablename) . '.txt';
 	}
 
 	$datestrregex = '(Mon|Tue|Wed|Thu|Fri|Sat|Sun).* GMT';
@@ -176,48 +126,146 @@ if ($bogons || $urltable || !empty($entries)) {
 
 	$last_updated = exec('/usr/bin/grep -i -m 1 -E "^# ' . $datelineregex . '" ' . $table_file . '|/usr/bin/grep -i -m 1 -E -o "' . $datestrregex . '"');
 
-	if ($last_updated != "") {
-		$last_update_msg = sprintf(gettext("Table last updated on %s."), $last_updated);
-	} else {
-		$last_update_msg = gettext("Date of last update of table is unknown.");
-	}
-
-	$records_count_msg = sprintf(gettext("%s records."), number_format(count($entries), 0, gettext("."), gettext(",")));
-
 	# Display up to 10 comment lines (lines that begin with '#').
-	unset($comment_lines);
-	$res = exec('/usr/bin/grep -i -m 10 -E "^#" ' . $table_file, $comment_lines);
+	exec('/usr/bin/grep -i -m 10 -E "^#" ' . $table_file, $table_comments);
+}
 
-	foreach ($comment_lines as $comment_line) {
-		$table_comments .= htmlspecialchars($comment_line) . '<br />';
-	}
+$table_query = 'type=' . rawurlencode($tablename);
+if ($bogons || $urltable) {
+	fs_page_action(gettext('Update now'), 'diag_tables.php?' . $table_query . '&Download=Update', 'fa-arrows-rotate', 'primary', [
+		'usepost' => true,
+		'title' => gettext('Download the table contents again (can take up to 90 seconds)'),
+	]);
+} elseif (!empty($entries)) {
+	fs_page_action(gettext('Empty table'), 'diag_tables.php?' . $table_query . '&clearall=Empty', 'fa-trash-can', 'danger', [
+		'usepost' => true,
+		'data-fs-confirm' => sprintf(gettext('Remove all entries from “%s”?'), $tablename),
+		'data-fs-confirm-detail' => gettext('The table is filled again when its alias or service reloads it.'),
+		'data-fs-confirm-action' => gettext('Empty table'),
+	]);
+}
 
-	if ($table_comments) {
-		print_info_box($last_update_msg . " &nbsp; &nbsp; " . $records_count_msg . "<br />" .
-		'<span style="display:none" class="infoblock">' . ' ' . gettext("Hide table comments.") . '<br />' . $table_comments . '</span>' .
-		'<span style="display:none"   id="showtblcom">' . ' ' . gettext("Show table comments.") . '</span>' .
-		'' , 'info', false);
-	} else {
-		print_info_box($last_update_msg . "&nbsp; &nbsp; " . $records_count_msg, 'info', false);
-	}
+include("head.inc");
+
+if ($savemsg) {
+	print_info_box($savemsg, 'success');
+}
+
+$can_delete = !$bogons && !$urltable;
+$large = (count($entries) > 3000);
+
+if ($tablename == "sshguard") {
+	$table_kind = gettext('Lockout');
+} elseif ($bogons) {
+	$table_kind = gettext('Bogons');
+} elseif (!empty($tmp['type'])) {
+	$table_kind = sprintf(gettext('Alias (%s)'), $tmp['type']);
+} else {
+	$table_kind = gettext('System');
+}
+
+/* table picker, kept as the "type" GET parameter */
+$picker = '<form method="get" action="diag_tables.php" class="fs-tables-pick">'
+    . '<label class="visually-hidden" for="type">' . fs_h(gettext('Table')) . '</label>'
+    . '<select class="form-select form-select-sm" name="type" id="type">';
+foreach ($tables as $table) {
+	$label = ($table === 'sshguard') ? sprintf(gettext('%s (SSH and GUI lockout)'), $table) : $table;
+	$picker .= '<option value="' . fs_h($table) . '"' . (($table === $tablename) ? ' selected' : '') . '>' . fs_h($label) . '</option>';
+}
+$picker .= '</select><noscript><button type="submit" class="btn btn-sm btn-outline-secondary">' . fs_h(gettext('Show')) . '</button></noscript></form>';
 ?>
-	</div>
-</div>
+
+<style>
+.fs-tables-pick { display: flex; gap: var(--fs-sp-2); }
+.fs-tables-pick .form-select { max-width: 18rem; }
+.fs-tables-comments summary { cursor: pointer; }
+.fs-tables-comments pre { margin: var(--fs-sp-2) 0 0; white-space: pre-wrap; }
+</style>
+
+<div class="fs-tiles">
 <?php
+fs_tile(gettext('Entries'), number_format(count($entries)));
+fs_tile(gettext('Table type'), $table_kind);
+if ($bogons || $urltable) {
+	fs_tile(gettext('Last update'), ($last_updated != '') ? $last_updated : gettext('Unknown'));
+}
+if ($urltable && !empty($tmp['freq'])) {
+	fs_tile(gettext('Update frequency'), sprintf(gettext('%s days'), $tmp['freq']));
 }
 ?>
+</div>
+
+<div class="panel panel-default fs-table" id="table-entries">
+<?php fs_table_toolbar([
+	'search' => $large ? false : gettext('Search entries…'),
+	'noun' => gettext('entries'),
+	'noun_one' => gettext('entry'),
+	'custom' => $picker,
+]); ?>
+<?php if ($large): ?>
+	<div class="panel-heading">
+		<h2 class="panel-title"><?=htmlspecialchars(sprintf(gettext('%s entries'), number_format(count($entries))))?></h2>
+		<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#table-dump">
+			<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+		</button>
+	</div>
+	<pre class="fs-console" id="table-dump"><?=htmlspecialchars(implode("\n", $entries))?></pre>
+<?php else: ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext('Address')?></th>
+					<th><?=gettext('Kind')?></th>
+					<th class="fs-col-actions" data-sortable="false"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($entries as $entry): ?>
+				<tr>
+					<td class="fs-mono"><?=htmlspecialchars($entry)?></td>
+					<td class="fs-muted"><?=(strpos($entry, '/') !== false) ? gettext('Network') : gettext('Host')?></td>
+					<td class="fs-col-actions">
+<?php if ($can_delete): ?>
+						<div class="fs-actions">
+							<button type="button" class="fs-action fs-action--delete" data-entry="<?=htmlspecialchars($entry)?>"
+							    title="<?=htmlspecialchars(sprintf(gettext('Remove %s'), $entry))?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Remove %s'), $entry))?>"
+							    data-fs-confirm="<?=htmlspecialchars(sprintf(gettext('Remove “%1$s” from %2$s?'), $entry, $tablename))?>"
+							    data-fs-confirm-action="<?=gettext('Remove')?>"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
+						</div>
+<?php endif; ?>
+					</td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($entries)) {
+	fs_empty_row(3, gettext('No entries exist in this table.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+<?php endif; ?>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('Aliases become tables when they are loaded into the active firewall ruleset. This page shows the addresses the firewall is using right now.')?>
+<?php if (!empty($table_comments)): ?>
+		<details class="fs-tables-comments">
+			<summary><?=gettext('Table file comments')?></summary>
+			<pre class="fs-mono"><?=htmlspecialchars(implode("\n", $table_comments))?></pre>
+		</details>
+<?php endif; ?>
+	</div>
+</div>
 
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-
-	$('#showtblcom').show();
-
-	$('[id^="showinfo1"]').click(function() {
-			$('#showtblcom').toggle();
+	// Show another table when the picker changes
+	$('#type').on('change', function() {
+		this.form.submit();
 	});
 
-	$('a[data-entry]').on('click', function() {
+	// Remove one entry (confirmed by data-fs-confirm first)
+	$('button[data-entry]').on('click', function() {
 		var el = $(this);
 
 		$.ajax(
@@ -225,76 +273,21 @@ events.push(function() {
 			{
 				type: 'post',
 				data: {
-					type: '<?=htmlspecialchars(addslashes($tablename))?>',
-					delete: $(this).data('entry')
+					type: <?=json_encode($tablename)?>,
+					delete: el.data('entry')
 				},
 				success: function() {
-					el.parents('tr').remove();
-				},
+					var root = el.closest('.fs-table').get(0);
+					el.closest('tr').remove();
+					if (root && root._fsTable) {
+						root._fsTable.apply(false);
+					}
+				}
 		});
 	});
-
-	// Auto-submit the form on table selector change
-	$('#type').on('change', function() {
-        $('form').submit();
-    });
 });
 //]]>
 </script>
 
 <?php
-if (empty($entries)) {
-	print_info_box(gettext("No entries exist in this table."), 'warning', false);
-} else {
-?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=$displayname?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm">
-				<thead>
-					<tr>
-						<th><?=gettext("IP Address")?></th>
-						<th></th>
-					</tr>
-				</thead>
-				<tbody>
-<?php
-		// This is a band-aid for a yet to be root caused performance issue with large tables.  Suspected is css and/or sorting.
- 		if (count($entries) > 3000) {
-			print "<tr><td colspan='2'><pre>";
-			foreach ($entries as $entry) {
-				$entry = trim($entry);
-					print $entry . "\n";
-			}
-			print "</pre></td></tr>";
-		} else {
-?>
-<?php
-		foreach ($entries as $entry):
-			$entry = trim($entry);
-?>
-					<tr>
-						<td>
-							<?=$entry?>
-						</td>
-						<td>
-							<?php if (!$bogons && !$urltable): ?>
-								<a style="cursor: pointer;" data-entry="<?=htmlspecialchars($entry)?>">
-									<i class="fa-solid fa-trash-can" title="<?= gettext("Remove this entry") ?>"></i>
-								</a>
-							<?php endif ?>
-						</td>
-					</tr>
-<?php endforeach ?>
-<?php } ?>
-				</tbody>
-			</table>
-		</div>
-	</div>
-</div>
-
-<?php
-}
-
 include("foot.inc");
