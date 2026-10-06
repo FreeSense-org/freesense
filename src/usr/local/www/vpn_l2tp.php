@@ -44,6 +44,21 @@ if ($_POST['save']) {
 	}
 }
 
+/* the summary card always shows the saved configuration, not the posted form */
+$saved = l2tp_settings_form();
+$interfaces = get_configured_interface_with_descr();
+$server_on = ($saved['mode'] == 'server');
+$auth_types = l2tp_paporchap_values();
+$user_count = count(config_get_path('l2tp/user', []));
+$radius_ips = $saved['radiusenable'] && $saved['radiusissueips'];
+$remote_range = '';
+if ($radius_ips) {
+	$remote_range = gettext('Assigned by RADIUS');
+} elseif (is_ipaddrv4($saved['remoteip'])) {
+	$units = max(1, (int)$saved['n_l2tp_units']);
+	$remote_range = ($units > 1) ? $saved['remoteip'] . ' – ' . ip_after($saved['remoteip'], $units - 1) : $saved['remoteip'];
+}
+
 $pgtitle = array(gettext("VPN"), gettext("L2TP"), gettext("Configuration"));
 $pglinks = array("", "@self", "@self");
 $shortcut_section = "l2tps";
@@ -59,9 +74,47 @@ if ($changes_applied) {
 
 fs_tabs('vpn-l2tp', 'vpn_l2tp.php');
 
+$dash = '<span class="fs-muted">' . gettext('Not set') . '</span>';
+?>
+<style>
+.fs-l2tp-summary .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-4); padding: var(--fs-sp-4); }
+.fs-l2tp-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); }
+.fs-l2tp-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: var(--fs-fs-lg); }
+.fs-l2tp-name { flex: 1 1 12rem; min-width: 0; }
+.fs-l2tp-title { margin: 0; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; }
+.fs-l2tp-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-l2tp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: 0; }
+.fs-l2tp-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+.fs-l2tp-facts dd { margin: .15rem 0 0; color: var(--fs-text-strong); overflow-wrap: anywhere; }
+@media (max-width: 575.98px) { .fs-l2tp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fs-l2tp-note { display: flex; gap: .6rem; margin-top: var(--fs-sp-4); padding: .6rem .8rem; border-radius: var(--fs-r-sm); background: var(--fs-surface-raised); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-l2tp-note > i { margin-top: .2rem; color: var(--fs-info); }
+</style>
+
+<div class="panel panel-default fs-l2tp-summary">
+	<div class="panel-body">
+		<div class="fs-l2tp-head">
+			<span class="fs-l2tp-icon"><i class="fa-solid fa-network-wired" aria-hidden="true"></i></span>
+			<div class="fs-l2tp-name">
+				<h2 class="fs-l2tp-title"><?=gettext('L2TP server')?></h2>
+				<div class="fs-l2tp-sub"><?php if ($server_on && isset($interfaces[$saved['interface']])): ?><?=htmlspecialchars(sprintf(gettext('Listening on %s'), $interfaces[$saved['interface']]))?><?php else: ?><?=gettext('Remote access VPN for L2TP clients')?><?php endif; ?></div>
+			</div>
+			<?=fs_badge($server_on ? 'enabled' : 'disabled')?>
+		</div>
+		<dl class="fs-l2tp-facts">
+			<div><dt><?=gettext('Server address')?></dt><dd><?=($saved['localip'] != '') ? '<span class="fs-mono">' . htmlspecialchars($saved['localip']) . '</span>' : $dash?></dd></div>
+			<div><dt><?=gettext('Remote range')?></dt><dd><?=($remote_range !== '') ? '<span class="' . ($radius_ips ? '' : 'fs-mono') . '">' . htmlspecialchars($remote_range) . '</span>' : $dash?></dd></div>
+			<div><dt><?=gettext('Max users')?></dt><dd><?=($saved['n_l2tp_units'] != '') ? htmlspecialchars($saved['n_l2tp_units']) : $dash?></dd></div>
+			<div><dt><?=gettext('Authentication')?></dt><dd><?=htmlspecialchars($auth_types[$saved['paporchap']] ?? 'CHAP')?><?=$saved['radiusenable'] ? ' · RADIUS' : ''?></dd></div>
+			<div><dt><?=gettext('Users')?></dt><dd><a href="vpn_l2tp_users.php"><?=htmlspecialchars(sprintf(ngettext('%d local user', '%d local users', $user_count), $user_count))?></a></dd></div>
+		</dl>
+	</div>
+</div>
+<?php
 $form = new Form();
 
-$section = new Form_Section("Enable L2TP");
+/* 1. turn the server on and pick where it listens */
+$section = new Form_Section("Server", 'l2tp-server');
 
 $section->addInput(new Form_Checkbox(
 	'mode',
@@ -71,60 +124,71 @@ $section->addInput(new Form_Checkbox(
 	'server'
 ));
 
-$form->add($section);
-
 $iflist = array();
-$interfaces = get_configured_interface_with_descr();
 foreach ($interfaces as $iface => $ifacename) {
 	$iflist[$iface] = $ifacename;
 }
-
-$section = new Form_Section("Configuration");
-$section->addClass('toggle-l2tp-enable');
 
 $section->addInput(new Form_Select(
 	'interface',
 	'*Interface',
 	$pconfig['interface'],
 	$iflist
-));
+))->setHelp('The interface L2TP clients connect to.');
+
+$form->add($section);
+
+/* 2. the addresses the tunnel uses */
+$section = new Form_Section("Client addresses", 'l2tp-addresses');
+$section->addClass('toggle-l2tp-enable');
 
 $section->addInput(new Form_Input(
 	'localip',
 	'*Server address',
 	'text',
 	$pconfig['localip']
-))->setHelp('Enter the IP address the L2TP server should give to clients for use as their "gateway". %1$s' .
-			'Typically this is set to an unused IP just outside of the client range.%1$s%1$s' .
-			'NOTE: This should NOT be set to any IP address currently in use on this firewall.', '<br />');
+))->setHelp('The gateway address clients use. Pick an unused address just outside the client range; ' .
+			'it must not be in use on this firewall.');
 
 $section->addInput(new Form_IpAddress(
         'remoteip',
         '*Remote address range',
         $pconfig['remoteip']
 ))->addMask('l2tp_subnet', $pconfig['l2tp_subnet'], 32)->setWidth(5)
-  ->setHelp('Specify the starting address for the client IP address subnet.');
+  ->setHelp('The first address handed out to clients.');
 
 $section->addInput(new Form_Select(
 	'n_l2tp_units',
 	'*Number of L2TP users',
 	$pconfig['n_l2tp_units'],
 	array_combine(range(1, 255, 1), range(1, 255, 1))
-));
+))->setHelp('How many clients can be connected at the same time.');
 
-$section->addPassword(new Form_Input(
-	'secret',
-	'Secret',
-	'password',
-	$pconfig['secret']
-))->setHelp('Specify optional secret shared between peers. Required on some devices/setups.');
+$form->add($section);
+
+/* 3. how clients authenticate */
+$section = new Form_Section("Authentication", 'l2tp-auth');
+$section->addClass('toggle-l2tp-enable');
 
 $section->addInput(new Form_Select(
 	'paporchap',
 	'*Authentication type',
 	$pconfig['paporchap'],
 	l2tp_paporchap_values()
-))->setHelp('Specifies the protocol to use for authentication.');
+))->setHelp('The protocol used to authenticate users.');
+
+$section->addPassword(new Form_Input(
+	'secret',
+	'Secret',
+	'password',
+	$pconfig['secret']
+))->setHelp('Optional secret shared between peers. Some devices require it.');
+
+$form->add($section);
+
+/* 4. what clients get */
+$section = new Form_Section("Client DNS", 'l2tp-dns');
+$section->addClass('toggle-l2tp-enable');
 
 $section->addInput(new Form_Input(
 	'l2tp_dns1',
@@ -138,19 +202,13 @@ $section->addInput(new Form_Input(
 	'Secondary L2TP DNS server',
 	'text',
 	$pconfig['l2tp_dns2']
-));
-
-$section->addInput(new Form_Input(
-	'mtu',
-	'VPN MTU',
-	'number',
-	$pconfig['mtu']
-))->setHelp('If this field is blank, the adapter\'s default MTU will be used. ' .
-			'This is typically 1500 bytes but can vary in some circumstances.');
+))->setHelp('DNS servers handed to clients. Leave empty to not push any.');
 
 $form->add($section);
 
-$section = new Form_Section("RADIUS");
+/* 5. rarely changed: RADIUS and link settings */
+$section = new Form_Section("RADIUS", 'l2tp-radius',
+	COLLAPSIBLE | ((!empty($input_errors) || $pconfig['radiusenable']) ? SEC_OPEN : SEC_CLOSED));
 $section->addClass('toggle-l2tp-enable');
 
 $section->addInput(new Form_Checkbox(
@@ -158,7 +216,7 @@ $section->addInput(new Form_Checkbox(
 	'Enable',
 	'Use a RADIUS server for authentication',
 	$pconfig['radiusenable']
-))->setHelp('When set, all users will be authenticated using the RADIUS server specified below. The local user database will not be used.');
+))->setHelp('All users are authenticated by the RADIUS server below; the local user database is not used.');
 
 $section->addInput(new Form_Checkbox(
 	'radacct_enable',
@@ -171,14 +229,14 @@ $section->addInput(new Form_IpAddress(
 	'radiusserver',
 	'*Server',
 	$pconfig['radiusserver']
-))->setHelp('Enter the IP address of the RADIUS server.');
+))->setHelp('The IP address of the RADIUS server.');
 
 $section->addPassword(new Form_Input(
 	'radiussecret',
 	'*Secret',
 	'password',
 	$pconfig['radiussecret']
-))->setHelp('Enter the shared secret that will be used to authenticate to the RADIUS server.');
+))->setHelp('The shared secret used to authenticate to the RADIUS server.');
 
 $section->addInput(new Form_Checkbox(
 	'radiusissueips',
@@ -189,12 +247,24 @@ $section->addInput(new Form_Checkbox(
 
 $form->add($section);
 
+$section = new Form_Section("Advanced", 'l2tp-advanced',
+	COLLAPSIBLE | ((!empty($input_errors) || $pconfig['mtu'] != '') ? SEC_OPEN : SEC_CLOSED));
+$section->addClass('toggle-l2tp-enable');
+
+$section->addInput(new Form_Input(
+	'mtu',
+	'VPN MTU',
+	'number',
+	$pconfig['mtu']
+))->setHelp('Leave empty to use the adapter\'s default MTU, typically 1500 bytes.');
+
+$form->add($section);
+
 print($form);
 ?>
-<div class="infoblock blockopen">
-<?php
-	print_info_box(gettext("Don't forget to add a firewall rule to permit traffic from L2TP clients."), 'info', false);
-?>
+<div class="fs-l2tp-note">
+	<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+	<span><?php if ($server_on): ?><?=sprintf(gettext('Clients can only reach your network once a %1$sfirewall rule on the L2TP VPN tab%2$s permits their traffic.'), '<a href="firewall_rules.php?if=l2tp">', '</a>')?><?php else: ?><?=gettext("Don't forget to add a firewall rule to permit traffic from L2TP clients.")?><?php endif; ?></span>
 </div>
 
 <script type="text/javascript">
@@ -204,6 +274,7 @@ events.push(function() {
 	function setL2TP () {
 		hide = ! $('#mode').prop('checked');
 
+		hideInput('interface', hide);
 		hideClass('toggle-l2tp-enable', hide);
 	}
 
