@@ -50,51 +50,72 @@ $pgtitle = array(gettext("Status"), gettext("Captive Portal"), htmlspecialchars(
 $pglinks = array("", "status_captiveportal.php", "status_captiveportal.php?zone=" . $cpzone, "@self");
 $shortcut_section = "captiveportal-vouchers";
 
+$tested = false;
+$test_results = [];
+$summary = '';
+if ($_POST['Submit'] && $_POST['vouchers']) {
+	$tested = true;
+	$test_results = voucher_auth(trim($_POST['vouchers']), 1);
+	if (!is_array($test_results)) {
+		$test_results = [];
+	}
+	/* the last line is the overall verdict ("Access granted …" / "Access denied!") */
+	$summary = (string)array_pop($test_results);
+}
+$granted = (strpos($summary, " granted ") !== false);
+
 include("head.inc");
 
-if ($_POST['Submit'] && $_POST['vouchers']) {
-	$test_results = voucher_auth(trim($_POST['vouchers']), 1);
-	$output = "";
-	$class = 'warning';
-
-	foreach ($test_results as $result) {
-		$output .= htmlspecialchars($result) . '<br />';
-
-		if (strpos($result, " good ") || strpos($result, " granted ")) {
-			$class = 'success';
-		}
-	}
-	print_info_box($output, $class, false);
-}
-
 fs_tabs('status-captiveportal', 'status_captiveportal_test.php', ['zone' => $cpzone]);
+?>
 
-$form = new Form(false);
+<style>
+.fs-cp-results { margin: 0; padding: 0; list-style: none; }
+.fs-cp-results li { display: flex; align-items: flex-start; gap: var(--fs-sp-3); padding: var(--fs-sp-2) var(--fs-sp-4); border-top: 1px solid var(--fs-border); }
+.fs-cp-results li > .fs-badge { flex: 0 0 auto; }
+.fs-cp-results li > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+</style>
 
-$section = new Form_Section('Test Vouchers');
-
-$section->addInput(new Form_Textarea(
-	'vouchers',
-	'*Vouchers',
-	$_POST['vouchers']
-))->setHelp('Enter multiple vouchers separated by space or newline. The remaining time, if valid, will be shown for each voucher.');
-
-$form->addGlobal(new Form_Input(
-	'zone',
-	null,
-	'hidden',
-	$cpzone
-));
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Test',
-	null,
-	'fa-solid fa-wrench'
-))->addClass('btn-primary');
-
-print($form);
-
+<div class="fs-tool">
+	<form method="post" action="status_captiveportal_test.php" class="fs-tool-form">
+		<input type="hidden" name="zone" value="<?=htmlspecialchars($cpzone)?>">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Test vouchers')?></h2></div>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="vouchers"><?=gettext('Vouchers')?></label>
+					<textarea class="form-control fs-mono" id="vouchers" name="vouchers" rows="6" required autofocus><?=htmlspecialchars($_POST['vouchers'])?></textarea>
+					<div class="form-text"><?=gettext('Enter multiple vouchers separated by space or newline. The remaining time, if valid, will be shown for each voucher.')?></div>
+				</div>
+			</div>
+			<div class="panel-footer">
+				<button type="submit" class="btn btn-primary" name="Submit" value="Test" data-fs-busy="true">
+					<i class="fa-solid fa-wrench icon-embed-btn" aria-hidden="true"></i><?=gettext('Test')?>
+				</button>
+			</div>
+		</div>
+	</form>
+	<div class="panel panel-default">
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Results')?></h2></div>
+<?php if ($tested): ?>
+		<div class="fs-tool-verdict">
+			<?=$granted ? fs_badge('pass', gettext('Granted')) : fs_badge('block', gettext('Denied'))?>
+			<span><?=htmlspecialchars(($summary !== '') ? $summary : gettext('Vouchers are not enabled for this zone.'))?></span>
+		</div>
+		<ul class="fs-cp-results">
+<?php foreach ($test_results as $result):
+	$ok = (strpos($result, " good ") !== false);
+?>
+			<li><?=$ok ? fs_badge('pass', gettext('Valid')) : fs_badge('block', gettext('Invalid'))?><span class="fs-mono"><?=htmlspecialchars($result)?></span></li>
+<?php endforeach; ?>
+		</ul>
+<?php else: ?>
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-ticket" aria-hidden="true"></i>
+			<span><?=gettext('Enter one or more vouchers to see whether they are valid and how much time they have left. Testing does not activate a voucher.')?></span>
+		</div>
+<?php endif; ?>
+	</div>
+</div>
+<?php
 include("foot.inc");

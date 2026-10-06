@@ -76,19 +76,62 @@ foreach (config_get_path("voucher/{$cpzone}/roll", []) as $rollent) {
 	}
 }
 
+if (isAllowedPage('services_captiveportal_vouchers.php')) {
+	fs_page_action(gettext('Manage vouchers'), 'services_captiveportal_vouchers.php?zone=' . $cpzone, 'fa-ticket', 'secondary');
+}
+
 include("head.inc");
 
+/* zone picker: only zones that use vouchers */
+$voucher_zones = [];
+foreach (config_get_path('captiveportal', []) as $cpkey => $cp) {
+	if (config_path_enabled("voucher/{$cpkey}") || ($cpkey == $cpzone)) {
+		$voucher_zones[$cpkey] = $cpkey . (empty($cp['descr']) ? '' : ' – ' . $cp['descr']);
+	}
+}
+if (count($voucher_zones) > 1):
+?>
+<style>
+.fs-cp-zone { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); margin-bottom: var(--fs-sp-4); }
+.fs-cp-zone label { margin: 0; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 500; }
+.fs-cp-zone .form-select { width: auto; min-width: 12rem; max-width: 100%; }
+</style>
+<form method="get" action="status_captiveportal_vouchers.php" class="fs-cp-zone" data-fs-zone-picker>
+	<label for="zone"><?=gettext('Zone')?></label>
+	<select class="form-select form-select-sm" id="zone" name="zone">
+<?php foreach ($voucher_zones as $cpkey => $label): ?>
+		<option value="<?=htmlspecialchars($cpkey)?>"<?=($cpkey == $cpzone) ? ' selected' : ''?>><?=htmlspecialchars($label)?></option>
+<?php endforeach; ?>
+	</select>
+	<noscript><button type="submit" class="btn btn-sm btn-outline-secondary"><?=gettext('Show')?></button></noscript>
+</form>
+<?php
+endif;
+
 fs_tabs('status-captiveportal', 'status_captiveportal_vouchers.php', ['zone' => $cpzone]);
+
+$rolls = [];
+foreach ($db as $dbent) {
+	$rolls[$dbent[1]] = sprintf(gettext('Roll %s'), $dbent[1]);
+}
+ksort($rolls);
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=sprintf(gettext("Vouchers in Use (%d)"), count($db))?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Vouchers in use'),
+	'search' => gettext('Search vouchers…'),
+	'filters' => (count($rolls) > 1) ? ['roll' => [gettext('All rolls')] + $rolls] : [],
+	'noun' => gettext('vouchers'),
+	'noun_one' => gettext('voucher'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Voucher"); ?></th>
-					<th><?=gettext("Roll"); ?></th>
+					<th data-fs-search><?=gettext("Voucher"); ?></th>
+					<th data-fs-search><?=gettext("Roll"); ?></th>
+					<th><?=gettext("Status"); ?></th>
 					<th><?=gettext("Activated at"); ?></th>
 					<th><?=gettext("Expires in"); ?></th>
 					<th><?=gettext("Expires at"); ?></th>
@@ -97,20 +140,36 @@ fs_tabs('status-captiveportal', 'status_captiveportal_vouchers.php', ['zone' => 
 			<tbody>
 <?php
 foreach ($db as $dbent):
+	$soon = ($dbent[3] < 10);
 ?>
-				<tr>
-					<td><?=htmlspecialchars($dbent[0])?></td>
+				<tr data-fs-filter-roll="<?=htmlspecialchars($dbent[1])?>">
+					<td class="fs-mono"><?=htmlspecialchars($dbent[0])?></td>
 					<td><?=htmlspecialchars($dbent[1])?></td>
-					<td><?=htmlspecialchars(date("m/d/Y H:i:s", $dbent[2]))?></td>
-					<td><?=htmlspecialchars($dbent[3])?><?=gettext("min"); ?></td>
-					<td><?=htmlspecialchars(date("m/d/Y H:i:s", $dbent[4]))?></td>
+					<td><?=$soon ? fs_badge('warn', gettext('Expiring')) : fs_badge('active')?></td>
+					<td class="text-nowrap" data-value="<?=intval($dbent[2])?>"><?=htmlspecialchars(date("m/d/Y H:i:s", $dbent[2]))?></td>
+					<td class="text-nowrap" data-value="<?=intval($dbent[3])?>"><?=htmlspecialchars(convert_seconds_to_dhms($dbent[3] * 60))?></td>
+					<td class="text-nowrap" data-value="<?=intval($dbent[4])?>"><?=htmlspecialchars(date("m/d/Y H:i:s", $dbent[4]))?></td>
 				</tr>
 <?php
 endforeach;
+
+if (empty($db)) {
+	fs_empty_row(6, gettext('No vouchers are in use.'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	// Show another zone when the picker changes
+	$('[data-fs-zone-picker] select').on('change', function() {
+		this.form.submit();
+	});
+});
+//]]>
+</script>
 <?php include("foot.inc");

@@ -35,13 +35,14 @@ require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
 require_once("captiveportal.inc");
+require_once("voucher.inc");
 
 /*
 Return true if multiple servers type are selected in captiveportal config, false otherwise
 */
 function multiple_auth_server_type() {
 	global $cpzone;
-	
+
 	$auth_types = array();
 	$cpzone_config = config_get_path("captiveportal/{$cpzone}", []);
 	foreach(explode(",", $cpzone_config['auth_server']) as $authserver) {
@@ -61,56 +62,6 @@ function multiple_auth_server_type() {
 	} else {
 		return false;
 	}
-}
-
-function print_details($cpent) {
-	global $cpzone, $cpzoneid;
-
-	printf("<a data-bs-toggle=\"popover\" data-bs-trigger=\"hover focus\" title=\"%s\" data-bs-content=\" ", gettext("Session details"));
-
-	/* print the duration of the session */
-	$session_time = time() - $cpent[0];
-	printf(gettext("Session duration: %s") . "<br>", convert_seconds_to_dhms($session_time));
-
-	/* print the time left before session timeout or session terminate time or the closer of the two if both are set */
-	if (!empty($cpent[7]) && !empty($cpent[9])) {
-		$session_time_left = min($cpent[0] + $cpent[7] - time(),$cpent[9] - time());
-		printf(gettext("Session time left: %s") . "<br>", convert_seconds_to_dhms($session_time_left));
-	} elseif (!empty($cpent[7]) && empty($cpent[9])) {
-		$session_time_left = $cpent[0] + $cpent[7] - time();
-		printf(gettext("Session time left: %s") . "<br>", convert_seconds_to_dhms($session_time_left));
-	} elseif (empty($cpent[7]) && !empty($cpent[9])) {
-		$session_time_left = $cpent[9] - time();
-		printf(gettext("Session time left: %s") . "<br>", convert_seconds_to_dhms($session_time_left));
-	}
-
-	/* print idle time and time left before disconnection if idle timeout is set */
-	if ($_REQUEST['showact']) {
-		$last_act = captiveportal_get_last_activity($cpent[2]);
-
-		/* if the user never sent traffic, set last activity time to the login time */
-		$last_act = $last_act ? $last_act : $cpent[0];
-
-		$idle_time = time() - $last_act;
-		printf(gettext("Idle time: %s") . "<br>", convert_seconds_to_dhms((int)$idle_time));
-
-		if (!empty($cpent[8])) {
-			$idle_time_left = $last_act + $cpent[8] - time();
-			printf(gettext("Idle time left: %s") . "<br>", convert_seconds_to_dhms((int)$idle_time_left));
-		}
-	}
-
-	/* print bytes sent and received, invert the values if reverse accounting is enabled */
-	$volume = getVolume($cpent[2]);
-	$reverse = config_path_enabled("captiveportal/{$cpzone}", 'reverseacct') ? true : false;
-	if ($reverse) {
-		printf(gettext("Bytes sent: %s") . "<br>" . gettext("Bytes received: %s") . "\" data-bs-html=\"true\">", format_bytes($volume['output_bytes']), format_bytes($volume['input_bytes']));
-	} else {
-		printf(gettext("Bytes sent: %s") . "<br>" . gettext("Bytes received: %s") . "\" data-bs-html=\"true\">", format_bytes($volume['input_bytes']), format_bytes($volume['output_bytes']));
-	}
-
-	/* print username */
-	printf("%s</a>", htmlspecialchars($cpent[4]));
 }
 
 $cpzone = strtolower($_REQUEST['zone']);
@@ -145,185 +96,286 @@ if ($_POST['deleteall'] && !empty($cpzone) && isset($cpzoneid)) {
 	exit;
 }
 
+$zones = config_get_path('captiveportal', []);
+$showact = !empty($_REQUEST['showact']) ? 1 : 0;
+
 $pgtitle = array(gettext("Status"), gettext("Captive Portal"));
 $pglinks = array("", "status_captiveportal.php");
+$shortcut_section = "captiveportal";
+
+$cpdb = [];
+$vouchers_on = false;
+$voucher_stats = ['active' => 0, 'used' => 0, 'rolls' => 0, 'tickets' => 0];
 
 if (!empty($cpzone)) {
 	$cpdb = captiveportal_read_db();
+	$zone_cfg = config_get_path("captiveportal/{$cpzone}", []);
+	$vouchers_on = config_path_enabled("voucher/{$cpzone}");
 
 	$pgtitle[] = htmlspecialchars($cpzone);
 	$pglinks[] = "status_captiveportal.php?zone=" . $cpzone;
+	$pgtitle[] = gettext("Active Users");
+	$pglinks[] = "@self";
 
-	if (config_path_enabled("voucher/{$cpzone}")) {
-		$pgtitle[] = gettext("Active Users");
-		$pglinks[] = "status_captiveportal.php?zone=" . $cpzone;
+	if ($vouchers_on) {
+		/* same counting as the Voucher Rolls page */
+		$voucherlck = lock("voucher{$cpzone}");
+		foreach (config_get_path("voucher/{$cpzone}/roll", []) as $rollent) {
+			$roll = $rollent['number'];
+			$voucher_stats['rolls']++;
+			$voucher_stats['tickets'] += intval($rollent['count']);
+			$active = count(voucher_read_active_db($roll));
+			$voucher_stats['active'] += $active;
+			$voucher_stats['used'] += max(0, voucher_used_count($roll) - $active);
+		}
+		unlock($voucherlck);
+	}
+
+	if (count($cpdb) > 0) {
+		fs_page_action(gettext('Disconnect all'), 'status_captiveportal.php?zone=' . $cpzone . '&deleteall=1', 'fa-plug-circle-xmark', 'danger', [
+			'usepost' => true,
+			'data-fs-confirm' => sprintf(gettext('Disconnect all users in zone “%s”?'), $cpzone),
+			'data-fs-confirm-detail' => gettext('Every user is logged out and must log in on the portal again.'),
+			'data-fs-confirm-action' => gettext('Disconnect all'),
+		]);
+	}
+	if ($showact) {
+		fs_page_action(gettext('Hide last activity'), 'status_captiveportal.php?zone=' . $cpzone . '&showact=0', 'fa-eye-slash', 'secondary');
+	} else {
+		fs_page_action(gettext('Show last activity'), 'status_captiveportal.php?zone=' . $cpzone . '&showact=1', 'fa-clock-rotate-left', 'secondary');
 	}
 }
-$shortcut_section = "captiveportal";
 
 include("head.inc");
+?>
 
-if (!empty($cpzone) && config_path_enabled("voucher/{$cpzone}")):
+<style>
+.fs-cp-zone { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); margin-bottom: var(--fs-sp-4); }
+.fs-cp-zone label { margin: 0; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 500; }
+.fs-cp-zone .form-select { width: auto; min-width: 12rem; max-width: 100%; }
+.fs-cp-sub { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-cp-nowrap { white-space: nowrap; }
+.fs-cp-traffic { white-space: nowrap; font-size: var(--fs-fs-sm); font-variant-numeric: tabular-nums; }
+.fs-cp-traffic i { width: 1.1em; color: var(--fs-text-muted); font-size: .75em; }
+</style>
+
+<?php
+if (count($zones) > 1):
+?>
+<form method="get" action="status_captiveportal.php" class="fs-cp-zone" data-fs-zone-picker>
+	<label for="zone"><?=gettext('Zone')?></label>
+	<select class="form-select form-select-sm" id="zone" name="zone">
+<?php if (empty($cpzone)): ?>
+		<option value=""><?=gettext('Select a zone…')?></option>
+<?php endif; ?>
+<?php foreach ($zones as $cpkey => $cp): ?>
+		<option value="<?=htmlspecialchars($cpkey)?>"<?=($cpkey == $cpzone) ? ' selected' : ''?>><?=htmlspecialchars($cpkey . (empty($cp['descr']) ? '' : ' – ' . $cp['descr']))?></option>
+<?php endforeach; ?>
+	</select>
+<?php if ($showact): ?>
+	<input type="hidden" name="showact" value="1">
+<?php endif; ?>
+	<noscript><button type="submit" class="btn btn-sm btn-outline-secondary"><?=gettext('Show')?></button></noscript>
+</form>
+<?php
+endif;
+
+if (!empty($cpzone) && $vouchers_on):
 	fs_tabs('status-captiveportal', 'status_captiveportal.php', ['zone' => $cpzone]);
 endif;
 
-// Load MAC-Manufacturer table
-$mac_man = load_mac_manufacturer_table();
-
-if (count(config_get_path('captiveportal', [])) > 1) {
-	$form = new Form(false);
-
-	$section = new Form_Section('Captive Portal Zone');
-
-	$zonelist = array("" => 'None');
-
-	foreach (config_get_path('captiveportal', []) as $cpkey => $cp) {
-		$zonelist[$cpkey] = "{$cpkey} ({$cp['descr']})";
+if (!empty($cpzone)):
+	// Load MAC-Manufacturer table
+	$mac_man = load_mac_manufacturer_table();
+	$show_mac = !config_path_enabled("captiveportal/{$cpzone}", "nomacfilter");
+	$multi_auth = multiple_auth_server_type();
+	$reverse = config_path_enabled("captiveportal/{$cpzone}", 'reverseacct');
+	$auth_labels = [
+		'none' => gettext('None (click-through)'),
+		'authserver' => gettext('Authentication server'),
+		'radmac' => gettext('RADIUS MAC'),
+	];
+	$minutes_label = function ($min) {
+		return empty($min) ? gettext('None') : sprintf(gettext('%d min'), intval($min));
+	};
+?>
+<div class="fs-tiles">
+<?php
+	fs_tile(gettext('Connected users'), count($cpdb), (count($cpdb) > 0) ? 'online' : null);
+	if ($vouchers_on) {
+		fs_tile(gettext('Active vouchers'), $voucher_stats['active'], ($voucher_stats['active'] > 0) ? 'active' : null);
+		fs_tile(gettext('Used vouchers'), $voucher_stats['used']);
+		fs_tile(gettext('Voucher rolls'), $voucher_stats['rolls'], null, sprintf(gettext('%d tickets'), $voucher_stats['tickets']));
+	} else {
+		fs_tile(gettext('Authentication'), $auth_labels[$zone_cfg['auth_method'] ?? ''] ?? gettext('Unknown'));
+		fs_tile(gettext('Idle timeout'), $minutes_label($zone_cfg['idletimeout'] ?? ''));
+		fs_tile(gettext('Hard timeout'), $minutes_label($zone_cfg['timeout'] ?? ''));
 	}
+?>
+</div>
 
-	$section->addInput(new Form_Select(
-		'zone',
-		'Display Zone',
-		$cpzone,
-		$zonelist
-	))->setOnchange('this.form.submit()');
-
-	$form->add($section);
-
-	print($form);
-}
-
-if (!empty($cpzone)): ?>
-
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=sprintf(gettext("Users Logged In (%d)"), count($cpdb))?></h2></div>
+<?php
+	$cols = 6 + ($show_mac ? 1 : 0) + ($multi_auth ? 1 : 0) + ($showact ? 1 : 0);
+	$filters = [];
+	if ($multi_auth) {
+		$methods = [];
+		foreach ($cpdb as $cpent) {
+			if (!empty($cpent['authmethod'])) {
+				$methods[$cpent['authmethod']] = $cpent['authmethod'];
+			}
+		}
+		if (count($methods) > 1) {
+			$filters['auth'] = [gettext('All methods')] + $methods;
+		}
+	}
+?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Users'),
+	'search' => gettext('Search users…'),
+	'filters' => $filters,
+	'noun' => gettext('users'),
+	'noun_one' => gettext('user'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("IP address")?></th>
-<?php
-	if (!config_path_enabled("captiveportal/{$cpzone}", "nomacfilter")):
-?>
-					<th><?=gettext("MAC address")?></th>
-<?php
-	endif;
-?>
-					<th><?=gettext("Username")?></th>
-<?php
-	 // if multiple auth method are selected
-	if (multiple_auth_server_type()): 
-?>
-					<th><?=gettext("Authentication method")?></th>
-<?php
-	endif;
-?>
+					<th data-fs-search><?=gettext("Username")?></th>
+					<th data-fs-search><?=gettext("IP address")?></th>
+<?php if ($show_mac): ?>
+					<th data-fs-search><?=gettext("MAC address")?></th>
+<?php endif; ?>
+<?php if ($multi_auth): ?>
+					<th data-fs-search><?=gettext("Authentication method")?></th>
+<?php endif; ?>
 					<th><?=gettext("Session start")?></th>
-<?php
-	if ($_REQUEST['showact']):
-?>
+					<th><?=gettext("Time left")?></th>
+<?php if ($showact): ?>
 					<th><?=gettext("Last activity")?></th>
-<?php
-	endif;
-?>
-					<th data-sortable="false"><?=gettext("Actions")?></th>
+<?php endif; ?>
+					<th data-sortable="false"><?=gettext("Traffic")?></th>
+					<th class="fs-col-actions" data-sortable="false"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
 <?php
+	foreach ($cpdb as $cpent):
+		$session_time = time() - $cpent[0];
 
-	foreach ($cpdb as $cpent): ?>
-				<tr>
-					<td><?=htmlspecialchars($cpent[2])?></td>
-<?php
-		if (!config_path_enabled("captiveportal/{$cpzone}", "nomacfilter")) {
-?>
-					<td>
-<?php
-			$mac=trim($cpent[3]);
-			if (!empty($mac)) {
-				$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
-				print htmlentities($mac);
-				if (isset($mac_man[$mac_hi])) {
-					print "<br /><font size=\"-2\"><i>" . htmlspecialchars($mac_man[$mac_hi]) . "</i></font>";
-				}
-			}
-?>
-					</td>
-<?php
+		/* time left before session timeout or terminate time, or the closer of the two */
+		$left = null;
+		if (!empty($cpent[7]) && !empty($cpent[9])) {
+			$left = min($cpent[0] + $cpent[7] - time(), $cpent[9] - time());
+		} elseif (!empty($cpent[7])) {
+			$left = $cpent[0] + $cpent[7] - time();
+		} elseif (!empty($cpent[9])) {
+			$left = $cpent[9] - time();
 		}
-?>
-					<td><?php print_details($cpent); ?></td>
-<?php
-	if (multiple_auth_server_type()):
-?>
-					<td><?=htmlspecialchars($cpent['authmethod']);?></td>
-<?php
-	endif;
-?>
-<?php
-		if ($_REQUEST['showact']):
+
+		if ($showact) {
 			$last_act = captiveportal_get_last_activity($cpent[2]);
 			/* if the user never sent traffic, set last activity time to the login time */
 			$last_act = $last_act ? $last_act : $cpent[0];
+			$idle_left = !empty($cpent[8]) ? ($last_act + $cpent[8] - time()) : null;
+		}
+
+		/* bytes sent and received, inverted if reverse accounting is enabled */
+		$volume = getVolume($cpent[2]);
+		$sent = $reverse ? $volume['output_bytes'] : $volume['input_bytes'];
+		$received = $reverse ? $volume['input_bytes'] : $volume['output_bytes'];
+
+		$user = (string)$cpent[4];
+		$who = ($user !== '') ? $user : (string)$cpent[2];
+		$mac = trim((string)$cpent[3]);
+		$vendor = '';
+		if (strlen($mac) >= 8) {
+			$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
+			$vendor = $mac_man[$mac_hi] ?? '';
+		}
 ?>
-					<td><?=htmlspecialchars(date("m/d/Y H:i:s", $cpent[0]))?></td>
+				<tr data-fs-filter-auth="<?=htmlspecialchars($cpent['authmethod'] ?? '')?>">
+					<td><?=($user !== '') ? '<strong>' . htmlspecialchars($user) . '</strong>' : '<span class="fs-muted">' . gettext('No username') . '</span>'?></td>
+					<td class="fs-mono"><?=htmlspecialchars($cpent[2])?></td>
+<?php if ($show_mac): ?>
 					<td>
-<?php
-			echo htmlspecialchars(date("m/d/Y H:i:s", $last_act));
-?>
+						<span class="fs-mono"><?=htmlspecialchars($mac)?></span>
+<?php if ($vendor !== ''): ?>
+						<span class="fs-cp-sub"><?=htmlspecialchars($vendor)?></span>
+<?php endif; ?>
 					</td>
-<?php
-		else:
-?>
-					<td><?=htmlspecialchars(date("m/d/Y H:i:s", $cpent[0]))?></td>
-<?php
-		endif;
-?>
-					<td>
-						<a href="?zone=<?=htmlspecialchars($cpzone)?>&amp;showact=<?=htmlspecialchars($_REQUEST['showact'])?>&amp;act=del&amp;id=<?=htmlspecialchars($cpent[5])?>" usepost><i class="fa-solid fa-trash-can" title="<?=gettext("Disconnect this User")?>"></i></a>
+<?php endif; ?>
+<?php if ($multi_auth): ?>
+					<td><?=htmlspecialchars($cpent['authmethod'] ?? '')?></td>
+<?php endif; ?>
+					<td class="fs-cp-nowrap" data-value="<?=intval($cpent[0])?>">
+						<?=htmlspecialchars(date("m/d/Y H:i:s", $cpent[0]))?>
+						<span class="fs-cp-sub"><?=htmlspecialchars(sprintf(gettext('Connected for %s'), convert_seconds_to_dhms($session_time)))?></span>
 					</td>
+					<td class="fs-cp-nowrap" data-value="<?=($left === null) ? PHP_INT_MAX : intval($left)?>">
+<?php if ($left === null): ?>
+						<span class="fs-muted"><?=gettext('No limit')?></span>
+<?php elseif ($left < 600): ?>
+						<?=fs_badge('warn', convert_seconds_to_dhms(max(0, $left)))?>
+<?php else: ?>
+						<?=htmlspecialchars(convert_seconds_to_dhms($left))?>
+<?php endif; ?>
+					</td>
+<?php if ($showact): ?>
+					<td class="fs-cp-nowrap" data-value="<?=intval($last_act)?>">
+						<?=htmlspecialchars(date("m/d/Y H:i:s", $last_act))?>
+						<span class="fs-cp-sub"><?=htmlspecialchars(sprintf(gettext('Idle for %s'), convert_seconds_to_dhms((int)(time() - $last_act))))?><?=($idle_left !== null) ? htmlspecialchars(' · ' . sprintf(gettext('%s left'), convert_seconds_to_dhms((int)$idle_left))) : ''?></span>
+					</td>
+<?php endif; ?>
+					<td class="fs-cp-traffic">
+						<span title="<?=gettext('Bytes sent')?>"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i><span class="visually-hidden"><?=gettext('Sent')?> </span><?=htmlspecialchars(format_bytes($sent))?></span><br>
+						<span title="<?=gettext('Bytes received')?>"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i><span class="visually-hidden"><?=gettext('Received')?> </span><?=htmlspecialchars(format_bytes($received))?></span>
+					</td>
+					<td><?=fs_row_actions([
+						['custom', 'status_captiveportal.php?zone=' . htmlspecialchars($cpzone) . '&showact=' . $showact . '&act=del&id=' . htmlspecialchars($cpent[5]), $who, [
+							'icon' => 'fa-plug-circle-xmark',
+							'label' => sprintf(gettext('Disconnect %s'), $who),
+							'post' => true,
+							'confirm' => sprintf(gettext('Disconnect “%s”?'), $who),
+							'detail' => gettext('The user is logged out and must log in on the portal again.'),
+							'confirm_action' => gettext('Disconnect'),
+						]],
+					])?></td>
 				</tr>
 <?php
 	endforeach;
+
+	if (empty($cpdb)) {
+		fs_empty_row($cols, gettext('No users are logged in to this zone.'));
+	}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 <?php
+elseif (empty($zones)):
+	print_info_box(sprintf(gettext('No Captive Portal zones have been configured. New zones may be added here: %1$sServices > Captive Portal%2$s.'), '<a href="services_captiveportal_zones.php">', '</a>'), 'warning', false);
 else:
-	if (empty(config_get_path('captiveportal'))) {
-		// If no zones have been defined
-		print_info_box(sprintf(gettext('No Captive Portal zones have been configured. New zones may be added here: %1$sServices > Captive Portal%2$s.'), '<a href="services_captiveportal_zones.php">', '</a>'), 'warning', false);
-	}
+?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-wifi" aria-hidden="true"></i>
+		<span><?=gettext('Select a zone to see its logged in users.')?></span>
+	</div>
+</div>
+<?php
 endif;
 ?>
 
-<nav class="action-buttons">
-<?php
-if (!empty($cpzone)):
-	if ($_REQUEST['showact']): ?>
-	<a href="status_captiveportal.php?zone=<?=htmlspecialchars($cpzone)?>&amp;showact=0" role="button" class="btn btn-info" title="<?=gettext("Don't show last activity")?>">
-		<i class="fa-solid fa-circle-minus icon-embed-btn"></i>
-		<?=gettext("Hide Last Activity")?>
-	</a>
-<?php
-	else:
-?>
-	<a href="status_captiveportal.php?zone=<?=htmlspecialchars($cpzone)?>&amp;showact=1" role="button" class="btn btn-info" title="<?=gettext("Show last activity")?>">
-		<i class="fa-solid fa-circle-plus icon-embed-btn"></i>
-		<?=gettext("Show Last Activity")?>
-	</a>
-<?php
-	endif;
-?>
-	<a href="status_captiveportal.php?zone=<?=htmlspecialchars($cpzone)?>&amp;deleteall=1" role="button" class="btn btn-danger" title="<?=gettext("Disconnect all active users")?>" usepost>
-		<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-		<?=gettext("Disconnect All Users")?>
-	</a>
-<?php
-endif;
-?>
-</nav>
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	// Show another zone when the picker changes
+	$('[data-fs-zone-picker] select').on('change', function() {
+		this.form.submit();
+	});
+});
+//]]>
+</script>
 <?php include("foot.inc");
