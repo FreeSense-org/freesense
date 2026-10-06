@@ -59,7 +59,10 @@ $pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Pre-Shared Keys"));
 $pglinks = array("", "vpn_ipsec.php", "@self");
 $shortcut_section = "ipsec";
 
-fs_page_action(gettext('Add key'), 'vpn_ipsec_keys_edit.php', 'fa-plus');
+$can_edit = isAllowedPage('vpn_ipsec_keys_edit.php');
+if ($can_edit) {
+	fs_page_action(gettext('Add key'), 'vpn_ipsec_keys_edit.php', 'fa-plus');
+}
 include("head.inc");
 
 if ($_POST['apply']) {
@@ -71,96 +74,121 @@ if (is_subsystem_dirty('ipsec')) {
 }
 
 fs_tabs('vpn-ipsec', 'vpn_ipsec_keys.php');
+
+/* user account keys (edited in the user manager) first, then the mobile keys */
+$rows = array();
+foreach ($userkeys as $secretent) {
+	$rows[] = array('source' => 'user', 'ident' => ($secretent['ident'] == 'allusers') ? gettext("ANY USER") : $secretent['ident'],
+	    'type' => empty($secretent['type']) ? 'PSK' : $secretent['type'], 'key' => $secretent['pre-shared-key'], 'id' => $secretent['id'], 'ent' => array());
+}
+foreach (config_get_path('ipsec/mobilekey', []) as $i => $secretent) {
+	$rows[] = array('source' => 'key', 'ident' => $secretent['ident'], 'type' => empty($secretent['type']) ? 'PSK' : $secretent['type'],
+	    'key' => $secretent['pre-shared-key'], 'id' => $i, 'ent' => $secretent);
+}
+$ident_types = ipsec_psk_ident_type_list();
 ?>
+
+<style>
+.fs-psk-ident { font-weight: 600; color: var(--fs-text-strong); word-break: break-all; }
+.fs-psk-meta { display: flex; flex-wrap: wrap; gap: .15rem .5rem; margin-top: .15rem; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-psk-type { display: inline-block; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.4rem; }
+.fs-psk-type.is-eap { border-color: color-mix(in srgb, var(--fs-info) 50%, transparent); color: var(--fs-info); }
+.fs-psk-secret { display: inline-flex; align-items: center; gap: .25rem; max-width: 100%; }
+.fs-psk-secret > code { color: var(--fs-text); font-family: var(--fs-font-mono, monospace); font-size: var(--fs-fs-sm); word-break: break-all; }
+.fs-psk-reveal { border: 0; background: transparent; }
+</style>
 
 <div class="panel panel-default fs-table">
 <?php fs_table_toolbar([
-	'title' => gettext('Pre-Shared Keys'),
-	'search' => gettext('Search pre-shared keys…'),
+	'title' => gettext('Pre-shared keys'),
+	'search' => gettext('Search identifiers…'),
 	'noun' => gettext('pre-shared keys'),
 	'noun_one' => gettext('pre-shared key'),
+	'filters' => [
+		'type' => [gettext('All types'), 'PSK' => 'PSK', 'EAP' => 'EAP'],
+		'source' => [gettext('All sources'), 'key' => gettext('Mobile keys'), 'user' => gettext('User accounts')],
+	],
 ]); ?>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-hover table-rowdblclickedit">
-				<thead>
-					<tr>
-						<th data-fs-search><?=gettext("Identifier"); ?></th>
-						<th data-fs-search><?=gettext("Type"); ?></th>
-						<th data-fs-search><?=gettext("Pre-Shared Key"); ?></th>
-						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
-					</tr>
-				</thead>
-				<tbody>
-<?php $i = 0; foreach ($userkeys as $secretent): ?>
-					<tr>
-						<td>
-							<?php
-							if ($secretent['ident'] == 'allusers') {
-								echo gettext("ANY USER");
-							} else {
-								echo htmlspecialchars($secretent['ident']);
-							}
-							?>
-						</td>
-						<td>
-							<?php
-							if (empty($secretent['type'])) {
-								echo 'PSK';
-							} else {
-								echo htmlspecialchars($secretent['type']);
-							}
-							?>
-						</td>
-						<td>
-							<?=htmlspecialchars($secretent['pre-shared-key'])?>
-						</td>
-						<td class="fs-col-actions">
-<?=fs_row_actions([
-								['custom', "system_usermanager.php?act=edit&userid=" . urlencode($secretent['id']), $secretent['ident'],
-								    ['icon' => 'fa-solid fa-user-pen', 'label' => sprintf(gettext('Edit user %s'), $secretent['ident'])]],
-							])?>
-						</td>
-					</tr>
-<?php $i++; endforeach; ?>
-
-<?php $i = 0; foreach (config_get_path('ipsec/mobilekey', []) as $secretent): ?>
-					<tr>
-						<td>
-							<?=htmlspecialchars($secretent['ident'])?>
-						</td>
-						<td>
-							<?php
-							if (empty($secretent['type'])) {
-								echo 'PSK';
-							} else {
-								echo htmlspecialchars($secretent['type']);
-							}
-							?>
-						</td>
-						<td>
-							<?=htmlspecialchars($secretent['pre-shared-key'])?>
-						</td>
-						<td class="fs-col-actions">
-<?=fs_row_actions([
-								['edit', "vpn_ipsec_keys_edit.php?id={$i}", $secretent['ident']],
-								['delete', "vpn_ipsec_keys.php?act=del&id={$i}", $secretent['ident'], ['thing' => gettext('pre-shared key')]],
-							])?>
-						</td>
-					</tr>
-<?php $i++; endforeach; ?>
-<?php if (empty($userkeys) && empty(config_get_path('ipsec/mobilekey', []))) {
-	fs_empty_row(4, gettext('No pre-shared keys yet.'), 'vpn_ipsec_keys_edit.php', gettext('Add key'));
+	<div class="panel-body table-responsive">
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("Identifier")?></th>
+					<th data-fs-search><?=gettext("Type")?></th>
+					<th><?=gettext("Pre-shared key")?></th>
+					<th data-fs-search class="d-none d-md-table-cell"><?=gettext("EAP options")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($rows as $row):
+	$ent = $row['ent'];
+	if ($row['source'] == 'user') {
+		$actions = array(['custom', "system_usermanager.php?act=edit&userid=" . urlencode($row['id']), $row['ident'],
+		    ['icon' => 'fa-solid fa-user-pen', 'label' => sprintf(gettext('Edit user %s'), $row['ident'])]]);
+	} else {
+		$actions = array();
+		if ($can_edit) {
+			$actions[] = ['edit', "vpn_ipsec_keys_edit.php?id={$row['id']}", $row['ident']];
+		}
+		$actions[] = ['delete', "vpn_ipsec_keys.php?act=del&id={$row['id']}", $row['ident'], ['thing' => gettext('pre-shared key')]];
+	}
+	$eap = array();
+	if (($row['type'] == 'EAP') && !empty($ent)) {
+		if (!empty($ent['ident_type'])) {
+			$eap[] = htmlspecialchars($ident_types[$ent['ident_type']] ?? $ent['ident_type']);
+		}
+		if (!empty($ent['pool_address'])) {
+			$eap[] = sprintf(gettext('Pool %s'), '<span class="fs-mono">' . htmlspecialchars($ent['pool_address'] . (strlen((string)$ent['pool_netbits']) ? '/' . $ent['pool_netbits'] : '')) . '</span>');
+		}
+		if (!empty($ent['dns_address'])) {
+			$eap[] = sprintf(gettext('DNS %s'), '<span class="fs-mono">' . htmlspecialchars($ent['dns_address']) . '</span>');
+		}
+	}
+	$show_label = sprintf(gettext('Show the key of %s'), $row['ident']);
+?>
+				<tr data-fs-filter-type="<?=htmlspecialchars($row['type'])?>" data-fs-filter-source="<?=$row['source']?>">
+					<td>
+						<span class="fs-psk-ident"><?=htmlspecialchars($row['ident'])?></span>
+						<div class="fs-psk-meta"><span><?=($row['source'] == 'user') ? gettext('User account') : gettext('Mobile key')?></span></div>
+					</td>
+					<td><span class="fs-psk-type<?=($row['type'] == 'EAP') ? ' is-eap' : ''?>"><?=htmlspecialchars($row['type'])?></span></td>
+					<td>
+						<span class="fs-psk-secret">
+							<code data-fs-secret="<?=htmlspecialchars($row['key'])?>">••••••••</code>
+							<button type="button" class="fs-action fs-psk-reveal" aria-pressed="false" title="<?=htmlspecialchars($show_label)?>" aria-label="<?=htmlspecialchars($show_label)?>"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+						</span>
+					</td>
+					<td class="d-none d-md-table-cell small"><?=$eap ? implode('<br>', $eap) : '<span class="fs-muted">' . gettext('none') . '</span>'?></td>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($rows)) {
+	fs_empty_row(5, gettext('No pre-shared keys yet.'), $can_edit ? 'vpn_ipsec_keys_edit.php' : null, $can_edit ? gettext('Add key') : null);
 } ?>
-				</tbody>
-			</table>
-		</div>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('An identifier of "any" sets the key for any user. Keys stored on a user account are edited in the user manager.')?>
 	</div>
 </div>
 
-<div class="infoblock">
-<?php
-print_info_box(gettext("PSK for any user can be set by using an identifier of any."), 'info', false);
-?>
-</div>
+<script>
+//<![CDATA[
+(function () {
+	/* keys are masked until shown; textContent only, never parsed as HTML */
+	document.querySelectorAll('.fs-psk-reveal').forEach(function (btn) {
+		btn.addEventListener('click', function () {
+			var code = btn.parentNode.querySelector('code');
+			var show = btn.getAttribute('aria-pressed') !== 'true';
+			code.textContent = show ? code.getAttribute('data-fs-secret') : '••••••••';
+			btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+			btn.querySelector('i').className = show ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+		});
+	});
+})();
+//]]>
+</script>
 <?php include("foot.inc"); ?>

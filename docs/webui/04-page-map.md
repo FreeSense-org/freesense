@@ -84,10 +84,10 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
-| vpn_ipsec | Special | badges, `fs_row_actions`, toolbar; keep P1/P2 nesting and the existing bulk. Deferred from Phase B to its own PR (deletes run through hidden submit buttons; needs test tunnels) | B+ | **H** |
+| vpn_ipsec | Special | **done** (Phase E): tiles, toolbar (search incl. phase 2 networks, status/IKE filters, bulk delete), phase 2 entries nested under each tunnel (collapsible) with mode, networks and proposal chips; toggles/deletes via `fs_row_actions` (same `toggle_N`/`del_N`/`togglep2_N`/`delp2_N` posts), move buttons shown while entries are selected, phase 2 bulk delete (`delp2`) | B+ | **H** |
 | vpn_ipsec_phase1, _phase2 | Editor | **done**: Expiration and Replacement and phase 1 Advanced Options are collapsible sections, closed unless a save failed | D | M |
-| vpn_ipsec_mobile, _settings | Settings | standard | D | |
-| vpn_ipsec_keys / _edit | List / Editor | standard | B / D | |
+| vpn_ipsec_mobile, _settings | Settings | **done** (Phase E): summary card, regrouped sections; rarely used options, RADIUS tuning and logging collapsible | D | |
+| vpn_ipsec_keys / _edit | List / Editor | **done** (Phase E): type/source filters, masked keys with show button, EAP options column; editor with summary card and an EAP options section | B / D | |
 | vpn_openvpn_server, _client, _csc | List + Editor (`act=edit`) | list view standard (badges, row actions); editor sections | B / D | M |
 | vpn_openvpn_server | List + Editor | **done** (Phase E): tiles, mode/state filters, mode badge, crypto chips; editor header card, cards General → Endpoint → Crypto → Tunnel → Clients, collapsible certificate checks / DNS-NetBIOS / ping / advanced; form parity checked in 28 states | E | |
 | vpn_l2tp | Settings | standard | D | **done** (Phase E): summary card, cards in fill-in order, RADIUS/Advanced collapsible |

@@ -66,123 +66,19 @@ $pglinks = array("", "vpn_ipsec.php", "@self");
 $shortcut_section = "ipsec";
 
 include("head.inc");
-?>
 
-	<script type="text/javascript">
-		//<![CDATA[
-
-		function pool_change() {
-
-			if (document.iform.pool_enable.checked) {
-				document.iform.pool_address.disabled = 0;
-				document.iform.pool_netbits.disabled = 0;
-			} else {
-				document.iform.pool_address.disabled = 1;
-				document.iform.pool_netbits.disabled = 1;
-			}
-		}
-
-		function pool_change_v6() {
-
-			if (document.iform.pool_enable_v6.checked) {
-				document.iform.pool_address_v6.disabled = 0;
-				document.iform.pool_netbits_v6.disabled = 0;
-			} else {
-				document.iform.pool_address_v6.disabled = 1;
-				document.iform.pool_netbits_v6.disabled = 1;
-			}
-		}
-
-		function radius_advanced_change() {
-
-			if (document.iform.radius_advanced_enable.checked) {
-				document.iform.radius_retransmit_base.disabled = 0;
-				document.iform.radius_retransmit_timeout.disabled = 0;
-				document.iform.radius_retransmit_tries.disabled = 0;
-				document.iform.radius_sockets.disabled = 0;
-			} else {
-				document.iform.radius_retransmit_base.disabled = 1;
-				document.iform.radius_retransmit_timeout.disabled = 1;
-				document.iform.radius_retransmit_tries.disabled = 1;
-				document.iform.radius_sockets.disabled = 1;
-			}
-		}
-
-		function dns_domain_change() {
-
-			if (document.iform.dns_domain_enable.checked) {
-				document.iform.dns_domain.disabled = 0;
-			} else {
-				document.iform.dns_domain.disabled = 1;
-			}
-		}
-
-		function dns_split_change() {
-
-			if (document.iform.dns_split_enable.checked) {
-				document.iform.dns_split.disabled = 0;
-			} else {
-				document.iform.dns_split.disabled = 1;
-			}
-		}
-
-		function dns_server_change() {
-
-			if (document.iform.dns_server_enable.checked) {
-				document.iform.dns_server1.disabled = 0;
-				document.iform.dns_server2.disabled = 0;
-				document.iform.dns_server3.disabled = 0;
-				document.iform.dns_server4.disabled = 0;
-			} else {
-				document.iform.dns_server1.disabled = 1;
-				document.iform.dns_server2.disabled = 1;
-				document.iform.dns_server3.disabled = 1;
-				document.iform.dns_server4.disabled = 1;
-			}
-		}
-
-		function wins_server_change() {
-
-			if (document.iform.wins_server_enable.checked) {
-				document.iform.wins_server1.disabled = 0;
-				document.iform.wins_server2.disabled = 0;
-			} else {
-				document.iform.wins_server1.disabled = 1;
-				document.iform.wins_server2.disabled = 1;
-			}
-		}
-
-		function pfs_group_change() {
-
-			if (document.iform.pfs_group_enable.checked) {
-				document.iform.pfs_group.disabled = 0;
-			} else {
-				document.iform.pfs_group.disabled = 1;
-			}
-		}
-
-		function login_banner_change() {
-
-			if (document.iform.login_banner_enable.checked) {
-				document.iform.login_banner.disabled = 0;
-			} else {
-				document.iform.login_banner.disabled = 1;
-			}
-		}
-
-		//]]>
-	</script>
-
-<?php
 if ($_POST['apply']) {
 	print_apply_result_box($retval);
 }
 if (is_subsystem_dirty('ipsec')) {
 	print_apply_box(gettext("The IPsec tunnel configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
+$mobile_p1 = null;
+$ph1found = false;
 foreach (config_get_path('ipsec/phase1', []) as $ph1ent) {
 	if (isset($ph1ent['mobile'])) {
 		$ph1found = true;
+		$mobile_p1 = $ph1ent;
 	}
 }
 if ($pconfig['enable'] && !$ph1found) {
@@ -195,19 +91,66 @@ if ($input_errors) {
 
 fs_tabs('vpn-ipsec', 'vpn_ipsec_mobile.php');
 
+/* summary of the saved settings (purely informative) */
+$saved = config_get_path('ipsec/client', []);
+$saved_sources = array_filter(explode(",", (string)($saved['user_source'] ?? '')));
+$saved_pools = array();
+if (!empty($saved['pool_address'])) {
+	$saved_pools[] = $saved['pool_address'] . '/' . $saved['pool_netbits'];
+}
+if (!empty($saved['pool_address_v6'])) {
+	$saved_pools[] = $saved['pool_address_v6'] . '/' . $saved['pool_netbits_v6'];
+}
+$saved_dns = array_filter(array($saved['dns_server1'] ?? '', $saved['dns_server2'] ?? '', $saved['dns_server3'] ?? '', $saved['dns_server4'] ?? ''));
+?>
+<style>
+.fs-ipsec-sum { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; padding: 1rem 1.25rem; }
+.fs-ipsec-sum-head { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.fs-ipsec-sum-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
+.fs-ipsec-sum-title { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); }
+.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-ipsec-sum-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
+.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
+.fs-ipsec-sum-facts dd { margin: 0; color: var(--fs-text-strong); word-break: break-word; }
+</style>
+<div class="panel panel-default">
+	<div class="fs-ipsec-sum">
+		<div class="fs-ipsec-sum-head">
+			<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i></span>
+			<div>
+				<div class="fs-ipsec-sum-title"><?=gettext('Mobile clients')?> <?=isset($saved['enable']) ? fs_badge('enabled') : fs_badge('disabled')?></div>
+				<div class="fs-ipsec-sum-sub"><?=gettext('Remote access for road warriors (IKE mode-cfg)')?></div>
+			</div>
+		</div>
+		<dl class="fs-ipsec-sum-facts">
+			<div><dt><?=gettext('Phase 1')?></dt><dd>
+<?php if ($mobile_p1): ?>
+				<a href="vpn_ipsec_phase1.php?ikeid=<?=rawurlencode($mobile_p1['ikeid'])?>"><?=htmlspecialchars(($mobile_p1['descr'] ?? '') !== '' ? $mobile_p1['descr'] : sprintf(gettext('Tunnel %s'), $mobile_p1['ikeid']))?></a>
+<?php else: ?>
+				<span class="fs-muted"><?=gettext('Not defined')?></span>
+<?php endif; ?>
+			</dd></div>
+			<div><dt><?=gettext('User authentication')?></dt><dd><?=$saved_sources ? htmlspecialchars(implode(', ', $saved_sources)) : '<span class="fs-muted">' . gettext('Not set') . '</span>'?></dd></div>
+			<div><dt><?=gettext('Address pool')?></dt><dd class="fs-mono"><?=$saved_pools ? htmlspecialchars(implode(', ', $saved_pools)) : '<span class="fs-muted">' . gettext('none') . '</span>'?></dd></div>
+			<div><dt><?=gettext('DNS servers')?></dt><dd class="fs-mono"><?=$saved_dns ? htmlspecialchars(implode(', ', $saved_dns)) : '<span class="fs-muted">' . gettext('none') . '</span>'?></dd></div>
+		</dl>
+	</div>
+</div>
+<?php
+
 $form = new Form;
 
-$section = new Form_Section('Enable IPsec Mobile Client Support');
+$section = new Form_Section('Mobile client support');
 $section->addInput(new Form_Checkbox(
 	'enable',
 	'IKE Extensions',
 	'Enable IPsec Mobile Client Support',
 	$pconfig['enable']
-));
+))->setHelp('Mobile clients also need a mobile phase 1 entry on the Tunnels tab.');
 
 $form->add($section);
 
-$section = new Form_Section('Extended Authentication (Xauth)');
+$section = new Form_Section('User authentication (Xauth)');
 
 $authServers = ipsec_mobile_user_sources();
 
@@ -249,15 +192,12 @@ $section->addInput(new Form_Checkbox(
 	'RADIUS Accounting',
 	'Enable RADIUS Accounting',
 	$pconfig['radiusaccounting']
-))->setHelp('When enabled, the IPsec daemon will attempt to send RADIUS accounting ' .
-		'data for mobile IPsec connections with Virtual IP addresses. ' .
-		'Do not enable this option unless the selected RADIUS servers are online and ' .
-		'capable of receiving RADIUS accounting data. If RADIUS accounting data is ' .
-		'enabled and fails to send, tunnels will be disconnected.');
+))->setHelp('Sends RADIUS accounting data for mobile connections with virtual IP addresses. ' .
+		'Only enable it when the selected RADIUS servers accept accounting data: if sending fails, tunnels are disconnected.');
 
 $form->add($section);
 
-$section = new Form_Section('Client Configuration (mode-cfg)');
+$section = new Form_Section('Client addresses (mode-cfg)');
 
 $section->addInput(new Form_Checkbox(
 	'pool_enable',
@@ -341,6 +281,181 @@ $section->addInput(new Form_Checkbox(
 ));
 
 $section->addInput(new Form_Checkbox(
+	'net_list_enable',
+	'Network List',
+	'Provide a list of accessible networks to clients',
+	$pconfig['net_list_enable']
+));
+
+$form->add($section);
+
+$section = new Form_Section('DNS');
+
+$section->addInput(new Form_Checkbox(
+	'dns_domain_enable',
+	'DNS Default Domain',
+	'Provide a default domain name to clients',
+	$pconfig['dns_domain_enable']
+))->toggles('.toggle-dns_domain');
+
+$group = new Form_Group('');
+$group->addClass('toggle-dns_domain collapse');
+
+if (!empty($pconfig['dns_domain_enable'])) {
+	$group->addClass('show');
+}
+
+$group->add(new Form_Input(
+	'dns_domain',
+	'',
+	'text',
+	$pconfig['dns_domain']
+))->setHelp('Specify domain as DNS Default Domain');
+
+$section->add($group);
+
+$section->addInput(new Form_Checkbox(
+	'dns_split_enable',
+	'Split DNS',
+	'Provide a list of split DNS domain names to clients. Enter a space separated list.',
+	$pconfig['dns_split_enable']
+))->toggles('.toggle-dns_split');
+
+$group = new Form_Group('');
+$group->addClass('toggle-dns_split collapse');
+
+if (!empty($pconfig['dns_split_enable'])) {
+	$group->addClass('show');
+}
+
+$group->add(new Form_Input(
+	'dns_split',
+	'',
+	'text',
+	$pconfig['dns_split']
+))->setHelp('If left blank and a default domain is set, the default domain is used.');
+
+$section->add($group);
+
+$section->addInput(new Form_Checkbox(
+	'dns_server_enable',
+	'DNS Servers',
+	'Provide a DNS server list to clients',
+	$pconfig['dns_server_enable']
+))->setHelp('IPv4-mapped IPv6 addresses (ex: fd00::1.2.3.4) are not supported.')->toggles('.toggle-dns_server_enable');
+
+for ($i = 1; $i <= 4; $i++) {
+	$group = new Form_Group('Server #' . $i);
+	$group->addClass('toggle-dns_server_enable collapse');
+
+	if (!empty($pconfig['dns_server_enable'])) {
+		$group->addClass('show');
+	}
+
+	$group->add(new Form_Input(
+		'dns_server' . $i,
+		'Server #' . $i,
+		'text',
+		$pconfig['dns_server' . $i]
+	));
+
+	$section->add($group);
+}
+
+$form->add($section);
+
+/* rarely changed client options: closed unless one is in use or a save failed */
+$other_open = !empty($input_errors) || !empty($pconfig['wins_server_enable']) || !empty($pconfig['pfs_group_enable']) ||
+    !empty($pconfig['login_banner_enable']) || !empty($pconfig['save_passwd_enable']);
+$section = new Form_Section('Other client options', 'ipsec-mobile-other', COLLAPSIBLE | ($other_open ? SEC_OPEN : SEC_CLOSED));
+
+$section->addInput(new Form_Checkbox(
+	'save_passwd_enable',
+	'Save Xauth Password',
+	'Allow clients to save Xauth passwords (Cisco VPN client only).',
+	$pconfig['save_passwd_enable']
+))->setHelp('With iPhone clients, this only works for manual entry, not when deployed with the iPhone configuration utility.');
+
+$section->addInput(new Form_Checkbox(
+	'wins_server_enable',
+	'WINS Servers',
+	'Provide a WINS server list to clients',
+	$pconfig['wins_server_enable']
+))->toggles('.toggle-wins_server_enable');
+
+for ($i = 1; $i <= 2; $i++) {
+	$group = new Form_Group('Server #' . $i);
+	$group->addClass('toggle-wins_server_enable collapse');
+
+	if (!empty($pconfig['wins_server_enable'])) {
+		$group->addClass('show');
+	}
+
+	$group->add(new Form_Input(
+		'wins_server' . $i,
+		'Server #' . $i,
+		'text',
+		$pconfig['wins_server' . $i],
+		array('size' => 20)
+	));
+
+	$section->add($group);
+}
+
+$section->addInput(new Form_Checkbox(
+	'pfs_group_enable',
+	'Phase2 PFS Group',
+	'Provide the Phase2 PFS group to clients ( overrides all mobile phase2 settings )',
+	$pconfig['pfs_group_enable']
+))->toggles('.toggle-pfs_group');
+
+$group = new Form_Group('Group');
+$group->addClass('toggle-pfs_group collapse');
+
+if (!empty($pconfig['pfs_group_enable'])) {
+	$group->addClass('show');
+}
+
+$group->add(new Form_Select(
+	'pfs_group',
+	'Group',
+	$pconfig['pfs_group'],
+	$p2_pfskeygroups
+))->setHelp('Groups 1, 2, 5, 22, 23 and 24 provide weak security and should be avoided.');
+
+$section->add($group);
+
+$section->addInput(new Form_Checkbox(
+	'login_banner_enable',
+	'Login Banner',
+	'Provide a login banner to clients',
+	$pconfig['login_banner_enable']
+))->toggles('.toggle-login_banner');
+
+$group = new Form_Group('');
+$group->addClass('toggle-login_banner collapse');
+
+if (!empty($pconfig['login_banner_enable'])) {
+	$group->addClass('show');
+}
+
+// TODO: should be a textarea
+$group->add(new Form_Input(
+	'login_banner',
+	'',
+	'text',
+	$pconfig['login_banner']
+));
+
+$section->add($group);
+
+$form->add($section);
+
+/* RADIUS tuning: closed unless in use or a save failed */
+$section = new Form_Section('RADIUS advanced parameters', 'ipsec-mobile-radius',
+    COLLAPSIBLE | ((!empty($input_errors) || !empty($pconfig['radius_advanced'])) ? SEC_OPEN : SEC_CLOSED));
+
+$section->addInput(new Form_Checkbox(
 	'radius_advanced',
 	'RADIUS Advanced Parameters',
 	'Set Advanced RADIUS parameters',
@@ -389,164 +504,6 @@ $group->add(new Form_Input(
 	['placeholder' => 1]
 ))->setHelp('%1$sSockets%2$s -%3$sNumber of sockets (ports) to use, increase for high load.',
 	'<b>', '</b>', '<br/>');
-
-$section->add($group);
-
-$section->addInput(new Form_Checkbox(
-	'net_list_enable',
-	'Network List',
-	'Provide a list of accessible networks to clients',
-	$pconfig['net_list_enable']
-));
-
-$section->addInput(new Form_Checkbox(
-	'save_passwd_enable',
-	'Save Xauth Password',
-	'Allow clients to save Xauth passwords (Cisco VPN client only).',
-	$pconfig['save_passwd_enable']
-))->setHelp('NOTE: With iPhone clients, this does not work when deployed via the iPhone configuration utility, only by manual entry.');
-
-$section->addInput(new Form_Checkbox(
-	'dns_domain_enable',
-	'DNS Default Domain',
-	'Provide a default domain name to clients',
-	$pconfig['dns_domain_enable']
-))->toggles('.toggle-dns_domain');
-
-$group = new Form_Group('');
-$group->addClass('toggle-dns_domain collapse');
-
-if (!empty($pconfig['dns_domain_enable'])) {
-	$group->addClass('show');
-}
-
-$group->add(new Form_Input(
-	'dns_domain',
-	'',
-	'text',
-	$pconfig['dns_domain']
-))->setHelp('Specify domain as DNS Default Domain');
-
-$section->add($group);
-
-$section->addInput(new Form_Checkbox(
-	'dns_split_enable',
-	'Split DNS',
-	'Provide a list of split DNS domain names to clients. Enter a space separated list.',
-	$pconfig['dns_split_enable']
-))->toggles('.toggle-dns_split');
-
-$group = new Form_Group('');
-$group->addClass('toggle-dns_split collapse');
-
-if (!empty($pconfig['dns_split_enable'])) {
-	$group->addClass('show');
-}
-
-$group->add(new Form_Input(
-	'dns_split',
-	'',
-	'text',
-	$pconfig['dns_split']
-))->setHelp('NOTE: If left blank, and a default domain is set, it will be used for this value.');
-
-$section->add($group);
-
-$section->addInput(new Form_Checkbox(
-	'dns_server_enable',
-	'DNS Servers',
-	'Provide a DNS server list to clients',
-	$pconfig['dns_server_enable']
-))->setHelp('NOTE: IPv4-mapped IPv6 addresses (ex: fd00::1.2.3.4) are not supported.')->toggles('.toggle-dns_server_enable');
-
-for ($i = 1; $i <= 4; $i++) {
-	$group = new Form_Group('Server #' . $i);
-	$group->addClass('toggle-dns_server_enable collapse');
-
-	if (!empty($pconfig['dns_server_enable'])) {
-		$group->addClass('show');
-	}
-
-	$group->add(new Form_Input(
-		'dns_server' . $i,
-		'Server #' . $i,
-		'text',
-		$pconfig['dns_server' . $i]
-	));
-
-	$section->add($group);
-}
-
-$section->addInput(new Form_Checkbox(
-	'wins_server_enable',
-	'WINS Servers',
-	'Provide a WINS server list to clients',
-	$pconfig['wins_server_enable']
-))->toggles('.toggle-wins_server_enable');
-
-for ($i = 1; $i <= 2; $i++) {
-	$group = new Form_Group('Server #' . $i);
-	$group->addClass('toggle-wins_server_enable collapse');
-
-	if (!empty($pconfig['wins_server_enable'])) {
-		$group->addClass('show');
-	}
-
-	$group->add(new Form_Input(
-		'wins_server' . $i,
-		'Server #' . $i,
-		'text',
-		$pconfig['wins_server' . $i],
-		array('size' => 20)
-	));
-
-	$section->add($group);
-}
-
-$section->addInput(new Form_Checkbox(
-	'pfs_group_enable',
-	'Phase2 PFS Group',
-	'Provide the Phase2 PFS group to clients ( overrides all mobile phase2 settings )',
-	$pconfig['pfs_group_enable']
-))->toggles('.toggle-pfs_group');
-
-$group = new Form_Group('Group');
-$group->addClass('toggle-pfs_group collapse');
-
-if (!empty($pconfig['pfs_group_enable'])) {
-	$group->addClass('show');
-}
-
-$group->add(new Form_Select(
-	'pfs_group',
-	'Group',
-	$pconfig['pfs_group'],
-	$p2_pfskeygroups
-))->setHelp('Note: Groups 1, 2, 5, 22, 23, and 24 provide weak security and should be avoided.');
-
-$section->add($group);
-
-$section->addInput(new Form_Checkbox(
-	'login_banner_enable',
-	'Login Banner',
-	'Provide a login banner to clients',
-	$pconfig['login_banner_enable']
-))->toggles('.toggle-login_banner');
-
-$group = new Form_Group('');
-$group->addClass('toggle-login_banner collapse');
-
-if (!empty($pconfig['login_banner_enable'])) {
-	$group->addClass('show');
-}
-
-// TODO: should be a textarea
-$group->add(new Form_Input(
-	'login_banner',
-	'',
-	'text',
-	$pconfig['login_banner']
-));
 
 $section->add($group);
 
