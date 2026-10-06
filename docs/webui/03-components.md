@@ -187,6 +187,18 @@ A sticky `thead` is **not** implemented yet: `.table-responsive` scrolls horizon
 Bulk buttons are `type="submit"` with the **existing** `name` (`del_x`, `toggle_x`, …) inside the page's existing
 `<form>`. The server handlers are unchanged. Only offer bulk for actions whose handler already accepts arrays.
 
+Lists whose `<table>` arrives later (loaded over AJAX, e.g. `pkg_mgr.php`) render the `.fs-table` card and toolbar
+with the page and insert only the table. After inserting it, call the public re-init hook:
+
+```js
+$('#pkgtbl').html(data);
+FreeSenseUI.initTables(document.getElementById('pkg-list'));   // or initTables() for the whole document
+```
+
+`FreeSenseUI.initTables(root)` enhances every `.fs-table` inside `root` (or `root` itself) that has a table and is
+not enhanced yet (`root._fsTable.table`), makes a `data-sortable` table sortable and keeps its `aria-sort` in step.
+Calling it again is harmless; the page-load enhancement is unchanged.
+
 Server-filtered lists (logs, states, leases, ARP/NDP) keep their server filter. Pass `'search' => false`,
 put their controls into the same toolbar markup (`fs_table_toolbar(['custom' => $html])`) and keep the count.
 
