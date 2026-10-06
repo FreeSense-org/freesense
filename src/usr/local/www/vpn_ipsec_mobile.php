@@ -102,41 +102,22 @@ if (!empty($saved['pool_address_v6'])) {
 	$saved_pools[] = $saved['pool_address_v6'] . '/' . $saved['pool_netbits_v6'];
 }
 $saved_dns = array_filter(array($saved['dns_server1'] ?? '', $saved['dns_server2'] ?? '', $saved['dns_server3'] ?? '', $saved['dns_server4'] ?? ''));
-?>
-<style>
-.fs-ipsec-sum { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; padding: 1rem 1.25rem; }
-.fs-ipsec-sum-head { display: flex; align-items: center; gap: .75rem; min-width: 0; }
-.fs-ipsec-sum-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
-.fs-ipsec-sum-title { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); }
-.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
-.fs-ipsec-sum-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
-.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
-.fs-ipsec-sum-facts dd { margin: 0; color: var(--fs-text-strong); word-break: break-word; }
-</style>
-<div class="panel panel-default">
-	<div class="fs-ipsec-sum">
-		<div class="fs-ipsec-sum-head">
-			<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i></span>
-			<div>
-				<div class="fs-ipsec-sum-title"><?=gettext('Mobile clients')?> <?=isset($saved['enable']) ? fs_badge('enabled') : fs_badge('disabled')?></div>
-				<div class="fs-ipsec-sum-sub"><?=gettext('Remote access for road warriors (IKE mode-cfg)')?></div>
-			</div>
-		</div>
-		<dl class="fs-ipsec-sum-facts">
-			<div><dt><?=gettext('Phase 1')?></dt><dd>
-<?php if ($mobile_p1): ?>
-				<a href="vpn_ipsec_phase1.php?ikeid=<?=rawurlencode($mobile_p1['ikeid'])?>"><?=htmlspecialchars(($mobile_p1['descr'] ?? '') !== '' ? $mobile_p1['descr'] : sprintf(gettext('Tunnel %s'), $mobile_p1['ikeid']))?></a>
-<?php else: ?>
-				<span class="fs-muted"><?=gettext('Not defined')?></span>
-<?php endif; ?>
-			</dd></div>
-			<div><dt><?=gettext('User authentication')?></dt><dd><?=$saved_sources ? htmlspecialchars(implode(', ', $saved_sources)) : '<span class="fs-muted">' . gettext('Not set') . '</span>'?></dd></div>
-			<div><dt><?=gettext('Address pool')?></dt><dd class="fs-mono"><?=$saved_pools ? htmlspecialchars(implode(', ', $saved_pools)) : '<span class="fs-muted">' . gettext('none') . '</span>'?></dd></div>
-			<div><dt><?=gettext('DNS servers')?></dt><dd class="fs-mono"><?=$saved_dns ? htmlspecialchars(implode(', ', $saved_dns)) : '<span class="fs-muted">' . gettext('none') . '</span>'?></dd></div>
-		</dl>
-	</div>
-</div>
-<?php
+
+fs_summary_card([
+	'icon' => 'fa-mobile-screen',
+	'title' => gettext('Mobile clients'),
+	'subtitle' => gettext('Remote access for road warriors (IKE mode-cfg)'),
+	'badges' => [isset($saved['enable']) ? fs_badge('enabled') : fs_badge('disabled')],
+	'facts' => [
+		$mobile_p1
+		    ? [gettext('Phase 1'), (($mobile_p1['descr'] ?? '') !== '') ? $mobile_p1['descr'] : sprintf(gettext('Tunnel %s'), $mobile_p1['ikeid']), 'href' => 'vpn_ipsec_phase1.php?ikeid=' . rawurlencode($mobile_p1['ikeid'])]
+		    : [gettext('Phase 1'), '', 'empty' => gettext('Not defined')],
+		[gettext('User authentication'), implode(', ', $saved_sources)],
+		[gettext('Address pool'), implode(', ', $saved_pools), 'mono' => true, 'empty' => gettext('none')],
+		[gettext('DNS servers'), implode(', ', $saved_dns), 'mono' => true, 'empty' => gettext('none')],
+	],
+	'label' => gettext('Mobile clients summary'),
+]);
 
 $form = new Form;
 

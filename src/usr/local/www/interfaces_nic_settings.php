@@ -224,14 +224,8 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 ?>
 
 <style>
-.fs-nic-chips { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-.fs-nic-chip {
-	position: relative; display: inline-block; min-width: 2.6rem; padding: .05rem .45rem; border-radius: var(--fs-r-sm);
-	border: 1px solid var(--fs-border); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.35rem; text-align: center; white-space: nowrap;
-}
-.fs-nic-chip.is-on { border-color: color-mix(in srgb, var(--fs-pass) 45%, transparent); background: color-mix(in srgb, var(--fs-pass) 12%, transparent); color: var(--fs-pass); }
-.fs-nic-chip.is-off { color: var(--fs-text-muted); }
-.fs-nic-chip.is-na { color: var(--fs-text-muted); opacity: .45; text-decoration: line-through; }
+/* offload chips: fixed width so the four columns line up; a dot marks a per-adapter override */
+.fs-nic-chip { position: relative; min-width: 2.6rem; text-align: center; }
 .fs-nic-chip.is-custom::after { content: ""; position: absolute; top: -3px; right: -3px; width: 7px; height: 7px; border-radius: 50%; background: var(--fs-coral); }
 .fs-nic-custom { margin-left: .35rem; padding: 0 .35rem; border-radius: var(--fs-r-sm); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-family: var(--bs-body-font-family); font-size: var(--fs-fs-xs); font-weight: 600; }
 .fs-nic-legend { display: flex; flex-wrap: wrap; gap: .4rem 1.25rem; align-items: center; }
@@ -249,9 +243,6 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 .fs-nic-facts { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: .5rem 1rem; margin: 0 0 1rem; }
 .fs-nic-facts dt { color: var(--fs-text-muted); font-weight: 500; }
 .fs-nic-facts dd { margin: 0; }
-.fs-nic-caps { display: flex; flex-wrap: wrap; gap: 4px; }
-.fs-nic-cap { padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text-muted); font-family: var(--fs-font-mono, monospace); font-size: var(--fs-fs-xs); line-height: 1.4rem; }
-.fs-nic-cap.is-on { border-color: color-mix(in srgb, var(--fs-pass) 45%, transparent); color: var(--fs-pass); }
 .fs-nic-pad { padding: 1rem; }
 .fs-nic-pad > p { margin-bottom: .85rem; }
 .fs-nic-subtitle { margin: 1rem 0 .5rem; font-size: 1rem; font-weight: 600; }
@@ -317,7 +308,7 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 						<?=htmlspecialchars((string)($nic['mtu'] ?? '-'))?>
 						<?php if (isset($saved['mtu'])): ?><span class="fs-nic-custom" title="<?=gettext('Set on this adapter')?>"><?=gettext('custom')?></span><?php endif; ?>
 					</td>
-					<td><div class="fs-nic-chips">
+					<td><div class="fs-chips">
 <?php foreach (['checksum', 'tso', 'lro', 'vlan'] as $setting):
 	$supported = nic_ui_supported($nic, $setting);
 	$on = $supported && ($nic['effective'][$setting] === 'on');
@@ -325,7 +316,7 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 	$state = !$supported ? gettext('not supported') : ($on ? gettext('on') : gettext('off'));
 	$title = $settings[$setting] . ': ' . $state . ($custom ? ' (' . gettext('set on this adapter') . ')' : '');
 ?>
-						<span class="fs-nic-chip <?=!$supported ? 'is-na' : ($on ? 'is-on' : 'is-off')?><?=$custom ? ' is-custom' : ''?>" title="<?=htmlspecialchars($title)?>"><span class="visually-hidden"><?=htmlspecialchars($title)?></span><span aria-hidden="true"><?=htmlspecialchars($short[$setting])?></span></span>
+						<span class="fs-chip fs-chip--strong fs-nic-chip <?=!$supported ? 'is-na' : ($on ? 'is-on' : 'is-off')?><?=$custom ? ' is-custom' : ''?>" title="<?=htmlspecialchars($title)?>"><span class="visually-hidden"><?=htmlspecialchars($title)?></span><span aria-hidden="true"><?=htmlspecialchars($short[$setting])?></span></span>
 <?php endforeach; ?>
 					</div></td>
 					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
@@ -338,10 +329,10 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 		</table>
 	</div>
 	<div class="panel-footer small fs-muted fs-nic-legend">
-		<span><span class="fs-nic-chip is-on" aria-hidden="true">on</span> <?=gettext('enabled')?></span>
-		<span><span class="fs-nic-chip is-off" aria-hidden="true">off</span> <?=gettext('disabled')?></span>
-		<span><span class="fs-nic-chip is-na" aria-hidden="true">n/a</span> <?=gettext('not supported by the adapter')?></span>
-		<span><span class="fs-nic-chip is-on is-custom" aria-hidden="true">set</span> <?=gettext('set on this adapter instead of the profile')?></span>
+		<span><span class="fs-chip fs-chip--strong fs-nic-chip is-on" aria-hidden="true">on</span> <?=gettext('enabled')?></span>
+		<span><span class="fs-chip fs-chip--strong fs-nic-chip is-off" aria-hidden="true">off</span> <?=gettext('disabled')?></span>
+		<span><span class="fs-chip fs-chip--strong fs-nic-chip is-na" aria-hidden="true">n/a</span> <?=gettext('not supported by the adapter')?></span>
+		<span><span class="fs-chip fs-chip--strong fs-nic-chip is-on is-custom" aria-hidden="true">set</span> <?=gettext('set on this adapter instead of the profile')?></span>
 	</div>
 </div>
 
@@ -411,9 +402,9 @@ foreach ($inventory as $nic):
 				<dt><?=gettext('Driver')?></dt><dd class="fs-mono"><?=htmlspecialchars($nic['driver'])?></dd>
 				<dt><?=gettext('MAC address')?></dt><dd class="fs-mono"><?=htmlspecialchars($nic['hwaddr'] ?? $nic['macaddr'] ?? $nic['mac'] ?? '-')?></dd>
 				<dt><?=gettext('Capabilities')?></dt>
-				<dd><div class="fs-nic-caps">
+				<dd><div class="fs-chips">
 <?php $caps = array_keys($nic['caps'] ?? []); sort($caps); foreach ($caps as $cap): $enabled = isset($nic['encaps'][$cap]); ?>
-					<span class="fs-nic-cap<?=$enabled ? ' is-on' : ''?>" title="<?=$enabled ? gettext('enabled') : gettext('supported, disabled')?>"><?=htmlspecialchars($cap)?></span>
+					<span class="fs-chip fs-chip--mono <?=$enabled ? 'is-on' : 'is-off'?>" title="<?=$enabled ? gettext('enabled') : gettext('supported, disabled')?>"><?=htmlspecialchars($cap)?></span>
 <?php endforeach; ?>
 <?php if (!$caps): ?><span class="fs-muted"><?=gettext('None reported')?></span><?php endif; ?>
 				</div><div class="form-text"><?=gettext('Highlighted capabilities are currently enabled.')?></div></dd>
@@ -454,9 +445,9 @@ foreach ($inventory as $nic):
 				<input type="radio" name="profile" value="<?=$key?>"<?=$active_profile === $key ? ' checked' : ''?>>
 				<span class="fs-nic-profile-name"><?=htmlspecialchars($label)?><?php if ($key === 'firewall'): ?> <?=fs_badge('info', gettext('Recommended'))?><?php endif; ?></span>
 				<span class="fs-nic-profile-help"><?=htmlspecialchars($profile_help[$key])?></span>
-				<span class="fs-nic-chips">
+				<span class="fs-chips">
 <?php foreach (['checksum', 'tso', 'lro', 'vlan'] as $setting): $on = $profiles[$key][$setting] === 'on'; ?>
-					<span class="fs-nic-chip <?=$on ? 'is-on' : 'is-off'?>" title="<?=htmlspecialchars($settings[$setting] . ': ' . ($on ? gettext('on') : gettext('off')))?>"><?=htmlspecialchars($short[$setting])?></span>
+					<span class="fs-chip fs-chip--strong fs-nic-chip <?=$on ? 'is-on' : 'is-off'?>" title="<?=htmlspecialchars($settings[$setting] . ': ' . ($on ? gettext('on') : gettext('off')))?>"><?=htmlspecialchars($short[$setting])?></span>
 <?php endforeach; ?>
 				</span>
 			</label>

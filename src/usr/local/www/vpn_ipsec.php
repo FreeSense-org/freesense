@@ -114,7 +114,7 @@ $p2_net_html = function ($idinfo, $mode, $popup) use ($ipsec_specialnet) {
 /* a proposal chip; weak algorithms get a warning mark */
 $chip_html = function (array $chip) {
 	$title = $chip['title'] . ($chip['weak'] ? ' (' . gettext('weak algorithm') . ')' : '');
-	return '<span class="fs-ipsec-chip' . ($chip['weak'] ? ' is-weak' : '') . '" title="' . htmlspecialchars($title) . '">' . htmlspecialchars($chip['text'])
+	return '<span class="fs-chip fs-chip--mono' . ($chip['weak'] ? ' is-warn' : '') . '" title="' . htmlspecialchars($title) . '">' . htmlspecialchars($chip['text'])
 	    . ($chip['weak'] ? '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span class="visually-hidden"> ' . htmlspecialchars(gettext('weak algorithm')) . '</span>' : '')
 	    . '</span>';
 };
@@ -228,13 +228,6 @@ $can_add = isAllowedPage('vpn_ipsec_phase1.php');
 <style>
 .fs-ipsec-name { font-weight: 600; color: var(--fs-text-strong); }
 .fs-ipsec-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .5rem; margin-top: .15rem; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
-.fs-ipsec-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.fs-ipsec-chip {
-	display: inline-block; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text);
-	font-family: var(--fs-font-mono, monospace); font-size: var(--fs-fs-xs); line-height: 1.4rem; white-space: nowrap;
-}
-.fs-ipsec-chip.is-weak { border-color: color-mix(in srgb, var(--fs-warn) 50%, transparent); background: color-mix(in srgb, var(--fs-warn) 10%, transparent); }
-.fs-ipsec-chip.is-weak > i { margin-left: .3rem; color: var(--fs-warn); font-size: .65rem; }
 .fs-ipsec-ike { display: inline-block; padding: 0 .4rem; border-radius: var(--fs-r-sm); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-weight: 600; line-height: 1.3rem; }
 .fs-ipsec-mode { display: inline-flex; align-items: center; gap: .3rem; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: 999px; color: var(--fs-text); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.35rem; white-space: nowrap; }
 .fs-ipsec-mode > i { color: var(--fs-text-muted); }
@@ -367,7 +360,7 @@ fs_tile(gettext('Phase 2 entries'), $counts['p2'], null, $counts['p2_disabled'] 
 <?php endif; ?>
 					</td>
 					<td class="d-none d-lg-table-cell">
-						<div class="fs-ipsec-chips">
+						<div class="fs-chips">
 							<?=implode('', array_map($chip_html, $t['proposals']))?>
 						</div>
 					</td>
@@ -437,13 +430,13 @@ fs_tile(gettext('Phase 2 entries'), $counts['p2'], null, $counts['p2_disabled'] 
 													<span><?=htmlspecialchars(sprintf(gettext('Req ID %s'), $ph2ent['reqid']))?></span>
 												</div>
 												<div class="d-md-none small mt-1"><?=$nets?></div>
-												<div class="d-lg-none fs-ipsec-chips mt-1">
+												<div class="d-lg-none fs-chips mt-1">
 													<?=implode('', array_map($chip_html, $c['chips']))?>
 												</div>
 											</td>
 											<td class="d-none d-md-table-cell"><?=$nets?></td>
 											<td class="d-none d-lg-table-cell">
-												<div class="fs-ipsec-chips">
+												<div class="fs-chips">
 													<?=implode('', array_map($chip_html, $c['chips']))?>
 												</div>
 											</td>

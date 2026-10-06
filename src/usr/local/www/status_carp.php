@@ -84,12 +84,14 @@ if ($_POST['disablecarp'] != "") {
 			$errmsg = gettext("CARP is already enabled.");
 		} else {
 			enable_carp(false);
+			$carp_counter = 0;
 			foreach ($viparr as $vip) {
 				if ($vip['mode'] != "carp" && $vip['mode'] != "ipalias")
 					continue;
 				if ($vip['mode'] == "ipalias" && substr($vip['interface'], 0, 4) != "_vip")
 					continue;
 				interface_vip_bring_down($vip);
+				$carp_counter++;
 			}
 			$savemsg = sprintf(gettext("%s IPs have been disabled. Please note that disabling does not survive a reboot and some configuration changes will re-enable."), $carp_counter);
 			$status = 0;

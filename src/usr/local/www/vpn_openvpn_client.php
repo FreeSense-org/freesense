@@ -139,16 +139,6 @@ fs_tabs('vpn-openvpn', 'vpn_openvpn_client.php');
 ?>
 
 <style>
-.fs-ovpn-summary .panel-body { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem 2rem; }
-.fs-ovpn-summary-id { display: flex; align-items: center; gap: .75rem; flex: 1 1 14rem; min-width: 0; }
-.fs-ovpn-summary-icon { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
-.fs-ovpn-summary-name { color: var(--fs-text-strong); font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
-.fs-ovpn-summary-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; margin-top: .2rem; }
-.fs-ovpn-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .6rem 1.5rem; flex: 3 1 28rem; min-width: 0; margin: 0; }
-.fs-ovpn-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
-.fs-ovpn-facts dd { margin: 0; overflow-wrap: anywhere; }
-.fs-ovpn-chips { display: inline-flex; flex-wrap: wrap; gap: .25rem; }
-.fs-ovpn-chip { display: inline-block; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.4rem; white-space: nowrap; }
 .fs-ovpn-sub { margin-top: .15rem; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
 </style>
 
@@ -168,32 +158,20 @@ if ($is_editor):
 	} else {
 		$sum_name = gettext('New client');
 	}
-?>
-<div class="panel panel-default fs-ovpn-summary">
-	<div class="panel-body">
-		<div class="fs-ovpn-summary-id">
-			<span class="fs-ovpn-summary-icon"><i class="fa-solid fa-plug" aria-hidden="true"></i></span>
-			<div>
-				<div class="fs-ovpn-summary-name"><?=htmlspecialchars($sum_name)?></div>
-				<div class="fs-ovpn-summary-sub">
-<?php if ($act == "edit"): ?>
-					<?=isset($sum['disable']) ? fs_badge('disabled') : fs_badge('enabled')?>
-					<span class="fs-mono fs-muted small">ovpnc<?=htmlspecialchars($vpnid)?></span>
-<?php else: ?>
-					<?=fs_badge('info', gettext('Not saved yet'))?>
-<?php endif; ?>
-				</div>
-			</div>
-		</div>
-		<dl class="fs-ovpn-facts">
-			<div><dt><?=gettext('Mode')?></dt><dd><?=htmlspecialchars(sprintf(gettext('Peer to peer, %s'), $client_mode_short[$sum_mode] ?? $sum_mode))?></dd></div>
-			<div><dt><?=gettext('Server')?></dt><dd><?=($sum_server !== '') ? '<span class="fs-mono">' . htmlspecialchars($sum_server) . '</span>' : '<span class="fs-muted">' . gettext('Not set') . '</span>'?></dd></div>
-			<div><dt><?=gettext('Protocol')?></dt><dd><span class="fs-ovpn-chips"><span class="fs-ovpn-chip"><?=htmlspecialchars($sum_prot)?></span><span class="fs-ovpn-chip"><?=htmlspecialchars($sum_dev)?></span></span><?php if ($sum_if): ?> <span class="fs-muted small"><?=htmlspecialchars(sprintf(gettext('via %s'), $sum_if))?></span><?php endif; ?></dd></div>
-			<div><dt><?=gettext('Tunnel network')?></dt><dd><?=(empty($sum['tunnel_network'])) ? '<span class="fs-muted">' . gettext('From server') . '</span>' : '<span class="fs-mono">' . htmlspecialchars($sum['tunnel_network']) . '</span>'?></dd></div>
-		</dl>
-	</div>
-</div>
-<?php
+
+	fs_summary_card([
+		'icon' => 'fa-plug',
+		'title' => $sum_name,
+		'badges' => ($act == "edit") ? [isset($sum['disable']) ? fs_badge('disabled') : fs_badge('enabled')] : [fs_badge('info', gettext('Not saved yet'))],
+		'meta' => ($act == "edit") ? 'ovpnc' . $vpnid : '',
+		'facts' => [
+			[gettext('Mode'), sprintf(gettext('Peer to peer, %s'), $client_mode_short[$sum_mode] ?? $sum_mode)],
+			[gettext('Server'), $sum_server, 'mono' => true],
+			[gettext('Protocol'), '', 'chips' => [$sum_prot, $sum_dev], 'note' => $sum_if ? sprintf(gettext('via %s'), $sum_if) : ''],
+			[gettext('Tunnel network'), (string)($sum['tunnel_network'] ?? ''), 'mono' => true, 'empty' => gettext('From server')],
+		],
+		'label' => gettext('Client summary'),
+	]);
 	$form = new Form();
 	$adv_state = COLLAPSIBLE | (!empty($input_errors) ? SEC_OPEN : SEC_CLOSED);
 
@@ -864,7 +842,7 @@ else:
 						<span class="fs-mono"><?=htmlspecialchars($server)?></span>
 						<div class="fs-ovpn-sub"><?=htmlspecialchars(sprintf(gettext('via %s'), convert_openvpn_interface_to_friendly_descr($client['interface'])))?></div>
 					</td>
-					<td><span class="fs-ovpn-chips"><span class="fs-ovpn-chip"><?=htmlspecialchars($client['protocol'])?></span><span class="fs-ovpn-chip"><?=htmlspecialchars(strtoupper(empty($client['dev_mode']) ? 'TUN' : $client['dev_mode']))?></span></span></td>
+					<td><span class="fs-chips"><span class="fs-chip fs-chip--strong"><?=htmlspecialchars($client['protocol'])?></span><span class="fs-chip fs-chip--strong"><?=htmlspecialchars(strtoupper(empty($client['dev_mode']) ? 'TUN' : $client['dev_mode']))?></span></span></td>
 					<td>
 						<?=($client['mode'] == 'p2p_shared_key') ? fs_badge('warn', $client_mode_short['p2p_shared_key'], gettext('Shared key mode is deprecated')) : fs_badge('info', $client_mode_short[$client['mode']] ?? $client['mode'])?>
 						<div class="fs-ovpn-sub" title="<?=htmlspecialchars($dc)?>"><?=htmlspecialchars(implode(' · ', array_filter(array(implode(', ', $dca), $client['digest'] ?? ''))))?></div>

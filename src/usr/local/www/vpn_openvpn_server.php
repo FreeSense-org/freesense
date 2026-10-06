@@ -157,20 +157,10 @@ if ($savemsg) {
 fs_tabs('vpn-openvpn', 'vpn_openvpn_server.php');
 ?>
 <style>
-.fs-ovpn-summary .panel-body { display: flex; flex-direction: column; gap: .85rem; padding: 1rem 1.25rem; }
-.fs-ovpn-summary-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
-.fs-ovpn-summary-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
-.fs-ovpn-summary-name { margin: 0; font-size: var(--fs-fs-lg, 1.1rem); font-weight: 600; color: var(--fs-text-strong); overflow-wrap: anywhere; }
-.fs-ovpn-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .6rem 1.5rem; margin: 0; }
-.fs-ovpn-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
-.fs-ovpn-facts dd { margin: .1rem 0 0; color: var(--fs-text-strong); overflow-wrap: anywhere; }
 .fs-ovpn-mode { display: inline-flex; flex-direction: column; gap: .1rem; }
 .fs-ovpn-kind { display: inline-block; align-self: flex-start; padding: 0 .5rem; border-radius: 999px; font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.35rem; white-space: nowrap;
 	background: color-mix(in srgb, var(--fs-info) 12%, transparent); color: var(--fs-info); border: 1px solid color-mix(in srgb, var(--fs-info) 35%, transparent); }
 .fs-ovpn-kind.is-p2p { background: var(--fs-accent-tint); color: var(--fs-coral-text); border-color: color-mix(in srgb, var(--fs-coral) 35%, transparent); }
-.fs-ovpn-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.fs-ovpn-chip { padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text-muted); font-family: var(--fs-font-mono); font-size: var(--fs-fs-xs); line-height: 1.4rem; white-space: nowrap; }
-.fs-ovpn-chip.is-on { border-color: color-mix(in srgb, var(--fs-pass) 45%, transparent); color: var(--fs-pass); }
 .fs-ovpn-sub { display: block; font-size: var(--fs-fs-xs); }
 .fs-ovpn-line { display: block; }
 .fs-ovpn-empty { display: none !important; }
@@ -186,28 +176,20 @@ if ($is_editor):
 	$sum_if = explode('|', (string)$server_summary['interface'])[0];
 	$sum_tunnel = array_filter([$server_summary['tunnel_network'] ?? '', $server_summary['tunnel_networkv6'] ?? '']);
 	$sum_name = $server_summary['description'] ?: ($server_summary_saved ? sprintf(gettext('Server %d'), $id + 1) : gettext('New server'));
-?>
-<div class="panel panel-default fs-ovpn-summary">
-	<div class="panel-body">
-		<div class="fs-ovpn-summary-head">
-			<span class="fs-ovpn-summary-icon"><i class="fa-solid fa-server" aria-hidden="true"></i></span>
-			<h2 class="fs-ovpn-summary-name"><?=htmlspecialchars($sum_name)?></h2>
-<?php if ($server_summary_saved): ?>
-			<?=empty($server_summary['disable']) ? fs_badge('enabled') : fs_badge('disabled')?>
-			<span class="fs-mono fs-muted">ovpns<?=htmlspecialchars($vpnid)?></span>
-<?php else: ?>
-			<?=fs_badge('pending', gettext('Not saved yet'))?>
-<?php endif; ?>
-		</div>
-		<dl class="fs-ovpn-facts">
-			<div><dt><?=gettext('Mode')?></dt><dd><?=htmlspecialchars(trim($sum_mode[0] . ($sum_mode[1] ? ' · ' . $sum_mode[1] : '')))?></dd></div>
-			<div><dt><?=gettext('Protocol / port')?></dt><dd class="fs-mono"><?=htmlspecialchars($server_summary['protocol'] ?: (array_key_first($openvpn_prots) ?? '–'))?> / <?=htmlspecialchars($server_summary['local_port'] ?: '–')?> · <?=htmlspecialchars(strtoupper($server_summary['dev_mode'] ?: 'tun'))?></dd></div>
-			<div><dt><?=gettext('Interface')?></dt><dd><?=htmlspecialchars(convert_openvpn_interface_to_friendly_descr($sum_if) ?: $sum_if)?></dd></div>
-			<div><dt><?=gettext('Tunnel network')?></dt><dd class="fs-mono"><?=empty($sum_tunnel) ? '<span class="fs-muted">' . gettext('None') . '</span>' : htmlspecialchars(implode(', ', $sum_tunnel))?></dd></div>
-		</dl>
-	</div>
-</div>
-<?php
+
+	fs_summary_card([
+		'icon' => 'fa-server',
+		'title' => $sum_name,
+		'badges' => $server_summary_saved ? [empty($server_summary['disable']) ? fs_badge('enabled') : fs_badge('disabled')] : [fs_badge('pending', gettext('Not saved yet'))],
+		'meta' => $server_summary_saved ? 'ovpns' . $vpnid : '',
+		'facts' => [
+			[gettext('Mode'), trim($sum_mode[0] . ($sum_mode[1] ? ' · ' . $sum_mode[1] : ''))],
+			[gettext('Protocol / port'), ($server_summary['protocol'] ?: (array_key_first($openvpn_prots) ?? '–')) . ' / ' . ($server_summary['local_port'] ?: '–') . ' · ' . strtoupper($server_summary['dev_mode'] ?: 'tun'), 'mono' => true],
+			[gettext('Interface'), convert_openvpn_interface_to_friendly_descr($sum_if) ?: $sum_if],
+			[gettext('Tunnel network'), implode(', ', $sum_tunnel), 'mono' => true, 'empty' => gettext('None')],
+		],
+		'label' => gettext('Server summary'),
+	]);
 
 	/* -------------------------------------------------------------------- general */
 	$section = new Form_Section('General', 'ovpn-general');
@@ -1176,23 +1158,23 @@ else:
 <?php	endforeach; ?>
 					</td>
 					<td>
-						<div class="fs-ovpn-chips">
+						<div class="fs-chips">
 <?php	foreach (array_slice($dca, 0, 3) as $cipher): ?>
-							<span class="fs-ovpn-chip"><?=htmlspecialchars($cipher)?></span>
+							<span class="fs-chip fs-chip--mono fs-chip--muted"><?=htmlspecialchars($cipher)?></span>
 <?php	endforeach; ?>
 <?php	if (!empty($dc_more)): ?>
-							<span class="fs-ovpn-chip" title="<?=htmlspecialchars(implode(', ', $dc_more))?>">+<?=count($dc_more)?></span>
+							<span class="fs-chip fs-chip--mono fs-chip--muted" title="<?=htmlspecialchars(implode(', ', $dc_more))?>">+<?=count($dc_more)?></span>
 <?php	endif; ?>
 <?php	if (!empty($server['digest'])): ?>
-							<span class="fs-ovpn-chip" title="<?=gettext('Auth digest')?>"><?=htmlspecialchars($server['digest'])?></span>
+							<span class="fs-chip fs-chip--mono fs-chip--muted" title="<?=gettext('Auth digest')?>"><?=htmlspecialchars($server['digest'])?></span>
 <?php	endif; ?>
 <?php	if (!empty($server['dh_length']) && is_numeric($server['dh_length'])): ?>
-							<span class="fs-ovpn-chip" title="<?=gettext('D-H parameters')?>">DH <?=htmlspecialchars($server['dh_length'])?></span>
+							<span class="fs-chip fs-chip--mono fs-chip--muted" title="<?=gettext('D-H parameters')?>">DH <?=htmlspecialchars($server['dh_length'])?></span>
 <?php	elseif (($server['dh_length'] ?? '') == "none"): ?>
-							<span class="fs-ovpn-chip" title="<?=gettext('D-H parameters')?>"><?=gettext('ECDH only')?></span>
+							<span class="fs-chip fs-chip--mono fs-chip--muted" title="<?=gettext('D-H parameters')?>"><?=gettext('ECDH only')?></span>
 <?php	endif; ?>
 <?php	if (!empty($server['tls']) && ($server['mode'] != 'p2p_shared_key')): ?>
-							<span class="fs-ovpn-chip is-on"><?=(($server['tls_type'] ?? '') == 'crypt') ? gettext('TLS crypt') : gettext('TLS auth')?></span>
+							<span class="fs-chip fs-chip--mono is-on"><?=(($server['tls_type'] ?? '') == 'crypt') ? gettext('TLS crypt') : gettext('TLS auth')?></span>
 <?php	endif; ?>
 						</div>
 					</td>

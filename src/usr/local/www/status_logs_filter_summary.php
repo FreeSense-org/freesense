@@ -220,14 +220,11 @@ endforeach;
 //<![CDATA[
 events.push(function() {
 	var charts = <?=json_encode(array_values($charts))?>;
-	/* categorical order, light and dark steps (same hues); "Other" stays neutral grey */
+	/* categorical series tokens (css/_freesense-tokens.css), in order; "Other" stays neutral grey */
 	var styles = getComputedStyle(document.body);
-	var bg = styles.backgroundColor.match(/\d+/g) || [255, 255, 255];
-	var dark = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) < 128;
-	var slots = dark
-	    ? ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181']
-	    : ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
-	var other = dark ? '#6b7380' : '#9aa3ae';
+	var token = function (name) { return styles.getPropertyValue(name).trim(); };
+	var slots = [1, 2, 3, 4, 5, 6, 7, 8].map(function (n) { return token('--fs-series-' + n); });
+	var other = token('--fs-series-other');
 	var surface = getComputedStyle(document.querySelector('.fs-sum-card') || document.body).backgroundColor;
 
 	document.querySelectorAll('.fs-sum-swatch[data-fs-slot]').forEach(function (el) {
@@ -264,7 +261,7 @@ events.push(function() {
 				enabled: true,
 				type: 'placeholder',
 				string: '{label}: {value} ({percentage}%)',
-				styles: { fadeInSpeed: 120, backgroundColor: dark ? '#e8ecf1' : '#1a1f27', backgroundOpacity: 0.95, color: dark ? '#1a1f27' : '#ffffff', borderRadius: 4, fontSize: 12, padding: 6 }
+				styles: { fadeInSpeed: 120, backgroundColor: token('--fs-text-strong'), backgroundOpacity: 0.95, color: token('--fs-surface'), borderRadius: 4, fontSize: 12, padding: 6 }
 			},
 			effects: { load: { effect: 'none' }, pullOutSegmentOnClick: { effect: 'none' }, highlightSegmentOnMouseover: true, highlightLuminosity: 0.15 },
 			misc: { colors: { segmentStroke: surface }, canvasPadding: { top: 2, right: 2, bottom: 2, left: 2 } }

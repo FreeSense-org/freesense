@@ -648,7 +648,6 @@ if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
 	if ($started['reason'] == 'failed') {
 		/* Make javascript happy not sending any \n */
 		$failmsg = preg_replace("/\n/", '%%', $failmsg);
-		file_put_contents("/tmp/lala", $failmsg, FILE_APPEND);
 	}
 }
 

@@ -74,43 +74,26 @@ if ($changes_applied) {
 
 fs_tabs('vpn-l2tp', 'vpn_l2tp.php');
 
-$dash = '<span class="fs-muted">' . gettext('Not set') . '</span>';
 ?>
 <style>
-.fs-l2tp-summary .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-4); padding: var(--fs-sp-4); }
-.fs-l2tp-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); }
-.fs-l2tp-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: var(--fs-fs-lg); }
-.fs-l2tp-name { flex: 1 1 12rem; min-width: 0; }
-.fs-l2tp-title { margin: 0; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; }
-.fs-l2tp-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
-.fs-l2tp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: 0; }
-.fs-l2tp-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
-.fs-l2tp-facts dd { margin: .15rem 0 0; color: var(--fs-text-strong); overflow-wrap: anywhere; }
-@media (max-width: 575.98px) { .fs-l2tp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .fs-l2tp-note { display: flex; gap: .6rem; margin-top: var(--fs-sp-4); padding: .6rem .8rem; border-radius: var(--fs-r-sm); background: var(--fs-surface-raised); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
 .fs-l2tp-note > i { margin-top: .2rem; color: var(--fs-info); }
 </style>
-
-<div class="panel panel-default fs-l2tp-summary">
-	<div class="panel-body">
-		<div class="fs-l2tp-head">
-			<span class="fs-l2tp-icon"><i class="fa-solid fa-network-wired" aria-hidden="true"></i></span>
-			<div class="fs-l2tp-name">
-				<h2 class="fs-l2tp-title"><?=gettext('L2TP server')?></h2>
-				<div class="fs-l2tp-sub"><?php if ($server_on && isset($interfaces[$saved['interface']])): ?><?=htmlspecialchars(sprintf(gettext('Listening on %s'), $interfaces[$saved['interface']]))?><?php else: ?><?=gettext('Remote access VPN for L2TP clients')?><?php endif; ?></div>
-			</div>
-			<?=fs_badge($server_on ? 'enabled' : 'disabled')?>
-		</div>
-		<dl class="fs-l2tp-facts">
-			<div><dt><?=gettext('Server address')?></dt><dd><?=($saved['localip'] != '') ? '<span class="fs-mono">' . htmlspecialchars($saved['localip']) . '</span>' : $dash?></dd></div>
-			<div><dt><?=gettext('Remote range')?></dt><dd><?=($remote_range !== '') ? '<span class="' . ($radius_ips ? '' : 'fs-mono') . '">' . htmlspecialchars($remote_range) . '</span>' : $dash?></dd></div>
-			<div><dt><?=gettext('Max users')?></dt><dd><?=($saved['n_l2tp_units'] != '') ? htmlspecialchars($saved['n_l2tp_units']) : $dash?></dd></div>
-			<div><dt><?=gettext('Authentication')?></dt><dd><?=htmlspecialchars($auth_types[$saved['paporchap']] ?? 'CHAP')?><?=$saved['radiusenable'] ? ' · RADIUS' : ''?></dd></div>
-			<div><dt><?=gettext('Users')?></dt><dd><a href="vpn_l2tp_users.php"><?=htmlspecialchars(sprintf(ngettext('%d local user', '%d local users', $user_count), $user_count))?></a></dd></div>
-		</dl>
-	</div>
-</div>
 <?php
+fs_summary_card([
+	'icon' => 'fa-network-wired',
+	'title' => gettext('L2TP server'),
+	'subtitle' => ($server_on && isset($interfaces[$saved['interface']])) ? sprintf(gettext('Listening on %s'), $interfaces[$saved['interface']]) : gettext('Remote access VPN for L2TP clients'),
+	'badges' => [fs_badge($server_on ? 'enabled' : 'disabled')],
+	'facts' => [
+		[gettext('Server address'), (string)$saved['localip'], 'mono' => true],
+		[gettext('Remote range'), $remote_range, 'mono' => !$radius_ips],
+		[gettext('Max users'), (string)$saved['n_l2tp_units']],
+		[gettext('Authentication'), ($auth_types[$saved['paporchap']] ?? 'CHAP') . ($saved['radiusenable'] ? ' · RADIUS' : '')],
+		[gettext('Users'), sprintf(ngettext('%d local user', '%d local users', $user_count), $user_count), 'href' => 'vpn_l2tp_users.php'],
+	],
+	'label' => gettext('L2TP server summary'),
+]);
 $form = new Form();
 
 /* 1. turn the server on and pick where it listens */

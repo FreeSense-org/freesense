@@ -116,9 +116,9 @@ function get_pkg_table() {
 		$desc = pkg_mgr_plain_text($index['desc']);
 		$rows .= '<td><div class="fs-pkg-desc" title="' . fs_h($desc) . '">' . fs_h($desc) . '</div>';
 		if (!empty($meta['capabilities'])) {
-			$rows .= '<div class="fs-pkg-caps">';
+			$rows .= '<div class="fs-chips fs-pkg-caps">';
 			foreach ($meta['capabilities'] as $capability) {
-				$rows .= '<span class="fs-pkg-cap">' . fs_h(str_replace('-', ' ', $capability)) . '</span>';
+				$rows .= '<span class="fs-chip fs-chip--muted">' . fs_h(str_replace('-', ' ', $capability)) . '</span>';
 			}
 			$rows .= '</div>';
 		}
@@ -189,8 +189,7 @@ foreach (freesense_package_catalog_categories() as $category) {
 
 <style>
 .fs-pkg-desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 46rem; }
-.fs-pkg-caps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .35rem; }
-.fs-pkg-cap { padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text-muted); font-size: var(--fs-fs-xs); line-height: 1.35rem; white-space: nowrap; }
+.fs-pkg-caps { margin-top: .35rem; }
 .fs-pkg-deps { margin-top: .35rem; font-size: var(--fs-fs-xs); }
 #pkgtable th { white-space: nowrap; vertical-align: bottom; }
 #pkgtable td:not(.fs-col-actions) a { text-decoration: underline dotted; text-underline-offset: 2px; }

@@ -141,26 +141,23 @@ $p1_sum_ike = array("ikev1" => "IKEv1", "ikev2" => "IKEv2", "auto" => gettext("A
 if ($fs_ipsec_pick($p1_summary['iketype'], array("ikev1" => 1, "ikev2" => 1, "auto" => 1)) != 'ikev2') {
 	$p1_sum_ike .= ' · ' . (($fs_ipsec_pick($p1_summary['mode'], array("main" => 1, "aggressive" => 1)) == 'aggressive') ? gettext("Aggressive mode") : gettext("Main mode"));
 }
-$p1_sum_facts[] = array(gettext("Key exchange"), fs_h($p1_sum_ike));
+$p1_sum_facts[] = array(gettext("Key exchange"), $p1_sum_ike);
 
 $p1_sum_if = (empty($p1_iflist) ? '' : $p1_iflist[$fs_ipsec_pick($p1_summary['interface'], $p1_iflist)] . ' · ') .
     $p1_protocols[$fs_ipsec_pick($p1_summary['protocol'], $p1_protocols)];
 if (isset($p1_summary['mobile'])) {
-	$p1_sum_facts[] = array(gettext("Remote gateway"), fs_h(gettext("Mobile clients")) .
-	    '<span class="fs-ipsec-sum-note">' . fs_h($p1_sum_if) . '</span>');
+	$p1_sum_facts[] = array(gettext("Remote gateway"), gettext("Mobile clients"), 'note' => $p1_sum_if);
 } else {
 	$p1_sum_gw = trim((string)$p1_summary['remotegw']);
 	if (!empty($p1_summary['ikeport'])) {
 		$p1_sum_if .= ' · ' . sprintf(gettext("port %s"), $p1_summary['ikeport']);
 	}
-	$p1_sum_facts[] = array(gettext("Remote gateway"),
-	    (($p1_sum_gw === '') ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : '<span class="fs-mono">' . fs_h($p1_sum_gw) . '</span>') .
-	    '<span class="fs-ipsec-sum-note">' . fs_h($p1_sum_if) . '</span>');
+	$p1_sum_facts[] = array(gettext("Remote gateway"), $p1_sum_gw, 'mono' => true, 'note' => $p1_sum_if);
 }
 
 $p1_sum_authlist = ipsec_p1_auth_method_list(isset($p1_summary['mobile']));
 $p1_sum_auth = empty($p1_sum_authlist) ? '' : $p1_authentication_methods[$fs_ipsec_pick($p1_summary['authentication_method'], $p1_sum_authlist)]['name'];
-$p1_sum_facts[] = array(gettext("Authentication"), ($p1_sum_auth === '') ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : fs_h($p1_sum_auth));
+$p1_sum_facts[] = array(gettext("Authentication"), $p1_sum_auth);
 
 $p1_sum_props = array();
 foreach (array_get_path($p1_summary, 'encryption/item', []) as $p1_sum_item) {
@@ -177,12 +174,12 @@ foreach (array_get_path($p1_summary, 'encryption/item', []) as $p1_sum_item) {
 	$p1_sum_txt .= ' · ' . sprintf(gettext("DH %s"), $fs_ipsec_pick(array_get_path($p1_sum_item, 'dhgroup'), $p1_dhgroups));
 	$p1_sum_props[] = $p1_sum_txt;
 }
-$p1_sum_prop = empty($p1_sum_props) ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : fs_h($p1_sum_props[0]);
+$p1_sum_prop = array(gettext("Proposal"), $p1_sum_props[0] ?? '');
 if (count($p1_sum_props) > 1) {
-	$p1_sum_prop .= '<span class="fs-ipsec-sum-note" title="' . fs_h(implode("\n", array_slice($p1_sum_props, 1))) . '">' .
-	    fs_h(sprintf(gettext("+%d more"), count($p1_sum_props) - 1)) . '</span>';
+	$p1_sum_prop['note'] = sprintf(gettext("+%d more"), count($p1_sum_props) - 1);
+	$p1_sum_prop['note_title'] = implode("\n", array_slice($p1_sum_props, 1));
 }
-$p1_sum_facts[] = array(gettext("Proposal"), $p1_sum_prop);
+$p1_sum_facts[] = $p1_sum_prop;
 
 $p1_sum_sub = array(gettext("Phase 1"));
 if (!$p1_is_new) {
@@ -209,38 +206,16 @@ if ($p1_is_new) {
 } else {
 	$p1_sum_badge = $p1_summary['disabled'] ? fs_badge('disabled') : fs_badge('enabled');
 }
-?>
-<style>
-.fs-ipsec-sum { padding: var(--fs-sp-4); }
-.fs-ipsec-sum-head { display: flex; align-items: center; gap: var(--fs-sp-3); min-width: 0; }
-.fs-ipsec-sum-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: 1.1rem; }
-.fs-ipsec-sum-name { flex: 1 1 auto; min-width: 0; }
-.fs-ipsec-sum-title { overflow-wrap: anywhere; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; line-height: 1.3; }
-.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
-.fs-ipsec-sum-head > .fs-badge { flex: 0 0 auto; }
-.fs-ipsec-sum-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: var(--fs-sp-4) 0 0; padding-top: var(--fs-sp-3); border-top: 1px solid var(--fs-border); }
-.fs-ipsec-sum-facts > div { min-width: 0; }
-.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
-.fs-ipsec-sum-facts dd { margin: .1rem 0 0; overflow-wrap: anywhere; color: var(--fs-text); font-weight: 500; }
-.fs-ipsec-sum-note { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 400; }
-@media (max-width: 575.98px) { .fs-ipsec-sum-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-</style>
-<div class="panel panel-default fs-ipsec-sum" aria-label="<?=fs_h(gettext("Phase 1 summary"))?>" role="region">
-	<div class="fs-ipsec-sum-head">
-		<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
-		<div class="fs-ipsec-sum-name">
-			<div class="fs-ipsec-sum-title"><?php if ($p1_sum_title === ''): ?><span class="fs-muted"><?=htmlspecialchars($p1_is_new ? gettext("New phase 1") : gettext("No description"))?></span><?php else: ?><?=htmlspecialchars($p1_sum_title)?><?php endif; ?></div>
-			<div class="fs-ipsec-sum-sub"><?=fs_h(implode(' · ', $p1_sum_sub))?></div>
-		</div>
-		<?=$p1_sum_badge?>
-	</div>
-	<dl class="fs-ipsec-sum-facts">
-<?php foreach ($p1_sum_facts as $p1_sum_fact): ?>
-		<div><dt><?=fs_h($p1_sum_fact[0])?></dt><dd><?=$p1_sum_fact[1]?></dd></div>
-<?php endforeach; ?>
-	</dl>
-</div>
-<?php
+
+fs_summary_card([
+	'icon' => 'fa-shield-halved',
+	'title' => $p1_sum_title,
+	'placeholder' => $p1_is_new ? gettext("New phase 1") : gettext("No description"),
+	'subtitle' => implode(' · ', $p1_sum_sub),
+	'badges' => [$p1_sum_badge],
+	'facts' => $p1_sum_facts,
+	'label' => gettext("Phase 1 summary"),
+]);
 
 /* ------------------------------------------------------------------- form */
 
