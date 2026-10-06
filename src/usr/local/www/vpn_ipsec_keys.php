@@ -59,6 +59,7 @@ $pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Pre-Shared Keys"));
 $pglinks = array("", "vpn_ipsec.php", "@self");
 $shortcut_section = "ipsec";
 
+fs_page_action(gettext('Add key'), 'vpn_ipsec_keys_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($_POST['apply']) {
@@ -69,25 +70,25 @@ if (is_subsystem_dirty('ipsec')) {
 	print_apply_box(gettext("The IPsec tunnel configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Tunnels"), false, "vpn_ipsec.php");
-$tab_array[] = array(gettext("Mobile Clients"), false, "vpn_ipsec_mobile.php");
-$tab_array[] = array(gettext("Pre-Shared Keys"), true, "vpn_ipsec_keys.php");
-$tab_array[] = array(gettext("Advanced Settings"), false, "vpn_ipsec_settings.php");
-display_top_tabs($tab_array);
+fs_tabs('vpn-ipsec', 'vpn_ipsec_keys.php');
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Pre-Shared Keys')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Pre-Shared Keys'),
+	'search' => gettext('Search pre-shared keys…'),
+	'noun' => gettext('pre-shared keys'),
+	'noun_one' => gettext('pre-shared key'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext("Identifier"); ?></th>
-						<th><?=gettext("Type"); ?></th>
-						<th><?=gettext("Pre-Shared Key"); ?></th>
-						<th><?=gettext("Actions"); ?></th>
+						<th data-fs-search><?=gettext("Identifier"); ?></th>
+						<th data-fs-search><?=gettext("Type"); ?></th>
+						<th data-fs-search><?=gettext("Pre-Shared Key"); ?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -114,8 +115,11 @@ display_top_tabs($tab_array);
 						<td>
 							<?=htmlspecialchars($secretent['pre-shared-key'])?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit user')?>"	href="system_usermanager.php?act=edit&amp;userid=<?=$secretent['id']?>"></a>
+						<td class="fs-col-actions">
+<?=fs_row_actions([
+								['custom', "system_usermanager.php?act=edit&userid=" . urlencode($secretent['id']), $secretent['ident'],
+								    ['icon' => 'fa-solid fa-user-pen', 'label' => sprintf(gettext('Edit user %s'), $secretent['ident'])]],
+							])?>
 						</td>
 					</tr>
 <?php $i++; endforeach; ?>
@@ -137,24 +141,23 @@ display_top_tabs($tab_array);
 						<td>
 							<?=htmlspecialchars($secretent['pre-shared-key'])?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit key')?>" href="vpn_ipsec_keys_edit.php?id=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete key')?>" href="vpn_ipsec_keys.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+<?=fs_row_actions([
+								['edit', "vpn_ipsec_keys_edit.php?id={$i}", $secretent['ident']],
+								['delete', "vpn_ipsec_keys.php?act=del&id={$i}", $secretent['ident'], ['thing' => gettext('pre-shared key')]],
+							])?>
 						</td>
 					</tr>
 <?php $i++; endforeach; ?>
+<?php if (empty($userkeys) && empty(config_get_path('ipsec/mobilekey', []))) {
+	fs_empty_row(4, gettext('No pre-shared keys yet.'), 'vpn_ipsec_keys_edit.php', gettext('Add key'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a class="btn btn-success btn-sm" href="vpn_ipsec_keys_edit.php">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 <div class="infoblock">
 <?php
 print_info_box(gettext("PSK for any user can be set by using an identifier of any."), 'info', false);

@@ -104,6 +104,9 @@ if ($act=="new" || $act=="edit") {
 }
 $shortcut_section = "openvpn";
 
+if (!($act == "new" || $act == "edit")) {
+	fs_page_action(gettext('Add client'), 'vpn_openvpn_client.php?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if (!$savemsg) {
@@ -118,13 +121,7 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Servers"), false, "vpn_openvpn_server.php");
-$tab_array[] = array(gettext("Clients"), true, "vpn_openvpn_client.php");
-$tab_array[] = array(gettext("Client Specific Overrides"), false, "vpn_openvpn_csc.php");
-$tab_array[] = array(gettext("Wizards"), false, "wizard.php?xml=openvpn_wizard.xml");
-add_package_tabs("OpenVPN", $tab_array);
-display_top_tabs($tab_array);
+fs_tabs('vpn-openvpn', 'vpn_openvpn_client.php');
 
 if ($act=="new" || $act=="edit"):
 	$form = new Form();
@@ -749,18 +746,23 @@ if ($act=="new" || $act=="edit"):
 	print($form);
 else:
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('OpenVPN Clients')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('OpenVPN Clients'),
+	'search' => gettext('Search clients…'),
+	'noun' => gettext('clients'),
+	'noun_one' => gettext('client'),
+]); ?>
 		<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Interface")?></th>
-					<th data-sortable-type="alpha"><?=gettext("Protocol")?></th>
-					<th><?=gettext("Server")?></th>
-					<th><?=gettext("Mode / Crypto")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Interface")?></th>
+					<th data-fs-search data-sortable-type="alpha"><?=gettext("Protocol")?></th>
+					<th data-fs-search><?=gettext("Server")?></th>
+					<th data-fs-search><?=gettext("Mode / Crypto")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 
@@ -811,27 +813,27 @@ else:
 					<td>
 						<?=htmlspecialchars($client['description'])?>
 					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit Client')?>"	href="vpn_openvpn_client.php?act=edit&amp;id=<?=$i?>"></a>
-						<a class="fa-regular fa-clone"	title="<?=gettext("Copy Client")?>"	href="vpn_openvpn_client.php?act=dup&amp;id=<?=$i?>" usepost></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete Client')?>"	href="vpn_openvpn_client.php?act=del&amp;id=<?=$i?>" usepost></a>
+					<td class="fs-col-actions">
+<?=fs_row_actions([
+							['edit', "vpn_openvpn_client.php?act=edit&id={$i}", $client['description'] ?: sprintf(gettext('client %d'), $i + 1)],
+							['custom', "vpn_openvpn_client.php?act=dup&id={$i}", $client['description'] ?: sprintf(gettext('client %d'), $i + 1), ['icon' => 'fa-regular fa-clone', 'post' => true,
+							    'label' => sprintf(gettext('Copy %s'), $client['description'] ?: sprintf(gettext('client %d'), $i + 1))]],
+							['delete', "vpn_openvpn_client.php?act=del&id={$i}", $client['description'] ?: sprintf(gettext('client %d'), $i + 1), ['thing' => gettext('client')]],
+						])?>
 					</td>
 				</tr>
 <?php
 		$i++;
 	endforeach;
 ?>
+<?php if (empty(config_get_path('openvpn/openvpn-client', []))) {
+	fs_empty_row(6, gettext('No clients yet.'), 'vpn_openvpn_client.php?act=new', gettext('Add client'));
+} ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="vpn_openvpn_client.php?act=new" class="btn btn-sm btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <?php
 if ($print_sk_warning) {

@@ -57,10 +57,7 @@ if ($changes_applied) {
 	print_apply_result_box($retval);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Configuration"), true, "vpn_l2tp.php");
-$tab_array[] = array(gettext("Users"), false, "vpn_l2tp_users.php");
-display_top_tabs($tab_array);
+fs_tabs('vpn-l2tp', 'vpn_l2tp.php');
 
 $form = new Form();
 

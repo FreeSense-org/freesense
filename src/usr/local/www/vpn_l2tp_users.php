@@ -44,27 +44,30 @@ if ($_POST['act'] == "del") {
 	}
 }
 
+fs_page_action(gettext('Add user'), 'vpn_l2tp_users_edit.php', 'fa-plus');
 include("head.inc");
 
 if (config_path_enabled('l2tp/radius')) {
 	print_info_box(gettext("RADIUS is enabled. The local user database will not be used."));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Configuration"), false, "vpn_l2tp.php");
-$tab_array[] = array(gettext("Users"), true, "vpn_l2tp_users.php");
-display_top_tabs($tab_array);
+fs_tabs('vpn-l2tp', 'vpn_l2tp_users.php');
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('L2TP Users')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('L2TP Users'),
+	'search' => gettext('Search L2TP users…'),
+	'noun' => gettext('L2TP users'),
+	'noun_one' => gettext('L2TP user'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext("Username")?></th>
-						<th><?=gettext("IP address")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search><?=gettext("Username")?></th>
+						<th data-fs-search><?=gettext("IP address")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -77,22 +80,21 @@ display_top_tabs($tab_array);
 							<?php if ($secretent['ip'] == "") $secretent['ip'] = "Dynamic"?>
 							<?=htmlspecialchars($secretent['ip'])?>&nbsp;
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit user')?>"	href="vpn_l2tp_users_edit.php?id=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete user')?>"	href="vpn_l2tp_users.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+<?=fs_row_actions([
+								['edit', "vpn_l2tp_users_edit.php?id={$i}", $secretent['name']],
+								['delete', "vpn_l2tp_users.php?act=del&id={$i}", $secretent['name'], ['thing' => gettext('L2TP user')]],
+							])?>
 						</td>
 					</tr>
 <?php $i++; endforeach?>
+<?php if (empty(config_get_path('l2tp/user', []))) {
+	fs_empty_row(3, gettext('No L2TP users yet.'), 'vpn_l2tp_users_edit.php', gettext('Add user'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
-<nav class="action-buttons">
-	<a class="btn btn-success btn-sm" href="vpn_l2tp_users_edit.php">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <?php include("foot.inc");

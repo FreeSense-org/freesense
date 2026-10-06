@@ -66,12 +66,7 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Tunnels"), false, "vpn_ipsec.php");
-$tab_array[] = array(gettext("Mobile Clients"), false, "vpn_ipsec_mobile.php");
-$tab_array[] = array(gettext("Pre-Shared Keys"), false, "vpn_ipsec_keys.php");
-$tab_array[] = array(gettext("Advanced Settings"), true, "vpn_ipsec_settings.php");
-display_top_tabs($tab_array);
+fs_tabs('vpn-ipsec', 'vpn_ipsec_settings.php');
 
 $form = new Form;
 
