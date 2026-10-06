@@ -91,6 +91,7 @@ Each phase ships as several small PRs. `main` must never sit in a half-migrated 
 | Phase | Content | PRs | Parallel? |
 |---|---|---|---|
 | **A. Foundation and shell** | 10-03 phases 0–2 (baseline screenshots, caret glyph bug, tokens, fluid container, header, flex footer, flat cards) **plus** the shared building blocks above, the tab registry and the confirm modal. Converts **6 pilot pages**, one per type, as the golden references | 3–4 | **No: one worker, sequential.** Everything else depends on it |
+| **N. Navigation** | grouped mega-menu, menu search (Ctrl+K), mobile panel; `<group>` in package menu XML (see 4a) | 2 (+1 cleanup) | Yes, alongside B: only `head.inc`, new menu files and package XML |
 | **B. Lists** | all List pages: toolbar, search, badges, row actions, empty state, Add in header. 10-03 phase 3 | one per area (8) | **Yes**, by menu area |
 | **C. Consolidation** | R1/R2 splits: Unbound, DNSmasq, DHCP/DHCPv6, WoL, remote backup, config history, CP vouchers, NTP ACLs, Unbound ACLs, sysctl | one per page | Yes, after B for that area |
 | **D. Settings and editors** | Form class grid and sticky bar (10-03 phase 4), the entry grid, consistent "advanced" toggles, all Settings/Editor pages | 1 central + one per area | Central first, then areas in parallel |
@@ -109,6 +110,55 @@ Each phase ships as several small PRs. `main` must never sit in a half-migrated 
 | List + R1 split | `services_unbound.php` | proves `?view=` tabs + privilege match |
 
 Workers copy the pilots, not their memory of Bootstrap.
+
+## 4a. Phase N: navigation (added 2026-10-06, runs next, before Phase B)
+
+**Goal:** a modern, grouped menu, with **no item moving to a different top-level menu** and no URL changes.
+
+**Why now, not later:** the menu lives entirely in `head.inc`, which the lead owns, so it doesn't collide with the
+per-area page work in Phase B. It is also the most visible part of the UI. And it needs one coordinated change
+in `freesense-packages`, which is cheaper to do once now than to retrofit.
+
+**Size today:** Services has 15 core + ~30 package entries in one flat, alphabetical list. Diagnostics has 25,
+Status 19 + ~10 package entries, and System 17. Firewall (6) and VPN (3) are small. Interfaces is dynamic.
+
+### Design
+- **Grouped mega-menu** for Services, Status, Diagnostics and System: a panel with 3–4 columns of labelled groups.
+  Small menus (Firewall, VPN, Help) keep a single column with the same styling. Interfaces keeps its
+  assignments-first layout.
+- **Menu search** at the top of every panel, plus a global shortcut (Ctrl+K or `/` when the focus is not in a field).
+  It filters across *all* menus, shows each result with its menu › group path, and navigates on Enter.
+- **Current location:** the active top-level menu and the active item are highlighted (`aria-current`).
+- **Phones:** the collapsed navbar is a scrollable panel. Each menu opens in place with its groups as headings and
+  its filter box at the top.
+- **Accessibility:** menus open on click/Enter (no hover menus), toggles carry `aria-expanded`, Esc closes,
+  groups are labelled sections, the palette is a listbox with arrow keys, and focus is always visible.
+
+### Groups (proposal, to confirm)
+| Menu | Groups |
+|---|---|
+| **Services** | Short labels, each with a Font Awesome icon (no emoji). **Network** (`fa-network-wired`): DHCP Server, DHCPv6 Server, DHCP Relay, DHCPv6 Relay, Router Advertisement, DNS Resolver, DNS Forwarder, BIND DNS Server, Dynamic DNS, NTP, mDNS Bridge, TFTP Server · **Routing** (`fa-route`): FRR Global/Zebra, BGP, OSPF, OSPF6, RIP, BFD, IGMP Proxy, Multicast Bridge, UDP Broadcast Relay · **Security** (`fa-shield-halved`): Captive Portal, FreeRADIUS, CrowdSec, Suricata, Threat Shield, ACME Certificates · **Proxy** (`fa-right-left`): HAProxy, Web Gateway, Web Gateway Threat Protection · **Monitoring** (`fa-chart-line`): SNMP, SNMP (NET-SNMP), SNMP Trap Daemon, Prometheus node_exporter, Telegraf, Zabbix, softflowd, Syslog-ng, ANDwatch, LLDP, UPS · **Other** (`fa-ellipsis`): Automation, PPPoE Server, UPnP IGD & PCP, Wake-on-LAN |
+| **Status** | **Overview**: Dashboard, Interfaces, Services, Gateways, System Logs · **Network**: DHCP / DHCPv6 Leases, ARP-like tables, Wireless, CARP, UPnP · **Security**: Captive Portal, CrowdSec, Threat Shield, IPsec, OpenVPN, Tailscale, ZeroTier · **Traffic & Monitoring**: Monitoring, Traffic Graph, Queues, Traffic Totals, NTP, DNS Resolver, REST API |
+| **Diagnostics** | **Network tools**: Ping, Traceroute, DNS Lookup, Test Port, Packet Capture, Network Tools · **Tables & State**: ARP, NDP, Routes, Sockets, States, States Summary, Reset States, pfInfo, pfTop, Tables, Limiter Info · **System**: Backup & Restore, Command Prompt, Edit File, System Activity, S.M.A.R.T., GEOM Mirrors, Authentication, Factory Defaults, Halt, Reboot |
+| **System** | **General**: General Setup, Advanced, Update, Boot Environments, Package Manager · **Access**: User Manager, Authentication Servers, Certificates, REST API · **Network**: Routing, Gateways, High Availability · **Other**: Register, Logout-related and package items |
+
+(Exact membership is fixed in the implementation PR from the real item list. Nothing changes top-level menu.)
+
+### How grouping works
+- **Core items** get a group key where `head.inc` builds the menus (`$services_menu[] = [label, url, 'group' => 'dns']`).
+  The group registry (ids, labels, order per menu) lives in `includes/menu_groups.inc`.
+- **Packages** declare `<group>dns</group>` inside their `<menu>` block in the package XML. `return_ext_menu()` passes
+  it through, and an unknown or missing group falls back to a core mapping by package name, then to **Other**,
+  so unconverted or third-party packages still appear.
+- **Package change (`freesense-packages`):** add `<group>` to the ~35 package XMLs that declare menus. That's an
+  Optional Packages source change, so it triggers an **Optional Packages rebuild**; the System side does not
+  depend on it (fallback mapping), so the two can merge in either order. 1.1 only.
+
+### PRs
+1. `freesense`: menu renderer + group registry + search + mobile off-canvas + core group keys + fallback mapping for
+   known packages. Verified with the VM's installed packages.
+2. `freesense-packages`: `<group>` on every package menu entry (mechanical), one PR.
+3. Optional: drop the fallback entries for packages that now declare their group.
 
 ## 5. Release impact
 
