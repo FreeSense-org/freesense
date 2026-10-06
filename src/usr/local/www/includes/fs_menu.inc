@@ -112,11 +112,28 @@ function fs_menu_path($url) {
 	return ltrim((string)parse_url((string)$url, PHP_URL_PATH), '/');
 }
 
-/* Is the menu item the page being shown? Matches the page or its tab siblings (same stem). */
+/*
+ * Is the menu item the page being shown? Matches the page or its tab siblings (same stem).
+ * An item with a query ("/interfaces.php?if=wan") only matches that page with the same
+ * parameters, so WAN and LAN are not both current, nor current on interfaces_assign.php.
+ */
 function fs_menu_item_current($url, $current) {
 	$path = fs_menu_path($url);
 	if (($path === '') || (substr($path, -4) !== '.php')) {
 		return false;
+	}
+	$query = (string)parse_url((string)$url, PHP_URL_QUERY);
+	if ($query !== '') {
+		if ($path !== $current) {
+			return false;
+		}
+		parse_str($query, $params);
+		foreach ($params as $key => $value) {
+			if (!isset($_GET[$key]) || ((string)$_GET[$key] !== (string)$value)) {
+				return false;
+			}
+		}
+		return true;
 	}
 	if ($path === $current) {
 		return true;
