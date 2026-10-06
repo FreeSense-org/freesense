@@ -82,16 +82,35 @@ if ($_POST['save']) {
 	}
 }
 
+$is_editor = ($act == "new" || $act == "edit");
+
+/* the servers by vpnid, for the list and the summary */
+$server_names = array();
+foreach (config_get_path('openvpn/openvpn-server', []) as $srv) {
+	$server_names[$srv['vpnid']] = $srv['description'] ?: sprintf(gettext('Server %s'), $srv['vpnid']);
+}
+$override_labels = array(
+	'default' => gettext('Keeps server options'),
+	'push_reset' => gettext('Resets all server options'),
+	'remove_specified' => gettext('Removes some server options'),
+);
+
 $pgtitle = array(gettext("VPN"), gettext("OpenVPN"), gettext("Client Specific Overrides"));
 $pglinks = array("", "vpn_openvpn_server.php", "vpn_openvpn_csc.php");
 
-if ($act=="new" || $act=="edit") {
-	$pgtitle[] = gettext('Edit');
+if ($is_editor) {
+	if ($act == "edit" && $this_csc_config) {
+		$pgtitle[] = htmlspecialchars($this_csc_config['common_name']);
+		$pglinks[] = "";
+		$pgtitle[] = gettext('Edit override');
+	} else {
+		$pgtitle[] = gettext('Add override');
+	}
 	$pglinks[] = "@self";
 }
 $shortcut_section = "openvpn";
 
-if (!($act == "new" || $act == "edit")) {
+if (!$is_editor) {
 	fs_page_action(gettext('Add override'), 'vpn_openvpn_csc.php?act=new', 'fa-plus');
 }
 include("head.inc");
@@ -105,11 +124,70 @@ if ($savemsg) {
 }
 
 fs_tabs('vpn-openvpn', 'vpn_openvpn_csc.php');
+?>
 
-if ($act == "new" || $act == "edit"):
+<style>
+.fs-ovpn-summary .panel-body { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem 2rem; }
+.fs-ovpn-summary-id { display: flex; align-items: center; gap: .75rem; flex: 1 1 14rem; min-width: 0; }
+.fs-ovpn-summary-icon { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
+.fs-ovpn-summary-name { color: var(--fs-text-strong); font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+.fs-ovpn-summary-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; margin-top: .2rem; }
+.fs-ovpn-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .6rem 1.5rem; flex: 3 1 28rem; min-width: 0; margin: 0; }
+.fs-ovpn-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
+.fs-ovpn-facts dd { margin: 0; overflow-wrap: anywhere; }
+.fs-ovpn-chips { display: inline-flex; flex-wrap: wrap; gap: .25rem; }
+.fs-ovpn-chip { display: inline-block; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.4rem; white-space: nowrap; }
+.fs-ovpn-sub { margin-top: .15rem; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+</style>
+
+<?php
+if ($is_editor):
+	/* header summary: the stored override when editing, otherwise the form's starting values */
+	$sum = ($act == "edit" && $this_csc_config) ? openvpn_csc_form('edit', $this_csc_config) : (array)$pconfig;
+	$sum_servers = array();
+	foreach ((array)($sum['server_list'] ?? array()) as $vid) {
+		$sum_servers[] = $server_names[$vid] ?? sprintf(gettext('Server %s'), $vid);
+	}
+	$sum_override = ($sum['override_options'] ?? '') ?: 'default';
+	$sum_networks = array_filter(array($sum['tunnel_network'] ?? '', $sum['tunnel_networkv6'] ?? ''));
+	if ($act == "edit") {
+		$sum_name = $sum['common_name'];
+	} elseif ((($_REQUEST['act'] ?? '') == 'dup') && !empty($sum['common_name'])) {
+		$sum_name = sprintf(gettext('Copy of %s'), $sum['common_name']);
+	} else {
+		$sum_name = gettext('New override');
+	}
+?>
+<div class="panel panel-default fs-ovpn-summary">
+	<div class="panel-body">
+		<div class="fs-ovpn-summary-id">
+			<span class="fs-ovpn-summary-icon"><i class="fa-solid fa-user-gear" aria-hidden="true"></i></span>
+			<div>
+				<div class="fs-ovpn-summary-name"><?=htmlspecialchars($sum_name)?></div>
+				<div class="fs-ovpn-summary-sub">
+<?php if ($act == "edit"): ?>
+					<?=!empty($sum['disable']) ? fs_badge('disabled') : fs_badge('enabled')?>
+					<?=!empty($sum['block']) ? fs_badge('block', gettext('Blocked')) : ''?>
+					<?php if (!empty($sum['description'])): ?><span class="fs-muted small"><?=htmlspecialchars($sum['description'])?></span><?php endif; ?>
+<?php else: ?>
+					<?=fs_badge('info', gettext('Not saved yet'))?>
+<?php endif; ?>
+				</div>
+			</div>
+		</div>
+		<dl class="fs-ovpn-facts">
+			<div><dt><?=gettext('Applies to')?></dt><dd><?=empty($sum_servers) ? htmlspecialchars(gettext('All servers')) : '<span class="fs-ovpn-chips">' . implode('', array_map(function ($n) { return '<span class="fs-ovpn-chip">' . htmlspecialchars($n) . '</span>'; }, $sum_servers)) . '</span>'?></dd></div>
+			<div><dt><?=gettext('Tunnel address')?></dt><dd><?=(empty($sum_networks)) ? '<span class="fs-muted">' . gettext('From server') . '</span>' : '<span class="fs-mono">' . htmlspecialchars(implode(', ', $sum_networks)) . '</span>'?></dd></div>
+			<div><dt><?=gettext('Server options')?></dt><dd><?=htmlspecialchars($override_labels[$sum_override] ?? $sum_override)?></dd></div>
+		</dl>
+	</div>
+</div>
+<?php
 	$form = new Form();
+	$closed = !empty($input_errors) ? SEC_OPEN : SEC_CLOSED;
 
-	$section = new Form_Section('General Information');
+	/* ---------------------------------------------------------------- General */
+	$section = new Form_Section('General');
 
 	$section->addInput(new Form_Input(
 		'description',
@@ -123,25 +201,27 @@ if ($act == "new" || $act == "edit"):
 		'Disable',
 		'Disable this override',
 		$pconfig['disable']
-	))->setHelp('Set this option to disable this client-specific override without removing it from the list.');
+	))->setHelp('Keeps the override in the list without applying it.');
 
 	$form->add($section);
 
-	$section = new Form_Section('Override Configuration');
+	/* ----------------------------------------------------------------- Client */
+	$section = new Form_Section('Client');
 
 	$section->addInput(new Form_Input(
 		'common_name',
 		'*Common Name',
 		'text',
 		$pconfig['common_name']
-	))->setHelp('Enter the X.509 common name for the client certificate, or the username for VPNs utilizing password authentication. This match is case sensitive. Enter "DEFAULT" to override default client behavior.');
+	))->setHelp('The X.509 common name of the client certificate, or the username for password authentication (case sensitive). ' .
+		'Enter "DEFAULT" to override the default client behavior.');
 
 	$section->addInput(new Form_Checkbox(
 		'block',
 		'Connection blocking',
 		'Block this client connection based on its common name.',
 		$pconfig['block']
-	))->setHelp('Prevents the client from connecting to this server. Do not use this option to permanently disable a client due to a compromised key or password. Use a CRL (certificate revocation list) instead.');
+	))->setHelp('Prevents the client from connecting. To lock out a compromised key or password permanently, use a certificate revocation list instead.');
 
 	$section->addInput(new Form_Select(
 		'server_list',
@@ -149,15 +229,19 @@ if ($act == "new" || $act == "edit"):
 		$pconfig['server_list'],
 		$serveroptionlist,
 		true
-		))->setHelp('Select the servers that will utilize this override. When no servers are selected, the override will apply to all servers.');
+		))->setHelp('The servers that use this override. When none are selected, it applies to all servers.');
 
+	$form->add($section);
+
+	/* --------------------------------------------------------- Server options */
+	$section = new Form_Section('Server options');
 
 	$section->addInput(new Form_Select(
 		'override_options',
 		'Reset Server Options',
 		($pconfig['override_options'] ?? 'default'),
 		openvpn_csc_override_options()
-	))->setHelp('Prevent this client from receiving server-defined client settings. Other client-specific options on this page will supersede these options.');
+	))->setHelp('Stop this client from receiving server-defined client settings. The options on this page still apply.');
 
 	$section->addInput(new Form_Select(
 		'remove_options',
@@ -165,51 +249,53 @@ if ($act == "new" || $act == "edit"):
 		$pconfig['remove_options'],
 		openvpn_csc_remove_options(),
 		true
-	))->addClass('remove_options')->setHelp('A "push-remove" option will be sent to the client for the selected options, removing the respective server-defined option.');
+	))->addClass('remove_options')->setHelp('A "push-remove" is sent to the client for each selected option.');
 
 	$section->addInput(new Form_Checkbox(
 		'keep_minimal',
 		'Keep minimal options',
 		'Automatically determine the client topology and gateway',
 		$pconfig['keep_minimal']
-	))->setHelp('If checked, generate the required client configuration when server options are reset or removed.');
+	))->setHelp('Generates the required client configuration when server options are reset or removed.');
 
 	$form->add($section);
 
-	$section = new Form_Section('Tunnel Settings');
+	/* ------------------------------------------------------- Tunnel addresses */
+	$section = new Form_Section('Tunnel addresses');
 
 	$section->addInput(new Form_Input(
 		'tunnel_network',
 		'IPv4 Tunnel Network',
 		'text',
 		$pconfig['tunnel_network']
-	))->setHelp('The virtual IPv4 network or network type alias with a single entry used for private communications between this client and the server expressed using CIDR (e.g. 10.0.8.5/24). %1$s' .
-		    'With subnet topology, enter the client IP address and the subnet mask must match the IPv4 Tunnel Network on the server. %1$s' .
-		    'With net30 topology, the first network address of the /30 is assumed to be the server address and the second network address will be assigned to the client.',
-			'<br />');
+	))->setHelp('The client\'s tunnel address in CIDR notation (e.g. 10.0.8.5/24), or a network alias with one entry. ' .
+		'With subnet topology the mask must match the server\'s IPv4 Tunnel Network; with net30 the client gets the second address of the /30.');
 
 	$section->addInput(new Form_Input(
 		'tunnel_networkv6',
 		'IPv6 Tunnel Network',
 		'text',
 		$pconfig['tunnel_networkv6']
-	))->setHelp('The virtual IPv6 network or network type alias with a single entry used for private communications between this client and the server expressed using prefix (e.g. 2001:db9:1:1::100/64). %1$s' .
-		    'Enter the client IPv6 address and prefix. The prefix must match the IPv6 Tunnel Network prefix on the server. ',
-			'<br />');
+	))->setHelp('The client\'s IPv6 address and prefix (e.g. 2001:db9:1:1::100/64). The prefix must match the server\'s IPv6 Tunnel Network.');
 
 	$section->addInput(new Form_Input(
 		'gateway',
 		'IPv4 Gateway',
 		'text',
 		$pconfig['gateway']
-	))->setHelp('This is the IPv4 Gateway to push to the client. Normally it is left blank and determined automatically.');
+	))->setHelp('The IPv4 gateway pushed to the client. Usually left empty (automatic).');
 
 	$section->addInput(new Form_Input(
 		'gateway6',
 		'IPv6 Gateway',
 		'text',
 		$pconfig['gateway6']
-	))->setHelp('This is the IPv6 Gateway to push to the client. Normally it is left blank and determined automatically.');
+	))->setHelp('The IPv6 gateway pushed to the client. Usually left empty (automatic).');
+
+	$form->add($section);
+
+	/* ---------------------------------------------------------------- Routing */
+	$section = new Form_Section('Routing');
 
 	$section->addInput(new Form_Checkbox(
 		'gwredir',
@@ -230,42 +316,39 @@ if ($act == "new" || $act == "edit"):
 		'IPv4 Local Network/s',
 		'text',
 		$pconfig['local_network']
-	))->setHelp('These are the IPv4 server-side networks that will be accessible from this particular client. Expressed as a comma-separated list of one or more CIDR ranges or host/network type aliases. %1$s' .
-		    'NOTE: Networks do not need to be specified here if they have already been defined on the main server configuration.',
-			'<br />');
+	))->setHelp('Server-side IPv4 networks this client can reach: a comma-separated list of CIDR ranges or host/network aliases. ' .
+		'Not needed for networks already set on the server.');
 
 	$section->addInput(new Form_Input(
 		'local_networkv6',
 		'IPv6 Local Network/s',
 		'text',
 		$pconfig['local_networkv6']
-	))->setHelp('These are the IPv6 server-side networks that will be accessible from this particular client. Expressed as a comma-separated list of one or more IP/PREFIX networks.%1$s' .
-		    'NOTE: Networks do not need to be specified here if they have already been defined on the main server configuration.',
-			'<br />');
+	))->setHelp('Server-side IPv6 networks this client can reach: a comma-separated list of IP/PREFIX networks. ' .
+		'Not needed for networks already set on the server.');
 
 	$section->addInput(new Form_Input(
 		'remote_network',
 		'IPv4 Remote Network/s',
 		'text',
 		$pconfig['remote_network']
-	))->setHelp('These are the IPv4 client-side networks that will be routed to this client specifically using iroute, so that a site-to-site VPN can be established. ' .
-		    'Expressed as a comma-separated list of one or more CIDR ranges. May be left blank if there are no client-side networks to be routed.%1$s' .
-		    'NOTE: Remember to add these subnets to the IPv4 Remote Networks list on the corresponding OpenVPN server settings.',
-			'<br />');
+	))->setHelp('Client-side IPv4 networks routed to this client (iroute) for a site-to-site VPN: a comma-separated list of CIDR ranges. ' .
+		'Also add them to the server\'s IPv4 Remote Networks.');
 
 	$section->addInput(new Form_Input(
 		'remote_networkv6',
 		'IPv6 Remote Network/s',
 		'text',
 		$pconfig['remote_networkv6']
-	))->setHelp('These are the IPv6 client-side networks that will be routed to this client specifically using iroute, so that a site-to-site VPN can be established. ' .
-		    'Expressed as a comma-separated list of one or more IP/PREFIX networks. May be left blank if there are no client-side networks to be routed.%1$s' .
-		    'NOTE: Remember to add these subnets to the IPv6 Remote Networks list on the corresponding OpenVPN server settings.',
-			'<br />');
+	))->setHelp('Client-side IPv6 networks routed to this client (iroute): a comma-separated list of IP/PREFIX networks. ' .
+		'Also add them to the server\'s IPv6 Remote Networks.');
 
 	$form->add($section);
 
-	$section = new Form_Section('Other Client Settings');
+	/* ------------------------------------------------------ Timeouts and ping */
+	$has_timers = !empty($pconfig['inactive_seconds']) || !empty($pconfig['ping_seconds']) ||
+	    (($pconfig['ping_action'] ?? 'default') != 'default');
+	$section = new Form_Section('Timeouts and ping', 'csc-timers', COLLAPSIBLE | ($has_timers ? SEC_OPEN : $closed));
 
 	$section->addInput(new Form_Input(
 		'inactive_seconds',
@@ -300,6 +383,13 @@ if ($act == "new" || $act == "edit"):
 		['min' => '0']
 	))->setWidth(2)->addClass('ping_action_seconds');
 	$section->add($group);
+
+	$form->add($section);
+
+	/* ------------------------------------------------------------ DNS and NTP */
+	$has_dns = !empty($pconfig['dns_domain_enable']) || !empty($pconfig['dns_server_enable']) || !empty($pconfig['ntp_server_enable']) ||
+	    !empty($pconfig['push_blockoutsidedns']) || !empty($pconfig['push_register_dns']);
+	$section = new Form_Section('DNS and NTP', 'csc-dns', COLLAPSIBLE | ($has_dns ? SEC_OPEN : $closed));
 
 	$section->addInput(new Form_Checkbox(
 		'dns_domain_enable',
@@ -366,7 +456,7 @@ if ($act == "new" || $act == "edit"):
 		'Block Outside DNS',
 		'Make Windows 10 Clients Block access to DNS servers except across OpenVPN while connected, forcing clients to use only VPN DNS servers.',
 		$pconfig['push_blockoutsidedns']
-	))->setHelp('Requires Windows 10 and OpenVPN 2.3.9 or later. Only Windows 10 is prone to DNS leakage in this way, other clients will ignore the option as they are not affected.');
+	))->setHelp('Requires Windows 10 and OpenVPN 2.3.9 or later. Other clients ignore it.');
 
 	$section->addInput(new Form_Checkbox(
 		'push_register_dns',
@@ -402,30 +492,33 @@ if ($act == "new" || $act == "edit"):
 
 	$section->add($group);
 
+	$form->add($section);
+
+	/* -------------------------------------------------------- NetBIOS and WINS */
 	// NetBIOS - For this section we need to use JavaScript hiding since there
 	// are nested toggles
+	$section = new Form_Section('NetBIOS and WINS', 'csc-netbios', COLLAPSIBLE | (!empty($pconfig['netbios_enable']) ? SEC_OPEN : $closed));
+
 	$section->addInput(new Form_Checkbox(
 		'netbios_enable',
 		'NetBIOS Options',
 		'Enable NetBIOS over TCP/IP',
 		$pconfig['netbios_enable']
-	))->setHelp('If this option is not set, all NetBIOS-over-TCP/IP options (including WINS) will be disabled. ');
+	))->setHelp('When off, all NetBIOS over TCP/IP options (including WINS) are disabled.');
 
 	$section->addInput(new Form_Select(
 		'netbios_ntype',
 		'Node Type',
 		$pconfig['netbios_ntype'],
 		$netbios_nodetypes
-	))->setHelp('Possible options: b-node (broadcasts), p-node (point-to-point name queries to a WINS server), m-node (broadcast then query name server), ' .
-				'and h-node (query name server, then broadcast). ');
+	))->setHelp('b-node: broadcasts; p-node: point-to-point queries to a WINS server; m-node: broadcast, then query; h-node: query, then broadcast.');
 
 	$section->addInput(new Form_Input(
 		'netbios_scope',
 		null,
 		'text',
 		$pconfig['netbios_scope']
-	))->setHelp('A NetBIOS Scope ID provides an extended naming service for NetBIOS over TCP/IP. ' .
-				'The NetBIOS scope ID isolates NetBIOS traffic on a single network to only those nodes with the same NetBIOS scope ID. ');
+	))->setHelp('NetBIOS Scope ID: limits NetBIOS traffic to nodes with the same scope ID.');
 
 	$section->addInput(new Form_Checkbox(
 		'wins_server_enable',
@@ -481,6 +574,11 @@ if ($act == "new" || $act == "edit"):
 
 	$section->add($group);
 
+	$form->add($section);
+
+	/* --------------------------------------------------------------- Advanced */
+	$section = new Form_Section('Advanced', 'csc-advanced', COLLAPSIBLE | (!empty($pconfig['custom_options']) ? SEC_OPEN : $closed));
+
 	$custops = new Form_Textarea(
 		'custom_options',
 		'Advanced',
@@ -489,7 +587,7 @@ if ($act == "new" || $act == "edit"):
 	if (!$user_can_edit_advanced) {
 		$custops->setDisabled();
 	}
-	$section->addInput($custops)->setHelp('Enter any additional options to add for this client specific override, separated by a semicolon. %1$s' .
+	$section->addInput($custops)->setHelp('Additional options for this override, separated by semicolons. %1$s' .
 				'EXAMPLE: push "route 10.0.0.0 255.255.255.0"; ',
 				'<br />');
 
@@ -511,6 +609,7 @@ if ($act == "new" || $act == "edit"):
 	}
 
 	$form->add($section);
+	fs_form_cancel($form, 'vpn_openvpn_csc.php');
 	print($form);
 
 ?>
@@ -598,8 +697,8 @@ events.push(function() {
 		gwredir6_change();
 	});
 
-	 // On clicking Ping Action
-	$('#ping_action').click(function () {
+	 // On clicking or changing Ping Action
+	$('#ping_action').on('click change', function () {
 		ping_action_change();
 	});
 
@@ -653,21 +752,29 @@ events.push(function() {
 
 <?php
 else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
+	$cscs = config_get_path('openvpn/openvpn-csc', []);
+	$remove_labels = openvpn_csc_remove_options();
 ?>
 
 <div class="panel panel-default fs-table">
 <?php fs_table_toolbar([
-	'title' => gettext('CSC Overrides'),
-	'search' => gettext('Search client specific overrides…'),
-	'noun' => gettext('client specific overrides'),
-	'noun_one' => gettext('client specific override'),
+	'title' => gettext('Client specific overrides'),
+	'search' => gettext('Search overrides…'),
+	'noun' => gettext('overrides'),
+	'noun_one' => gettext('override'),
+	'filters' => [
+		'status' => [gettext('All states'), 'enabled' => gettext('Enabled'), 'disabled' => gettext('Disabled'), 'blocked' => gettext('Blocked')],
+	],
 ]); ?>
 	<div class="panel-body table-responsive">
 		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th data-fs-search><?=gettext("Disabled")?></th>
-					<th data-fs-search><?=gettext("Common Name")?></th>
+					<th class="fs-col-status"><?=gettext("Status")?></th>
+					<th data-fs-search><?=gettext("Common name")?></th>
+					<th data-fs-search><?=gettext("Servers")?></th>
+					<th data-fs-search><?=gettext("Tunnel address")?></th>
+					<th data-fs-search><?=gettext("Overrides")?></th>
 					<th data-fs-search><?=gettext("Description")?></th>
 					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
@@ -675,25 +782,71 @@ else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
 			<tbody>
 <?php
 	$i = 0;
-	foreach (config_get_path('openvpn/openvpn-csc', []) as $csc):
-		$disabled = isset($csc['disable']) ? "Yes":"No";
+	foreach ($cscs as $csc):
+		$disabled = isset($csc['disable']);
+		$blocked = !empty($csc['block']);
+		$name = $csc['common_name'];
+		$servers = array();
+		foreach (array_filter(explode(',', $csc['server_list'] ?? '')) as $vid) {
+			$servers[] = $server_names[$vid] ?? sprintf(gettext('Server %s'), $vid);
+		}
+		$networks = array_filter(array($csc['tunnel_network'] ?? '', $csc['tunnel_networkv6'] ?? ''));
+		/* what the override changes, as short chips */
+		$chips = array();
+		if (!empty($csc['remove_options'])) {
+			$removed = array_map(function ($o) use ($remove_labels) { return $remove_labels[$o] ?? $o; }, explode(',', $csc['remove_options']));
+			$chips[] = array((count($removed) == 1) ? gettext('Removes 1 option') : sprintf(gettext('Removes %d options'), count($removed)), implode(', ', $removed));
+		} elseif (isset($csc['push_reset'])) {
+			$chips[] = array(gettext('Resets options'), '');
+		}
+		if (!empty($csc['gwredir']) || !empty($csc['gwredir6'])) {
+			$chips[] = array(gettext('Redirect gateway'), '');
+		}
+		if (!empty($csc['local_network']) || !empty($csc['local_networkv6'])) {
+			$chips[] = array(gettext('Local networks'), implode(', ', array_filter(array($csc['local_network'] ?? '', $csc['local_networkv6'] ?? ''))));
+		}
+		if (!empty($csc['remote_network']) || !empty($csc['remote_networkv6'])) {
+			$chips[] = array(gettext('Remote networks'), implode(', ', array_filter(array($csc['remote_network'] ?? '', $csc['remote_networkv6'] ?? ''))));
+		}
+		if (!empty($csc['dns_domain']) || !empty($csc['dns_server1']) || !empty($csc['dns_server2']) || !empty($csc['dns_server3']) || !empty($csc['dns_server4'])) {
+			$chips[] = array(gettext('DNS'), '');
+		}
+		if (!empty($csc['custom_options'])) {
+			$chips[] = array(gettext('Custom options'), '');
+		}
+		if ($disabled) {
+			$status = 'disabled';
+		} elseif ($blocked) {
+			$status = 'blocked';
+		} else {
+			$status = 'enabled';
+		}
 ?>
-				<tr>
-					<td class="listlr">
-						<?=$disabled?>
+				<tr data-fs-filter-status="<?=$status?>"<?=$disabled ? ' class="fs-row-disabled"' : ''?>>
+					<td>
+						<?=$disabled ? fs_badge('disabled') : fs_badge('enabled')?>
+						<?=$blocked ? fs_badge('block', gettext('Blocked')) : ''?>
 					</td>
-					<td class="listr">
-						<?=htmlspecialchars($csc['common_name'])?>
+					<td class="fs-mono"><a href="vpn_openvpn_csc.php?act=edit&amp;id=<?=$i?>"><?=htmlspecialchars($name)?></a></td>
+					<td><?=empty($servers) ? '<span class="fs-muted">' . gettext('All servers') . '</span>' : '<span class="fs-ovpn-chips">' . implode('', array_map(function ($n) { return '<span class="fs-ovpn-chip">' . htmlspecialchars($n) . '</span>'; }, $servers)) . '</span>'?></td>
+					<td><?=(empty($networks)) ? '<span class="fs-muted">' . gettext('From server') . '</span>' : '<span class="fs-mono">' . htmlspecialchars(implode(', ', $networks)) . '</span>'?></td>
+					<td>
+<?php if (empty($chips)): ?>
+						<span class="fs-muted">&ndash;</span>
+<?php else: ?>
+						<span class="fs-ovpn-chips">
+<?php foreach ($chips as $chip): ?>
+							<span class="fs-ovpn-chip"<?=($chip[1] !== '') ? ' title="' . htmlspecialchars($chip[1]) . '"' : ''?>><?=htmlspecialchars($chip[0])?></span>
+<?php endforeach; ?>
+						</span>
+<?php endif; ?>
 					</td>
-					<td class="listbg">
-						<?=htmlspecialchars($csc['description'])?>
-					</td>
+					<td><?=htmlspecialchars($csc['description'] ?? '')?></td>
 					<td class="fs-col-actions">
 <?=fs_row_actions([
-							['edit', "vpn_openvpn_csc.php?act=edit&id={$i}", $csc['common_name']],
-							['custom', "vpn_openvpn_csc.php?act=dup&id={$i}", $csc['common_name'], ['icon' => 'fa-regular fa-clone', 'post' => true,
-							    'label' => sprintf(gettext('Copy %s'), $csc['common_name'])]],
-							['delete', "vpn_openvpn_csc.php?act=del&id={$i}", $csc['common_name'], ['thing' => gettext('client specific override')]],
+							['edit', "vpn_openvpn_csc.php?act=edit&id={$i}", $name],
+							['copy', "vpn_openvpn_csc.php?act=dup&id={$i}", $name],
+							['delete', "vpn_openvpn_csc.php?act=del&id={$i}", $name, ['thing' => gettext('client specific override'), 'detail' => gettext('The client gets the server settings at its next connection.')]],
 						])?>
 					</td>
 				</tr>
@@ -701,14 +854,13 @@ else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
 	   $i++;
 	endforeach;
 ?>
-<?php if (empty(config_get_path('openvpn/openvpn-csc', []))) {
-	fs_empty_row(4, gettext('No client specific overrides yet.'), 'vpn_openvpn_csc.php?act=new', gettext('Add override'));
+<?php if (empty($cscs)) {
+	fs_empty_row(7, gettext('No client specific overrides yet.'), 'vpn_openvpn_csc.php?act=new', gettext('Add override'));
 } ?>
 			</tbody>
 		</table>
 	</div>
 </div>
-
 
 <?php
 endif;
