@@ -665,6 +665,8 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 .fs-entrygrid-filter input { max-width: 22rem; }
 .fs-entrygrid-count { color: var(--fs-text-muted); font-size: .85rem; white-space: nowrap; }
 .form-group.repeatable.fs-entrygrid-filtered { display: none !important; }
+/* Form toggles(): a collapsed form row stays hidden (the flex row layout outranks BS5 .collapse) */
+.form-group.collapse:not(.show) { display: none !important; }
 @media (max-width: 575.98px) { .fs-entrygrid-head { display: none !important; } }
 
 /* searchable checklist (select[multiple][data-fs-checklist], js/freesense-ui.js) */
