@@ -74,7 +74,7 @@ include("head.inc");
 if ($input_errors) {
 	print_input_errors($input_errors);
 } else if (!$resolved && $type) {
-	print_info_box(sprintf(gettext('Host "%s" could not be resolved.'), $host_utf8), 'warning', false);
+	print_info_box(sprintf(gettext('Host "%s" could not be resolved.'), htmlspecialchars($host_utf8)), 'warning', false);
 }
 
 if ($createdalias) {
@@ -89,104 +89,124 @@ if ($createdalias) {
 
 if ($couldnotcreatealias) {
 	if ($alias_exists) {
-		print_info_box(sprintf(gettext("Alias already exists for %s"), $host), 'warning', false);
+		print_info_box(sprintf(gettext("Alias already exists for %s"), htmlspecialchars($host)), 'warning', false);
 	} else {
-		print_info_box(sprintf(gettext("Could not create alias for %s"), $host), 'warning', false);
+		print_info_box(htmlspecialchars(str_replace('%s', $host, gettext("Could not create alias for %s"))), 'warning', false);
 	}
 }
 
-$form = new Form(false);
-$section = new Form_Section('DNS Lookup');
-
-$section->addInput(new Form_Input(
-	'host',
-	'*Hostname',
-	'text',
-	$host_utf8,
-	['placeholder' => 'Hostname to look up.']
-));
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-        'Submit',
-        'Lookup',
-        null,
-        'fa-solid fa-magnifying-glass'
-))->addClass('btn-primary');
-
-if (!empty($resolved) && isAllowedPage('firewall_aliases_edit.php')) {
-	$form->addGlobal(new Form_Button(
-		'create_alias',
-		($alias_exists) ? gettext("Update Alias") : gettext("Add Alias"),
-		null,
-		($alias_exists) ? 'fa-solid fa-arrows-rotate' : 'fa-solid fa-plus'
-	))->removeClass('btn-primary')->addClass('btn-success');
-}
-
-print $form;
-
-if (!$input_errors && $type) {
-	if ($resolved):
+$show_results = (!$input_errors && $type);
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Results')?></h2></div>
-	<div class="panel-body">
 
-		<table class="table">
-		<thead>
-			<tr>
-				<th><?=gettext('Result')?></th>
-				<th><?=gettext('Record type')?></th>
-			</tr>
-		</thead>
-		<tbody>
-<?php foreach ((array)$resolved as $hostitem):?>
-		<tr>
-			<td><?=htmlspecialchars($hostitem['data'])?></td><td><?=htmlspecialchars($hostitem['type'])?></td>
-		</tr>
+<style>
+.fs-tool { display: grid; grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; margin-bottom: var(--fs-sp-5); }
+.fs-tool .panel { margin-bottom: 0; }
+.fs-tool-stack { display: flex; flex-direction: column; gap: var(--fs-sp-4); min-width: 0; }
+.fs-tool-form .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-tool-form .form-label { margin-bottom: var(--fs-sp-1); font-weight: 500; }
+.fs-tool-form .form-text { margin-top: var(--fs-sp-1); }
+.fs-tool-form .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+.fs-tool-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--fs-sp-2); min-height: 16rem; padding: var(--fs-sp-5); color: var(--fs-text-muted); text-align: center; }
+.fs-tool-empty > i { font-size: var(--fs-fs-xl); opacity: .6; }
+.fs-tool .panel-footer.fs-tool-links { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); }
+@media (max-width: 991.98px) { .fs-tool { grid-template-columns: minmax(0, 1fr); } }
+</style>
+
+<div class="fs-tool">
+	<form method="post" action="diag_dns.php" class="fs-tool-form">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Lookup')?></h2></div>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="host"><?=gettext('Hostname or IP address')?></label>
+					<input class="form-control fs-mono" type="text" id="host" name="host" value="<?=htmlspecialchars($host_utf8)?>" placeholder="<?=gettext('Hostname to look up')?>" required autofocus>
+					<div class="form-text"><?=gettext('An IP address is looked up in reverse (PTR).')?></div>
+				</div>
+			</div>
+			<div class="panel-footer">
+				<button type="submit" class="btn btn-primary" name="Submit" value="Lookup" data-fs-busy="true">
+					<i class="fa-solid fa-magnifying-glass icon-embed-btn" aria-hidden="true"></i><?=gettext('Lookup')?>
+				</button>
+<?php if (!empty($resolved) && isAllowedPage('firewall_aliases_edit.php')): ?>
+				<button type="submit" class="btn btn-outline-secondary" id="create_alias" name="create_alias" value="<?=$alias_exists ? gettext('Update Alias') : gettext('Add Alias')?>"
+				    title="<?=gettext('Create or update a host alias with these addresses')?>">
+					<i class="fa-solid <?=$alias_exists ? 'fa-arrows-rotate' : 'fa-plus'?> icon-embed-btn" aria-hidden="true"></i><?=$alias_exists ? gettext('Update alias') : gettext('Add alias')?>
+				</button>
+<?php endif; ?>
+			</div>
+		</div>
+	</form>
+
+	<div class="fs-tool-stack">
+<?php if (!$show_results): ?>
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Results')?></h2></div>
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+				<span><?=gettext('Look up a host to see its records and how fast each name server answered.')?></span>
+			</div>
+		</div>
+<?php else: ?>
+<?php if ($resolved): ?>
+		<div class="panel panel-default fs-table">
+			<div class="panel-heading">
+				<h2 class="panel-title"><?=gettext('Results')?></h2>
+			</div>
+			<div class="panel-body table-responsive">
+				<table class="table table-hover">
+					<thead>
+						<tr>
+							<th><?=gettext('Result')?></th>
+							<th class="fs-col-status"><?=gettext('Record type')?></th>
+						</tr>
+					</thead>
+					<tbody>
+<?php foreach ((array)$resolved as $hostitem): ?>
+						<tr>
+							<td class="fs-mono"><?=htmlspecialchars($hostitem['data'])?></td>
+							<td><?=fs_badge('info', htmlspecialchars($hostitem['type']))?></td>
+						</tr>
 <?php endforeach; ?>
-		</tbody>
-		</table>
-	</div>
-</div>
+					</tbody>
+				</table>
+			</div>
+			<div class="panel-footer fs-tool-links">
+				<span class="fs-muted small"><?=gettext('Next:')?></span>
+				<a class="btn btn-sm btn-outline-secondary" href="/diag_ping.php?host=<?=htmlspecialchars(urlencode($host))?>&amp;count=3"><i class="fa-solid fa-satellite-dish icon-embed-btn" aria-hidden="true"></i><?=gettext("Ping")?></a>
+				<a class="btn btn-sm btn-outline-secondary" href="/diag_traceroute.php?host=<?=htmlspecialchars(urlencode($host))?>&amp;ttl=18"><i class="fa-solid fa-route icon-embed-btn" aria-hidden="true"></i><?=gettext("Traceroute")?></a>
+			</div>
+		</div>
 <?php endif; ?>
 
-<!-- Second table displays the server resolution times -->
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Timings')?></h2></div>
-	<div class="panel-body">
-		<table class="table">
-		<thead>
-			<tr>
-				<th><?=gettext('Name server')?></th>
-				<th><?=gettext('Query time')?></th>
-			</tr>
-		</thead>
-
-		<tbody>
-<?php foreach ((array)$dns_speeds as $qt):?>
-		<tr>
-			<td><?=htmlspecialchars($qt['dns_server'])?></td><td><?=htmlspecialchars($qt['query_time'])?></td>
-		</tr>
+		<div class="panel panel-default fs-table">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Timings')?></h2></div>
+			<div class="panel-body table-responsive">
+				<table class="table table-hover">
+					<thead>
+						<tr>
+							<th><?=gettext('Name server')?></th>
+							<th><?=gettext('Query time')?></th>
+						</tr>
+					</thead>
+					<tbody>
+<?php foreach ((array)$dns_speeds as $qt): ?>
+						<tr>
+							<td class="fs-mono"><?=htmlspecialchars($qt['dns_server'])?></td>
+							<td class="fs-mono"><?=htmlspecialchars($qt['query_time'])?></td>
+						</tr>
 <?php endforeach; ?>
-		</tbody>
-		</table>
+<?php if (empty($dns_speeds)) {
+	fs_empty_row(2, gettext('No name server timings are available.'));
+} ?>
+					</tbody>
+				</table>
+			</div>
+		</div>
+<?php endif; ?>
 	</div>
 </div>
 
-<!-- Third table displays "More information" -->
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('More Information')?></h2></div>
-	<div class="panel-body">
-		<ul class="list-group">
-			<li class="list-group-item"><a href="/diag_ping.php?host=<?=htmlspecialchars($host)?>&amp;count=3"><?=gettext("Ping")?></a></li>
-			<li class="list-group-item"><a href="/diag_traceroute.php?host=<?=htmlspecialchars($host)?>&amp;ttl=18"><?=gettext("Traceroute")?></a></li>
-		</ul>
-	</div>
-</div>
 <?php
-}
 if (!$input_errors):
 ?>
 <script type="text/javascript">

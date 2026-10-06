@@ -68,16 +68,16 @@ $pgtitle = array(gettext("Status"), gettext("System Logs"), gettext($allowed_log
 $pglinks = array("", "status_logs.php", "status_logs_filter.php", "@self");
 include("head.inc");
 
-if ($changes_applied) {
-	print_apply_result_box($retval, $extra_save_msg);
-	$manage_log_active = false;
-}
+status_logs_notices();
 
 // Tab Array
 tab_array_logs_common();
 
 
 $filterlog = conv_log_filter($logfile_path, $lines, $lines);
+if (!is_array($filterlog)) {
+	$filterlog = array();
+}
 $gotlines = count($filterlog);
 $fields = array(
 	'act'	   => gettext("Actions"),
@@ -88,238 +88,192 @@ $fields = array(
 	'srcport'	=> gettext("Source Ports"),
 	'dstport'	=> gettext("Destination Ports"));
 
-$segcolors = array("#2484c1", "#65a620", "#7b6888", "#a05d56", "#961a1a", "#d8d23a", "#e98125", "#d0743c", "#635222", "#6ada6a");
-$numcolors = 10;
-
 $summary = array();
 foreach (array_keys($fields) as $f) {
 	$summary[$f] = array();
 }
 
-$totals = array();
-
-
 foreach ($filterlog as $fe) {
 	$specialfields = array('srcport', 'dstport');
 	foreach (array_keys($fields) as $field) {
 		if (!in_array($field, $specialfields)) {
-			$summary[$field][$fe[$field]]++;
+			$summary[$field][$fe[$field]] = ($summary[$field][$fe[$field]] ?? 0) + 1;
 		}
 	}
 	/* Handle some special cases */
-	if ($fe['srcport']) {
-		$summary['srcport'][$fe['proto'].'/'.$fe['srcport']]++;
-	} else {
-		$summary['srcport'][$fe['srcport']]++;
-	}
-	if ($fe['dstport']) {
-		$summary['dstport'][$fe['proto'].'/'.$fe['dstport']]++;
-	} else {
-		$summary['dstport'][$fe['dstport']]++;
-	}
+	$key = $fe['srcport'] ? $fe['proto'] . '/' . $fe['srcport'] : (string)$fe['srcport'];
+	$summary['srcport'][$key] = ($summary['srcport'][$key] ?? 0) + 1;
+	$key = $fe['dstport'] ? $fe['proto'] . '/' . $fe['dstport'] : (string)$fe['dstport'];
+	$summary['dstport'][$key] = ($summary['dstport'][$key] ?? 0) + 1;
 }
 
-print("<br />");
-$infomsg = sprintf(gettext('This is a summary of the last %1$s lines of the firewall log (Max %2$s).'), $gotlines, $lines);
+/* top entries per field (empty keys skipped, like before) plus "Other" */
+$charts = array();
+foreach (array_keys($fields) as $field) {
+	arsort($summary[$field], SORT_NUMERIC);
+	$items = array();
+	$total = 0;
+	foreach ($summary[$field] as $label => $count) {
+		if (count($items) >= $entriesperblock) {
+			break;
+		}
+		if ((string)$label === '') {
+			continue;
+		}
+		$item = array('label' => (string)$label, 'value' => $count, 'service' => '', 'lookup' => is_ipaddr($label));
+		if (substr_count($label, '/') == 1) {
+			list($proto, $port) = explode('/', $label);
+			$service = getservbyport((int)$port, strtolower($proto));
+			if ($service) {
+				$item['service'] = $service;
+			}
+		}
+		$items[] = $item;
+		$total += $count;
+	}
+	$leftover = $gotlines - $total;
+	$charts[$field] = array('items' => $items, 'other' => max(0, $leftover), 'distinct' => count($summary[$field]));
+}
+
+$acts = $summary['act'];
 ?>
-<div>
-	<div class="infoblock blockopen">
-		<?php print_info_box($infomsg, 'info', false); ?>
-	</div>
+
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('Entries summarized'), number_format($gotlines), null, sprintf(gettext('Latest %s lines of the firewall log'), number_format($lines)));
+fs_tile(gettext('Blocked'), number_format($acts['block'] ?? 0), (($acts['block'] ?? 0) > 0) ? 'block' : null);
+fs_tile(gettext('Passed'), number_format($acts['pass'] ?? 0), (($acts['pass'] ?? 0) > 0) ? 'pass' : null);
+fs_tile(gettext('Source addresses'), number_format(count($summary['srcip'])), null, gettext('Distinct sources seen'));
+?>
 </div>
+
+<?php if ($gotlines == 0): ?>
+<div class="panel panel-default">
+	<div class="panel-body fs-sum-empty"><?=gettext('The firewall log has no entries to summarize yet.')?></div>
+</div>
+<?php else: ?>
+<div class="fs-sum-grid">
+<?php
+$chartnum = 0;
+foreach ($charts as $field => $chart):
+	$share = function ($v) use ($gotlines) {
+		return $gotlines ? round(100 * $v / $gotlines, 1) : 0;
+	};
+?>
+	<section class="panel panel-default fs-sum-card" aria-labelledby="fs-sum-title-<?=$chartnum?>">
+		<div class="panel-heading">
+			<h2 class="panel-title" id="fs-sum-title-<?=$chartnum?>"><?=fs_h($fields[$field])?></h2>
+			<span class="fs-muted small"><?=fs_h(sprintf(gettext('%s distinct'), number_format($chart['distinct'])))?></span>
+		</div>
+		<div class="panel-body fs-sum-body">
+			<div class="fs-sum-chart" id="pieChart<?=$chartnum?>" role="img" aria-label="<?=fs_h(sprintf(gettext('Share of entries by %s'), $fields[$field]))?>"></div>
+			<table class="table table-sm fs-sum-table">
+				<thead>
+					<tr><th><?=fs_h($fields[$field])?></th><th class="text-end"><?=gettext('Entries')?></th><th class="text-end"><?=gettext('Share')?></th><th><span class="visually-hidden"><?=gettext('Actions')?></span></th></tr>
+				</thead>
+				<tbody>
+<?php	foreach ($chart['items'] as $i => $item): ?>
+					<tr>
+						<td class="fs-sum-label"><span class="fs-sum-swatch" data-fs-slot="<?=$i?>" aria-hidden="true"></span><span class="fs-mono"><?=fs_h($item['label'])?></span><?php if ($item['service'] !== ''): ?> <span class="fs-muted small"><?=fs_h($item['service'])?></span><?php endif; ?></td>
+						<td class="text-end fs-mono"><?=number_format($item['value'])?></td>
+						<td class="text-end fs-mono"><?=$share($item['value'])?>%</td>
+						<td class="fs-col-actions"><?php if ($item['lookup']): ?><?=fs_row_actions([['custom', 'diag_dns.php?host=' . urlencode($item['label']), $item['label'],
+							['icon' => 'fa-solid fa-magnifying-glass', 'label' => sprintf(gettext('Reverse resolve %s with DNS'), $item['label'])]]])?><?php endif; ?></td>
+					</tr>
+<?php	endforeach; ?>
+<?php	if ($chart['other'] > 0): ?>
+					<tr>
+						<td class="fs-sum-label"><span class="fs-sum-swatch fs-sum-swatch--other" aria-hidden="true"></span><?=gettext('Other')?></td>
+						<td class="text-end fs-mono"><?=number_format($chart['other'])?></td>
+						<td class="text-end fs-mono"><?=$share($chart['other'])?>%</td>
+						<td></td>
+					</tr>
+<?php	endif; ?>
+				</tbody>
+			</table>
+		</div>
+	</section>
+<?php
+	$chartnum++;
+endforeach;
+?>
+</div>
+<?php endif; ?>
+
+<style>
+.fs-sum-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 34rem), 1fr)); gap: 0 var(--fs-sp-5); }
+.fs-sum-body { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-4); padding: var(--fs-sp-4); }
+.fs-sum-chart { flex: 0 0 13rem; width: 13rem; height: 13rem; margin: 0 auto; }
+.fs-sum-table { flex: 1 1 16rem; min-width: 0; margin: 0; }
+.panel .fs-sum-table > :not(caption) > tr > :first-child { padding-left: 0; }
+.panel .fs-sum-table > :not(caption) > tr > :last-child { padding-right: 0; }
+.fs-sum-table > tbody > tr > td { height: 2rem; padding-top: .25rem; padding-bottom: .25rem; vertical-align: middle; }
+.fs-sum-label { overflow-wrap: anywhere; }
+.fs-sum-swatch { display: inline-block; width: .7rem; height: .7rem; margin-right: .5rem; border-radius: 2px; vertical-align: -.05rem; background: var(--fs-neutral); }
+.fs-sum-empty { padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; color: var(--fs-text-muted); }
+.fs-sum-chart .p0_tooltip text, .fs-sum-chart [class$="_tooltip"] text { font-family: var(--fs-font-ui); }
+</style>
 
 <script src="/vendor/d3/d3.min.js"></script>
 <script src="/vendor/d3pie/d3pie.min.js"></script>
-
-<?php
-
-$chartnum=0;
-foreach (array_keys($fields) as $field) {
-?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=$fields[$field]?></h2></div>
-	<div class="panel-body">
-		<div id="pieChart<?=$chartnum?>" class="text-center">
-<?php
-			pie_block($summary, $field , $entriesperblock, $chartnum);
-			stat_block($summary, $field , $entriesperblock);
-			$chartnum++;
-?>
-		</div>
-	</div>
-</div>
-<?php
-}
-
-function cmp($a, $b) {
-	if ($a == $b) {
-		return 0;
-	}
-	return ($a < $b) ? 1 : -1;
-}
-
-function stat_block($summary, $stat, $num) {
-	global $g, $gotlines, $fields;
-	uasort($summary[$stat] , 'cmp');
-	print('<div class="table-responsive">');
-	print('<table class="table table-striped table-hover table-sm">');
-	print('<tr><th>' . $fields[$stat] . '</th>' . '<th>' . gettext("Data points") . '</th><th></th></tr>');
-	$k = array_keys($summary[$stat]);
-	$total = 0;
-	$numentries = 0;
-	for ($i = 0; $i < $num; $i++) {
-		if ($k[$i]) {
-			$total += $summary[$stat][$k[$i]];
-			$numentries++;
-			$outstr = $k[$i];
-			if (is_ipaddr($outstr)) {
-				print('<tr><td>' . $outstr . '</td>' . '<td>' . $summary[$stat][$k[$i]] . '</td><td><a href="diag_dns.php?host=' . $outstr . '" class="btn btn-sm btn-primary" title="' . gettext("Reverse Resolve with DNS") . '"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i>' . gettext("Lookup") . '</a></td></tr>');
-
-			} elseif (substr_count($outstr, '/') == 1) {
-				list($proto, $port) = explode('/', $outstr);
-				$service = getservbyport($port, strtolower($proto));
-				if ($service) {
-					$outstr .= ": {$service}";
-				}
-			}
-
-			if (!is_ipaddr($outstr)) {
-				print('<tr><td>' . $outstr . '</td><td>' . $summary[$stat][$k[$i]] . '</td><td></td></tr>');
-			}
-		}
-	}
-	$leftover = $gotlines - $total;
-	if ($leftover > 0) {
-		print "<tr><td>Other</td><td>{$leftover}</td><td></td>";
-	}
-	print "</table>";
-	print('</div>');
-}
-
-// Create the JSON document for the chart to be displayed
-// Todo: Be good to investigate building this with json_encode and friends some time
-function pie_block($summary, $stat, $num, $chartnum) {
-	global $fields, $segcolors, $gotlines, $numcolors;
-
-	// d3pie throws on an empty data set (no log entries to summarize)
-	if (empty($summary[$stat]) && ($gotlines <= 0)) {
-		return;
-	}
-?>
 <script type="text/javascript">
 //<![CDATA[
-var pie = new d3pie("pieChart<?=$chartnum?>", {
-	"header": {
-		"title": {
-			"text": "",
-			"fontSize": 22,
-			"font": "verdana"
-		},
-		"subtitle": {
-			"color": "#999999",
-			"fontSize": 12,
-			"font": "open sans"
-		},
-		"titleSubtitlePadding": 12
-	},
-	"footer": {
-		"color": "#999999",
-		"fontSize": 10,
-		"font": "open sans",
-		"location": "bottom-left"
-	},
-	"size": {
-		"canvasHeight": 400,
-		"canvasWidth": 590,
-		"pieOuterRadius": "88%"
-	},
-	"data": {
-		"sortOrder": "value-desc",
-		"content": [
-<?php
-	uasort($summary[$stat] , 'cmp');
-	$k = array_keys($summary[$stat]);
-	$total = 0;
-	$numentries = 0;
+events.push(function() {
+	var charts = <?=json_encode(array_values($charts))?>;
+	/* categorical order, light and dark steps (same hues); "Other" stays neutral grey */
+	var styles = getComputedStyle(document.body);
+	var bg = styles.backgroundColor.match(/\d+/g) || [255, 255, 255];
+	var dark = (0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]) < 128;
+	var slots = dark
+	    ? ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181']
+	    : ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4'];
+	var other = dark ? '#6b7380' : '#9aa3ae';
+	var surface = getComputedStyle(document.querySelector('.fs-sum-card') || document.body).backgroundColor;
 
-	for ($i = 0; $i < $num; $i++) {
-		if ($k[$i]) {
-			$total += $summary[$stat][$k[$i]];
-			// separate from the previous printed entry; an empty key is skipped and
-			// must not leave a hole ("[ ,{...}") that d3pie trips over
-			if ($numentries > 0) {
-				print(",\r\n");
-			}
-			$numentries++;
+	document.querySelectorAll('.fs-sum-swatch[data-fs-slot]').forEach(function (el) {
+		el.style.backgroundColor = slots[parseInt(el.getAttribute('data-fs-slot'), 10) % slots.length];
+	});
+	document.querySelectorAll('.fs-sum-swatch--other').forEach(function (el) {
+		el.style.backgroundColor = other;
+	});
 
-			print("{");
-			print('"label": ' . json_encode((string)$k[$i]) . ', "value": ');
-			print($summary[$stat][$k[$i]]);
-			print(', "color": "' . $segcolors[$i % $numcolors] . '"');
-			print("}");
-
-		}
+	if (typeof d3pie === 'undefined') {
+		return;
 	}
-
-	$leftover = $gotlines - $total;
-
-	if ($leftover > 0) {
-		if ($numentries > 0) {
-			print(",\r\n");
+	charts.forEach(function (chart, n) {
+		var el = document.getElementById('pieChart' + n);
+		var content = chart.items.map(function (item, i) {
+			return { label: item.label, value: item.value, color: slots[i % slots.length] };
+		});
+		if (chart.other > 0) {
+			content.push({ label: <?=json_encode(gettext('Other'))?>, value: chart.other, color: other });
 		}
-		print("{");
-		print('"label": "Other", "value": ');
-		print($leftover);
-		print(', "color": "' . $segcolors[$i % $numcolors] . '"');
-		print("}");
-	}
-?>
-		]
-	},
-	"labels": {
-		"outer": {
-			"pieDistance": 32
-		},
-		"inner": {
-			"hideWhenLessThanPercentage": 3
-		},
-		"mainLabel": {
-			"fontSize": 11
-		},
-		"percentage": {
-			"color": "#ffffff",
-			"decimalPlaces": 0
-		},
-		"value": {
-			"color": "#adadad",
-			"fontSize": 11
-		},
-		"lines": {
-			"enabled": true
-		},
-		"truncation": {
-			"enabled": true
+		if (!el || !content.length) {
+			return;
 		}
-	},
-	"effects": {
-		"pullOutSegmentOnClick": {
-			"effect": "linear",
-			"speed": 400,
-			"size": 8
-		}
-	},
-	"misc": {
-		"gradient": {
-			"enabled": true,
-			"percentage": 100
-		}
-	},
-	"callbacks": {}
+		var size = el.clientWidth || 208;
+		new d3pie('pieChart' + n, {
+			size: { canvasHeight: size, canvasWidth: size, pieInnerRadius: '58%', pieOuterRadius: '96%' },
+			data: { sortOrder: 'none', content: content },
+			labels: {
+				outer: { format: 'none' },
+				inner: { format: 'none' },
+				lines: { enabled: false }
+			},
+			tooltips: {
+				enabled: true,
+				type: 'placeholder',
+				string: '{label}: {value} ({percentage}%)',
+				styles: { fadeInSpeed: 120, backgroundColor: dark ? '#e8ecf1' : '#1a1f27', backgroundOpacity: 0.95, color: dark ? '#1a1f27' : '#ffffff', borderRadius: 4, fontSize: 12, padding: 6 }
+			},
+			effects: { load: { effect: 'none' }, pullOutSegmentOnClick: { effect: 'none' }, highlightSegmentOnMouseover: true, highlightLuminosity: 0.15 },
+			misc: { colors: { segmentStroke: surface }, canvasPadding: { top: 2, right: 2, bottom: 2, left: 2 } }
+		});
+	});
 });
 //]]>
 </script>
-<?php
-}
 
+<?php
 include("foot.inc");
 ?>

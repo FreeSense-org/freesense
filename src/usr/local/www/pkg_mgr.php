@@ -50,6 +50,12 @@ if (($_REQUEST) && ($_REQUEST['ajax'])) {
 	exit;
 }
 
+/* Repository descriptions may carry <br /> markup; show them as plain text. */
+function pkg_mgr_plain_text($text) {
+	$text = preg_replace('/<br\s*\/?>/i', ' ', (string)$text);
+	return trim(preg_replace('/\s+/', ' ', strip_tags($text)));
+}
+
 // The content for the table of packages is created here and fetched by Ajax. This allows us to draw the page and display
 // any required messages while the table is being downloaded/populated. On very small/slow systems, that can take a while
 function get_pkg_table() {
@@ -60,87 +66,110 @@ function get_pkg_table() {
 		exit;
 	}
 
-	$pkgtbl = 	'<table id="pkgtable" class="table table-striped table-hover align-middle">' . "\n";
-	$pkgtbl .= 		'<thead>' . "\n";
-	$pkgtbl .= 			'<tr>' . "\n";
-	$pkgtbl .= 				'<th>' . gettext("Name") . "</th>\n";
-	$pkgtbl .= 				'<th>' . gettext("Version") . "</th>\n";
-	$pkgtbl .= 				'<th>' . gettext("Description") . "</th>\n";
-	$pkgtbl .= 				'<th></th>' . "\n";
-	$pkgtbl .= 			'</tr>' . "\n";
-	$pkgtbl .= 		'</thead>' . "\n";
-	$pkgtbl .= 		'<tbody>' . "\n";
+	$rows = '';
+	$count = array('available' => 0, 'installed' => 0, 'updates' => 0);
 
 	foreach ($pkg_info as $index) {
 		//AutoConfigBackup not to be installed >= v 2.4.4
-		if (isset($index['installed']) || ($index['shortname'] == "AutoConfigBackup")) {
+		if ($index['shortname'] == "AutoConfigBackup") {
 			continue;
 		}
 
 		$meta = $index['freesense'];
-		$category = htmlspecialchars($meta['category']);
-		$searchtext = htmlspecialchars(strtolower($meta['display_name'] . ' ' . $index['desc'] . ' ' . implode(' ', $meta['capabilities'])));
-		$pkgtbl .= 	'<tr data-category="' . $category . '" data-search="' . $searchtext . '">' . "\n";
-		$pkgtbl .= 	'<td>' . "\n";
+		$name = $meta['display_name'];
+		$installed = isset($index['installed']) || isset($index['broken']);
+		$update = isset($index['installed'], $index['installed_version'], $index['version']) &&
+		    (pkg_version_compare($index['installed_version'], $index['version']) == '<');
 
-		if (($index['www']) && ($index['www'] != "UNKNOWN")) {
-			$pkgtbl .= 	'<a title="' . gettext("Visit official website") . '" target="_blank" href="' . htmlspecialchars($index['www']) . '">' . "\n";
-			$pkgtbl .= htmlspecialchars($meta['display_name']) . '</a>' . "\n";
+		if ($update) {
+			$state = 'update';
+			$badge = fs_badge('warn', gettext('Update available'),
+			    sprintf(gettext('Installed %1$s, available %2$s'), $index['installed_version'], $index['version']));
+			$count['installed']++;
+			$count['updates']++;
+		} elseif ($installed) {
+			$state = 'installed';
+			$badge = fs_badge('pass', gettext('Installed'));
+			$count['installed']++;
 		} else {
-			$pkgtbl .= htmlspecialchars($meta['display_name']);
+			$state = 'available';
+			$badge = fs_badge('idle', gettext('Not installed'));
+			$count['available']++;
 		}
-		$pkgtbl .= '<div class="small text-body-secondary">' . $category .
-		    ' · ' . htmlspecialchars(ucfirst($meta['resource_profile'])) . '</div>';
-		$pkgtbl .= 	'</td>' . "\n";
-		$pkgtbl .= 	'<td>' . "\n";
 
+		$rows .= '<tr data-fs-filter-category="' . fs_h($meta['category']) . '" data-fs-filter-state="' . $state . '">';
+
+		/* package */
+		$rows .= '<td><strong>' . fs_h($name) . '</strong>' .
+		    '<div class="fs-muted small">' . fs_h($meta['category']) . ' · ' . fs_h(ucfirst($meta['resource_profile'])) . '</div></td>';
+
+		/* version */
+		$rows .= '<td class="fs-mono text-nowrap">';
 		if (!g_get('disablepackagehistory')) {
-			$pkgtbl .= '<a target="_blank" title="' . gettext("View changelog") . '" href="' . htmlspecialchars($index['changeloglink']) . '">' . "\n";
-			$pkgtbl .= htmlspecialchars($index['version']) . '</a>' . "\n";
+			$rows .= '<a target="_blank" rel="noopener" title="' . fs_h(gettext("View changelog")) . '" href="' . fs_h($index['changeloglink']) . '">' . fs_h($index['version']) . '</a>';
 		} else {
-			$pkgtbl .= htmlspecialchars($index['version']);
+			$rows .= fs_h($index['version']);
 		}
+		$rows .= '</td>';
 
-		$pkgtbl .= 	'</td>' . "\n";
-		$pkgtbl .= 	'<td>' . "\n";
-		$pkgtbl .= 		$index['desc'];
+		/* description, capabilities and dependencies */
+		$desc = pkg_mgr_plain_text($index['desc']);
+		$rows .= '<td><div class="fs-pkg-desc" title="' . fs_h($desc) . '">' . fs_h($desc) . '</div>';
 		if (!empty($meta['capabilities'])) {
-			$pkgtbl .= '<div class="mt-2">';
+			$rows .= '<div class="fs-pkg-caps">';
 			foreach ($meta['capabilities'] as $capability) {
-				$pkgtbl .= '<span class="badge text-bg-secondary me-1">' .
-				    htmlspecialchars(str_replace('-', ' ', $capability)) . '</span>';
+				$rows .= '<span class="fs-pkg-cap">' . fs_h(str_replace('-', ' ', $capability)) . '</span>';
 			}
-			$pkgtbl .= '</div>';
+			$rows .= '</div>';
 		}
-
 		if (is_array($index['deps']) && count($index['deps'])) {
-			$pkgtbl .= 	'<br /><br />' . gettext("Package Dependencies") . ":<br/>\n";
-
+			$rows .= '<div class="fs-pkg-deps"><span class="fs-muted">' . fs_h(gettext('Requires')) . ':</span>';
 			foreach ($index['deps'] as $pdep) {
 				$dependency = pkg_dependency_presentation($pdep);
-				$pkgtbl .= '<a target="_blank" href="' .
-				    htmlspecialchars($dependency['url']) .
-				    '">&nbsp;<i class="fa-solid fa-paperclip"></i> ' .
-				    htmlspecialchars($dependency['label']) .
-				    '</a>&emsp;' . "\n";
+				$rows .= ' <a target="_blank" rel="noopener" class="fs-mono" href="' . fs_h($dependency['url']) . '">' . fs_h($dependency['label']) . '</a>';
 			}
-
-			$pkgtbl .= "\n";
+			$rows .= '</div>';
 		}
+		$rows .= '</td>';
 
-		$pkgtbl .= 	'</td>' . "\n";
-		$pkgtbl .= '<td>' . "\n";
-		$pkgtbl .= '<a title="' . gettext("Review and install") . '" href="pkg_mgr_install.php?pkg=' . rawurlencode($index['name']) . '" class="btn btn-success btn-sm"><i class="fa-solid fa-plus icon-embed-btn"></i>' . gettext('Review') . '</a>' . "\n";
+		/* status */
+		$rows .= '<td class="text-nowrap">' . $badge . '</td>';
 
+		/* actions */
+		$actions = array();
+		if (!$installed) {
+			$actions[] = array('custom', 'pkg_mgr_install.php?pkg=' . rawurlencode($index['name']), $name,
+			    array('icon' => 'fa-download', 'label' => sprintf(gettext('Review and install %s'), $name)));
+		} else {
+			$actions[] = array('custom', 'pkg_mgr_installed.php?q=' . rawurlencode($name), $name,
+			    array('icon' => 'fa-list-check', 'label' => sprintf(gettext('Show %s in installed packages'), $name)));
+		}
 		if (!g_get('disablepackageinfo') && $index['pkginfolink'] && $index['pkginfolink'] != $index['www']) {
-			$pkgtbl .= '<a target="_blank" title="' . gettext("View more information") . '" href="' . htmlspecialchars($index['pkginfolink']) . '" class="btn btn-secondary btn-sm">info</a>' . "\n";
+			$actions[] = array('custom', $index['pkginfolink'], $name,
+			    array('icon' => 'fa-circle-info', 'label' => sprintf(gettext('More information about %s'), $name),
+			    'attrs' => array('target' => '_blank', 'rel' => 'noopener')));
 		}
-
-		$pkgtbl .= 	'</td>' . "\n";
-		$pkgtbl .= 	'</tr>' . "\n";
+		if (($index['www']) && ($index['www'] != "UNKNOWN")) {
+			$actions[] = array('custom', $index['www'], $name,
+			    array('icon' => 'fa-arrow-up-right-from-square', 'label' => sprintf(gettext('Visit the %s website'), $name),
+			    'attrs' => array('target' => '_blank', 'rel' => 'noopener')));
+		}
+		$rows .= '<td class="fs-col-actions">' . fs_row_actions($actions) . '</td>';
+		$rows .= '</tr>' . "\n";
 	}
 
-	$pkgtbl .= 	'</tbody>' . "\n";
+	$pkgtbl = '<table id="pkgtable" class="table table-hover" data-sortable' .
+	    ' data-pkg-available="' . $count['available'] . '"' .
+	    ' data-pkg-installed="' . $count['installed'] . '"' .
+	    ' data-pkg-updates="' . $count['updates'] . '">' . "\n";
+	$pkgtbl .= '<thead><tr>' .
+	    '<th data-fs-search>' . fs_h(gettext("Package")) . '</th>' .
+	    '<th>' . fs_h(gettext("Version")) . '</th>' .
+	    '<th data-fs-search>' . fs_h(gettext("Description")) . '</th>' .
+	    '<th>' . fs_h(gettext("Status")) . '</th>' .
+	    '<th class="fs-col-actions" data-sortable="false"><span class="visually-hidden">' . fs_h(gettext("Actions")) . '</span></th>' .
+	    '</tr></thead>' . "\n";
+	$pkgtbl .= '<tbody>' . "\n" . $rows . '</tbody>' . "\n";
 	$pkgtbl .= '</table>' . "\n";
 
 	return ($pkgtbl);
@@ -151,52 +180,50 @@ $pglinks = array("", "pkg_mgr_installed.php", "@self");
 include("head.inc");
 
 fs_tabs('system-packages', 'pkg_mgr.php');
+
+$categories = array(gettext('All categories'));
+foreach (freesense_package_catalog_categories() as $category) {
+	$categories[$category] = $category;
+}
 ?>
-<div class="card mb-3" id="search-panel">
-	<div class="card-header">
-		<h2 class="h5 mb-0">
-			<?=gettext('Search')?>
-			<span class="widget-heading-icon float-end">
-				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-circle-plus"></i>
-				</a>
-			</span>
-		</h2>
-	</div>
-	<div id="search-panel_panel-body" class="card-body collapse show">
-		<div class="row mb-3">
-			<label class="col-sm-2 col-form-label">
-				<?=gettext("Search term")?>
-			</label>
-			<div class="col-sm-5"><input class="form-control" name="searchstr" id="searchstr" type="text"/></div>
-			<div class="col-sm-2">
-				<select id="category" class="form-control">
-					<option value=""><?=gettext("All categories")?></option>
-					<?php foreach (freesense_package_catalog_categories() as $category): ?>
-					<option value="<?=htmlspecialchars($category)?>"><?=htmlspecialchars($category)?></option>
-					<?php endforeach; ?>
-				</select>
-			</div>
-			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
-			</div>
-			<div class="col-sm-10 offset-sm-2">
-				<span class="help-block"><?=gettext('Search package names, descriptions, and capabilities. Search text is treated literally.')?></span>
-			</div>
-		</div>
-	</div>
+
+<style>
+.fs-pkg-desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 46rem; }
+.fs-pkg-caps { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .35rem; }
+.fs-pkg-cap { padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text-muted); font-size: var(--fs-fs-xs); line-height: 1.35rem; white-space: nowrap; }
+.fs-pkg-deps { margin-top: .35rem; font-size: var(--fs-fs-xs); }
+#pkgtable th { white-space: nowrap; vertical-align: bottom; }
+#pkgtable td:not(.fs-col-actions) a { text-decoration: underline dotted; text-underline-offset: 2px; }
+#pkgtable td:not(.fs-col-actions) a:not(:hover) { color: inherit; }
+#pkgtable td .fs-pkg-deps a:not(:hover) { color: var(--fs-text-muted); }
+.fs-pkg-loading { display: flex; align-items: center; gap: .6rem; padding: 1.25rem 1rem; color: var(--fs-text-muted); }
+.fs-tiles .fs-tile-value .fa-ellipsis { color: var(--fs-text-muted); }
+</style>
+
+<div class="fs-tiles" id="pkg-tiles">
+	<div class="fs-tile"><div class="fs-tile-label"><?=gettext('Available to install')?></div><div class="fs-tile-value" data-pkg-tile="available"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
+	<div class="fs-tile"><div class="fs-tile-label"><?=gettext('Installed')?></div><div class="fs-tile-value" data-pkg-tile="installed"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
+	<div class="fs-tile"><div class="fs-tile-label"><?=gettext('Updates available')?></div><div class="fs-tile-value" data-pkg-tile="updates"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
 </div>
 
-<div class="card mb-3">
-	<div class="card-header"><h2 class="h5 mb-0"><?=gettext('Packages')?></h2></div>
-	<div id="pkgtbl" class="card-body table-responsive">
-		<div id="waitmsg">
-			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-gear fa-spin"></i>'); ?>
+<div class="panel panel-default fs-table" id="pkg-list">
+<?php fs_table_toolbar([
+	'title' => gettext('Packages'),
+	'search' => gettext('Search names, descriptions, capabilities…'),
+	'noun' => gettext('packages'),
+	'noun_one' => gettext('package'),
+	'filters' => [
+		'category' => $categories,
+		'state' => [gettext('Any status'), 'available' => gettext('Not installed'), 'installed' => gettext('Installed'), 'update' => gettext('Update available')],
+	],
+]); ?>
+	<div id="pkgtbl" class="panel-body table-responsive">
+		<div id="waitmsg" class="fs-pkg-loading" role="status">
+			<i class="fa-solid fa-gear fa-spin" aria-hidden="true"></i><?=gettext("Retrieving the list of packages…")?>
 		</div>
 
 		<div id="errmsg" style="display: none;">
-			<?php print_info_box("<ul><li>" . gettext("Unable to retrieve package information.") . "</li></ul>", 'danger'); ?>
+			<?php print_info_box(gettext("Unable to retrieve package information."), 'danger', false); ?>
 		</div>
 	</div>
 </div>
@@ -206,58 +233,7 @@ fs_tabs('system-packages', 'pkg_mgr.php');
 
 events.push(function() {
 
-	// Initial state & toggle icons of collapsed panel
-	$('.card-header a[data-bs-toggle="collapse"]').each(function (idx, el) {
-		var body = $(el).parents('.card').children('.card-body')
-		var isOpen = body.hasClass('show');
-
-		$(el).children('i').toggleClass('fa-circle-plus', !isOpen);
-		$(el).children('i').toggleClass('fa-circle-minus', isOpen);
-
-		body.on('shown.bs.collapse', function() {
-			$(el).children('i').toggleClass('fa-circle-minus', true);
-			$(el).children('i').toggleClass('fa-circle-plus', false);
-		});
-	});
-
-	// Make these controls plain buttons
-	$("#btnsearch").prop('type', 'button');
-	$("#btnclear").prop('type', 'button');
-
-	// Search for a term in the package name and/or description
-	function filterPackages() {
-		var searchstr = $('#searchstr').val().trim().toLowerCase();
-		var category = $('#category').val();
-		$("#pkgtable tbody tr").each(function () {
-			var matchesText = !searchstr || ($(this).data('search') || '').indexOf(searchstr) !== -1;
-			var matchesCategory = !category || $(this).data('category') === category;
-			$(this).toggle(matchesText && matchesCategory);
-		});
-	}
-
-	$("#btnsearch").click(filterPackages);
-	$("#category").on('change', filterPackages);
-
-	// Clear the search term and unhide all rows (that were hidden during a previous search)
-	$("#btnclear").click(function() {
-		var table = $("table tbody");
-
-		$('#searchstr').val("");
-		$('#category').val('');
-		filterPackages();
-	});
-
-	// Hitting the enter key will do the same as clicking the search button
-	$("#searchstr").on("keyup", function (event) {
-	    if (event.keyCode == 13) {
-	        $("#btnsearch").get(0).click();
-	    }
-	});
-
-	// Retrieve the table formatted package information and display it in the "Packages" panel
-	// (Or display an appropriate error message)
-	var ajaxRequest;
-
+	// Retrieve the package table and enhance it (search, filters, count, sort).
 	$.ajax({
 		url: "/pkg_mgr.php",
 		type: "post",
@@ -266,14 +242,22 @@ events.push(function() {
 			if (data == "error") {
 				$('#waitmsg').hide();
 				$('#errmsg').show();
+				$('[data-pkg-tile]').text('-');
 			} else {
 				$('#pkgtbl').html(data);
-				$('#search-panel').show();
+				var table = document.getElementById('pkgtable');
+				$('[data-pkg-tile]').each(function () {
+					$(this).text(table ? (table.getAttribute('data-pkg-' + this.getAttribute('data-pkg-tile')) || '0') : '-');
+				});
+				if (window.FreeSenseUI && window.FreeSenseUI.initTables) {
+					window.FreeSenseUI.initTables(document.getElementById('pkg-list'));
+				}
 			}
 		},
 		error: function() {
 			$('#waitmsg').hide();
 			$('#errmsg').show();
+			$('[data-pkg-tile]').text('-');
 		}
 	});
 

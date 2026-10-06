@@ -286,28 +286,31 @@ if ($_POST['resetlogs'] == gettext("Reset Log Files")) {
 
 $pgtitle = array(gettext("Status"), gettext("System Logs"), gettext("Settings"));
 $pglinks = array("", "status_logs.php", "@self");
+
+/* Reset Log Files: header action, posts the same resetlogs value as the old button */
+fs_page_action(gettext('Reset log files'), '/status_logs_settings.php?resetlogs=' . rawurlencode(gettext("Reset Log Files")), 'fa-trash-can', 'danger', [
+	'usepost' => true,
+	'data-fs-confirm' => gettext('Reset all log files?'),
+	'data-fs-confirm-detail' => gettext('Every local log file is cleared and the DHCP daemon restarts. Save any setting changes first.'),
+	'data-fs-confirm-action' => gettext('Reset log files'),
+]);
+
 include("head.inc");
 
 $current_log_size = config_get_path('syslog/logfilesize', g_get('default_log_size'));
-$current_rotate_count = is_numericint($syslogcfg['rotatecount']) ? $syslogcfg['rotatecount'] : 7;
+$current_rotate_count = is_numericint(config_get_path('syslog/rotatecount')) ? config_get_path('syslog/rotatecount') : 7;
+$log_disk_used = exec("/usr/bin/du -sh /var/log | /usr/bin/awk '{print $1;}'");
+$log_disk_free = exec("/bin/df -h /var/log | /usr/bin/awk '{print $4;}'");
+$log_disk_worst = format_bytes(count($system_log_files) * $current_log_size * $current_rotate_count);
 
-$logfilesizeHelp =	sprintf(gettext("This field controls the size at which logs will be rotated. By default this is %s per log file, and there are nearly 20 such log files. " .
-					"Rotated log files consume additional disk space, which varies depending on compression and retention count."), format_bytes(g_get('default_log_size'))) .
-					'<br /><br />' .
-					gettext("NOTE: Increasing this value allows every log file to grow to the specified size, so disk usage may increase significantly.") . '<br />' .
-					gettext("Logs from packages may consume additional space which is not accounted for in these settings. Check package-specific settings.") . ' ' .
-					gettext("Log file sizes are checked once per minute to determine if rotation is necessary, so a very rapidly growing log file may exceed this value.") . ' ' .
-					'<br /><br />' .
-					gettext("Disk space currently used by log files:") . ' ' . exec("/usr/bin/du -sh /var/log | /usr/bin/awk '{print $1;}'") .
+$logfilesizeHelp =	sprintf(gettext("Logs rotate when they reach this size (default %s per file; there are nearly 20 log files). " .
+					"Rotated files use extra disk space depending on compression and retention count."), format_bytes(g_get('default_log_size'))) .
 					'<br />' .
-					gettext("Worst case disk usage for base system logs based on current global settings:") . ' ' . format_bytes(count($system_log_files) * $current_log_size * $current_rotate_count) .
-					'<br />' .
-					gettext("Remaining disk space for log files:") . ' ' . exec("/bin/df -h /var/log | /usr/bin/awk '{print $4;}'");
+					gettext("Larger values let every log file grow to that size. Package logs are not included. Sizes are checked once a minute, so a fast-growing log can exceed this value.");
 
-$remoteloghelp =	gettext("This option will allow the logging daemon to bind to a single IP address, rather than all IP addresses.") . " " .
-					gettext("If a single IP is picked, remote syslog servers must all be of that IP type. To mix IPv4 and IPv6 remote syslog servers, bind to all interfaces.") .
-					"<br /><br />" .
-					gettext("NOTE: If an IP address cannot be located on the chosen interface, the daemon will bind to all addresses.");
+$remoteloghelp =	gettext("Bind the logging daemon to one address instead of all addresses. Remote servers must then use that address family; to mix IPv4 and IPv6 servers, bind to all.") .
+					"<br />" .
+					gettext("If no address is found on the chosen interface, the daemon binds to all addresses.");
 
 if ($input_errors) {
 	print_input_errors($input_errors);
@@ -325,195 +328,143 @@ tab_array_logs_common();
 
 $form = new Form();
 
-$section = new Form_Section('General Logging Options');
-
-$section->addInput(new Form_Select(
-	'format',
-	'Log Message Format',
-	!isset($pconfig['format']) ? 'rfc3164' : $pconfig['format'],
-	$syslog_formats
-))->setHelp('The format of syslog messages written to disk locally and sent to ' .
-	'remote syslog servers (if enabled).%s' .
-	'Changing this value will only affect new log messages.', '<br />');
-
-$section->addInput(new Form_Checkbox(
-	'reverse',
-	'Forward/Reverse Display',
-	'Show log entries in reverse order (newest entries on top)',
-	$pconfig['reverse']
-));
+/* ------------------------------------------------------------- display */
+$section = new Form_Section('Log display');
 
 $section->addInput(new Form_Input(
 	'nentries',
-	'GUI Log Entries',
+	'GUI log entries',
 	'number',
 	$pconfig['nentries'],
 	['min' => 5, 'max' => 200000, 'placeholder' => config_get_path('syslog/nentries', g_get('default_log_entries'))]
-))->setHelp('This is only the number of log entries displayed in the GUI. It does not affect how many entries are contained in the actual log files.');
+))->setHelp('Entries shown on the log pages. It does not change how many entries the log files keep.');
+
+$section->addInput(new Form_Checkbox(
+	'reverse',
+	'Order',
+	'Show newest entries first',
+	$pconfig['reverse']
+));
 
 $section->addInput(new Form_Checkbox(
 	'rawfilter',
-	'Raw Logs',
-	'Show raw filter logs',
+	'Raw logs',
+	'Show logs as written, without formatting',
 	$pconfig['rawfilter']
-))->setHelp('If this is checked, filter logs are shown as generated by the packet filter, without any formatting. This will reveal more detailed information, but it is more difficult to read.');
+))->setHelp('Raw lines reveal more detail but are harder to read. Each log can override this in its own log settings.');
 
 $section->addInput(new Form_Select(
 	'filterdescriptions',
-	'Where to show rule descriptions',
+	'Rule descriptions',
 	!isset($pconfig['filterdescriptions']) ? '0':$pconfig['filterdescriptions'],
 	array(
-		'0' => gettext('Dont load descriptions'),
-		'1' => gettext('Display as column'),
-		'2' => gettext('Display as second row')
+		'0' => gettext('Do not show'),
+		'1' => gettext('In their own column'),
+		'2' => gettext('Under the action')
 	)
-))->setHelp('Show the applied rule description below or in the firewall log rows.%1$s' .
-			'Displaying rule descriptions for all lines in the log might affect performance with large rule sets.',
-			'<br />');
-
-$section->addInput(new Form_Checkbox(
-	'disablelocallogging',
-	'Local Logging',
-	"Disable writing log files to the local disk",
-	$pconfig['disablelocallogging']
-))->setHelp('WARNING: This will also disable Login Protection!');
-
-$section->addInput(new Form_Button(
-	'resetlogs',
-	'Reset Log Files',
-	null,
-	'fa-solid fa-trash-can'
-))->addClass('btn-danger btn-sm')->setHelp('Clears all local log files and reinitializes them as empty logs. This also restarts the DHCP daemon. Use the Save button first if any setting changes have been made.');
+))->setHelp('Where the firewall log shows the description of the matching rule. Looking up descriptions for every row can be slow with large rule sets.');
 
 $form->add($section);
-$section = new Form_Section('Logging Preferences');
+
+/* ------------------------------------------------------- what is logged */
+$section = new Form_Section('What to log');
 
 $section->addInput(new Form_Select(
 	'default_log_level',
-	'Default Log Level',
+	'Default log level',
 	$pconfig['default_log_level'],
 	$log_levels
-))->setHelp('Sets the minimum log severity needed for messages to be logged. This may be overriden by program-specific settings.');
-
-$section->addInput(new Form_Checkbox(
-	'logipoptions',
-	null,
-	'Packets blocked due to IP options',
-	$pconfig['logipoptions']
-))->setHelp('Log packets that are %1$sblocked%2$s due to unmatched IP options in "pass" rules.', '<strong>', '</strong>');
+))->setHelp('Minimum severity a message needs to be logged. Programs can override this.');
 
 $section->addInput(new Form_Checkbox(
 	'logdefaultblock',
-	null,
-	'Default firewall "block" rules',
+	'Firewall',
+	'Packets blocked by the default block rule',
 	$pconfig['logdefaultblock']
-))->setHelp('Log packets that are %1$sblocked%2$s by the implicit default block rule.', '<strong>', '</strong>');
+));
 
 $section->addInput(new Form_Checkbox(
 	'logdefaultpass',
 	null,
-	'Default firewall "pass" rules',
+	'Packets passed by the default pass rule',
 	$pconfig['logdefaultpass']
-))->setHelp('Log packets that are %1$sallowed%2$s by the implicit default pass rule.', '<strong>', '</strong>');
+));
 
 $section->addInput(new Form_Checkbox(
 	'logbogons',
 	null,
-	'Default "Bogon Networks" block rules',
+	'Packets blocked by "Block bogon networks"',
 	$pconfig['logbogons']
-))->setHelp('Log packets that are %1$sblocked%2$s by the assigned interface option "Block bogon networks".', '<strong>', '</strong>');
+));
 
 $section->addInput(new Form_Checkbox(
 	'logprivatenets',
 	null,
-	'Default "Private Networks" block rules',
+	'Packets blocked by "Block private networks and loopback addresses"',
 	$pconfig['logprivatenets']
-))->setHelp('Log packets that are %1$sblocked%2$s by the assigned interface option "Block private networks and loopback addresses".', '<strong>', '</strong>');
+));
 
 $section->addInput(new Form_Checkbox(
 	'loglinklocal4',
 	null,
-	'Default "IPv4 link-local" block rules',
+	'Packets blocked by the default IPv4 link-local rules',
 	$pconfig['loglinklocal4']
-))->setHelp('Log packets that are %1$sblocked%2$s by the default "Block IPv4 link-local" rules.', '<strong>', '</strong>');
+));
+
+$section->addInput(new Form_Checkbox(
+	'logipoptions',
+	null,
+	'Packets blocked for unmatched IP options in pass rules',
+	$pconfig['logipoptions']
+));
 
 $section->addInput(new Form_Checkbox(
 	'logsnort2c',
 	null,
-	'Hosts blocked by IDS',
+	'Hosts blocked by IDS packages',
 	$pconfig['logsnort2c']
-))->setHelp('Log packets that are %1$sblocked%2$s by IDS packages.', '<strong>', '</strong>');
+));
 
 $section->addInput(new Form_Checkbox(
 	'lognginx',
-	null,
-	'Web server',
+	'System',
+	'Web server errors (GUI and Captive Portal)',
 	$pconfig['lognginx']
-))->setHelp('Log errors from the web server process for the GUI and Captive Portal.');
+));
 
 $section->addInput(new Form_Checkbox(
 	'logconfigchanges',
 	null,
-	"Configuration changes",
+	'Configuration changes',
 	$pconfig['logconfigchanges']
-))->setHelp('Log changes to the configuration.');
+));
 
 $form->add($section);
-$section = new Form_Section('Log Rotation Options');
 
-$section->addInput(new Form_Input(
-	'logfilesize',
-	'Log Rotation Size (Bytes)',
-	'number',
-	$pconfig['logfilesize'],
-	['min' => 100000, 'placeholder' => config_get_path('syslog/logfilesize', g_get('default_log_size'))]
-))->setHelp($logfilesizeHelp);
-
-$section->addInput(new Form_Select(
-	'logcompressiontype',
-	'Log Compression',
-	$pconfig['logcompressiontype'],
-	array_combine(array_keys($system_log_compression_types), array_keys($system_log_compression_types))
-))->setHelp('The type of compression to use when rotating log files. ' .
-	'Compressing rotated log files saves disk space, but can incur a performance penalty. ' .
-	'Compressed logs remain available for display and searching in the GUI.%1$s%1$s' .
-	'Compression should be disabled when using large log files and/or slower hardware.%1$s' .
-	'Disabled by default on new ZFS installations as ZFS already performs compression.%1$s' .
-	' WARNING: Changing this value will remove previously rotated compressed log files!', '<br />');
-
-$section->addInput(new Form_Input(
-	'rotatecount',
-	'Log Retention Count',
-	'number',
-	$pconfig['rotatecount'],
-	['min' => 0, 'max' => 99, 'placeholder' => '7']
-))->setHelp('The number of log files to keep before the oldest copy is removed on rotation.');
-
-$form->add($section);
-$section = new Form_Section('Remote Logging Options');
+/* ------------------------------------------------------- remote logging */
+$section = new Form_Section('Remote logging');
 $section->addClass('toggle-remote');
 
 $section->addInput(new Form_Checkbox(
 	'enable',
-	'Enable Remote Logging',
-	'Send log messages to remote syslog server',
+	'Remote logging',
+	'Send log messages to remote syslog servers',
 	$pconfig['enable']
 ));
 
 $section->addInput(new Form_Select(
 	'sourceip',
-	'Source Address',
+	'Source address',
 	link_interface_to_bridge($pconfig['sourceip']) ? null : $pconfig['sourceip'],
 	["" => gettext("Default (any)")] + get_possible_traffic_source_addresses(false)
 ))->setHelp($remoteloghelp);
 
 $section->addInput(new Form_Select(
 	'ipproto',
-	'IP Protocol',
+	'IP protocol',
 	$pconfig['ipproto'],
 	array('ipv4' => 'IPv4', 'ipv6' => 'IPv6')
-))->setHelp('This option is only used when a non-default address is chosen as the source above. ' .
-			'This option only expresses a preference; If an IP address of the selected type is not found on the chosen interface, the other type will be tried.');
+))->setHelp('Only used with a non-default source address. It is a preference: if the interface has no address of this type, the other is tried.');
 
 // Group collapses/appears based on 'enable' checkbox above
 $group = new Form_Group('Remote log servers');
@@ -545,7 +496,7 @@ $group->add(new Form_Input(
 
 $section->add($group);
 
-$group = new Form_MultiCheckboxGroup('Remote Syslog Contents');
+$group = new Form_MultiCheckboxGroup('Remote syslog contents');
 $group->addClass('remotelogging');
 
 $group->add(new Form_MultiCheckbox(
@@ -558,97 +509,152 @@ $group->add(new Form_MultiCheckbox(
 $group->add(new Form_MultiCheckbox(
 	'system',
 	null,
-	'System Events',
+	'System events',
 	$pconfig['system']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'filter',
 	null,
-	'Firewall Events',
+	'Firewall events',
 	$pconfig['filter']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'resolver',
 	null,
-	'DNS Events (Resolver/unbound, Forwarder/dnsmasq, filterdns)',
+	'DNS events (Resolver/unbound, Forwarder/dnsmasq, filterdns)',
 	$pconfig['resolver']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'dhcp',
 	null,
-	'DHCP Events (DHCP Daemon, DHCP Relay, DHCP Client)',
+	'DHCP events (DHCP daemon, relay, client)',
 	$pconfig['dhcp']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'ppp',
 	null,
-	'PPP Events (PPPoE WAN Client, L2TP WAN Client, PPTP WAN Client)',
+	'PPP events (PPPoE, L2TP and PPTP WAN clients)',
 	$pconfig['ppp']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'auth',
 	null,
-	'General Authentication Events',
+	'General authentication events',
 	$pconfig['auth']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'portalauth',
 	null,
-	'Captive Portal Events',
+	'Captive Portal events',
 	$pconfig['portalauth']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'vpn',
 	null,
-	'VPN Events (IPsec, OpenVPN, L2TP, PPPoE Server)',
+	'VPN events (IPsec, OpenVPN, L2TP, PPPoE server)',
 	$pconfig['vpn']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'dpinger',
 	null,
-	'Gateway Monitor Events',
+	'Gateway monitor events',
 	$pconfig['dpinger']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'routing',
 	null,
-	'Routing Daemon Events (RADVD, UPnP, RIP, OSPF, BGP)',
+	'Routing daemon events (RADVD, UPnP, RIP, OSPF, BGP)',
 	$pconfig['routing']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'ntpd',
 	null,
-	'Network Time Protocol Events (NTP Daemon, NTP Client)',
+	'NTP events (daemon and client)',
 	$pconfig['ntpd']
 ));
 
 $group->add(new Form_MultiCheckbox(
 	'hostapd',
 	null,
-	'Wireless Events (hostapd)',
+	'Wireless events (hostapd)',
 	$pconfig['hostapd']
 ));
 
-$group->setHelp('Syslog sends UDP datagrams to port 514 on the specified remote '.
-	'syslog server, unless another port is specified. Be sure to set syslogd on '.
-	'the remote server to accept syslog messages from %s.', g_get('product_label'));
+$group->setHelp('Syslog sends UDP datagrams to port 514 on the remote server unless another port is given. ' .
+	'Make sure the remote syslogd accepts messages from %s.', g_get('product_label'));
 
 $section->add($group);
 
 $form->add($section);
 
+/* ------------------------------------------------- storage (advanced) */
+$section = new Form_Section('Storage and rotation', 'log-storage', COLLAPSIBLE | (!empty($input_errors) ? SEC_OPEN : SEC_CLOSED));
+
+$section->addInput(new Form_StaticText(
+	'Disk usage',
+	'<span class="fs-logdisk">' .
+	'<span><span class="fs-muted">' . gettext('Used by logs') . '</span> <span class="fs-mono">' . htmlspecialchars($log_disk_used) . '</span></span>' .
+	'<span><span class="fs-muted">' . gettext('Free') . '</span> <span class="fs-mono">' . htmlspecialchars($log_disk_free) . '</span></span>' .
+	'<span><span class="fs-muted">' . gettext('Worst case for system logs') . '</span> <span class="fs-mono">' . htmlspecialchars($log_disk_worst) . '</span></span>' .
+	'</span>'
+));
+
+$section->addInput(new Form_Select(
+	'format',
+	'Log message format',
+	!isset($pconfig['format']) ? 'rfc3164' : $pconfig['format'],
+	$syslog_formats
+))->setHelp('Format of messages written to disk and sent to remote servers. Only new messages change.');
+
+$section->addInput(new Form_Input(
+	'logfilesize',
+	'Log rotation size (bytes)',
+	'number',
+	$pconfig['logfilesize'],
+	['min' => 100000, 'placeholder' => config_get_path('syslog/logfilesize', g_get('default_log_size'))]
+))->setHelp($logfilesizeHelp);
+
+$section->addInput(new Form_Select(
+	'logcompressiontype',
+	'Log compression',
+	$pconfig['logcompressiontype'],
+	array_combine(array_keys($system_log_compression_types), array_keys($system_log_compression_types))
+))->setHelp('Compression for rotated log files. It saves disk space at some CPU cost; compressed logs stay searchable in the GUI. ' .
+	'Turn it off for large logs or slow hardware; new ZFS installations leave it off because ZFS already compresses.%1$s' .
+	'Changing this value removes previously rotated compressed log files.', '<br />');
+
+$section->addInput(new Form_Input(
+	'rotatecount',
+	'Log retention count',
+	'number',
+	$pconfig['rotatecount'],
+	['min' => 0, 'max' => 99, 'placeholder' => '7']
+))->setHelp('Rotated files to keep before the oldest copy is removed.');
+
+$section->addInput(new Form_Checkbox(
+	'disablelocallogging',
+	'Local logging',
+	"Do not write log files to the local disk",
+	$pconfig['disablelocallogging']
+))->setHelp('This also disables login protection.');
+
+$form->add($section);
+
 print $form;
 ?>
+<style>
+.fs-logdisk { display: inline-flex; flex-wrap: wrap; gap: .25rem 1.25rem; }
+</style>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {

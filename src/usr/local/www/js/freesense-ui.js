@@ -26,6 +26,7 @@
  *   [data-fs-confirm]  buttons / anchors that confirm before acting
  *   .fs-tabs           tabs that do not fit move into a "More" menu
  *   .fs-table          search, filters, count, no-results row, bulk selection
+ *                      (FreeSenseUI.initTables(root) for lists loaded later)
  *   [data-fs-copy]     copy an element's text to the clipboard
  */
 
@@ -1289,17 +1290,54 @@
 		});
 
 		// keep aria-sort in step with sortable.js (data-sorted-direction on th)
-		document.querySelectorAll('table[data-sortable] th').forEach(function (th) {
-			new MutationObserver(function () {
-				var dir = th.getAttribute('data-sorted') === 'true' ? th.getAttribute('data-sorted-direction') : null;
-				if (dir === 'ascending' || dir === 'descending') {
-					th.setAttribute('aria-sort', dir);
-				} else {
-					th.removeAttribute('aria-sort');
+		document.querySelectorAll('table[data-sortable] th').forEach(watchSortHeader);
+	}
+
+	function watchSortHeader(th) {
+		if (th._fsSortWatch) {
+			return;
+		}
+		th._fsSortWatch = true;
+		new MutationObserver(function () {
+			var dir = th.getAttribute('data-sorted') === 'true' ? th.getAttribute('data-sorted-direction') : null;
+			if (dir === 'ascending' || dir === 'descending') {
+				th.setAttribute('aria-sort', dir);
+			} else {
+				th.removeAttribute('aria-sort');
+			}
+		}).observe(th, {attributes: true, attributeFilter: ['data-sorted', 'data-sorted-direction']});
+	}
+
+	/*
+	 * Public re-init hook for lists whose <table> is inserted after page load
+	 * (e.g. loaded over AJAX into a .fs-table card): enhances every .fs-table
+	 * in root (or root itself) that has a table and is not enhanced yet, and
+	 * makes a data-sortable table sortable. Safe to call more than once.
+	 *   $('#pkgtbl').html(data); FreeSenseUI.initTables(document.getElementById('pkg-list'));
+	 */
+	function initTables(root) {
+		root = root || document;
+		var roots = root.querySelectorAll ? Array.prototype.slice.call(root.querySelectorAll('.fs-table')) : [];
+		if (root.classList && root.classList.contains('fs-table')) {
+			roots.unshift(root);
+		}
+		roots.forEach(function (el) {
+			var table = el.querySelector('table');
+			if (!table || (el._fsTable && el._fsTable.table)) {
+				return;
+			}
+			if (table.hasAttribute('data-sortable')) {
+				if (window.Sortable && window.Sortable.initTable) {
+					window.Sortable.initTable(table);
 				}
-			}).observe(th, {attributes: true, attributeFilter: ['data-sorted', 'data-sorted-direction']});
+				table.querySelectorAll('th').forEach(watchSortHeader);
+			}
+			el._fsTable = new FsTable(el);
 		});
 	}
+
+	window.FreeSenseUI = window.FreeSenseUI || {};
+	window.FreeSenseUI.initTables = initTables;
 
 	if (document.readyState === 'loading') {
 		document.addEventListener('DOMContentLoaded', init);

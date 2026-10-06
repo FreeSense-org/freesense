@@ -103,55 +103,67 @@ require_once("head.inc");
 print_callout(gettext("The capabilities offered here can be dangerous. No support is available. Use them at your own risk!"), 'danger', gettext('Advanced Users Only'));
 
 ?>
+<style>
+#fileStatusBox { display: none; margin-bottom: var(--fs-sp-3); }
+.fs-edit-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
+.fs-edit-card .panel-title > i { color: var(--fs-warn); }
+.fs-edit-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); padding: var(--fs-sp-3) var(--fs-sp-4); border-bottom: 1px solid var(--fs-border); }
+.fs-edit-bar .fs-edit-path { flex: 1 1 26rem; min-width: 0; }
+.fs-edit-bar .fs-edit-goto { flex: 0 0 auto; width: auto; }
+.fs-edit-bar .fs-edit-goto input { width: 6rem; }
+#fbBrowser { display: none; margin: var(--fs-sp-3) var(--fs-sp-4) 0; padding: var(--fs-sp-3); border: 1px dashed var(--fs-border); border-radius: var(--fs-r-sm); }
+.fs-edit-body { padding: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-4); }
+#fileContent { font-family: var(--fs-font-mono); font-size: var(--fs-fs-sm); line-height: <?=$lineheight?>px; white-space: pre; }
+</style>
+
 <!-- file status box -->
-<div style="display:none; background:#eeeeee;" id="fileStatusBox">
+<div id="fileStatusBox">
 	<div id="fileStatus"></div>
 </div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Save / Load a File from the Filesystem")?></h2></div>
-	<div class="panel-body">
-		<div class="content">
-			<form>
-				<p><input type="text" class="form-control" id="fbTarget" placeholder="<?=gettext('Path to file to be edited')?>"/></p>
-				<div class="btn-group">
-					<p>
-						<button type="button" class="btn btn-secondary btn-sm" onclick="loadFile();"	value="<?=gettext('Load')?>">
-							<i class="fa-regular fa-file-lines"></i>
-							<?=gettext('Load')?>
-						</button>
-						<button type="button" class="btn btn-secondary btn-sm" id="fbOpen"		value="<?=gettext('Browse')?>">
-							<i class="fa-solid fa-list"></i>
-							<?=gettext('Browse')?>
-						</button>
-						<button type="button" class="btn btn-secondary btn-sm" onclick="saveFile();"	value="<?=gettext('Save')?>">
-							<i class="fa-solid fa-floppy-disk"></i>
-							<?=gettext('Save')?>
-						</button>
-					</p>
-				</div>
-				<p class="float-end">
-					<button id="btngoto" class="btn btn-secondary btn-sm"><i class="fa-solid fa-forward"></i><?=gettext("GoTo Line #")?></button> <input type="number" id="gotoline" size="6" style="padding: 3px 0px;"/>
-				</p>
-			</form>
-
-			<div id="fbBrowser" style="display:none; border:1px dashed gray; width:98%; padding:10px"></div>
-
-			<script type="text/javascript">
-			//<![CDATA[
-			window.onload=function() {
-				document.getElementById("fileContent").wrap='off';
-			}
-			//]]>
-			</script>
-			<textarea id="fileContent" name="fileContent" class="form-control" rows="30" cols="20"  style="line-height: <?=$lineheight?>px;"></textarea>
+<div class="panel panel-default fs-danger-card fs-edit-card">
+	<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext("Load and save a file")?></h2></div>
+	<form id="fbForm" class="fs-edit-bar">
+		<div class="input-group fs-edit-path">
+			<input type="text" class="form-control fs-mono" id="fbTarget" placeholder="<?=gettext('Path to file to be edited')?>" aria-label="<?=gettext('Path to file to be edited')?>"/>
+			<button type="button" class="btn btn-outline-secondary" id="fbLoad" value="<?=gettext('Load')?>">
+				<i class="fa-regular fa-file-lines icon-embed-btn" aria-hidden="true"></i><?=gettext('Load')?>
+			</button>
+			<button type="button" class="btn btn-outline-secondary" id="fbOpen" value="<?=gettext('Browse')?>">
+				<i class="fa-solid fa-folder-open icon-embed-btn" aria-hidden="true"></i><?=gettext('Browse')?>
+			</button>
 		</div>
+		<button type="button" class="btn btn-warning" id="fbSave" value="<?=gettext('Save')?>">
+			<i class="fa-solid fa-floppy-disk icon-embed-btn" aria-hidden="true"></i><?=gettext('Save')?>
+		</button>
+		<div class="input-group input-group-sm fs-edit-goto">
+			<label class="input-group-text" for="gotoline"><?=gettext("Line")?></label>
+			<input type="number" class="form-control fs-mono" id="gotoline" min="1"/>
+			<button id="btngoto" type="button" class="btn btn-outline-secondary"><i class="fa-solid fa-forward icon-embed-btn" aria-hidden="true"></i><?=gettext("Go to")?></button>
+		</div>
+	</form>
+
+	<div id="fbBrowser"></div>
+
+	<div class="fs-edit-body">
+		<label class="visually-hidden" for="fileContent"><?=gettext('File contents')?></label>
+		<textarea id="fileContent" name="fileContent" class="form-control" rows="30" cols="20" wrap="off" spellcheck="false"></textarea>
 	</div>
 </div>
 
 <script type="text/javascript">
 //<![CDATA[
 	events.push(function(){
+		$('#fbForm').on('submit', function(e) {
+			e.preventDefault();
+		});
+		$('#fbLoad').on('click', function() {
+			loadFile();
+		});
+		$('#fbSave').on('click', function() {
+			saveFile();
+		});
+
 		// Hitting the enter key will do the same as clicking the 'Load' button
 		$("#fbTarget").on("keyup", function (event) {
 			if (event.keyCode == 13) {
@@ -211,8 +223,6 @@ print_callout(gettext("The capabilities offered here can be dangerous. No suppor
 			var ta = document.getElementById("fileContent");
 			ta.scrollTop = lineht * (line - 1);
 		}
-
-		$("#btngoto").prop('type','button');
 
 		//On clicking the GoTo button, validate the entered value
 		// and highlight the required line
