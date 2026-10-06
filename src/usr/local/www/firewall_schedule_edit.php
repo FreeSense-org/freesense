@@ -86,6 +86,7 @@ include("head.inc");
 
 // Returns a string containing the HTML to display a calendar table
 function build_date_table() {
+	global $monthArray;
 	$tblstr = "";
 
 	$firstmonth = TRUE;
@@ -106,7 +107,8 @@ function build_date_table() {
 		$lasttr = FALSE;
 		$positioncounter = 1;//7 for Sun, 1 for Mon, 2 for Tues, etc
 
-		$mostr = '<div id="' . date("F_y", mktime(0, 0, 0, date($monthcounter), 1, date($yearcounter))) ;
+		/* one calendar per month, matched to the month list by month number */
+		$mostr = '<div id="fs-month-' . $monthcounter;
 		$mostr .= '" style="position:relative; display:';
 
 		if ($firstmonth) {
@@ -119,7 +121,7 @@ function build_date_table() {
 
 		$mostr .=
 			'<table class="table table-sm table-bordered" id="calTable' . $monthcounter . $yearcounter . '" >
-				<thead><tr><td colspan="7" class="text-center"><b>' . date("F_Y", mktime(0, 0, 0, date($monthcounter), 1, date($yearcounter))) . '</b></td>
+				<thead><tr><td colspan="7" class="text-center"><b>' . htmlspecialchars($monthArray[$monthcounter - 1] . ' ' . $yearcounter) . '</b></td>
 				</tr>
 				<tr>
 					<th class="text-center" style="cursor: pointer;" onclick="daytoggle(\'w1p1\');">' . gettext("Mon") . '</th>
@@ -191,6 +193,7 @@ function build_date_table() {
 }
 
 function build_month_list() {
+	global $monthArray;
 
 	$list = array();
 
@@ -199,7 +202,7 @@ function build_month_list() {
 	$yearcounter = date("Y");
 
 	for ($k = 0; $k < 12; $k++) {
-		$list[$monthcounter] = date("F_y", mktime(0, 0, 0, date($monthcounter), 1, date($yearcounter)));
+		$list[$monthcounter] = $monthArray[$monthcounter - 1] . ' ' . $yearcounter;
 
 		if ($monthcounter == 12) {
 			$monthcounter = 1;
@@ -664,19 +667,14 @@ function daytoggle(id) {
 }
 
 function update_month() {
-	var indexNum = document.forms[0].monthsel.selectedIndex;
-	var selected = document.forms[0].monthsel.options[indexNum].text;
+	var select = document.getElementById('monthsel');
 
-	for (i = 0; i <= 11; i++) {
-		option = document.forms[0].monthsel.options[i].text;
-		document.popupMonthLayer = eval('document.getElementById (option)');
-
-		if (selected == option) {
-			document.popupMonthLayer.style.display="block";
-		} else {
-			document.popupMonthLayer.style.display="none";
+	Array.prototype.forEach.call(select.options, function (option) {
+		var layer = document.getElementById('fs-month-' + option.value);
+		if (layer) {
+			layer.style.display = (option.value === select.value) ? 'block' : 'none';
 		}
-	}
+	});
 }
 
 function checkForRanges() {
