@@ -81,422 +81,287 @@ status_logs_common_code();
 
 $pgtitle = array(gettext("Status"), gettext("System Logs"), gettext($allowed_logs[$logfile]["name"]), $view_title);
 $pglinks = array("", "status_logs.php", "status_logs_filter.php", "@self");
-include("head.inc");
-
-if ($changes_applied) {
-	print_apply_result_box($retval, $extra_save_msg);
-	$manage_log_active = false;
-}
-
-// Tab Array
-tab_array_logs_common();
-
-
-// Manage Log - Section/Form
-if ($system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-
 
 // Force the formatted mode filter and form.  Raw mode is not applicable in the dynamic view.
 $rawfilter = false;
 
-
-// Log Filter Submit - Firewall
-filter_form_firewall();
-
-
-// Now the forms are complete we can draw the log table and its controls
+// Read the log
 system_log_filter();
+
+// Header actions: Log settings (modal) and Clear log
+status_logs_page_actions();
+
+include("head.inc");
+
+status_logs_notices();
+
+// Tab Array
+tab_array_logs_common();
+
+status_logs_styles();
+
+# Build query string.
+$filter_query_string = '';
+if ($filterlogentries_submit) {	# Formatted mode.
+	$filter_query_string = "type=formatted&filter=" . urlencode(json_encode($filterfieldsarray));
+}
+if ($filtersubmit) {	# Raw mode.
+	$filter_query_string = "type=raw&filter=" . urlencode(json_encode($filtertext)) . "&interfacefilter=" . urlencode(json_encode($interfacefilter));
+}
+
+# First get the "General Logging Options" (global) chronological order setting.  Then apply specific log override if set.
+$reverse = config_path_enabled('syslog', 'reverse');
+$specific_log = basename($logfile, '.log') . '_settings';
+if (config_get_path("syslog/{$specific_log}/cronorder") == 'forward') $reverse = false;
+if (config_get_path("syslog/{$specific_log}/cronorder") == 'reverse') $reverse = true;
+
+/* badge markup the live rows reuse (cloned in the browser, never parsed from text) */
+$dyn_badge = function ($act) {
+	return ($act == 'block') ? fs_badge('block') : fs_badge('pass');
+};
+?>
+
+<div class="panel panel-default fs-table" data-fs-table="firewall-live">
+<?php
+// Filter toolbar - Firewall (formatted)
+filter_form_firewall();
+?>
+	<div class="fs-dyn-status">
+		<span class="fs-dyn-live" id="fs-dyn-state" data-paused-text="<?=fs_h(gettext('Paused'))?>" data-live-text="<?=fs_h(gettext('Live'))?>">
+			<i class="fa-solid fa-circle" aria-hidden="true"></i><span><?=gettext('Live')?></span>
+		</span>
+		<span class="fs-muted"><?=fs_h(sprintf(gettext('New entries are added every %d seconds.'), 25))?></span>
+		<span class="fs-toolbar-spacer"></span>
+		<button type="button" class="btn btn-sm btn-outline-secondary" id="fs-dyn-pause" aria-pressed="false"
+			data-pause-text="<?=fs_h(gettext('Pause'))?>" data-resume-text="<?=fs_h(gettext('Resume'))?>">
+			<i class="fa-solid fa-pause icon-embed-btn" aria-hidden="true"></i><span><?=gettext('Pause')?></span>
+		</button>
+	</div>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover fs-fwlog" data-sortable>
+			<thead>
+				<tr>
+					<th><?=gettext("Action")?></th>
+					<th><?=gettext("Time")?></th>
+					<th data-fs-search><?=gettext("Interface")?></th>
+					<th data-fs-search><?=gettext("Source")?></th>
+					<th data-fs-search><?=gettext("Destination")?></th>
+					<th data-fs-search><?=gettext("Protocol")?></th>
+				</tr>
+			</thead>
+			<tbody id="filter-log-entries">
+<?php
+	foreach ($filterlog as $filterent) {
+		if ($filterent['version'] == '6') {
+			$srcIP = "[" . $filterent['srcip'] . "]";
+			$dstIP = "[" . $filterent['dstip'] . "]";
+		} else {
+			$srcIP = $filterent['srcip'];
+			$dstIP = $filterent['dstip'];
+		}
+		$srcPort = $filterent['srcport'] ? ":" . $filterent['srcport'] : "";
+		$dstPort = $filterent['dstport'] ? ":" . $filterent['dstport'] : "";
+		$proto = $filterent['proto'];
+		if ($proto == "TCP") {
+			$proto .= ":{$filterent['tcpflags']}";
+		}
+		$rulenum = "{$filterent['rulenum']},{$filterent['subrulenum']},{$filterent['tracker']},{$filterent['act']}";
+?>
+				<tr>
+					<td><button type="button" class="fs-fw-act" data-fs-rule="<?=fs_h($rulenum)?>"
+						title="<?=fs_h("{$filterent['act']}/{$filterent['reason']}/{$filterent['tracker']}")?>"
+						aria-label="<?=fs_h(sprintf(gettext('Rule details (%s)'), $filterent['act']))?>"><?=$dyn_badge($filterent['act'])?></button></td>
+					<?=status_logs_time_cell($filterent['time'])?>
+					<td><?=htmlspecialchars($filterent['interface'])?></td>
+					<td class="fs-mono fs-fw-addr"><?=htmlspecialchars($srcIP . $srcPort)?></td>
+					<td class="fs-mono fs-fw-addr"><?=htmlspecialchars($dstIP . $dstPort)?></td>
+					<td class="fs-mono text-nowrap"><?=htmlspecialchars($proto)?></td>
+				</tr>
+<?php
+	}
+
+	if (count($filterlog) == 0) {
+		fs_empty_row(6, gettext('No log entries to display yet. New entries appear here as they are logged.'));
+	}
+?>
+			</tbody>
+		</table>
+	</div>
+<?php status_logs_card_footer(); ?>
+</div>
+
+<template id="fs-dyn-badge-pass"><?=$dyn_badge('pass')?></template>
+<template id="fs-dyn-badge-block"><?=$dyn_badge('block')?></template>
+
+<div class="modal fade" id="fs-dyn-rule" tabindex="-1" aria-labelledby="fs-dyn-rule-title" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+		<div class="modal-header">
+			<h2 class="modal-title" id="fs-dyn-rule-title"><?=gettext('Rule details')?></h2>
+			<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?=gettext('Close')?>"></button>
+		</div>
+		<pre class="fs-console" id="fs-dyn-rule-text"></pre>
+		<div class="modal-footer">
+			<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><?=gettext('Close')?></button>
+		</div>
+	</div></div>
+</div>
+
+<style>
+.fs-fwlog > tbody > tr > td { height: 2rem; padding-top: .3rem; padding-bottom: .3rem; }
+.fs-fw-act { padding: 0; border: 0; background: none; cursor: pointer; }
+.fs-fw-act:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: 2px; border-radius: 999px; }
+.fs-fw-addr { white-space: nowrap; font-size: var(--fs-fs-sm); }
+.fs-dyn-status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2) var(--fs-sp-3); padding: var(--fs-sp-2) var(--fs-sp-4); border-bottom: 1px solid var(--fs-border); font-size: var(--fs-fs-sm); }
+.fs-dyn-live { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; color: var(--fs-pass); }
+.fs-dyn-live > i { font-size: .55rem; }
+.fs-dyn-live.is-paused { color: var(--fs-text-muted); }
+@media (prefers-reduced-motion: no-preference) {
+	.fs-dyn-live:not(.is-paused) > i { animation: fs-dyn-pulse 2s ease-in-out infinite; }
+	@keyframes fs-dyn-pulse { 50% { opacity: .35; } }
+}
+#fs-dyn-rule .fs-console { border-radius: 0; }
+</style>
+
+<?php
+// Log settings modal
+manage_log_section();
 ?>
 
 <script type="text/javascript">
 //<![CDATA[
-	lastsawtime = '<?=time(); ?>;';
-	var lines = Array();
-	var timer;
+events.push(function() {
+	var lastsawtime = '<?=time()?>';
 	var updateDelay = 25500;
 	var isBusy = false;
 	var isPaused = false;
-	var nentries = <?=$nentries; ?>;
+	var nentries = <?=(int)$nentries?>;
+	var isReverse = <?=$reverse ? 'true' : 'false'?>;
+	var filter_query_string = <?=json_encode($filter_query_string . '&logfile=' . $logfile_path . '&nentries=' . $nentries)?>;
+	var tbody = document.getElementById('filter-log-entries');
+	var search = document.querySelector('[data-fs-table="firewall-live"] [data-fs-search-input]');
 
-<?php
-	# Build query string.
-	if ($filterlogentries_submit) {	# Formatted mode.
-		$filter_query_string = "type=formatted&filter=" . urlencode(json_encode($filterfieldsarray ));
-	}
-	if ($filtersubmit) {	# Raw mode.
-		$filter_query_string = "type=raw&filter=" . urlencode(json_encode($filtertext)) . "&interfacefilter=" . urlencode(json_encode($interfacefilter));
-	}
-
-
-	# First get the "General Logging Options" (global) chronological order setting.  Then apply specific log override if set.
-	$reverse = config_path_enabled('syslog', 'reverse');
-	$specific_log = basename($logfile, '.log') . '_settings';
-	if (config_get_path("syslog/{$specific_log}/cronorder") == 'forward') $reverse = false;
-	if (config_get_path("syslog/{$specific_log}/cronorder") == 'reverse') $reverse = true;
-?>
-	var filter_query_string = "<?=$filter_query_string . '&logfile=' . $logfile_path . '&nentries=' . $nentries?>";
-
-	var isReverse = "<?=$reverse?>";
-
-	/* Called by the AJAX updater */
-	function format_log_line(row) {
-		if (row[8] == '6') {
-			srcIP = '[' + row[3] + ']';
-			dstIP = '[' + row[5] + ']';
-		} else {
-			srcIP = row[3];
-			dstIP = row[5];
+	function cell(text, cls) {
+		var td = document.createElement('td');
+		if (cls) {
+			td.className = cls;
 		}
+		td.textContent = text;
+		return td;
+	}
 
-		if (row[4] == '') {
-			srcPort = '';
-		} else {
-			srcPort = ':' + row[4];
+	/* One row from the AJAX line "button||time||if||src||sport||dst||dport||proto||ver||now||".
+	 * The first field is legacy markup: only the action and the rule lookup are read from it. */
+	function buildRow(row) {
+		var title = (/title="([^"]*)"/.exec(row[0]) || [])[1] || '';
+		var rule = (/getrulenum=([^']*)'/.exec(row[0]) || [])[1] || '';
+		var act = title.split('/')[0] === 'block' ? 'block' : 'pass';
+		var v6 = (row[8] === '6');
+		var src = (v6 ? '[' + row[3] + ']' : row[3]) + (row[4] ? ':' + row[4] : '');
+		var dst = (v6 ? '[' + row[5] + ']' : row[5]) + (row[6] ? ':' + row[6] : '');
+
+		var tr = document.createElement('tr');
+		var td = document.createElement('td');
+		var btn = document.createElement('button');
+		btn.type = 'button';
+		btn.className = 'fs-fw-act';
+		btn.title = title;
+		btn.setAttribute('data-fs-rule', rule);
+		btn.setAttribute('aria-label', <?=json_encode(gettext('Rule details'))?> + ' (' + act + ')');
+		btn.appendChild(document.getElementById('fs-dyn-badge-' + act).content.cloneNode(true));
+		td.appendChild(btn);
+		tr.appendChild(td);
+		tr.appendChild(cell(row[1].replace('T', ' '), 'fs-log-time'));
+		tr.appendChild(cell(row[2]));
+		tr.appendChild(cell(src, 'fs-mono fs-fw-addr'));
+		tr.appendChild(cell(dst, 'fs-mono fs-fw-addr'));
+		tr.appendChild(cell(row[7], 'fs-mono text-nowrap'));
+		return tr;
+	}
+
+	function addRows(rows) {
+		if (!rows.length) {
+			return;
 		}
-		if (row[6] == '') {
-			dstPort = '';
-		} else {
-			dstPort = ':' + row[6];
+		var empty = tbody.querySelector('tr.fs-empty');
+		if (empty) {
+			empty.remove();
 		}
-
-		var line =
-			'<td>' + row[0] + '</td>' +
-			'<td>' + row[1] + '</td>' +
-			'<td>' + row[2] + '</td>' +
-			'<td>' + srcIP + srcPort + '</td>' +
-			'<td>' + dstIP + dstPort + '</td>' +
-			'<td>' + row[7] + '</td>';
-
-		return line;
-	}
-
-if (typeof getURL == 'undefined') {
-	getURL = function(url, callback) {
-		if (!url)
-			throw 'No URL for getURL';
-		try {
-			if (typeof callback.operationComplete == 'function')
-				callback = callback.operationComplete;
-		} catch (e) {}
-			if (typeof callback != 'function')
-				throw 'No callback function for getURL';
-		var http_request = null;
-		if (typeof XMLHttpRequest != 'undefined') {
-		    http_request = new XMLHttpRequest();
-		}
-		else if (typeof ActiveXObject != 'undefined') {
-			try {
-				http_request = new ActiveXObject('Msxml2.XMLHTTP');
-			} catch (e) {
-				try {
-					http_request = new ActiveXObject('Microsoft.XMLHTTP');
-				} catch (e) {}
-			}
-		}
-		if (!http_request)
-			throw 'Both getURL and XMLHttpRequest are undefined';
-		http_request.onreadystatechange = function() {
-			if (http_request.readyState == 4) {
-				callback( { success : true,
-				  content : http_request.responseText,
-				  contentType : http_request.getResponseHeader("Content-Type") } );
-			}
-		};
-		http_request.open('REQUEST', url, true);
-		http_request.send(null);
-	};
-}
-
-function outputrule(req) {
-	alert(req.content);
-}
-
-function fetch_new_rules() {
-	if (isPaused) {
-		return;
-	}
-	if (isBusy) {
-		return;
-	}
-	isBusy = true;
-	getURL('status_logs_filter_dynamic.php?' + filter_query_string + '&lastsawtime=' + lastsawtime, fetch_new_rules_callback);
-}
-
-function fetch_new_rules_callback(callback_data) {
-	if (isPaused) {
-		return;
-	}
-
-	var data_split;
-	var new_data_to_add = Array();
-	var data = callback_data.content;
-
-	data_split = data.split("\n");
-
-	for (var x=0; x<data_split.length-1; x++) {
-		/* loop through rows */
-		row_split = data_split[x].split("||");
-		lastsawtime = row_split[9];
-
-		var tmp = format_log_line(row_split);
-
-		if (!(tmp)) {
-			continue;
-		}
-
-		new_data_to_add[new_data_to_add.length] = tmp;
-	}
-
-	update_table_rows(new_data_to_add);
-	isBusy = false;
-}
-
-function in_arrayi(needle, haystack) {
-	var i = haystack.length;
-	while (i--) {
-		if (haystack[i].toLowerCase() === needle.toLowerCase()) {
-			return true;
-		}
-	}
-	return false;
-}
-
-function update_table_rows(data) {
-	if ((isPaused) || (data.length < 1)) {
-		return;
-	}
-
-	var isIE = navigator.appName.indexOf('Microsoft') != -1;
-	var isSafari = navigator.userAgent.indexOf('Safari') != -1;
-	var isOpera = navigator.userAgent.indexOf('Opera') != -1;
-	var showanim = 1;
-
-	if (isIE) {
-		showanim = 0;
-	}
-
-	var startat = data.length - nentries;
-
-	if (startat < 0) {
-		startat = 0;
-	}
-
-	data = data.slice(startat, data.length);
-
-	var rows = $('#filter-log-entries>tr');
-
-	// Number of rows to move by
-	var move = rows.length + data.length - nentries;
-
-	if (move < 0) {
-		move = 0;
-	}
-
-	if (($("#count").text() == 0) && (data.length < nentries)) {
-		move += rows.length;
-	}
-
-	var tr_classes = 'text-nowrap';
-
-	if (isReverse == false) {
-		for (var i = move; i < rows.length; i++) {
-			$(rows[i - move]).html($(rows[i]).html());
-		}
-
-		var tbody = $('#filter-log-entries');
-
-		for (var i = 0; i < data.length; i++) {
-			var rowIndex = rows.length - move + i;
-			if (rowIndex < rows.length) {
-				$(rows[rowIndex]).html(data[i]);
-				$(rows[rowIndex]).className = tr_classes;
+		rows = rows.slice(Math.max(0, rows.length - nentries));
+		rows.forEach(function (tr) {
+			if (isReverse) {
+				tbody.insertBefore(tr, tbody.firstChild);
 			} else {
-				$(tbody).append('<tr class="' + tr_classes + '">' + data[i] + '</tr>');
+				tbody.appendChild(tr);
 			}
+		});
+		while (tbody.rows.length > nentries) {
+			tbody.removeChild(isReverse ? tbody.lastElementChild : tbody.firstElementChild);
 		}
-	} else {
-		for (var i = rows.length - 1; i >= move; i--) {
-			$(rows[i]).html($(rows[i - move]).html());
+		/* let the table enhancer re-apply the quick search and recount */
+		if (search) {
+			search.dispatchEvent(new Event('input'));
 		}
+	}
 
-		var tbody = $('#filter-log-entries');
-
-		for (var i = 0; i < data.length; i++) {
-			var rowIndex = move - 1 - i;
-			if (rowIndex >= 0) {
-				$(rows[rowIndex]).html(data[i]);
-				$(rows[rowIndex]).className = tr_classes;
-			} else {
-				$(tbody).prepend('<tr class="' + tr_classes + '">' + data[i] + '</tr>');
+	function fetchNewRules() {
+		if (isPaused || isBusy) {
+			return;
+		}
+		isBusy = true;
+		fetch('status_logs_filter_dynamic.php?' + filter_query_string + '&lastsawtime=' + encodeURIComponent(lastsawtime), {credentials: 'same-origin'})
+		    .then(function (r) { return r.text(); })
+		    .then(function (data) {
+			var rows = [];
+			data.split('\n').forEach(function (line) {
+				if (line === '') {
+					return;
+				}
+				var parts = line.split('||');
+				if (parts.length < 10) {
+					return;
+				}
+				lastsawtime = parts[9];
+				rows.push(buildRow(parts));
+			});
+			if (!isPaused) {
+				addRows(rows);
 			}
+		    })
+		    .catch(function () {})
+		    .then(function () { isBusy = false; });
+	}
+
+	setInterval(fetchNewRules, updateDelay);
+
+	/* Pause / resume */
+	var pause = document.getElementById('fs-dyn-pause');
+	var state = document.getElementById('fs-dyn-state');
+	pause.addEventListener('click', function () {
+		isPaused = !isPaused;
+		pause.setAttribute('aria-pressed', isPaused ? 'true' : 'false');
+		pause.querySelector('i').className = 'fa-solid ' + (isPaused ? 'fa-play' : 'fa-pause') + ' icon-embed-btn';
+		pause.querySelector('span').textContent = pause.getAttribute(isPaused ? 'data-resume-text' : 'data-pause-text');
+		state.classList.toggle('is-paused', isPaused);
+		state.querySelector('span').textContent = state.getAttribute(isPaused ? 'data-paused-text' : 'data-live-text');
+		if (!isPaused) {
+			fetchNewRules();
 		}
-	}
+	});
 
-	var rowCount = $('#filter-log-entries>tr').length;
-	$("#count").html(rowCount);
-
-	document.querySelectorAll('.fa').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); });
-}
-
-function toggle_pause() {
-	if (isPaused) {
-		isPaused = false;
-		fetch_new_rules();
-	} else {
-		isPaused = true;
-	}
-}
-/* start local AJAX engine */
-if (typeof updateDelay != 'undefined') {
-	timer = setInterval('fetch_new_rules()', updateDelay);
-}
-
-function toggleListDescriptions() {
-	var ss = document.styleSheets;
-	for (var i=0; i<ss.length; i++) {
-		var rules = ss[i].cssRules || ss[i].rules;
-		for (var j=0; j<rules.length; j++) {
-			if (rules[j].selectorText === ".listMRDescriptionL" || rules[j].selectorText === ".listMRDescriptionR") {
-				rules[j].style.display = rules[j].style.display === "none" ? "table-cell" : "none";
-			}
+	/* Rule details for an entry */
+	var ruleModal = document.getElementById('fs-dyn-rule');
+	var ruleText = document.getElementById('fs-dyn-rule-text');
+	tbody.addEventListener('click', function (e) {
+		var btn = e.target.closest('[data-fs-rule]');
+		if (!btn) {
+			return;
 		}
-	}
-}
-
-//]]>
-</script>
-
-
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-<?php
-	// Force the raw mode table panel title so that JQuery can update it dynamically.
-	$rawfilter = true;
-
-	print(system_log_table_panel_title());
-?>
-<?=" " . gettext('Pause') . " "?><input type="checkbox" onclick="javascript:toggle_pause();" />
-		</h2>
-	</div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm">
-				<thead>
-					<tr class="text-nowrap">
-						<th><?=gettext("Action")?></th>
-						<th><?=gettext("Time")?></th>
-						<th><?=gettext("Interface")?></th>
-						<th><?=gettext("Source")?></th>
-						<th><?=gettext("Destination")?></th>
-						<th><?=gettext("Protocol")?></th>
-					</tr>
-				</thead>
-				<tbody id="filter-log-entries">
-<?php
-				$rowIndex = 0;
-				$tcpcnt = 0;
-
-				foreach ($filterlog as $filterent) {
-					$rowIndex++;
-					if ($filterent['version'] == '6') {
-						$srcIP = "[" . htmlspecialchars($filterent['srcip']) . "]";
-						$dstIP = "[" . htmlspecialchars($filterent['dstip']) . "]";
-					} else {
-						$srcIP = htmlspecialchars($filterent['srcip']);
-						$dstIP = htmlspecialchars($filterent['dstip']);
-					}
-
-					if ($filterent['srcport']) {
-						$srcPort = ":" . htmlspecialchars($filterent['srcport']);
-					} else {
-						$srcPort = "";
-					}
-
-					if ($filterent['dstport']) {
-						$dstPort = ":" . htmlspecialchars($filterent['dstport']);
-					} else {
-						$dstPort = "";
-					}
-?>
-					<tr class="text-nowrap">
-						<td>
-<?php
-							if ($filterent['act'] == "block") {
-								$icon_act = "fa-solid fa-xmark text-danger";
-							} else {
-								$icon_act = "fa-solid fa-check text-success";
-							}
-?>
-							<i class="<?=
-									$icon_act
-								;?> icon-pointer" title="<?=
-									"{$filterent['act']}/{$filterent['reason']}/{$filterent['tracker']}"
-								;?>" onclick="javascript:getURL('status_logs_filter.php?getrulenum=<?=
-									"{$filterent['rulenum']},{$filterent['subrulenum']},{$filterent['tracker']},{$filterent['act']}"
-								;?>', outputrule);"></i>
-						</td>
-						<td><?=htmlspecialchars($filterent['time'])?></td>
-						<td><?=htmlspecialchars($filterent['interface'])?></td>
-						<td><?=$srcIP . $srcPort?></td>
-						<td><?=$dstIP . $dstPort?></td>
-<?php
-						if ($filterent['proto'] == "TCP") {
-							$filterent['proto'] .= ":{$filterent['tcpflags']}";
-							$tcpcnt++;
-						}
-?>
-						<td><?=htmlspecialchars($filterent['proto'])?></td>
-					</tr>
-<?php
-				} // e-o-foreach ()
-
-	if (count($filterlog) == 0) {
-		print '<tr class="text-nowrap"><td colspan=6>';
-		print_info_box(gettext('No logs to display.'));
-		print '</td></tr>';
-	}
-?>
-				</tbody>
-			</table>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	$("#count").html(<?=count($filterlog);?>);
-});
-//]]>
-</script>
-
-		</div>
-	</div>
-</div>
-
-<?php
-if ($tcpcnt > 0) {
-?>
-<div class="infoblock">
-<?php
-	print_info_box('<a href="https://docs.freesense.org/en/latest/firewall/configure.html#tcp-flags">' .
-					gettext("TCP Flags") . '</a>: F - FIN, S - SYN, A or . - ACK, R - RST, P - PSH, U - URG, E - ECE, C - CWR.', 'info', false);
-?>
-</div>
-<?php
-}
-
-# Manage Log - Section/Form
-if (!$system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-?>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	$(document).ready(function() {
-	    document.querySelectorAll('.fa').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); });
+		ruleText.textContent = <?=json_encode(gettext('Loading…'))?>;
+		bootstrap.Modal.getOrCreateInstance(ruleModal).show();
+		fetch('status_logs_filter.php?getrulenum=' + encodeURIComponent(btn.getAttribute('data-fs-rule')), {credentials: 'same-origin'})
+		    .then(function (r) { return r.text(); })
+		    .then(function (text) { ruleText.textContent = text; })
+		    .catch(function () { ruleText.textContent = <?=json_encode(gettext('The rule could not be loaded.'))?>; });
 	});
 });
 //]]>

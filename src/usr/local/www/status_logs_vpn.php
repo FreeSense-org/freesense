@@ -77,181 +77,112 @@ manage_log_code();
 status_logs_common_code();
 
 
-if ($filtertext) {
-	$filtertextmeta="?filtertext=$filtertext";
-}
-
 $pgtitle = array(gettext("Status"), gettext("System Logs"), gettext("PPPoE/L2TP Server"), gettext($allowed_logs[$logfile]["name"]));
 $pglinks = array("", "status_logs.php", "status_logs_vpn.php", "@self");
-include("head.inc");
 
-if (!$input_errors && $savemsg) {
-	print_info_box($savemsg, 'success');
-	$manage_log_active = false;
+// Read the log
+system_log_filter();
+if (!$rawfilter && ($logfile == "vpn")) {
+	// Remove those not of the selected vpn type (poes / l2tp).
+	foreach ($filterlog as $key => $filterent) {
+		if (!preg_match('/' . preg_quote((string)$vpntype, '/') . '/', $filterent['type'])) {
+			unset($filterlog[$key]);
+		}
+	}
+	$rows = count($filterlog);
 }
 
+// Header actions: Log settings (modal) and Clear log
+status_logs_page_actions();
+
+include("head.inc");
+
+status_logs_notices();
 
 // Tab Array
 tab_array_logs_common();
 
+status_logs_styles();
+?>
 
-// Manage Log - Section/Form
-if ($system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-
-
-// Filter Section/Form - VPN
+<div class="panel panel-default fs-table" data-fs-table="log">
+<?php
+// Filter toolbar - VPN
 filter_form_vpn();
-
-
-// Now the forms are complete we can draw the log table and its controls
-if (!$rawfilter) {
-	system_log_filter();
-
-	// Remove those not of the selected vpn type (poes / l2tp).
-	if ($logfile == "vpn") {
-		foreach ($filterlog as $key => $filterent) {
-			if (!preg_match('/' . $vpntype . '/', $filterent['type'])) {
-				unset($filterlog[$key]);
-			}
-		}
-	}
 ?>
-
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-<?php
-	print(system_log_table_panel_title());
+	<div class="panel-body table-responsive">
+		<table class="table table-hover fs-logtable" data-sortable>
+<?php if ($rawfilter):
+	$colspan = 1;
 ?>
-		</h2>
+			<thead>
+				<tr>
+					<th><?=gettext("Message")?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php	status_logs_raw_rows($rawlines);
+elseif ($logfile == "vpn"):
+	$colspan = 4;
+?>
+			<thead>
+				<tr>
+					<th><?=gettext("Time")?></th>
+					<th data-fs-search><?=gettext("Action")?></th>
+					<th data-fs-search><?=gettext("User")?></th>
+					<th data-fs-search><?=gettext("IP Address")?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php	foreach ($filterlog as $filterent): ?>
+				<tr>
+					<?=status_logs_time_cell($filterent['time'])?>
+					<td>
+<?php		if ($filterent['action'] == "login"): ?>
+						<?=fs_badge('pass', gettext('Login'))?>
+<?php		elseif ($filterent['action'] == "logout"): ?>
+						<?=fs_badge('neutral', gettext('Logout'))?>
+<?php		else: ?>
+						<?=fs_badge('info', $filterent['action'])?>
+<?php		endif; ?>
+					</td>
+					<td><?=htmlspecialchars($filterent['user'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($filterent['ip_address'])?></td>
+				</tr>
+<?php	endforeach;
+else:
+	$colspan = 3;
+?>
+			<thead>
+				<tr>
+					<th><?=gettext("Time")?></th>
+					<th data-fs-search><?=gettext("Type")?></th>
+					<th data-fs-search><?=gettext("Message")?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php	foreach ($filterlog as $filterent): ?>
+				<tr<?=status_logs_row_attrs($filterent['message'])?>>
+					<?=status_logs_time_cell($filterent['time'])?>
+					<td><?=status_logs_process_chip($filterent['type'], $filterent['pid'])?></td>
+					<td class="fs-log-msg"><?=htmlspecialchars($filterent['message'])?></td>
+				</tr>
+<?php	endforeach;
+endif;
+
+if ($rows == 0) {
+	fs_empty_row($colspan, gettext('No log entries to display.'));
+}
+?>
+			</tbody>
+		</table>
 	</div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-<?php
-	if ($logfile == "vpn") {
-?>
-				<thead>
-					<tr class="text-nowrap">
-						<th><?=gettext("Time")?></th>
-						<th><?=gettext("Action")?></th>
-						<th><?=gettext("User")?></th>
-						<th><?=gettext("IP Address")?></th>
-					</tr>
-				</thead>
-				<tbody>
-<?php
-		foreach ($filterlog as $filterent) {
-?>
-					<tr class="text-nowrap">
-						<td>
-							<?=htmlspecialchars($filterent['time'])?>
-						</td>
-						<td style="word-wrap:break-word; word-break:break-all; white-space:normal">
-							<?php if ($filterent['action'] == "login") { ?>
-							<i class="fa-solid fa-right-to-bracket" title="User Logged In"></i>
-							<?php } else if ($filterent['action'] == "logout") { ?>
-							<i class="fa-solid fa-right-from-bracket" title="User Logged Out"></i>
-							<?php } else { ?>
-							<i><?=htmlspecialchars($filterent['action'])?></i>
-							<?php } ?>
-						</td>
-						<td>
-							<?=htmlspecialchars($filterent['user'])?>
-						</td>
-						<td>
-							<?=htmlspecialchars($filterent['ip_address'])?>
-						</td>
-					</tr>
-<?php
-		} // e-o-foreach
-?>
-				</tbody>
-<?php
-	} else {
-?>
-				<thead>
-					<tr class="text-nowrap">
-						<th><?=gettext("Time")?></th>
-						<th><?=gettext("Type")?></th>
-						<th><?=gettext("PID")?></th>
-						<th style="width:100%"><?=gettext("Log Message")?></th>
-					</tr>
-				</thead>
-				<tbody>
-<?php
-		foreach ($filterlog as $filterent) {
-?>
-					<tr class="text-nowrap">
-						<td>
-							<?=htmlspecialchars($filterent['time'])?>
-						</td>
-						<td>
-							<?=htmlspecialchars($filterent['type'])?>
-						</td>
-						<td>
-							<?=htmlspecialchars($filterent['pid'])?>
-						</td>
-						<td style="word-wrap:break-word; word-break:break-all; white-space:normal">
-							<?=htmlspecialchars($filterent['message'])?>
-						</td>
-					</tr>
-<?php
-		} // e-o-foreach
-?>
-				</tbody>
-<?php
-	}
-?>
-			</table>
-<?php
-	if (count($filterlog) == 0) {
-		print_info_box(gettext('No logs to display.'));
-	}
-?>
-		</div>
-	</div>
+<?php status_logs_card_footer(); ?>
 </div>
 <?php
-} else {
-?>
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-<?php
-	print(system_log_table_panel_title());
-?>
-		</h2>
-	</div>
-	<div class="panel-body">
-		<pre><?php
-			$rows = dump_log($logfile_path, $nentries, true, array($filtertext), null, 'notable');
-		?></pre>
 
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	$("#count").html(<?=$rows?>);
-});
-//]]>
-</script>
-
-<?php
-	if ($rows == 0) {
-		print_info_box(gettext('No logs to display.'));
-	}
-?>
-	</div>
-</div>
-<?php
-}
-
-# Manage Log - Section/Form
-if (!$system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
+// Log settings modal
+manage_log_section();
 
 // Log Filter Submit - VPN
 function log_filter_form_vpn_submit() {
@@ -285,166 +216,46 @@ function log_filter_form_vpn_submit() {
 	}
 }
 
-// Filter Section/Form - VPN
+// Filter toolbar - VPN
 function filter_form_vpn() {
 
-	global $filter_active, $rawfilter, $filterfieldsarray, $filtertext, $filterlogentries_qty, $nentries, $Include_Act, $interfacefilter;
+	global $rawfilter, $filterfieldsarray, $filtertext, $filterlogentries_qty, $nentries;
 	global $logfile;
-	global $system_logs_filter_form_hidden;
 
-	if ($filter_active) {
-		$panel_state = 'in';
-		$panel_body_state = SEC_OPEN;
-	} else {
-		if ($system_logs_filter_form_hidden) {
-			$panel_state = 'out';
-			$panel_body_state = SEC_OPEN;
-		} else {
-			$panel_state = 'in';
-			$panel_body_state = SEC_CLOSED;
-		}
-	}
-
-	if (!$rawfilter) { // Advanced log filter form
-		$form = new Form(false);
-		$form->setAttribute('id', 'filter-form')->addClass('collapse ' . $panel_state);
-
-		$section = new Form_Section('Advanced Log Filter', 'filter-panel', COLLAPSIBLE|$panel_body_state);
-
+	$qty = ['name' => 'filterlogentries_qty', 'label' => gettext('Entries'), 'type' => 'number', 'value' => $filterlogentries_qty, 'placeholder' => $nentries];
+	if (!$rawfilter) { // Advanced (field) log filter
 		if ($logfile == "vpn") {
-			$group = new Form_Group('');
-
-			$group->add(new Form_Input(
-				'filterlogentries_time',
-				null,
-				'text',
-				$filterfieldsarray['time']
-			))->setWidth(3)->setHelp('Time');
-
-			$group->add(new Form_Input(
-				'filterlogentries_action',
-				null,
-				'text',
-				$filterfieldsarray['action']
-			))->setWidth(3)->setHelp('Action');
-
-			$group->add(new Form_Input(
-				'filterlogentries_qty',
-				null,
-				'number',
-				$filterlogentries_qty,
-				['placeholder' => $nentries]
-			))->setWidth(2)->setHelp('Quantity');
-
-			$section->add($group);
-
-			$group = new Form_Group('');
-
-			$group->add(new Form_Input(
-				'filterlogentries_user',
-				null,
-				'text',
-				$filterfieldsarray['user']
-			))->setWidth(3)->setHelp('User');
-
-			$group->add(new Form_Input(
-				'filterlogentries_ip_address',
-				null,
-				'text',
-				$filterfieldsarray['ip_address']
-			))->setWidth(4)->setHelp('IP Address');
+			$quick = [
+				['name' => 'filterlogentries_user', 'label' => gettext('User'), 'value' => $filterfieldsarray['user'] ?? ''],
+				['name' => 'filterlogentries_ip_address', 'label' => gettext('IP address'), 'value' => $filterfieldsarray['ip_address'] ?? ''],
+			];
+			$advanced = [
+				['name' => 'filterlogentries_time', 'label' => gettext('Time'), 'value' => $filterfieldsarray['time'] ?? ''],
+				['name' => 'filterlogentries_action', 'label' => gettext('Action'), 'value' => $filterfieldsarray['action'] ?? ''],
+				$qty,
+			];
+			status_logs_filter_toolbar($quick, $advanced, 'filterlogentries_submit', false);
 		} else {
-			$group = new Form_Group('');
-
-			$group->add(new Form_Input(
-				'filterlogentries_time',
-				null,
-				'text',
-				$filterfieldsarray['time']
-			))->setWidth(3)->setHelp('Time');
-
-			$group->add(new Form_Input(
-				'filterlogentries_type',
-				null,
-				'text',
-				$filterfieldsarray['type']
-			))->setWidth(2)->setHelp('Type');
-
-			$group->add(new Form_Input(
-				'filterlogentries_pid',
-				null,
-				'text',
-				$filterfieldsarray['pid']
-			))->setWidth(2)->setHelp('PID');
-
-			$group->add(new Form_Input(
-				'filterlogentries_qty',
-				null,
-				'number',
-				$filterlogentries_qty,
-				['placeholder' => $nentries]
-			))->setWidth(2)->setHelp('Quantity');
-
-			$section->add($group);
-
-			$group = new Form_Group('');
-
-			$group->add(new Form_Input(
-				'filterlogentries_message',
-				null,
-				'text',
-				$filterfieldsarray['message']
-			))->setWidth(7)->setHelp('Log Message');
-
+			$quick = [
+				['name' => 'filterlogentries_message', 'label' => gettext('Message'), 'value' => $filterfieldsarray['message'] ?? '',
+				    'placeholder' => gettext('Message filter')],
+				['name' => 'filterlogentries_type', 'label' => gettext('Type'), 'value' => $filterfieldsarray['type'] ?? '', 'small' => true],
+			];
+			$advanced = [
+				['name' => 'filterlogentries_time', 'label' => gettext('Time'), 'value' => $filterfieldsarray['time'] ?? ''],
+				['name' => 'filterlogentries_pid', 'label' => gettext('PID'), 'value' => $filterfieldsarray['pid'] ?? ''],
+				$qty,
+			];
+			status_logs_filter_toolbar($quick, $advanced, 'filterlogentries_submit');
 		}
-		$btnsubmit = new Form_Button(
-			'filterlogentries_submit',
-			gettext('Apply Filter'),
-			null,
-			'fa-solid fa-filter'
-		);
-	} else { // Simple log filter form
-		$form = new Form(false);
-		$form->setAttribute('id', 'filter-form')->addClass('collapse ' . $panel_state);
-
-		$section = new Form_Section('Log Filter', 'filter-panel', COLLAPSIBLE|$panel_body_state);
-
-		$group = new Form_Group('');
-
-		$group->add(new Form_Input(
-			'filtertext',
-			null,
-			'text',
-			$filtertext
-		))->setWidth(6)->setHelp('Filter Expression');
-
-		$group->add(new Form_Input(
-			'filterlogentries_qty',
-			null,
-			'number',
-			$filterlogentries_qty,
-			['placeholder' => $nentries]
-		))->setWidth(2)->setHelp('Quantity');
-
-		$btnsubmit = new Form_Button(
-			'filtersubmit',
-			gettext('Apply Filter'),
-			null,
-			'fa-solid fa-filter'
-		);
+	} else { // Simple (expression) log filter
+		$qty['small'] = true;
+		$quick = [
+			['name' => 'filtertext', 'label' => gettext('Filter expression'), 'value' => $filtertext],
+			$qty,
+		];
+		status_logs_filter_toolbar($quick, [], 'filtersubmit');
 	}
-
-	$btnsubmit->removeClass('btn-primary')->addClass('btn-success')->addClass('btn-sm');
-
-	$group->add(new Form_StaticText(
-		'',
-		$btnsubmit
-	));
-
-	$group->setHelp('<a target="_blank" href="https://www.php.net/manual/en/book.pcre.php">' . gettext('Regular expression reference') . '</a> ' . gettext('Precede with exclamation (!) to exclude match.'));
-	$section->add($group);
-	$form->add($section);
-	print $form;
 }
 ?>
 

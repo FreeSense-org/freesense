@@ -103,67 +103,107 @@ status_logs_common_code();
 
 $pgtitle = array(gettext("Status"), gettext("System Logs"), gettext($allowed_logs[$logfile]["name"]), $view_title);
 $pglinks = array("", "status_logs.php", "status_logs_filter.php", "@self");
-include("head.inc");
-
-if ($changes_applied) {
-	print_apply_result_box($retval, $extra_save_msg);
-	$manage_log_active = false;
-}
-
-// Tab Array
-tab_array_logs_common();
-
-
-// Manage Log - Section/Form
-if ($system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-
-
-// Filter Section/Form - Firewall
-filter_form_firewall();
 
 $filterdescriptions = config_get_path('syslog/filterdescriptions');
 
-// Now the forms are complete we can draw the log table and its controls
+// Read the log
 if (!$rawfilter) {
 	$iflist = get_configured_interface_with_descr(true);
 
 	if ($iflist[$interfacefilter]) {
 		$interfacefilter = $iflist[$interfacefilter];
 	}
+}
+system_log_filter();
 
-	system_log_filter();
+// Header actions: Log settings (modal) and Clear log
+status_logs_page_actions();
+
+include("head.inc");
+
+status_logs_notices();
+
+// Tab Array
+tab_array_logs_common();
+
+status_logs_styles();
+
+/* Action badge with the matched rule as a popover ("match" and "reject" are not
+ * logged as such by filterlog: they are derived like print_syslog_rule_action()). */
+$fw_action = function ($rule) {
+	switch ($rule['act']) {
+		case 'pass':
+		case 'block':
+		case 'rdr':
+			$action = $rule['act'];
+			break;
+		case 'unkn(%u)':
+			$action = 'match';
+			break;
+		default:
+			$action = 'unknown';
+			break;
+	}
+	$rules = find_rule_by_number($rule['rulenum'], $rule['subrulenum'], $rule['tracker'], $action);
+	if (isset($rules['match']) && ($action == 'block') && preg_match('/^@\d+ block return /', $rules['match'])) {
+		$action = 'reject';
+	}
+
+	$details = gettext('Action') . ': ' . htmlspecialchars($action) . '<br />' .
+	    gettext('Reason') . ': ' . htmlspecialchars($rule['reason']) . '<br />' .
+	    gettext('Tracker ID') . ': ' . htmlspecialchars($rule['tracker']) . '<br />' .
+	    gettext('Matched rule') . ':' . (isset($rules['match']) ? '<br />' . htmlspecialchars($rules['match']) : ' ' . gettext('unavailable'));
+	if (isset($rules['associated'])) {
+		$details .= '<br />' . gettext('Associated rules') . ':<br />' . implode('<br />', array_map('htmlspecialchars', $rules['associated']));
+	}
+
+	$badge = match ($action) {
+		'pass' => fs_badge('pass'),
+		'block' => fs_badge('block'),
+		'reject' => fs_badge('reject'),
+		'match' => fs_badge('info', gettext('Match')),
+		'rdr' => fs_badge('info', gettext('Redirect')),
+		default => fs_badge('neutral'),
+	};
+
+	return '<a class="fs-fw-act" tabindex="0" role="button" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true"'
+	    . ' title="' . fs_h(gettext('Rule details')) . '" data-bs-content="' . fs_h($details) . '"'
+	    . ' aria-label="' . fs_h(sprintf(gettext('Rule details (%s)'), $action)) . '">' . $badge . '</a>';
+};
+
+/* "addr:port" with the service name as a tooltip */
+$fw_endpoint = function ($ip, $port, $proto) {
+	$html = htmlspecialchars($ip);
+	if ($port && is_port($port)) {
+		$service = getservbyport($port, $proto);
+		$html .= ':' . ($service ? '<span title="' . fs_h(sprintf(gettext('Service %1$s/%2$s: %3$s'), $port, $proto, $service)) . '">' . htmlspecialchars($port) . '</span>' : htmlspecialchars($port));
+	}
+	return $html;
+};
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
+<div class="panel panel-default fs-table" data-fs-table="firewall-log">
 <?php
-	print(system_log_table_panel_title());
+// Filter toolbar - Firewall
+filter_form_firewall();
+
+if (!$rawfilter):
+	$colspan = ($filterdescriptions === "1") ? 8 : 7;
 ?>
-		</h2>
-	</div>
-	<div class="panel-body">
-	   <div class="table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover fs-fwlog" data-sortable>
 			<thead>
-				<tr class="text-nowrap">
+				<tr>
 					<th><?=gettext("Action")?></th>
 					<th><?=gettext("Time")?></th>
-					<th><?=gettext("Interface")?></th>
-<?php
-	if ($filterdescriptions === "1") {
-?>
-					<th style="width:100%">
-						<?=gettext("Rule")?>
-					</th>
-<?php
-	}
-?>
-					<th><?=gettext("Source")?></th>
-					<th><?=gettext("Destination")?></th>
-					<th><?=gettext("Protocol")?></th>
+					<th data-fs-search><?=gettext("Interface")?></th>
+<?php	if ($filterdescriptions === "1"): ?>
+					<th data-fs-search><?=gettext("Rule")?></th>
+<?php	endif; ?>
+					<th data-fs-search><?=gettext("Source")?></th>
+					<th data-fs-search><?=gettext("Destination")?></th>
+					<th data-fs-search><?=gettext("Protocol")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -172,36 +212,7 @@ if (!$rawfilter) {
 		buffer_rules_load();
 	}
 
-	foreach ($filterlog as $filterent) {
-?>
-				<tr class="text-nowrap">
-					<td><?=print_syslog_rule_action($filterent)?>
-<?php
-		if ($filterent['count']) {
-			echo $filterent['count'];
-		}
-?>
-					</td>
-					<td>
-		<?=htmlspecialchars($filterent['time'])?>
-					</td>
-					<td>
-<?php
-		if ($filterent['direction'] == "out") {
-			print '<i class="fa-regular fa-circle-right" title="'. gettext("direction is out") .'" style="cursor: pointer;"></i>';
-		}
-?>
-		<?=htmlspecialchars($filterent['interface'])?>
-					</td>
-<?php
-		if ($filterdescriptions === "1") {
-?>
-					<td style="white-space:normal;">
-			<?=find_rule_by_number_buffer($filterent['rulenum'], $filterent['subrulenum'], $filterent['tracker'], $filterent['act'])?>
-					</td>
-<?php
-		}
-
+	foreach ($filterlog as $filterent):
 		$int = strtolower($filterent['interface']);
 		$proto = strtolower($filterent['proto']);
 		$rawsrcip = $filterent['srcip'];
@@ -215,212 +226,158 @@ if (!$rawfilter) {
 			$ipproto = "inet";
 		}
 
-		$srcstr = $filterent['srcip'] . get_port_with_service($filterent['srcport'], $proto);
-		$src_htmlclass = str_replace(array('.', ':'), '-', $rawsrcip);
-		$dststr = $filterent['dstip'] . get_port_with_service($filterent['dstport'], $proto);
-		$dst_htmlclass = str_replace(array('.', ':'), '-', $rawdstip);
-?>
-					<td class="text-nowrap">
-						<i class="fa-solid fa-info icon-pointer" onclick="javascript:resolve_with_ajax('<?="{$rawsrcip}"; ?>');" title="<?=gettext("Click to resolve")?>">
-						</i>
-
-						<a class="fa-regular fa-square-minus icon-pointer" href="easyrule.php?<?="action=block&amp;int={$int}&amp;src={$filterent['srcip']}&amp;ipproto={$ipproto}"; ?>" title="<?=gettext("EasyRule: Add to Block List")?>">
-						</a>
-
-						<?=$srcstr . '<span class="RESOLVE-' . $src_htmlclass . '"></span>'?>
-					</td>
-					<td class="text-nowrap">
-						<i class="fa-solid fa-info icon-pointer; ICON-<?= $dst_htmlclass; ?>" onclick="javascript:resolve_with_ajax('<?="{$rawdstip}"; ?>');" title="<?=gettext("Click to resolve")?>">
-						</i>
-
-						<a class="fa-regular fa-square-plus icon-pointer" href="easyrule.php?<?="action=pass&amp;int={$int}&amp;proto={$proto}&amp;src={$filterent['srcip']}&amp;dst={$filterent['dstip']}&amp;dstport={$filterent['dstport']}&amp;ipproto={$ipproto}"; ?>" title="<?=gettext("EasyRule: Pass this traffic")?>">
-						</a>
-						<?=$dststr . '<span class="RESOLVE-' . $dst_htmlclass . '"></span>'?>
-					</td>
-<?php
+		$protostr = $filterent['proto'];
 		if ($filterent['proto'] == "TCP") {
-			$filterent['proto'] .= ":{$filterent['tcpflags']}";
+			$protostr .= ":{$filterent['tcpflags']}";
 		} elseif ($filterent['protoid'] == '112') {
 			$carp_details = array();
-			if (strlen($filterent['vhid'])) {
-				$carp_details[] = $filterent['vhid'];
-			}
-			if (strlen($filterent['advskew'])) {
-				$carp_details[] = $filterent['advskew'];
-			}
-			if (strlen($filterent['advbase'])) {
-				$carp_details[] = $filterent['advbase'];
+			foreach (array('vhid', 'advskew', 'advbase') as $carp_field) {
+				if (strlen($filterent[$carp_field])) {
+					$carp_details[] = $filterent[$carp_field];
+				}
 			}
 			if (!empty($carp_details)) {
-				$filterent['proto'] .= " " . implode("/", $carp_details);
+				$protostr .= " " . implode("/", $carp_details);
 			}
 		}
-?>
-					<td>
-						<?=htmlspecialchars($filterent['proto'])?>
-					</td>
-				</tr>
-<?php
-		if ($filterdescriptions=== "2") {
+
+		$rule_descr = $filterdescriptions ? find_rule_by_number_buffer($filterent['rulenum'], $filterent['subrulenum'], $filterent['tracker'], $filterent['act']) : '';
+		$srcname = $filterent['srcip'];
+		$actions = [
+			['custom', '#', $srcname, ['icon' => 'fa-solid fa-globe', 'label' => gettext('Resolve source and destination'),
+			    'attrs' => ['data-fs-resolve' => json_encode([$rawsrcip, $rawdstip])]]],
+			['custom', 'easyrule.php?' . http_build_query(['action' => 'block', 'int' => $int, 'src' => $filterent['srcip'], 'ipproto' => $ipproto]),
+			    $srcname, ['icon' => 'fa-regular fa-square-minus', 'label' => sprintf(gettext('EasyRule: block %s'), $srcname)]],
+			['custom', 'easyrule.php?' . http_build_query(['action' => 'pass', 'int' => $int, 'proto' => $proto, 'src' => $filterent['srcip'],
+			    'dst' => $filterent['dstip'], 'dstport' => $filterent['dstport'], 'ipproto' => $ipproto]),
+			    $srcname, ['icon' => 'fa-regular fa-square-plus', 'label' => gettext('EasyRule: pass this traffic')]],
+		];
 ?>
 				<tr>
-					<td colspan="2" />
-					<td colspan="4"><?=find_rule_by_number_buffer($filterent['rulenum'], $filterent['subrulenum'], $filterent['tracker'], $filterent['act'])?></td>
+					<td class="fs-fw-actcell">
+						<?=$fw_action($filterent)?>
+<?php		if ($filterent['count']): ?>
+						<span class="fs-muted small" title="<?=gettext('Repeated entries')?>">&times;<?=htmlspecialchars($filterent['count'])?></span>
+<?php		endif; ?>
+<?php		if ($filterdescriptions === "2"): ?>
+						<div class="fs-fw-rule"><?=$rule_descr?></div>
+<?php		endif; ?>
+					</td>
+					<?=status_logs_time_cell($filterent['time'])?>
+					<td class="text-nowrap">
+<?php		if ($filterent['direction'] == "out"): ?>
+						<i class="fa-solid fa-arrow-right-from-bracket fs-muted" title="<?=gettext("Outbound")?>" aria-label="<?=gettext("Outbound")?>"></i>
+<?php		endif; ?>
+						<?=htmlspecialchars($filterent['interface'])?>
+					</td>
+<?php		if ($filterdescriptions === "1"): ?>
+					<td class="fs-fw-rule"><?=$rule_descr?></td>
+<?php		endif; ?>
+					<td class="fs-mono fs-fw-addr"><?=$fw_endpoint($filterent['srcip'], $filterent['srcport'], $proto)?><span class="fs-fw-resolved" data-fs-ip="<?=fs_h($rawsrcip)?>"></span></td>
+					<td class="fs-mono fs-fw-addr"><?=$fw_endpoint($filterent['dstip'], $filterent['dstport'], $proto)?><span class="fs-fw-resolved" data-fs-ip="<?=fs_h($rawdstip)?>"></span></td>
+					<td class="fs-mono text-nowrap"><?=htmlspecialchars($protostr)?></td>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
 				</tr>
 <?php
-		}
-	} // e-o-foreach
+	endforeach;
 	buffer_rules_clear();
+
+	if (count($filterlog) == 0) {
+		fs_empty_row($colspan, gettext('No log entries to display.'));
+	}
 ?>
 			</tbody>
 		</table>
-<?php
-	if (count($filterlog) == 0) {
-		print_info_box(gettext('No logs to display.'));
-	}
-?>
-		</div>
 	</div>
-</div>
-
-<?php
-} else {
-?>
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-<?php
-	print(system_log_table_panel_title());
-?>
-		</h2>
-	</div>
-	<div class="table table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+<?php else: ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover fs-logtable" data-sortable>
 			<thead>
-				<tr class="text-nowrap">
-					<th><?=gettext("Time")?></th>
-					<th style="width:100%"><?=gettext("Message")?></th>
+				<tr>
+					<th><?=gettext("Message")?></th>
 				</tr>
 			</thead>
 			<tbody>
 <?php
-	system_log_filter();
+	status_logs_raw_rows($rawlines);
+	if ($rows == 0) {
+		fs_empty_row(1, gettext('No log entries to display.'));
+	}
 ?>
 			</tbody>
 		</table>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	$("#count").html(<?=$rows?>);
-});
-//]]>
-</script>
-
-<?php
-	if ($rows == 0) {
-		print_info_box(gettext('No logs to display.'));
-	}
-?>
+	</div>
+<?php endif; ?>
+<?php status_logs_card_footer(); ?>
+	<div class="panel-footer fs-logcard-foot">
+		<span><a href="https://docs.freesense.org/en/latest/firewall/configure.html#tcp-flags" target="_blank" rel="noopener"><?=gettext("TCP flags")?></a>:
+			F FIN, S SYN, A or . ACK, R RST, P PSH, U URG, E ECE, C CWR</span>
+<?php if (!$rawfilter): ?>
+		<span class="fs-fw-legend">
+			<span><i class="fa-solid fa-globe" aria-hidden="true"></i> <?=gettext('Resolve')?></span>
+			<span><i class="fa-regular fa-square-minus" aria-hidden="true"></i> <?=gettext('Block source')?></span>
+			<span><i class="fa-regular fa-square-plus" aria-hidden="true"></i> <?=gettext('Pass traffic')?></span>
+		</span>
+<?php endif; ?>
 	</div>
 </div>
+
+<style>
+.fs-fwlog > tbody > tr > td { height: 2rem; padding-top: .3rem; padding-bottom: .3rem; }
+.fs-fw-act { display: inline-block; cursor: help; text-decoration: none; }
+.fs-fw-act:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: 2px; border-radius: 999px; }
+.fs-fw-actcell { white-space: nowrap; }
+.fs-fw-rule { min-width: 12rem; max-width: 22rem; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); white-space: normal; overflow-wrap: anywhere; }
+td.fs-fw-actcell .fs-fw-rule { margin-top: .2rem; }
+.fs-fw-addr { white-space: nowrap; font-size: var(--fs-fs-sm); }
+.fs-fw-resolved:not(:empty) { display: block; color: var(--fs-text-muted); font-family: var(--fs-font-ui); font-size: var(--fs-fs-xs); }
+.fs-fw-legend { display: inline-flex; flex-wrap: wrap; gap: .25rem 1rem; }
+</style>
+
 <?php
-}
+// Log settings modal
+manage_log_section();
 ?>
 
-<div class="infoblock">
-<?php
-print_info_box('<a href="https://docs.freesense.org/en/latest/firewall/configure.html#tcp-flags">' .
-	gettext("TCP Flags") . '</a>: F - FIN, S - SYN, A or . - ACK, R - RST, P - PSH, U - URG, E - ECE, C - CWR.' . '<br />' .
-	'<i class="fa-regular fa-square-minus"></i> = ' . gettext('Add to block list') . ', <i class="fa-regular fa-square-plus"></i> = ' . gettext('Pass traffic') . ', <i class="fa-solid fa-info"></i> = ' . gettext('Resolve'), 'info', false);
-?>
-</div>
-
-<?php
-# Manage Log - Section/Form
-if (!$system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-?>
-
-<!-- AJAXY STUFF -->
 <script type="text/javascript">
 //<![CDATA[
-function outputrule(req) {
-	alert(req.content);
-}
-
-function resolve_with_ajax(ip_to_resolve) {
-	var url = "/status_logs_filter.php";
-
-	$.ajax(
-		url,
-		{
-			method: 'post',
-			dataType: 'json',
-			data: {
-				resolve: ip_to_resolve,
-				},
-			complete: resolve_ip_callback
-		});
-
-}
-
-function resolve_ip_callback(transport) {
-	var response = JSON.parse(transport.responseText);
-	var resolve_class = htmlspecialchars(response.resolve_ip.replace(/[.:]/g, '-'));
-	var resolve_text = '<small><br />' + htmlspecialchars(response.resolve_text) + '<\/small>';
-
-	$('span.RESOLVE-' + resolve_class).html(resolve_text);
-}
-
-// From https://stackoverflow.com/questions/5499078/fastest-method-to-escape-html-tags-as-html-entities
-function htmlspecialchars(str) {
-	return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-}
-
-if (typeof getURL == 'undefined') {
-	getURL = function(url, callback) {
-		if (!url)
-			throw 'No URL for getURL';
-		try {
-			if (typeof callback.operationComplete == 'function')
-				callback = callback.operationComplete;
-		} catch (e) {}
-			if (typeof callback != 'function')
-				throw 'No callback function for getURL';
-		var http_request = null;
-		if (typeof XMLHttpRequest != 'undefined') {
-			http_request = new XMLHttpRequest();
-		}
-		else if (typeof ActiveXObject != 'undefined') {
-			try {
-				http_request = new ActiveXObject('Msxml2.XMLHTTP');
-			} catch (e) {
-				try {
-					http_request = new ActiveXObject('Microsoft.XMLHTTP');
-				} catch (e) {}
-			}
-		}
-		if (!http_request)
-			throw 'Both getURL and XMLHttpRequest are undefined';
-		http_request.onreadystatechange = function() {
-			if (http_request.readyState == 4) {
-				callback( { success : true,
-				  content : http_request.responseText,
-				  contentType : http_request.getResponseHeader("Content-Type") } );
-			}
-		};
-		http_request.open('REQUEST', url, true);
-		http_request.send(null);
-	};
-}
-
 events.push(function() {
-    document.querySelectorAll('.fa').forEach(function(el){ bootstrap.Tooltip.getOrCreateInstance(el); });
+	/* Resolve the source and destination of a row; results go under the addresses */
+	function showResolved(ip, text) {
+		document.querySelectorAll('.fs-fw-resolved[data-fs-ip="' + CSS.escape(ip) + '"]').forEach(function (el) {
+			el.textContent = text;
+		});
+	}
+
+	document.addEventListener('click', function (e) {
+		var link = e.target.closest ? e.target.closest('[data-fs-resolve]') : null;
+		if (!link) {
+			return;
+		}
+		e.preventDefault();
+		var ips = [];
+		try {
+			ips = JSON.parse(link.getAttribute('data-fs-resolve')) || [];
+		} catch (err) {
+			ips = [];
+		}
+		ips.forEach(function (ip) {
+			showResolved(ip, <?=json_encode(gettext("Resolving…"))?>);
+			$.ajax('/status_logs_filter.php', {
+				method: 'post',
+				dataType: 'json',
+				data: { resolve: ip },
+				success: function (response) {
+					showResolved(ip, (response && response.resolve_text) ? String(response.resolve_text) : <?=json_encode(gettext("Cannot resolve"))?>);
+				},
+				error: function () {
+					showResolved(ip, <?=json_encode(gettext("Cannot resolve"))?>);
+				}
+			});
+		});
+	});
 });
 //]]>
 </script>
 
 <?php include("foot.inc");
-?>

@@ -132,8 +132,8 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | status_captiveportal, _vouchers, _voucher_rolls, _expire, _test | Status / Tool | registry group with zone param | E | |
 | status_graph | Status | chart card + controls row (themed nvd3) | E | |
 | status_restapi | Status | already near-standard; align with tokens | E | |
-| status_filter_reload | Tool | console output | E | |
-| status_logs, _filter, _filter_dynamic, _filter_summary, _packages, _vpn, _settings | Log / Settings | changes go through `status_logs_common.inc` once; filter toolbar; Log settings page action | E | M |
+| status_filter_reload | Tool | **done**: console output card (Copy, Reloading/Done badge, live polling), Reload filter / Force config sync as header actions (same POST fields) | E | |
+| status_logs, _filter, _filter_dynamic, _filter_summary, _packages, _vpn, _settings | Log / Settings | **done**: tabs from registry `status-logs` (`includes/tabs/logs.inc`), second level as view switch; one log card per page (quick search, level filter, server filter fields in the toolbar, "More filters" collapsible, count); mono time, process chips, severity edge; firewall rows with action badges + rule popover, resolve / EasyRule row actions; Log settings modal + confirmed Clear log as header actions; summary tiles + donut/table cards; settings in sections with collapsible Storage and rotation, Reset log files as confirmed header action. Field names unchanged. Also rebuilt diag_packet_capture (options card, collapsible view options, Start/Stop bar, last-capture card, console output) | E | M |
 | index (dashboard) + widgets | Special | widget = flat card, compact header, tiles (10-03 phase 6) | E | M |
 
 ## W8 — Diagnostics

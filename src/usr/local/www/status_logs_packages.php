@@ -112,102 +112,97 @@ if (!$apkg) { // If we aren't looking for a specific package, locate the first p
 // Log Filter Submit - System
 log_filter_form_system_submit();
 
-// Status Logs Common - Code
-status_logs_common_code();
-
-/* We do not necessarily know the format of package logs, so assume raw. */
-$rawfilter = true;
-
-/* Hide management icon/form since packages determine their own log settings. */
-$system_logs_manage_log_form_hidden = false;
-
-if ($filtertext) {
-	$filtertextmeta="?filtertext=$filtertext";
-}
-
-$pgtitle = array(gettext("Status"), gettext("Package Logs"));
-$pglinks = array("", "status_logs_packages.php");
-
-if ($pkgwithlogging && !empty($apkg)) {
-	$pgtitle[] = $apkg;
-	$pglinks[] = "@self";
-}
-include("head.inc");
-
-tab_array_logs_common();
-
-// Filter Section/Form - System
-filter_form_system();
-
+// Package log tabs (one per package with logging) and the selected log file
 $allowed_logs = array();
-
-if ($pkgwithlogging == false) {
-	print_info_box(gettext("No packages with logging facilities are currently installed."));
-} else {
-	$tab_array = array();
+$pkg_tabs = array();
+if ($pkgwithlogging) {
 	foreach (config_get_path('installedpackages/package', []) as $package) {
 		if (is_array($package['logging'])) {
 			if (!($logtab = $package['logging']['logtab'])) {
 				$logtab = $package['name'];
 			}
-
-			if ($apkg == $package['name']) {
-				$curtab = $logtab;
-				$tab_array[] = array(sprintf(gettext("%s"), $logtab), true, "status_logs_packages.php?pkg=".$package['name']);
-			} else {
-				$tab_array[] = array(sprintf(gettext("%s"), $logtab), false, "status_logs_packages.php?pkg=".$package['name']);
-			}
+			$pkg_tabs[] = array($logtab, ($apkg == $package['name']), "status_logs_packages.php?pkg=" . urlencode($package['name']));
 			$allowed_logs[$package['logging']['logfilename']] = array(
 				"name" => gettext($logtab),
 				"shortcut" => $package['name'],
 			);
 		}
 	}
-	display_top_tabs($tab_array);
 	$logfile = config_get_path("installedpackages/package/{$apkgid}/logging/logfilename");
+}
+
+// Status Logs Common - Code
+status_logs_common_code();
+
+/* We do not necessarily know the format of package logs, so assume raw. */
+$rawfilter = true;
+
+if ($pkgwithlogging) {
 	$logfile_path = g_get('varlog_path') . '/' . $logfile;
+	$inverse = null;
+	system_log_filter();
+}
+
+$pgtitle = array(gettext("Status"), gettext("Package Logs"));
+$pglinks = array("", "status_logs_packages.php");
+
+if ($pkgwithlogging && !empty($apkg)) {
+	$pgtitle[] = htmlspecialchars($apkg);
+	$pglinks[] = "@self";
+}
+
+/* Packages determine their own log settings, so there is no Log settings or Clear log action. */
+include("head.inc");
+
+status_logs_notices();
+
+tab_array_logs_common();
+
+status_logs_styles();
+
+if ($pkgwithlogging == false):
+?>
+<div class="panel panel-default">
+	<div class="panel-body fs-logs-none">
+		<i class="fa-solid fa-box-open" aria-hidden="true"></i>
+		<p><?=gettext("No packages with logging facilities are currently installed.")?></p>
+	</div>
+</div>
+<style>
+.fs-logs-none { padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; color: var(--fs-text-muted); }
+.fs-logs-none > i { font-size: 1.5rem; margin-bottom: var(--fs-sp-2); }
+.fs-logs-none > p { margin: 0; }
+</style>
+<?php
+else:
+	status_logs_subnav($pkg_tabs, gettext('Package'));
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
+<div class="panel panel-default fs-table" data-fs-table="log">
 <?php
-	print(system_log_table_panel_title());
+// Filter toolbar - System (raw)
+filter_form_system();
 ?>
-		</h2>
-	</div>
-	<div class="table table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover fs-logtable" data-sortable>
 			<thead>
-				<tr class="text-nowrap">
-					<th style="width:100%"><?=gettext("Message")?></th>
+				<tr>
+					<th><?=gettext("Message")?></th>
 				</tr>
 			</thead>
 			<tbody>
 <?php
-	$inverse = null;
-	system_log_filter();
+	status_logs_raw_rows($rawlines);
+	if ($rows == 0) {
+		fs_empty_row(1, gettext('No log entries to display.'));
+	}
 ?>
 			</tbody>
 		</table>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	$("#count").html(<?=$rows?>);
-});
-//]]>
-</script>
-
-<?php
-	if ($rows == 0) {
-		print_info_box(gettext('No logs to display.'));
-	}
-?>
 	</div>
+<?php status_logs_card_footer(); ?>
 </div>
 
-
-<?php }
+<?php endif;
 
 include("foot.inc"); ?>
