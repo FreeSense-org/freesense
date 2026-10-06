@@ -141,16 +141,16 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | diag_ping | Tool | **pilot** | A | |
-| diag_traceroute, _dns, _testport, _authentication, _smart, _pf_info, _pftop, _system_activity, _limiter_info, _packet_capture | Tool | same as the pilot | E | |
-| diag_routes, _sockets, _states_summary, _gmirror | Status | table styling | E | |
-| diag_arp, diag_ndp | Status | hand-rolled search becomes `data-fs-table`; delete entry as a row action | E | |
+| diag_traceroute, _dns, _testport, _authentication, _smart, _pf_info, _pftop, _system_activity, _limiter_info, _packet_capture | Tool | same as the pilot. **done** (traceroute, dns, testport, authentication, smart): two-column tool layout, compact options card + result card (mono output, Copy); smart uses a view switch Information / Logs / Self-tests. **done** (pf_info): tiles + view switch Counters / Interfaces (IPv4/IPv6 filter) / Limits and timeouts, live refresh in place. **done** (limiter_info): tiles + output cards, live refresh | E | |
+| diag_routes, _sockets, _states_summary, _gmirror | Status | table styling. **done** (routes, sockets, states_summary): tiles, searchable lists, IPv4/IPv6 view switch (routes, sockets), view switch per summary (states_summary) | E | |
+| diag_arp, diag_ndp | Status | **done**: tiles, toolbar search + interface/state filters, status badges, mono IP/MAC, Wake-on-LAN + delete row actions (confirmed), clear table as a confirmed header action | E | |
 | diag_dump_states, _dump_states_sources, diag_resetstate | Status / Tool | registry group `states`; filter toolbar (server-side); kill state as a row action | E | M |
-| diag_tables | Status | table selector becomes a toolbar select; entries list with search; per-row delete | E | |
+| diag_tables | Status | **done**: table picker in the toolbar (GET `type`), tiles (entries, type, last update), searchable entries with confirmed per-row remove, Update now / Empty table as header actions | E | |
 | diag_backup | Tool | registry group `backup`: Backup & Restore · Remote · History | E | M |
 | diag_backup_remote / _edit | List + **R1** / Editor | **done**: view switch Targets / Settings; targets list (status badge, last success, run / browse / test / edit / toggle / delete); browse results are a list with download / restore | C | M |
 | diag_confbak | List + **R1** | **done**: history list with search, Old/New compare radios and Compare in the toolbar, current config marked; restore / download / delete with confirmations; retention in a header "Settings" modal; readable diff. Fixed: backup sizes showed 0 B (backup_config() cached the size before writing the file) | C | |
-| diag_command, diag_edit | Tool | danger styling; no structure change | E | M |
-| diag_reboot, diag_halt, diag_defaults | Tool | **danger confirm card** pattern | E | M |
+| diag_command, diag_edit | Tool | **done**: danger cards with warning headers, input groups, no inline handlers; command output keeps the first `<pre>` | E | M |
+| diag_reboot, diag_halt, diag_defaults | Tool | **done**: danger confirm card (consequences, red action naming the verb, Cancel to the dashboard); reboot methods as radio cards | E | M |
 
 ## Not pages (don't touch)
 

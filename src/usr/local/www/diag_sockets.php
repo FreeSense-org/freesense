@@ -30,101 +30,111 @@ require_once('guiconfig.inc');
 
 $pgtitle = array(gettext("Diagnostics"), gettext("Sockets"));
 
+$showAll = isset($_REQUEST['showAll']);
+$view = fs_view_param(['ipv4', 'ipv6'], 'ipv4');
+
+/* sockstat: -4/-6 family, -l listening only, -w full-width addresses */
+$output = shell_exec('/usr/bin/sockstat ' . (($view === 'ipv6') ? '-6' : '-4') . ($showAll ? '' : 'l') . 'w') ?? '';
+
+$sockets = array();
+$protos = array();
+foreach (explode("\n", $output) as $i => $line) {
+	if ($i == 0 || trim($line) == '') {
+		continue;
+	}
+	$f = preg_split('/\s+/', trim($line));
+	if (count($f) < 7) {
+		continue;
+	}
+	$sockets[] = array(
+		'user' => $f[0],
+		'command' => $f[1],
+		'pid' => $f[2],
+		'fd' => $f[3],
+		'proto' => $f[4],
+		'local' => $f[5],
+		'foreign' => $f[6],
+		'extra' => implode(' ', array_slice($f, 7)),
+	);
+	$protos[$f[4]] = ($protos[$f[4]] ?? 0) + 1;
+}
+ksort($protos);
+
+$tcp = $udp = 0;
+foreach ($protos as $proto => $n) {
+	if (strpos($proto, 'tcp') === 0) {
+		$tcp += $n;
+	} elseif (strpos($proto, 'udp') === 0) {
+		$udp += $n;
+	}
+}
+
 include('head.inc');
 
-$showAll = isset($_REQUEST['showAll']);
-$showAllText = $showAll ? gettext("Show only listening sockets") : gettext("Show all socket connections");
-$showAllOption = $showAll ? "" : "?showAll";
+fs_view_switch(['ipv4' => gettext('IPv4'), 'ipv6' => gettext('IPv6')], $view);
 
+$toggle_query = array('view' => $view);
+if (!$showAll) {
+	$toggle_query['showAll'] = '';
+}
+$toggle = '<a class="btn btn-sm btn-outline-secondary" href="diag_sockets.php?' . fs_h(http_build_query($toggle_query)) . '">'
+    . '<i class="fa-solid ' . ($showAll ? 'fa-ear-listen' : 'fa-list') . ' icon-embed-btn" aria-hidden="true"></i>'
+    . fs_h($showAll ? gettext('Show only listening sockets') : gettext('Show all socket connections')) . '</a>';
 ?>
-<button class="btn btn-info btn-sm" type="button" value="<?=$showAllText?>" onclick="window.location.href='diag_sockets.php<?=$showAllOption?>'">
-	<i class="<?= ($showAll) ? 'fa-solid fa-circle-minus' : 'fa-solid fa-circle-plus' ; ?> icon-embed-btn"></i>
-	<?=$showAllText?>
-</button>
-<br />
-<br />
 
+<div class="fs-tiles">
 <?php
-	if (isset($_REQUEST['showAll'])) {
-		$internet4 = shell_exec('/usr/bin/sockstat -4');
-		$internet6 = shell_exec('/usr/bin/sockstat -6');
-	} else {
-		$internet4 = shell_exec('/usr/bin/sockstat -4l');
-		$internet6 = shell_exec('/usr/bin/sockstat -6l');
-	}
-
-
-	foreach (array(&$internet4, &$internet6) as $tabindex => $table) {
-		$elements = ($tabindex == 0 ? 7 : 7);
-		$name = ($tabindex == 0 ? 'IPv4' : 'IPv6');
+fs_tile($showAll ? gettext('Sockets') : gettext('Listening sockets'), count($sockets));
+fs_tile(gettext('TCP'), $tcp);
+fs_tile(gettext('UDP'), $udp);
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=$name?> <?=gettext("System Socket Information")?></h2></div>
-	<div class="panel-body">
-		<div class="table table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-				<thead>
-<?php
-					foreach (explode("\n", $table) as $i => $line) {
-						if (trim($line) == "") {
-							continue;
-						}
+</div>
 
-						$j = 0;
-						print("<tr>\n");
-						foreach (explode(' ', $line) as $entry) {
-							if ($entry == '' || $entry == "ADDRESS") {
-								continue;
-							}
-
-							if ($i == 0) {
-								print("<th class=\"$class\">$entry</th>\n");
-							} else {
-								print("<td class=\"$class\">$entry</td>\n");
-							}
-
-							$j++;
-						}
-						print("</tr>\n");
-						if ($i == 0) {
-							print("</thead>\n");
-							print("<tbody>\n");
-						}
-					}
-?>
-				</tbody>
-			</table>
-		</div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => $showAll ? gettext('All sockets') : gettext('Listening sockets'),
+	'search' => gettext('Search command, address, port…'),
+	'noun' => gettext('sockets'),
+	'noun_one' => gettext('socket'),
+	'filters' => ['proto' => [gettext('All protocols')] + array_combine(array_keys($protos), array_keys($protos))],
+	'actions' => $toggle,
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext('Command')?></th>
+					<th data-fs-search><?=gettext('User')?></th>
+					<th data-fs-search><?=gettext('PID')?></th>
+					<th><?=gettext('FD')?></th>
+					<th data-fs-search><?=gettext('Protocol')?></th>
+					<th data-fs-search><?=gettext('Local address')?></th>
+					<th data-fs-search><?=gettext('Foreign address')?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($sockets as $s): ?>
+				<tr data-fs-filter-proto="<?=htmlspecialchars($s['proto'])?>">
+					<td><strong><?=htmlspecialchars($s['command'])?></strong></td>
+					<td><?=htmlspecialchars($s['user'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($s['pid'])?></td>
+					<td class="fs-mono fs-muted"><?=htmlspecialchars($s['fd'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($s['proto'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($s['local'])?></td>
+					<td class="fs-mono<?=($s['foreign'] === '*:*') ? ' fs-muted' : ''?>"><?=htmlspecialchars($s['foreign'])?><?php if ($s['extra'] !== ''): ?> <span class="fs-muted small"><?=htmlspecialchars($s['extra'])?></span><?php endif; ?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($sockets)) {
+	fs_empty_row(7, gettext('No sockets were found.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('By default only listening sockets are shown. "Show all socket connections" adds outbound and established connections. A foreign address of *:* means the socket is not connected.')?>
 	</div>
 </div>
-<?php
-	}
-?>
 
-<div>
-<div class="infoblock">
 <?php
-print_info_box(
-	gettext('Socket Information') .
-		'<br /><br />' .
-		sprintf(gettext('This page shows all listening sockets by default, and shows both listening and outbound connection sockets when %1$sShow all socket connections%2$s is clicked.'), '<strong>', '</strong>') .
-		'<br /><br />' .
-		gettext('The information listed for each socket is:') .
-		'<br /><br />' .
-		'<dl class="dl-horizontal responsive">' .
-		sprintf(gettext('%1$sUSER%2$s	%3$sThe user who owns the socket.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		sprintf(gettext('%1$sCOMMAND%2$s	%3$sThe command which holds the socket.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		sprintf(gettext('%1$sPID%2$s	%3$sThe process ID of the command which holds the socket.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		sprintf(gettext('%1$sFD%2$s	%3$sThe file descriptor number of the socket.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		sprintf(gettext('%1$sPROTO%2$s	%3$sThe transport protocol associated with the socket.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		sprintf(gettext('%1$sLOCAL ADDRESS%2$s	%3$sThe address the local end of the socket is bound to.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		sprintf(gettext('%1$sFOREIGN ADDRESS%2$s	%3$sThe address the foreign end of the socket is bound to.%4$s'), '<dt>', '</dt>', '<dd>', '</dd>') .
-		'</dl>',
-	'info',
-	false);
-?>
-</div>
-</div>
-<?php
-
 include('foot.inc');
