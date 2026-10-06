@@ -854,9 +854,28 @@ function get2post(getargs) {
 	var argdict = {};
 	var argarray = getargs.split('&');
 
+	// Percent-decode keys and values ("my%20group" posts as "my group"; build such
+	// links with rawurlencode()). "+" is left alone because existing links carry it
+	// literally, and a value that is not valid percent-encoding is posted as written.
+	// Splitting at the first "=" keeps values that themselves contain "=".
+	var decode = function (v) {
+		if (v === undefined) {
+			return v;
+		}
+		try {
+			return decodeURIComponent(v);
+		} catch (e) {
+			return v;
+		}
+	};
+
 	argarray.forEach(function(arg) {
-		arg = arg.split('=');
-		argdict[arg[0]] = arg[1];
+		var eq = arg.indexOf('=');
+		if (eq === -1) {
+			argdict[decode(arg)] = undefined;
+		} else {
+			argdict[decode(arg.substring(0, eq))] = decode(arg.substring(eq + 1));
+		}
 	});
 
 	return argdict;

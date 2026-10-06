@@ -159,6 +159,8 @@ $pglinks = array("", "system_usermanager.php", "system_usermanager.php");
 if ($act == "new" || $act == "edit" || $input_errors) {
 	$pgtitle[] = gettext('Edit');
 	$pglinks[] = "@self";
+} elseif (!$read_only) {
+	fs_page_action(gettext('Add user'), '?act=new', 'fa-plus');
 }
 
 include("head.inc");
@@ -175,60 +177,65 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Users"), true, "system_usermanager.php");
-$tab_array[] = array(gettext("Groups"), false, "system_groupmanager.php");
-$tab_array[] = array(gettext("Settings"), false, "system_usermanager_settings.php");
-$tab_array[] = array(gettext("Change Password"), false, "system_usermanager_passwordmg.php");
-$tab_array[] = array(gettext("Authentication Servers"), false, "system_authservers.php");
-display_top_tabs($tab_array);
+fs_tabs('system-usermanager', 'system_usermanager.php');
 
 if (!($act == "new" || $act == "edit" || $input_errors)) {
 ?>
 <form method="post">
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Users')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Users'),
+	'search' => gettext('Search users…'),
+	'noun' => gettext('users'),
+	'noun_one' => gettext('user'),
+	'filters' => ['status' => [gettext('All users'), 'enabled' => gettext('Enabled'), 'disabled' => gettext('Disabled')]],
+	'bulk' => $read_only ? [] : [
+		['name' => 'dellall', 'value' => 'dellall', 'label' => gettext('Delete'), 'icon' => 'fa-trash-can',
+		 'variant' => 'danger', 'confirm' => gettext('Delete the selected users?')],
+	],
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+			<table class="table table-hover table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
-						<th>&nbsp;</th>
-						<th><?=gettext("Username")?></th>
-						<th><?=gettext("Full name")?></th>
-						<th><?=gettext("Status")?></th>
-						<th><?=gettext("Groups")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th class="fs-col-select"><?php if (!$read_only): ?><input type="checkbox" data-fs-select-all aria-label="<?=gettext('Select all')?>"><?php endif; ?></th>
+						<th data-fs-search><?=gettext("Username")?></th>
+						<th data-fs-search><?=gettext("Full name")?></th>
+						<th class="fs-col-status"><?=gettext("Status")?></th>
+						<th data-fs-search><?=gettext("Groups")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
 <?php
 foreach (config_get_path('system/user', []) as $i => $userent):
 	?>
-					<tr>
-						<td>
-							<input type="checkbox" id="frc<?=$i?>" name="delete_check[]" value="<?=$i?>" <?=((($userent['scope'] == "system") || ($userent['name'] == $_SESSION['Username'])) ? 'disabled' : '')?>/>
-						</td>
-						<td>
 <?php
-	if ($userent['scope'] != "user") {
-		$usrimg = 'fa-regular fa-eye';
-	} else {
-		$usrimg = 'fa-solid fa-user';
+	/* system accounts and the signed-in user cannot be deleted */
+	$deletable = ($userent['scope'] != "system") && ($userent['name'] != $_SESSION['Username']) && !$read_only;
+	$user_actions = [['edit', "?act=edit&userid={$i}", $userent['name']]];
+	if ($deletable) {
+		$user_actions[] = ['delete', "?act=deluser&userid={$i}&username=" . rawurlencode($userent['name']), $userent['name'], ['thing' => gettext('user')]];
 	}
 ?>
-							<i class="<?=$usrimg?>" title="<?= gettext("Scope") . ": {$userent['scope']}" ?>"></i>
-							<?=htmlspecialchars($userent['name'])?>
+					<tr data-fs-filter-status="<?=isset($userent['disabled']) ? 'disabled' : 'enabled'?>"<?=isset($userent['disabled']) ? ' class="fs-row-disabled"' : ''?>>
+						<td class="fs-col-select">
+<?php	if (!$read_only): ?>
+							<input type="checkbox" id="frc<?=$i?>" name="delete_check[]" value="<?=$i?>" data-fs-select
+							    aria-label="<?=htmlspecialchars(sprintf(gettext('Select %s'), $userent['name']))?>" <?=$deletable ? '' : 'disabled'?>/>
+<?php	endif; ?>
+						</td>
+						<td>
+							<a href="?act=edit&amp;userid=<?=$i?>"><?=htmlspecialchars($userent['name'])?></a>
+<?php	if ($userent['scope'] != "user"): ?>
+							<?=fs_badge('info', gettext('System'), gettext("Scope") . ": " . $userent['scope'])?>
+<?php	endif; ?>
 						</td>
 						<td><?=htmlspecialchars($userent['descr'])?></td>
-						<td><i class="<?= (isset($userent['disabled'])) ? 'fa-solid fa-ban" title="' . gettext("Disabled") . '"' : 'fa-solid fa-check" title="' . gettext("Enabled") . '"' ; ?>"><span style='display: none'><?= (isset($userent['disabled'])) ? gettext("Disabled") : gettext("Enabled") ; ?></span></i></td>
-						<td><?=implode(",", local_user_get_groups($userent))?></td>
-						<td>
-							<a class="fa-solid fa-pencil" title="<?=gettext("Edit user"); ?>" href="?act=edit&amp;userid=<?=$i?>"></a>
-<?php if (($userent['scope'] != "system") && ($userent['name'] != $_SESSION['Username']) && !$read_only): ?>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete user")?>" href="?act=deluser&amp;userid=<?=$i?>&amp;username=<?=$userent['name']?>" usepost></a>
-<?php endif; ?>
-						</td>
+						<td><?=isset($userent['disabled']) ? fs_badge('disabled') : fs_badge('enabled')?></td>
+						<td><?=htmlspecialchars(implode(", ", local_user_get_groups($userent)))?></td>
+						<td class="fs-col-actions"><?=fs_row_actions($user_actions)?></td>
 					</tr>
 <?php endforeach; ?>
 				</tbody>
@@ -236,21 +243,6 @@ foreach (config_get_path('system/user', []) as $i => $userent):
 		</div>
 	</div>
 </div>
-<nav class="action-buttons">
-	<?php if (!$read_only): ?>
-
-	<a href="?act=new" class="btn btn-sm btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-
-	<button type="submit" class="btn btn-sm btn-danger" name="dellall" value="dellall" title="<?=gettext('Delete selected users')?>">
-		<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-		<?=gettext("Delete")?>
-	</button>
-	<?php endif; ?>
-
-</nav>
 </form>
 <div class="infoblock">
 <?php

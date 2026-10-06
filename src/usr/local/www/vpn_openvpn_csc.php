@@ -91,6 +91,9 @@ if ($act=="new" || $act=="edit") {
 }
 $shortcut_section = "openvpn";
 
+if (!($act == "new" || $act == "edit")) {
+	fs_page_action(gettext('Add override'), 'vpn_openvpn_csc.php?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -101,13 +104,7 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Servers"), false, "vpn_openvpn_server.php");
-$tab_array[] = array(gettext("Clients"), false, "vpn_openvpn_client.php");
-$tab_array[] = array(gettext("Client Specific Overrides"), true, "vpn_openvpn_csc.php");
-$tab_array[] = array(gettext("Wizards"), false, "wizard.php?xml=openvpn_wizard.xml");
-add_package_tabs("OpenVPN", $tab_array);
-display_top_tabs($tab_array);
+fs_tabs('vpn-openvpn', 'vpn_openvpn_csc.php');
 
 if ($act == "new" || $act == "edit"):
 	$form = new Form();
@@ -658,16 +655,21 @@ events.push(function() {
 else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('CSC Overrides')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('CSC Overrides'),
+	'search' => gettext('Search client specific overrides…'),
+	'noun' => gettext('client specific overrides'),
+	'noun_one' => gettext('client specific override'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Disabled")?></th>
-					<th><?=gettext("Common Name")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Disabled")?></th>
+					<th data-fs-search><?=gettext("Common Name")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -686,27 +688,27 @@ else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
 					<td class="listbg">
 						<?=htmlspecialchars($csc['description'])?>
 					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit CSC Override')?>"	href="vpn_openvpn_csc.php?act=edit&amp;id=<?=$i?>"></a>
-						<a class="fa-regular fa-clone"	title="<?=gettext("Copy CSC Override")?>"	href="vpn_openvpn_csc.php?act=dup&amp;id=<?=$i?>" usepost></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete CSC Override')?>"	href="vpn_openvpn_csc.php?act=del&amp;id=<?=$i?>" usepost></a>
+					<td class="fs-col-actions">
+<?=fs_row_actions([
+							['edit', "vpn_openvpn_csc.php?act=edit&id={$i}", $csc['common_name']],
+							['custom', "vpn_openvpn_csc.php?act=dup&id={$i}", $csc['common_name'], ['icon' => 'fa-regular fa-clone', 'post' => true,
+							    'label' => sprintf(gettext('Copy %s'), $csc['common_name'])]],
+							['delete', "vpn_openvpn_csc.php?act=del&id={$i}", $csc['common_name'], ['thing' => gettext('client specific override')]],
+						])?>
 					</td>
 				</tr>
 <?php
 	   $i++;
 	endforeach;
 ?>
+<?php if (empty(config_get_path('openvpn/openvpn-csc', []))) {
+	fs_empty_row(4, gettext('No client specific overrides yet.'), 'vpn_openvpn_csc.php?act=new', gettext('Add override'));
+} ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="vpn_openvpn_csc.php?act=new" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
 <?php
 endif;

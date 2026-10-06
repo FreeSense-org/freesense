@@ -21,6 +21,26 @@
 
 /* Tab groups for the System menu (loaded by fs_tab_groups(); labels are plain text). */
 
+$fs_tab_groups['system-routing'] = [
+	[gettext('Gateways'), 'system_gateways.php'],
+	[gettext('Static Routes'), 'system_routes.php'],
+	[gettext('Gateway Groups'), 'system_gateway_groups.php'],
+];
+
+$fs_tab_groups['system-usermanager'] = [
+	[gettext('Users'), 'system_usermanager.php'],
+	[gettext('Groups'), 'system_groupmanager.php'],
+	[gettext('Settings'), 'system_usermanager_settings.php'],
+	[gettext('Change Password'), 'system_usermanager_passwordmg.php'],
+	[gettext('Authentication Servers'), 'system_authservers.php'],
+];
+
+$fs_tab_groups['system-certificates'] = [
+	[gettext('Authorities'), 'system_camanager.php'],
+	[gettext('Certificates'), 'system_certmanager.php'],
+	[gettext('Revocation'), 'system_crlmanager.php'],
+];
+
 $fs_tab_groups['system-advanced'] = [
 	[gettext('Admin Access'), 'system_advanced_admin.php'],
 	[gettext('Firewall & NAT'), 'system_advanced_firewall.php'],

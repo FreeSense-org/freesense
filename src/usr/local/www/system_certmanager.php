@@ -193,6 +193,10 @@ if (($act == "new" || ($_POST['save'] == gettext("Save") && $input_errors)) ||
 	$pgtitle[] = gettext('Edit');
 	$pglinks[] = "@self";
 }
+if (!(in_array($act, ['new', 'edit', 'csr']) ||
+    ((($_POST['save'] == gettext("Save")) || ($_POST['save'] == gettext("Update"))) && $input_errors))) {
+	fs_page_action(gettext('Add/Sign'), '?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -203,11 +207,7 @@ if ($savemsg) {
 	print_info_box($savemsg, $class);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext('Authorities'), false, 'system_camanager.php');
-$tab_array[] = array(gettext('Certificates'), true, 'system_certmanager.php');
-$tab_array[] = array(gettext('Revocation'), false, 'system_crlmanager.php');
-display_top_tabs($tab_array);
+fs_tabs('system-certificates', 'system_certmanager.php');
 
 if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save")) && $input_errors)) {
 	$form = new Form();
@@ -818,53 +818,24 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 	print($form);
 } else {
 ?>
-<div class="panel panel-default" id="search-panel">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-			<?=gettext('Search')?>
-			<span class="widget-heading-icon float-end">
-				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-circle-plus"></i>
-				</a>
-			</span>
-		</h2>
-	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse show">
-		<div class="form-group">
-			<label class="col-sm-2 control-label">
-				<?=gettext("Search term")?>
-			</label>
-			<div class="col-sm-5"><input class="form-control" name="searchstr" id="searchstr" type="text"/></div>
-			<div class="col-sm-2">
-				<select id="where" class="form-control">
-					<option value="0"><?=gettext("Name")?></option>
-					<option value="1"><?=gettext("Distinguished Name")?></option>
-					<option value="2" selected><?=gettext("Both")?></option>
-				</select>
-			</div>
-			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
-			</div>
-			<div class="col-sm-10 col-sm-offset-2">
-				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to search certificate names and distinguished names.')?></span>
-			</div>
-		</div>
-	</div>
-</div>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Certificates')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Certificates'),
+	'search' => gettext('Search certificates…'),
+	'noun' => gettext('certificates'),
+	'noun_one' => gettext('certificate'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-		<table class="table table-striped table-hover sortable-theme-bootstrap" data-sortable>
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Name")?></th>
-					<th><?=gettext("Issuer")?></th>
-					<th><?=gettext("Identity")?></th>
-					<th><?=gettext("In Use")?></th>
+					<th data-fs-search><?=gettext("Name")?></th>
+					<th data-fs-search><?=gettext("Issuer")?></th>
+					<th data-fs-search><?=gettext("Identity")?></th>
+					<th data-fs-search><?=gettext("In Use")?></th>
 
-					<th class="col-sm-2"><?=gettext("Actions")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -963,94 +934,43 @@ foreach (config_get_path('cert', []) as $cert):
 						<?php endif?>
 						<?php echo cert_usedby_description($cert['refid'], $certificates_used_by_packages); ?>
 					</td>
-					<td>
-						<?php if (!$cert['csr']): ?>
-							<a href="system_certmanager.php?act=edit&amp;id=<?=$cert['refid']?>" class="fa-solid fa-pencil" title="<?=gettext("Edit Certificate")?>"></a>
-							<a href="system_certmanager.php?act=exp&amp;id=<?=$cert['refid']?>" class="fa-solid fa-certificate" title="<?=gettext("Export Certificate")?>"></a>
-							<?php if ($cert['prv']): ?>
-								<a href="system_certmanager.php?act=key&amp;id=<?=$cert['refid']?>" class="fa-solid fa-key" title="<?=gettext("Export Key")?>"></a>
-								<a href="system_certmanager.php?act=p12&amp;id=<?=$cert['refid']?>" class="fa-solid fa-box-archive" title="<?=gettext("Export PCKS#12 Archive without Encryption")?>"></a>
-							<?php endif?>
-							<?php if (is_cert_locally_renewable($cert)): ?>
-								<a href="system_certmanager_renew.php?type=cert&amp;refid=<?=$cert['refid']?>" class="fa-solid fa-arrow-rotate-right" title="<?=gettext("Reissue/Renew")?>"></a>
-							<?php endif ?>
-						<?php else: ?>
-							<a href="system_certmanager.php?act=csr&amp;id=<?=$cert['refid']?>" class="fa-solid fa-pencil" title="<?=gettext("Update CSR")?>"></a>
-							<a href="system_certmanager.php?act=req&amp;id=<?=$cert['refid']?>" class="fa-solid fa-right-to-bracket" title="<?=gettext("Export Request")?>"></a>
-							<a href="system_certmanager.php?act=key&amp;id=<?=$cert['refid']?>" class="fa-solid fa-key" title="<?=gettext("Export Key")?>"></a>
-						<?php endif?>
-						<?php if (!cert_in_use($cert['refid'])): ?>
-							<a href="system_certmanager.php?act=del&amp;id=<?=$cert['refid']?>" class="fa-solid fa-trash-can" title="<?=gettext("Delete Certificate")?>" usepost></a>
-						<?php endif?>
+					<td class="fs-col-actions">
+<?php
+	$item_label = $cert['descr'];
+	$cert_actions = [];
+	if (!$cert['csr']) {
+		$cert_actions[] = ['edit', "system_certmanager.php?act=edit&id={$cert['refid']}", $item_label];
+		$cert_actions[] = ['custom', "system_certmanager.php?act=exp&id={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-certificate', 'label' => gettext('Export Certificate')]];
+		if ($cert['prv']) {
+			$cert_actions[] = ['custom', "system_certmanager.php?act=key&id={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-key', 'label' => gettext('Export Key')]];
+			$cert_actions[] = ['custom', "system_certmanager.php?act=p12&id={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-box-archive', 'label' => gettext('Export PKCS#12 Archive without Encryption')]];
+		}
+		if (is_cert_locally_renewable($cert)) {
+			$cert_actions[] = ['custom', "system_certmanager_renew.php?type=cert&refid={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-arrow-rotate-right', 'label' => gettext('Reissue/Renew')]];
+		}
+	} else {
+		$cert_actions[] = ['custom', "system_certmanager.php?act=csr&id={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-pencil', 'label' => gettext('Update CSR')]];
+		$cert_actions[] = ['custom', "system_certmanager.php?act=req&id={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-right-to-bracket', 'label' => gettext('Export Request')]];
+		$cert_actions[] = ['custom', "system_certmanager.php?act=key&id={$cert['refid']}", $item_label, ['icon' => 'fa-solid fa-key', 'label' => gettext('Export Key')]];
+	}
+	if (!cert_in_use($cert['refid'])) {
+		$cert_actions[] = ['delete', "system_certmanager.php?act=del&id={$cert['refid']}", $item_label, ['thing' => gettext('certificate')]];
+	}
+?>
+						<?=fs_row_actions($cert_actions)?>
 					</td>
 				</tr>
 <?php
 	endforeach; ?>
+<?php if (empty(config_get_path('cert', []))) {
+	fs_empty_row(5, gettext('No certificates yet.'), '?act=new', gettext('Add/Sign'));
+} ?>
 			</tbody>
 		</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="?act=new" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add/Sign")?>
-	</a>
-</nav>
-<script type="text/javascript">
-//<![CDATA[
-
-events.push(function() {
-
-	// Make these controls plain buttons
-	$("#btnsearch").prop('type', 'button');
-	$("#btnclear").prop('type', 'button');
-
-	// Search for a term in the entry name and/or dn
-	$("#btnsearch").click(function() {
-		var searchstr = $('#searchstr').val().toLowerCase();
-		var table = $("table tbody");
-		var where = $('#where').val();
-
-		table.find('tr').each(function (i) {
-			var $tds = $(this).find('td'),
-				shortname = $tds.eq(0).text().trim().toLowerCase(),
-				dn = $tds.eq(2).text().trim().toLowerCase();
-
-			regexp = new RegExp(searchstr);
-			if (searchstr.length > 0) {
-				if (!(regexp.test(shortname) && (where != 1)) && !(regexp.test(dn) && (where != 0))) {
-					$(this).hide();
-				} else {
-					$(this).show();
-				}
-			} else {
-				$(this).show();	// A blank search string shows all
-			}
-		});
-	});
-
-	// Clear the search term and unhide all rows (that were hidden during a previous search)
-	$("#btnclear").click(function() {
-		var table = $("table tbody");
-
-		$('#searchstr').val("");
-
-		table.find('tr').each(function (i) {
-			$(this).show();
-		});
-	});
-
-	// Hitting the enter key will do the same as clicking the search button
-	$("#searchstr").on("keyup", function (event) {
-		if (event.keyCode == 13) {
-			$("#btnsearch").get(0).click();
-		}
-	});
-});
-//]]>
-</script>
 <?php
 	include("foot.inc");
 	exit;

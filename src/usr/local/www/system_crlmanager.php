@@ -167,11 +167,7 @@ if ($savemsg) {
 	print_info_box($savemsg, $class);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext('Authorities'), false, 'system_camanager.php');
-$tab_array[] = array(gettext('Certificates'), false, 'system_certmanager.php');
-$tab_array[] = array(gettext('Revocation'), true, 'system_crlmanager.php');
-display_top_tabs($tab_array);
+fs_tabs('system-certificates', 'system_crlmanager.php');
 
 if ($act == "new" || $act == gettext("Save")) {
 	$form = new Form();
@@ -432,20 +428,41 @@ if ($act == "new" || $act == gettext("Save")) {
 
 	print($form);
 } else {
+	/* create: pick the CA in the toolbar; the CRL editor (act=new) takes it from there */
+	$crl_cas = pki_crl_ca_list();
+	$crl_add = '';
+	if (!empty($crl_cas)) {
+		$crl_add = '<form method="post" action="system_crlmanager.php" class="d-flex flex-wrap gap-2 align-items-center">'
+		    . '<input type="hidden" name="act" value="new">'
+		    . '<select name="caref" class="form-select form-select-sm" aria-label="' . htmlspecialchars(gettext('Certificate Authority')) . '">';
+		foreach ($crl_cas as $refid => $descr) {
+			$crl_add .= '<option value="' . htmlspecialchars($refid) . '">' . htmlspecialchars($descr) . '</option>';
+		}
+		$crl_add .= '</select>'
+		    . '<button type="submit" name="submit" value="Add" class="btn btn-sm btn-primary">'
+		    . '<i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' . htmlspecialchars(gettext('Add CRL')) . '</button>'
+		    . '</form>';
+	}
 ?>
 
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext("Certificate Revocation Lists")?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext("Certificate Revocation Lists"),
+	'search' => gettext('Search revocation lists…'),
+	'noun' => gettext('revocation lists'),
+	'noun_one' => gettext('revocation list'),
+	'actions' => $crl_add,
+]); ?>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext("CA")?></th>
-						<th><?=gettext("Name")?></th>
-						<th><?=gettext("Internal")?></th>
-						<th><?=gettext("Certificates")?></th>
-						<th><?=gettext("In Use")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search><?=gettext("CA")?></th>
+						<th data-fs-search><?=gettext("Name")?></th>
+						<th data-fs-search><?=gettext("Internal")?></th>
+						<th data-fs-search><?=gettext("Certificates")?></th>
+						<th data-fs-search><?=gettext("In Use")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -475,8 +492,8 @@ if ($act == "new" || $act == gettext("Save")) {
 ?>
 					<tr>
 						<td><?=$caname?></td>
-						<td><?=$tmpcrl['descr']; ?></td>
-						<td><i class="<?=($internal) ? "fa-solid fa-check" : "fa-solid fa-xmark"; ?>"></i></td>
+						<td><?=htmlspecialchars($tmpcrl['descr'])?></td>
+						<td><?=$internal ? fs_badge('pass', gettext('Yes')) : fs_badge('neutral', gettext('No'))?></td>
 						<td><?=($internal) ? count($tmpcrl['cert']) : "Unknown (imported)"; ?></td>
 						<td>
 						<?php if (is_openvpn_server_crl($tmpcrl['refid'])): ?>
@@ -484,22 +501,17 @@ if ($act == "new" || $act == gettext("Save")) {
 						<?php endif?>
 						<?php echo cert_usedby_description($tmpcrl['refid'], $certificates_used_by_packages); ?>
 						</td>
-						<td>
-							<a href="system_crlmanager.php?act=exp&amp;id=<?=$tmpcrl['refid']?>" class="fa-solid fa-download" title="<?=gettext("Export CRL")?>" ></a>
+						<td class="fs-col-actions">
 <?php
-				if ($internal): ?>
-							<a href="system_crlmanager.php?act=edit&amp;id=<?=$tmpcrl['refid']?>" class="fa-solid fa-pencil" title="<?=gettext("Edit CRL")?>"></a>
-<?php
-				else:
+	$crl_actions = [
+		['edit', "system_crlmanager.php?act=" . ($internal ? 'edit' : 'editimported') . "&id={$tmpcrl['refid']}", $tmpcrl['descr']],
+		['custom', "system_crlmanager.php?act=exp&id={$tmpcrl['refid']}", $tmpcrl['descr'], ['icon' => 'fa-solid fa-download', 'label' => gettext('Export CRL')]],
+	];
+	if (!$inuse) {
+		$crl_actions[] = ['delete', "system_crlmanager.php?act=del&id={$tmpcrl['refid']}", $tmpcrl['descr'], ['thing' => gettext('CRL')]];
+	}
 ?>
-							<a href="system_crlmanager.php?act=editimported&amp;id=<?=$tmpcrl['refid']?>" class="fa-solid fa-pencil" title="<?=gettext("Edit CRL")?>"></a>
-<?php			endif;
-				if (!$inuse):
-?>
-							<a href="system_crlmanager.php?act=del&amp;id=<?=$tmpcrl['refid']?>" class="fa-solid fa-trash-can" title="<?=gettext("Delete CRL")?>" usepost></a>
-<?php
-				endif;
-?>
+						<?=fs_row_actions($crl_actions)?>
 						</td>
 					</tr>
 <?php
@@ -509,36 +521,15 @@ if ($act == "new" || $act == gettext("Save")) {
 			$i++;
 		endforeach;
 ?>
+<?php if (empty(config_get_path('crl', []))) {
+	fs_empty_row(6, gettext('No certificate revocation lists yet.'), null, null);
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 
 <?php
-	$form = new Form(false);
-	$section = new Form_Section('Create or Import a New Certificate Revocation List');
-	$group = new Form_Group(null);
-	$group->add(new Form_Select(
-		'caref',
-		'Certificate Authority',
-		null,
-		pki_crl_ca_list()
-		))->setHelp('Select a Certificate Authority for the new CRL');
-	$group->add(new Form_Button(
-		'submit',
-		'Add',
-		null,
-		'fa-solid fa-plus'
-		))->addClass('btn-success btn-sm');
-	$section->add($group);
-	$form->addGlobal(new Form_Input(
-		'act',
-		null,
-		'hidden',
-		'new'
-	));
-	$form->add($section);
-	print($form);
 }
 
 ?>

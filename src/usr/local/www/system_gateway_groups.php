@@ -68,6 +68,7 @@ $pgtitle = array(gettext("System"), gettext("Routing"), gettext("Gateway Groups"
 $pglinks = array("", "system_gateways.php", "@self");
 $shortcut_section = "gateway-groups";
 
+fs_page_action(gettext('Add gateway group'), 'system_gateway_groups_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($_POST['apply']) {
@@ -82,24 +83,25 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Gateways"), false, "system_gateways.php");
-$tab_array[] = array(gettext("Static Routes"), false, "system_routes.php");
-$tab_array[] = array(gettext("Gateway Groups"), true, "system_gateway_groups.php");
-display_top_tabs($tab_array);
+fs_tabs('system-routing', 'system_gateway_groups.php');
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Gateway Groups')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Gateway Groups'),
+	'search' => gettext('Search gateway groups…'),
+	'noun' => gettext('gateway groups'),
+	'noun_one' => gettext('gateway group'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th><?=gettext("Group Name")?></th>
-						<th><?=gettext("Gateways")?></th>
-						<th><?=gettext("Priority")?></th>
-						<th><?=gettext("Description")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search><?=gettext("Group Name")?></th>
+						<th data-fs-search><?=gettext("Gateways")?></th>
+						<th data-fs-search><?=gettext("Priority")?></th>
+						<th data-fs-search><?=gettext("Description")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -134,28 +136,27 @@ foreach (config_get_path('gateways/gateway_group', []) as $gateway_group):
 						<td>
 							<?=htmlspecialchars($gateway_group['descr'])?>
 						</td>
-						<td>
-							<a href="system_gateway_groups_edit.php?id=<?=$i?>" class="fa-solid fa-pencil" title="<?=gettext('Edit gateway group')?>"></a>
-							<a href="system_gateway_groups_edit.php?dup=<?=$i?>" class="fa-regular fa-clone" title="<?=gettext('Copy gateway group')?>"></a>
-							<a href="system_gateway_groups.php?act=del&amp;id=<?=$i?>" class="fa-solid fa-trash-can" title="<?=gettext('Delete gateway group')?>" usepost></a>
+						<td class="fs-col-actions">
+<?=fs_row_actions([
+								['edit', "system_gateway_groups_edit.php?id={$i}", $gateway_group['name']],
+								['copy', "system_gateway_groups_edit.php?dup={$i}", $gateway_group['name']],
+								['delete', "system_gateway_groups.php?act=del&id={$i}", $gateway_group['name'], ['thing' => gettext('gateway group')]],
+							])?>
 						</td>
 					</tr>
 <?php
 	$i++;
 endforeach;
 ?>
+<?php if (empty(config_get_path('gateways/gateway_group', []))) {
+	fs_empty_row(5, gettext('No gateway groups yet.'), 'system_gateway_groups_edit.php', gettext('Add gateway group'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="system_gateway_groups_edit.php" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box(sprintf(gettext('Remember to use these Gateway Groups in firewall rules in order to enable load balancing, failover, ' .
