@@ -35,6 +35,7 @@
 @ini_set('implicit_flush', 1);
 define('NDP_BINARY_PATH', '/usr/sbin/ndp');
 require_once("guiconfig.inc");
+require_once("diag_ndp.inc");
 
 // Delete ndp entry.
 if (isset($_POST['deleteentry'])) {
@@ -64,8 +65,6 @@ if (isset($_POST['deleteentry'])) {
 	}
 }
 
-exec(NDP_BINARY_PATH . " -na", $rawdata);
-
 $i = 0;
 
 /* if list */
@@ -75,48 +74,7 @@ foreach ($ifdescrs as $key =>$interface) {
 	$hwif[config_get_path("interfaces/{$key}/if")] = $interface;
 }
 
-/*
- * Key map for each element in $rawdata
- * 0 => Neighbor IP
- * 1 => Physical address (MAC)
- * 2 => Interface
- * 3 => Expiration
- * 4 => State
- * 5 => Flags
- */
-$data = array();
-array_shift($rawdata);
-foreach ($rawdata as $line) {
-	$elements = preg_split('/[ ]+/', $line);
-
-	$ndpent = array();
-	$ndpent['ipv6'] = trim($elements[0]);
-	$ndpent['mac'] = trim($elements[1]);
-	$ndpent['interface'] = trim($elements[2]);
-	$ndpent['expiration'] = trim($elements[3]);
-	$data[] = $ndpent;
-}
-
-// Resolve hostnames and replace Z_ with "".  The intention
-// is to sort the list by hostnames, alpha and then the non
-// resolvable addresses will appear last in the list.
-$dnsavailable = get_dnsavailable(AF_INET6);
-foreach ($data as &$entry) {
-	$dns="";
-	if (!empty($entry['ipv6']) && $dnsavailable) {
-		$dns = resolve_address($entry['ipv6']);
-	}
-
-	if (trim($dns)) {
-		$entry['dnsresolve'] = "$dns";
-	} else {
-		$entry['dnsresolve'] = "Z_ ";
-	}
-}
-unset($entry);
-
-// Sort the data alpha first
-$data = msort($data, "dnsresolve");
+$data = diag_ndp_table();
 
 // Load MAC-Manufacturer table
 $mac_man = load_mac_manufacturer_table();

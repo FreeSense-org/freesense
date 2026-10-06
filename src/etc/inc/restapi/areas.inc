@@ -65,6 +65,7 @@ function restapi_areas() {
 		'system.settings' => 'System settings (advanced firewall, networking, miscellaneous, notifications, tunables)',
 		'logs' => 'System logs (read)',
 		'packages' => 'Packages and system version (lists and update check)',
+		'diagnostics' => 'Diagnostics (ping, traceroute, DNS lookup, states)',
 	);
 }
 

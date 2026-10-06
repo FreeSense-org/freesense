@@ -90,6 +90,10 @@ require_once('system_advanced_notifications.inc');
 require_once('system_advanced_sysctl.inc');
 require_once('syslog.inc');
 require_once('pkg-utils.inc');
+/* The Diagnostics pages' shared functions (ping, traceroute, DNS lookup, states, NDP table). */
+require_once('diag_tools.inc');
+require_once('diag_dump_states.inc');
+require_once('diag_ndp.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

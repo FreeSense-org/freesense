@@ -133,7 +133,8 @@ $seen = array();
 foreach ($v1 as $r) {
 	check_api(!empty($r['page']), "{$r['method']} {$r['path']} declares a privilege page");
 	check_api(function_exists($r['handler']), "{$r['method']} {$r['path']} handler {$r['handler']} exists");
-	check_api(($r['method'] === 'GET') || $r['write'], "{$r['method']} {$r['path']} that changes state is marked write");
+	check_api(($r['method'] === 'GET') || $r['write'] || ($r['safe'] && ($r['method'] === 'POST')),
+	    "{$r['method']} {$r['path']} that changes state is marked write (only a POST lookup may be marked safe)");
 	check_api(($r['page'] === '@authenticated') || array_key_exists($r['area'], restapi_areas()), "{$r['method']} {$r['path']} has a permission area");
 	$key = "{$r['method']} {$r['path']}";
 	check_api(!isset($seen[$key]), "duplicate route {$key}");
@@ -2637,6 +2638,251 @@ check_api(strpos($fn_body($routes_pkg, 'restapi_h_pkg_installed'), 'restapi_pkg_
     strpos($fn_body($routes_pkg, 'restapi_pkg_not_busy'), "is_subsystem_dirty('packagelock')") !== false, 'package lists are refused while packages are being changed');
 check_api(!preg_match('/(?<![a-z_])(pkg_install|pkg_delete|install_package|delete_package|pkg_exec|mwexec|exec|shell_exec)\(/', $routes_pkg),
     'routes_packages.inc installs or removes nothing');
+
+/* F2: Diagnostics (ping, traceroute, DNS lookup, states) and the NDP table */
+check_api(isset(restapi_areas()['diagnostics']), 'the diagnostics permission area exists');
+$f2_routes = array();
+foreach ($v1 as $r) {
+	$f2_routes["{$r['method']} {$r['path']}"] = $r;
+}
+foreach (array(
+    'POST /v1/diagnostics/ping' => array('diag_ping.php', 'diagnostics', true),
+    'POST /v1/diagnostics/traceroute' => array('diag_traceroute.php', 'diagnostics', true),
+    'GET /v1/diagnostics/sources' => array('diag_ping.php', 'diagnostics', false),
+    'POST /v1/diagnostics/dns-lookup' => array('diag_dns.php', 'diagnostics', false),
+    'GET /v1/diagnostics/states' => array('diag_dump_states.php', 'diagnostics', false),
+    'DELETE /v1/diagnostics/states' => array('diag_dump_states.php', 'diagnostics', true),
+    'GET /v1/status/ndp' => array('diag_ndp.php', 'status', false)) as $key => $want) {
+	check_api(isset($f2_routes[$key]) && ($f2_routes[$key]['page'] === $want[0]) && ($f2_routes[$key]['area'] === $want[1]) &&
+	    ($f2_routes[$key]['write'] === $want[2]), "route {$key} (page {$want[0]}, area {$want[1]}, " . ($want[2] ? 'write' : 'read') . ')');
+}
+$safe = array();
+foreach ($v1 as $r) {
+	if ($r['safe']) {
+		$safe[] = "{$r['method']} {$r['path']}";
+	}
+}
+check_api($safe === array('POST /v1/diagnostics/dns-lookup') && ($f2_routes['POST /v1/diagnostics/dns-lookup']['scope'] === 'diagnostics:read'),
+    'only the DNS lookup is a POST with the read scope ("safe")');
+check_api(restapi_route('POST', '/v1/x', 'h', array('page' => 'x.php', 'area' => 'status', 'write' => true, 'safe' => true))['safe'] === false,
+    'a write route is never "safe"');
+check_api(in_array('confirm', $f2_routes['DELETE /v1/diagnostics/states']['body']['required'], true) &&
+    in_array('source', $f2_routes['DELETE /v1/diagnostics/states']['body']['required'], true), 'killing states documents confirm and source');
+foreach ($v1 as $r) {
+	check_api(!preg_match('#^/v1/diagnostics/(states/)?(reset|flush|all)#', $r['path']), "{$r['path']}: no state table reset in this step");
+}
+
+/* Request bodies become the pages' form posts */
+check_api(restapi_diag_ping_post(array('host' => 'h')) === array('host' => 'h', 'count' => '3', 'wait' => '1', 'ipproto' => 'ipv4', 'sourceip' => ''),
+    'ping defaults: 3 pings, 1 s, IPv4, automatic source');
+check_api(restapi_diag_ping_post(array('host' => 'h', 'count' => 10, 'wait' => 3, 'ipprotocol' => 'ipv6', 'source' => 'lan')) ===
+    array('host' => 'h', 'count' => '10', 'wait' => '3', 'ipproto' => 'ipv6', 'sourceip' => 'lan'), 'ping fields');
+check_api(restapi_diag_ping_post(array('host' => 'h', 'count' => '5'))['count'] === '5', 'a count of digits is accepted');
+foreach (array(array('count' => 11), array('count' => 0), array('count' => -1), array('wait' => 11), array('wait' => 0), array('count' => 10, 'wait' => 4),
+    array('count' => 4, 'wait' => 8), array('count' => '3; id'), array('count' => 1.5), array('count' => true), array('count' => '1e1'), array('ipprotocol' => 'inet'),
+    array('ipprotocol' => 6), array('source' => array('lan')), array('source' => "lan\n"), array('host' => array('a')), array('host' => str_repeat('a', 254)),
+    array('host' => "a\x00b"), array('bogus' => 1), array('host' => null)) as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_diag_ping_post($bad + array('host' => 'h')); }) === 400, 'ping body ' . json_encode($bad) . ' is a 400');
+}
+check_api(api_error_status(function () { restapi_diag_ping_post(array()); }) === 400, 'ping needs a host');
+check_api(restapi_diag_traceroute_post(array('host' => 'h')) === array('host' => 'h', 'ttl' => '18', 'ipproto' => 'ipv4', 'sourceip' => 'any'),
+    'traceroute defaults: 18 hops, IPv4, any source, UDP, numeric (unticked boxes are absent)');
+check_api(restapi_diag_traceroute_post(array('host' => 'h', 'maxttl' => 64, 'protocol' => 'icmp', 'resolve' => true, 'source' => '')) ===
+    array('host' => 'h', 'ttl' => '64', 'ipproto' => 'ipv4', 'sourceip' => 'any', 'useicmp' => 'yes', 'resolve' => 'yes'), 'ICMP and resolve tick the boxes');
+check_api(!isset(restapi_diag_traceroute_post(array('host' => 'h', 'protocol' => 'udp', 'resolve' => false))['useicmp']), 'UDP and no resolve leave the boxes unticked');
+foreach (array(array('maxttl' => 65), array('maxttl' => 0), array('maxttl' => '3;id'), array('protocol' => 'tcp'), array('resolve' => 'yes'), array('resolve' => 1),
+    array('ipprotocol' => 'ipv5'), array('wait' => 1)) as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_diag_traceroute_post($bad + array('host' => 'h')); }) === 400, 'traceroute body ' . json_encode($bad) . ' is a 400');
+}
+
+/* Output parsing */
+$ping_out = "PING 192.168.228.1 (192.168.228.1): 56 data bytes\n64 bytes from 192.168.228.1: icmp_seq=0 ttl=128 time=0.396 ms\n\n" .
+    "--- 192.168.228.1 ping statistics ---\n2 packets transmitted, 1 packets received, 50.0% packet loss\nround-trip min/avg/max/stddev = 0.396/0.396/0.396/0.000 ms\n";
+check_api(restapi_diag_ping_stats($ping_out) === array('transmitted' => 2, 'received' => 1, 'packet_loss' => 50.0,
+    'rtt' => array('min' => 0.396, 'avg' => 0.396, 'max' => 0.396, 'stddev' => 0.0)), 'ping statistics are parsed');
+check_api(restapi_diag_ping_stats("3 packets transmitted, 0 packets received, 100.0% packet loss\n") ===
+    array('transmitted' => 3, 'received' => 0, 'packet_loss' => 100.0, 'rtt' => null), 'no replies: no round-trip times');
+check_api(restapi_diag_ping_stats('') === array('transmitted' => null, 'received' => null, 'packet_loss' => null, 'rtt' => null), 'no output: no statistics');
+check_api(restapi_diag_traceroute_hops(" 1  192.168.228.1  0.3 ms  0.2 ms  0.2 ms\n 2  * * *\n10  a (1.2.3.4)  1 ms\n    b (1.2.3.5)  2 ms\n") === array(
+    array('hop' => 1, 'text' => '192.168.228.1  0.3 ms  0.2 ms  0.2 ms'), array('hop' => 2, 'text' => '* * *'), array('hop' => 10, 'text' => "a (1.2.3.4)  1 ms\nb (1.2.3.5)  2 ms")),
+    'traceroute hops are parsed (continuation lines stay with their hop)');
+check_api(restapi_diag_dns_types(null, false) === null && restapi_diag_dns_types(null, true) === null && restapi_diag_dns_types('AAAA', false) === array(DNS_AAAA) &&
+    restapi_diag_dns_types('CNAME', false) === array(DNS_CNAME) && restapi_diag_dns_types('PTR', true) === null, 'DNS record types');
+foreach (array(array('PTR', false), array('A', true), array('MX', false), array('ANY', false)) as $c) {
+	check_api(api_error_status(function () use ($c) { restapi_diag_dns_types($c[0], $c[1]); }) === 400, "record type {$c[0]} for " . ($c[1] ? 'an address' : 'a hostname') . ' is a 400');
+}
+check_api(restapi_diag_query_ms(' 12 msec') === 12 && restapi_diag_query_ms('0 msec') === 0 && restapi_diag_query_ms('No response') === null, 'query times in ms');
+
+/* State filter and kill bounds */
+$f2_ifs = array('wan' => 'WAN', 'lan' => 'LAN', 'enc0' => 'IPsec', 'lo0' => 'lo0', 'all' => 'all');
+check_api(restapi_diag_states_post(array(), $f2_ifs) === array('interface' => 'all', 'filter' => ''), 'state list defaults: all interfaces, filter always set');
+check_api(restapi_diag_states_post(array('interface' => 'lo0', 'filter' => '10.0.0.1', 'ruleid' => '5,77'), $f2_ifs) ===
+    array('interface' => 'lo0', 'filter' => '10.0.0.1', 'ruleid' => '5,77'), 'state list filters');
+foreach (array(array('interface' => 'opt9'), array('interface' => array('lan')), array('ruleid' => '1;id'), array('ruleid' => '1,'), array('ruleid' => 'a'),
+    array('filter' => str_repeat('x', 101)), array('filter' => "a\nb"), array('filter' => array('x'))) as $bad) {
+	check_api(api_error_status(function () use ($bad, $f2_ifs) { restapi_diag_states_post($bad, $f2_ifs); }) === 400, 'state query ' . json_encode($bad) . ' is a 400');
+}
+foreach (array('0', '10001', 'x', '-1', '5 ') as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_diag_int(array('limit' => $bad), 'limit', 1, RESTAPI_STATES_LIMIT_MAX, 500); }) === 400, "limit \"{$bad}\" is a 400");
+}
+check_api(restapi_diag_prefix('10.0.0.0/8') === 8 && restapi_diag_prefix('2001:db8::/32') === 32 && restapi_diag_prefix('::/0') === 0 &&
+    restapi_diag_prefix('1.2.3.4') === '' && restapi_diag_prefix('a/b') === '', 'prefix lengths');
+check_api((RESTAPI_KILL_MIN_PREFIX_V4 === 8) && (RESTAPI_KILL_MIN_PREFIX_V6 === 32) && (RESTAPI_PING_MAX_SECONDS === 30) && (RESTAPI_TRACEROUTE_TIMEOUT === 60),
+    'kill and run-time bounds');
+
+/* The pages' shared functions (diag_tools.inc, diag_dump_states.inc), run with the real validators from util.inc in a separate PHP process */
+$f2_util = file_get_contents("{$root}/src/etc/inc/util.inc");
+$f2_tools = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/diag_tools.inc");
+$f2_states = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/diag_dump_states.inc");
+$f2_code = '';
+foreach (array('do_input_validation', 'is_numericint', 'is_ipaddr', 'is_ipaddrv4', 'is_hostname', 'is_domain', 'is_subnet', 'is_subnetv4', 'is_subnetv6') as $fn) {
+	check_api(strpos($f2_util, "function {$fn}(") !== false, "util.inc defines {$fn}()");
+	$f2_code .= $fn_body($f2_util, $fn) . "\n}\n\n";
+}
+foreach (array('diag_exec', 'diag_request_string', 'diag_idn_host', 'diag_request_host', 'diag_host_errors', 'diag_source_error', 'diag_ping_check',
+    'diag_ping_command', 'diag_traceroute_check', 'diag_traceroute_command', 'diag_dns_host') as $fn) {
+	check_api(strpos($f2_tools, "function {$fn}(") !== false, "diag_tools.inc defines {$fn}()");
+	$f2_code .= $fn_body($f2_tools, $fn) . "\n}\n\n";
+}
+foreach (array('diag_states_kill_target', 'diag_states_filter_errors') as $fn) {
+	check_api(strpos($f2_states, "function {$fn}(") !== false, "diag_dump_states.inc defines {$fn}()");
+	$f2_code .= $fn_body($f2_states, $fn) . "\n}\n\n";
+}
+$f2_harness = <<<'PHP'
+<?php
+define('DIAG_PING_MAX_COUNT', 10); define('DIAG_PING_DEFAULT_COUNT', 3); define('DIAG_PING_MAX_WAIT', 10); define('DIAG_PING_DEFAULT_WAIT', 1);
+define('DIAG_TRACEROUTE_MAX_TTL', 64); define('DIAG_TRACEROUTE_DEFAULT_TTL', 18);
+function gettext($t) { return $t; }
+/* Net_IPv6 is not available here; the firewall's is_ipaddrv6() is stricter, never looser. */
+function is_ipaddrv6($ip) { return is_string($ip) && (strpos($ip, '/') === false) && (filter_var(explode('%', $ip)[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false); }
+function is_linklocal($ip) { return is_string($ip) && (stripos($ip, 'fe80:') === 0); }
+function get_ll_scope($ip) { return 'em1'; }
+/* The intl extension is not available here: refuse what UTS #46 refuses in the tests (a leading hyphen, a slash). */
+if (!function_exists('idn_to_ascii')) {
+	function idn_to_ascii($h) { return preg_match('#^-|/#', $h) ? false : strtolower($h); }
+	function idn_to_utf8($h) { if ($h === '' || $h === false) { throw new ValueError('idn_to_utf8(): Argument #1 ($domain) must not be empty'); } return $h; }
+}
+function get_possible_traffic_source_addresses($ll = false) { return array('wan' => 'WAN', 'lan' => 'LAN', '_lloclan' => 'LAN IPv6 Link-Local', 'lo0' => 'Localhost', '10.0.0.5' => 'VIP'); }
+function get_interface_ip($if) { return array('wan' => '203.0.113.2', 'lan' => '192.168.1.1', 'lo0' => '127.0.0.1')[$if] ?? null; }
+function get_interface_ipv6($if) { return array('lan' => '2001:db8::1', '_lloclan' => 'fe80::1%em1')[$if] ?? null; }
+$fail = 0;
+function t($ok, $msg) { global $fail; if (!$ok) { $fail++; echo "FAIL {$msg}\n"; } }
+PHP;
+$f2_tests = <<<'PHP'
+$ok = array('host' => '192.168.1.10', 'count' => '3', 'wait' => '1', 'ipproto' => 'ipv4', 'sourceip' => '');
+$c = diag_ping_check($ok);
+t($c['input_errors'] === array() && $c['host'] === '192.168.1.10' && $c['count'] === '3' && $c['wait'] === '1', 'a valid ping request');
+t(diag_ping_check(array('host' => 'example.com', 'count' => '3'))['input_errors'] === array(), 'the DNS page link (host and count only) is valid');
+foreach (array('127.0.0.1; id', '$(id)', '`id`', '127.0.0.1 -f', '-f', '-c1000', 'localhost|id', 'a&&reboot', '../../etc/passwd', "a\nb", "127.0.0.1\x00", 'a b', '', ' ') as $h) {
+	$c = diag_ping_check(array('host' => $h) + $ok);
+	t(!empty($c['input_errors']), 'ping host ' . json_encode($h) . ' is refused');
+	$c = diag_traceroute_check(array('host' => $h, 'ttl' => '18'));
+	t(!empty($c['input_errors']), 'traceroute host ' . json_encode($h) . ' is refused');
+}
+t(in_array('Hostname must be a valid hostname or IP address.', diag_ping_check(array('host' => '-f') + $ok)['input_errors'], true) &&
+    (diag_ping_check(array('host' => '-f') + $ok)['host_utf8'] === '-f'), 'a host IDN refuses fails validation and is shown as entered (no ValueError)');
+foreach (array('lan; id', '$(id)', 'nosuch', '1.2.3.4', 'any', array('lan')) as $s) {
+	t(in_array('The source address must be one of the listed addresses.', diag_ping_check(array('sourceip' => $s) + $ok)['input_errors'], true), 'ping source ' . json_encode($s) . ' is refused');
+}
+foreach (array('', 'lan', '_lloclan', '10.0.0.5') as $s) {
+	t(diag_ping_check(array('sourceip' => $s) + $ok)['input_errors'] === array(), "ping source \"{$s}\" is accepted");
+}
+t(diag_traceroute_check(array('host' => 'h.example', 'ttl' => '3', 'sourceip' => 'any'))['input_errors'] === array() &&
+    !empty(diag_traceroute_check(array('host' => 'h.example', 'ttl' => '3', 'sourceip' => ''))['input_errors']), 'traceroute: "any" is its automatic source, "" is not');
+foreach (array('0', '11', 'abc', '1.5', '-1', '3; id') as $n) {
+	t(!empty(diag_ping_check(array('count' => $n) + $ok)['input_errors']), "count {$n} is refused");
+	t(!empty(diag_ping_check(array('wait' => $n) + $ok)['input_errors']), "wait {$n} is refused");
+}
+foreach (array('0', '65', 'abc', '3;id', '1.5') as $n) {
+	t(!empty(diag_traceroute_check(array('host' => 'h.example', 'ttl' => $n))['input_errors']), "hops {$n} are refused");
+}
+t(diag_traceroute_check(array('host' => 'h.example', 'ttl' => '64'))['input_errors'] === array(), '64 hops are allowed');
+t(!empty(diag_ping_check(array('ipproto' => 'ipv6') + $ok)['input_errors']) && !empty(diag_ping_check(array('host' => '::1', 'ipproto' => 'ipv4') + $ok)['input_errors']) &&
+    !empty(diag_ping_check(array('ipproto' => 'inet') + $ok)['input_errors']), 'the IP protocol must match the host and be ipv4 or ipv6');
+t(diag_ping_check(array('count' => '') + $ok)['count'] === 3, 'an empty count falls back to the default count (was the default wait)');
+
+t(diag_ping_command('192.168.1.10', 'ipv4', '', '3', '1') === array('/sbin/ping', '-c3', '-i1', '192.168.1.10'), 'ping command, automatic source');
+t(diag_ping_command('h.example', 'ipv4', 'lan', '2', '5') === array('/sbin/ping', '-S192.168.1.1', '-c2', '-i5', 'h.example'), 'ping command from an interface');
+t(diag_ping_command('fe80::2', 'ipv6', '_lloclan', '1', '1') === array('/sbin/ping6', '-Sfe80::1%em1', '-c1', '-i1', 'fe80::2%em1'), 'ping6 from a link-local address adds the scope');
+t(diag_traceroute_command('h.example', 'ipv4', 'any', '18', false, false) === array('/usr/sbin/traceroute', '-n', '-w', '2', '-m', '18', 'h.example'), 'traceroute command (numeric, UDP)');
+t(diag_traceroute_command('h.example', 'ipv4', 'lan', '5', true, true) === array('/usr/sbin/traceroute', '-s', '192.168.1.1', '-w', '2', '-I', '-m', '5', 'h.example'),
+    'traceroute with names, ICMP and a source (no empty argument)');
+t(diag_traceroute_command('2001:db8::9', 'ipv6', 'lan', '5', true, false) === array('/usr/sbin/traceroute6', '-l', '-s', '2001:db8::1', '-w', '2', '-m', '5', '2001:db8::9'), 'traceroute6 with names');
+
+list($h, $u) = diag_dns_host(" [www.example.org]; ");
+t($h === 'www.example.org' && $u === 'www.example.org', 'the DNS page trims brackets, quotes and semicolons');
+t(diag_dns_host('-f') === array('', '-f') && diag_dns_host(array('x')) === array('', ''), 'DNS: refused or non-string names give an empty host');
+
+t(diag_states_kill_target('192.168.1.5') === '192.168.1.5/32' && diag_states_kill_target('2001:db8::5') === '2001:db8::5/128' &&
+    diag_states_kill_target('10.0.0.0/8') === '10.0.0.0/8' && diag_states_kill_target('x') === '' && diag_states_kill_target('1.2.3.4; id') === '',
+    'Kill States: an address is a host network (/32, IPv6 /128 - it was /32), a subnet is kept, anything else is nothing');
+t(diag_states_filter_errors(array('interface' => 'lan', 'ruleid' => '5')) !== array() && diag_states_filter_errors(array('interface' => 'all', 'ruleid' => '5')) === array(),
+    'interface and rule ID filters cannot be combined');
+
+/* diag_exec(): an argument list never reaches a shell; timeouts stop the command */
+$r = diag_exec(array('/bin/echo', 'a; id', '$(id)', '`id`'));
+t($r['stdout'] === "a; id \$(id) `id`\n" && !$r['timed_out'] && $r['status'] === 0, 'arguments are passed as they are (no shell)');
+$r = diag_exec(array('/bin/sh', '-c', 'echo out; echo err >&2; exit 3'));
+t($r['stdout'] === "out\n" && $r['stderr'] === "err\n" && $r['status'] === 3, 'stdout and stderr are kept apart');
+$t0 = microtime(true);
+$r = diag_exec(array('/bin/sh', '-c', 'trap "echo stopped; exit 0" INT; echo started; sleep 20 >/dev/null 2>&1 & wait'), 1);
+t($r['timed_out'] && (strpos($r['stdout'], "started\n") === 0) && (strpos($r['stdout'], 'stopped') !== false) && (microtime(true) - $t0 < 4),
+    'a timeout sends SIGINT (the command prints its summary) and returns at once');
+$t0 = microtime(true);
+$r = diag_exec(array('/bin/sh', '-c', 'trap "" INT; sleep 5'), 1);
+t($r['timed_out'] && (microtime(true) - $t0 < 5), 'a command that ignores SIGINT is killed 2 seconds later');
+$r = diag_exec(array('/bin/sh', '-c', 'yes | head -c 300000'), 0, 1000);
+t(strlen($r['stdout']) === 1000, 'output is bounded');
+t(diag_exec(array('/nonexistent/command'))['stdout'] === '', 'a missing command gives no output');
+echo ($fail === 0) ? "ALL OK\n" : "{$fail} failed\n";
+PHP;
+$f2_file = tempnam(sys_get_temp_dir(), 'f2test');
+file_put_contents($f2_file, $f2_harness . "\n" . $f2_code . $f2_tests);
+$f2_out = (string)shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($f2_file) . ' 2>&1');
+unlink($f2_file);
+check_api(trim($f2_out) === 'ALL OK', "the diagnostics pages' checks hold (injection, bounds, sources, commands, kill targets, timeouts):\n{$f2_out}");
+
+/* Static guards: the pages are thin wrappers, nothing runs through a shell, the API never creates aliases or flushes the state table */
+$f2_page = function ($p) use ($root) { return file_get_contents("{$root}/src/usr/local/www/{$p}"); };
+check_api(strpos($f2_page('diag_ping.php'), 'diag_ping_check($_REQUEST)') !== false && strpos($f2_page('diag_ping.php'), 'diag_exec(diag_ping_command(') !== false &&
+    strpos($f2_page('diag_ping.php'), 'shell_exec') === false, 'diag_ping.php checks and pings through diag_tools.inc');
+check_api(strpos($f2_page('diag_traceroute.php'), 'diag_traceroute_check($_REQUEST)') !== false && strpos($f2_page('diag_traceroute.php'), 'diag_exec(diag_traceroute_command(') !== false &&
+    strpos($f2_page('diag_traceroute.php'), 'shell_exec') === false, 'diag_traceroute.php checks and traces through diag_tools.inc');
+check_api(strpos($f2_page('diag_dns.php'), 'diag_dns_lookup($_POST, $host)') !== false && strpos($f2_page('diag_dns.php'), 'write_config') === false &&
+    preg_match('/isset\(\$_POST\[\'create_alias\'\]\).*\n\tif \(diag_dns_create_alias\(\$host\)\)/', $f2_page('diag_dns.php')) &&
+    !preg_match('/^function /m', $f2_page('diag_dns.php')), 'diag_dns.php looks up through diag_tools.inc and creates an alias only for its button');
+check_api(strpos($f2_page('diag_dump_states.php'), 'FreeSense_kill_states(') === false && strpos($f2_page('diag_dump_states.php'), 'diag_states_kill_pair(') !== false &&
+    strpos($f2_page('diag_dump_states.php'), 'diag_states_kill_filter($_POST[\'filter\'])') !== false && strpos($f2_page('diag_dump_states.php'), 'diag_states_filter_errors($_POST)') !== false,
+    'diag_dump_states.php kills states and checks filters through diag_dump_states.inc');
+check_api(strpos($f2_page('diag_ndp.php'), '$data = diag_ndp_table();') !== false, 'diag_ndp.php reads the table through diag_ndp.inc');
+check_api(!preg_match('/(?<![a-z_])(shell_exec|system|passthru|popen|proc_open)\(/', str_replace($fn_body($f2_tools, 'diag_exec'), '', $f2_tools)) &&
+    substr_count($f2_tools, 'exec(') === substr_count($f2_tools, 'diag_exec(') + 1 &&
+    strpos($f2_tools, 'exec("/usr/bin/drill " . escapeshellarg($host) . " " . escapeshellarg("@" . trim($dns_server))') !== false,
+    'diag_tools.inc runs commands only through diag_exec() (argument lists) and the escaped drill timing of the DNS page');
+check_api(strpos($fn_body($f2_tools, 'diag_exec'), 'proc_open(array_map(\'strval\', array_values($argv))') !== false, 'diag_exec() passes an argument list to proc_open()');
+check_api(strpos($fn_body($f2_tools, 'diag_dns_lookup'), 'write_config') === false && strpos($fn_body($f2_tools, 'diag_dns_lookup'), 'config_set_path') === false,
+    'the DNS lookup changes nothing');
+check_api(strpos($f2_tools, 'function display_host_results') === false && strpos($f2_page('diag_dns.php'), 'diag_dns_display_host_results(') !== false,
+    'the DNS page helper is prefixed (diag_dns_display_host_results)');
+$f2_api = file_get_contents("{$root}/src/etc/inc/restapi/routes_diagnostics.inc");
+foreach (array('diag_dns_create_alias', 'write_config', 'config_set_path', 'filter_flush_state_table', 'pfctl', 'FreeSense_kill_states', 'shell_exec', 'exec(\'', 'exec("') as $call) {
+	check_api(strpos($f2_api, $call) === false, "routes_diagnostics.inc never calls {$call}");
+}
+$f2_kill = $fn_body($f2_api, 'restapi_h_diag_states_kill');
+check_api(strpos($f2_kill, "(\$body['confirm'] ?? null) !== true") < strpos($f2_kill, 'diag_states_kill_pair(') &&
+    strpos($f2_kill, 'RESTAPI_KILL_MIN_PREFIX_V4') < strpos($f2_kill, 'diag_states_kill_filter(') &&
+    strpos($f2_kill, "restapi_ip_in_network(\$client, \$tokill)") < strpos($f2_kill, 'diag_states_kill_filter('),
+    'killing states needs confirm, a narrow enough source and spares the request\'s own connection');
+check_api(strpos($fn_body($f2_api, 'restapi_h_diag_ping'), 'diag_ping_check($post)') !== false &&
+    strpos($fn_body($f2_api, 'restapi_h_diag_ping'), "+ RESTAPI_PING_GRACE)") !== false &&
+    strpos($fn_body($f2_api, 'restapi_h_diag_traceroute'), 'diag_traceroute_check($post)') !== false &&
+    strpos($fn_body($f2_api, 'restapi_h_diag_traceroute'), 'RESTAPI_TRACEROUTE_TIMEOUT)') !== false &&
+    strpos($fn_body($f2_api, 'restapi_h_diag_dns'), 'diag_dns_lookup(array(\'host\' => $hostname), $host, $types)') !== false &&
+    strpos($fn_body($f2_api, 'restapi_h_diag_states'), 'diag_states_filter_errors($post)') !== false,
+    'the API checks requests with the pages\' functions and bounds the run time');
+foreach (array('diag_tools.inc', 'diag_dump_states.inc', 'diag_ndp.inc') as $inc) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false, "the API front controller loads {$inc}");
+}
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

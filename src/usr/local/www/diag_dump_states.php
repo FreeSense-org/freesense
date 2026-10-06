@@ -33,8 +33,7 @@ require_once("diag_dump_states.inc");
 
 /* handle AJAX operations */
 if (isset($_POST['action']) && $_POST['action'] == "remove") {
-	if (isset($_POST['srcip']) && isset($_POST['dstip']) && is_ipaddr($_POST['srcip']) && is_ipaddr($_POST['dstip'])) {
-		$retval = FreeSense_kill_states($_POST['srcip'], $_POST['dstip']);
+	if (isset($_POST['srcip']) && isset($_POST['dstip']) && diag_states_kill_pair($_POST['srcip'], $_POST['dstip'])) {
 		echo htmlentities("|{$_POST['srcip']}|{$_POST['dstip']}|0|");
 	} else {
 		echo gettext("invalid input");
@@ -44,27 +43,10 @@ if (isset($_POST['action']) && $_POST['action'] == "remove") {
 }
 
 if (isset($_POST['filter']) && isset($_POST['killfilter'])) {
-	if (is_ipaddr($_POST['filter'])) {
-		$tokill = $_POST['filter'] . "/32";
-	} elseif (is_subnet($_POST['filter'])) {
-		$tokill = $_POST['filter'];
-	} else {
-		// Invalid filter
-		$tokill = "";
-	}
-	if (!empty($tokill)) {
-		$retval = FreeSense_kill_states($tokill);
-		$retval = FreeSense_kill_states("0.0.0.0/0", $tokill);
-	}
+	$retval = diag_states_kill_filter($_POST['filter']);
 }
 
-$input_errors = [];
-
-if (!empty($_POST['interface']) &&
-    ($_POST['interface'] != 'all') &&
-    !empty($_POST['ruleid'])) {
-	$input_errors[] = gettext("Interface and Rule ID filters cannot be used at the same time.");
-}
+$input_errors = diag_states_filter_errors($_POST);
 
 $pgtitle = array(gettext("Diagnostics"), gettext("States"), gettext("States"));
 $pglinks = array("", "@self", "@self");
@@ -120,10 +102,7 @@ $form = new Form(false);
 
 $section = new Form_Section('State Filter', 'secfilter', COLLAPSIBLE|SEC_OPEN);
 
-$iflist = get_configured_interface_with_descr();
-$iflist['enc0'] = "IPsec";
-$iflist['lo0'] = "lo0";
-$iflist['all'] = "all";
+$iflist = diag_states_interfaces();
 if (isset($_POST['interface']))
 	$ifselect = $_POST['interface'];
 else

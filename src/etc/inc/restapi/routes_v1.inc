@@ -46,6 +46,7 @@ require_once('restapi/routes_users.inc');
 require_once('restapi/routes_system.inc');
 require_once('restapi/routes_logs.inc');
 require_once('restapi/routes_packages.inc');
+require_once('restapi/routes_diagnostics.inc');
 
 function restapi_routes_v1() {
 	$routes = array(
@@ -73,6 +74,8 @@ function restapi_routes_v1() {
 			'summary' => 'Services and whether they are running')),
 		restapi_route('GET', '/v1/status/arp', 'restapi_h_status_arp', array(
 			'page' => 'diag_arp.php', 'area' => 'status', 'summary' => 'ARP table')),
+		restapi_route('GET', '/v1/status/ndp', 'restapi_h_status_ndp', array(
+			'page' => 'diag_ndp.php', 'area' => 'status', 'summary' => 'NDP table (IPv6 neighbors)')),
 		restapi_route('GET', '/v1/status/dhcp-leases', 'restapi_h_status_dhcp_leases', array(
 			'page' => 'status_dhcp_leases.php', 'area' => 'status', 'summary' => 'DHCPv4 leases')),
 
@@ -112,7 +115,8 @@ function restapi_routes_v1() {
 	$routes = array_merge($routes, restapi_routes_firewall(), restapi_routes_nat(), restapi_routes_routing(),
 	    restapi_routes_interfaces(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
 	    restapi_routes_ddns(), restapi_routes_dhcp(), restapi_routes_vpn(), restapi_routes_openvpn(),
-	    restapi_routes_pki(), restapi_routes_users(), restapi_routes_system(), restapi_routes_logs(), restapi_routes_packages());
+	    restapi_routes_pki(), restapi_routes_users(), restapi_routes_system(), restapi_routes_logs(), restapi_routes_packages(),
+	    restapi_routes_diagnostics());
 
 	/* Packages may add resources: return a list of restapi_route() entries. */
 	if (function_exists('pkg_call_plugins')) {

@@ -71,6 +71,8 @@ function restapi_validation_error(array $input_errors) {
  *   area      permission area from restapi/areas.inc (required otherwise)
  *   write     true when the route changes state; its scope is <area>:write,
  *             otherwise <area>:read
+ *   safe      true for a POST that changes nothing (e.g. a lookup that needs a
+ *             body); it keeps the read scope (write must be false)
  *   summary   one line for the OpenAPI document
  *   tag       OpenAPI tag (defaults to the area)
  *   body      OpenAPI schema of the JSON body (array), optional
@@ -96,6 +98,7 @@ function restapi_route($method, $path, $handler, array $opts) {
 		'page' => $opts['page'],
 		'area' => $area,
 		'write' => $write,
+		'safe' => !$write && !empty($opts['safe']),
 		'scope' => ($area === '') ? '' : restapi_scope($area, $write ? 'write' : 'read'),
 		'summary' => $opts['summary'] ?? '',
 		'tag' => $opts['tag'] ?? (($area === '') ? 'meta' : $area),
