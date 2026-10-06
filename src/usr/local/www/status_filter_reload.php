@@ -52,123 +52,83 @@ if ($_POST['syncfilter']) {
 	exit;
 }
 
+/* Reload filter / Force config sync post back here (usepost), like the old form buttons */
+fs_page_action(gettext('Reload filter'), '/status_filter_reload.php?reloadfilter=' . rawurlencode(gettext("Reload Filter")), 'fa-arrows-rotate', 'primary', ['usepost' => true]);
+if (!empty(config_get_path('hasync/synchronizetoip'))) {
+	fs_page_action(gettext('Force config sync'), '/status_filter_reload.php?syncfilter=' . rawurlencode(gettext("Force Config Sync")), 'fa-regular fa-clone', 'secondary', ['usepost' => true]);
+}
+
+$watch = empty($_REQUEST['user']);
+$done = (substr((string)$status, -5) === "Done\n");
+
 include("head.inc");
 ?>
 
 <div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Filter Reload");?></h2></div>
-	<div class="panel-body">
-		<div class="content">
-			<form action="status_filter_reload.php" method="post" name="filter">
-				<button type="submit" class="btn btn-success" value="<?=gettext("Reload Filter")?>" name="reloadfilter" id="reloadfilter"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Reload Filter")?></button>
-<?php
-if (!empty(config_get_path('hasync/synchronizetoip'))): ?>
-				<button type="submit" class="btn btn-info" value="<?=gettext("Force Config Sync")?>" name="syncfilter" id="syncfilter"><i class="fa-regular fa-clone icon-embed-btn"></i><?=gettext("Force Config Sync")?></button>
-<?php
-endif;
-?>
-			</form>
-			<br />
-			<div id="doneurl"></div>
-			<br />
-			<div class="panel panel-default">
-				<div class="panel-heading"><h2 class="panel-title"><?=gettext("Reload status")?></h2></div>
-				<div class="panel-body" id="status">
-				</div>
-			</div>
-			<br/>
-
-<?php if (!$_REQUEST['user']) { ?>
-			<div id="reloadinfo"><?=gettext("This page will automatically refresh every 3 seconds until the filter is done reloading."); ?></div>
-<?php } ?>
-
-		</div>
+	<div class="panel-heading">
+		<h2 class="panel-title"><?=gettext("Reload status")?></h2>
+		<span id="fs-reload-running"<?=($watch && !$done) ? '' : ' hidden'?>><?=fs_badge('pending', gettext('Reloading'))?></span>
+		<span id="fs-reload-done"<?=$done ? '' : ' hidden'?>><?=fs_badge('pass', gettext('Done'))?></span>
+		<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#status">
+			<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+		</button>
+	</div>
+	<pre class="fs-console" id="status" aria-live="polite"><?=($status !== null && $status !== '') ? htmlspecialchars($status) : gettext("Obtaining filter status...")?></pre>
+	<div class="panel-footer small fs-muted" id="reloadinfo">
+<?php if ($watch && !$done): ?>
+		<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+		<?=gettext("This page refreshes the status every few seconds until the filter is done reloading.")?>
+<?php else: ?>
+		<?=gettext("Use Reload filter to rebuild and reload the firewall rules.")?>
+<?php endif; ?>
+		<span id="doneurl"<?=$done ? '' : ' hidden'?>> <a href="status_queues.php"><?=gettext("Queue status")?></a></span>
 	</div>
 </div>
 
 <script type="text/javascript">
 //<![CDATA[
-/* init update "thread */
-function update_status_thread() {
-	getURL('status_filter_reload.php?getstatus=true', update_data);
-}
+events.push(function() {
+	var out = document.getElementById('status');
+	var info = document.getElementById('reloadinfo');
 
-function update_data(obj) {
-	var result_text = obj.content;
-	var result_text_split = result_text.split("|");
-	result_text = result_text_split[1];
-
-	if (result_text) {
-		$('#status').html('<pre>' + result_text + '</pre>');
-	} else {
-		$('#status').html('<pre>' + '<?=gettext("Obtaining filter status...");?>' + '</pre>');
+	/* the status endpoint returns "|<escaped text>|"; decode the entities without parsing HTML */
+	function decode(text) {
+		return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&amp;/g, '&');
 	}
 
-	if (result_text.endsWith("Done\n")) {
-		$('#reloadinfo').css("visibility", "hidden");
-		$('#doneurl').css("visibility", "visible");
-		$('#doneurl').html("<p><a href='status_queues.php'><?=gettext("Queue Status");?><\/a><\/p>");
-		$('#reloadinfo').html("");
-	}  else {
-		window.setTimeout('update_status_thread()', 1500);
+	function setState(done) {
+		document.getElementById('fs-reload-running').hidden = done;
+		document.getElementById('fs-reload-done').hidden = !done;
 	}
-}
-//]]>
-</script>
 
-<script type="text/javascript">
-//<![CDATA[
-/*
- * getURL is a proprietary Adobe function, but it's simplicity has made it very
- * popular. If getURL is undefined we spin our own by wrapping XMLHttpRequest.
- */
-if (typeof getURL == 'undefined') {
-	getURL = function(url, callback) {
-		if (!url) {
-			throw 'No URL for getURL';
-		}
-
-		try {
-			if (typeof callback.operationComplete == 'function') {
-				callback = callback.operationComplete;
+	function update() {
+		fetch('status_filter_reload.php?getstatus=true', {credentials: 'same-origin'})
+		    .then(function (r) { return r.text(); })
+		    .then(function (text) {
+			var parts = text.split('|');
+			var result = parts.length > 1 ? decode(parts[1]) : '';
+			out.textContent = result || <?=json_encode(gettext("Obtaining filter status..."))?>;
+			if (result.endsWith("Done\n")) {
+				setState(true);
+				var spin = info.querySelector('.fa-spinner');
+				if (spin) {
+					spin.remove();
+				}
+				document.getElementById('doneurl').hidden = false;
+			} else {
+				setState(false);
+				window.setTimeout(update, 1500);
 			}
-		} catch (e) {}
-		if (typeof callback != 'function') {
-			throw 'No callback function for getURL';
-		}
-
-		var http_request = null;
-		if (typeof XMLHttpRequest != 'undefined') {
-			http_request = new XMLHttpRequest();
-		} else if (typeof ActiveXObject != 'undefined') {
-			try {
-				http_request = new ActiveXObject('Msxml2.XMLHTTP');
-			} catch (e) {
-				try {
-					http_request = new ActiveXObject('Microsoft.XMLHTTP');
-				} catch (e) {}
-			}
-		}
-		if (!http_request) {
-			throw 'Both getURL and XMLHttpRequest are undefined';
-		}
-
-		http_request.onreadystatechange = function() {
-			if (http_request.readyState == 4) {
-				callback( { success : true,
-					content : http_request.responseText,
-					contentType : http_request.getResponseHeader("Content-Type") } );
-			}
-		}
-
-		http_request.open('REQUEST', url, true);
-		http_request.send(null);
+		    })
+		    .catch(function () {
+			window.setTimeout(update, 3000);
+		    });
 	}
-}
 
-if ("<?=htmlspecialchars($_REQUEST['user'])?>" != "true") {
- 	window.setTimeout('update_status_thread()', 1500);
- }
+<?php if ($watch): ?>
+	window.setTimeout(update, 1500);
+<?php endif; ?>
+});
 //]]>
 </script>
 

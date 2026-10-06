@@ -96,10 +96,6 @@ manage_log_code();
 status_logs_common_code();
 
 
-if ($filtertext) {
-	$filtertextmeta="?filtertext=$filtertext";
-}
-
 if (in_array($logfile, array('system', 'gateways', 'routing', 'resolver', 'wireless', 'nginx', 'dmesg.boot'))) {
 	$pgtitle = array(gettext("Status"), gettext("System Logs"), gettext("System"), $allowed_logs[$logfile]["name"]);
 	$pglinks = array("", "status_logs.php", "status_logs.php", "@self");
@@ -115,118 +111,97 @@ if (in_array($logfile, array('userlog', 'dmesg.boot'))) {
 	$rawfilter = true;
 }
 
-include("head.inc");
-
-if ($changes_applied) {
-	print_apply_result_box($retval, $extra_save_msg);
-	$manage_log_active = false;
-}
-
-// Tab Array
-tab_array_logs_common();
-
-// Manage Log - Section/Form
-if ($system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-
-// Filter Section/Form - System
-filter_form_system();
 if (($logfile == 'resolver') || ($logfile == 'system')) {
 	$inverse = array("ppp");
 } else {
 	$inverse = null;
 }
-if (!$rawfilter) {
-	system_log_filter();
-}
 
+// Read the log (formatted entries or raw lines)
+system_log_filter();
+$is_raw = $rawfilter && ($logfile != 'utx');
+
+// Header actions: Log settings (modal) and Clear log
+status_logs_page_actions();
+
+include("head.inc");
+
+status_logs_notices();
+
+// Tab Array
+tab_array_logs_common();
+
+status_logs_styles();
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-<?php print(system_log_table_panel_title()); ?>
-		</h2>
-	</div>
-	<div class="panel-body">
-	    <div class="table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+<div class="panel panel-default fs-table" data-fs-table="log">
+<?php
+// Filter toolbar - System
+filter_form_system();
+?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover fs-logtable" data-sortable>
 <?php if ($logfile == 'utx'): ?>
 			<thead>
-				<tr class="text-nowrap">
+				<tr>
 					<th><?=gettext("Login Time")?></th>
 					<th><?=gettext("Duration")?></th>
 					<th><?=gettext("TTY")?></th>
-					<th style="width:100%"><?=gettext("User/Message")?></th>
+					<th data-fs-search><?=gettext("User/Message")?></th>
 				</tr>
 			</thead>
-<?php elseif ($rawfilter): ?>
+<?php elseif ($is_raw): ?>
 			<thead>
-				<tr class="text-nowrap">
-					<th style="width:100%"><?=gettext("Message")?></th>
+				<tr>
+					<th><?=gettext("Message")?></th>
 				</tr>
 			</thead>
 <?php else: ?>
 			<thead>
-				<tr class="text-nowrap">
+				<tr>
 					<th><?=gettext("Time")?></th>
-					<th><?=gettext("Process")?></th>
-					<th><?=gettext("PID")?></th>
-					<th style="width:100%"><?=gettext("Message")?></th>
+					<th data-fs-search><?=gettext("Process")?></th>
+					<th data-fs-search><?=gettext("Message")?></th>
 				</tr>
 			</thead>
 <?php endif; ?>
-
 			<tbody>
-<?php if (!$rawfilter): ?>
-<?php	foreach ($filterlog as $filterent): ?>
-				<tr class="text-nowrap">
-					<td>
-						<?=htmlspecialchars($filterent['time'])?>
-					</td>
-					<td>
-						<?=htmlspecialchars($filterent['process'])?>
-					</td>
-					<td>
-						<?=htmlspecialchars($filterent['pid'])?>
-					</td>
-					<td style="word-wrap:break-word; word-break:break-all; white-space:normal">
-						<?=htmlspecialchars($filterent['message'])?>
-					</td>
+<?php if ($is_raw):
+	status_logs_raw_rows($rawlines);
+	$colspan = 1;
+elseif ($logfile == 'utx'):
+	$colspan = 4;
+	foreach ($filterlog as $filterent): ?>
+				<tr>
+					<?=status_logs_time_cell($filterent['time'])?>
+					<td class="fs-mono"><?=htmlspecialchars($filterent['process'] ?? '')?></td>
+					<td class="fs-mono"><?=htmlspecialchars($filterent['pid'] ?? '')?></td>
+					<td class="fs-log-msg"><?=htmlspecialchars($filterent['message'] ?? '')?><?php if (!empty($filterent['host'])): ?> <span class="fs-muted fs-mono"><?=htmlspecialchars($filterent['host'])?></span><?php endif; ?></td>
 				</tr>
-<?php	endforeach; ?>
-<?php else:
-	system_log_filter(); ?>
-<?php endif; ?>
+<?php	endforeach;
+else:
+	$colspan = 3;
+	foreach ($filterlog as $filterent): ?>
+				<tr<?=status_logs_row_attrs($filterent['message'])?>>
+					<?=status_logs_time_cell($filterent['time'])?>
+					<td><?=status_logs_process_chip($filterent['process'], $filterent['pid'])?></td>
+					<td class="fs-log-msg"><?=htmlspecialchars($filterent['message'])?></td>
+				</tr>
+<?php	endforeach;
+endif;
+
+if ($rows == 0) {
+	fs_empty_row($colspan, gettext('No log entries to display.'));
+}
+?>
 			</tbody>
 		</table>
-<?php if ($rawfilter): ?>
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	$("#count").html(<?=$rows?>);
-});
-//]]>
-</script>
-<?php else:
-	$rows = count($filterlog); ?>
-<?php endif; ?>
-<?php
-	if ($rows == 0) {
-		print_info_box(gettext('No logs to display.'));
-	}
-?>
-		</div>
 	</div>
+<?php status_logs_card_footer(); ?>
 </div>
 <?php
 
-# Manage Log - Section/Form
-if (!$system_logs_manage_log_form_hidden) {
-	manage_log_section();
-}
-?>
+// Log settings modal
+manage_log_section();
 
-<?php
 include("foot.inc");

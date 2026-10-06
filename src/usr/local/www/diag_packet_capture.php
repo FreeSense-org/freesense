@@ -257,34 +257,8 @@ if (!empty($input_error) && $action == 'start') {
 	print_input_errors($input_error);
 }
 
-// Prepare the form buttons
-$form_buttons = [
-	'stop_button' => [
-		'class' => 'btn-warning',
-		'value' => 'Stop',
-		'icon' => 'fa-solid fa-circle-stop'
-	],
-	'start_button' => [
-		'class' => 'btn-success',
-		'value' => 'Start',
-		'icon' => 'fa-solid fa-circle-play'
-	],
-	'view_button' => [
-		'class' => 'btn-primary',
-		'value' => 'View',
-		'icon' => 'fa-regular fa-file-lines'
-	],
-	'download_button' => [
-		'class' => 'btn-primary',
-		'value' => 'Download',
-		'icon' => 'fa-solid fa-download'
-	],
-	'clear_button' => [
-		'class' => 'btn-danger',
-		'value' => 'Clear Captures',
-		'icon' => 'fa-solid fa-trash-can'
-	]
-];
+// Which buttons show: Start or Stop in the action bar, View / Download / Clear on the last capture card
+$show_buttons = ['stop_button' => false, 'start_button' => true, 'view_button' => false, 'download_button' => false, 'clear_button' => false];
 
 // Handle button actions before displaying the form
 if ($action == 'stop') {
@@ -300,21 +274,13 @@ $process_running = empty($processes_check) ? false : true;
 $show_last_capture_details = false;
 if ($process_running || $run_capture) {
 	// Only show the Stop button
-	$form_buttons['start_button']['class'] .= ' hidden';
-	$form_buttons['view_button']['class'] .= ' hidden';
-	$form_buttons['download_button']['class'] .= ' hidden';
-	$form_buttons['clear_button']['class'] .= ' hidden';
+	$show_buttons['stop_button'] = true;
+	$show_buttons['start_button'] = false;
 } else {
 	// Show the Start button
-	$form_buttons['stop_button']['class'] .= ' hidden';
 	if (file_exists($pcap_file_last)) {
 		if ($action == 'clear') {
-			// Hide file buttons when clearing related files
-			$form_buttons['view_button']['class'] .= ' hidden';
-			$form_buttons['download_button']['class'] .= ' hidden';
-			$form_buttons['clear_button']['class'] .= ' hidden';
-
-			// Clear related files
+			// Clear related files (the file buttons stay hidden)
 			foreach ($pcap_files_list as $pcap_file) {
 				unlink_if_exists($pcap_file);
 			}
@@ -323,15 +289,11 @@ if ($process_running || $run_capture) {
 			}
 		} else {
 			$show_last_capture_details = true;
+			$show_buttons['view_button'] = $show_buttons['download_button'] = $show_buttons['clear_button'] = true;
 			if ($action == 'download') {
 				send_user_download('file', $pcap_file_last);
 			}
 		}
-	} else {
-		// Hide file buttons when no related files exist
-		$form_buttons['view_button']['class'] .= ' hidden';
-		$form_buttons['download_button']['class'] .= ' hidden';
-		$form_buttons['clear_button']['class'] .= ' hidden';
 	}
 }
 
@@ -491,9 +453,10 @@ if (!isset($input_tagged_ipaddress_match)) {
 
 // Create the form
 $form = new Form(false);
+$form->setAttribute('id', 'pcap-form');
 // Main panel
-$section = new Form_Section('Packet Capture Options');
-$group = new Form_Group('Capture Options');
+$section = new Form_Section('Capture options');
+$group = new Form_Group('Capture');
 $group->add(new Form_Select(
 	'interface',
 	null,
@@ -505,69 +468,30 @@ $group->add(new Form_Select(
 	null,
 	$input_filter,
 	$form_filters
-))->setHelp('Filter preset.')->addClass('match-selection')->setWidth(2);
+))->setHelp('Filter preset.')->addClass('match-selection')->setWidth(3);
 $section->add($group);
-$group = new Form_Group('');
+$group = new Form_Group('Limits');
 $group->add(new Form_Input(
 	'count',
 	'Packet Count',
 	null,
 	$input_count,
-	array('type' => 'number', 'min' => 0, 'step' => 1)
-))->setHelp('Max number of packets to capture (default 1000). ' .
-            'Enter 0 (zero) for no limit.')->setWidth(2);
+	array('type' => 'number', 'min' => 0, 'step' => 1, 'placeholder' => 1000)
+))->setHelp('Packets to capture (default 1000, 0 for no limit).')->setWidth(3);
 $group->add(new Form_Input(
 	'length',
 	'Packet Length',
 	null,
 	$input_length,
-	array('type' => 'number', 'min' => 0, 'step' => 1)
-))->setHelp('Max bytes per packet (default 0). ' . 
-            'Enter 0 (zero) for no limit.')->setWidth(2);
-$group->add(new Form_Checkbox(
+	array('type' => 'number', 'min' => 0, 'step' => 1, 'placeholder' => 0)
+))->setHelp('Bytes per packet (default 0 for no limit).')->setWidth(3);
+$section->add($group);
+$section->addInput(new Form_Checkbox(
 	'promiscuous',
-	null,
-	'Promiscuous Mode',
+	'Promiscuous mode',
+	'Capture all traffic seen by the interface',
 	$input_promiscuous
-))->setHelp('Capture all traffic seen by the interface. Disable this option ' .
-            'to only capture traffic to and from the interface, including ' .
-            'broadcast and multicast traffic.')->setWidth(5);
-$section->add($group);
-$group = new Form_Group('View Options');
-$group->add(new Form_Select(
-	'viewdetail',
-	'View Detail',
-	$input_viewdetail,
-	$form_viewdetail
-))->setHelp('The level of detail shown when viewing the packet capture.')->setWidth(2);
-$group->add(new Form_Select(
-	'viewtype',
-	'View Type',
-	$input_viewtype,
-	$form_viewtype
-))->setHelp('Force the captured traffic to be interpreted as a specified type.')->setWidth(2);
-$group->add(new Form_Checkbox(
-	'lookup',
-	null,
-	'Name Lookup',
-	$input_lookup
-))->setHelp('Perform a name lookup for port, host, and MAC addresses when ' .
-            'viewing the packet capture. This can cause significant delays ' .
-			'due to reverse DNS lookups.')->setWidth(5);
-$section->add($group);
-
-// Show the last capture details on the main form section
-if ($show_last_capture_details) {
-	$section->addInput(new Form_StaticText(
-		'Last capture start',
-		date('F jS, Y g:i:s a.', strtotime(substr($pcap_file_last, -19, 14)))
-	));
-
-	$section->addInput(new Form_StaticText(
-		'Last capture stop',
-		date('F jS, Y g:i:s a.', filemtime($pcap_file_last))
-	));
-}
+))->setHelp('Turn this off to capture only traffic to and from the interface, including broadcast and multicast traffic.');
 
 $form->add($section);
 
@@ -667,18 +591,80 @@ foreach ($form_filter_sections as $fs_key => $fs_var) {
 }
 $form->add($section);
 
-// Add the form buttons
-foreach ($form_buttons as $button_id => $button) {
-	$form->addGlobal(new Form_Button(
-		$button_id,
-		$button['value'],
-		null,
-		$button['icon']
-	))->addClass($button['class']);
+// View options (how a capture is decoded when viewing it)
+$view_default = ($input_viewdetail == 'normal') && ($input_viewtype == 'default') && !$input_lookup;
+$section = new Form_Section('View options', 'pcap-view-options', COLLAPSIBLE | ($view_default ? SEC_CLOSED : SEC_OPEN));
+$section->addInput(new Form_Select(
+	'viewdetail',
+	'View detail',
+	$input_viewdetail,
+	$form_viewdetail
+))->setHelp('The level of detail shown when viewing the packet capture.');
+$section->addInput(new Form_Select(
+	'viewtype',
+	'View type',
+	$input_viewtype,
+	$form_viewtype
+))->setHelp('Force the captured traffic to be interpreted as a specified type.');
+$section->addInput(new Form_Checkbox(
+	'lookup',
+	'Name lookup',
+	'Resolve port, host and MAC address names',
+	$input_lookup
+))->setHelp('Reverse DNS lookups can make viewing the capture much slower.');
+$form->add($section);
+
+// Start / Stop in the action bar
+$btn = new Form_Button('start_button', 'Start', null, 'fa-solid fa-play');
+$btn->addClass('btn-primary')->setAttribute('data-fs-busy', 'true');
+if (!$show_buttons['start_button']) {
+	$btn->setAttribute('hidden', true);
 }
+$form->addGlobal($btn);
+$btn = new Form_Button('stop_button', 'Stop', null, 'fa-solid fa-stop');
+$btn->removeClass('btn-primary')->addClass('btn-danger');
+if (!$show_buttons['stop_button']) {
+	$btn->setAttribute('hidden', true);
+}
+$form->addGlobal($btn);
 
 /* Show the form */
 echo $form;
+
+/* View / Download / Clear post the options form from outside it (form="pcap-form") */
+$file_buttons = function ($with_clear) {
+	$html = '<button type="submit" form="pcap-form" class="btn btn-sm btn-outline-secondary" name="view_button" id="view_button" value="View">'
+	    . '<i class="fa-regular fa-file-lines icon-embed-btn" aria-hidden="true"></i>' . gettext('View') . '</button>'
+	    . '<button type="submit" form="pcap-form" class="btn btn-sm btn-outline-secondary" name="download_button" id="download_button" value="Download">'
+	    . '<i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i>' . gettext('Download') . '</button>';
+	if ($with_clear) {
+		$html .= '<button type="submit" form="pcap-form" class="btn btn-sm btn-outline-danger" name="clear_button" id="clear_button" value="Clear Captures"'
+		    . ' data-fs-confirm="' . fs_h(gettext('Delete the stored packet captures?')) . '"'
+		    . ' data-fs-confirm-detail="' . fs_h(gettext('The capture files and their decoded output are removed.')) . '"'
+		    . ' data-fs-confirm-action="' . fs_h(gettext('Clear captures')) . '">'
+		    . '<i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i>' . gettext('Clear captures') . '</button>';
+	}
+	return $html;
+};
+
+if ($show_last_capture_details):
+?>
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<h2 class="panel-title"><?=gettext('Last capture')?></h2>
+		<div class="fs-pcap-actions"><?=$file_buttons(true)?></div>
+	</div>
+	<div class="panel-body">
+		<dl class="fs-pcap-facts">
+			<dt><?=gettext('File')?></dt><dd class="fs-mono"><?=htmlspecialchars(basename($pcap_file_last))?></dd>
+			<dt><?=gettext('Size')?></dt><dd class="fs-mono"><?=htmlspecialchars(format_bytes(filesize($pcap_file_last)))?></dd>
+			<dt><?=gettext('Started')?></dt><dd><?=htmlspecialchars(date('Y-m-d H:i:s', strtotime(substr($pcap_file_last, -19, 14))))?></dd>
+			<dt><?=gettext('Stopped')?></dt><dd><?=htmlspecialchars(date('Y-m-d H:i:s', filemtime($pcap_file_last)))?></dd>
+		</dl>
+	</div>
+</div>
+<?php
+endif;
 
 /* Show the capture */
 if ($action == 'stop' || $action == 'view' || $process_running || $run_capture) :
@@ -791,133 +777,150 @@ if ($action == 'stop' || $action == 'view' || $process_running || $run_capture) 
 		}
 	}
 
-	if ($process_running || $run_capture) {
-		if (!isset($process_running_cmd) && !empty($processes_check)) {
-			$process_running_cmd = $processes_check[array_key_first($processes_check)];
-		}
-		print_info_box(gettext('Running packet capture:') . '<br/>' . htmlspecialchars($process_running_cmd), 'info');
+	$capture_live = ($process_running || $run_capture);
+	if ($capture_live && !isset($process_running_cmd) && !empty($processes_check)) {
+		$process_running_cmd = $processes_check[array_key_first($processes_check)];
 	}
 ?>
 
 <!-- Packet Capture View -->
 <div class="panel panel-default">
 	<div class="panel-heading">
-		<?php
-		if ($process_running || $run_capture) {
-			echo '<div style="float: right;"><input style="margin: 4px 4px 0;" type="checkbox" checked="true" id="autoscroll">Auto-scroll</div>';
-		}
-		?>
-		<h2 class="panel-title"><?=sprintf('%1$s: %2$s', gettext('Packet Capture Output'), $pcap_file_current)?></h2>
-	</div>
-	<div class="panel-body">
-		<div class="form-group">
-	<?php
-	// View the packet capture file contents
-	$refreshOutput = true;
-	echo '<textarea class="form-control" id="pcap_output" rows="20" overflow="hidden" style="font-size: 13px; ' .
-	      'font-family: consolas, monaco, roboto mono, liberation mono, courier; contain:strict"></textarea>';
-
-	?>
-			<script>
-				overrideScroll = false;
-
-				function checkProcess() {
-					$.ajax({
-						url: "diag_packet_capture.php",
-						type: "post",
-						data: {
-								isCaptureRunning: "ajax"
-						},
-						success: function(result) {
-							var isRunning = result === "false" ? false : true;
-							if (!isRunning) {
-								$("#stop_button")[0].classList.add("hidden");
-								$("#start_button")[0].classList.remove("hidden");
-								$("#view_button")[0].classList.remove("hidden");
-								$("#download_button")[0].classList.remove("hidden");
-								$("#clear_button")[0].classList.remove("hidden");
-								$(".clearfix")[0].classList.add("hidden");
-							}
-						}
-					});
-				}
-
-				function refreshOutput(bytes = 0) {
-					$.ajax({
-						url: "diag_packet_capture.php",
-						type: "post",
-						data: {
-								ajaxLog: "ajax",
-								byte: bytes,
-								maxRead: <?=$max_view_size?>,
-								file: "<?=$plog_file_current?>"
-						},
-						success: function(result) {
-							const response = JSON.parse(result);
-							var output = document.querySelector('#pcap_output');
-							<?php
-							if (!$process_running && !$run_capture) {
-								echo "if (response.bytesRead > 0) {";
-							}
-							?>
-
-							if (bytes == 0  & response.bytesRead > 0) {
-								output.textContent = "";
-							}
-
-							// If read returns 0 bytes check if tcpdump is still running
-							if (response.bytesRead == 0) {
-								checkProcess();
-							}
-
-							output.textContent += response.output;
-							bytesRead = bytes + response.bytesRead;
-
-							if (document.querySelector('#autoscroll').checked) {
-								overrideScroll = true;
-								output.scrollTop = output.scrollHeight;
-								overrideScroll = false;
-							}
-
-							setTimeout(function() { refreshOutput(bytesRead) }, 2500);
-							<?php
-							if (!$process_running && !$run_capture) {
-								echo "}";
-							}
-							?>
-						}
-					});
-				}
-
-				function handleScroll() {
-					if (!overrideScroll) {
-						var output = document.querySelector('#pcap_output');
-						if (output.scrollHeight <= (output.scrollTop + output.clientHeight)) {
-							document.querySelector('#autoscroll').checked = true;
-						} else {
-							document.querySelector('#autoscroll').checked = false;
-						}
-					}
-				}
-				<?php
-				if ($refreshOutput) {
-					if ($process_running || $run_capture) {
-				?>
-						document.querySelector('#pcap_output').addEventListener("scroll", handleScroll);
-				<?php
-					}
-				?>
-				setTimeout(refreshOutput, 500);
-				<?php
-				}
-				?>
-			</script>
+		<h2 class="panel-title"><?=gettext('Capture output')?></h2>
+		<span id="pcap-state-running"<?=$capture_live ? '' : ' hidden'?>><?=fs_badge('pending', gettext('Capturing'))?></span>
+		<span id="pcap-state-done"<?=$capture_live ? ' hidden' : ''?>><?=fs_badge('neutral', gettext('Stopped'))?></span>
+<?php if ($capture_live): ?>
+		<div class="form-check form-switch fs-pcap-autoscroll">
+			<input class="form-check-input" type="checkbox" role="switch" id="autoscroll" checked>
+			<label class="form-check-label" for="autoscroll"><?=gettext('Auto-scroll')?></label>
 		</div>
+		<div class="fs-pcap-actions" id="pcap-file-buttons" hidden><?=$file_buttons(false)?></div>
+<?php endif; ?>
+		<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#pcap_output">
+			<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+		</button>
 	</div>
+<?php if ($capture_live && !empty($process_running_cmd)): ?>
+	<div class="fs-pcap-cmd"><span class="fs-muted"><?=gettext('Running')?></span> <code class="fs-mono"><?=htmlspecialchars($process_running_cmd)?></code></div>
+<?php endif; ?>
+	<pre class="fs-console fs-pcap-output" id="pcap_output" aria-live="off"><?=gettext('Waiting for output…')?></pre>
+	<div class="panel-footer small fs-muted"><span class="fs-mono"><?=htmlspecialchars(basename((string)$pcap_file_current))?></span></div>
 </div>
+
+<script>
+events.push(function() {
+	var overrideScroll = false;
+	var isLive = <?=$capture_live ? 'true' : 'false'?>;
+	var output = document.querySelector('#pcap_output');
+	var autoscroll = document.querySelector('#autoscroll');
+	var bytesRead = 0;
+	var started = false;
+	var emptyTries = 0;
+
+	function checkProcess() {
+		$.ajax({
+			url: "diag_packet_capture.php",
+			type: "post",
+			data: {
+				isCaptureRunning: "ajax"
+			},
+			success: function(result) {
+				if (result === "false") {
+					isLive = false;
+					var stop = document.getElementById('stop_button');
+					var start = document.getElementById('start_button');
+					if (stop) {
+						stop.hidden = true;
+					}
+					if (start) {
+						start.hidden = false;
+					}
+					document.getElementById('pcap-state-running').hidden = true;
+					document.getElementById('pcap-state-done').hidden = false;
+					var files = document.getElementById('pcap-file-buttons');
+					if (files) {
+						files.hidden = false;
+					}
+				}
+			}
+		});
+	}
+
+	function refreshOutput(bytes) {
+		bytes = bytes || 0;
+		$.ajax({
+			url: "diag_packet_capture.php",
+			type: "post",
+			data: {
+				ajaxLog: "ajax",
+				byte: bytes,
+				maxRead: <?=(int)$max_view_size?>,
+				file: <?=json_encode((string)$plog_file_current)?>
+			},
+			success: function(result) {
+				var response = JSON.parse(result);
+				if (!isLive && !(response.bytesRead > 0)) {
+					// the decoded output of a stopped capture may still be written in the background
+					if (!started && ++emptyTries < 6) {
+						setTimeout(function() { refreshOutput(bytes); }, 1000);
+						return;
+					}
+					if (!started) {
+						output.textContent = <?=json_encode(gettext('No packets in this capture.'))?>;
+					}
+					return;
+				}
+				if (!started && response.bytesRead > 0) {
+					output.textContent = "";
+					started = true;
+				}
+
+				// If read returns 0 bytes check if tcpdump is still running
+				if (response.bytesRead == 0) {
+					checkProcess();
+				}
+
+				output.textContent += response.output;
+				bytesRead = bytes + response.bytesRead;
+
+				if (autoscroll && autoscroll.checked) {
+					overrideScroll = true;
+					output.scrollTop = output.scrollHeight;
+					overrideScroll = false;
+				}
+
+				setTimeout(function() { refreshOutput(bytesRead); }, 2500);
+			}
+		});
+	}
+
+	if (autoscroll) {
+		output.addEventListener("scroll", function () {
+			if (!overrideScroll) {
+				autoscroll.checked = (output.scrollHeight <= (output.scrollTop + output.clientHeight + 2));
+			}
+		});
+	}
+	setTimeout(refreshOutput, 500);
+});
+</script>
 <?php
 endif;
 ?>
+<style>
+.fs-pcap-actions { display: inline-flex; flex-wrap: wrap; gap: var(--fs-sp-2); }
+.fs-pcap-autoscroll { margin: 0; font-size: var(--fs-fs-sm); white-space: nowrap; }
+.fs-pcap-cmd { padding: var(--fs-sp-2) var(--fs-sp-4); border-bottom: 1px solid var(--fs-border); font-size: var(--fs-fs-sm); overflow-wrap: anywhere; }
+.fs-pcap-cmd code { color: var(--fs-text); background: none; }
+.fs-pcap-output { min-height: 12rem; border-radius: 0; }
+.custom-options div.inputselectcombo select { max-width: none; min-width: 8.5rem; white-space: nowrap; }
+.fs-pcap-facts { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .4rem 1rem; margin: 0; }
+.fs-pcap-facts dt { color: var(--fs-text-muted); font-weight: 500; }
+.fs-pcap-facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 575.98px) {
+	.panel-heading:has(.fs-pcap-actions) { flex-wrap: wrap; }
+}
+</style>
 
 <script type="text/javascript">
 //<![CDATA[
