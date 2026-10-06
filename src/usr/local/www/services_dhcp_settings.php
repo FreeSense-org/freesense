@@ -57,7 +57,7 @@ if ($_POST['apply']) {
 } elseif ($_POST['act']) {
 	switch($_POST['act']) {
 	case 'save':
-		[$input_errors, $pconfig] = dhcp_do_settings_post();
+		[$input_errors, $pconfig] = dhcp_do_settings_post($_POST);
 		break;
 	default:
 		header('Location: /services_dhcp_settings.php');

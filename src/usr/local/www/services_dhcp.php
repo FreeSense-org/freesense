@@ -858,20 +858,7 @@ if ($act == "delpool") {
 }
 
 if ($act == "del") {
-	if (config_get_path("dhcpd/{$if}/staticmap/{$_POST['id']}") !== null) {
-		/* Remove static ARP entry, if necessary */
-		if (config_get_path("dhcpd/{$if}/staticmap/{$_POST['id']}/arp_table_static_entry") !== null) {
-			mwexec("/usr/sbin/arp -d " . escapeshellarg(config_get_path("dhcpd/{$if}/staticmap/{$_POST['id']}/ipaddr")));
-		}
-		config_del_path("dhcpd/{$if}/staticmap/{$_POST['id']}");
-		write_config("DHCP Server static map deleted");
-		if (config_path_enabled("dhcpd/{$if}")) {
-			mark_subsystem_dirty('dhcpd');
-			if (config_path_enabled('dnsmasq') && config_get_path('dnsmasq/regdhcpstatic', false)) {
-				mark_subsystem_dirty('hosts');
-			}
-		}
-
+	if (dhcp_staticmap_delete($if, $_POST['id'])) {
 		header("Location: services_dhcp.php?if={$if}");
 		exit;
 	}

@@ -55,6 +55,7 @@ function restapi_areas() {
 		'services.misc' => 'Other services (UPnP IGD & PCP, Wake-on-LAN, IGMP Proxy, SNMP, DHCP/DHCPv6 Relay)',
 		'services.time' => 'NTP server (settings and access restrictions)',
 		'services.ddns' => 'Dynamic DNS (Dynamic DNS and RFC 2136 clients)',
+		'services.dhcp' => 'DHCP and DHCPv6 servers, static mappings and router advertisements',
 	);
 }
 

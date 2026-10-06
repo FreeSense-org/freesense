@@ -582,7 +582,8 @@ foreach ($v1 as $r) {
 	if (strpos($r['path'], '/v1/services/') === 0) {
 		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' :
 		    (preg_match('#^/v1/services/ntp(/|$)#', $r['path']) ? 'services.time' :
-		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' : 'services.misc'));
+		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' :
+		    (preg_match('#^/v1/services/dhcp(v6)?/#', $r['path']) ? 'services.dhcp' : 'services.misc')));
 		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
 		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
 		if ($r['path'] === '/v1/services/upnp') {
@@ -928,6 +929,116 @@ foreach (array('restapi_h_dyndns_list', 'restapi_h_dyndns_get', 'restapi_h_dyndn
 }
 check_api(strpos($fn_body($routes_ddns, 'restapi_dyndns_save'), "'data' => restapi_dyndns_out(") !== false &&
     strpos($fn_body($routes_ddns, 'restapi_rfc2136_save'), "'data' => restapi_rfc2136_out(") !== false, 'saves return the masked client');
+
+/* DHCP and DHCPv6 servers: settings, interfaces, static mappings */
+check_api(isset(restapi_areas()['services.dhcp']), 'the DHCP permission area exists');
+$d4_pages = array('GET /v1/services/dhcp/interfaces' => 'services_dhcp.php', 'GET /v1/services/dhcpv6/interfaces' => 'services_dhcpv6.php');
+foreach (array('dhcp' => '', 'dhcpv6' => '6') as $svc => $v) {
+	$d4_pages += array("GET /v1/services/{$svc}/settings" => "services_{$svc}_settings.php", "PUT /v1/services/{$svc}/settings" => "services_{$svc}_settings.php",
+	    "POST /v1/services/{$svc}/apply" => "services_{$svc}.php", "GET /v1/services/{$svc}/{if}/static-mappings" => "services_{$svc}.php",
+	    "GET /v1/services/{$svc}/{if}/static-mappings/{id}" => "services_{$svc}.php",
+	    "POST /v1/services/{$svc}/{if}/static-mappings" => "services_{$svc}_edit.php",
+	    "PUT /v1/services/{$svc}/{if}/static-mappings/{id}" => "services_{$svc}_edit.php",
+	    "DELETE /v1/services/{$svc}/{if}/static-mappings/{id}" => "services_{$svc}.php");
+}
+foreach ($d4_pages as $key => $page) {
+	check_api(isset($seen[$key]), "route {$key} exists");
+}
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (isset($d4_pages[$key])) {
+		check_api($r['page'] === $d4_pages[$key], "{$key} is guarded by {$d4_pages[$key]}");
+		if ($r['write'] && !preg_match('#/apply$#', $r['path'])) {
+			check_api(isset($r['query']['apply']), "{$key} takes ?apply=true");
+		}
+	}
+}
+check_api(restapi_dhcp_server_rows(array('winsserver' => array('192.0.2.1'), 'dnsserver' => array('192.0.2.2', '192.0.2.3'), 'ntpserver' => array())) ===
+    array('wins1' => '192.0.2.1', 'wins2' => '', 'dns1' => '192.0.2.2', 'dns2' => '192.0.2.3', 'dns3' => '', 'dns4' => '',
+    'ntp1' => '', 'ntp2' => '', 'ntp3' => '', 'ntp4' => ''), 'WINS, DNS and NTP server lists become the numbered form fields');
+check_api(api_error_status(function () { restapi_dhcp_server_rows(array('winsserver' => array('a', 'b', 'c'))); }) === 400 &&
+    api_error_status(function () { restapi_dhcp_server_rows(array('ntpserver' => array_fill(0, 5, 'a'))); }) === 400,
+    'at most 2 WINS and 4 DNS/NTP servers (the form fields)');
+check_api(restapi_dhcp_option_rows(array(array('number' => 66, 'type' => 'text', 'value' => 'tftp'), array('number' => '67', 'value' => 'x'))) ===
+    array('number0' => '66', 'itemtype0' => 'text', 'value0' => 'tftp', 'number1' => '67', 'itemtype1' => 'text', 'value1' => 'x'),
+    'custom DHCP options become the form rows');
+check_api(api_error_status(function () { restapi_dhcp_option_rows('66'); }) === 400 &&
+    api_error_status(function () { restapi_dhcp_option_rows(array(array('number' => 1, 'bogus' => 1))); }) === 400 &&
+    api_error_status(function () { restapi_dhcp_option_rows(array(array('value' => array('x')))); }) === 400 &&
+    api_error_status(function () { restapi_dhcp_option_rows(array_fill(0, 100, array('number' => 1))); }) === 400,
+    'custom DHCP options are validated (at most 99)');
+check_api(restapi_dhcp_options_out(array('item' => array(array('number' => '66', 'type' => 'text', 'value' => base64_encode('t'))))) ===
+    array(array('number' => '66', 'type' => 'text', 'value' => 't')) && restapi_dhcp_options_out('') === array(),
+    'stored custom options read with their decoded value');
+check_api(restapi_dhcp_addr_list(array('192.0.2.1', '', '192.0.2.2')) === array('192.0.2.1', '192.0.2.2') && restapi_dhcp_addr_list(null) === array(),
+    'stored address lists read without empty entries');
+check_api(restapi_dhcp_flag(array('a' => ''), 'a') && !restapi_dhcp_flag(array('a' => false), 'a') && !restapi_dhcp_flag(array(), 'a'),
+    'a checkbox held as false right after a save reads as unticked');
+
+$dhcp_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_dhcp.inc");
+check_api(strpos($dhcp_inc, '$_POST[') === false && strpos($dhcp_inc, '$_REQUEST') === false && strpos($dhcp_inc, 'header(') === false &&
+    strpos($dhcp_inc, 'exit;') === false, 'services_dhcp.inc takes its form fields as parameters and never redirects');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('services_dhcp.inc');") !== false, 'the API front controller loads services_dhcp.inc');
+check_api(strpos($guiconfig, 'function kea_custom_config_') === false && strpos($dhcp_inc, 'function kea_custom_config_editable(') !== false &&
+    strpos($dhcp_inc, 'function kea_custom_config_enforce($stored, &$input_errors, ?array &$post = null)') !== false,
+    'the Kea custom configuration guard lives in services_dhcp.inc and takes the form');
+foreach (array('dhcp_staticmap_save', 'dhcp6_staticmap_save', 'kea_do_settings_post') as $fn) {
+	check_api(preg_match('/kea_custom_config_enforce\([^;]*, \$post\);/', $fn_body($dhcp_inc, $fn)) === 1, "{$fn}() enforces the Kea custom configuration privilege on its form");
+}
+foreach (array('dhcp_iface_context', 'dhcp6_iface_context') as $fn) {
+	check_api(strpos($fn_body($dhcp_inc, $fn), 'get_configured_interface_with_descr()') !== false && strpos($fn_body($dhcp_inc, $fn), 'return (null);') !== false,
+	    "{$fn}() knows only configured interfaces");
+}
+$d4_save = $fn_body($dhcp_inc, 'dhcp_staticmap_save');
+check_api(strpos($d4_save, '$ctx = dhcp_iface_context($if);') !== false && strpos($d4_save, "\$mapent['ntpserver'][] = \$post['ntp4'];") !== false &&
+    strpos($d4_save, "\$warnings[] = sprintf(gettext('The IP address %1\$s is in use") !== false && strpos($d4_save, 'dhcp_staticmap_mark_dirty($if);') !== false,
+    'DHCP mappings need a configured interface, keep the fourth NTP server and return the duplicate address warning');
+check_api(strpos($d4_save, '$newid = array_search(') < strpos($d4_save, 'write_config("DHCP Server settings saved")'), 'the saved mapping is found before write_config() normalises it');
+$d4_save6 = $fn_body($dhcp_inc, 'dhcp6_staticmap_save');
+check_api(strpos($d4_save6, "} elseif (\$ctx['track6']) {") !== false && strpos($d4_save6, '"dhcpdv6/{$if}/ipaddrv6"') === false,
+    'the DHCPv6 track6 suffix check looks at the interface (it read a setting that never exists)');
+check_api(strpos($d4_save6, "(\$mapent['duid'] == str_replace(\"-\", \":\", \$post['duid']))") !== false, 'a DUID written with hyphens is a duplicate of the stored one');
+foreach (array('dhcp_staticmap_delete', 'dhcp6_staticmap_delete') as $fn) {
+	check_api(strpos($fn_body($dhcp_inc, $fn), 'is_numericint($id)') !== false && strpos($fn_body($dhcp_inc, $fn), 'dhcp_staticmap_mark_dirty($if') !== false,
+	    "{$fn}() needs the position of an existing mapping and stages like a save");
+}
+check_api(substr_count($fn_body($dhcp_inc, 'dhcp_staticmap_mark_dirty'), 'mark_subsystem_dirty(') === 3 &&
+    strpos($fn_body($dhcp_inc, 'dhcp_staticmap_mark_dirty'), "config_path_enabled('unbound', 'regdhcpstatic')") !== false,
+    'static mapping saves and deletes stage the DHCP server, DNS Forwarder and DNS Resolver alike');
+$d4_valid = $fn_body($dhcp_inc, 'dhcp_validate_settings_post');
+foreach (array('kea_ha_roles()', 'kea_server_cert_list()', 'kea_client_cert_list()', "(ctype_digit(\$port['val']) && is_port(\$port['val']))",
+    "'maxrejectedleaseupdates' => gettext('Max Rejected Updates')") as $needle) {
+	check_api(strpos($d4_valid, $needle) !== false, "the Kea settings validation checks {$needle}");
+}
+check_api(strpos($fn_body($dhcp_inc, 'dhcp_do_settings_post'), "kea_do_settings_post('kea', \$post") !== false &&
+    strpos($fn_body($dhcp_inc, 'dhcp6_do_settings_post'), "kea_do_settings_post('kea6', \$post") !== false, 'DHCP and DHCPv6 settings share one save');
+foreach (array('kea_earlydnsreg_mappings', 'kea6_earlydnsreg_mappings') as $fn) {
+	check_api(strpos($fn_body($dhcp_inc, $fn), 'if (!is_array($conf) ||') !== false, "{$fn}() skips an interface without settings (Apply failed after the last mapping was deleted)");
+}
+foreach (array('services_dhcp_edit.php' => array('dhcp_staticmap_form($if, $id, $_REQUEST)', 'dhcp_staticmap_save($if, $id, $_POST)', "set_flash_message('alert-info', \$warning)"),
+    'services_dhcpv6_edit.php' => array('dhcp6_staticmap_form($if, $id, $_REQUEST)', 'dhcp6_staticmap_save($if, $id, $_POST)'),
+    'services_dhcp_settings.php' => array('dhcp_do_settings_post($_POST)'), 'services_dhcpv6_settings.php' => array('dhcp6_do_settings_post($_POST)')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false && preg_match('/^function\s/m', $src) === 0,
+	    "{$page} changes nothing itself and declares no functions");
+}
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/services_dhcp.php"), 'dhcp_staticmap_delete($if, $_POST[\'id\'])') !== false &&
+    strpos(file_get_contents("{$root}/src/usr/local/www/services_dhcpv6.php"), 'dhcp6_staticmap_delete($if, $_POST[\'id\'])') !== false,
+    'the DHCP pages delete static mappings through services_dhcp.inc');
+$routes_dhcp = file_get_contents("{$root}/src/etc/inc/restapi/routes_dhcp.inc");
+check_api(substr_count($routes_dhcp, 'write_config(') === 0 && substr_count($routes_dhcp, 'config_set_path(') === 0 &&
+    substr_count($routes_dhcp, 'config_del_path(') === 0 && substr_count($routes_dhcp, 'mark_subsystem_dirty(') === 0,
+    'DHCP API writes only through the GUI functions');
+check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp_map_out'), "restapi_svc_mask(\$out['ddnsdomainkey'])") !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_h_dhcp_map_update'), "restapi_ddns_secret_body(\$req['body'], 'ddnsdomainkey')") !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp_map_save'), "'data' => restapi_dhcp_map_out(") !== false,
+    'the dynamic DNS key of a mapping reads as "(set)" and "(set)" keeps it');
+check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp_settings_section'), "dhcp_is_backend('kea')") !== false, 'the settings endpoints need the Kea backend (like the pages)');
+check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp_iface'), 'dhcp6_iface_context($if) : dhcp_iface_context($if)') !== false,
+    'static mapping routes take only configured interfaces');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

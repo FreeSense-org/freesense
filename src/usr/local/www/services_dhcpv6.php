@@ -613,15 +613,7 @@ if ($act == "delpool") {
 }
 
 if ($_POST['act'] == "del") {
-	if (config_get_path("dhcpdv6/{$if}/staticmap/{$_POST['id']}")) {
-		config_del_path("dhcpdv6/{$if}/staticmap/{$_POST['id']}");
-		write_config("DHCPv6 server static map deleted");
-		if (config_path_enabled("dhcpdv6/{$if}")) {
-			mark_subsystem_dirty('dhcpd6');
-			if (config_path_enabled('dnsmasq') && config_path_enabled('dnsmasq/regdhcpstaticv6', 'regdhcpstaticv6')) {
-				mark_subsystem_dirty('hosts');
-			}
-		}
+	if (dhcp6_staticmap_delete($if, $_POST['id'])) {
 		header("Location: services_dhcpv6.php?if={$if}");
 		exit;
 	}

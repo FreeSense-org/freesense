@@ -1000,37 +1000,7 @@ function alias_info_popup_html($alias_id, $is_system_alias = false) {
 	return $content;
 }
 
-/*
- * Custom Kea JSON can load hook libraries and choose file paths, which is
- * equivalent to root access (pfSense-SA-26_20). Only administrators or users
- * holding the dedicated privilege may change it.
- */
-function kea_custom_config_editable() {
-	$user_entry = getUserEntry($_SESSION['Username']);
-	$user_entry = $user_entry['item'] ?? [];
-	return (isAdminUID($_SESSION['Username']) ||
-	    userHasPrivilege($user_entry, 'page-services-dhcpserver-kea-custom') ||
-	    userHasPrivilege($user_entry, 'page-all'));
-}
-
-/*
- * For users who may not edit custom Kea JSON, keep the stored value and
- * reject any attempt to change it. $stored is the base64 config value.
- */
-function kea_custom_config_enforce($stored, &$input_errors) {
-	if (kea_custom_config_editable()) {
-		return;
-	}
-	$stored = base64_decode((string)$stored);
-	$normalize = function ($text) {
-		return trim(str_replace("\r\n", "\n", (string)$text));
-	};
-	if (isset($_POST['custom_kea_config']) &&
-	    ($normalize($_POST['custom_kea_config']) !== $normalize($stored))) {
-		$input_errors[] = gettext("This user does not have sufficient privileges to edit the custom Kea configuration.");
-	}
-	$_POST['custom_kea_config'] = $stored;
-}
+/* kea_custom_config_editable() and kea_custom_config_enforce() live in services_dhcp.inc. */
 
 function gateway_info_popup($showgw) {
 	$content = "";
