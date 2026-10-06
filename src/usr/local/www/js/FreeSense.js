@@ -288,9 +288,12 @@ $(function() {
 		}
 	});
 
-	// Focus first input
-	// (page content only: the navbar holds the menu search button)
-	$('.fs-main :input:enabled:visible:first').focus();
+	// Focus the first text field of a form page
+	// (page content only: not buttons, selects, checkboxes or list search boxes,
+	// which would show a focus ring on load; "/" focuses list search)
+	$('.fs-main').find('input:enabled:visible, textarea:enabled:visible')
+		.not('[type=button], [type=submit], [type=reset], [type=checkbox], [type=radio], [type=search], [type=file], [readonly]')
+		.first().trigger('focus');
 
 	$(".resizable").each(function() {
 		$(this).css('height', 80).resizable({minHeight: 80, minWidth: 200}).parent().css('padding-bottom', 0);
