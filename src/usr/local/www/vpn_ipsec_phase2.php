@@ -65,6 +65,10 @@ if (!empty($_REQUEST['dup'])) {
 	$pconfig['reqid'] = ipsec_new_reqid();
 }
 
+// the header summary shows the saved entry (or the defaults of a new one), not posted values
+$p2_summary = $pconfig;
+$p2_is_new = ($p2index === null);
+
 if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
@@ -82,20 +86,25 @@ $localid_help_mobile  = "Network reachable by mobile IPsec clients.";
 $remoteid_help_tunnel = "Remote network component of this IPsec security association.";
 $remoteid_help_vti    = "Remote point-to-point IPsec interface tunnel network address.";
 
+$p2_heading = $p2_is_new ? gettext("Add phase 2") : gettext("Edit phase 2");
 if (isset($pconfig['mobile'])) {
-	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Mobile Clients"), gettext("Edit Phase 2"));
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Mobile Clients"), $p2_heading);
 	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec_mobile.php", "@self");
 	$editing_mobile = true;
 } else {
-	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Tunnels"), gettext("Edit Phase 2"));
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Tunnels"), $p2_heading);
 	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec.php", "@self");
 	$editing_mobile = false;
+}
+if (!$p2_is_new && (trim((string)$p2_summary['descr']) !== '')) {
+	array_splice($pgtitle, 3, 0, array(htmlspecialchars($p2_summary['descr'])));
+	array_splice($pglinks, 3, 0, array(""));
 }
 $shortcut_section = "ipsec";
 
 include("head.inc");
 
-// lifetimes and advanced options start closed; open after a failed save
+// lifetimes and keep alive start closed; open after a failed save
 $fs_section_state = COLLAPSIBLE | (!empty($input_errors) ? SEC_OPEN : SEC_CLOSED);
 
 if ($input_errors) {
@@ -104,21 +113,183 @@ if ($input_errors) {
 
 fs_tabs('vpn-ipsec', 'vpn_ipsec.php');
 
+/* ------------------------------------------------------------ header summary */
+
+$fs_ipsec_pick = function ($value, array $options) {
+	$picked = null;
+	foreach (array_keys($options) as $key) {
+		$cmp = ((gettype($key) == "integer") && (gettype($value) == "string")) ? strval($key) : $key;
+		if ($value == $cmp) {
+			$picked = $key;
+		}
+	}
+	return ($picked === null) ? array_key_first($options) : $picked;
+};
+
+/* every select-backed fact uses the option list of the field below it */
+$p2_sum_facts = array();
+$p2_sum_mode = $fs_ipsec_pick($p2_summary['mode'], $p2_modes);
+$p2_sum_facts[] = array(gettext("Mode"), fs_h($p2_modes[$p2_sum_mode]));
+$p2_sum_typelists = array(
+	'local' => get_specialnet('', $ipsec_lidtype_flags),
+	'remote' => array('address' => gettext('Address'), 'network' => gettext('Network')),
+	'natlocal' => get_specialnet('', $ipsec_nlitype_flags),
+);
+
+if ($p2_sum_mode == 'transport') {
+	$p2_sum_net = '<span class="fs-muted">' . fs_h(gettext("Host to host, no networks")) . '</span>';
+} else {
+	$p2_sum_ids = array();
+	foreach (array('local', 'remote') as $p2_sum_side) {
+		$p2_sum_id = array(
+			'type' => (isset($p2_summary['mobile']) && ($p2_sum_side == 'remote')) ? 'mobile' :
+			    (string)$fs_ipsec_pick($p2_summary[$p2_sum_side . 'id_type'], $p2_sum_typelists[$p2_sum_side]),
+			'address' => (string)$p2_summary[$p2_sum_side . 'id_address'],
+			'netbits' => (string)$p2_summary[$p2_sum_side . 'id_netbits'],
+		);
+		if ($p2_sum_id['type'] == 'mobile') {
+			$p2_sum_ids[] = fs_h(gettext("Mobile clients"));
+		} elseif (in_array($p2_sum_id['type'], array('address', 'network')) && ($p2_sum_id['address'] === '')) {
+			$p2_sum_ids[] = '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>';
+		} elseif (in_array($p2_sum_id['type'], array('address', 'network'))) {
+			$p2_sum_ids[] = '<span class="fs-mono">' . fs_h(ipsec_idinfo_to_text($p2_sum_id)) . '</span>';
+		} else {
+			$p2_sum_ids[] = fs_h(ipsec_idinfo_to_text($p2_sum_id));
+		}
+	}
+	$p2_sum_net = $p2_sum_ids[0] . ' <i class="fa-solid fa-arrow-right-arrow-left fs-ipsec-sum-arrow" aria-hidden="true"></i><span class="visually-hidden">' .
+	    fs_h(gettext("to")) . '</span> ' . $p2_sum_ids[1];
+	$p2_sum_nattype = (string)$fs_ipsec_pick($p2_summary['natlocalid_type'], $p2_sum_typelists['natlocal']);
+	if (($p2_sum_mode != 'vti') && ($p2_sum_nattype !== '') && ($p2_sum_nattype != 'none')) {
+		$p2_sum_nat = array(
+			'type' => $p2_sum_nattype,
+			'address' => (string)$p2_summary['natlocalid_address'],
+			'netbits' => (string)$p2_summary['natlocalid_netbits'],
+		);
+		$p2_sum_net .= '<span class="fs-ipsec-sum-note">' . fs_h(sprintf(gettext("Local translated to %s"), ipsec_idinfo_to_text($p2_sum_nat))) . '</span>';
+	}
+}
+$p2_sum_facts[] = array(($p2_sum_mode == 'vti') ? gettext("Tunnel addresses") : gettext("Local and remote networks"), $p2_sum_net);
+
+$p2_sum_proto = $fs_ipsec_pick($p2_summary['proto'], $p2_protos);
+$p2_sum_prop = array($p2_protos[$p2_sum_proto]);
+if ($p2_sum_proto == 'esp') {
+	$p2_sum_algs = array();
+	/* in form order: one checkbox per algorithm, plus its key length select */
+	foreach ($p2_ealgos as $p2_sum_alg => $p2_sum_algdata) {
+		if (!is_array($p2_summary['ealgos']) || !in_array($p2_sum_alg, $p2_summary['ealgos'])) {
+			continue;
+		}
+		$p2_sum_txt = $p2_sum_algdata['name'];
+		if (is_array($p2_sum_algdata['keysel'])) {
+			$p2_sum_keys = array('auto' => 1);
+			for ($p2_sum_k = $p2_sum_algdata['keysel']['hi']; $p2_sum_k >= $p2_sum_algdata['keysel']['lo']; $p2_sum_k -= $p2_sum_algdata['keysel']['step']) {
+				$p2_sum_keys[$p2_sum_k] = 1;
+			}
+			$p2_sum_keylen = $fs_ipsec_pick($p2_summary['keylen_' . $p2_sum_alg], $p2_sum_keys);
+			if ($p2_sum_keylen !== 'auto') {
+				$p2_sum_txt .= ' ' . $p2_sum_keylen;
+			}
+		}
+		$p2_sum_algs[] = $p2_sum_txt;
+	}
+	$p2_sum_prop[] = empty($p2_sum_algs) ? gettext("no encryption selected") : implode(', ', $p2_sum_algs);
+}
+$p2_sum_hashes = array();
+/* like the page script: with ESP the hashes are only used (enabled) when AES is selected */
+$p2_sum_hash_on = ($p2_sum_proto != 'esp') || (is_array($p2_summary['ealgos']) && in_array('aes', $p2_summary['ealgos']));
+foreach ($p2_halgos as $p2_sum_hash => $p2_sum_hashname) {
+	if ($p2_sum_hash_on && !empty($p2_summary['halgos']) && in_array($p2_sum_hash, $p2_summary['halgos'])) {
+		$p2_sum_hashes[] = $p2_sum_hashname;
+	}
+}
+if (!empty($p2_sum_hashes)) {
+	$p2_sum_prop[] = implode(', ', $p2_sum_hashes);
+}
+if (isset($p2_summary['mobile']) && !empty(config_get_path('ipsec/client/pfs_group'))) {
+	$p2_sum_prop[] = gettext("PFS from mobile client settings");
+} else {
+	$p2_sum_pfs = $fs_ipsec_pick($p2_summary['pfsgroup'], $p2_pfskeygroups);
+	$p2_sum_prop[] = empty($p2_sum_pfs) ? gettext("PFS off") : sprintf(gettext("PFS %s"), $p2_sum_pfs);
+}
+$p2_sum_facts[] = array(gettext("Proposal"), fs_h(implode(' · ', $p2_sum_prop)));
+
+$p2_sum_p1 = !empty($p2_summary['ikeid']) ? ipsec_get_phase1($p2_summary['ikeid']) : null;
+if ($p2_sum_p1) {
+	$p2_sum_p1name = trim((string)$p2_sum_p1['descr']);
+	$p2_sum_facts[] = array(gettext("Phase 1"),
+	    '<a href="vpn_ipsec_phase1.php?ikeid=' . fs_h(urlencode((string)$p2_sum_p1['ikeid'])) . '" title="' . fs_h(gettext("Edit Phase 1 Entry")) . '">' .
+	    (($p2_sum_p1name === '') ? '<i>' . fs_h(gettext("No description")) . '</i>' : fs_h($p2_sum_p1name)) . '</a>' .
+	    '<span class="fs-ipsec-sum-note">' . fs_h(sprintf(gettext("IKE ID %s"), $p2_summary['ikeid']) .
+	    (isset($p2_summary['mobile']) ? ' · ' . gettext("Mobile clients") : '') .
+	    (isset($p2_sum_p1['remote-gateway']) ? ' · ' . $p2_sum_p1['remote-gateway'] : '')) . '</span>');
+}
+
+$p2_sum_sub = array(gettext("Phase 2"));
+if (!empty($p2_summary['reqid'])) {
+	$p2_sum_sub[] = sprintf(gettext("reqid %s"), $p2_summary['reqid']);
+}
+if ($p2_is_new) {
+	$p2_sum_sub[] = !empty($_REQUEST['dup']) ? gettext("Copy, not saved yet") : gettext("Defaults, not saved yet");
+}
+
+$p2_sum_title = trim((string)$p2_summary['descr']);
+if ($p2_is_new) {
+	$p2_sum_badge = fs_badge('info', !empty($_REQUEST['dup']) ? gettext("Copy") : gettext("New"));
+} else {
+	$p2_sum_badge = $p2_summary['disabled'] ? fs_badge('disabled') : fs_badge('enabled');
+}
+?>
+<style>
+.fs-ipsec-sum { padding: var(--fs-sp-4); }
+.fs-ipsec-sum-head { display: flex; align-items: center; gap: var(--fs-sp-3); min-width: 0; }
+.fs-ipsec-sum-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: 1.1rem; }
+.fs-ipsec-sum-name { flex: 1 1 auto; min-width: 0; }
+.fs-ipsec-sum-title { overflow-wrap: anywhere; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; line-height: 1.3; }
+.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-ipsec-sum-head > .fs-badge { flex: 0 0 auto; }
+.fs-ipsec-sum-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: var(--fs-sp-4) 0 0; padding-top: var(--fs-sp-3); border-top: 1px solid var(--fs-border); }
+.fs-ipsec-sum-facts > div { min-width: 0; }
+.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+.fs-ipsec-sum-facts dd { margin: .1rem 0 0; overflow-wrap: anywhere; color: var(--fs-text); font-weight: 500; }
+.fs-ipsec-sum-note { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 400; }
+.fs-ipsec-sum-arrow { margin: 0 .3rem; color: var(--fs-text-muted); font-size: .85em; }
+@media (max-width: 575.98px) { .fs-ipsec-sum-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+<div class="panel panel-default fs-ipsec-sum" aria-label="<?=fs_h(gettext("Phase 2 summary"))?>" role="region">
+	<div class="fs-ipsec-sum-head">
+		<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-route" aria-hidden="true"></i></span>
+		<div class="fs-ipsec-sum-name">
+			<div class="fs-ipsec-sum-title"><?php if ($p2_sum_title === ''): ?><span class="fs-muted"><?=htmlspecialchars($p2_is_new ? gettext("New phase 2") : gettext("No description"))?></span><?php else: ?><?=htmlspecialchars($p2_sum_title)?><?php endif; ?></div>
+			<div class="fs-ipsec-sum-sub"><?=fs_h(implode(' · ', $p2_sum_sub))?></div>
+		</div>
+		<?=$p2_sum_badge?>
+	</div>
+	<dl class="fs-ipsec-sum-facts">
+<?php foreach ($p2_sum_facts as $p2_sum_fact): ?>
+		<div><dt><?=fs_h($p2_sum_fact[0])?></dt><dd><?=$p2_sum_fact[1]?></dd></div>
+<?php endforeach; ?>
+	</dl>
+</div>
+<?php
+
+/* ------------------------------------------------------------------- form */
+
 $form = new Form();
 
-$section = new Form_Section('General Information');
+$section = new Form_Section('General');
 
 $section->addInput(new Form_Input(
 	'descr',
 	'Description',
 	'text',
 	$pconfig['descr']
-))->setHelp('A description may be entered here for administrative reference (not parsed).');
+))->setHelp('A name for administrative reference (not parsed).');
 
 $section->addInput(new Form_Checkbox(
 	'disabled',
 	'Disabled',
-	'Disable this phase 2 entry without removing it from the list. ',
+	'Disable this phase 2 entry without removing it from the list',
 	$pconfig['disabled']
 ));
 
@@ -127,38 +298,13 @@ $section->addInput(new Form_Select(
 	'*Mode',
 	$pconfig['mode'],
 	$p2_modes
-));
-
-if (!empty($pconfig['ikeid'])) {
-	$p1 = ipsec_get_phase1($pconfig['ikeid']);
-	if (!empty($p1['descr'])) {
-		$p1name = htmlspecialchars($p1['descr']);
-	} else {
-		$p1name = '<i>' . gettext('No description') . '</i> ';
-	}
-	$p1name .= ' (IKE ID ' . htmlspecialchars($pconfig['ikeid']);
-	if (isset($pconfig['mobile'])) {
-		$p1name .= ', ' . gettext('Mobile');
-	}
-	$p1name .= ')';
-	$section->addInput(new Form_StaticText(
-		'Phase 1',
-		$p1name .
-		' <a class="fa-solid fa-pencil" href="vpn_ipsec_phase1.php?ikeid=' . urlencode((string)$p1['ikeid']) . '" title="' . gettext("Edit Phase 1 Entry") . '"></a>'
-	));
-}
-if (!empty($pconfig['reqid'])) {
-	$section->addInput(new Form_StaticText(
-		'P2 reqid',
-		$pconfig['reqid']
-	));
-}
+))->setHelp('Tunnel modes carry traffic between networks, Routed (VTI) creates an interface for routing, Transport protects traffic between the two endpoints only.');
 
 $form->add($section);
 
 $section = new Form_Section('Networks');
 
-$group = new Form_Group('*Local Network');
+$group = new Form_Group('*Local network');
 $group->addClass('opt_localid');
 
 $group->add(new Form_Select(
@@ -197,7 +343,7 @@ $group->setHelp('If NAT/BINAT is required on this network specify the address to
 $section->add($group);
 
 if (!isset($pconfig['mobile'])) {
-	$group = new Form_Group('*Remote Network');
+	$group = new Form_Group('*Remote network');
 	$group->addClass('opt_remoteid');
 
 	$group->add(new Form_Select(
@@ -219,7 +365,7 @@ if (!isset($pconfig['mobile'])) {
 
 $form->add($section);
 
-$section = new Form_Section('Phase 2 Proposal (SA/Key Exchange)');
+$section = new Form_Section('Proposal');
 
 $section->addInput(new Form_Select(
 	'proto',
@@ -265,7 +411,7 @@ foreach ($p2_ealgos as $algo => $algodata) {
 	$section->add($group);
 }
 
-$group = new Form_Group('*Hash Algorithms');
+$group = new Form_Group('*Hash algorithms');
 
 foreach ($p2_halgos as $algo => $algoname) {
 	// Note: ID attribute of each element created is to be unique.  Not being used, suppressing it.
@@ -295,11 +441,42 @@ $section->addInput(new Form_Select(
 
 $form->add($section);
 
-$section = new Form_Section('Expiration and Replacement', 'ph2-lifetimes', $fs_section_state);
+// Hidden inputs
+if (isset($pconfig['mobile'])) {
+	$form->addGlobal(new Form_Input(
+		'mobile',
+		null,
+		'hidden',
+		'true'
+	));
+} else {
+	$section = new Form_Section('Keep alive', 'ph2-keepalive',
+	    COLLAPSIBLE | ((!empty($input_errors) || !empty($pconfig['pinghost']) || !empty($pconfig['keepalive'])) ? SEC_OPEN : SEC_CLOSED));
+
+	$section->addInput(new Form_IpAddress(
+		'pinghost',
+		'Automatically ping host',
+		$pconfig['pinghost']
+	))->setHelp('Sends an ICMP echo request inside the tunnel to the specified IP Address. ' .
+			'Can trigger initiation of a tunnel mode P2, but does not trigger initiation of a VTI mode P2. ');
+
+	$section->addInput(new Form_Checkbox(
+		'keepalive',
+		'Keep alive',
+		'Enable periodic keep alive check',
+		$pconfig['keepalive']
+	))->setHelp('Periodically check this P2 and initiate it if disconnected; does not send traffic' .
+	            ' inside the tunnel. This check ignores the P1 option "Child SA Start Action" and' .
+				' works for both VTI and tunnel mode P2s. For IKEv2 without split connections, this' .
+				' only needs to be enabled on one P2.');
+	$form->add($section);
+}
+
+$section = new Form_Section('Expiration and replacement', 'ph2-lifetimes', $fs_section_state);
 
 $section->addInput(new Form_Input(
 	'lifetime',
-	'Life Time',
+	'Life time',
 	'number',
 	$pconfig['lifetime'],
 	["placeholder" => ipsec_get_life_time(ipsec_timer_entry($pconfig))]
@@ -311,7 +488,7 @@ $section->addInput(new Form_Input(
 
 $section->addInput(new Form_Input(
 	'rekey_time',
-	'Rekey Time',
+	'Rekey time',
 	'number',
 	$pconfig['rekey_time'],
 	['min' => 0, "placeholder" => ipsec_get_rekey_time(ipsec_timer_entry($pconfig))]
@@ -324,7 +501,7 @@ $section->addInput(new Form_Input(
 
 $section->addInput(new Form_Input(
 	'rand_time',
-	'Rand Time',
+	'Rand time',
 	'number',
 	$pconfig['rand_time'],
 	['min' => 0, "placeholder" => ipsec_get_rand_time(ipsec_timer_entry($pconfig))]
@@ -333,36 +510,6 @@ $section->addInput(new Form_Input(
 		'Enter 0 to disable randomness, but be aware that simultaneous renegotiation can lead to duplicate security associations.');
 
 $form->add($section);
-
-// Hidden inputs
-if (isset($pconfig['mobile'])) {
-	$form->addGlobal(new Form_Input(
-		'mobile',
-		null,
-		'hidden',
-		'true'
-	));
-} else {
-	$section = new Form_Section('Keep Alive');
-
-	$section->addInput(new Form_IpAddress(
-		'pinghost',
-		'Automatically ping host',
-		$pconfig['pinghost']
-	))->setHelp('Sends an ICMP echo request inside the tunnel to the specified IP Address. ' .
-			'Can trigger initiation of a tunnel mode P2, but does not trigger initiation of a VTI mode P2. ');
-
-	$section->addInput(new Form_Checkbox(
-		'keepalive',
-		'Keep Alive',
-		'Enable periodic keep alive check',
-		$pconfig['keepalive']
-	))->setHelp('Periodically check this P2 and initiate it if disconnected; does not send traffic' .
-	            ' inside the tunnel. This check ignores the P1 option "Child SA Start Action" and' .
-				' works for both VTI and tunnel mode P2s. For IKEv2 without split connections, this' .
-				' only needs to be enabled on one P2.');
-	$form->add($section);
-}
 
 $form->addGlobal(new Form_Input(
 	'ikeid',
@@ -386,6 +533,8 @@ $form->addGlobal(new Form_Input(
 	'hidden',
 	$pconfig['uniqid']
 ));
+
+fs_form_cancel($form, 'vpn_ipsec.php');
 
 print($form);
 
