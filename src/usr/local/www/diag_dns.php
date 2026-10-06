@@ -30,68 +30,17 @@ $pgtitle = array(gettext("Diagnostics"), gettext("DNS Lookup"));
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
 
+require_once("diag_tools.inc");
+
 $host = $host_utf8 = '';
 
-$host = trim($_REQUEST['host'], " \t\n\r\0\x0B[];\"'");
-if (!empty($host)) {
-	$host = idn_to_ascii($host);
-	$host_utf8 = idn_to_utf8($host);
-}
+list($host, $host_utf8) = diag_dns_host($_REQUEST['host']);
 
-$a_aliases = config_get_path('aliases/alias', []);
-
-$aliasname = substr(str_replace(array(".", "-"), "_", $host), 0, 31);
-$alias_exists = false;
-$counter = 0;
-foreach ($a_aliases as $a) {
-	if ($a['name'] == $aliasname) {
-		$alias_exists = true;
-		$id = $counter;
-	}
-	$counter++;
-}
+$alias_exists = diag_dns_alias_state($host)['exists'];
 
 if (isAllowedPage('firewall_aliases_edit.php') && isset($_POST['create_alias']) && (is_hostname($host) || is_ipaddr($host))) {
-	$resolved = gethostbyname($host);
-	$type = "hostname";
-	if ($resolved) {
-		$resolved = resolve_host_addresses($host);
-		$isfirst = true;
-		$addresses = "";
-		foreach ($resolved as $re) {
-			if ($re['data'] != "") {
-				if (!$isfirst) {
-					$addresses .= " ";
-				}
-				$re = rtrim($re['data']);
-				if (is_ipaddr($re)) {
-					$sn = is_ipaddrv6($re) ? '/128' : '/32';
-				} else {
-					// The name was a CNAME and resolved to another name, rather than an address.
-					// In this case the alias entry will have a FQDN, so do not put a CIDR after it.
-					$sn = "";
-				}
-				$addresses .= $re . $sn;
-				$isfirst = false;
-			}
-		}
-		if ($addresses == "") {
-			$couldnotcreatealias = true;
-		} else {
-			$newalias = array();
-			$newalias['name'] = $aliasname;
-			$newalias['type'] = "network";
-			$newalias['address'] = $addresses;
-			$newalias['descr'] = gettext("Created from Diagnostics-> DNS Lookup");
-			if ($alias_exists) {
-				$a_aliases[$id] = $newalias;
-			} else {
-				$a_aliases[] = $newalias;
-			}
-			config_set_path('aliases/alias', $a_aliases);
-			write_config(gettext("Created an alias from Diagnostics - DNS Lookup page."));
-			$createdalias = true;
-		}
+	if (diag_dns_create_alias($host)) {
+		$createdalias = true;
 	} else {
 		$couldnotcreatealias = true;
 	}
@@ -100,75 +49,23 @@ if (isAllowedPage('firewall_aliases_edit.php') && isset($_POST['create_alias']) 
 if ($_POST) {
 	unset($input_errors);
 
-	$reqdfields = explode(" ", "host");
-	$reqdfieldsn = explode(",", "Host");
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (!is_hostname(rtrim($host, '.')) && !is_ipaddr($host)) {
-		$input_errors[] = gettext("Host must be a valid hostname or IP address.");
-	} else {
-		// Test resolution speed of each DNS server.
-		$dns_speeds = array();
-		$dns_servers = get_dns_nameservers(false, true);
-		foreach ($dns_servers as $dns_server) {
-			$query_time = exec("/usr/bin/drill " . escapeshellarg($host) . " " . escapeshellarg("@" . trim($dns_server)) . " | /usr/bin/grep Query | /usr/bin/cut -d':' -f2");
-			if ($query_time == "") {
-				$query_time = gettext("No response");
-			}
-			$new_qt = array();
-			$new_qt['dns_server'] = $dns_server;
-			$new_qt['query_time'] = $query_time;
-			$dns_speeds[] = $new_qt;
-			unset($new_qt);
-		}
+	$lookup = diag_dns_lookup($_POST, $host);
+	$input_errors = $lookup['input_errors'];
+	if (isset($lookup['dns_speeds'])) {
+		$dns_speeds = $lookup['dns_speeds'];
 	}
-
-	$type = "unknown";
-	$resolved = array();
-	$ipaddr = "";
-	if (!$input_errors) {
-		if (is_ipaddr($host)) {
-			$type = "ip";
-			$resolvedptr = gethostbyaddr($host);
-			$ipaddr = $host;
-			if ($host != $resolvedptr) {
-				$tmpresolved = array();
-				$tmpresolved['type'] = "PTR";
-				$tmpresolved['data'] = $resolvedptr;
-				$resolved[] = $tmpresolved;
-			}
-		} elseif (is_hostname(rtrim($host, '.'))) {
-			$type = "hostname";
-			$ipaddr = gethostbyname($host);
-			$resolved = resolve_host_addresses($host);
-		}
+	$type = $lookup['type'];
+	$resolved = $lookup['resolved'];
+	$ipaddr = $lookup['ipaddr'];
+	if (isset($lookup['resolvedptr'])) {
+		$resolvedptr = $lookup['resolvedptr'];
 	}
 }
 
 if ($_POST['host'] && $_POST['dialog_output']) {
 	$host = (isset($resolvedptr) ? $resolvedptr : $host);
-	display_host_results ($ipaddr, $host, $dns_speeds);
+	diag_dns_display_host_results($ipaddr, $host, $dns_speeds);
 	exit;
-}
-
-function display_host_results ($address, $hostname, $dns_speeds) {
-	$map_lengths = function($element) { return strlen($element[0]); };
-
-	echo gettext("IP Address") . ": " . htmlspecialchars($address) . " \n";
-	echo gettext("Host Name") . ": " . htmlspecialchars($hostname) .  " \n";
-	echo "\n";
-	$text_table = array();
-	$text_table[] = array(gettext("Server"), gettext("Query Time"));
-	if (is_array($dns_speeds)) {
-		foreach ($dns_speeds as $qt) {
-			$text_table[] = array(trim($qt['dns_server']), trim($qt['query_time']));
-		}
-	}
-	$col0_padlength = max(array_map($map_lengths, $text_table)) + 4;
-	foreach ($text_table as $text_row) {
-		echo str_pad($text_row[0], $col0_padlength) . $text_row[1] . "\n";
-	}
 }
 
 include("head.inc");

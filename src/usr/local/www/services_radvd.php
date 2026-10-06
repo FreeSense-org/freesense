@@ -32,6 +32,7 @@
 ##|-PRIV
 
 require_once('guiconfig.inc');
+require_once('services_dhcp.inc');
 
 if (!g_get('services_dhcp_server_enable')) {
 	header('Location: /');
@@ -56,46 +57,10 @@ if (!$if || !isset($iflist[$if])) {
 	}
 }
 
-if (!empty(config_get_path("dhcpdv6/{$if}"))) {
-	/* RA specific */
-	$pconfig['ramode'] = config_get_path("dhcpdv6/{$if}/ramode");
-	$pconfig['rapriority'] = config_get_path("dhcpdv6/{$if}/rapriority");
-	$pconfig['rainterface'] = config_get_path("dhcpdv6/{$if}/rainterface");
-	if ($pconfig['rapriority'] == "") {
-		$pconfig['rapriority'] = "medium";
-	}
+$pconfig = radvd_form((string)$if);
 
-	$pconfig['ravalidlifetime'] = config_get_path("dhcpdv6/{$if}/ravalidlifetime");
-	$pconfig['rapreferredlifetime'] = config_get_path("dhcpdv6/{$if}/rapreferredlifetime");
-	$pconfig['raminrtradvinterval'] = config_get_path("dhcpdv6/{$if}/raminrtradvinterval");
-	$pconfig['ramaxrtradvinterval'] = config_get_path("dhcpdv6/{$if}/ramaxrtradvinterval");
-	$pconfig['raadvdefaultlifetime'] = config_get_path("dhcpdv6/{$if}/raadvdefaultlifetime");
-	$pconfig['pref64_enable'] = config_path_enabled("dhcpdv6/{$if}/pref64");
-	$pconfig['pref64_prefix'] = config_get_path("dhcpdv6/{$if}/pref64/prefix");
-	$pconfig['pref64_lifetime'] = config_get_path("dhcpdv6/{$if}/pref64/lifetime");
-
-	$pconfig['radomainsearchlist'] = config_get_path("dhcpdv6/{$if}/radomainsearchlist");
-	list($pconfig['radns1'], $pconfig['radns2'], $pconfig['radns3'], $pconfig['radns4']) = config_get_path("dhcpdv6/{$if}/radnsserver");
-	$pconfig['radvd-dns'] = (config_get_path("dhcpdv6/{$if}/radvd-dns") != 'disabled') ? true : false;
-	$pconfig['rasamednsasdhcp6'] = config_path_enabled("dhcpdv6/{$if}", 'rasamednsasdhcp6');
-
-	$pconfig['subnets'] = config_get_path("dhcpdv6/{$if}/subnets/item");
-}
-if (!is_array($pconfig['subnets'])) {
-	$pconfig['subnets'] = array();
-}
-
-$advertise_modes = array(
-	"disabled" => 	gettext("Disabled"),
-	"router" => 	gettext("Router Only - RA Flags [none], Prefix Flags [router]"),
-	"unmanaged" => 	gettext("Unmanaged - RA Flags [none], Prefix Flags [onlink, auto, router]"),
-	"managed" => 	gettext("Managed - RA Flags [managed, other stateful], Prefix Flags [onlink, router]"),
-	"assist" => 	gettext("Assisted - RA Flags [managed, other stateful], Prefix Flags [onlink, auto, router]"),
-	"stateless_dhcp" => gettext("Stateless DHCP - RA Flags [other stateful], Prefix Flags [onlink, auto, router]"));
-$priority_modes = array(
-	"low" => 	gettext("Low"),
-	"medium" => gettext("Normal"),
-	"high" => 	gettext("High"));
+$advertise_modes = radvd_ramode_values();
+$priority_modes = radvd_rapriority_values();
 
 
 
@@ -118,161 +83,12 @@ $ramode_help = gettext('Select the Operating Mode for the Router Advertisement (
 if ($_POST['save']) {
 	unset($input_errors);
 
-	$pconfig = $_POST;
-
-	/* input validation */
-
-	if (config_get_path("interfaces/{$if}/ipaddrv6", 'none') == "none" && $_POST['ramode'] != 'disabled') {
-		$input_errors[] = gettext("Router Advertisements can only be enabled on interfaces configured with static IPv6 or Track Interface.");
-	}
-
-	$pconfig['subnets'] = array();
-	for ($x = 0; $x < 5000; $x += 1) {
-		$address = trim($_POST['subnet_address' . $x]);
-		if ($address === "") {
-			continue;
-		}
-
-		$bits = trim($_POST['subnet_bits' . $x]);
-		if ($bits === "") {
-			$bits = "128";
-		}
-
-		if (is_alias($address)) {
-			$pconfig['subnets'][] = $address;
-		} else {
-			$pconfig['subnets'][] = $address . "/" . $bits;
-			if (!is_ipaddrv6($address)) {
-				$input_errors[] = sprintf(gettext('An invalid subnet or alias was specified. [%1$s/%2$s]'), $address, $bits);
-			}
-		}
-	}
-
-	if (($_POST['radns1'] && !is_ipaddrv6($_POST['radns1'])) || ($_POST['radns2'] && !is_ipaddrv6($_POST['radns2'])) || ($_POST['radns3'] && !is_ipaddrv6($_POST['radns3'])) || ($_POST['radns4'] && !is_ipaddrv6($_POST['radns4']))) {
-		$input_errors[] = gettext("A valid IPv6 address must be specified for each of the DNS servers.");
-	}
-	if ($_POST['radomainsearchlist']) {
-		$domain_array=preg_split("/[ ;]+/", $_POST['radomainsearchlist']);
-		foreach ($domain_array as $curdomain) {
-			if (!is_domain($curdomain)) {
-				$input_errors[] = gettext("A valid domain search list must be specified.");
-				break;
-			}
-		}
-	}
-
-	if ($_POST['ravalidlifetime'] && ($_POST['ravalidlifetime'] < 7200)) {
-		$input_errors[] = gettext("A valid lifetime below 2 hours will be ignored by clients (RFC 4862 Section 5.5.3 point e)");
-	}
-	if ($_POST['ravalidlifetime'] && !is_numericint($_POST['ravalidlifetime'])) {
-		$input_errors[] = gettext("Valid lifetime must be an integer.");
-	}
-	if ($_POST['raminrtradvinterval']) {
-		if (!is_numericint($_POST['raminrtradvinterval'])) {
-			$input_errors[] = gettext("Minimum advertisement interval must be an integer.");
-		}
-		if ($_POST['raminrtradvinterval'] < 3) {
-			$input_errors[] = gettext("Minimum advertisement interval must be no less than 3.");
-		}
-		if ($_POST['ramaxrtradvinterval'] && $_POST['raminrtradvinterval'] > (0.75 * $_POST['ramaxrtradvinterval'])) {
-			$input_errors[] = gettext("Minimum advertisement interval must be no greater than 0.75 * Maximum advertisement interval");
-		}
-	}
-	if ($_POST['ramaxrtradvinterval']) {
-		if (!is_numericint($_POST['ramaxrtradvinterval'])) {
-			$input_errors[] = gettext("Maximum advertisement interval must be an integer.");
-		}
-		if ($_POST['ramaxrtradvinterval'] < 4 || $_POST['ramaxrtradvinterval'] > 1800) {
-			$input_errors[] = gettext("Maximum advertisement interval must be no less than 4 and no greater than 1800.");
-		}
-	}
-	if ($_POST['rapreferredlifetime']) {
-		if (!is_numericint($_POST['rapreferredlifetime'])) {
-			$input_errors[] = gettext("Default preferred lifetime must be an integer.");
-		}
-	}
-	if ($_POST['raadvdefaultlifetime'] && (($_POST['raadvdefaultlifetime'] < 1) || ($_POST['raadvdefaultlifetime'] > 9000))) {
-		$input_errors[] = gettext("Router lifetime must be an integer between 0 and 9000.");
-	}
-	if (($_POST['ravalidlifetime'] && $_POST['rapreferredlifetime'] &&
-	    ($_POST['ravalidlifetime'] < $_POST['rapreferredlifetime'])) ||
-	    ($_POST['ravalidlifetime'] && empty($_POST['rapreferredlifetime']) &&
-	    ($_POST['ravalidlifetime'] < 14400)) || (empty($_POST['ravalidlifetime']) &&
-	    $_POST['rapreferredlifetime'] && ($_POST['rapreferredlifetime'] > 86400))) {
-		$input_errors[] = gettext("Default valid lifetime must be greater than Default preferred lifetime.");
-	}
-
-	if (!empty($_POST['pref64_prefix']) && !validate_nat64_prefix($pconfig['pref64_prefix'])) {
-		$input_errors[] = gettext("The NAT64 prefix is invalid.");
-	}
-	if ($_POST['pref64_lifetime']) {
-		if (!is_numericint($_POST['pref64_lifetime'])) {
-			$input_errors[] = gettext("NAT64 Prefix Lifetime must be an integer.");
-		} elseif (intval($_POST['pref64_lifetime']) < 1 || intval($_POST['pref64_lifetime']) > 65528) {
-			$input_errors[] = gettext("NAT64 Prefix Lifetime must be from 1 to 65528.");
-		}
-	}
-
-	if (!$input_errors) {
-		$dhcpd6_config = config_get_path("dhcpdv6/{$if}", []);
-
-		$dhcpd6_config['ramode'] = $_POST['ramode'];
-		$dhcpd6_config['rapriority'] = $_POST['rapriority'];
-		$dhcpd6_config['rainterface'] = $_POST['rainterface'];
-
-		$dhcpd6_config['ravalidlifetime'] = $_POST['ravalidlifetime'];
-		$dhcpd6_config['rapreferredlifetime'] = $_POST['rapreferredlifetime'];
-		$dhcpd6_config['raminrtradvinterval'] = $_POST['raminrtradvinterval'];
-		$dhcpd6_config['ramaxrtradvinterval'] = $_POST['ramaxrtradvinterval'];
-		$dhcpd6_config['raadvdefaultlifetime'] = $_POST['raadvdefaultlifetime'];
-		if (!empty($pconfig['pref64_enable'])) {
-			array_set_path($dhcpd6_config, 'pref64/enable', true);
-		} else {
-			array_del_path($dhcpd6_config, 'pref64/enable');
-		}
-		if ($_POST['pref64_lifetime']) {
-			array_set_path($dhcpd6_config, 'pref64/lifetime', $_POST['pref64_lifetime']);
-		} else {
-			array_del_path($dhcpd6_config, 'pref64/lifetime');
-		}
-		if (config_path_enabled('system', 'allow_nat64_prefix_override') && !empty($_POST['pref64_prefix'])) {
-			array_set_path($dhcpd6_config, 'pref64/prefix', $_POST['pref64_prefix']);
-		} else {
-			array_del_path($dhcpd6_config, 'pref64/prefix');
-		}
-		if (empty(array_get_path($dhcpd6_config, 'pref64'))) {
-			array_del_path($dhcpd6_config, 'pref64');
-		}
-
-		$dhcpd6_config['radomainsearchlist'] = $_POST['radomainsearchlist'];
-		array_del_path($dhcpd6_config, 'radnsserver');
-		if ($_POST['radns1']) {
-			$dhcpd6_config['radnsserver'][] = $_POST['radns1'];
-		}
-		if ($_POST['radns2']) {
-			$dhcpd6_config['radnsserver'][] = $_POST['radns2'];
-		}
-		if ($_POST['radns3']) {
-			$dhcpd6_config['radnsserver'][] = $_POST['radns3'];
-		}
-		if ($_POST['radns4']) {
-			$dhcpd6_config['radnsserver'][] = $_POST['radns4'];
-		}
-
-		$dhcpd6_config['radvd-dns'] = ($_POST['radvd-dns']) ? "enabled" : "disabled";
-		$dhcpd6_config['rasamednsasdhcp6'] = ($_POST['rasamednsasdhcp6']) ? true : false;
-
-		if (count($pconfig['subnets'])) {
-			$dhcpd6_config['subnets']['item'] = $pconfig['subnets'];
-		} else {
-			array_del_path($dhcpd6_config, 'subnets');
-		}
-
-		config_set_path("dhcpdv6/{$if}", $dhcpd6_config);
-		write_config("Router Advertisements settings saved");
+	$rv = radvd_save((string)$if, $_POST);
+	$input_errors = $rv['input_errors'];
+	$pconfig = $rv['pconfig'];
+	if ($rv['saved']) {
 		$changes_applied = true;
-		$retval = 0;
-		$retval |= services_radvd_configure();
+		$retval = $rv['retval'];
 	}
 }
 
@@ -353,31 +169,14 @@ $section->addInput(new Form_Select(
 	$priority_modes
 ))->setHelp(gettext('Select the Priority for the RA Daemon.'));
 
-$carplist = get_configured_vip_list("inet6", VIP_CARP);
+$rainterfaces = radvd_rainterface_values((string)$if);
 
-$carplistif = array();
-
-if (count($carplist) > 0) {
-	foreach ($carplist as $ifname => $vip) {
-		if (get_configured_vip_interface($ifname) == $if) {
-			$carplistif[$ifname] = $vip;
-		}
-	}
-}
-
-if (count($carplistif) > 0) {
-	$iflist = array();
-
-	$iflist['interface'] = convert_friendly_interface_to_friendly_descr($if);
-	foreach ($carplistif as $ifname => $vip) {
-		$iflist[$ifname] = get_vip_descr($vip) . " - " . $vip;
-	}
-
+if (count($rainterfaces) > 0) {
 	$section->addInput(new Form_Select(
 		'rainterface',
 		gettext('RA Interface'),
 		$pconfig['rainterface'],
-		$iflist
+		$rainterfaces
 	))->setHelp(gettext('Select the Interface for the Router Advertisement (RA) Daemon.'));
 }
 

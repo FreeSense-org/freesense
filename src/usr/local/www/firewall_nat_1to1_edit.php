@@ -170,7 +170,7 @@ $group->add(new Form_Select(
 	'srctype',
 	null,
 	srctype_selected(),
-	build_srctype_list()
+	binat_build_srctype_list()
 ))->setHelp('Type');
 
 $group->add(new Form_IpAddress(
@@ -197,7 +197,7 @@ $group->add(new Form_Select(
 	'dsttype',
 	null,
 	dsttype_selected(),
-	build_dsttype_list()
+	binat_build_dsttype_list()
 ))->setHelp('Type');
 
 $group->add(new Form_IpAddress(

@@ -32,6 +32,7 @@ require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
 require_once("gwlb.inc");
+require_once("system_routing.inc");
 
 $simplefields = array('defaultgw4', 'defaultgw6');
 
@@ -42,137 +43,17 @@ $pconfig = $_REQUEST;
 
 if ($_POST['save']) {
 	$pconfig = $_POST;
-	foreach($simplefields as $field) {
-		config_set_path("gateways/{$field}", $pconfig[$field]);
-	}
-	mark_subsystem_dirty('staticroutes');
-	write_config("System - Gateways: save default gateway");
+	routing_save_default_gateways($pconfig);
 }
 
 if ($_POST['apply']) {
-	$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-	if (file_exists($routes_apply_file)) {
-		foreach (unserialize_data(file_get_contents($routes_apply_file), []) as $toapply) {
-			mwexec("{$toapply}");
-		}
-		@unlink($routes_apply_file);
-	}
-
-	$retval = 0;
-
-	/* reconfigure our gateway monitor */
-	setup_gateways_monitor();
-	$retval |= system_routing_configure();
-	$retval |= system_resolvconf_generate();
-	$retval |= filter_configure();
-	/* Dynamic DNS on gw groups may have changed */
-	send_event("service reload dyndnsall");
-
-	if ($retval == 0) {
-		clear_subsystem_dirty('staticroutes');
-	}
+	$retval = routing_apply_changes();
 }
 
 $a_gateways = get_gateways(GW_CACHE_INDEXED);
 
-function can_delete_disable_gateway_item($id, $disable = false) {
-	global $input_errors, $a_gateways;
-
-	if (!isset($a_gateways[$id])) {
-		return false;
-	}
-
-	foreach (config_get_path('gateways/gateway_group', []) as $group) {
-		foreach ($group['item'] as $item) {
-			$items = explode("|", $item);
-			if ($items[0] == $a_gateways[$id]['name']) {
-				if (!$disable) {
-					$input_errors[] = sprintf(gettext('Gateway "%1$s" cannot be deleted because it is in use on Gateway Group "%2$s"'), $a_gateways[$id]['name'], $group['name']);
-				} else {
-					$input_errors[] = sprintf(gettext('Gateway "%1$s" cannot be disabled because it is in use on Gateway Group "%2$s"'), $a_gateways[$id]['name'], $group['name']);
-				}
-			}
-		}
-	}
-
-	foreach (config_get_path('staticroutes/route', []) as $route) {
-		if ($route['gateway'] == $a_gateways[$id]['name']) {
-			if (!$disable) {
-				// The user wants to delete this gateway, but there is a static route (enabled or disabled) that refers to the gateway.
-				$input_errors[] = sprintf(gettext('Gateway "%1$s" cannot be deleted because it is in use on Static Route "%2$s"'), $a_gateways[$id]['name'], $route['network']);
-			} else if (!isset($route['disabled'])) {
-				// The user wants to disable this gateway.
-				// But there is a static route that uses this gateway and is enabled (not disabled).
-				$input_errors[] = sprintf(gettext('Gateway "%1$s" cannot be disabled because it is in use on Static Route "%2$s"'), $a_gateways[$id]['name'], $route['network']);
-			}
-		}
-	}
-
-	/* prevent removing a gateway if it's still in use by DNS servers
-	 * see upstream issue 8390 */
-	$dnsgw_counter = 1;
-	foreach (config_get_path('system/dnsserver', []) as $dnsserver) {
-		if (config_path_enabled("system", "dns{$dnsgw_counter}gw") &&
-		    ($a_gateways[$id]['name'] == config_get_path("system/dns{$dnsgw_counter}gw"))) {
-				if (!$disable) {
-					// The user wants to delete this gateway, but there is a static route to the DNS server that refers to the gateway.
-					$input_errors[] = sprintf(gettext('Gateway "%1$s" cannot be deleted because it is in use by DNS Server "%2$s"'), $a_gateways[$id]['name'], $dnsserver);
-				} else {
-					// The user wants to disable this gateway, but there is a static route to the DNS server that refers to the gateway.
-					$input_errors[] = sprintf(gettext('Gateway "%1$s" cannot be disabled because it is in use by DNS Server "%2$s"'), $a_gateways[$id]['name'], $dnsserver);
-				}
-		}
-		$dnsgw_counter++;
-	}
-
-	if (isset($input_errors)) {
-		return false;
-	}
-
-	return true;
-}
-
-function delete_gateway_item($id) {
-	global $a_gateways;
-
-	if (!isset($a_gateways[$id])) {
-		return;
-	}
-
-	/* If the removed gateway was the default route, remove the default route */
-	if (!empty($a_gateways[$id]) && is_ipaddr($a_gateways[$id]['gateway']) &&
-	    !isset($a_gateways[$id]['disabled']) &&
-	    isset($a_gateways[$id]['isdefaultgw'])) {
-		$inet = (!is_ipaddrv4($a_gateways[$id]['gateway'])
-		    ? 'inet6' : 'inet');
-		route_del('default', $inet);
-	}
-
-	/* NOTE: Cleanup static routes for the interface route if any */
-	if (!empty($a_gateways[$id]) && is_ipaddr($a_gateways[$id]['gateway']) &&
-	    isset($a_gateways[$id]["nonlocalgateway"])) {
-		route_del($a_gateways[$id]['gateway']);
-	}
-	/* NOTE: Cleanup static routes for the monitor ip if any */
-	if (!empty($a_gateways[$id]['monitor']) &&
-	    $a_gateways[$id]['monitor'] != "dynamic" &&
-	    is_ipaddr($a_gateways[$id]['monitor']) &&
-	    $a_gateways[$id]['gateway'] != $a_gateways[$id]['monitor']) {
-		route_del($a_gateways[$id]['monitor']);
-	}
-
-	if (config_get_path("interfaces/{$a_gateways[$id]['friendlyiface']}/gateway") == $a_gateways[$id]['name']) {
-		config_del_path("interfaces/{$a_gateways[$id]['friendlyiface']}/gateway");
-	}
-	config_del_path("gateways/gateway_item/{$a_gateways[$id]['attribute']}");
-}
-
 if ($_REQUEST['act'] == "del") {
-	if (can_delete_disable_gateway_item($_REQUEST['id'])) {
-		$realid = $a_gateways[$_REQUEST['id']]['attribute'];
-		delete_gateway_item($_REQUEST['id']);
-		write_config("Gateways: removed gateway {$realid}");
-		mark_subsystem_dirty('staticroutes');
+	if (routing_delete_gateway($a_gateways, $_REQUEST['id'], $input_errors)) {
 		header("Location: system_gateways.php");
 		exit;
 	}
@@ -181,44 +62,14 @@ if ($_REQUEST['act'] == "del") {
 if (isset($_REQUEST['del_x'])) {
 	/* delete selected items */
 	if (is_array($_REQUEST['rule']) && count($_REQUEST['rule'])) {
-		foreach ($_REQUEST['rule'] as $rulei) {
-			if (!can_delete_disable_gateway_item($rulei)) {
-				break;
-			}
-		}
-
-		if (!isset($input_errors)) {
-			$items_deleted = "";
-			foreach ($_REQUEST['rule'] as $rulei) {
-				delete_gateway_item($rulei);
-				$items_deleted .= "{$rulei} ";
-			}
-			if (!empty($items_deleted)) {
-				write_config(sprintf(gettext("Gateways: removed gateways %s"), $items_deleted));
-				mark_subsystem_dirty('staticroutes');
-			}
+		if (routing_delete_gateways($a_gateways, $_REQUEST['rule'], $input_errors)) {
 			header("Location: system_gateways.php");
 			exit;
 		}
 	}
 
 } else if ($_REQUEST['act'] == "toggle" && $a_gateways[$_REQUEST['id']]) {
-	$realid = $a_gateways[$_REQUEST['id']]['attribute'];
-	$disable_gw = config_get_path("gateways/gateway_item/{$realid}/disabled") === null;
-	if ($disable_gw) {
-		// The user wants to disable the gateway, so check if that is OK.
-		$ok_to_toggle = can_delete_disable_gateway_item($_REQUEST['id'], $disable_gw);
-	} else {
-		// The user wants to enable the gateway. That is always OK.
-		$ok_to_toggle = true;
-	}
-	if ($ok_to_toggle) {
-		gateway_set_enabled(config_get_path("gateways/gateway_item/{$realid}/name"), !$disable_gw);
-
-		if (write_config("Gateways: enable/disable")) {
-			mark_subsystem_dirty('staticroutes');
-		}
-
+	if (routing_toggle_gateway($a_gateways, $_REQUEST['id'], $input_errors)) {
 		header("Location: system_gateways.php");
 		exit;
 	}

@@ -28,59 +28,19 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-require_once("filter.inc");
-$pconfig['enable'] = config_path_enabled('dhcrelay');
+require_once("services_dhcp_relay.inc");
 
-if (empty(config_get_path('dhcrelay/interface'))) {
-	$pconfig['interface'] = array();
-} else {
-	$pconfig['interface'] = explode(",", config_get_path('dhcrelay/interface'));
-}
+$pconfig = dhcp_relay_settings(false);
 
-$pconfig['agentoption'] = config_path_enabled('dhcrelay', 'agentoption');
-$pconfig['server'] = config_path_enabled('dhcrelay', 'server') ? config_get_path('dhcrelay/server') : null;
-$pconfig['carpstatusvip'] = config_path_enabled('dhcrelay', 'carpstatusvip') ? config_get_path('dhcrelay/carpstatusvip') : 'none';
+$iflist = dhcp_relay_interface_list(false);
 
-$iflist = array_intersect_key(
-	get_configured_interface_with_descr(),
-	array_flip(
-		array_filter(
-			array_keys(get_configured_interface_with_descr()),
-			function($if) {
-				return (get_interface_ip($if) &&
-				    !is_pseudo_interface(convert_friendly_interface_to_real_interface_name($if)));
-			}
-		)
-	)
-);
-
-$carpiflist = array_merge(array('none' => 'none'), array_intersect_key(
-       	get_configured_vip_list_with_descr('inet', VIP_CARP),
-	array_flip(
-		array_filter(
-			array_keys(get_configured_vip_list_with_descr('inet', VIP_CARP)),
-			function($if) {
-				return (get_interface_ip($if) &&
-				    !is_pseudo_interface(convert_friendly_interface_to_real_interface_name($if)));
-			}
-		)
-	)
-));
+$carpiflist = dhcp_relay_carp_list(false);
 
 /*   set the enabled flag which will tell us if DHCP server is enabled
  *   on any interface.   We will use this to disable dhcp-relay since
  *   the two are not compatible with each other.
  */
-$dhcpd_enabled = false;
-foreach (config_get_path('dhcpd', []) as $dhcpif => $dhcp) {
-	if (empty($dhcp)) {
-		continue;
-	}
-	if (isset($dhcp['enable']) && config_path_enabled("interfaces/{$dhcpif}")) {
-		$dhcpd_enabled = true;
-		break;
-	}
-}
+$dhcpd_enabled = dhcp_relay_dhcpd_enabled(false);
 
 if ($_POST) {
 
@@ -88,58 +48,15 @@ if ($_POST) {
 
 	$pconfig = $_POST;
 
-	/* input validation */
-	if ($_POST['enable']) {
-		$reqdfields = explode(' ', 'interface');
-		$reqdfieldsn = array(gettext('Interface'));
-
-		do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-	}
-
-	$svrlist = '';
-	for ($idx=0; $idx<count($_POST); $idx++) {
-		if ($_POST['server' . $idx]) {
-			if (!empty($_POST['server' . $idx])) { // Filter out any empties
-				if (!is_ipaddrv4($_POST['server' . $idx])) {
-					$input_errors[] = sprintf(gettext('Upstream Server address %s is not a valid IPv4 address.'), $_POST['server' . $idx]);
-				}
-
-				if (!empty($svrlist)) {
-					$svrlist .= ',';
-				}
-
-				$svrlist .= $_POST['server' . $idx];
-			}
-		}
-	}
-
-	// Check that the user input something in one of the Destination Server fields
-	if (empty($svrlist) && $_POST['enable']) {
-		$input_errors[] = gettext('At least one Upstream Server must be specified.');
-	}
+	$rv = dhcp_relay_save($_POST, false);
+	$input_errors = $rv['input_errors'];
 
 	// Now $svrlist is a comma separated list of servers ready to save to the config system
-	$pconfig['server'] = $svrlist;
+	$pconfig['server'] = $rv['server'];
 
 	if (!$input_errors) {
-		config_set_path('dhcrelay/enable', $_POST['enable'] ? true : false);
-		if (isset($_POST['interface']) &&
-		    is_array($_POST['interface'])) {
-			config_set_path('dhcrelay/interface',
-					implode(",", $_POST['interface']));
-		} else {
-			config_del_path('dhcrelay/interface');
-		}
-		config_set_path('dhcrelay/agentoption', $_POST['agentoption'] ? true : false);
-		config_set_path('dhcrelay/server', $svrlist);
-		config_set_path('dhcrelay/carpstatusvip', $_POST['carpstatusvip']);
-
-		write_config("DHCP Relay settings saved");
-
 		$changes_applied = true;
-		$retval = 0;
-		$retval |= services_dhcrelay_configure();
-		$retval |= filter_configure();
+		$retval = $rv['retval'];
 	}
 }
 

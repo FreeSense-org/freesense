@@ -26,20 +26,8 @@
 ##|*MATCH=services_dyndns_edit.php*
 ##|-PRIV
 
-/* returns true if $uname is a valid DynDNS username */
-function is_dyndns_username($uname) {
-	if (!is_string($uname)) {
-		return false;
-	}
-
-	if (preg_match("/[^a-z0-9\-\+.@_:#]/i", $uname)) {
-		return false;
-	} else {
-		return true;
-	}
-}
-
 require_once("guiconfig.inc");
+require_once("services_dyndns.inc");
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
@@ -50,290 +38,17 @@ if (isset($_REQUEST['dup']) && is_numericint($_REQUEST['dup'])) {
 }
 
 $this_dyndns_config = isset($id) ? config_get_path("dyndnses/dyndns/{$id}") : null;
-if ($this_dyndns_config) {
-	$pconfig['check_ip_mode'] = array_get_path($this_dyndns_config, 'check_ip_mode', 'default');
-	$pconfig['username'] = $this_dyndns_config['username'];
-	$pconfig['password'] = $this_dyndns_config['password'];
-	if (!$dup) {
-		$pconfig['host'] = $this_dyndns_config['host'];
-	}
-	$pconfig['domainname'] = $this_dyndns_config['domainname'];
-	$pconfig['mx'] = $this_dyndns_config['mx'];
-	$pconfig['type'] = $this_dyndns_config['type'];
-	$pconfig['enable'] = !isset($this_dyndns_config['enable']);
-	$pconfig['interface'] = str_replace('_stf', '', $this_dyndns_config['interface']);
-	$pconfig['wildcard'] = isset($this_dyndns_config['wildcard']);
-	$pconfig['proxied'] = isset($this_dyndns_config['proxied']);
-	$pconfig['verboselog'] = isset($this_dyndns_config['verboselog']);
-	$pconfig['curl_ipresolve_v4'] = isset($this_dyndns_config['curl_ipresolve_v4']);
-	$pconfig['curl_ssl_verifypeer'] = isset($this_dyndns_config['curl_ssl_verifypeer']);
-	$pconfig['zoneid'] = $this_dyndns_config['zoneid'];
-	$pconfig['ttl'] = $this_dyndns_config['ttl'];
-	$pconfig['maxcacheage'] = $this_dyndns_config['maxcacheage'];
-	$pconfig['updateurl'] = $this_dyndns_config['updateurl'];
-	$pconfig['resultmatch'] = $this_dyndns_config['resultmatch'];
-	$pconfig['requestif'] = str_replace('_stf', '', $this_dyndns_config['requestif']);
-	$pconfig['curl_proxy'] = isset($this_dyndns_config['curl_proxy']);
-	$pconfig['descr'] = $this_dyndns_config['descr'];
-}
+$pconfig = dyndns_client_settings($id, $dup);
 
 if ($_POST['save'] || $_POST['force']) {
-	global $dyndns_split_domain_types;
 	unset($input_errors);
 	$pconfig = $_POST;
-
-	$ddns_attr = array(
-		"cloudflare" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"cloudflare-v6" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"desec" => array("apex" => false, "wildcard" => true, "username_none" => true),
-		"desec-v6" => array("apex" => false, "wildcard" => true, "username_none" => true),
-		"digitalocean" => array("apex" => true, "wildcard" => true, "username_none" => true),
-		"digitalocean-v6" => array("apex" => true, "wildcard" => true, "username_none" => true),
-		"dnsmadeeasy" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"freedns" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"freedns-v6" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"freedns2" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"freedns2-v6" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"gandi-livedns" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"gandi-livedns-v6" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"godaddy" => array("apex" => true, "wildcard" => true, "username_none" => false),
-		"godaddy-v6" => array("apex" => true, "wildcard" => true, "username_none" => false),
-		"googledomains" => array("apex" => false, "wildcard" => true, "username_none" => false),
-		"linode" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"linode-v6" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"luadns" => array("apex" => true, "wildcard" => true, "username_none" => false),
-		"luadns-v6" => array("apex" => true, "wildcard" => true, "username_none" => false),
-		"namecheap" => array("apex" => true, "wildcard" => true, "username_none" => true),
-		"yandex" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"yandex-v6" => array("apex" => false, "wildcard" => false, "username_none" => true),
-		"dnsexit" => array("apex" => false, "wildcard" => false, "username_none" => true),
-	);
-
-	if (isset($ddns_attr[$pconfig['type']]['username_none']) &&
-	    ($ddns_attr[$pconfig['type']]['username_none'] == true) &&
-	    empty($_POST['username'])) {
-		$_POST['username'] = "none";
-	}
-	/* input validation */
-	$reqdfields = array();
-	$reqdfieldsn = array();
-	$reqdfields = array("type");
-	$reqdfieldsn = array(gettext("Service type"));
-
-	if ($pconfig['type'] != "custom" && $pconfig['type'] != "custom-v6") {
-		if ($pconfig['type'] != "dnsomatic") {
-			$reqdfields[] = "host";
-			$reqdfieldsn[] = gettext("Hostname");
-		}
-		$reqdfields[] = "passwordfld";
-		$reqdfieldsn[] = gettext("Password");
-		$reqdfields[] = "username";
-		$reqdfieldsn[] = gettext("Username");
-		if (in_array($pconfig['type'], $dyndns_split_domain_types)) {
-			$reqdfields[] = "domainname";
-			$reqdfieldsn[] = gettext("Domain name");
-		}
-	} else {
-		$reqdfields[] = "updateurl";
-		$reqdfieldsn[] = gettext("Update URL");
-	}
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ($_POST['passwordfld'] != $_POST['passwordfld_confirm']) {
-		$input_errors[] = gettext("Password and confirmed password must match.");
-	}
-
-	if (isset($_POST['check_ip_mode']) && !in_array($_POST['check_ip_mode'], array_keys(build_check_ip_mode_list()))) {
-		$input_errors[] = gettext("The specified option for Check IP Mode is invalid.");
-	}
-
-	if (isset($_POST['host']) && in_array("host", $reqdfields)) {
-		$allow_wildcard = false;
-		if (((array_get_path($ddns_attr, "{$pconfig['type']}/apex") == true) && (($_POST['host'] == '@.') || ($_POST['host'] == '@'))) ||
-		    ((array_get_path($ddns_attr, "{$pconfig['type']}/wildcard") == true) && (($_POST['host'] == '*.') || ($_POST['host'] == '*')))) {
-			$host_to_check = $_POST['domainname'];
-		} else {
-			switch ($pconfig['type']) {
-				case 'azure':
-				case 'azurev6':
-				case 'cloudflare':
-				case 'cloudflare-v6':
-				case 'gandi-livedns':
-				case 'gandi-livedns-v6':
-				case 'hover':
-				case 'linode':
-				case 'linode-v6':
-				case 'name.com':
-				case 'name.com-v6':
-				case 'noip':
-				case 'porkbun':
-				case 'porkbun-v6':
-				case 'yandex':
-				case 'yandex-v6':
-					$host_to_check = ($_POST['host'] == '@') ? $_POST['domainname'] : "{$_POST['host']}.{$_POST['domainname']}";
-					$allow_wildcard = true;
-					break;
-				case 'route53':
-				case 'route53-v6':
-					$host_to_check = $_POST['host'];
-					$allow_wildcard = true;
-					break;
-				default:
-					$host_to_check = $_POST['host'];
-			}
-		}
-
-		if ($pconfig['type'] != "custom" && $pconfig['type'] != "custom-v6") {
-			if (!is_domain($host_to_check, $allow_wildcard)) {
-				$input_errors[] = gettext("The hostname contains invalid characters.");
-			}
-		}
-
-		unset($host_to_check);
-	}
-	if (($_POST['mx'] && !is_domain($_POST['mx']))) {
-		$input_errors[] = gettext("The MX contains invalid characters.");
-	}
-	if ((in_array("username", $reqdfields) && $_POST['username'] && !is_dyndns_username($_POST['username'])) || ((in_array("username", $reqdfields)) && ($_POST['username'] == ""))) {
-		$input_errors[] = gettext("The username contains invalid characters.");
-	}
-	if (isset($_POST['maxcacheage']) && $_POST['maxcacheage'] !== "" && (!is_numericint($_POST['maxcacheage']) || (int)$_POST['maxcacheage'] < 1)) {
-		$input_errors[] = gettext("The max cache age must be an integer and greater than 0 (or empty for the default).");
-	}
-
+	$rv = dyndns_save_client($_POST, $id, $dup);
+	$input_errors = $rv['input_errors'];
 	if (!$input_errors) {
-		$dyndns = array();
-		if (array_get_path($_POST, 'check_ip_mode', 'default') != 'default') {
-			$dyndns['check_ip_mode'] = $_POST['check_ip_mode'];
-		}
-		$dyndns['type'] = $_POST['type'];
-		$dyndns['username'] = $_POST['username'];
-		if ($_POST['passwordfld'] != DMYPWD) {
-			$dyndns['password'] = base64_encode($_POST['passwordfld']);
-		} else {
-			$dyndns['password'] = $this_dyndns_config['password'];;
-		}
-		switch ($pconfig['type']) {
-			case 'name.com':
-			case 'name.com-v6':
-				$dyndns['host'] = ($_POST['host'] == "@") ? '' : $_POST['host'];
-				break;
-			default:
-				$dyndns['host'] = $_POST['host'];
-				break;
-		}
-		$dyndns['domainname'] = $_POST['domainname'];
-		$dyndns['mx'] = $_POST['mx'];
-		$dyndns['wildcard'] = $_POST['wildcard'] ? true : false;
-		$dyndns['proxied'] = $_POST['proxied'] ? true : false;
-		$dyndns['verboselog'] = $_POST['verboselog'] ? true : false;
-		$dyndns['curl_ipresolve_v4'] = $_POST['curl_ipresolve_v4'] ? true : false;
-		$dyndns['curl_ssl_verifypeer'] = $_POST['curl_ssl_verifypeer'] ? true : false;
-		// In this place enable means disabled
-		if ($_POST['enable']) {
-			unset($dyndns['enable']);
-		} else {
-			$dyndns['enable'] = true;
-		}
-		if (preg_match('/.+-v6/', $_POST['type']) && is_stf_interface($_POST['interface'])) {
-			$dyndns['interface'] = $_POST['interface'] . '_stf';
-		} else {
-			$dyndns['interface'] = $_POST['interface'];
-		}
-		$dyndns['zoneid'] = $_POST['zoneid'];
-		$dyndns['ttl'] = $_POST['ttl'];
-		$dyndns['maxcacheage'] = $_POST['maxcacheage'];
-		$dyndns['updateurl'] = $_POST['updateurl'];
-		// Trim hard-to-type but sometimes returned characters
-		$dyndns['resultmatch'] = trim($_POST['resultmatch'], "\t\n\r");
-		($dyndns['type'] == "custom") ? $dyndns['requestif'] = $_POST['requestif'] : $dyndns['requestif'] = $_POST['interface'];
-		if (($dyndns['type'] == "custom-v6") && !$dyndns['curl_ipresolve_v4'] && is_stf_interface($_POST['requestif'])) {
-			$dyndns['requestif'] = $_POST['requestif'] . '_stf';
-		} elseif (($dyndns['type'] == "custom") || ($dyndns['type'] == "custom-v6")) {
-			$dyndns['requestif'] = $_POST['requestif'];
-		}
-		$dyndns['curl_proxy'] = $_POST['curl_proxy'] ? true : false;
-		$dyndns['descr'] = $_POST['descr'];
-
-		/**
-		 * An update is forced when the interface changes because the IP
-		 * for the new interface may already be cached; if that cache
-		 * contains the same IP address as the new interface then the
-		 * record is not updated.
-		 */
-		if (isset($_POST['force']) || $dup || ($_POST['interface'] != $this_dyndns_config['interface'])) {
-			$dyndns['force'] = true;
-		} else {
-			$dyndns['force'] = false;
-		}
-
-		if ($dyndns['username'] == "none") {
-			$dyndns['username'] = "";
-		}
-
-		if ($this_dyndns_config && !$dup) {
-			config_set_path("dyndnses/dyndns/{$id}", $dyndns);
-		} else {
-			config_set_path("dyndnses/dyndns/", $dyndns);
-			$id = count(config_get_path('dyndnses/dyndns', [])) - 1;
-		}
-
-		$dyndns['id'] = $id;
-		//Probably overkill, but its better to be safe
-		for ($i = 0; $i < count(config_get_path('dyndnses/dyndns', [])); $i++) {
-			config_set_path("dyndnses/dyndns/{$i}/id", $i);
-		}
-
-		write_config(gettext("Dynamic DNS client configured."));
-
-		services_dyndns_configure_client($dyndns);
-
 		header("Location: services_dyndns.php");
 		exit;
 	}
-}
-
-function build_check_ip_mode_list() {
-	return [
-		'default' => 'Automatic (default)',
-		'always' => 'Always use the Check IP service',
-		'never' => 'Never use the Check IP service'
-	];
-}
-
-function build_type_list() {
-	$types = explode(",", DYNDNS_PROVIDER_DESCRIPTIONS);
-	$vals = explode(" ", DYNDNS_PROVIDER_VALUES);
-	$typelist = array();
-
-	for ($j = 0; $j < count($vals); $j++) {
-		$typelist[$vals[$j]] = htmlspecialchars($types[$j]);
-	}
-
-	return($typelist);
-}
-
-function build_if_list() {
-	$list = array();
-
-	$iflist = get_configured_interface_with_descr();
-
-	foreach ($iflist as $if => $ifdesc) {
-		$list[$if] = $ifdesc;
-	}
-
-	unset($iflist);
-
-	$grouplist = return_gateway_groups_array();
-
-	foreach ($grouplist as $name => $group) {
-		$list[$name] = 'GW Group ' . $name;
-	}
-
-	unset($grouplist);
-
-	return($list);
 }
 
 $pgtitle = array(gettext("Services"), gettext("Dynamic DNS"), gettext("Dynamic DNS Clients"), gettext("Edit"));
@@ -361,10 +76,10 @@ $section->addInput(new Form_Select(
 	'type',
 	'*Service Type',
 	$pconfig['type'],
-	build_type_list()
+	dyndns_type_list()
 ));
 
-$interfacelist = build_if_list();
+$interfacelist = dyndns_build_if_list();
 
 $section->addInput(new Form_Select(
 	'interface',
@@ -384,7 +99,7 @@ $section->addInput(new Form_Select(
 	'check_ip_mode',
 	'Check IP Mode',
 	$pconfig['check_ip_mode'],
-	build_check_ip_mode_list()
+	dyndns_check_ip_mode_list()
 ))->setHelp('By default, the Check IP service will only be used if a private address is detected.');
 
 $group = new Form_Group('*Hostname');

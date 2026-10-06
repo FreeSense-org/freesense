@@ -105,6 +105,30 @@
 				}
 			}
 		}
+		/* The interfaces must be ones the form offers (enabled interfaces). */
+		$enabled_ifaces = array();
+		foreach (config_get_path('interfaces', []) as $iface_key => $iface_value) {
+			if (is_array($iface_value) && isset($iface_value['enable'])) {
+				$enabled_ifaces[] = $iface_key;
+			}
+		}
+		if ($post['ext_iface'] && !in_array($post['ext_iface'], $enabled_ifaces, true)) {
+			$input_errors[] = 'You must select an enabled interface in the \'External Interface\' field';
+		}
+		if ($post['iface_array']) {
+			foreach ((array)$post['iface_array'] as $iface) {
+				if (!in_array($iface, $enabled_ifaces, true)) {
+					$input_errors[] = 'You must select enabled interfaces in the \'Internal Interfaces\' field';
+					break;
+				}
+			}
+		}
+		/* Every value is written to miniupnpd.conf as one line. */
+		foreach ($post as $key => $value) {
+			if (is_string($value) && preg_match('/[\r\n]/', $value)) {
+				$input_errors[] = "The field '{$key}' must not contain line breaks";
+			}
+		}
 		if ($post['overridewanip'] && !upnp_validate_ip($post['overridewanip'], false)) {
 			$input_errors[] = 'You must specify a valid IP address in the \'Override WAN address\' field';
 		}

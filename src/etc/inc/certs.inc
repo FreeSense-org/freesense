@@ -989,6 +989,11 @@ function is_unbound_cert($certref) {
 	}
 }
 
+function is_restapi_cert($certref) {
+	require_once('restapi_listener.inc');
+	return restapi_listener_uses_cert($certref);
+}
+
 function cert_in_use($certref) {
 	return (is_kea_cert($certref) ||
 		is_webgui_cert($certref) ||
@@ -998,6 +1003,7 @@ function cert_in_use($certref) {
 		is_ipsec_cert($certref) ||
 		is_captiveportal_cert($certref) ||
 		is_unbound_cert($certref) ||
+		is_restapi_cert($certref) ||
 		is_package_cert($certref));
 }
 
@@ -1194,9 +1200,10 @@ function cert_unrevoke($cert, &$crl_config) {
 	$serial = crl_get_entry_serial($cert);
 
 	foreach ($crl['cert'] as $id => $rcert) {
-		/* Check for a match by refid, name, or serial number */
-		if (($rcert['refid'] == $cert['refid']) ||
-		    ($rcert['descr'] == $cert['descr']) ||
+		/* Check for a match by refid, name, or serial number (an entry
+		 * revoked by serial has no refid or name to match) */
+		if ((!empty($cert['refid']) && ($rcert['refid'] == $cert['refid'])) ||
+		    (!empty($cert['descr']) && ($rcert['descr'] == $cert['descr'])) ||
 		    (crl_get_entry_serial($rcert) == $serial)) {
 			unset($crl['cert'][$id]);
 			if (count($crl['cert']) == 0) {
@@ -2011,6 +2018,11 @@ function cert_get_all_services($refid) {
 	if (is_webgui_cert($refid)) {
 		$services['webgui'] = true;
 	}
+	/* REST API listeners (restarted together). */
+	require_once('restapi_listener.inc');
+	if (restapi_listener_uses_cert($refid)) {
+		$services['restapi'] = true;
+	}
 
 	/* Find all OpenVPN clients and servers which use this certificate */
 	foreach (array('server', 'client') as $mode) {
@@ -2163,6 +2175,13 @@ function cert_restart_services($services) {
 		flush();
 		logger(LOG_INFO, localize_text($restart_string, gettext('service'), 'WebGUI'));
 		send_event("service restart webgui");
+	}
+
+	/* Restart the REST API listeners: */
+	if (!empty($services['restapi'])) {
+		require_once('restapi_listener.inc');
+		logger(LOG_INFO, localize_text($restart_string, gettext('service'), 'REST API listeners'));
+		restapi_listeners_configure();
 	}
 
 	/* Restart other base services: */

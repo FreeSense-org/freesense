@@ -5028,8 +5028,12 @@ function filter_rules_generate() {
 	if (!$webConfiguratorlockoutport) {
 		$webConfiguratorlockoutport = (config_get_path('system/webgui/protocol') == "http") ? "80" : "443";
 	}
+	/* REST API listeners: clients blocked by login protection are blocked there too. */
+	require_once('restapi_listener.inc');
+	$lockout_ports = array_unique(array_merge(array((string)$webConfiguratorlockoutport), array_map('strval', restapi_listener_ports())));
+	$lockout_ports = (count($lockout_ports) > 1) ? '{ ' . implode(' ', $lockout_ports) . ' }' : $lockout_ports[0];
 	$rules_temp = [];
-	$rules_temp[] = "block in {$log_preferences['default_block']} quick proto tcp from <sshguard> to (self) port {$webConfiguratorlockoutport} ridentifier {$increment_tracker()} {$make_rule_label_string("GUI Lockout")}";
+	$rules_temp[] = "block in {$log_preferences['default_block']} quick proto tcp from <sshguard> to (self) port {$lockout_ports} ridentifier {$increment_tracker()} {$make_rule_label_string("GUI Lockout")}";
 	$PFConfig->set_config(PFCONFIG_FILTER_LOCKOUT_GUI['id'],
 		$rules_temp
 	);
@@ -5533,6 +5537,17 @@ function filter_rules_generate() {
 			);
 		}
 		unset($alports);
+	}
+
+	$saved_tracker += 10;
+	$tracker = $saved_tracker;
+
+	/* REST API listeners with "Add firewall rule": pass their port on their interface. */
+	require_once('restapi_listener.inc');
+	$rules_temp = restapi_listener_filter_rules(restapi_listener_firewall_targets(), $log_preferences['default_pass'],
+	    $increment_tracker, $make_rule_label_string);
+	if (!empty($rules_temp)) {
+		$PFConfig->set_config(PFCONFIG_FILTER_RESTAPI['id'], $rules_temp);
 	}
 
 	$saved_tracker += 10;

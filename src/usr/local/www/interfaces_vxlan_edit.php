@@ -27,6 +27,7 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("interfaces_tunnels.inc");
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
@@ -45,118 +46,11 @@ if ($_POST['save']) {
 	$pconfig['learn'] = isset($_POST['learn']);
 	$pconfig['allowrule'] = isset($_POST['allowrule']);
 
-	$vxlan = array();
-	$vxlan['if'] = $_POST['if'];
-	$vxlan['ipproto'] = $_POST['ipproto'];
-	$vxlan['mode'] = $_POST['mode'];
-	$vxlan['vni'] = trim($_POST['vni']);
-	if ($_POST['mode'] == 'multicast') {
-		$vxlan['mcastgroup'] = trim($_POST['mcastgroup']);
-	} else {
-		$vxlan['remote-addr'] = trim($_POST['remote-addr']);
-	}
-	foreach (array('localport', 'remoteport', 'ttl') as $field) {
-		if (trim($_POST[$field]) !== '') {
-			$vxlan[$field] = trim($_POST[$field]);
-		}
-	}
-	if (!isset($_POST['learn'])) {
-		$vxlan['nolearn'] = '';
-	}
-	if (isset($_POST['allowrule'])) {
-		$vxlan['allowrule'] = '';
-	}
-	$vxlan['descr'] = $_POST['descr'];
-	/* Keep the interface name and MAC of an existing tunnel; never take them from the form. */
-	$vxlan['vxlanif'] = $this_vxlan_config['vxlanif'] ?? '';
-	$vxlan['mac'] = vxlan_is_valid_mac($this_vxlan_config['mac'] ?? '') ?
-	    $this_vxlan_config['mac'] : vxlan_generate_mac();
-
-	if (!array_key_exists($vxlan['if'], build_parent_list())) {
-		$input_errors[] = gettext("A valid parent interface must be selected.");
-	}
-
-	$others = array();
-	foreach (config_get_path('vxlans/vxlan', []) as $idx => $other) {
-		if (isset($id) && ($idx == $id)) {
-			continue;
-		}
-		$others[] = array(
-			'vxlanif' => $other['vxlanif'],
-			'ipproto' => $other['ipproto'],
-			'mode' => $other['mode'],
-			'localaddr' => interface_vxlan_local_address($other),
-			'localport' => vxlan_localport($other),
-			'vni' => $other['vni'],
-		);
-	}
-	$input_errors = array_merge($input_errors ?? array(),
-	    vxlan_validate($vxlan, interface_vxlan_local_address($vxlan), $others));
-
-	/* a tunnel sent from a bridge it is a member of would loop */
-	$parentbridge = get_real_interface($vxlan['if']);
-	$assignedas = empty($vxlan['vxlanif']) ? '' : convert_real_interface_to_friendly_interface_name($vxlan['vxlanif']);
-	if (!empty($assignedas) && (substr($parentbridge, 0, 6) == 'bridge') &&
-	    (link_interface_to_bridge($assignedas) == $parentbridge)) {
-		$input_errors[] = gettext("The parent interface is a bridge that this VXLAN is a member of.");
-	}
-
-	if (!empty($vxlan['vxlanif']) && !preg_match("/^vxlan[0-9]+$/", $vxlan['vxlanif'])) {
-		$input_errors[] = gettext("Invalid VXLAN interface.");
-	}
-
+	$input_errors = interfaces_vxlan_save($_POST, $id);
 	if (!$input_errors) {
-		$vxlanif = interface_vxlan_configure($vxlan);
-		if (!is_string($vxlanif) || !preg_match("/^vxlan[0-9]+$/", $vxlanif)) {
-			$input_errors[] = gettext("The VXLAN interface could not be created with these settings. The system log has the details.");
-			/* the old tunnel was destroyed before the new one failed; bring it back */
-			if ($this_vxlan_config) {
-				$restore = $this_vxlan_config;
-				if (is_string(interface_vxlan_configure($restore))) {
-					$confif = convert_real_interface_to_friendly_interface_name($restore['vxlanif']);
-					if ($confif != "") {
-						interface_configure($confif);
-						system_routing_configure($confif);
-					}
-				}
-			}
-		} else {
-			$vxlan['vxlanif'] = $vxlanif;
-			if ($this_vxlan_config) {
-				config_set_path("vxlans/vxlan/{$id}", $vxlan);
-			} else {
-				config_set_path('vxlans/vxlan/', $vxlan);
-			}
-
-			write_config("VXLAN interface saved");
-
-			/* reapply the address, MTU and bridge membership of the recreated interface */
-			$confif = convert_real_interface_to_friendly_interface_name($vxlanif);
-			if ($confif != "") {
-				interface_configure($confif);
-				system_routing_configure($confif);
-			}
-
-			/* the pass rule follows the peer, port and parent */
-			filter_configure();
-
-			header("Location: interfaces_vxlan.php");
-			exit;
-		}
+		header("Location: interfaces_vxlan.php");
+		exit;
 	}
-}
-
-/* Interfaces and VIPs that can carry a tunnel; a VXLAN cannot run over a VXLAN. */
-function build_parent_list() {
-	$parentlist = array();
-	foreach (get_possible_listen_ips() as $ifn => $ifinfo) {
-		if (($ifn == 'lo0') || (substr(get_real_interface($ifn), 0, 5) == 'vxlan')) {
-			continue;
-		}
-		$parentlist[$ifn] = $ifinfo;
-	}
-
-	return($parentlist);
 }
 
 $pgtitle = array(gettext("Interfaces"), gettext("VXLANs"), gettext("Edit"));
@@ -176,7 +70,7 @@ $section->addInput(new Form_Select(
 	'if',
 	'*Parent Interface',
 	$pconfig['if'],
-	build_parent_list()
+	interfaces_tunnel_parent_list('vxlan')
 ))->setHelp('The tunnel is sent from this interface. Its address of the selected family is used as the local VTEP address.');
 
 $section->addInput(new Form_Select(

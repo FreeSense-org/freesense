@@ -30,8 +30,7 @@
 
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
-
-$logging_level = LOG_WARNING;
+require_once("system_usermanager.inc");
 
 if (isset($_REQUEST['userid']) && is_numericint($_REQUEST['userid'])) {
 	$userid = $_REQUEST['userid'];
@@ -52,8 +51,7 @@ if (!is_array($a_user['priv'])) {
 }
 
 // Make a local copy and sort it
-$spriv_list = $priv_list;
-uasort($spriv_list, "compare_by_name");
+$spriv_list = usermgr_priv_list_sorted();
 
 /*
  * Check user privileges to test if the user is allowed to make changes.
@@ -74,67 +72,13 @@ if ($_POST['save'] && !$read_only) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "sysprivs");
-	$reqdfieldsn = array(gettext("Selected privileges"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
+	$input_errors = usermgr_user_privs_add($userid, $_POST, $guiuser);
 	if (!$input_errors) {
-
-		if (!is_array($pconfig['sysprivs'])) {
-			$pconfig['sysprivs'] = array();
-		}
-
-		if (!count($a_user['priv'])) {
-			$a_user['priv'] = $pconfig['sysprivs'];
-		} else {
-			$a_user['priv'] = array_merge($a_user['priv'], $pconfig['sysprivs']);
-		}
-
-		$a_user['priv'] = sort_user_privs($a_user['priv']);
-		config_set_path("system/user/{$userid}", $a_user);
-		local_user_set($a_user);
-
-		$savemsg = localize_text("Privileges changed for user: %s", $a_user['name']);
-		write_config($savemsg);
-		logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);
-
 		post_redirect("system_usermanager.php", array('act' => 'edit', 'userid' => $userid));
 
 		exit;
 	}
 
-}
-
-function build_priv_list() {
-	global $spriv_list, $a_user;
-
-	$list = array();
-
-	foreach ($spriv_list as $pname => $pdata) {
-		if (in_array($pname, $a_user['priv'])) {
-			continue;
-		}
-
-		$list[$pname] = $pdata['name'];
-	}
-
-	return($list);
-}
-
-function get_root_priv_item_text() {
-	global $priv_list;
-
-	$priv_text = "";
-
-	foreach ($priv_list as $pdata) {
-		if (isset($pdata['warn']) && ($pdata['warn'] == 'standard-warning-root')) {
-			$priv_text .= '<br/>' . $pdata['name'];
-		}
-	}
-
-	return($priv_text);
 }
 
 include("head.inc");
@@ -169,7 +113,7 @@ $section->addInput(new Form_Select(
 	'sysprivs',
 	'*Assigned privileges',
 	null,
-	build_priv_list(),
+	usermgr_priv_choices($spriv_list, $a_user['priv']),
 	true
 ))->addClass('multiselect')
   ->setHelp('Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');
@@ -178,7 +122,7 @@ $section->addInput(new Form_Select(
 	'shadow',
 	'Shadow',
 	null,
-	build_priv_list(),
+	usermgr_priv_choices($spriv_list, $a_user['priv']),
 	true
 ))->addClass('shadowselect')
   ->setHelp('Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');
@@ -197,7 +141,7 @@ $section->addInput(new Form_StaticText(
 		' because the user gains access to execute general commands, edit system files, ' .
 		' modify users, change passwords or similar:') .
 	'<br/>' .
-	get_root_priv_item_text() .
+	usermgr_root_priv_text() .
 	'<br/><br/>' .
 	gettext('Please take care when granting these privileges.') .
 	'</span>'

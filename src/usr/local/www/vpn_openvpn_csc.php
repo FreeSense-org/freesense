@@ -31,15 +31,11 @@ require_once("guiconfig.inc");
 require_once("openvpn.inc");
 require_once("freesense-utils.inc");
 require_once("pkg-utils.inc");
+require_once("vpn_openvpn.inc");
 
 global $openvpn_tls_server_modes, $openvpn_ping_action;
 
-$serveroptionlist = array();
-foreach (config_get_path('openvpn/openvpn-server', []) as $serversettings) {
-	if (in_array($serversettings['mode'], $openvpn_tls_server_modes)) {
-		$serveroptionlist[$serversettings['vpnid']] = sprintf(gettext("OpenVPN Server %d: %s"), $serversettings['vpnid'], $serversettings['description']);
-	}
-}
+$serveroptionlist = openvpn_csc_server_list();
 
 if (isset($_REQUEST['id']) && is_numericint($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
@@ -49,112 +45,25 @@ if (isset($_REQUEST['act'])) {
 	$act = $_REQUEST['act'];
 }
 
-$user_entry = getUserEntry($_SESSION['Username']);
-$user_entry = $user_entry['item'];
-$user_can_edit_advanced = (isAdminUID($_SESSION['Username']) || userHasPrivilege($user_entry, "page-openvpn-csc-advanced") || userHasPrivilege($user_entry, "page-all"));
+$user_can_edit_advanced = openvpn_user_can_edit_advanced("page-openvpn-csc-advanced");
 
 $this_csc_config = isset($id) ? config_get_path("openvpn/openvpn-csc/{$id}") : null;
 
 if ($_POST['act'] == "del") {
-	if (!$this_csc_config) {
+	$rv = openvpn_csc_delete($id ?? null, $user_can_edit_advanced);
+	if ($rv === null) {
 		FreeSenseHeader("vpn_openvpn_csc.php");
 		exit;
 	}
-
-	if (!$user_can_edit_advanced && !empty($this_csc_config['custom_options'])) {
-		$input_errors[] = gettext("This user does not have sufficient privileges to delete an instance with Advanced options set.");
-	} else {
-		$wc_msg = sprintf(gettext('Deleted OpenVPN client specific override %1$s %2$s'), $this_csc_config['common_name'], $this_csc_config['description']);
-		openvpn_delete_csc($this_csc_config);
-		config_del_path("openvpn/openvpn-csc/{$id}");
-		write_config($wc_msg);
+	if (!empty($rv['input_errors'])) {
+		$input_errors = $rv['input_errors'];
+	}
+	if ($rv['deleted']) {
 		$savemsg = gettext("Client specific override successfully deleted.");
-		services_unbound_configure(false);
 	}
 }
 
-if (($act == "edit") || ($act == "dup")) {
-	if ($this_csc_config) {
-		$pconfig['keep_minimal'] = isset($this_csc_config['keep_minimal']);
-		// Handle the "Reset Options" list
-		if (!empty($this_csc_config['remove_options'])) {
-			$pconfig['override_options'] = 'remove_specified';
-			$pconfig['remove_options'] = explode(',', $this_csc_config['remove_options']);
-		} elseif (isset($this_csc_config['push_reset'])) {
-			$pconfig['override_options'] = 'push_reset';
-		}
-
-		$pconfig['server_list'] = array_filter(explode(",", $this_csc_config['server_list']));
-		$pconfig['custom_options'] = $this_csc_config['custom_options'];
-		$pconfig['disable'] = isset($this_csc_config['disable']);
-		$pconfig['common_name'] = $this_csc_config['common_name'];
-		$pconfig['block'] = $this_csc_config['block'];
-		$pconfig['description'] = $this_csc_config['description'];
-
-		$pconfig['tunnel_network'] = $this_csc_config['tunnel_network'];
-		$pconfig['tunnel_networkv6'] = $this_csc_config['tunnel_networkv6'];
-		$pconfig['local_network'] = $this_csc_config['local_network'];
-		$pconfig['local_networkv6'] = $this_csc_config['local_networkv6'];
-		$pconfig['gateway'] = $this_csc_config['gateway'];
-		$pconfig['gateway6'] = $this_csc_config['gateway6'];
-		$pconfig['remote_network'] = $this_csc_config['remote_network'];
-		$pconfig['remote_networkv6'] = $this_csc_config['remote_networkv6'];
-		$pconfig['gwredir'] = $this_csc_config['gwredir'];
-		$pconfig['gwredir6'] = $this_csc_config['gwredir6'];
-
-		$pconfig['inactive_seconds'] = $this_csc_config['inactive_seconds'];
-		$pconfig['ping_seconds'] = $this_csc_config['ping_seconds'];
-		$pconfig['ping_action'] = $this_csc_config['ping_action'];
-		$pconfig['ping_action_seconds'] = $this_csc_config['ping_action_seconds'];
-
-		$pconfig['dns_domain'] = $this_csc_config['dns_domain'];
-		if ($pconfig['dns_domain']) {
-			$pconfig['dns_domain_enable'] = true;
-		}
-
-		$pconfig['dns_server1'] = $this_csc_config['dns_server1'];
-		$pconfig['dns_server2'] = $this_csc_config['dns_server2'];
-		$pconfig['dns_server3'] = $this_csc_config['dns_server3'];
-		$pconfig['dns_server4'] = $this_csc_config['dns_server4'];
-
-		if ($pconfig['dns_server1'] ||
-		    $pconfig['dns_server2'] ||
-		    $pconfig['dns_server3'] ||
-		    $pconfig['dns_server4']) {
-			$pconfig['dns_server_enable'] = true;
-		}
-
-		$pconfig['push_blockoutsidedns'] = $this_csc_config['push_blockoutsidedns'];
-		$pconfig['push_register_dns'] = $this_csc_config['push_register_dns'];
-
-		$pconfig['ntp_server1'] = $this_csc_config['ntp_server1'];
-		$pconfig['ntp_server2'] = $this_csc_config['ntp_server2'];
-
-		if ($pconfig['ntp_server1'] ||
-		    $pconfig['ntp_server2']) {
-			$pconfig['ntp_server_enable'] = true;
-		}
-
-		$pconfig['netbios_enable'] = $this_csc_config['netbios_enable'];
-		$pconfig['netbios_ntype'] = $this_csc_config['netbios_ntype'];
-		$pconfig['netbios_scope'] = $this_csc_config['netbios_scope'];
-
-		$pconfig['wins_server1'] = $this_csc_config['wins_server1'];
-		$pconfig['wins_server2'] = $this_csc_config['wins_server2'];
-
-		if ($pconfig['wins_server1'] ||
-		    $pconfig['wins_server2']) {
-			$pconfig['wins_server_enable'] = true;
-		}
-
-		$pconfig['nbdd_server1'] = $this_csc_config['nbdd_server1'];
-		$pconfig['nbdd_server2'] = $this_csc_config['nbdd_server2'];
-
-		if ($pconfig['nbdd_server1'] || $pconfig['nbdd_server2']) {
-			$pconfig['nbdd_server_enable'] = true;
-		}
-	}
-}
+$pconfig = openvpn_csc_form($act, $this_csc_config);
 
 if ($act == "dup") {
 	$act = "new";
@@ -166,259 +75,8 @@ if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	if (isset($pconfig['custom_options']) &&
-	    ($pconfig['custom_options'] != $this_csc_config['custom_options']) &&
-	    !$user_can_edit_advanced) {
-		$input_errors[] = gettext("This user does not have sufficient privileges to edit Advanced options on this instance.");
-	}
-	if (!$user_can_edit_advanced && !empty($this_csc_config['custom_options'])) {
-		// Restore the "custom options" field
-		$pconfig['custom_options'] = $this_csc_config['custom_options'];
-	}
-
-	if (!empty($pconfig['server_list'])) {
-		if (is_array($pconfig['server_list'])) {
-			foreach ($pconfig['server_list'] as $server) {
-				if (!array_key_exists(trim($server), $serveroptionlist)) {
-					$input_errors[] = gettext("The server list contains an invalid entry.");
-				}
-			}
-		} else {
-			$input_errors[] = gettext("The server list is invalid");
-		}
-	}
-
-	if (!empty($pconfig['tunnel_network']) && !openvpn_validate_tunnel_network($pconfig['tunnel_network'], 'ipv4')) {
-		$input_errors[] = gettext("The field 'IPv4 Tunnel Network' must contain a valid IPv4 subnet with CIDR mask or an alias with a single IPv4 subnet with CIDR mask.");
-	}
-
-	if (!empty($pconfig['tunnel_networkv6']) && !openvpn_validate_tunnel_network($pconfig['tunnel_networkv6'], 'ipv6')) {
-		$input_errors[] = gettext("The field 'IPv6 Tunnel Network' must contain a valid IPv6 prefix or an alias with a single IPv6 prefix.");
-	}
-
-	if (empty($pconfig['gwredir']) && ($result = openvpn_validate_cidr($pconfig['local_network'], 'IPv4 Local Network', true, "ipv4", true))) {
-		$input_errors[] = $result;
-	}
-
-	if (empty($pconfig['gwredir6']) && ($result = openvpn_validate_cidr($pconfig['local_networkv6'], 'IPv6 Local Network', true, "ipv6", true))) {
-		$input_errors[] = $result;
-	}
-
-	if (!empty($pconfig['gateway']) && !is_ipaddrv4($pconfig['gateway'])) {
-		$input_errors[] = gettext("The specified IPv4 gateway address is invalid.");
-	}
-
-	if (!empty($pconfig['gateway6']) && !is_ipaddrv6($pconfig['gateway6'])) {
-		$input_errors[] = gettext("The specified IPv6 gateway address is invalid.");
-	}
-
-	if ($result = openvpn_validate_cidr($pconfig['remote_network'], 'IPv4 Remote Network', true, "ipv4", true)) {
-		$input_errors[] = $result;
-	}
-
-	if ($result = openvpn_validate_cidr($pconfig['remote_networkv6'], 'IPv6 Remote Network', true, "ipv6", true)) {
-		$input_errors[] = $result;
-	}
-
-	if (!empty($pconfig['inactive_seconds']) && !is_numericint($pconfig['inactive_seconds'])) {
-		$input_errors[] = gettext('The supplied "Inactivity Timeout" value is invalid.');
-	}
-
-	if (!empty($pconfig['ping_seconds']) && !is_numericint($pconfig['ping_seconds'])) {
-		$input_errors[] = gettext('The supplied "Ping Interval" value is invalid.');
-	}
-	if (!empty($pconfig['ping_action']) && ($pconfig['ping_action'] != 'default')) {
-		if (!isset($openvpn_ping_action[$pconfig['ping_action']])) {
-			$input_errors[] = gettext('The field "Ping Action" contains an invalid selection.');
-		}
-		if (!is_numericint($pconfig['ping_action_seconds'])) {
-			$input_errors[] = gettext('The supplied "Ping Action" timeout value is invalid.');
-		}
-	}
-
-	if ($pconfig['dns_domain_enable'] && !is_domain($pconfig['dns_domain'])) {
-		$input_errors[] = gettext("The field 'DNS Default Domain' must contain a valid domain name");
-	}
-
-	if ($pconfig['netbios_enable'] && !empty($pconfig['netbios_scope']) &&
-	    !openvpn_is_valid_netbios_scope($pconfig['netbios_scope'])) {
-		$input_errors[] = gettext("The field 'NetBIOS Scope ID' may only contain letters, digits, hyphens, underscores and dots");
-	}
-
-	if ($pconfig['dns_server_enable']) {
-		if (!empty($pconfig['dns_server1']) && !is_ipaddr(trim($pconfig['dns_server1']))) {
-			$input_errors[] = gettext("The field 'DNS Server #1' must contain a valid IP address");
-		}
-		if (!empty($pconfig['dns_server2']) && !is_ipaddr(trim($pconfig['dns_server2']))) {
-			$input_errors[] = gettext("The field 'DNS Server #2' must contain a valid IP address");
-		}
-		if (!empty($pconfig['dns_server3']) && !is_ipaddr(trim($pconfig['dns_server3']))) {
-			$input_errors[] = gettext("The field 'DNS Server #3' must contain a valid IP address");
-		}
-		if (!empty($pconfig['dns_server4']) && !is_ipaddr(trim($pconfig['dns_server4']))) {
-			$input_errors[] = gettext("The field 'DNS Server #4' must contain a valid IP address");
-		}
-	}
-
-	if ($pconfig['ntp_server_enable']) {
-		if (!empty($pconfig['ntp_server1']) && !is_ipaddr(trim($pconfig['ntp_server1']))) {
-			$input_errors[] = gettext("The field 'NTP Server #1' must contain a valid IP address");
-		}
-		if (!empty($pconfig['ntp_server2']) && !is_ipaddr(trim($pconfig['ntp_server2']))) {
-			$input_errors[] = gettext("The field 'NTP Server #2' must contain a valid IP address");
-		}
-		if (!empty($pconfig['ntp_server3']) && !is_ipaddr(trim($pconfig['ntp_server3']))) {
-			$input_errors[] = gettext("The field 'NTP Server #3' must contain a valid IP address");
-		}
-		if (!empty($pconfig['ntp_server4']) && !is_ipaddr(trim($pconfig['ntp_server4']))) {
-			$input_errors[] = gettext("The field 'NTP Server #4' must contain a valid IP address");
-		}
-	}
-
-	if ($pconfig['netbios_enable']) {
-		if ($pconfig['wins_server_enable']) {
-			if (!empty($pconfig['wins_server1']) && !is_ipaddr(trim($pconfig['wins_server1']))) {
-				$input_errors[] = gettext("The field 'WINS Server #1' must contain a valid IP address");
-			}
-			if (!empty($pconfig['wins_server2']) && !is_ipaddr(trim($pconfig['wins_server2']))) {
-				$input_errors[] = gettext("The field 'WINS Server #2' must contain a valid IP address");
-			}
-		}
-		if ($pconfig['nbdd_server_enable']) {
-			if (!empty($pconfig['nbdd_server1']) && !is_ipaddr(trim($pconfig['nbdd_server1']))) {
-				$input_errors[] = gettext("The field 'NetBIOS Data Distribution Server #1' must contain a valid IP address");
-			}
-			if (!empty($pconfig['nbdd_server2']) && !is_ipaddr(trim($pconfig['nbdd_server2']))) {
-				$input_errors[] = gettext("The field 'NetBIOS Data Distribution Server #2' must contain a valid IP address");
-			}
-		}
-
-		if (!empty($pconfig['netbios_ntype']) &&
-		    !array_key_exists($pconfig['netbios_ntype'], $netbios_nodetypes)) {
-			$input_errors[] = gettext("The selected NetBIOS Node Type is not valid.");
-		}
-	}
-
-	$reqdfields[] = 'common_name';
-	$reqdfieldsn[] = 'Common name';
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
+	$input_errors = openvpn_csc_save($pconfig, $id ?? null, $act, $user_can_edit_advanced);
 	if (!$input_errors) {
-		$csc = array();
-
-		// Handle "Reset Server Options" and "Reset Options"
-		if ($pconfig['override_options'] == 'push_reset') {
-			$csc['push_reset'] = true;
-		} elseif (($pconfig['override_options'] == 'remove_specified') && !empty($pconfig['remove_options'])) {
-			$csc['remove_options'] = implode(',', $pconfig['remove_options']);
-		}
-		if (isset($pconfig['keep_minimal']) && (isset($csc['push_reset']) || isset($csc['remove_options']))) {
-			$csc['keep_minimal'] = true;
-		}
-
-		if (is_array($pconfig['server_list'])) {
-			$csc['server_list'] = implode(",", $pconfig['server_list']);
-		} else {
-			$csc['server_list'] = "";
-		}
-		$csc['custom_options'] = $pconfig['custom_options'];
-		if ($_POST['disable'] == "yes") {
-			$csc['disable'] = true;
-		}
-		$csc['common_name'] = $pconfig['common_name'];
-		$csc['block'] = $pconfig['block'];
-		$csc['description'] = $pconfig['description'];
-		$csc['tunnel_network'] = $pconfig['tunnel_network'];
-		$csc['tunnel_networkv6'] = $pconfig['tunnel_networkv6'];
-
-		$csc['gateway'] = $pconfig['gateway'];
-		$csc['gateway6'] = $pconfig['gateway6'];
-		// Don't push routes if redirecting all traffic.
-		if (!empty($pconfig['gwredir'])) {
-			$csc['gwredir'] = $pconfig['gwredir'];
-		} else {
-			$csc['local_network'] = $pconfig['local_network'];
-		}
-		if (!empty($pconfig['gwredir6'])) {
-			$csc['gwredir6'] = $pconfig['gwredir6'];
-		} else {
-			$csc['local_networkv6'] = $pconfig['local_networkv6'];
-		}
-
-		$csc['remote_network'] = $pconfig['remote_network'];
-		$csc['remote_networkv6'] = $pconfig['remote_networkv6'];
-
-		if (is_numericint($pconfig['inactive_seconds'])) {
-			$csc['inactive_seconds'] = $pconfig['inactive_seconds'];
-		}
-		if (is_numericint($pconfig['ping_seconds'])) {
-			$csc['ping_seconds'] = $pconfig['ping_seconds'];
-		}
-		if (!empty($pconfig['ping_action']) && ($pconfig['ping_action'] != 'default')) {
-			$csc['ping_action'] = $pconfig['ping_action'];
-			$csc['ping_action_seconds'] = $pconfig['ping_action_seconds'];
-		}
-
-		if ($pconfig['dns_domain_enable']) {
-			$csc['dns_domain'] = $pconfig['dns_domain'];
-		}
-
-		if ($pconfig['dns_server_enable']) {
-			$csc['dns_server1'] = $pconfig['dns_server1'];
-			$csc['dns_server2'] = $pconfig['dns_server2'];
-			$csc['dns_server3'] = $pconfig['dns_server3'];
-			$csc['dns_server4'] = $pconfig['dns_server4'];
-		}
-
-		$csc['push_blockoutsidedns'] = $pconfig['push_blockoutsidedns'];
-		$csc['push_register_dns'] = $pconfig['push_register_dns'];
-
-		if ($pconfig['ntp_server_enable']) {
-			$csc['ntp_server1'] = $pconfig['ntp_server1'];
-			$csc['ntp_server2'] = $pconfig['ntp_server2'];
-		}
-
-		$csc['netbios_enable'] = $pconfig['netbios_enable'];
-
-		if ($pconfig['netbios_enable']) {
-			$csc['netbios_ntype'] = $pconfig['netbios_ntype'];
-			$csc['netbios_scope'] = $pconfig['netbios_scope'];
-
-			if ($pconfig['wins_server_enable']) {
-				$csc['wins_server1'] = $pconfig['wins_server1'];
-				$csc['wins_server2'] = $pconfig['wins_server2'];
-			}
-
-			if ($pconfig['nbdd_server_enable']) {
-				$csc['nbdd_server1'] = $pconfig['nbdd_server1'];
-				$csc['nbdd_server2'] = $pconfig['nbdd_server2'];
-			}
-		}
-
-		if (($act == 'new') || (!empty($csc['disable']) ^ !empty($this_csc_config['disable'])) ||
-		    ($csc['tunnel_network'] != $this_csc_config['tunnel_network']) ||
-		    ($csc['tunnel_networkv6'] != $this_csc_config['tunnel_networkv6'])) {
-			$csc['unbound_restart'] = true;
-		}
-
-		if ($this_csc_config) {
-			$old_csc = $this_csc_config;
-			config_set_path("openvpn/openvpn-csc/{$id}", $csc);
-			$wc_msg = sprintf(gettext('Updated OpenVPN client specific override %1$s %2$s'), $csc['common_name'], $csc['description']);
-		} else {
-			config_set_path('openvpn/openvpn-csc/', $csc);
-			$wc_msg = sprintf(gettext('Added OpenVPN client specific override %1$s %2$s'), $csc['common_name'], $csc['description']);
-		}
-
-		if (!empty($old_csc['common_name'])) {
-			openvpn_delete_csc($old_csc);
-		}
-		openvpn_resync_csc($csc);
-		write_config($wc_msg);
-		services_unbound_configure(false);
-
 		header("Location: vpn_openvpn_csc.php");
 		exit;
 	}
@@ -501,32 +159,14 @@ if ($act == "new" || $act == "edit"):
 		'override_options',
 		'Reset Server Options',
 		($pconfig['override_options'] ?? 'default'),
-		[
-			'default' => 'Keep all server options (default)',
-			'push_reset' => 'Reset all options',
-			'remove_specified' => 'Remove specified options'
-		]
+		openvpn_csc_override_options()
 	))->setHelp('Prevent this client from receiving server-defined client settings. Other client-specific options on this page will supersede these options.');
 
 	$section->addInput(new Form_Select(
 		'remove_options',
 		'Remove Options',
 		$pconfig['remove_options'],
-		[
-			'remove_route' => 'Local Routes & Gateways',
-			'remove_iroute' => 'Remote Routes',
-			'remove_redirect_gateway' => 'Redirect Gateways',
-			'remove_inactive' => 'Inactivity Timeout',
-			'remove_ping' => 'Client Ping',
-			'remove_ping_action' => 'Ping Action',
-			'remove_dnsdomain' => 'DNS Domains',
-			'remove_dnsservers' => 'DNS Servers',
-			'remove_blockoutsidedns' => 'Block Outside DNS',
-			'remove_ntpservers' => 'NTP Options',
-			'remove_netbios_ntype' => 'NetBIOS Type',
-			'remove_netbios_scope' => 'NetBIOS Scope',
-			'remove_wins' => 'WINS Options'
-		],
+		openvpn_csc_remove_options(),
 		true
 	))->addClass('remove_options')->setHelp('A "push-remove" option will be sent to the client for the selected options, removing the respective server-defined option.');
 

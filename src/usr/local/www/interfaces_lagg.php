@@ -27,39 +27,10 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-
-function lagg_inuse($num) {
-	$a_laggs = config_get_path('laggs/lagg', []);
-	$if_config = config_get_path('interfaces', []);
-	$iflist = get_configured_interface_list(true);
-	foreach ($iflist as $if) {
-		if ($if_config[$if]['if'] == $a_laggs[$num]['laggif']) {
-			return true;
-		}
-	}
-
-	foreach (config_get_path('vlans/vlan', []) as $vlan) {
-		if ($vlan['if'] == $a_laggs[$num]['laggif']) {
-			return true;
-		}
-	}
-	return false;
-}
+require_once("interfaces_l2.inc");
 
 if ($_POST['act'] == "del") {
-	if (!isset($_POST['id'])) {
-		$input_errors[] = gettext("Wrong parameters supplied");
-	} else if (empty(config_get_path("laggs/lagg/{$_POST['id']}"))) {
-		$input_errors[] = gettext("Wrong index supplied");
-	/* check if still in use */
-	} else if (lagg_inuse($_POST['id'])) {
-		$input_errors[] = gettext("This LAGG interface cannot be deleted because it is still being used.");
-	} else {
-		FreeSense_interface_destroy(config_get_path("laggs/lagg/{$_POST['id']}/laggif"));
-		config_del_path("laggs/lagg/{$_POST['id']}");
-
-		write_config("LAGG interface deleted");
-
+	if (interfaces_lagg_delete($_POST['id'] ?? null, $input_errors)) {
 		header("Location: interfaces_lagg.php");
 		exit;
 	}

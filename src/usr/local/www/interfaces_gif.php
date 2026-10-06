@@ -27,34 +27,10 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-
-function gif_inuse($num) {
-	$a_gifs = config_get_path('gifs/gif', []);
-	$iflist = get_configured_interface_list(true);
-	$if_config = config_get_path('interfaces', []);
-	foreach ($iflist as $if) {
-		if ($if_config[$if]['if'] == $a_gifs[$num]['gifif']) {
-			return true;
-		}
-	}
-
-	return false;
-}
+require_once("interfaces_tunnels.inc");
 
 if ($_POST['act'] == "del") {
-	if (!isset($_POST['id'])) {
-		$input_errors[] = gettext("Wrong parameters supplied");
-	} else if (empty(config_get_path("gifs/gif/{$_POST['id']}"))) {
-		$input_errors[] = gettext("Wrong index supplied");
-	/* check if still in use */
-	} else if (gif_inuse($_POST['id'])) {
-		$input_errors[] = gettext("This gif TUNNEL cannot be deleted because it is still being used as an interface.");
-	} else {
-		FreeSense_interface_destroy(config_get_path("gifs/gif/{$_POST['id']}/gifif"));
-		config_del_path("gifs/gif/{$_POST['id']}");
-
-		write_config("GIF interface deleted");
-
+	if (interfaces_gif_delete($_POST['id'] ?? null, $input_errors)) {
 		header("Location: interfaces_gif.php");
 		exit;
 	}

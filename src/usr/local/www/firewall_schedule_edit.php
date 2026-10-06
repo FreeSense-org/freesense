@@ -30,26 +30,11 @@
 ##|*MATCH=firewall_schedule_edit.php*
 ##|-PRIV
 
-function schedulecmp($a, $b) {
-	return strcmp($a['name'], $b['name']);
-}
-
-function schedule_sort() {
-	global $g;
-
-	$schedule_config = config_get_path('schedules/schedule');
-	if (!is_array($schedule_config)) {
-		return;
-	}
-
-	usort($schedule_config, "schedulecmp");
-	config_set_path('schedules/schedule', $schedule_config);
-}
-
 require_once("guiconfig.inc");
 require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
+require_once("firewall_schedule.inc");
 
 $pgtitle = array(gettext("Firewall"), gettext("Schedules"), gettext("Edit"));
 $pglinks = array("", "firewall_schedule.php", "@self");
@@ -74,143 +59,19 @@ if (isset($id) && $a_schedules[$id]) {
 }
 
 if ($_POST['save']) {
-	if (empty($_POST['name'])) {
-		$input_errors[] = gettext("Schedule name cannot be blank.");
-	}
+	$result = saveSchedule($_POST, (isset($id) && $a_schedules[$id]) ? $id : null);
+	$input_errors = $result['input_errors'];
 
-	/* Schedule names are not directly referenced in firewall rules, so they
-	 * do not have to follow this format, but since this limitation was
-	 * already in place, it makes for convenient validation. */
-	if (!is_validaliasname($_POST['name'])) {
-		$input_errors[] = invalidaliasnamemsg($_POST['name'], gettext("schedule"));
-	}
-
-	/* Check for name conflicts */
-	foreach ($a_schedules as $schedule) {
-		if (isset($id) && ($a_schedules[$id]) && ($a_schedules[$id] === $schedule)) {
-			continue;
-		}
-
-		if ($schedule['name'] == $_POST['name']) {
-			$input_errors[] = gettext("A Schedule with this name already exists.");
-			break;
-		}
-	}
-
-	$schedule = array();
-
-	$schedule['name'] = $_POST['name'];
-	$schedule['descr'] = $_POST['descr'];
-
-	$timerangeFound = false;
-
-	for ($x = 0; $x < 99; $x++) {
-		if ($_POST['schedule' . $x]) {
-			if (!preg_match('/^[0-9]+:[0-9]+$/', $_POST['starttime' . $x])) {
-				$input_errors[] = sprintf(gettext("Invalid start time - '%s'"), $_POST['starttime' . $x]);
-				continue;
-			}
-
-			if (!preg_match('/^[0-9]+:[0-9]+$/', $_POST['stoptime' . $x])) {
-				$input_errors[] = sprintf(gettext("Invalid stop time - '%s'"), $_POST['stoptime' . $x]);
-				continue;
-			}
-
-			/* Valid schedule specifications are a comma-separated list containing
-			 * or or more of:
-			 *
-			 * - Single digit "day of week" numbers: <1-7>
-			 * - Specific days in the format: w<1-52>p<1-7>-m<1-12>d<1-31>
-			 */
-			if (!preg_match('/^([1-7]|,|w(5[0-2]|[1-4][0-9]|[0-9])p([1-7])-m(1[0-2]|[1-9])d([12][0-9]|3[01]|[1-9]))+$/', $_POST['schedule' . $x])) {
-				$input_errors[] = sprintf(gettext("Invalid schedule specification in row %d."), $x+1);
-				continue;
-			}
-
-			$timerangeFound = true;
-			$timeparts = array();
-			$firstprint = false;
-			$timestr = $_POST['schedule' . $x];
-			$timehourstr = $_POST['starttime' . $x];
-			$timehourstr .= "-";
-			$timehourstr .= $_POST['stoptime' . $x];
-			$timedescrstr = $_POST['timedescr' . $x];
-			$dashpos = strpos($timestr, '-');
-
-			if ($dashpos === false) {
-				$timeparts['position'] = $timestr;
-			} else {
-				$tempindarray = array();
-				$monthstr = "";
-				$daystr = "";
-				$tempindarray = explode(",", $timestr);
-				foreach ($tempindarray as $currentselection) {
-					if ($currentselection) {
-						if ($firstprint) {
-							$monthstr .= ",";
-							$daystr .= ",";
-						}
-						$tempstr = "";
-						$monthpos = strpos($currentselection, "m");
-						$daypos = strpos($currentselection, "d");
-						$monthstr .= substr($currentselection, $monthpos+1, $daypos-$monthpos-1);
-						$daystr .=	substr($currentselection, $daypos+1);
-						$firstprint = true;
-					}
-				}
-
-				$timeparts['month'] = $monthstr;
-				$timeparts['day'] = $daystr;
-			}
-
-			$timeparts['hour'] = $timehourstr;
-			$timeparts['rangedescr'] = $timedescrstr;
-			$schedule['timerange'][$x] = $timeparts;
-		}
-	}
-
-	if (!$timerangeFound) {
-		$input_errors[] = gettext("The schedule must have at least one time range configured.");
-	}
-
-	if (!$input_errors) {
-
-		if (!empty($pconfig['schedlabel'])) {
-			$schedule['schedlabel'] = $pconfig['schedlabel'];
-		} else {
-			$schedule['schedlabel'] = uniqid();
-		}
-
-		if (isset($id) && $a_schedules[$id]) {
-			$a_schedules[$id] = $schedule;
-		} else {
-			$a_schedules[] = $schedule;
-		}
-		config_set_path('schedules/schedule', $a_schedules);
-
-		schedule_sort();
-
-		if (write_config(gettext("Firewall schedule configured."))) {
-			filter_configure();
-		}
-
+	if (empty($input_errors)) {
 		header("Location: firewall_schedule.php");
 		exit;
-
 	}
+
 	//we received input errors, copy data to prevent retype
-	else {
-		if (!$_POST['schedule0']) {
-			$getSchedule = false;
-		} else {
-			$getSchedule = true;
-		}
-
-		$pconfig['name'] = $schedule['name'];
-		$pconfig['descr'] = $schedule['descr'];
-		$pconfig['timerange'] = $schedule['timerange'];
-	}
-
+	$getSchedule = (bool)$_POST['schedule0'];
+	$pconfig['name'] = $result['schedule']['name'];
+	$pconfig['descr'] = $result['schedule']['descr'];
+	$pconfig['timerange'] = $result['schedule']['timerange'];
 }
 
 include("head.inc");

@@ -29,6 +29,7 @@
 require_once("guiconfig.inc");
 require_once("service-utils.inc");
 require_once("shortcuts.inc");
+require_once("status_services.inc");
 
 if ($_POST['ajax']) {
 	if (isset($_POST['service'])) {
@@ -36,17 +37,7 @@ if ($_POST['ajax']) {
 	}
 
 	if (!empty($service_name)) {
-		switch ($_POST['mode']) {
-			case "restartservice":
-				$savemsg = service_control_restart($service_name, $_REQUEST);
-				break;
-			case "startservice":
-				$savemsg = service_control_start($service_name, $_REQUEST);
-				break;
-			case "stopservice":
-				$savemsg = service_control_stop($service_name, $_REQUEST);
-				break;
-		}
+		$savemsg = status_services_control($_POST['mode'], $service_name, $_REQUEST);
 		sleep(5);
 	}
 

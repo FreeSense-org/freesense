@@ -27,142 +27,22 @@
 ##|*MATCH=services_ntpd_acls.php*
 ##|-PRIV
 
-define('NUMACLS', 50); // The maximum number of configurable ACLs
-
 require_once("guiconfig.inc");
 require_once('rrd.inc');
 require_once("shaper.inc");
+require_once("services_ntpd.inc");
 
-if (is_array(config_get_path('ntpd/restrictions/row'))) {
-	$networkacl = config_get_path('ntpd/restrictions/row');
-} else {
-	$networkacl = array('0' => array('acl_network' => '', 'mask' => ''));
-}
+$networkacl = ntpd_acl_rows();
 
 if ($_POST) {
 
 	unset($input_errors);
-	$pconfig = $_POST;
-
-	for ($x=0, $numacls=0; $x < NUMACLS; $x++) {
-		if (array_key_exists("acl_network{$x}", $_POST)) {
-			$numacls++;
-		}
-	}
-
-	for ($x = 0; $x < NUMACLS; $x++) {
-		if (isset($pconfig["acl_network{$x}"])) {
-			$networkacl[$x] = array();
-			$networkacl[$x]['acl_network'] = $pconfig["acl_network{$x}"];
-			$networkacl[$x]['mask'] = $pconfig["mask{$x}"];
-
-			/* ACL Flags */
-			if (array_key_exists("kod{$x}", $pconfig)) {
-				$networkacl[$x]['kod'] = "yes";
-			} elseif (isset($networkacl[$x]['kod'])) {
-				unset($networkacl[$x]['kod']);
-			}
-
-			if (array_key_exists("nomodify{$x}", $pconfig)) {
-				$networkacl[$x]['nomodify'] = "yes";
-			} elseif (isset($networkacl[$x]['nomodify'])) {
-				unset($networkacl[$x]['nomodify']);
-			}
-
-			if (array_key_exists("noquery{$x}", $pconfig)) {
-				$networkacl[$x]['noquery'] = "yes";
-			} elseif (isset($networkacl[$x]['noquery'])) {
-				unset($networkacl[$x]['noquery']);
-			}
-
-			if (array_key_exists("noserve{$x}", $pconfig)) {
-				$networkacl[$x]['noserve'] = "yes";
-			} elseif (isset($networkacl[$x]['noserve'])) {
-				unset($networkacl[$x]['noserve']);
-			}
-
-			if (array_key_exists("nopeer{$x}", $pconfig)) {
-				$networkacl[$x]['nopeer'] = "yes";
-			} elseif (isset($networkacl[$x]['nopeer'])) {
-				unset($networkacl[$x]['nopeer']);
-			}
-
-			if (array_key_exists("notrap{$x}", $pconfig)) {
-				$networkacl[$x]['notrap'] = "yes";
-			} elseif (isset($networkacl[$x]['notrap'])) {
-				unset($networkacl[$x]['notrap']);
-			}
-			/* End ACL Flags */
-
-			if (isset($networkacl[$x]['notrap']) || isset($networkacl[$x]['kod']) || isset($networkacl[$x]['nomodify'])
-			   || isset($networkacl[$x]['noquery']) || isset($networkacl[$x]['nopeer']) || isset($networkacl[$x]['noserve'])) {
-				if (!is_ipaddr($networkacl[$x]['acl_network'])) {
-					$input_errors[] = sprintf(gettext("A valid IP address must be entered for row %s under Networks."), $networkacl[$x]['acl_network']);
-				} else {
-					if (is_ipaddrv4($networkacl[$x]['acl_network'])) {
-						if (!is_subnetv4($networkacl[$x]['acl_network']."/".$networkacl[$x]['mask'])) {
-							$input_errors[] = sprintf(gettext("A valid IPv4 netmask must be entered for IPv4 row %s under Networks."), $networkacl[$x]['acl_network']);
-						}
-					} else if (!is_subnetv6($networkacl[$x]['acl_network']."/".$networkacl[$x]['mask'])) {
-						$input_errors[] = sprintf(gettext("A valid IPv6 netmask must be entered for IPv6 row %s under Networks."), $networkacl[$x]['acl_network']);
-					}
-				}
-			} else if ((strlen($networkacl[$x]['acl_network']) == 0) && ($numacls > 1)) {
-				unset($networkacl[$x]);
-			}
-		} else if (isset($networkacl[$x])) {
-			unset($networkacl[$x]);
-		}
-	}
-
-	if (!$input_errors) {
-		/* Default Access Restrictions */
-		if (empty($_POST['kod'])) {
-			config_set_path('ntpd/kod', 'on');
-		} elseif (config_path_enabled('ntpd', 'kod')) {
-			config_del_path('ntpd/kod');
-		}
-
-		if (empty($_POST['nomodify'])) {
-			config_set_path('ntpd/nomodify', 'on');
-		} elseif (config_path_enabled('ntpd', 'nomodify')) {
-			config_del_path('ntpd/nomodify');
-		}
-
-		if (!empty($_POST['noquery'])) {
-			config_set_path('ntpd/noquery', $_POST['noquery']);
-		} elseif (config_path_enabled('ntpd', 'noquery')) {
-			config_del_path('ntpd/noquery');
-		}
-
-		if (!empty($_POST['noserve'])) {
-			config_set_path('ntpd/noserve', $_POST['noserve']);
-		} elseif (config_path_enabled('ntpd', 'noserve')) {
-			config_del_path('ntpd/noserve');
-		}
-
-		if (empty($_POST['nopeer'])) {
-			config_set_path('ntpd/nopeer', 'on');
-		} elseif (config_path_enabled('ntpd', 'nopeer')) {
-			config_del_path('ntpd/nopeer');
-		}
-
-		if (empty($_POST['notrap'])) {
-			config_set_path('ntpd/notrap', 'on');
-		} elseif (config_path_enabled('ntpd', 'notrap')) {
-			config_del_path('ntpd/notrap');
-		}
-		/* End Default Access Restrictions */
-		config_set_path('ntpd/restrictions/row', array());
-		foreach ($networkacl as $acl) {
-			config_set_path('ntpd/restrictions/row/', $acl);
-		}
-
-		write_config("Updated NTP ACL Settings");
-
+	$rv = ntpd_save_acls($_POST);
+	$input_errors = $rv['input_errors'];
+	$networkacl = $rv['networkacl'];
+	if ($rv['changes_applied']) {
 		$changes_applied = true;
-		$retval = 0;
-		$retval |= system_ntp_configure();
+		$retval = $rv['retval'];
 	}
 }
 

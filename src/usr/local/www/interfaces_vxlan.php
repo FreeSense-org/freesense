@@ -27,60 +27,10 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-
-/* Returns why the VXLAN cannot be deleted, or false when it is unused. */
-function vxlan_inuse($num) {
-	$vxlanif = config_get_path("vxlans/vxlan/{$num}/vxlanif");
-	if (empty($vxlanif)) {
-		return false;
-	}
-
-	$friendly = convert_real_interface_to_friendly_interface_name($vxlanif);
-	if (!empty($friendly)) {
-		if (!empty(link_interface_to_bridge($friendly))) {
-			return gettext("This VXLAN cannot be deleted because it is a bridge member.");
-		}
-		if (!empty(link_interface_to_group($friendly))) {
-			return gettext("This VXLAN cannot be deleted because it is a member of an interface group.");
-		}
-		return gettext("This VXLAN cannot be deleted because it is still being used as an interface.");
-	}
-	foreach (config_get_path('vlans/vlan', []) as $vlan) {
-		if ($vlan['if'] == $vxlanif) {
-			return gettext("This VXLAN cannot be deleted because it is the parent of a VLAN.");
-		}
-	}
-	foreach (config_get_path('qinqs/qinqentry', []) as $qinq) {
-		if ($qinq['if'] == $vxlanif) {
-			return gettext("This VXLAN cannot be deleted because it is the parent of a QinQ.");
-		}
-	}
-	foreach (config_get_path('laggs/lagg', []) as $lagg) {
-		if (in_array($vxlanif, explode(',', $lagg['members']))) {
-			return gettext("This VXLAN cannot be deleted because it is a LAGG member.");
-		}
-	}
-
-	return false;
-}
+require_once("interfaces_tunnels.inc");
 
 if ($_POST['act'] == "del") {
-	if (!isset($_POST['id'])) {
-		$input_errors[] = gettext("Wrong parameters supplied");
-	} else if (empty(config_get_path("vxlans/vxlan/{$_POST['id']}"))) {
-		$input_errors[] = gettext("Wrong index supplied");
-	/* check if still in use */
-	} else if (($inuse = vxlan_inuse($_POST['id'])) !== false) {
-		$input_errors[] = $inuse;
-	} else {
-		FreeSense_interface_destroy(config_get_path("vxlans/vxlan/{$_POST['id']}/vxlanif"));
-		config_del_path("vxlans/vxlan/{$_POST['id']}");
-
-		write_config("VXLAN interface deleted");
-
-		/* drop the tunnel's pass rule */
-		filter_configure();
-
+	if (interfaces_vxlan_delete($_POST['id'] ?? null, $input_errors)) {
 		header("Location: interfaces_vxlan.php");
 		exit;
 	}

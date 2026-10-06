@@ -35,6 +35,7 @@ global $g;
 require_once("guiconfig.inc");
 require_once("functions.inc");
 require_once("captiveportal.inc");
+require_once("diag_system.inc");
 
 $guitimeout = 90;	// Seconds to wait before reloading the page after reboot
 $guiretry = 20;		// Seconds to try again if $guitimeout was not long enough
@@ -49,25 +50,8 @@ if (isset($_POST['rebootmode'])):
 		print_info_box(gettext("Not actually rebooting (DEBUG is set true)."), 'success');
 	} else {
 		print('<div><pre>');
-		switch ($_POST['rebootmode']) {
-			case 'fsckreboot':
-				if ((php_uname('m') != 'arm') && !is_module_loaded("zfs.ko")) {
-					mwexec('/sbin/nextboot -e "freesense.fsck.force=5"');
-					notify_all_remote(sprintf(gettext("%s is rebooting for a filesystem check now."), g_get('product_label')));
-					system_reboot();
-				}
-				break;
-			case 'reroot':
-				notify_all_remote(sprintf(gettext("%s is rerooting now."), g_get('product_label')));
-				system_reboot_sync(true);
-				break;
-			case 'reboot':
-				notify_all_remote(sprintf(gettext("%s is rebooting now."), g_get('product_label')));
-				system_reboot();
-				break;
-			default:
-				header('Location: /diag_reboot.php');
-				break;
+		if (!diag_reboot_run($_POST['rebootmode'])) {
+			header('Location: /diag_reboot.php');
 		}
 		print('</pre></div>');
 	}
@@ -122,16 +106,9 @@ $form = new Form(false);
 
 $section = new Form_Section(gettext('Reboot Method'));
 
-$help[] = gettext('Select "Normal reboot" to reboot the system immediately.');
-$modeslist['reboot'] = gettext('Normal Reboot');
-
-if ((php_uname('m') != 'arm') && !is_module_loaded("zfs.ko")) {
-	$help[] = gettext('Select "Reboot with Filesystem Check" to reboot and run filesystem check.');
-	$modeslist['fsckreboot'] = gettext('Reboot with Filesystem Check');
-}
-
-$help[] = gettext('Select "Reroot" to stop processes, remount disks and re-run startup sequence.');
-$modeslist['reroot'] = gettext('Reroot');
+$rebootmodes = diag_reboot_modes();
+$help = $rebootmodes['help'];
+$modeslist = $rebootmodes['modes'];
 
 $section->addInput(new Form_Select(
         'rebootmode',

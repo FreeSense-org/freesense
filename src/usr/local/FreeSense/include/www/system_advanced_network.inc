@@ -53,6 +53,9 @@ function saveAdvancedNetworking($post, $json = false) {
 	$rv = array();
 	$show_reboot_msg = false;
 	$reboot_cause = "offload";
+	$changes_applied = false;
+	$retval = null;
+	$dhcp6restart = false;
 
 	if ($post['ipv6nat_enable'] && !is_ipaddr($post['ipv6nat_ipaddr'])) {
 		$input_errors[] = gettext("An IP address to NAT IPv6 packets must be specified.");
@@ -208,8 +211,6 @@ function saveAdvancedNetworking($post, $json = false) {
 		// Set preferred protocol
 		prefer_ipv4_or_ipv6();
 
-		$pconfig['duid'] = get_duid_from_file();
-
 		$changes_applied = true;
 		$retval = 0;
 		$retval |= filter_configure();
@@ -229,14 +230,21 @@ function saveAdvancedNetworking($post, $json = false) {
 		if ($dhcpd_restart) {
 			services_dhcpd_configure();
 		}
-
-		$rv['input_errors'] = $input_errors;
-		$rv['retval'] = $retval;
-		$rv['changes_applied'] = $changes_applied;
-		$rv['show_reboot_msg'] = $show_reboot_msg;
-		$rv['reboot_cause'] = $reboot_cause;
-		$rv['pconfig'] = $post;
-
-		return $json ? json_encode($rv) : $rv;
 	}
+
+	/*
+	 * Always return the result: it returned nothing when validation
+	 * failed, so the page showed neither the errors nor the form. The
+	 * form is shown again with what was posted and the DUID the system
+	 * uses (the page shows it as the placeholder of the raw DUID).
+	 */
+	$post['duid'] = get_duid_from_file();
+	$rv['input_errors'] = $input_errors;
+	$rv['retval'] = $retval;
+	$rv['changes_applied'] = $changes_applied;
+	$rv['show_reboot_msg'] = $show_reboot_msg;
+	$rv['reboot_cause'] = $reboot_cause;
+	$rv['pconfig'] = $post;
+
+	return $json ? json_encode($rv) : $rv;
 }

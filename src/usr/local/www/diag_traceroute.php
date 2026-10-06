@@ -37,16 +37,12 @@ $allowautocomplete = true;
 $pgtitle = array(gettext("Diagnostics"), gettext("Traceroute"));
 include("head.inc");
 
-/* Max TTL of both traceroute and traceroute6 is 255, but in practice more than
-   64 hops would most likely time out in the GUI. If a user requires a
-   traceroute that long, they can use the CLI. */
-define('MAX_TTL', 64);
-define('DEFAULT_TTL', 18);
+require_once("diag_tools.inc");
 
 // Set defaults in case they are not supplied.
 $do_traceroute = false;
 $host = $host_utf8 = '';
-$ttl = DEFAULT_TTL;
+$ttl = DIAG_TRACEROUTE_DEFAULT_TTL;
 $ipproto = 'ipv4';
 $sourceip = 'any';
 
@@ -54,33 +50,15 @@ if ($_POST || $_REQUEST['host']) {
 	unset($input_errors);
 
 	/* input validation */
-	$reqdfields = explode(" ", "host ttl");
-	$reqdfieldsn = array(gettext("Host"), gettext("ttl"));
-	do_input_validation($_REQUEST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (($_REQUEST['ttl'] < 1) || ($_REQUEST['ttl'] > MAX_TTL)) {
-		$input_errors[] = sprintf(gettext("Maximum number of hops must be between 1 and %s"), MAX_TTL);
-	}
-	$host = trim($_REQUEST['host']);
-	if (!empty($host)) {
-		$host = idn_to_ascii($host);
-		$host_utf8 = idn_to_utf8($host);
-	}
-	$ipproto = $_REQUEST['ipproto'];
-	if (($ipproto == "ipv4") && is_ipaddrv6($host)) {
-		$input_errors[] = gettext("When using IPv4, the target host must be an IPv4 address or hostname.");
-	}
-	if (($ipproto == "ipv6") && is_ipaddrv4($host)) {
-		$input_errors[] = gettext("When using IPv6, the target host must be an IPv6 address or hostname.");
-	}
-	if (!is_ipaddr($host) && !is_hostname($host)) {
-		$input_errors[] = gettext("Hostname must be a valid hostname or IP address.");
-	}
-
-	$sourceip = $_REQUEST['sourceip'];
-	$ttl = $_REQUEST['ttl'];
-	$resolve = $_REQUEST['resolve'];
-	$useicmp = $_REQUEST['useicmp'];
+	$trace = diag_traceroute_check($_REQUEST);
+	$input_errors = $trace['input_errors'];
+	$host = $trace['host'];
+	$host_utf8 = $trace['host_utf8'];
+	$ipproto = $trace['ipproto'];
+	$sourceip = $trace['sourceip'];
+	$ttl = $trace['ttl'];
+	$resolve = $trace['resolve'];
+	$useicmp = $trace['useicmp'];
 
 	if ($_POST && !$input_errors) {
 		$do_traceroute = true;
@@ -97,26 +75,7 @@ if ($input_errors) {
 
 /* Do the traceroute and show any error */
 if ($do_traceroute) {
-	$useicmpparam = isset($useicmp) ? "-I" : "";
-	$n = isset($resolve) ? "" : "-n";
-
-	$command = "/usr/sbin/traceroute";
-	if ($ipproto == "ipv6") {
-		$command .= "6";
-		if (empty($n)) {
-			$n = "-l";
-		}
-		$ifaddr = is_ipaddr($sourceip) ? $sourceip : get_interface_ipv6($sourceip);
-	} else {
-		$ifaddr = is_ipaddr($sourceip) ? $sourceip : get_interface_ip($sourceip);
-	}
-
-	if ($ifaddr && (is_ipaddr($host) || is_hostname($host))) {
-		$srcip = "-s " . escapeshellarg($ifaddr);
-	}
-
-	$cmd = "{$command} {$n} {$srcip} -w 2 {$useicmpparam} -m " . escapeshellarg($ttl) . " " . escapeshellarg($host);
-	$result = shell_exec($cmd);
+	$result = diag_exec(diag_traceroute_command($host, $ipproto, $sourceip, $ttl, isset($resolve), isset($useicmp)))['stdout'];
 
 	if (!$result) {
 		print_info_box(sprintf(gettext('Error: %s could not be traced/resolved'), htmlspecialchars($host_utf8)));
@@ -153,7 +112,7 @@ $section->addInput(new Form_Select(
 	'ttl',
 	'Maximum number of hops',
 	$ttl,
-	array_combine(range(1, MAX_TTL), range(1, MAX_TTL))
+	array_combine(range(1, DIAG_TRACEROUTE_MAX_TTL), range(1, DIAG_TRACEROUTE_MAX_TTL))
 ))->setHelp('Select the maximum number of network hops to trace.');
 
 $section->addInput(new Form_Checkbox(

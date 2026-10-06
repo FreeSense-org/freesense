@@ -30,8 +30,9 @@ function listtags() {
 	 * I know it's a pain, but it's a pain to find stuff too if it's not
 	 */
 	$ret = array(
-		'acls', 'alias', 'aliasurl', 'allowedip', 'allowedhostname', 'authserver',
-		'bridged', 'build_port_path',
+		'acls', 'alias', 'aliasurl', 'allowedip', 'allowedhostname', 'apilistener',
+		'apitoken', 'authserver',
+		'backuptarget', 'bridged', 'build_port_path',
 		'ca', 'cacert', 'cert', 'crl', 'clone', 'config',
 		'container', 'columnitem', 'checkipservice',
 		'depends_on_package', 'disk', 'dnsserver', 'dnsupdate', 'domainoverrides', 'dyndns',

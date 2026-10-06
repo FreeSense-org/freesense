@@ -28,169 +28,19 @@
 
 require_once("guiconfig.inc");
 require_once("vpn.inc");
+require_once("vpn_l2tp.inc");
 
-$pconfig['remoteip'] = config_get_path('l2tp/remoteip');
-$pconfig['localip'] = config_get_path('l2tp/localip');
-$pconfig['l2tp_subnet'] = config_get_path('l2tp/l2tp_subnet');
-$pconfig['mode'] = config_get_path('l2tp/mode');
-$pconfig['interface'] = config_get_path('l2tp/interface');
-$pconfig['l2tp_dns1'] = config_get_path('l2tp/dns1');
-$pconfig['l2tp_dns2'] = config_get_path('l2tp/dns2');
-$pconfig['mtu'] = config_get_path('l2tp/mtu');
-$pconfig['radiusenable'] = config_path_enabled('l2tp/radius');
-$pconfig['radacct_enable'] = config_path_enabled('l2tp/radius', 'accounting');
-$pconfig['radiusserver'] = config_get_path('l2tp/radius/server');
-$pconfig['radiussecret'] = config_get_path('l2tp/radius/secret');
-$pconfig['radiusissueips'] = config_path_enabled('l2tp/radius', 'radiusissueips');
-$pconfig['n_l2tp_units'] = config_get_path('l2tp/n_l2tp_units');
-$pconfig['paporchap'] = config_get_path('l2tp/paporchap');
-$pconfig['secret'] = config_get_path('l2tp/secret');
+$pconfig = l2tp_settings_form();
 
 if ($_POST['save']) {
 
 	unset($input_errors);
-	$pconfig = $_POST;
-
-	/* input validation */
-	if ($_POST['mode'] == "server") {
-		$reqdfields = explode(" ", "localip");
-		$reqdfieldsn = array(gettext("Server address"));
-		if (!$_POST['radiusenable'] || !$_POST['radiusissueips']) {
-			$reqdfields = array_merge($reqdfields, explode(" ", "remoteip"));
-			$reqdfieldsn = array_merge($reqdfieldsn, array(gettext("Remote start address")));
-		} elseif ($_POST['radiusenable']) {
-			$reqdfields = array_merge($reqdfields, explode(" ", "radiusserver radiussecret"));
-			$reqdfieldsn = array_merge($reqdfieldsn,
-				array(gettext("RADIUS server address"), gettext("RADIUS shared secret")));
-		}
-
-		do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-		if (($_POST['localip'] && !is_ipaddrv4($_POST['localip']))) {
-			$input_errors[] = gettext("A valid server address must be specified.");
-		}
-		if (is_ipaddr_configured($_POST['localip'])) {
-			$input_errors[] = gettext("'Server address' parameter should NOT be set to any IP address currently in use on this firewall.");
-		}
-		if ($_POST['l2tp_subnet'] && !is_ipaddrv4($_POST['remoteip']) &&
-		    (!$_POST['radiusenable'] || !$_POST['radiusissueips'])) {
-			$input_errors[] = gettext("A valid remote start address must be specified.");
-		}
-		if (($_POST['radiusserver'] && !is_ipaddrv4($_POST['radiusserver']))) {
-			$input_errors[] = gettext("A valid RADIUS server address must be specified.");
-		}
-
-		if ($_POST['secret'] != $_POST['secret_confirm']) {
-			$input_errors[] = gettext("Secret and confirmation must match");
-		}
-
-		if ($_POST['radiussecret'] != $_POST['radiussecret_confirm']) {
-			$input_errors[] = gettext("RADIUS secret and confirmation must match");
-		}
-
-		if (!is_numericint($_POST['n_l2tp_units']) || $_POST['n_l2tp_units'] > 255) {
-			$input_errors[] = gettext("Number of L2TP users must be between 1 and 255");
-		}
-
-		if (!$input_errors) {
-			$_POST['remoteip'] = $pconfig['remoteip'] = gen_subnet($_POST['remoteip'], $_POST['l2tp_subnet']);
-			if (is_inrange_v4($_POST['localip'], $_POST['remoteip'], ip_after($_POST['remoteip'], $_POST['n_l2tp_units'] - 1))) {
-				$input_errors[] = gettext("The specified server address lies in the remote subnet.");
-			}
-			if ($_POST['localip'] == get_interface_ip("lan")) {
-				$input_errors[] = gettext("The specified server address is equal to the LAN interface address.");
-			}
-		}
-
-		if (!empty($_POST['l2tp_dns1']) && !is_ipaddrv4(trim($_POST['l2tp_dns1']))) {
-			$input_errors[] = gettext("The field 'Primary L2TP DNS Server' must contain a valid IPv4 address.");
-		}
-		if (!empty($_POST['l2tp_dns2']) && !is_ipaddrv4(trim($_POST['l2tp_dns2']))) {
-			$input_errors[] = gettext("The field 'Secondary L2TP DNS Server' must contain a valid IPv4 address.");
-		}
-		if (!empty($_POST['l2tp_dns2']) && empty($_POST['l2tp_dns1'])) {
-			$input_errors[] = gettext("The Secondary L2TP DNS Server cannot be set when the Primary L2TP DNS Server is empty.");
-		}
-		if ($_POST['mtu']) {
-			if (!is_numericint($_POST['mtu'])) {
-				$input_errors[] = "MTU must be an integer.";
-			}
-			$min_mtu = 576;
-			$max_mtu = 9000;
-			if (($_POST['mtu'] < $min_mtu) || ($_POST['mtu'] > $max_mtu)) {
-				$input_errors[] = sprintf(gettext("The MTU must be between %d and %d bytes."), $min_mtu, $max_mtu);
-			}
-		}
-	}
-
-	if (!$input_errors) {
-		$l2tpcfg = config_get_path('l2tp', []);
-		$l2tpcfg['remoteip'] = $_POST['remoteip'];
-		$l2tpcfg['localip'] = $_POST['localip'];
-		$l2tpcfg['l2tp_subnet'] = $_POST['l2tp_subnet'];
-		$l2tpcfg['mode'] = $_POST['mode'];
-		$l2tpcfg['interface'] = $_POST['interface'];
-		$l2tpcfg['n_l2tp_units'] = $_POST['n_l2tp_units'];
-		$l2tpcfg['radius']['server'] = $_POST['radiusserver'];
-		if ($_POST['radiussecret'] != DMYPWD) {
-			$l2tpcfg['radius']['secret'] = $_POST['radiussecret'];
-		}
-
-		if ($_POST['secret'] != DMYPWD) {
-			$l2tpcfg['secret'] = $_POST['secret'];
-		}
-
-		$l2tpcfg['paporchap'] = $_POST['paporchap'];
-
-
-		if ($_POST['l2tp_dns1'] == "") {
-			if (isset($l2tpcfg['dns1'])) {
-				unset($l2tpcfg['dns1']);
-			}
-		} else {
-			$l2tpcfg['dns1'] = $_POST['l2tp_dns1'];
-		}
-
-		if ($_POST['l2tp_dns2'] == "") {
-			if (isset($l2tpcfg['dns2'])) {
-				unset($l2tpcfg['dns2']);
-			}
-		} else {
-			$l2tpcfg['dns2'] = $_POST['l2tp_dns2'];
-		}
-
-		if ($_POST['mtu'] == "") {
-			if (isset($l2tpcfg['mtu'])) {
-				unset($l2tpcfg['mtu']);
-			}
-		} else {
-			$l2tpcfg['mtu'] = $_POST['mtu'];
-		}
-
-		if ($_POST['radiusenable'] == "yes") {
-			$l2tpcfg['radius']['enable'] = true;
-		} else {
-			unset($l2tpcfg['radius']['enable']);
-		}
-
-		if ($_POST['radacct_enable'] == "yes") {
-			$l2tpcfg['radius']['accounting'] = true;
-		} else {
-			unset($l2tpcfg['radius']['accounting']);
-		}
-
-		if ($_POST['radiusissueips'] == "yes") {
-			$l2tpcfg['radius']['radiusissueips'] = true;
-		} else {
-			unset($l2tpcfg['radius']['radiusissueips']);
-		}
-
-		config_set_path('l2tp', $l2tpcfg);
-		write_config(gettext("L2TP VPN configuration changed."));
-
+	$rv = l2tp_settings_save($_POST);
+	$input_errors = $rv['input_errors'];
+	$pconfig = $rv['pconfig'];
+	if ($rv['changes_applied']) {
 		$changes_applied = true;
-		$retval = 0;
-		$retval |= vpn_l2tp_configure();
+		$retval = $rv['retval'];
 	}
 }
 
@@ -276,11 +126,7 @@ $section->addInput(new Form_Select(
 	'paporchap',
 	'*Authentication type',
 	$pconfig['paporchap'],
-	array(
-		'chap' => 'CHAP',
-		'chap-msv2' => 'MS-CHAPv2',
-		'pap' => 'PAP'
-		)
+	l2tp_paporchap_values()
 ))->setHelp('Specifies the protocol to use for authentication.');
 
 $section->addInput(new Form_Input(

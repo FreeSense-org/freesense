@@ -35,55 +35,33 @@ $allowautocomplete = true;
 $pgtitle = array(gettext("Diagnostics"), gettext("Ping"));
 require_once("guiconfig.inc");
 
-define('MAX_COUNT', 10);
-define('DEFAULT_COUNT', 3);
-define('MAX_WAIT', 10);
-define('DEFAULT_WAIT', 1);
+require_once("diag_tools.inc");
+
 $do_ping = false;
 $host = $host_utf8 = '';
-$count = DEFAULT_COUNT;
-$wait = DEFAULT_WAIT;
+$count = DIAG_PING_DEFAULT_COUNT;
+$wait = DIAG_PING_DEFAULT_WAIT;
 
 if ($_POST || $_REQUEST['host']) {
 	unset($input_errors);
 	unset($do_ping);
 
 	/* input validation */
-	$reqdfields = explode(" ", "host count");
-	$reqdfieldsn = array(gettext("Host"), gettext("Count"));
-	do_input_validation($_REQUEST, $reqdfields, $reqdfieldsn, $input_errors);
-	if (($_REQUEST['count'] < 1) || ($_REQUEST['count'] > MAX_COUNT) || (!is_numericint($_REQUEST['count']))) {
-		$input_errors[] = sprintf(gettext("Count must be between 1 and %s"), MAX_COUNT);
-	}	
-	if (isset($_REQUEST['wait']) && (($_REQUEST['wait'] < 1) ||
-	    ($_REQUEST['wait'] > MAX_WAIT) || (!is_numericint($_REQUEST['wait'])))) {
-		$input_errors[] = sprintf(gettext("Wait must be between 1 and %s"), MAX_WAIT);
-	}	
-	$host = trim($_REQUEST['host']);
-	if (!empty($host)) {
-		$host = idn_to_ascii($host);
-		$host_utf8 = idn_to_utf8($host);
-	}
-	$ipproto = $_REQUEST['ipproto'];
-	if (($ipproto == "ipv4") && is_ipaddrv6($host)) {
-		$input_errors[] = gettext("When using IPv4, the target host must be an IPv4 address or hostname.");
-	}
-	if (($ipproto == "ipv6") && is_ipaddrv4($host)) {
-		$input_errors[] = gettext("When using IPv6, the target host must be an IPv6 address or hostname.");
-	}
-	if (!is_ipaddr($host) && !is_hostname($host)) {
-		$input_errors[] = gettext("Hostname must be a valid hostname or IP address.");
-	}
+	$ping = diag_ping_check($_REQUEST);
+	$input_errors = $ping['input_errors'];
+	$host = $ping['host'];
+	$host_utf8 = $ping['host_utf8'];
+	$ipproto = $ping['ipproto'];
 
 	if (!$input_errors) {
 		if ($_POST) {
 			$do_ping = true;
 		}
 		if (isset($_REQUEST['sourceip'])) {
-			$sourceip = $_REQUEST['sourceip'];
+			$sourceip = $ping['sourceip'];
 		}
-		$count = (empty($_REQUEST['count'])) ? DEFAULT_WAIT : $_REQUEST['count'];
-		$wait = (empty($_REQUEST['wait'])) ? DEFAULT_WAIT : $_REQUEST['wait'];
+		$count = $ping['count'];
+		$wait = $ping['wait'];
 	}
 }
 
@@ -97,28 +75,7 @@ if ($do_ping) {
 	//]]>
 	</script>
 <?php
-	$ifscope = '';
-	$command = "/sbin/ping";
-	if ($ipproto == "ipv6") {
-		$command .= "6";
-		$ifaddr = is_ipaddr($sourceip) ? $sourceip : get_interface_ipv6($sourceip);
-		if (is_linklocal($ifaddr)) {
-			$ifscope = get_ll_scope($ifaddr);
-		}
-	} else {
-		$ifaddr = is_ipaddr($sourceip) ? $sourceip : get_interface_ip($sourceip);
-	}
-
-	if ($ifaddr && (is_ipaddr($host) || is_hostname($host))) {
-		$srcip = "-S" . escapeshellarg($ifaddr);
-		if (is_linklocal($host) && !strstr($host, "%") && !empty($ifscope)) {
-			$host .= "%{$ifscope}";
-		}
-	}
-
-	$cmd = "{$command} {$srcip} -c" . escapeshellarg($count) . " -i" . escapeshellarg($wait) . " " . escapeshellarg($host);
-	//echo "Ping command: {$cmd}\n";
-	$result = shell_exec($cmd);
+	$result = diag_exec(diag_ping_command($host, $ipproto, $sourceip, $count, $wait))['stdout'];
 
 	if (empty($result)) {
 		$input_errors[] = sprintf(gettext('Host "%s" did not respond or could not be resolved.'), $host_utf8);
@@ -162,14 +119,14 @@ $section->addInput(new Form_Select(
 	'count',
 	'Maximum number of pings',
 	$count,
-	array_combine(range(1, MAX_COUNT), range(1, MAX_COUNT))
+	array_combine(range(1, DIAG_PING_MAX_COUNT), range(1, DIAG_PING_MAX_COUNT))
 ))->setHelp('Select the maximum number of pings.');
 
 $section->addInput(new Form_Select(
 	'wait',
 	'Seconds between pings',
 	$wait,
-	array_combine(range(1, MAX_WAIT), range(1, MAX_WAIT))
+	array_combine(range(1, DIAG_PING_MAX_WAIT), range(1, DIAG_PING_MAX_WAIT))
 ))->setHelp('Select the number of seconds to wait between pings.');
 
 $form->add($section);

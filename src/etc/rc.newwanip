@@ -279,6 +279,10 @@ if (!is_ipaddr($oldip) || ($curwanip != $oldip) || file_exists("{$g['tmp_path']}
 	/* restart snmp */
 	services_snmpd_configure($interface);
 
+	/* rebind REST API listeners on this interface */
+	require_once('restapi_listener.inc');
+	restapi_listeners_interface_changed($interface);
+
 	/* restart L2TP VPN */
 	vpn_l2tp_configure($interface);
 

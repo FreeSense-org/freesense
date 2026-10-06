@@ -27,11 +27,9 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("interfaces_l2.inc");
 
-global $lagghash_list;
-
-$portlist = get_interface_list();
-$laggprotos	  = array("none", "lacp", "failover", "loadbalance", "roundrobin");
+$laggprotos	  = interfaces_lagg_protos();
 $laggprotosuc = array(gettext("NONE"), gettext("LACP"), gettext("FAILOVER"), gettext("LOADBALANCE"), gettext("ROUNDROBIN"));
 
 $protohelp =
@@ -92,32 +90,12 @@ $lagghashhelp =
 	'</li>' .
 '</ul>';
 
-$realifchecklist = array();
-/* add LAGG interfaces */
-foreach (config_get_path('laggs/lagg', []) as $lagg) {
-	unset($portlist[$lagg['laggif']]);
-	$laggiflist = array_filter(explode(",", $lagg['members']));
-	foreach ($laggiflist as $tmpif) {
-		$realifchecklist[get_real_interface($tmpif)] = $tmpif;
-	}
-}
-
-$checklist = get_configured_interface_list(true);
-
-foreach ($checklist as $tmpif) {
-	$realifchecklist[get_real_interface($tmpif)] = $tmpif;
-}
-
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
 $this_lagg_config = isset($id) ? config_get_path("laggs/lagg/{$id}") : null;
 if ($this_lagg_config) {
 	$pconfig['laggif'] = $this_lagg_config['laggif'];
 	$pconfig['members'] = $this_lagg_config['members'];
-	$laggiflist = array_filter(explode(",", $this_lagg_config['members']));
-	foreach ($laggiflist as $tmpif) {
-		unset($realifchecklist[get_real_interface($tmpif)]);
-	}
 	$pconfig['proto'] = $this_lagg_config['proto'];
 	if (isset($this_lagg_config['failovermaster'])) {
 		$pconfig['failovermaster'] = $this_lagg_config['failovermaster'];
@@ -139,106 +117,19 @@ if ($_POST['save']) {
 		$pconfig['members'] = implode(',', $_POST['members']);
 	}
 
-	/* input validation */
-	$reqdfields = explode(" ", "members proto");
-	$reqdfieldsn = array(gettext("Member interfaces"), gettext("Lagg protocol"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (is_array($_POST['members'])) {
-		foreach ($_POST['members'] as $member) {
-			if (!does_interface_exist($member)) {
-				$input_errors[] = sprintf(gettext("Interface supplied as member (%s) is invalid"), $member);
-			}
-		}
-	} else if (!does_interface_exist($_POST['members'])) {
-		$input_errors[] = gettext("Interface supplied as member is invalid");
-	}
-
-	if (!in_array($_POST['proto'], $laggprotos)) {
-		$input_errors[] = gettext("Protocol supplied is invalid");
-	}
-
-	if (is_array($_POST['members']) && ($_POST['proto'] == 'failover') && isset($_POST['failovermaster']) &&
-	    ($_POST['failovermaster'] != 'auto') && (array_search($_POST['failovermaster'], $_POST['members']) === false)) {
-			$input_errors[] = sprintf(gettext("Failover Master Interface must be selected as member."));
-	}
-
-	if ((($_POST['proto'] == 'lacp') || ($_POST['proto'] == 'loadbalance')) &&
-	    isset($_POST['lagghash']) && !array_key_exists($_POST['lagghash'], $lagg_hash_list)) {
-		$input_errors[] = gettext("Hash Algorithm is invalid.");
-	}
-
+	$input_errors = interfaces_lagg_save($_POST, $id);
 	if (!$input_errors) {
-		$lagg = array();
-		$lagg['members'] = implode(',', $_POST['members']);
-		$lagg['descr'] = $_POST['descr'];
-		$lagg['laggif'] = $_POST['laggif'];
-		$lagg['proto'] = $_POST['proto'];
-		if (($_POST['proto'] == 'failover') && isset($_POST['failovermaster'])) {
-			$lagg['failovermaster'] = $_POST['failovermaster'];
-		} else {
-			unset($lagg['failovermaster']);
-		}
-		if (($_POST['proto'] == 'lacp') && isset($_POST['lacptimeout'])) {
-			$lagg['lacptimeout'] = $_POST['lacptimeout'];
-		} else {
-			unset($lagg['lacptimeout']);
-		}
-		if ((($_POST['proto'] == 'lacp') || ($_POST['proto'] == 'loadbalance')) &&
-		    isset($_POST['lagghash']) && array_key_exists($_POST['lagghash'], $lagg_hash_list)) {
-			$lagg['lagghash'] = $_POST['lagghash'];
-		} else {
-			unset($lagg['lagghash']);
-		}
-		if ($this_lagg_config) {
-			$lagg['laggif'] = $this_lagg_config['laggif'];
-		}
-
-		$lagg['laggif'] = interface_lagg_configure($lagg);
-		if ($lagg['laggif'] == "" || !stristr($lagg['laggif'], "lagg")) {
-			$input_errors[] = gettext("Error occurred creating interface, please retry.");
-		} else {
-			if ($this_lagg_config) {
-				config_set_path("laggs/lagg/{$id}", $lagg);
-			} else {
-				config_set_path('laggs/lagg/', $lagg);
-			}
-
-			write_config("LAGG interface added");
-
-			$confif = convert_real_interface_to_friendly_interface_name($lagg['laggif']);
-			if ($confif != "") {
-				interface_configure($confif);
-			}
-
-			// reconfigure any VLANs with this lagg as their parent
-			foreach (config_get_path('vlans/vlan', []) as $vlan) {
-				if ($vlan['if'] == $lagg['laggif']) {
-					interface_vlan_configure($vlan);
-					$confif = convert_real_interface_to_friendly_interface_name($vlan['vlanif']);
-					if ($confif != "") {
-						interface_configure($confif);
-					}
-				}
-			}
-
-			header("Location: interfaces_lagg.php");
-			exit;
-		}
+		header("Location: interfaces_lagg.php");
+		exit;
 	}
 }
 
 function build_member_list() {
-	global $pconfig, $portlist, $realifchecklist;
+	global $pconfig, $id;
 
 	$memberlist = array('list' => array(), 'selected' => array());
 
-	foreach ($portlist as $ifn => $ifinfo) {
-		if (array_key_exists($ifn, $realifchecklist)) {
-			continue;
-		}
-
+	foreach (interfaces_lagg_port_list($id) as $ifn => $ifinfo) {
 		$hwaddr = get_interface_vendor_mac($ifn);
 
 		$memberlist['list'][$ifn] = $ifn . ' (' . $ifinfo['mac'] .

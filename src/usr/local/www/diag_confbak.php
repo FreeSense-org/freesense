@@ -91,7 +91,7 @@ cleanup_backupcache(false);
 $confvers = get_backups();
 unset($confvers['versions']);
 
-$pgtitle = [gettext('Diagnostics'), htmlspecialchars(gettext('Backup & Restore')), gettext('Config History')];
+$pgtitle = [gettext('Diagnostics'), htmlspecialchars(gettext('Backup & Restore')), gettext('Configuration History')];
 $pglinks = ['', 'diag_backup.php', '@self'];
 include('head.inc');
 
@@ -105,7 +105,8 @@ if ($savemsg) {
 
 $tab_array = array();
 $tab_array[] = [htmlspecialchars(gettext('Backup & Restore')), false, "diag_backup.php"];
-$tab_array[] = [gettext('Config History'), true, 'diag_confbak.php'];
+$tab_array[] = [gettext('Configuration History'), true, 'diag_confbak.php'];
+$tab_array[] = [gettext('Remote Backup'), false, 'diag_backup_remote.php'];
 display_top_tabs($tab_array);
 
 if ($diff):
@@ -194,7 +195,7 @@ if (is_array($confvers)):
 			<thead>
 				<tr>
 					<th colspan="2">
-						<button type="submit" name="compare" class="btn btn-info btn-sm" value="compare">
+						<button type="submit" name="compare" class="btn btn-info btn-sm text-nowrap" value="compare">
 							<i class="fa-solid fa-right-left icon-embed-btn"></i>
 							<?=gettext('Compare'); ?>
 						</button>
@@ -229,7 +230,7 @@ if (is_array($confvers)):
 			$date = gettext("Unknown");
 		}
 ?>
-				<tr>
+				<tr class="confrev">
 					<td>
 						<input type="radio" name="oldtime" value="<?=$version['time']?>" />
 					</td>
@@ -257,13 +258,32 @@ if (is_array($confvers)):
 	endforeach;
 ?>
 				<tr>
-					<td colspan="2">
-						<button type="submit" name="compare" class="btn btn-info btn-sm" value="compare">
+					<td colspan="2" style="vertical-align: middle;">
+						<button type="submit" name="compare" class="btn btn-info btn-sm text-nowrap" value="compare">
 							<i class="fa-solid fa-right-left icon-embed-btn"></i>
 							<?=gettext('Compare'); ?>
 						</button>
 					</td>
-					<td colspan="5"></td>
+					<td colspan="5" style="vertical-align: middle;">
+						<div id="confrev-pager" class="d-flex flex-wrap align-items-center gap-2">
+							<button type="button" class="btn btn-sm btn-secondary text-nowrap" id="confrev-prev">
+								<i class="fa-solid fa-chevron-left"></i> <?=gettext('Newer')?>
+							</button>
+							<span id="confrev-status" class="text-nowrap"></span>
+							<button type="button" class="btn btn-sm btn-secondary text-nowrap" id="confrev-next">
+								<?=gettext('Older')?> <i class="fa-solid fa-chevron-right"></i>
+							</button>
+							<label for="confrev-size" class="ms-auto mb-0 d-flex align-items-center gap-2 text-nowrap">
+								<?=gettext('Rows per page')?>
+								<select id="confrev-size" class="form-control" style="width: auto;">
+									<option value="25">25</option>
+									<option value="50">50</option>
+									<option value="100">100</option>
+									<option value="0"><?=gettext('All')?></option>
+								</select>
+							</label>
+						</div>
+					</td>
 				</tr>
 <?php
 else:
@@ -274,5 +294,55 @@ endif;
 		</table>
 	</div>
 </form>
+
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	/* Page the history rows in the browser. Hidden rows stay in the form,
+	 * so a Compare selection may span pages. */
+	var rows = $('tr.confrev');
+	if (!rows.length) {
+		return;
+	}
+	var page = 0;
+	var size = 25;
+	try {
+		var stored = parseInt(window.localStorage.getItem('diag_confbak_page_size'), 10);
+		if ([0, 25, 50, 100].indexOf(stored) >= 0) {
+			size = stored;
+		}
+	} catch (e) {}
+	$('#confrev-size').val(String(size));
+
+	function render() {
+		var total = rows.length;
+		var pages = (size > 0) ? Math.max(1, Math.ceil(total / size)) : 1;
+		page = Math.min(Math.max(page, 0), pages - 1);
+		var first = (size > 0) ? page * size : 0;
+		var last = (size > 0) ? Math.min(total, first + size) : total;
+		rows.each(function(i) {
+			$(this).toggle(i >= first && i < last);
+		});
+		$('#confrev-status').text(<?=json_encode(gettext('Backups %1$s-%2$s of %3$s'))?>
+		    .replace('%1$s', total ? first + 1 : 0).replace('%2$s', last).replace('%3$s', total));
+		$('#confrev-prev').prop('disabled', page === 0);
+		$('#confrev-next').prop('disabled', page >= pages - 1);
+		$('#confrev-pager').toggle(total > 25);
+	}
+
+	$('#confrev-prev').on('click', function() { page--; render(); });
+	$('#confrev-next').on('click', function() { page++; render(); });
+	$('#confrev-size').on('change', function() {
+		size = parseInt($(this).val(), 10) || 0;
+		page = 0;
+		try {
+			window.localStorage.setItem('diag_confbak_page_size', String(size));
+		} catch (e) {}
+		render();
+	});
+	render();
+});
+//]]>
+</script>
 
 <?php include("foot.inc");

@@ -1,0 +1,104 @@
+#!/usr/local/bin/php
+<?php
+/*
+ * freesense-remote-backup
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Copyright (c) 2026 The FreeSense Project
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Usage:
+ *   freesense-remote-backup run [--target <id>] [--force] [--reason cron|change|manual]
+ *   freesense-remote-backup test <id>
+ *   freesense-remote-backup list <id>
+ *   freesense-remote-backup status
+ */
+
+require_once('config.inc');
+require_once('functions.inc');
+/* backup.inc must be loaded at file scope: rrd_data_xml() uses its globals. */
+require_once('backup.inc');
+require_once('remote_backup.inc');
+
+function usage() {
+	fwrite(STDERR, "usage: freesense-remote-backup run [--target <id>] [--force] [--reason cron|change|manual]\n" .
+	    "       freesense-remote-backup test <id>\n" .
+	    "       freesense-remote-backup list <id>\n" .
+	    "       freesense-remote-backup status\n");
+	exit(64);
+}
+
+function target_or_exit($id) {
+	list(, $t) = remote_backup_find_target((string)$id);
+	if ($t === null) {
+		fwrite(STDERR, "unknown target: {$id}\n");
+		exit(66);
+	}
+	return $t;
+}
+
+$args = array_slice($argv, 1);
+$command = array_shift($args);
+
+switch ($command) {
+case 'run':
+	$target = null;
+	$force = false;
+	$reason = 'manual';
+	while (($arg = array_shift($args)) !== null) {
+		if ($arg === '--force') {
+			$force = true;
+		} elseif ($arg === '--target' && !empty($args)) {
+			$target = array_shift($args);
+		} elseif ($arg === '--reason' && in_array($args[0] ?? '', array('cron', 'change', 'manual'), true)) {
+			$reason = array_shift($args);
+		} else {
+			usage();
+		}
+	}
+	/* The on-change job runs every five minutes but only acts on a queued save. */
+	if ($reason === 'change' && !file_exists(REMOTE_BACKUP_PENDING)) {
+		exit(0);
+	}
+	$failed = false;
+	foreach (remote_backup_run($target, $reason, $force) as $id => $result) {
+		printf("%s: %s %s\n", $id, $result['status'], $result['message']);
+		$failed = $failed || ($result['status'] === 'failed');
+	}
+	exit($failed ? 1 : 0);
+
+case 'test':
+	$result = remote_backup_test_target(target_or_exit($args[0] ?? ''));
+	echo ($result['ok'] ? 'ok: ' : 'failed: ') . $result['message'] . "\n";
+	exit($result['ok'] ? 0 : 1);
+
+case 'list':
+	$names = remote_backup_list(target_or_exit($args[0] ?? ''));
+	if (!is_array($names)) {
+		fwrite(STDERR, "failed: {$names}\n");
+		exit(1);
+	}
+	echo implode("\n", $names) . (empty($names) ? '' : "\n");
+	exit(0);
+
+case 'status':
+	echo json_encode(remote_backup_state_read(), JSON_PRETTY_PRINT) . "\n";
+	exit(0);
+
+default:
+	usage();
+}

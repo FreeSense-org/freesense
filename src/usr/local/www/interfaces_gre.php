@@ -28,34 +28,10 @@
 
 require_once("guiconfig.inc");
 require_once("functions.inc");
-
-function gre_inuse($num) {
-	$a_gres = config_get_path('gres/gre', []);
-	$iflist = get_configured_interface_list(true);
-	$if_config = config_get_path('interfaces', []);
-	foreach ($iflist as $if) {
-		if ($if_config[$if]['if'] == $a_gres[$num]['greif']) {
-			return true;
-		}
-	}
-
-	return false;
-}
+require_once("interfaces_tunnels.inc");
 
 if ($_POST['act'] == "del") {
-	if (!isset($_POST['id'])) {
-		$input_errors[] = gettext("Wrong parameters supplied");
-	} else if (empty(config_get_path("gres/gre/{$_POST['id']}"))) {
-		$input_errors[] = gettext("Wrong index supplied");
-	/* check if still in use */
-	} else if (gre_inuse($_POST['id'])) {
-		$input_errors[] = gettext("This GRE tunnel cannot be deleted because it is still being used as an interface.");
-	} else {
-		FreeSense_interface_destroy(config_get_path("gres/gre/{$_POST['id']}/greif"));
-		config_del_path("gres/gre/{$_POST['id']}");
-
-		write_config("GRE interface deleted");
-
+	if (interfaces_gre_delete($_POST['id'] ?? null, $input_errors)) {
 		header("Location: interfaces_gre.php");
 		exit;
 	}

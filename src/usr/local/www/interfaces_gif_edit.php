@@ -27,6 +27,7 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("interfaces_tunnels.inc");
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
@@ -50,116 +51,11 @@ if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "if remote-addr tunnel-local-addr tunnel-remote-addr tunnel-remote-net");
-	$reqdfieldsn = array(gettext("Parent interface"), gettext("gif remote address"), gettext("gif tunnel local address"), gettext("gif tunnel remote address"), gettext("gif tunnel remote netmask"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ((!is_ipaddr($_POST['tunnel-local-addr']) || is_subnet($_POST['tunnel-local-addr'])) ||
-	    (!is_ipaddr($_POST['tunnel-remote-addr']) || is_subnet($_POST['tunnel-remote-addr'])) ||
-	    (!is_ipaddr($_POST['remote-addr']) || is_subnet($_POST['remote-addr']))) {
-		$input_errors[] = gettext("The tunnel local and tunnel remote fields must have valid IP addresses and must not contain CIDR masks or prefixes.");
-	}
-
-	if (!is_numericint($_POST['tunnel-remote-net'])) {
-		$input_errors[] = gettext("The gif tunnel subnet must be an integer.");
-	}
-
-	if (is_ipaddrv4($_POST['tunnel-local-addr'])) {
-		if (!is_ipaddrv4($_POST['tunnel-remote-addr'])) {
-			$input_errors[] = gettext("The gif tunnel remote address must be IPv4 where tunnel local address is IPv4.");
-		}
-		if ($_POST['tunnel-remote-net'] > 32 || $_POST['tunnel-remote-net'] < 1) {
-			$input_errors[] = gettext("The gif tunnel subnet must be an integer between 1 and 32.");
-		}
-	}
-
-	if (is_ipaddrv6($_POST['tunnel-local-addr'])) {
-		if (!is_ipaddrv6($_POST['tunnel-remote-addr'])) {
-			$input_errors[] = gettext("The gif tunnel remote address must be IPv6 where tunnel local address is IPv6.");
-		}
-		if ($_POST['tunnel-remote-net'] > 128 || $_POST['tunnel-remote-net'] < 1) {
-			$input_errors[] = gettext("The gif tunnel subnet must be an integer between 1 and 128.");
-		}
-	}
-
-	$alias = strstr($_POST['if'], '|');
-	if ((is_ipaddrv4($alias) && !is_ipaddrv4($_POST['remote-addr'])) ||
-	    (is_ipaddrv6($alias) && !is_ipaddrv6($_POST['remote-addr']))) {
-		$input_errors[] = gettext("The alias IP address family has to match the family of the remote peer address.");
-	}
-
-	foreach (config_get_path('gifs/gif', []) as $gif) {
-		if ($this_gif_config && ($this_gif_config === $gif)) {
-			continue;
-		}
-
-		/* FIXME: needs to perform proper subnet checks in the future */
-		if (($gif['if'] == $interface) && ($gif['tunnel-remote-addr'] == $_POST['tunnel-remote-addr'])) {
-			$input_errors[] = sprintf(gettext("A gif with the network %s is already defined."), $gif['tunnel-remote-addr']);
-			break;
-		}
-	}
-
+	$input_errors = interfaces_gif_save($_POST, $id);
 	if (!$input_errors) {
-		$gif = array();
-		list($gif['if'], $gif['ipaddr']) = explode("|", $_POST['if']);
-		$gif['tunnel-local-addr'] = $_POST['tunnel-local-addr'];
-		$gif['tunnel-remote-addr'] = $_POST['tunnel-remote-addr'];
-		$gif['tunnel-remote-net'] = $_POST['tunnel-remote-net'];
-		$gif['remote-addr'] = $_POST['remote-addr'];
-		$gif['descr'] = $_POST['descr'];
-		if (isset($_POST['link1'])) {
-			$gif['link1'] = '';
-		}
-		if (isset($_POST['link2'])) {
-			$gif['link2'] = '';
-		}
-
-		if (empty($_POST['gifif']) ||
-		    preg_match("/^gif[0-9]+$/", $_POST['gifif'])) {
-			/* Attempt initial configuration of the GIF if the
-			 * submitted interface is empty or looks like a GIF
-			 * interface. */
-			$gif['gifif'] = $_POST['gifif'];
-			$gif['gifif'] = interface_gif_configure($gif);
-		} else {
-			$input_errors[] = gettext("Invalid GIF interface.");
-		}
-
-		if (empty($gif['gifif']) ||
-		    !preg_match("/^gif[0-9]+$/", $gif['gifif'])) {
-			$input_errors[] = gettext("Error occurred creating interface, please retry.");
-		} else {
-			if ($this_gif_config) {
-				config_set_path("gifs/gif/{$id}", $gif);
-			} else {
-				config_set_path('gifs/gif/', $gif);
-			}
-
-			write_config("GIF interface added");
-
-			$confif = convert_real_interface_to_friendly_interface_name($gif['gifif']);
-
-			if ($confif != "") {
-				interface_configure($confif);
-			}
-
-			header("Location: interfaces_gif.php");
-			exit;
-		}
+		header("Location: interfaces_gif.php");
+		exit;
 	}
-}
-
-function build_parent_list() {
-	$parentlist = array();
-	$portlist = get_possible_listen_ips();
-	foreach ($portlist as $ifn => $ifinfo) {
-		$parentlist[$ifn] = $ifinfo;
-	}
-
-	return($parentlist);
 }
 
 $pgtitle = array(gettext("Interfaces"), gettext("GIFs"), gettext("Edit"));
@@ -179,7 +75,7 @@ $section->addInput(new Form_Select(
 	'if',
 	'*Parent Interface',
 	$pconfig['if'],
-	build_parent_list()
+	interfaces_tunnel_parent_list('gif')
 ))->setHelp('This interface serves as the local address to be used for the GIF tunnel.');
 
 $section->addInput(new Form_IpAddress(
