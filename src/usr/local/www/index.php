@@ -324,7 +324,7 @@ if ($dashboard_available_widgets_hidden) {
 }
 
 ## Set Page Title and Include Header
-$pgtitle = array(gettext("Status"), gettext("Dashboard"));
+$pgtitle = array(gettext("Home"));
 include("head.inc");
 
 if ($savemsg) {
@@ -495,7 +495,7 @@ function updateWidgets(newWidget) {
 
 	$('.container .col-md-<?=$columnWidth?>').each(function(idx, col) {
 		$('.panel', col).each(function(idx, widget) {
-			var isOpen = $('.panel-body', widget).hasClass('in');
+			var isOpen = $('.panel-body', widget).hasClass('show');
 			var widget_basename = widget.id.split('-')[1];
 
 			// Only save details for panels that have id's like 'widget-*'
