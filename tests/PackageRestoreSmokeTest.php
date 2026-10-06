@@ -215,4 +215,32 @@ check_package_restore(
     $source_packages[0]['raw'] === 'Secure Web Gateway',
     'same-lineage restore used the display name instead of internal package name');
 
+/* A daemon-style internal_name (bind: "named", freeradius3: "radiusd") must
+ * still match the catalog by package name instead of being quarantined. */
+$daemon_config = array(
+	'installedpackages' => array(
+		'package' => array(
+			array('name' => 'bind', 'internal_name' => 'named', 'configurationfile' => 'bind.xml'),
+			array('name' => 'freeradius3', 'internal_name' => 'radiusd', 'configurationfile' => 'freeradius.xml'),
+			array('name' => 'OpenVPN Client Export Utility', 'internal_name' => 'openvpn-client-export'),
+		),
+		'bind' => array('config' => array(array('enable_bind' => 'on'))),
+		'freeradius' => array('config' => array(array('varsettingsmaxrequests' => '1024'))),
+	),
+);
+$daemon = freesense_package_restore_extract($daemon_config,
+    array('bind', 'freeradius3', 'openvpn-client-export'), null);
+$daemon_status = array();
+foreach ($daemon['packages'] as $package) {
+	$daemon_status[$package['internal_name']] = array($package['status'], $package['target']);
+}
+check_package_restore(($daemon_status['named'] ?? null) === array('available', 'bind'),
+    'bind (internal_name "named") must match the catalog entry "bind"');
+check_package_restore(($daemon_status['radiusd'] ?? null) === array('available', 'freeradius3'),
+    'freeradius3 (internal_name "radiusd") must match the catalog entry "freeradius3"');
+check_package_restore(($daemon_status['openvpn-client-export'] ?? null) === array('available', 'openvpn-client-export'),
+    'an internal_name that is in the catalog must still be used first');
+check_package_restore(empty($daemon['quarantine']),
+    'available daemon-named packages must not be quarantined');
+
 echo "Package restore reconciliation: valid\n";
