@@ -89,6 +89,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | vpn_ipsec_mobile, _settings | Settings | standard | D | |
 | vpn_ipsec_keys / _edit | List / Editor | standard | B / D | |
 | vpn_openvpn_server, _client, _csc | List + Editor (`act=edit`) | list view standard (badges, row actions); editor sections | B / D | M |
+| vpn_openvpn_server | List + Editor | **done** (Phase E): tiles, mode/state filters, mode badge, crypto chips; editor header card, cards General → Endpoint → Crypto → Tunnel → Clients, collapsible certificate checks / DNS-NetBIOS / ping / advanced; form parity checked in 28 states | E | |
 | vpn_l2tp | Settings | standard | D | **done** (Phase E): summary card, cards in fill-in order, RADIUS/Advanced collapsible |
 | vpn_l2tp_users / _edit | List / Editor | standard | B / D | **done** (Phase E): tiles, filter, add/edit modal posting to _edit; editor rebuilt with summary card |
 
