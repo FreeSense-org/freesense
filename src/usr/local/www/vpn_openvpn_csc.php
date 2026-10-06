@@ -127,16 +127,6 @@ fs_tabs('vpn-openvpn', 'vpn_openvpn_csc.php');
 ?>
 
 <style>
-.fs-ovpn-summary .panel-body { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 1rem 2rem; }
-.fs-ovpn-summary-id { display: flex; align-items: center; gap: .75rem; flex: 1 1 14rem; min-width: 0; }
-.fs-ovpn-summary-icon { display: grid; place-items: center; flex: none; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
-.fs-ovpn-summary-name { color: var(--fs-text-strong); font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
-.fs-ovpn-summary-sub { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .5rem; margin-top: .2rem; }
-.fs-ovpn-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .6rem 1.5rem; flex: 3 1 28rem; min-width: 0; margin: 0; }
-.fs-ovpn-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
-.fs-ovpn-facts dd { margin: 0; overflow-wrap: anywhere; }
-.fs-ovpn-chips { display: inline-flex; flex-wrap: wrap; gap: .25rem; }
-.fs-ovpn-chip { display: inline-block; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.4rem; white-space: nowrap; }
 .fs-ovpn-sub { margin-top: .15rem; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
 </style>
 
@@ -157,32 +147,26 @@ if ($is_editor):
 	} else {
 		$sum_name = gettext('New override');
 	}
-?>
-<div class="panel panel-default fs-ovpn-summary">
-	<div class="panel-body">
-		<div class="fs-ovpn-summary-id">
-			<span class="fs-ovpn-summary-icon"><i class="fa-solid fa-user-gear" aria-hidden="true"></i></span>
-			<div>
-				<div class="fs-ovpn-summary-name"><?=htmlspecialchars($sum_name)?></div>
-				<div class="fs-ovpn-summary-sub">
-<?php if ($act == "edit"): ?>
-					<?=!empty($sum['disable']) ? fs_badge('disabled') : fs_badge('enabled')?>
-					<?=!empty($sum['block']) ? fs_badge('block', gettext('Blocked')) : ''?>
-					<?php if (!empty($sum['description'])): ?><span class="fs-muted small"><?=htmlspecialchars($sum['description'])?></span><?php endif; ?>
-<?php else: ?>
-					<?=fs_badge('info', gettext('Not saved yet'))?>
-<?php endif; ?>
-				</div>
-			</div>
-		</div>
-		<dl class="fs-ovpn-facts">
-			<div><dt><?=gettext('Applies to')?></dt><dd><?=empty($sum_servers) ? htmlspecialchars(gettext('All servers')) : '<span class="fs-ovpn-chips">' . implode('', array_map(function ($n) { return '<span class="fs-ovpn-chip">' . htmlspecialchars($n) . '</span>'; }, $sum_servers)) . '</span>'?></dd></div>
-			<div><dt><?=gettext('Tunnel address')?></dt><dd><?=(empty($sum_networks)) ? '<span class="fs-muted">' . gettext('From server') . '</span>' : '<span class="fs-mono">' . htmlspecialchars(implode(', ', $sum_networks)) . '</span>'?></dd></div>
-			<div><dt><?=gettext('Server options')?></dt><dd><?=htmlspecialchars($override_labels[$sum_override] ?? $sum_override)?></dd></div>
-		</dl>
-	</div>
-</div>
-<?php
+
+	$sum_badges = [fs_badge('info', gettext('Not saved yet'))];
+	if ($act == "edit") {
+		$sum_badges = [!empty($sum['disable']) ? fs_badge('disabled') : fs_badge('enabled')];
+		if (!empty($sum['block'])) {
+			$sum_badges[] = fs_badge('block', gettext('Blocked'));
+		}
+	}
+	fs_summary_card([
+		'icon' => 'fa-user-gear',
+		'title' => $sum_name,
+		'subtitle' => ($act == "edit") ? (string)($sum['description'] ?? '') : '',
+		'badges' => $sum_badges,
+		'facts' => [
+			[gettext('Applies to'), '', 'chips' => $sum_servers, 'empty' => gettext('All servers')],
+			[gettext('Tunnel address'), implode(', ', $sum_networks), 'mono' => true, 'empty' => gettext('From server')],
+			[gettext('Server options'), $override_labels[$sum_override] ?? $sum_override],
+		],
+		'label' => gettext('Override summary'),
+	]);
 	$form = new Form();
 	$closed = !empty($input_errors) ? SEC_OPEN : SEC_CLOSED;
 
@@ -828,15 +812,15 @@ else :  // Not an 'add' or an 'edit'. Just the table of Override CSCs
 						<?=$blocked ? fs_badge('block', gettext('Blocked')) : ''?>
 					</td>
 					<td class="fs-mono"><a href="vpn_openvpn_csc.php?act=edit&amp;id=<?=$i?>"><?=htmlspecialchars($name)?></a></td>
-					<td><?=empty($servers) ? '<span class="fs-muted">' . gettext('All servers') . '</span>' : '<span class="fs-ovpn-chips">' . implode('', array_map(function ($n) { return '<span class="fs-ovpn-chip">' . htmlspecialchars($n) . '</span>'; }, $servers)) . '</span>'?></td>
+					<td><?=empty($servers) ? '<span class="fs-muted">' . gettext('All servers') . '</span>' : '<span class="fs-chips">' . implode('', array_map(function ($n) { return '<span class="fs-chip fs-chip--strong">' . htmlspecialchars($n) . '</span>'; }, $servers)) . '</span>'?></td>
 					<td><?=(empty($networks)) ? '<span class="fs-muted">' . gettext('From server') . '</span>' : '<span class="fs-mono">' . htmlspecialchars(implode(', ', $networks)) . '</span>'?></td>
 					<td>
 <?php if (empty($chips)): ?>
 						<span class="fs-muted">&ndash;</span>
 <?php else: ?>
-						<span class="fs-ovpn-chips">
+						<span class="fs-chips">
 <?php foreach ($chips as $chip): ?>
-							<span class="fs-ovpn-chip"<?=($chip[1] !== '') ? ' title="' . htmlspecialchars($chip[1]) . '"' : ''?>><?=htmlspecialchars($chip[0])?></span>
+							<span class="fs-chip fs-chip--strong"<?=($chip[1] !== '') ? ' title="' . htmlspecialchars($chip[1]) . '"' : ''?>><?=htmlspecialchars($chip[0])?></span>
 <?php endforeach; ?>
 						</span>
 <?php endif; ?>

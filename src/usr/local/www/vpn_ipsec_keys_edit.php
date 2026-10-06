@@ -74,37 +74,20 @@ if ($input_errors)
 if ($editing):
 	$stored_type = empty($stored['type']) ? 'PSK' : $stored['type'];
 	$ident_types = ipsec_psk_ident_type_list();
-?>
-<style>
-.fs-ipsec-sum { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; padding: 1rem 1.25rem; }
-.fs-ipsec-sum-head { display: flex; align-items: center; gap: .75rem; min-width: 0; }
-.fs-ipsec-sum-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
-.fs-ipsec-sum-title { font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); word-break: break-all; }
-.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
-.fs-ipsec-sum-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
-.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
-.fs-ipsec-sum-facts dd { margin: 0; color: var(--fs-text-strong); }
-</style>
-<div class="panel panel-default">
-	<div class="fs-ipsec-sum">
-		<div class="fs-ipsec-sum-head">
-			<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-key" aria-hidden="true"></i></span>
-			<div>
-				<div class="fs-ipsec-sum-title"><?=htmlspecialchars($stored['ident'])?></div>
-				<div class="fs-ipsec-sum-sub"><?=gettext('Mobile pre-shared key')?></div>
-			</div>
-		</div>
-		<dl class="fs-ipsec-sum-facts">
-			<div><dt><?=gettext('Secret type')?></dt><dd><?=htmlspecialchars($stored_type)?></dd></div>
-<?php if ($stored_type == 'EAP'): ?>
-			<div><dt><?=gettext('Identifier type')?></dt><dd><?=htmlspecialchars(!empty($stored['ident_type']) ? ($ident_types[$stored['ident_type']] ?? $stored['ident_type']) : gettext('Not set'))?></dd></div>
-			<div><dt><?=gettext('Address pool')?></dt><dd class="fs-mono"><?=htmlspecialchars(!empty($stored['pool_address']) ? $stored['pool_address'] . '/' . $stored['pool_netbits'] : gettext('Mobile clients pool'))?></dd></div>
-			<div><dt><?=gettext('DNS server')?></dt><dd class="fs-mono"><?=htmlspecialchars(!empty($stored['dns_address']) ? $stored['dns_address'] : gettext('Mobile clients DNS'))?></dd></div>
-<?php endif; ?>
-		</dl>
-	</div>
-</div>
-<?php
+
+	$stored_facts = [[gettext('Secret type'), $stored_type]];
+	if ($stored_type == 'EAP') {
+		$stored_facts[] = [gettext('Identifier type'), !empty($stored['ident_type']) ? ($ident_types[$stored['ident_type']] ?? $stored['ident_type']) : gettext('Not set')];
+		$stored_facts[] = [gettext('Address pool'), !empty($stored['pool_address']) ? $stored['pool_address'] . '/' . $stored['pool_netbits'] : gettext('Mobile clients pool'), 'mono' => !empty($stored['pool_address'])];
+		$stored_facts[] = [gettext('DNS server'), !empty($stored['dns_address']) ? $stored['dns_address'] : gettext('Mobile clients DNS'), 'mono' => !empty($stored['dns_address'])];
+	}
+	fs_summary_card([
+		'icon' => 'fa-key',
+		'title' => $stored['ident'],
+		'subtitle' => gettext('Mobile pre-shared key'),
+		'facts' => $stored_facts,
+		'label' => gettext('Pre-shared key summary'),
+	]);
 endif;
 
 $form = new Form;

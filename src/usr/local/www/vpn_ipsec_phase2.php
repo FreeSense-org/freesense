@@ -129,7 +129,7 @@ $fs_ipsec_pick = function ($value, array $options) {
 /* every select-backed fact uses the option list of the field below it */
 $p2_sum_facts = array();
 $p2_sum_mode = $fs_ipsec_pick($p2_summary['mode'], $p2_modes);
-$p2_sum_facts[] = array(gettext("Mode"), fs_h($p2_modes[$p2_sum_mode]));
+$p2_sum_facts[] = array(gettext("Mode"), $p2_modes[$p2_sum_mode]);
 $p2_sum_typelists = array(
 	'local' => get_specialnet('', $ipsec_lidtype_flags),
 	'remote' => array('address' => gettext('Address'), 'network' => gettext('Network')),
@@ -157,7 +157,7 @@ if ($p2_sum_mode == 'transport') {
 			$p2_sum_ids[] = fs_h(ipsec_idinfo_to_text($p2_sum_id));
 		}
 	}
-	$p2_sum_net = $p2_sum_ids[0] . ' <i class="fa-solid fa-arrow-right-arrow-left fs-ipsec-sum-arrow" aria-hidden="true"></i><span class="visually-hidden">' .
+	$p2_sum_net = $p2_sum_ids[0] . ' <i class="fa-solid fa-arrow-right-arrow-left fs-p2-arrow" aria-hidden="true"></i><span class="visually-hidden">' .
 	    fs_h(gettext("to")) . '</span> ' . $p2_sum_ids[1];
 	$p2_sum_nattype = (string)$fs_ipsec_pick($p2_summary['natlocalid_type'], $p2_sum_typelists['natlocal']);
 	if (($p2_sum_mode != 'vti') && ($p2_sum_nattype !== '') && ($p2_sum_nattype != 'none')) {
@@ -166,10 +166,10 @@ if ($p2_sum_mode == 'transport') {
 			'address' => (string)$p2_summary['natlocalid_address'],
 			'netbits' => (string)$p2_summary['natlocalid_netbits'],
 		);
-		$p2_sum_net .= '<span class="fs-ipsec-sum-note">' . fs_h(sprintf(gettext("Local translated to %s"), ipsec_idinfo_to_text($p2_sum_nat))) . '</span>';
+		$p2_sum_net .= '<span class="fs-summary-note">' . fs_h(sprintf(gettext("Local translated to %s"), ipsec_idinfo_to_text($p2_sum_nat))) . '</span>';
 	}
 }
-$p2_sum_facts[] = array(($p2_sum_mode == 'vti') ? gettext("Tunnel addresses") : gettext("Local and remote networks"), $p2_sum_net);
+$p2_sum_facts[] = array(($p2_sum_mode == 'vti') ? gettext("Tunnel addresses") : gettext("Local and remote networks"), '', 'html' => $p2_sum_net);
 
 $p2_sum_proto = $fs_ipsec_pick($p2_summary['proto'], $p2_protos);
 $p2_sum_prop = array($p2_protos[$p2_sum_proto]);
@@ -212,17 +212,16 @@ if (isset($p2_summary['mobile']) && !empty(config_get_path('ipsec/client/pfs_gro
 	$p2_sum_pfs = $fs_ipsec_pick($p2_summary['pfsgroup'], $p2_pfskeygroups);
 	$p2_sum_prop[] = empty($p2_sum_pfs) ? gettext("PFS off") : sprintf(gettext("PFS %s"), $p2_sum_pfs);
 }
-$p2_sum_facts[] = array(gettext("Proposal"), fs_h(implode(' · ', $p2_sum_prop)));
+$p2_sum_facts[] = array(gettext("Proposal"), implode(' · ', $p2_sum_prop));
 
 $p2_sum_p1 = !empty($p2_summary['ikeid']) ? ipsec_get_phase1($p2_summary['ikeid']) : null;
 if ($p2_sum_p1) {
 	$p2_sum_p1name = trim((string)$p2_sum_p1['descr']);
-	$p2_sum_facts[] = array(gettext("Phase 1"),
-	    '<a href="vpn_ipsec_phase1.php?ikeid=' . fs_h(urlencode((string)$p2_sum_p1['ikeid'])) . '" title="' . fs_h(gettext("Edit Phase 1 Entry")) . '">' .
-	    (($p2_sum_p1name === '') ? '<i>' . fs_h(gettext("No description")) . '</i>' : fs_h($p2_sum_p1name)) . '</a>' .
-	    '<span class="fs-ipsec-sum-note">' . fs_h(sprintf(gettext("IKE ID %s"), $p2_summary['ikeid']) .
+	$p2_sum_facts[] = array(gettext("Phase 1"), ($p2_sum_p1name === '') ? gettext("No description") : $p2_sum_p1name,
+	    'href' => 'vpn_ipsec_phase1.php?ikeid=' . urlencode((string)$p2_sum_p1['ikeid']),
+	    'note' => sprintf(gettext("IKE ID %s"), $p2_summary['ikeid']) .
 	    (isset($p2_summary['mobile']) ? ' · ' . gettext("Mobile clients") : '') .
-	    (isset($p2_sum_p1['remote-gateway']) ? ' · ' . $p2_sum_p1['remote-gateway'] : '')) . '</span>');
+	    (isset($p2_sum_p1['remote-gateway']) ? ' · ' . $p2_sum_p1['remote-gateway'] : ''));
 }
 
 $p2_sum_sub = array(gettext("Phase 2"));
@@ -241,37 +240,18 @@ if ($p2_is_new) {
 }
 ?>
 <style>
-.fs-ipsec-sum { padding: var(--fs-sp-4); }
-.fs-ipsec-sum-head { display: flex; align-items: center; gap: var(--fs-sp-3); min-width: 0; }
-.fs-ipsec-sum-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: 1.1rem; }
-.fs-ipsec-sum-name { flex: 1 1 auto; min-width: 0; }
-.fs-ipsec-sum-title { overflow-wrap: anywhere; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; line-height: 1.3; }
-.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
-.fs-ipsec-sum-head > .fs-badge { flex: 0 0 auto; }
-.fs-ipsec-sum-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: var(--fs-sp-4) 0 0; padding-top: var(--fs-sp-3); border-top: 1px solid var(--fs-border); }
-.fs-ipsec-sum-facts > div { min-width: 0; }
-.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
-.fs-ipsec-sum-facts dd { margin: .1rem 0 0; overflow-wrap: anywhere; color: var(--fs-text); font-weight: 500; }
-.fs-ipsec-sum-note { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 400; }
-.fs-ipsec-sum-arrow { margin: 0 .3rem; color: var(--fs-text-muted); font-size: .85em; }
-@media (max-width: 575.98px) { .fs-ipsec-sum-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fs-p2-arrow { margin: 0 .3rem; color: var(--fs-text-muted); font-size: .85em; }
 </style>
-<div class="panel panel-default fs-ipsec-sum" aria-label="<?=fs_h(gettext("Phase 2 summary"))?>" role="region">
-	<div class="fs-ipsec-sum-head">
-		<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-route" aria-hidden="true"></i></span>
-		<div class="fs-ipsec-sum-name">
-			<div class="fs-ipsec-sum-title"><?php if ($p2_sum_title === ''): ?><span class="fs-muted"><?=htmlspecialchars($p2_is_new ? gettext("New phase 2") : gettext("No description"))?></span><?php else: ?><?=htmlspecialchars($p2_sum_title)?><?php endif; ?></div>
-			<div class="fs-ipsec-sum-sub"><?=fs_h(implode(' · ', $p2_sum_sub))?></div>
-		</div>
-		<?=$p2_sum_badge?>
-	</div>
-	<dl class="fs-ipsec-sum-facts">
-<?php foreach ($p2_sum_facts as $p2_sum_fact): ?>
-		<div><dt><?=fs_h($p2_sum_fact[0])?></dt><dd><?=$p2_sum_fact[1]?></dd></div>
-<?php endforeach; ?>
-	</dl>
-</div>
 <?php
+fs_summary_card([
+	'icon' => 'fa-route',
+	'title' => $p2_sum_title,
+	'placeholder' => $p2_is_new ? gettext("New phase 2") : gettext("No description"),
+	'subtitle' => implode(' · ', $p2_sum_sub),
+	'badges' => [$p2_sum_badge],
+	'facts' => $p2_sum_facts,
+	'label' => gettext("Phase 2 summary"),
+]);
 
 /* ------------------------------------------------------------------- form */
 

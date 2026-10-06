@@ -79,38 +79,17 @@ if ($input_errors) {
 if ($radius_on) {
 	print_info_box(gettext("RADIUS is enabled. The local user database will not be used."), 'warning');
 }
-?>
-<style>
-.fs-l2tp-summary .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-4); padding: var(--fs-sp-4); }
-.fs-l2tp-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); }
-.fs-l2tp-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: var(--fs-fs-lg); }
-.fs-l2tp-name { flex: 1 1 12rem; min-width: 0; }
-.fs-l2tp-title { margin: 0; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; overflow-wrap: anywhere; }
-.fs-l2tp-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
-.fs-l2tp-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: 0; }
-.fs-l2tp-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
-.fs-l2tp-facts dd { margin: .15rem 0 0; color: var(--fs-text-strong); overflow-wrap: anywhere; }
-@media (max-width: 575.98px) { .fs-l2tp-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-</style>
 
-<div class="panel panel-default fs-l2tp-summary">
-	<div class="panel-body">
-		<div class="fs-l2tp-head">
-			<span class="fs-l2tp-icon"><i class="fa-solid <?=$this_secret_config ? 'fa-user' : 'fa-user-plus'?>" aria-hidden="true"></i></span>
-			<div class="fs-l2tp-name">
-				<h2 class="fs-l2tp-title"><?=$this_secret_config ? htmlspecialchars($this_secret_config['name']) : gettext('New L2TP user')?></h2>
-				<div class="fs-l2tp-sub"><?=$this_secret_config ? gettext('L2TP user') : gettext('Users sign in to the L2TP server with this name and password.')?></div>
-			</div>
-		</div>
-<?php if ($this_secret_config): ?>
-		<dl class="fs-l2tp-facts">
-			<div><dt><?=gettext('IP address')?></dt><dd><?php if (($this_secret_config['ip'] ?? '') !== ''): ?><span class="fs-mono"><?=htmlspecialchars($this_secret_config['ip'])?></span><?php else: ?><span class="fs-muted"><?=gettext('dynamic')?></span><?php endif; ?></dd></div>
-			<div><dt><?=gettext('Authentication')?></dt><dd><?=htmlspecialchars($auth_label)?></dd></div>
-		</dl>
-<?php endif; ?>
-	</div>
-</div>
-<?php
+fs_summary_card([
+	'icon' => $this_secret_config ? 'fa-user' : 'fa-user-plus',
+	'title' => $this_secret_config ? $this_secret_config['name'] : gettext('New L2TP user'),
+	'subtitle' => $this_secret_config ? gettext('L2TP user') : gettext('Users sign in to the L2TP server with this name and password.'),
+	'facts' => $this_secret_config ? [
+		[gettext('IP address'), (string)($this_secret_config['ip'] ?? ''), 'mono' => true, 'empty' => gettext('dynamic')],
+		[gettext('Authentication'), $auth_label],
+	] : [],
+	'label' => gettext('L2TP user summary'),
+]);
 $form = new Form();
 
 $section = new Form_Section("Account", 'l2tp-user-account');

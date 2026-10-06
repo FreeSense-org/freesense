@@ -113,6 +113,15 @@ print_callout(gettext("The capabilities offered here can be dangerous. No suppor
 .fs-edit-bar .fs-edit-goto input { width: 6rem; }
 #fbBrowser { display: none; margin: var(--fs-sp-3) var(--fs-sp-4) 0; padding: var(--fs-sp-3); border: 1px dashed var(--fs-border); border-radius: var(--fs-r-sm); }
 .fs-edit-body { padding: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-4); }
+/* phones: the path takes a full row, Load / Browse share the next one */
+@media (max-width: 575.98px) {
+	.fs-edit-bar .fs-edit-path { flex: 1 1 100%; flex-wrap: wrap; row-gap: var(--fs-sp-2); }
+	.fs-edit-path > #fbTarget { flex: 1 1 100%; width: 100%; border-radius: var(--bs-border-radius) !important; }
+	.fs-edit-path > .btn { flex: 1 1 0; }
+	.fs-edit-path > #fbLoad { margin-left: 0; border-top-left-radius: var(--bs-border-radius) !important; border-bottom-left-radius: var(--bs-border-radius) !important; }
+	.fs-edit-bar .fs-edit-goto { flex: 1 1 10rem; }
+	.fs-edit-bar .fs-edit-goto input { width: 1%; min-width: 3rem; }
+}
 #fileContent { font-family: var(--fs-font-mono); font-size: var(--fs-fs-sm); line-height: <?=$lineheight?>px; white-space: pre; }
 </style>
 

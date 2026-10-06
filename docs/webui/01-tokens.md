@@ -48,6 +48,30 @@ Used only through `fs_badge()` / `.fs-badge--*`. A badge is the text color on a 
 
 Color is never the only signal: the badge always has text.
 
+## Chart series
+
+Charts (pie, line, bar) color their series with `--fs-series-1` … `--fs-series-8`, never with hex
+values in the page. Each token has a light and a dark step of the same hue; read them at draw time
+(`getComputedStyle(document.body).getPropertyValue('--fs-series-1')`) so the chart follows the theme.
+
+| Token | Hue | Light | Dark |
+|---|---|---|---|
+| `--fs-series-1` | blue | `#2a78d6` | `#3987e5` |
+| `--fs-series-2` | orange | `#eb6834` | `#d95926` |
+| `--fs-series-3` | aqua | `#1baf7a` | `#199e70` |
+| `--fs-series-4` | yellow | `#eda100` | `#c98500` |
+| `--fs-series-5` | magenta | `#e87ba4` | `#d55181` |
+| `--fs-series-6` | green | `#008300` | `#008300` |
+| `--fs-series-7` | violet | `#4a3aa7` | `#9085e9` |
+| `--fs-series-8` | red | `#e34948` | `#e66767` |
+| `--fs-series-other` | grey | `#9aa3ae` | `#6b7380` |
+
+Rules: assign the tokens in order and never cycle them; a ninth and later series fold into
+"Other" (`--fs-series-other`). A series keeps its color when a filter hides others. The adjacent
+pairs pass a color-vision-deficiency check (ΔE ≥ 8) in both themes; slots 3–5 are below 3:1 on the
+light surface, so a chart always has a legend or table with the values (`status_logs_filter_summary.php`
+is the reference). Status colors (`--fs-pass`, `--fs-block`, …) are never used as series colors.
+
 ## Typography
 
 | Token | Value |

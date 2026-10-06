@@ -84,8 +84,6 @@ foreach (auth_get_authserver_list() as $key => $auth_server) {
 <style>
 .fs-auth-groups { padding: 0 var(--fs-sp-4) var(--fs-sp-4); }
 .fs-auth-groups h3 { margin: 0 0 var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 600; }
-.fs-auth-chips { display: flex; flex-wrap: wrap; gap: var(--fs-sp-1); margin: 0; padding: 0; list-style: none; }
-.fs-auth-chips li { padding: 0 var(--fs-sp-2); border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); font-size: var(--fs-fs-sm); line-height: 1.6rem; }
 </style>
 
 <div class="fs-tool">
@@ -135,9 +133,9 @@ foreach (auth_get_authserver_list() as $key => $auth_server) {
 		<div class="fs-auth-groups">
 			<h3><?=gettext('Group membership')?></h3>
 <?php if (!empty($groups)): ?>
-			<ul class="fs-auth-chips">
+			<ul class="fs-chips">
 <?php foreach ($groups as $group): ?>
-				<li><?=htmlspecialchars($group)?></li>
+				<li class="fs-chip"><?=htmlspecialchars($group)?></li>
 <?php endforeach; ?>
 			</ul>
 <?php else: ?>
