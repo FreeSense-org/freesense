@@ -580,7 +580,7 @@ foreach (array('dns-forwarder/host-overrides', 'dns-forwarder/domain-overrides',
 }
 foreach ($v1 as $r) {
 	if (strpos($r['path'], '/v1/services/') === 0) {
-		$want = (strpos($r['path'], '/v1/services/dns-forwarder') === 0) ? 'services.dns' : 'services.misc';
+		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' : 'services.misc';
 		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
 		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
 		if ($r['path'] === '/v1/services/upnp') {
@@ -695,6 +695,103 @@ $snmp_out = $fn_body($routes_svc, 'restapi_snmp_out');
 check_api(strpos($snmp_out, "restapi_svc_mask(\$settings['rocommunity'])") !== false && strpos($snmp_out, "restapi_svc_mask(\$settings['trapstring'])") !== false &&
     strpos($fn_body($routes_svc, 'restapi_h_snmp_get'), 'restapi_snmp_out(') !== false && strpos($fn_body($routes_svc, 'restapi_h_snmp_set'), 'restapi_snmp_out(') !== false,
     'SNMP community and trap strings are never returned');
+
+/* DNS Resolver (Unbound) */
+foreach (array('GET /v1/services/dns-resolver', 'PUT /v1/services/dns-resolver', 'POST /v1/services/dns-resolver/apply',
+    'GET /v1/services/dns-resolver/advanced', 'PUT /v1/services/dns-resolver/advanced') as $key) {
+	check_api(isset($seen[$key]), "route {$key} exists");
+}
+foreach (array('host-overrides', 'domain-overrides', 'acls') as $res) {
+	foreach (array("GET /v1/services/dns-resolver/{$res}", "GET /v1/services/dns-resolver/{$res}/{id}", "POST /v1/services/dns-resolver/{$res}",
+	    "PUT /v1/services/dns-resolver/{$res}/{id}", "DELETE /v1/services/dns-resolver/{$res}/{id}") as $key) {
+		check_api(isset($seen[$key]), "route {$key} exists");
+	}
+}
+$unbound_pages = array('POST /v1/services/dns-resolver/host-overrides' => 'services_unbound_host_edit.php',
+    'PUT /v1/services/dns-resolver/host-overrides/{id}' => 'services_unbound_host_edit.php',
+    'DELETE /v1/services/dns-resolver/host-overrides/{id}' => 'services_unbound.php',
+    'POST /v1/services/dns-resolver/domain-overrides' => 'services_unbound_domainoverride_edit.php',
+    'PUT /v1/services/dns-resolver/advanced' => 'services_unbound_advanced.php',
+    'POST /v1/services/dns-resolver/acls' => 'services_unbound_acls.php', 'POST /v1/services/dns-resolver/apply' => 'services_unbound.php');
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (isset($unbound_pages[$key])) {
+		check_api($r['page'] === $unbound_pages[$key], "{$key} is guarded by {$unbound_pages[$key]}");
+	}
+	if ((strpos($r['path'], '/v1/services/dns-resolver') === 0) && $r['write'] && ($r['path'] !== '/v1/services/dns-resolver/apply')) {
+		check_api(isset($r['query']['apply']), "{$key} accepts ?apply=true");
+	}
+}
+check_api(restapi_unbound_preselect('transparent', array('deny', 'transparent')) === 'transparent' &&
+    restapi_unbound_preselect(null, array('512', '1024')) === '512' && restapi_unbound_preselect(10, array(0, 10)) === '10' &&
+    restapi_unbound_preselect('x', array()) === 'x', 'a select reads as the stored value or the option the form preselects');
+check_api(restapi_unbound_acl_rows(array(array('network' => '192.0.2.0/24', 'description' => 'a'), array('network' => '2001:db8::'))) ===
+    array('acl_network0' => '192.0.2.0', 'mask0' => '24', 'description0' => 'a', 'acl_network1' => '2001:db8::', 'mask1' => '', 'description1' => ''),
+    'ACL networks become the edit form rows');
+check_api(api_error_status(function () { restapi_unbound_acl_rows('192.0.2.0/24'); }) === 400 &&
+    api_error_status(function () { restapi_unbound_acl_rows(array('192.0.2.0/24')); }) === 400 &&
+    api_error_status(function () { restapi_unbound_acl_rows(array(array('network' => array('x')))); }) === 400,
+    'ACL networks must be a list of objects');
+check_api(api_error_status(function () { restapi_unbound_acl_rows(array_fill(0, 51, array('network' => '192.0.2.0/24'))); }) === 400 &&
+    restapi_unbound_acl_rows(array_fill(0, 50, array('network' => '192.0.2.0/24')))['acl_network49'] === '192.0.2.0',
+    'an access list has at most 50 networks (the form ignored the rest)');
+check_api(restapi_unbound_acl_networks(array(array('acl_network' => '10.0.0.0', 'mask' => '8', 'description' => 'd'))) ===
+    array(array('network' => '10.0.0.0/8', 'description' => 'd')) && restapi_unbound_acl_networks('') === array(), 'stored ACL rows read as networks');
+
+$unbound_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_unbound.inc");
+check_api(strpos($unbound_inc, '$_POST') === false && strpos($unbound_inc, '$_REQUEST') === false && strpos($unbound_inc, '$_SESSION') === false &&
+    strpos($unbound_inc, 'header(') === false && strpos($unbound_inc, 'exit;') === false, 'services_unbound.inc takes its form fields as parameters and never redirects');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('services_unbound.inc');") !== false,
+    'the API front controller loads services_unbound.inc');
+foreach (array('hostcmp', 'hosts_sort', 'build_if_list') as $fn) {
+	check_api(strpos($unbound_inc, "function {$fn}(") === false && strpos($unbound_inc, "function unbound_{$fn}(") !== false,
+	    "the Unbound {$fn}() is renamed unbound_{$fn}() (it clashed with services_dnsmasq.inc)");
+}
+preg_match_all("/'([a-z ]+)' => gettext\\('/", $fn_body($unbound_inc, 'unbound_acl_actions'), $m);
+check_api($m[1] === array_keys(restapi_unbound_acl_actions()), 'the API lists the same access list actions as the page');
+$apply_fn = $fn_body($unbound_inc, 'unbound_apply_changes');
+foreach (array('services_unbound_configure()', "clear_subsystem_dirty('unbound')", 'system_resolvconf_generate()',
+    'system_dhcpleases_configure()', '.unbound_kea_resync', 'services_dhcpd_configure()') as $needle) {
+	check_api(strpos($apply_fn, $needle) !== false, "the shared Unbound apply runs {$needle}");
+}
+$save_gen = $fn_body($unbound_inc, 'unbound_save_general');
+check_api(strpos($save_gen, 'test_unbound_config(array_merge(config_get_path(\'unbound\', []), $pconfig), $test_output)') !== false &&
+    strpos($save_gen, 'test_unbound_config(') < strpos($save_gen, 'if (!$input_errors) {') &&
+    strpos($save_gen, 'config_set_path(') > strpos($save_gen, 'if (!$input_errors) {'),
+    'general settings are only saved when unbound-checkconf accepts the generated configuration');
+check_api(strpos($save_gen, "unbound_build_if_list(array())['options']") !== false, 'listen and outgoing interfaces must be ones the page offers');
+foreach (array('unbound_delete_override', 'unbound_delete_acl', 'unbound_save_host', 'unbound_save_domain_override', 'unbound_save_acl') as $fn) {
+	check_api(strpos($fn_body($unbound_inc, $fn), 'is_numericint($id)') !== false, "{$fn}() only takes a numeric position");
+}
+$save_acl = $fn_body($unbound_inc, 'unbound_save_acl');
+check_api(strpos($save_acl, 'unbound_acl_actions()') !== false && strpos($save_acl, "preg_match('/[\\r\\n]/'") !== false,
+    'an access list needs a valid action and a name without line breaks (both are written into access_lists.conf)');
+check_api(strpos($save_acl, "\$pconfig['aclid']") === false && strpos($save_acl, 'unbound_get_next_id()') !== false &&
+    strpos($save_acl, "config_set_path('unbound/acls/', \$acl_entry)") !== false,
+    'a new access list is appended (it overwrote the list at the position of its id) and an edited one keeps its id');
+$save_adv = $fn_body($unbound_inc, 'unbound_save_advanced');
+check_api(strpos($save_adv, 'unbound_advanced_choices()') !== false && strpos($save_adv, ', array(') === false,
+    'advanced settings validate against the choices the API reports');
+check_api(strpos($save_adv, "is_numericint(\$post['sock_queue_timeout'])") !== false, 'the UDP query timeout must be an integer (it is written into unbound.conf)');
+check_api(strpos($fn_body($unbound_inc, 'unbound_save_host'), 'unbound_hosts_sort()') !== false, 'host overrides stay sorted by host');
+
+foreach (array('services_unbound.php' => array('unbound_apply_changes()', 'unbound_save_general($_POST)', 'unbound_delete_override($_POST[\'type\'], $_POST[\'id\'])', 'unbound_build_if_list('),
+    'services_unbound_host_edit.php' => array('unbound_save_host($_POST, $id)', 'unbound_host_settings($id)'),
+    'services_unbound_domainoverride_edit.php' => array('unbound_save_domain_override($_POST, $id)', 'unbound_domain_override_settings($id)'),
+    'services_unbound_acls.php' => array('unbound_apply_changes()', 'unbound_save_acl($_POST, ($act == "edit") ? $id : null)', 'unbound_delete_acl($id)', 'unbound_acl_actions()'),
+    'services_unbound_advanced.php' => array('unbound_apply_changes()', 'unbound_save_advanced($_POST)', 'unbound_advanced_settings()', 'unbound_edns_sizes()')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false &&
+	    strpos($src, 'config_del_path(') === false && preg_match('/^function\s/m', $src) === 0 && strpos($src, '_configure(') === false,
+	    "{$page} changes nothing itself and declares no functions");
+}
+$routes_ub = file_get_contents("{$root}/src/etc/inc/restapi/routes_unbound.inc");
+check_api(substr_count($routes_ub, 'write_config(') === 0 && substr_count($routes_ub, 'config_set_path(') === 0 &&
+    substr_count($routes_ub, 'config_del_path(') === 0 && substr_count($routes_ub, '_configure(') === 0 &&
+    substr_count($routes_ub, 'mark_subsystem_dirty(') === 0, 'DNS Resolver API writes only through the GUI functions');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

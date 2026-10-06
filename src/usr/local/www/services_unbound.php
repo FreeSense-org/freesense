@@ -31,189 +31,21 @@ require_once("guiconfig.inc");
 require_once("unbound.inc");
 require_once("freesense-utils.inc");
 require_once("system.inc");
+require_once("services_unbound.inc");
 
-$python_files = glob("{$g['unbound_chroot_path']}/*.py");
-$python_scripts = array();
-if (!empty($python_files)) {
-	foreach ($python_files as $file) {
-		$file = pathinfo($file, PATHINFO_FILENAME);
-		$python_scripts[$file] = $file;
-	}
-}
-else {
-	$python_scripts = array('' => 'No Python Module scripts found');
-}
-
-$pconfig['enable'] = config_path_enabled('unbound');
-$pconfig['enablessl'] = config_path_enabled('unbound', 'enablessl');
-$pconfig['strictout'] = config_path_enabled('unbound', 'strictout');
-$pconfig['dnssec'] = config_path_enabled('unbound', 'dnssec');
-$pconfig['python'] = config_path_enabled('unbound', 'python');
-$pconfig['forwarding'] = config_path_enabled('unbound', 'forwarding');
-$pconfig['forward_tls_upstream'] = config_path_enabled('unbound', 'forward_tls_upstream');
-$pconfig['regdhcp'] = config_path_enabled('unbound', 'regdhcp');
-$pconfig['regdhcpstatic'] = config_path_enabled('unbound', 'regdhcpstatic');
-$pconfig['regovpnclients'] = config_path_enabled('unbound', 'regovpnclients');
-
-$pconfig['python_order'] = config_get_path('unbound/python_order');
-$pconfig['python_script'] = config_get_path('unbound/python_script');
-$pconfig['port'] = config_get_path('unbound/port');
-$pconfig['tlsport'] = config_get_path('unbound/tlsport');
-$pconfig['sslcertref'] = config_get_path('unbound/sslcertref');
-$pconfig['custom_options'] = base64_decode(config_get_path('unbound/custom_options'));
-
-if (config_get_path('unbound/active_interface')) {
-	$pconfig['active_interface'] = explode(",", config_get_path('unbound/active_interface'));
-} else {
-	$pconfig['active_interface'] = array();
-}
-
-if (config_get_path('unbound/outgoing_interface')) {
-	$pconfig['outgoing_interface'] = explode(",", config_get_path('unbound/outgoing_interface'));
-} else {
-	$pconfig['outgoing_interface'] = array();
-}
-
-$pconfig['system_domain_local_zone_type'] = config_get_path('unbound/system_domain_local_zone_type', 'transparent');
-
-$certs_available = false;
-if (count(config_get_path('cert', []))) {
-	$certs_available = true;
-}
+$python_scripts = unbound_python_scripts();
+$pconfig = unbound_general_settings();
+$certs_available = unbound_certs_available();
 
 if ($_POST['apply']) {
-	$retval = 0;
-	$retval |= services_unbound_configure();
-	if ($retval == 0) {
-		clear_subsystem_dirty('unbound');
-	}
-	/* Update resolv.conf in case the interface bindings exclude localhost. */
-	system_resolvconf_generate();
-	/* Start or restart dhcpleases when it's necessary */
-	system_dhcpleases_configure();
-	if (unlink_if_exists("{$g['tmp_path']}/.unbound_kea_resync")) {
-		services_dhcpd_configure();
-	}
+	$retval = unbound_apply_changes();
 }
 
 if ($_POST['save']) {
-	$pconfig = $_POST;
 	unset($input_errors);
-
-	if (isset($pconfig['enable']) && config_path_enabled('dnsmasq')) {
-		if ($pconfig['port'] == config_get_path('dnsmasq/port')) {
-			$input_errors[] = gettext("The DNS Forwarder is enabled using this port. Choose a non-conflicting port, or disable the DNS Forwarder.");
-		}
-	}
-
-	if (isset($pconfig['enablessl']) && (!$certs_available || empty($pconfig['sslcertref']))) {
-		$input_errors[] = gettext("Acting as an SSL/TLS server requires a valid server certificate");
-	}
-
-	// forwarding mode requires having valid DNS servers
-	if (isset($pconfig['forwarding'])) {
-		$founddns = false;
-		foreach (get_dns_nameservers(false, true) as $dns_server) {
-			if (is_ipaddr($dns_server) && !ip_in_subnet($dns_server, "127.0.0.0/8") && !ip_in_subnet($dns_server, "::1/128")) {
-				$founddns = true;
-			}
-		}
-		if ($founddns == false) {
-			$input_errors[] = gettext("At least one DNS server must be specified under System > General Setup to enable Forwarding mode.");
-		}
-	}
-
-	if (empty($pconfig['active_interface'])) {
-		$input_errors[] = gettext("One or more Network Interfaces must be selected for binding.");
-	} elseif ((config_get_path('system/dnslocalhost') != 'remote') && (!in_array("lo0", $pconfig['active_interface']) && !in_array("all", $pconfig['active_interface']))) {
-		$input_errors[] = gettext("This system is configured to use the DNS Resolver as its DNS server, so Localhost or All must be selected in Network Interfaces.");
-	}
-
-	if (empty($pconfig['outgoing_interface'])) {
-		$input_errors[] = gettext("One or more Outgoing Network Interfaces must be selected.");
-	}
-
-	if ($pconfig['port'] && !is_port($pconfig['port'])) {
-		$input_errors[] = gettext("A valid port number must be specified.");
-	}
-	if ($pconfig['tlsport'] && !is_port($pconfig['tlsport'])) {
-		$input_errors[] = gettext("A valid SSL/TLS port number must be specified.");
-	}
-
-	if (is_array($pconfig['active_interface']) && !empty($pconfig['active_interface'])) {
-		$display_active_interface = $pconfig['active_interface'];
-		$pconfig['active_interface'] = implode(",", $pconfig['active_interface']);
-	}
-
-	if ((isset($pconfig['regdhcp']) || isset($pconfig['regdhcpstatic'])) && !is_dhcp_server_enabled()) {
-		$input_errors[] = gettext("DHCP Server must be enabled for DHCP Registration to work in DNS Resolver.");
-	}
-
-	if (($pconfig['system_domain_local_zone_type'] == "redirect") && isset($pconfig['regdhcp'])) {
-		$input_errors[] = gettext('A System Domain Local Zone Type of "redirect" is not compatible with dynamic DHCP Registration.');
-	}
-
-	if (isset($pconfig['python']) &&
-	    !array_key_exists(array_get_path($pconfig, 'python_script'), $python_scripts)) {
-		array_del_path($pconfig, 'python_script');
-		$input_errors[] = gettext('The submitted Python Module Script does not exist or is invalid.');
-	}
-
-	$display_custom_options = $pconfig['custom_options'];
-	$pconfig['custom_options'] = base64_encode(str_replace("\r\n", "\n", $pconfig['custom_options']));
-
-	if (is_array($pconfig['outgoing_interface']) && !empty($pconfig['outgoing_interface'])) {
-		$display_outgoing_interface = $pconfig['outgoing_interface'];
-		$pconfig['outgoing_interface'] = implode(",", $pconfig['outgoing_interface']);
-	}
-
-	$test_output = array();
-	if (test_unbound_config(array_merge(config_get_path('unbound', []), $pconfig), $test_output)) {
-		$input_errors[] = gettext("The generated config file cannot be parsed by unbound. Please correct the following errors:");
-		$input_errors = array_merge($input_errors, $test_output);
-	}
-
-	if (!$input_errors) {
-		/* Kea only loads its DNS registration hooks while Unbound is
-		 * enabled, so it must be reconfigured when that changes. */
-		if ((isset($pconfig['enable']) != config_path_enabled('unbound')) &&
-		    dhcp_is_backend('kea')) {
-			@touch("{$g['tmp_path']}/.unbound_kea_resync");
-		}
-		config_set_path('unbound/enable', isset($pconfig['enable']));
-		config_set_path('unbound/enablessl', isset($pconfig['enablessl']));
-		config_set_path('unbound/port', $pconfig['port']);
-		config_set_path('unbound/tlsport', $pconfig['tlsport']);
-		config_set_path('unbound/sslcertref', $pconfig['sslcertref']);
-		config_set_path('unbound/strictout', isset($pconfig['strictout']));
-		config_set_path('unbound/dnssec', isset($pconfig['dnssec']));
-
-		config_set_path('unbound/python', isset($pconfig['python']));
-		if (isset($pconfig['python'])) {
-			config_set_path('unbound/python_order', $pconfig['python_order']);
-			config_set_path('unbound/python_script', $pconfig['python_script']);
-		} else {
-			config_del_path('unbound/python_order');
-			config_del_path('unbound/python_script');
-		}
-
-		config_set_path('unbound/forwarding', isset($pconfig['forwarding']));
-		config_set_path('unbound/forward_tls_upstream', isset($pconfig['forward_tls_upstream']));
-		config_set_path('unbound/regdhcp', isset($pconfig['regdhcp']));
-		config_set_path('unbound/regdhcpstatic', isset($pconfig['regdhcpstatic']));
-		config_set_path('unbound/regovpnclients', isset($pconfig['regovpnclients']));
-		config_set_path('unbound/active_interface', $pconfig['active_interface']);
-		config_set_path('unbound/outgoing_interface', $pconfig['outgoing_interface']);
-		config_set_path('unbound/system_domain_local_zone_type', $pconfig['system_domain_local_zone_type']);
-		config_set_path('unbound/custom_options', $pconfig['custom_options']);
-
-		write_config(gettext("DNS Resolver configured."));
-		mark_subsystem_dirty('unbound');
-	}
-
-	$pconfig['active_interface'] = $display_active_interface;
-	$pconfig['outgoing_interface'] = $display_outgoing_interface;
-	$pconfig['custom_options'] = $display_custom_options;
+	$rv = unbound_save_general($_POST);
+	$input_errors = $rv['input_errors'];
+	$pconfig = $rv['pconfig'];
 }
 
 
@@ -224,45 +56,10 @@ if ($pconfig['custom_options']) {
 }
 
 if ($_POST['act'] == "del") {
-	if ($_POST['type'] == 'host') {
-		if (config_get_path('unbound/hosts/' . $_POST['id'])) {
-			config_del_path('unbound/hosts/' . $_POST['id']);
-			write_config(gettext("Host override deleted from DNS Resolver."));
-			mark_subsystem_dirty('unbound');
-			header("Location: services_unbound.php");
-			exit;
-		}
-	} elseif ($_POST['type'] == 'doverride') {
-		if (config_get_path('unbound/domainoverrides/' . $_POST['id'])) {
-			config_del_path('unbound/domainoverrides/' . $_POST['id']);
-			write_config(gettext("Domain override deleted from DNS Resolver."));
-			mark_subsystem_dirty('unbound');
-			header("Location: services_unbound.php");
-			exit;
-		}
+	if (unbound_delete_override($_POST['type'], $_POST['id'])) {
+		header("Location: services_unbound.php");
+		exit;
 	}
-}
-
-function build_if_list($selectedifs) {
-	$interface_addresses = get_possible_listen_ips(true);
-	$iflist = array('options' => array(), 'selected' => array());
-
-	$iflist['options']['all']	= gettext("All");
-	if (empty($selectedifs) || empty($selectedifs[0]) || in_array("all", $selectedifs)) {
-		array_push($iflist['selected'], "all");
-	}
-
-	foreach ($interface_addresses as $laddr => $ldescr) {
-		$iflist['options'][$laddr] = htmlspecialchars($ldescr);
-
-		if ($selectedifs && in_array($laddr, $selectedifs)) {
-			array_push($iflist['selected'], $laddr);
-		}
-	}
-
-	unset($interface_addresses);
-
-	return($iflist);
 }
 
 $pgtitle = array(gettext("Services"), gettext("DNS Resolver"), gettext("General Settings"));
@@ -341,7 +138,7 @@ $section->addInput(new Form_Input(
 	['placeholder' => '853']
 ))->setHelp('The port used for responding to SSL/TLS DNS queries. It should normally be left blank unless another service needs to bind to TCP/UDP port 853.');
 
-$activeiflist = build_if_list($pconfig['active_interface']);
+$activeiflist = unbound_build_if_list($pconfig['active_interface']);
 
 $section->addInput(new Form_Select(
 	'active_interface',
@@ -352,7 +149,7 @@ $section->addInput(new Form_Select(
 ))->addClass('general', 'resizable')->setHelp('Interface IP addresses used by the DNS Resolver for responding to queries from clients. If an interface has both IPv4 and IPv6 addresses, both are used. Queries to addresses not selected in this list are discarded. ' .
 			'The default behavior is to respond to queries on every available IPv4 and IPv6 address.');
 
-$outiflist = build_if_list($pconfig['outgoing_interface']);
+$outiflist = unbound_build_if_list($pconfig['outgoing_interface']);
 
 $section->addInput(new Form_Select(
 	'outgoing_interface',

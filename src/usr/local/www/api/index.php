@@ -62,6 +62,8 @@ require_once('services_wol.inc');
 require_once('services_igmpproxy.inc');
 require_once('services_dhcp_relay.inc');
 require_once('services_snmp.inc');
+/* The DNS Resolver pages' shared functions. */
+require_once('services_unbound.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
