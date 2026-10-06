@@ -103,6 +103,7 @@ $section->addInput(new Form_Input(
 ))->setHelp('A description may be entered here for administrative reference (not parsed).');
 
 $form->add($section);
+fs_form_cancel($form, 'services_wol.php');
 print $form;
 
 include("foot.inc");

@@ -461,9 +461,13 @@ function fs_form_cancel($form, $href, $label = 'Cancel') {
  *
  * A trigger names the modal and pre-fills fields by name (js/freesense-ui.js):
  *   data-fs-modal="#be-clone" data-fs-fill='{"target":"default"}' data-fs-modal-title="Clone “default”"
+ *
+ * $reopen (field name => value) opens the modal on page load with those values,
+ * e.g. the posted values after a failed save, so the input is not lost.
  */
-function fs_modal_form_begin($id, $title, $action = '', array $hidden = []) {
-	echo '<div class="modal fade fs-modal-form" id="' . fs_h($id) . '" tabindex="-1" aria-labelledby="' . fs_h($id) . '-title" aria-hidden="true">'
+function fs_modal_form_begin($id, $title, $action = '', array $hidden = [], ?array $reopen = null) {
+	$reopen_attrs = ($reopen === null) ? '' : ' data-fs-open data-fs-fill="' . fs_h(json_encode($reopen)) . '"';
+	echo '<div class="modal fade fs-modal-form" id="' . fs_h($id) . '" tabindex="-1" aria-labelledby="' . fs_h($id) . '-title" aria-hidden="true"' . $reopen_attrs . '>'
 	    . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
 	    . '<form method="post"' . (($action !== '') ? ' action="' . fs_h($action) . '"' : '') . '>'
 	    . '<div class="modal-header"><h2 class="modal-title" id="' . fs_h($id) . '-title">' . fs_h($title) . '</h2>'

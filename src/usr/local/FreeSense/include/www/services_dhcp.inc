@@ -57,7 +57,7 @@ function kea_earlydnsreg_enabled(array $dhcpdconf, array $mapent): array|false {
 
 	$policies = [];
 	$policies[] = config_path_enabled('kea', 'earlydnsreg') ? 'enable' : 'disable';
-	$policies[] = array_get_path((array)$dhcpdconf, 'earlydnsregpolicy', 'default');
+	$policies[] = array_get_path($dhcpdconf, 'earlydnsregpolicy', 'default');
 	$policies[] = array_get_path($mapent, 'earlydnsregpolicy', 'default');
 
 	$domain = kea_defaults('fallback');
@@ -102,7 +102,7 @@ function kea6_earlydnsreg_enabled(array $dhcpdconf, array $mapent): array|false 
 
 	$policies = [];
 	$policies[] = config_path_enabled('kea6', 'earlydnsreg') ? 'enable' : 'disable';
-	$policies[] = array_get_path((array)$dhcpdconf, 'earlydnsregpolicy', 'default');
+	$policies[] = array_get_path($dhcpdconf, 'earlydnsregpolicy', 'default');
 	$policies[] = array_get_path($mapent, 'earlydnsregpolicy', 'default');
 
 	$domain = kea_defaults('fallback');

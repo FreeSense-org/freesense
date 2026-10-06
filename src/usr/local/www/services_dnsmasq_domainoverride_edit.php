@@ -47,7 +47,7 @@ if (isset($id) && $a_domainOverrides[$id]) {
 if ($_POST['save']) {
 	$rv = saveDomainOverride($_POST, $id);
 	if (empty($rv['input_errors'])) {
-		header("Location: services_dnsmasq.php");
+		header("Location: services_dnsmasq.php?view=domains");
 		exit;
 	}
 	$pconfig = $rv['config'];
@@ -55,7 +55,7 @@ if ($_POST['save']) {
 }
 
 $pgtitle = array(gettext("Services"), gettext("DNS Forwarder"), gettext("Edit Domain Override"));
-$pglinks = array("", "services_dnsmasq.php", "@self");
+$pglinks = array("", "services_dnsmasq.php?view=domains", "@self");
 $shortcut_section = "forwarder";
 include("head.inc");
 
@@ -108,6 +108,7 @@ if (isset($id) && $a_domainOverrides[$id]) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'services_dnsmasq.php?view=domains');
 print($form);
 
 include("foot.inc");

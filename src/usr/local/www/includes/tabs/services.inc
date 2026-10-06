@@ -38,6 +38,13 @@ $fs_tab_groups['services-captiveportal'] = [
 	[gettext('File Manager'), 'services_captiveportal_filemanager.php'],
 ];
 
+/* DNS Forwarder: the overrides are views of services_dnsmasq.php (rule R1) */
+$fs_tab_groups['services-dnsforwarder'] = [
+	[gettext('General Settings'), 'services_dnsmasq.php'],
+	[gettext('Host Overrides'), 'services_dnsmasq.php?view=hosts'],
+	[gettext('Domain Overrides'), 'services_dnsmasq.php?view=domains'],
+];
+
 /* DNS Resolver: the overrides are views of services_unbound.php (rule R1) */
 $fs_tab_groups['services-dnsresolver'] = [
 	[gettext('General Settings'), 'services_unbound.php'],

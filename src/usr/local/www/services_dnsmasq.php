@@ -42,6 +42,10 @@ $a_hosts = $rv['hosts'];
 $a_domainOverrides = $rv['domainoverrides'];
 $iflist = $rv['iflist'];
 
+/* the overrides are views of this page (docs/webui/PLAN.md, rule R1) */
+$view = fs_view_param(['general', 'hosts', 'domains'], 'general');
+$view_url = 'services_dnsmasq.php' . (($view === 'general') ? '' : '?view=' . $view);
+
 if ($_POST['apply']) {
 	$retval = applyDNSMasqConfig();
 } else if ($_POST['save']) {
@@ -51,11 +55,23 @@ if ($_POST['apply']) {
 	$iflist = $rv['iflist'];
 } else if ($_POST['act'] == "del") {
 	deleteDNSMasqEntry($_POST);
-	header("Location: services_dnsmasq.php");
+	header("Location: " . $view_url);
 	exit;
 }
 
-$pgtitle = array(gettext("Services"), gettext("DNS Forwarder"));
+$view_titles = [
+	'general' => gettext("General Settings"),
+	'hosts' => gettext("Host Overrides"),
+	'domains' => gettext("Domain Overrides"),
+];
+$pgtitle = array(gettext("Services"), gettext("DNS Forwarder"), $view_titles[$view]);
+$pglinks = array("", "services_dnsmasq.php", "@self");
+
+if ($view === 'hosts') {
+	fs_page_action(gettext('Add host override'), 'services_dnsmasq_edit.php', 'fa-plus');
+} elseif ($view === 'domains') {
+	fs_page_action(gettext('Add domain override'), 'services_dnsmasq_domainoverride_edit.php', 'fa-plus');
+}
 $shortcut_section = "forwarder";
 include("head.inc");
 
@@ -72,6 +88,10 @@ if (is_subsystem_dirty('hosts')) {
 }
 
 display_isc_warning();
+
+fs_tabs('services-dnsforwarder', $view_url);
+
+if ($view === 'general'):
 
 $form = new Form();
 
@@ -198,125 +218,121 @@ $form->add($section);
 print($form);
 
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Host Overrides")?></h2></div>
+<?php endif; /* general */ ?>
+
+<?php if ($view === 'hosts'): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Host Overrides'),
+	'search' => gettext('Search host overrides…'),
+	'noun' => gettext('host overrides'),
+	'noun_one' => gettext('host override'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Host")?></th>
-					<th><?=gettext("Domain")?></th>
-					<th><?=gettext("IP")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Host")?></th>
+					<th data-fs-search><?=gettext("Domain")?></th>
+					<th data-fs-search><?=gettext("IP")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
 <?php
-foreach ($a_hosts as $i => $hostent):
+foreach ($a_hosts as $hostent):
+	$fqdn = $hostent['host'] ? $hostent['host'] . '.' . $hostent['domain'] : $hostent['domain'];
+	$aliases = [];
+	foreach (array_get_path($hostent, 'aliases/item', []) as $alias) {
+		$aliases[] = $alias['host'] ? $alias['host'] . '.' . $alias['domain'] : $alias['domain'];
+	}
 ?>
 				<tr>
 					<td>
-						<?=$hostent['host']?>
+						<a href="services_dnsmasq_edit.php?id=<?=htmlspecialchars($hostent['idx'])?>"><?=htmlspecialchars($hostent['host'])?></a>
+<?php	if (!empty($aliases)): ?>
+						<div class="fs-muted fs-mono small"><?=gettext("Aliases:")?> <?=htmlspecialchars(implode(', ', $aliases))?></div>
+<?php	endif; ?>
 					</td>
-					<td>
-						<?=$hostent['domain']?>
-					</td>
-					<td>
-						<?=$hostent['ip']?>
-					</td>
-					<td>
-						<?=htmlspecialchars($hostent['descr'])?>
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit host override')?>" 	href="services_dnsmasq_edit.php?id=<?=$hostent['idx']?>"></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete host override')?>"	href="services_dnsmasq.php?type=host&amp;act=del&amp;id=<?=$hostent['idx']?>" usepost></a>
-					</td>
-				</tr>
-
-<?php
-	foreach (array_get_path($hostent, 'aliases/item', []) as $alias):
-?>
-				<tr>
-					<td>
-						<?=$alias['host']?>
-					</td>
-					<td>
-						<?=$alias['domain']?>
-					</td>
-					<td>
-						<?=gettext("Alias for ");?><?=$hostent['host'] ? $hostent['host'] . '.' . $hostent['domain'] : $hostent['domain']?>
-					</td>
-					<td>
-						<i class="fa-solid fa-angles-right text-info"></i>
-						<?=htmlspecialchars($alias['description'])?>
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit host override')?>" 	href="services_dnsmasq_edit.php?id=<?=$i?>"></a>
+					<td><?=htmlspecialchars($hostent['domain'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($hostent['ip'])?></td>
+					<td><?=htmlspecialchars($hostent['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', 'services_dnsmasq_edit.php?id=' . urlencode($hostent['idx']), $fqdn],
+							['delete', 'services_dnsmasq.php?type=host&act=del&view=hosts&id=' . urlencode($hostent['idx']), $fqdn, ['thing' => gettext('host override')]],
+						])?>
 					</td>
 				</tr>
 <?php
-	endforeach;
 endforeach;
+
+if (empty($a_hosts)) {
+	fs_empty_row(5, gettext('No host overrides yet.'), 'services_dnsmasq_edit.php', gettext('Add host override'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="services_dnsmasq_edit.php" class="btn btn-sm btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
+<p class="help-block">
+	<?=gettext('The forwarder answers lookups for these hosts with the given address instead of asking the upstream DNS servers.')?>
+</p>
+<?php endif; /* hosts */ ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Domain Overrides")?></h2></div>
+<?php if ($view === 'domains'): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Domain Overrides'),
+	'search' => gettext('Search domain overrides…'),
+	'noun' => gettext('domain overrides'),
+	'noun_one' => gettext('domain override'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Domain")?></th>
-					<th><?=gettext("IP")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Domain")?></th>
+					<th data-fs-search><?=gettext("Lookup Server IP Address")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
-
 			<tbody>
 <?php
 foreach ($a_domainOverrides as $doment):
 ?>
 				<tr>
-					<td>
-						<?=$doment['domain']?>
-					</td>
-					<td>
-						<?=$doment['ip']?>
-					</td>
-					<td>
-						<?=htmlspecialchars($doment['descr'])?>
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil"	title="<?=gettext('Edit domain override')?>" href="services_dnsmasq_domainoverride_edit.php?id=<?=$doment['idx']?>"></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete domain override')?>" href="services_dnsmasq.php?act=del&amp;type=doverride&amp;id=<?=$doment['idx']?>" usepost></a>
+					<td><a href="services_dnsmasq_domainoverride_edit.php?id=<?=htmlspecialchars($doment['idx'])?>"><?=htmlspecialchars($doment['domain'])?></a></td>
+					<td class="fs-mono"><?=htmlspecialchars($doment['ip'])?></td>
+					<td><?=htmlspecialchars($doment['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', 'services_dnsmasq_domainoverride_edit.php?id=' . urlencode($doment['idx']), $doment['domain']],
+							['delete', 'services_dnsmasq.php?act=del&type=doverride&view=domains&id=' . urlencode($doment['idx']), $doment['domain'], ['thing' => gettext('domain override')]],
+						])?>
 					</td>
 				</tr>
 <?php
 endforeach;
+
+if (empty($a_domainOverrides)) {
+	fs_empty_row(4, gettext('No domain overrides yet.'), 'services_dnsmasq_domainoverride_edit.php', gettext('Add domain override'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="services_dnsmasq_domainoverride_edit.php" class="btn btn-sm btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
+<p class="help-block">
+	<?=gettext('Lookups for these domains (and their subdomains) are sent to the given server instead of the upstream DNS servers. For several authoritative servers of one domain, add one entry per server.')?>
+</p>
+<?php endif; /* domains */ ?>
+
+<?php if ($view === 'general'): ?>
 <div class="infoblock">
 <?php
 print_info_box(
@@ -335,6 +351,7 @@ print_info_box(
 );
 ?>
 </div>
+<?php endif; /* general */ ?>
 
 <?php
 include("foot.inc");

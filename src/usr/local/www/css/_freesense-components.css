@@ -250,6 +250,8 @@ body:has(> #topmenu.fixed-top) > .fs-main { padding-top: calc(var(--fs-navbar-h)
 th.fs-col-select, td.fs-col-select { width: 2.25rem; }
 th.fs-col-status { width: 1%; white-space: nowrap; }
 th.fs-col-actions, td.fs-col-actions { width: 1%; white-space: nowrap; text-align: right; }
+th.fs-col-icon, td.fs-col-icon { width: 1%; white-space: nowrap; color: var(--fs-text-muted); }
+td.fs-col-icon i + i { margin-left: .35rem; }
 th[aria-sort="ascending"]::after { content: " ↑"; color: var(--fs-coral-text); }
 th[aria-sort="descending"]::after { content: " ↓"; color: var(--fs-coral-text); }
 
@@ -501,6 +503,7 @@ form > .fs-actionbar .fs-actionbar-cancel { margin-left: var(--fs-sp-2); }
 	border-bottom: 3px solid transparent;
 }
 .fs-nav-search-kbd {
+	white-space: nowrap;
 	padding: .05rem .35rem;
 	border: 1px solid rgba(255, 255, 255, 0.18);
 	border-radius: 4px;
