@@ -129,19 +129,51 @@ if (!empty($_POST['resetdemotion'])) {
 $pgtitle = array(gettext("Status"), gettext("CARP"));
 $shortcut_section = "carp";
 
-include("head.inc");
-if ($savemsg) {
-	print_info_box($savemsg, 'success');
-} else if ($errmsg) {
-	print_info_box($errmsg);
-}
-
 $carpcount = 0;
 foreach(config_get_path('virtualip/vip', []) as $carp) {
 	if ($carp['mode'] == "carp") {
 		$carpcount++;
 		break;
 	}
+}
+
+$carp_enabled = ($status != 0);
+$maintenance = config_path_enabled('', 'virtualip_carp_maintenancemode');
+
+/* the buttons post the same fields as before (disablecarp, carp_maintenancemode) */
+if ($carpcount > 0) {
+	if ($carp_enabled) {
+		fs_page_action(gettext('Temporarily disable CARP'), 'status_carp.php?disablecarp=disable', 'fa-ban', 'danger', [
+			'usepost' => true,
+			'data-fs-confirm' => gettext('Temporarily disable CARP on this node?'),
+			'data-fs-confirm-detail' => gettext('Its virtual IPs go down and a peer takes over as master. The change does not survive a reboot, and some configuration changes enable CARP again.'),
+			'data-fs-confirm-action' => gettext('Disable CARP'),
+		]);
+	} else {
+		fs_page_action(gettext('Enable CARP'), 'status_carp.php?disablecarp=enable', 'fa-check', 'secondary', ['usepost' => true]);
+	}
+	if ($maintenance) {
+		fs_page_action(gettext('Leave maintenance mode'), 'status_carp.php?carp_maintenancemode=disable', 'fa-wrench', 'secondary', [
+			'usepost' => true,
+			'data-fs-confirm' => gettext('Leave persistent CARP maintenance mode?'),
+			'data-fs-confirm-detail' => gettext('This node advertises normally again and can take over as master.'),
+			'data-fs-confirm-action' => gettext('Leave maintenance mode'),
+		]);
+	} else {
+		fs_page_action(gettext('Enter maintenance mode'), 'status_carp.php?carp_maintenancemode=enable', 'fa-wrench', 'secondary', [
+			'usepost' => true,
+			'data-fs-confirm' => gettext('Enter persistent CARP maintenance mode?'),
+			'data-fs-confirm-detail' => gettext('This node demotes itself so a peer becomes master, and stays demoted after a reboot until you leave maintenance mode.'),
+			'data-fs-confirm-action' => gettext('Enter maintenance mode'),
+		]);
+	}
+}
+
+include("head.inc");
+if ($savemsg) {
+	print_info_box($savemsg, 'success');
+} else if ($errmsg) {
+	print_info_box($errmsg);
 }
 
 // If $carpcount > 0 display buttons then display table
@@ -153,105 +185,114 @@ if ($carpcount == 0) {
 				   gettext("High availability sync settings can be configured here.") .
 				   '</a>');
 } else {
-?>
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext("CARP Maintenance");?></h2></div>
-		<div class="panel-body">
-			<div class="content">
-				<form action="status_carp.php" method="post">
-<?php
-	if ($status != 0) {
-		$carp_enabled = true;
-	} else {
-		$carp_enabled = false;
+	$vips = [];
+	$counts = ['master' => 0, 'backup' => 0, 'init' => 0];
+	foreach (config_get_path('virtualip/vip', []) as $carp) {
+		if ($carp['mode'] != "carp") {
+			continue;
+		}
+		$vip_status = $carp_enabled ? get_carp_interface_status("_vip{$carp['uniqid']}") : 'DISABLED';
+		$key = strtolower($vip_status);
+		if (isset($counts[$key])) {
+			$counts[$key]++;
+		}
+		$vips[] = [$carp, $vip_status, find_ipalias("_vip{$carp['uniqid']}")];
 	}
+?>
 
-	// Sadly this needs to be here so that it is inside the form
+<style>
+.fs-carp-ids { margin: 0; padding: 0; list-style: none; }
+.fs-carp-ids > li { display: flex; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-2) var(--fs-sp-4); border-bottom: 1px solid var(--fs-border); }
+.fs-carp-ids > li:last-child { border-bottom: 0; }
+.fs-carp-empty { padding: var(--fs-sp-3) var(--fs-sp-4); color: var(--fs-text-muted); }
+</style>
+
+<?php
 	if ($carp_detected_problems != 0) {
 		print_info_box(
 			gettext("CARP has detected a problem and this unit has a non-zero demotion status.") .
 			"<br/>" .
 			gettext("Check the link status on all interfaces configured with CARP VIPs and ") .
 			sprintf(gettext('search the %1$sSystem Log%2$s for CARP demotion-related events.'), "<a href=\"/status_logs.php?filtertext=carp%3A+demoted+by\">", "</a>") .
-			"<br/><br/>" .
-			'<button type="submit" class="btn btn-warning" name="resetdemotion" id="resetdemotion" value="' .
+			'<form action="status_carp.php" method="post" class="mt-2">' .
+			'<button type="submit" class="btn btn-sm btn-warning" name="resetdemotion" id="resetdemotion" value="' .
 			gettext("Reset CARP Demotion Status") .
-			'"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>' .
+			'"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn" aria-hidden="true"></i>' .
 			gettext("Reset CARP Demotion Status") .
-			'</button>',
+			'</button></form>',
 			'danger'
 		);
 	}
-
 ?>
-				<button type="submit" class="btn btn-warning" name="disablecarp" value="<?=($carp_enabled ? 'disable' : 'enable')?>" ><i class="<?=($carp_enabled) ? 'fa-solid fa-ban' : 'fa-solid fa-check' ; ?> icon-embed-btn"></i><?=($carp_enabled ? gettext("Temporarily Disable CARP") : gettext("Enable CARP"))?></button>
-				<button type="submit" class="btn btn-info" name="carp_maintenancemode" id="carp_maintenancemode" value="<?=(config_path_enabled('', 'virtualip_carp_maintenancemode') ? 'disable' : 'enable')?>" ><i class="fa-solid fa-wrench icon-embed-btn"></i><?=(config_path_enabled('', 'virtualip_carp_maintenancemode') ? gettext("Leave Persistent CARP Maintenance Mode") : gettext("Enter Persistent CARP Maintenance Mode"))?></button>
-			</div>
-		</div>
-	</div>
 
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('CARP Status')?></h2></div>
-			<div class="panel-body table-responsive">
-				<table class="table table-striped table-sm table-hover sortable-theme-bootstrap " data-sortable>
-					<thead>
-						<tr>
-							<th><?=gettext("Interface and VHID")?></th>
-							<th><?=gettext("Virtual IP Address")?></th>
-							<th><?=gettext("Description")?></th>
-							<th><?=gettext("Status")?></th>
-						</tr>
-					</thead>
-					<tbody>
+<div class="fs-tiles">
 <?php
-	foreach (config_get_path('virtualip/vip', []) as $carp) {
-		if ($carp['mode'] != "carp") {
-			continue;
-		}
-
-		$icon = '';
-		$vhid = $carp['vhid'];
-		$status = get_carp_interface_status("_vip{$carp['uniqid']}");
-		$aliases = find_ipalias("_vip{$carp['uniqid']}");
-
-		if ($carp_enabled == false) {
-			$icon = 'fa-solid fa-circle-xmark';
-			$status = "DISABLED";
-		} else {
-			if ($status == "MASTER") {
-				$icon = 'fa-solid fa-circle-play text-success';
-			} else if ($status == "BACKUP") {
-				$icon = 'fa-solid fa-circle-pause text-warning';
-			} else if ($status == "INIT") {
-				$icon = 'fa-solid fa-circle-question text-danger';
-			}
-		}
+	fs_tile(gettext('CARP'), $carp_enabled ? gettext('Enabled') : gettext('Disabled'), null,
+	    $maintenance ? gettext('Persistent maintenance mode is on') : gettext('Maintenance mode is off'));
+	fs_tile(gettext('Master'), $counts['master']);
+	fs_tile(gettext('Backup'), $counts['backup']);
+	if ($counts['init'] > 0) {
+		fs_tile(gettext('Init'), $counts['init'], 'warn', gettext('Check the link of these interfaces'));
+	} else {
+		fs_tile(gettext('Demotion'), (int)$carp_detected_problems, ($carp_detected_problems != 0) ? 'warn' : null);
+	}
 ?>
-					<tr>
-						<td><?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($carp['interface']) . "@{$vhid}");?></td>
-						<td>
+</div>
+
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('CARP virtual IPs'),
+	'search' => gettext('Search virtual IPs…'),
+	'noun' => gettext('virtual IPs'),
+	'noun_one' => gettext('virtual IP'),
+	'filters' => ['state' => [gettext('All states'), 'master' => gettext('Master'), 'backup' => gettext('Backup'),
+	    'init' => gettext('Init'), 'disabled' => gettext('Disabled')]],
+]); ?>
+	<div class="panel-body table-responsive">
+	<table class="table table-hover" data-sortable>
+		<thead>
+			<tr>
+				<th class="fs-col-status"><?=gettext("Status")?></th>
+				<th data-fs-search><?=gettext("Interface and VHID")?></th>
+				<th data-fs-search><?=gettext("Virtual IP address")?></th>
+				<th data-fs-search class="d-none d-md-table-cell"><?=gettext("Description")?></th>
+			</tr>
+		</thead>
+		<tbody>
 <?php
-		printf("{$carp['subnet']}/{$carp['subnet_bits']}");
-		for ($i = 0; $i < count($aliases); $i++) {
-			printf("<br>{$aliases[$i]}");
-		}
+	foreach ($vips as list($carp, $vip_status, $aliases)) {
+		$state = strtolower($vip_status);
+		$badge = match ($vip_status) {
+			'MASTER' => fs_badge('online', gettext('Master')),
+			'BACKUP' => fs_badge('info', gettext('Backup')),
+			'INIT' => fs_badge('warn', gettext('Init')),
+			'DISABLED' => fs_badge('disabled'),
+			default => fs_badge('unknown', $vip_status ?: null),
+		};
 ?>
-						</td>
-						<td><?=htmlspecialchars($carp['descr'])?></td>
-						<td><i class="<?=$icon?>"></i>&nbsp;<?=$status?></td>
-					</tr>
-<?php }?>
-				</tbody>
-			</table>
-		</div>
+			<tr data-fs-filter-state="<?=htmlspecialchars($state)?>">
+				<td><?=$badge?></td>
+				<td><?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($carp['interface']))?><span class="fs-muted">@<?=htmlspecialchars($carp['vhid'])?></span>
+<?php		if (!empty($carp['descr'])): ?>
+					<div class="fs-muted small d-md-none"><?=htmlspecialchars($carp['descr'])?></div>
+<?php		endif; ?>
+				</td>
+				<td class="fs-mono">
+					<?=htmlspecialchars("{$carp['subnet']}/{$carp['subnet_bits']}")?>
+<?php		foreach ($aliases as $alias): ?>
+					<div class="fs-muted small"><?=htmlspecialchars($alias)?></div>
+<?php		endforeach; ?>
+				</td>
+				<td class="d-none d-md-table-cell"><?=htmlspecialchars($carp['descr'])?></td>
+			</tr>
+<?php
+	}
+?>
+		</tbody>
+	</table>
 	</div>
-</form>
+</div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('State Synchronization Status')?></h2></div>
-	<div class="panel-body"><div class="content">
-		<?= gettext("State Creator Host IDs") ?>:
-		<ul>
 <?php
 	$my_id = strtolower(ltrim(filter_get_host_id(), '0'));
 	exec("/sbin/pfctl -sc | /usr/bin/tail -n +2 | /usr/bin/sort", $hostids);
@@ -259,27 +300,22 @@ if ($carpcount == 0) {
 		$hostids = array();
 	}
 ?>
-<?php	foreach ($hostids as $hid):
-		$hid = strtolower(ltrim($hid, '0')); ?>
-			<li>
-				<?= $hid ?>
-<?php		if ($hid == $my_id): ?>
-				(<?= gettext("This node") ?>)
-<?php		endif; ?>
-			</li>
-<?php	endforeach; ?>
-		</ul>
-
-		<div class="infoblock blockopen">
-<?php
-	print_info_box(sprintf(gettext(
-		'When state synchronization is enabled and functioning properly the list of state creator host IDs will be identical on each node participating in state synchronization.%1$s%1$s' .
-		'The state creator host ID for this node can be set to a custom value under System > High Avail Sync. ' .
-		'If the state creator host ID has recently changed, the old ID will remain until all states using the old ID expire or are removed.'
-		), '<br/>'), 'info', false);
-?>
-		</div>
-	</div></div>
+<div class="panel panel-default">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext('State synchronization')?> <span class="fs-count"><?=count($hostids)?></span></h2></div>
+<?php	if (empty($hostids)): ?>
+	<div class="fs-carp-empty"><?=gettext('No state creator host IDs found.')?></div>
+<?php	else: ?>
+	<ul class="fs-carp-ids" aria-label="<?=gettext('State creator host IDs')?>">
+<?php		foreach ($hostids as $hid):
+			$hid = strtolower(ltrim($hid, '0')); ?>
+		<li><span class="fs-mono"><?=htmlspecialchars($hid)?></span><?php if ($hid == $my_id): ?> <?=fs_badge('info', gettext('This node'))?><?php endif; ?></li>
+<?php		endforeach; ?>
+	</ul>
+<?php	endif; ?>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('State creator host IDs. When state synchronization works, every node in the cluster lists the same IDs. Set this node\'s ID under System > High Avail Sync; after a change the old ID stays until all states using it expire or are removed.')?>
+	</div>
 </div>
 
 <?php

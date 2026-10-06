@@ -123,9 +123,9 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | status_gateways | Status | **pilot** (tiles + badges); tabs with status_gateway_groups | A | |
-| status_gateway_groups | Status | standard | E | |
-| status_services | Status | Start/Stop/Restart as row actions; badges | E | M |
-| status_interfaces | Status | one card per interface; mono addresses; badges up/down | E | |
+| status_gateway_groups | Status | standard. **done**: one card per group, tier + status badges, member tiles | E | |
+| status_services | Status | Start/Stop/Restart as row actions; badges. **done**: tiles, search + state filter, stop (and restart of network-critical services) confirm | E | M |
+| status_interfaces | Status | one card per interface; mono addresses; badges up/down. **done**: 2-column card grid, traffic tiles, DHCP release modal | E | |
 | status_dhcp_leases, status_dhcpv6_leases | Status | the existing search becomes the toolbar (server-side kept); badges online/offline/static | E | |
 | status_carp, status_ntpd, status_unbound, status_upnp, status_wireless, status_queues, status_openvpn | Status | standard; row actions where they exist (disconnect, kill) | E | |
 | status_ipsec, _leases, _sad, _spd | Status | registry group `status-ipsec`; badges connected/connecting/down | E | M |

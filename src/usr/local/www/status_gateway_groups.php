@@ -55,121 +55,171 @@ $shortcut_section = "gateway-groups";
 include("head.inc");
 
 fs_tabs('status-gateways', 'status_gateway_groups.php');
-?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Gateway Groups')?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-hover table-sm table-striped">
-				<thead>
-					<tr>
-						<th><?=gettext("Group Name"); ?></th>
-						<th><?=gettext("Gateways"); ?></th>
-						<th><?=gettext("Description"); ?></th>
-						<th><?=gettext("Action"); ?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach (config_get_path('gateways/gateway_group', []) as $gateway_group): ?>
-					<tr>
-						<td>
-							<?=htmlspecialchars($gateway_group['name'])?>
-						</td>
-						<td>
-							<table class="table table-bordered table-sm">
-<?php
-						/* process which priorities we have */
-						$priorities = array();
-						foreach ($gateway_group['item'] as $item) {
-							$itemsplit = explode("|", $item);
-							$priorities[$itemsplit[1]] = true;
-						}
-						$priority_count = count($priorities);
-						ksort($priorities);
-?>
-								<thead>
-									<tr>
-<?php
-							// Make a column for each tier
-							foreach ($priorities as $number => $tier) {
-								echo "<th>" . sprintf(gettext("Tier %s"), $number) . "</th>";
-							}
-?>
-									</tr>
-								</thead>
-								<tbody>
-<?php
-							/* inverse gateway group to gateway priority */
-							$priority_arr = array();
-							foreach ($gateway_group['item'] as $item) {
-								$itemsplit = explode("|", $item);
-								$priority_arr[$itemsplit[1]][] = $itemsplit[0];
-							}
-							ksort($priority_arr);
-							$p = 1;
-							foreach ($priority_arr as $tier) {
-								/* for each priority process the gateways */
-								foreach ($tier as $member) {
-									/* we always have $priority_count fields */
-?>
-									<tr>
-<?php
-									list($gateway_status, $gateway_details) = get_gateway_status($member);
-									$gwip = array_get_path($gateway_details, 'config/gateway');
-									$c = 1;
-									while ($c <= $priority_count) {
-										if ($p == $c) {
-											$gatewy_status_text = get_gateway_status_text($gateway_status);
-											$status_text = $gatewy_status_text['reason'];
-											$bgcolor = match ($gatewy_status_text['level']) {
-												GW_STATUS_LEVEL_SUCCESS => 'bg-success',
-												GW_STATUS_LEVEL_WARNING => 'bg-warning',
-												GW_STATUS_LEVEL_FAILURE => 'bg-danger',
-												default => 'bg-info',
-											};
 
-											if (!COLOR) {
-												$bgcolor = "";
-											}
-?>
-										<td class="<?=$bgcolor?>">
-											<?=htmlspecialchars(array_get_path($gateway_details, 'config/name', ''));?>
-<?php if (!empty($gwip) && is_ipaddr($gwip)): ?>
-											<a href="?act=killgw&amp;gwip=<?=urlencode($gwip);?>" class="fa-regular fa-circle-xmark do-confirm" title="<?=gettext('Kill all firewall states using this gateway IP address via policy routing and reply-to.')?>" usepost></a>
-<?php endif; ?>
-											<br/><?=$status_text?>
-										</td>
+/* collect first, so the summary tiles can sit above the groups */
+$level_state = function ($level) {
+	return match ($level) {
+		GW_STATUS_LEVEL_SUCCESS => 'online',
+		GW_STATUS_LEVEL_WARNING => 'degraded',
+		GW_STATUS_LEVEL_FAILURE => 'down',
+		default => 'pending',
+	};
+};
+$groups = [];
+$counts = ['online' => 0, 'degraded' => 0, 'down' => 0, 'pending' => 0];
+foreach (config_get_path('gateways/gateway_group', []) as $gateway_group) {
+	$members = [];
+	$tiers = [];
+	foreach ((array)($gateway_group['item'] ?? []) as $item) {
+		list($member, $tier) = explode("|", $item);
+		list($gateway_status, $gateway_details) = get_gateway_status($member);
+		$status_text = get_gateway_status_text($gateway_status);
+		$state = $level_state($status_text['level']);
+		$counts[$state]++;
+		$tiers[$tier][] = $state;
+		$members[] = [
+			'tier' => (int)$tier,
+			'name' => array_get_path($gateway_details, 'config/name', $member),
+			'ip' => array_get_path($gateway_details, 'config/gateway'),
+			'descr' => array_get_path($gateway_details, 'config/descr', ''),
+			'state' => $state,
+			'reason' => $status_text['reason'],
+		];
+	}
+	usort($members, function ($a, $b) {
+		return $a['tier'] <=> $b['tier'];
+	});
+	ksort($tiers);
 
+	/* the group serves from the first tier with an online member */
+	$group_state = 'down';
+	$active_tier = null;
+	foreach ($tiers as $tier => $states) {
+		if (in_array('online', $states, true)) {
+			$group_state = 'online';
+			$active_tier = $tier;
+			break;
+		}
+	}
+	if ($group_state === 'down') {
+		foreach ($tiers as $tier => $states) {
+			foreach (['degraded', 'pending'] as $s) {
+				if (in_array($s, $states, true)) {
+					$group_state = $s;
+					$active_tier = $tier;
+					break 3;
+				}
+			}
+		}
+	}
+	if (empty($tiers)) {
+		$group_state = 'pending';
+	}
+	$groups[] = ['config' => $gateway_group, 'members' => $members, 'state' => $group_state, 'active_tier' => $active_tier];
+}
+$group_label = [
+	'online' => gettext('Online'),
+	'degraded' => gettext('Degraded'),
+	'down' => gettext('Down'),
+	'pending' => gettext('Pending'),
+];
+?>
+
+<style>
+.fs-gwg-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2) var(--fs-sp-3); }
+.fs-gwg-head > .panel-title { margin: 0; }
+.fs-gwg-descr { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-gwg-head > .fs-actions { margin-left: auto; }
+.fs-gwg-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--fs-sp-4); }
+.fs-gwg-list > .panel { margin-bottom: 0; }
+.fs-gwg-tier { display: inline-block; min-width: 3.6rem; padding: 0 .45rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 600; line-height: 1.4rem; text-align: center; white-space: nowrap; }
+.fs-gwg-tier.is-active { border-color: color-mix(in srgb, var(--fs-pass) 45%, transparent); color: var(--fs-pass); }
+.fs-gwg-empty { padding: var(--fs-sp-5) var(--fs-sp-4); color: var(--fs-text-muted); text-align: center; }
+</style>
+
+<div class="fs-tiles">
 <?php
-										} else {
+fs_tile(gettext('Groups'), count($groups));
+fs_tile(gettext('Members online'), $counts['online']);
+fs_tile(gettext('Members degraded'), $counts['degraded'], ($counts['degraded'] > 0) ? 'warn' : null);
+fs_tile(gettext('Members down'), $counts['down'], ($counts['down'] > 0) ? 'error' : null);
 ?>
-										<td>
-										</td>
-<?php							}
-										$c++;
-									}
+</div>
+
+<div class="fs-gwg-list">
+<?php foreach ($groups as $g_idx => $group):
+	$name = $group['config']['name'];
+	$kill_group = fs_row_actions([['custom', '?act=killgw&gwname=' . urlencode($name), $name, [
+		'icon' => 'fa-solid fa-circle-xmark', 'post' => true,
+		'label' => sprintf(gettext('Kill states using group %s'), $name),
+		'confirm' => sprintf(gettext('Kill firewall states created by policy routing rules using gateway group “%s”?'), $name),
+		'confirm_action' => gettext('Kill states')]]]);
 ?>
-									</tr>
-<?php
-								}
-								$p++;
-							}
+	<section class="panel panel-default fs-table" aria-labelledby="gwg-<?=$g_idx?>-title">
+		<div class="panel-heading fs-gwg-head">
+			<h2 class="panel-title" id="gwg-<?=$g_idx?>-title"><?=htmlspecialchars($name)?></h2>
+			<?=fs_badge($group['state'], $group_label[$group['state']])?>
+<?php	if (!empty($group['config']['descr'])): ?>
+			<span class="fs-gwg-descr"><?=htmlspecialchars($group['config']['descr'])?></span>
+<?php	endif; ?>
+			<?=$kill_group?>
+		</div>
+		<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead>
+				<tr>
+					<th class="fs-col-status"><?=gettext('Tier')?></th>
+					<th><?=gettext('Gateway')?></th>
+					<th class="d-none d-md-table-cell"><?=gettext('Address')?></th>
+					<th><?=gettext('Status')?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php	foreach ($group['members'] as $m):
+		$actions = [];
+		if (!empty($m['ip']) && is_ipaddr($m['ip'])) {
+			$actions[] = ['custom', '?act=killgw&gwip=' . urlencode($m['ip']), $m['ip'], [
+				'icon' => 'fa-regular fa-circle-xmark', 'post' => true,
+				'label' => sprintf(gettext('Kill states using gateway IP %s'), $m['ip']),
+				'confirm' => sprintf(gettext('Kill all firewall states using gateway IP %s via policy routing and reply-to?'), $m['ip']),
+				'confirm_action' => gettext('Kill states')]];
+		}
 ?>
-								</tbody>
-							</table>
-						</td>
-						<td>
-							<?=htmlspecialchars($gateway_group['descr'])?>
-						</td>
-						<td>
-							<a href="?act=killgwg&amp;gwgname=<?=urlencode($gateway_group['name']);?>" class="fa-solid fa-circle-xmark do-confirm" title="<?=gettext('Kill firewall states created by policy routing rules using this specific gateway group.')?>" usepost></a>
-						</td>
-					</tr>
-			<?php endforeach; ?>
-				</tbody>
-			</table>
+				<tr>
+					<td><span class="fs-gwg-tier<?=($m['tier'] === $group['active_tier']) ? ' is-active' : ''?>"><?=htmlspecialchars(sprintf(gettext('Tier %s'), $m['tier']))?></span></td>
+					<td>
+						<strong><?=htmlspecialchars($m['name'])?></strong>
+<?php		if (!empty($m['ip'])): ?>
+						<div class="fs-mono small d-md-none"><?=htmlspecialchars($m['ip'])?></div>
+<?php		endif; ?>
+<?php		if ($m['descr'] !== ''): ?>
+						<div class="fs-muted small"><?=htmlspecialchars($m['descr'])?></div>
+<?php		endif; ?>
+					</td>
+					<td class="fs-mono d-none d-md-table-cell"><?=htmlspecialchars((string)$m['ip'])?></td>
+					<td><?=fs_badge($m['state'], $m['reason'])?></td>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+				</tr>
+<?php	endforeach; ?>
+<?php	if (empty($group['members'])) {
+		fs_empty_row(5, gettext('This group has no gateways.'));
+	} ?>
+			</tbody>
+		</table>
+		</div>
+	</section>
+<?php endforeach; ?>
+<?php if (empty($groups)): ?>
+	<div class="panel panel-default">
+		<div class="fs-gwg-empty">
+			<p><?=gettext('No gateway groups are configured.')?></p>
+<?php	if (isAllowedPage('system_gateway_groups_edit.php')): ?>
+			<a class="btn btn-sm btn-primary" href="system_gateway_groups_edit.php"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add gateway group')?></a>
+<?php	endif; ?>
 		</div>
 	</div>
+<?php endif; ?>
 </div>
 
 <?php include("foot.inc");
