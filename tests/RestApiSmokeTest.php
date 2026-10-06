@@ -3401,7 +3401,7 @@ foreach (array('page-system-restapi' => 'system_restapi.php', 'page-system-resta
 	    "{$priv} also opens the explorer");
 	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/{$page}"), "restapi_print_tabs('{$page}'") !== false, "{$page} shows the REST API tabs");
 }
-check_api(strpos($explorer_page, "restapi_print_tabs('system_restapi_explorer.php')") !== false &&
+check_api(strpos($explorer_page, "restapi_print_tabs('system_restapi_explorer.php', false, \$view)") !== false &&
     strpos(file_get_contents("{$root}/src/usr/local/FreeSense/include/www/restapi_keys.inc"), "'system_restapi_explorer.php' => gettext('API Explorer')") !== false,
     'the API Explorer tab is on every REST API page');
 /* The OpenAPI download: after the GUI's authentication and page privilege check, and checked again before any output. */

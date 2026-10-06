@@ -57,8 +57,198 @@ if (($_GET['download'] ?? '') === 'openapi') {
 	exit;
 }
 
+/* Two views: the Guide (how the API works) and the explorer itself (default). */
+$view = (($_GET['view'] ?? '') === 'guide') ? 'guide' : '';
 $me = (string)($_SESSION['Username'] ?? '');
 $viewer = restapi_local_user($me);
+$settings = restapi_settings();
+$can_settings = isAllowedPage('system_restapi.php');
+$can_keys = isAllowedPage('system_restapi_keys.php');
+
+$pgtitle = array(gettext('System'), gettext('REST API'), ($view === 'guide') ? gettext('Guide') : gettext('API Explorer'));
+$pglinks = array('', $can_settings ? 'system_restapi.php' : '', '@self');
+include("head.inc");
+
+restapi_print_tabs('system_restapi_explorer.php', false, $view);
+
+if (!restapi_enabled()) {
+	print_info_box($can_settings ?
+	    sprintf(gettext('The REST API is disabled. Enable it in %1$sSettings%2$s before trying requests.'),
+	    '<a href="system_restapi.php">', '</a>') :
+	    gettext('The REST API is disabled by the administrator; requests will fail until it is enabled.'), 'warning', false);
+} elseif (empty($settings['allowhttp']) && (($_SERVER['HTTPS'] ?? '') !== 'on')) {
+	print_info_box(gettext('This page was loaded over HTTP, but the REST API only accepts HTTPS requests. Open the WebGUI over HTTPS to try requests.'),
+	    'warning', false);
+}
+?>
+<style>
+	.fx-pad { padding: 1rem; }
+	/* The panel already has padding here: drop the core inset of direct paragraphs and lists. */
+	.panel-body.fx-pad > p, .panel-body.fx-pad > ol, .panel-body.fx-pad > ul { padding-left: 0; padding-right: 0; }
+	.fx-panel-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+	.fx-guide .panel { height: 100%; margin-bottom: 0; }
+	.fx-guide p:last-child, .fx-guide ul:last-child { margin-bottom: 0; }
+	.fx-steps { list-style: none; counter-reset: fx-step; padding: 0; margin: 0 0 1rem; }
+	.fx-steps > li { counter-increment: fx-step; position: relative; padding: 0 0 .9rem 2.6rem; }
+	.fx-steps > li::before { content: counter(fx-step); position: absolute; left: 0; top: -.1rem; width: 1.8rem; height: 1.8rem;
+	    border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .9rem;
+	    background: rgba(var(--bs-primary-rgb), .14); color: var(--fs-coral); }
+	.fx-steps > li strong { display: block; color: var(--bs-emphasis-color); }
+	.fx-code { margin: 0; padding: .6rem .75rem; font-size: .85em; white-space: pre-wrap; word-break: break-all;
+	    background-color: var(--bs-tertiary-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm); }
+	.fx-guide h3 { font-size: .95rem; font-weight: 600; margin: 0 0 .5rem; }
+	.fx-guide .fa-fw { color: var(--fs-coral); }
+	.fx-method { display: inline-block; min-width: 4.4em; text-align: center; font-family: var(--bs-font-monospace); }
+	.fx-path { font-family: var(--bs-font-monospace); font-size: .9em; overflow-wrap: anywhere; color: var(--bs-emphasis-color); }
+	.fx-summary { font-size: .85em; color: var(--bs-secondary-color); }
+	.fx-row { cursor: pointer; }
+	.fx-row > td { padding-top: .55rem !important; padding-bottom: .55rem !important; }
+	.fx-row:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: -2px; }
+	.fx-row.fx-denied .fx-path, .fx-row.fx-denied .fx-summary { opacity: .6; }
+	.fx-row .fx-chev i { transition: transform .15s ease-out; color: var(--bs-secondary-color); }
+	.fx-row[aria-expanded="true"] .fx-chev i { transform: rotate(180deg); }
+	.fx-row[aria-expanded="true"] > td { background-color: var(--bs-tertiary-bg) !important; }
+	.fx-flags { width: 1%; }
+	.fx-flags .badge { margin: .1em 0 .1em .2em; font-weight: 500; }
+	.fx-soft { background: var(--bs-tertiary-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color); }
+	.fx-details > td { background-color: var(--bs-tertiary-bg) !important; padding: 1rem !important; }
+	.fx-details pre, .fx-out pre { max-height: 32em; overflow: auto; background-color: var(--bs-body-bg);
+	    color: var(--bs-body-color); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm); padding: .5em; font-size: .85em; }
+	.fx-details dl { margin-bottom: 0; font-size: .9em; }
+	.fx-details dt { font-weight: 600; color: var(--bs-secondary-color); }
+	.fx-details dd { overflow-wrap: anywhere; }
+	.fx-try { background-color: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); padding: .9rem 1rem; }
+	.fx-try textarea { font-family: var(--bs-font-monospace); font-size: .85em; }
+	.fx-headers td { font-family: var(--bs-font-monospace); font-size: .85em; padding: .1em .5em; }
+	.fx-areas { position: sticky; top: 1rem; }
+	body:has(#topmenu.fixed-top) .fx-areas { top: 4.5rem; }
+	.fx-areas .list-group { max-height: calc(100vh - 9rem); overflow-y: auto; border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
+	.fx-areas .list-group-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .875rem;
+	    padding: .45rem 1rem; background: transparent; color: var(--bs-body-color); border-color: var(--bs-border-color); }
+	.fx-areas .list-group-item:hover { background: rgba(var(--bs-primary-rgb), .08); }
+	.fx-areas .list-group-item.active { background: rgba(var(--bs-primary-rgb), .14); color: var(--bs-emphasis-color);
+	    box-shadow: inset 3px 0 0 var(--fs-coral); font-weight: 600; }
+	.fx-areas .list-group-item.fx-empty { opacity: .45; }
+	.fx-stat { font-size: 1.6rem; font-weight: 700; line-height: 1.1; color: var(--bs-emphasis-color); }
+	.fx-area .panel-heading code { font-size: .8em; }
+	@media (prefers-reduced-motion: reduce) { .fx-row .fx-chev i { transition: none; } }
+</style>
+<?php
+if ($view === 'guide'):
+	$host = htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'firewall');
+	$errors = array(
+		'400' => gettext('Invalid input (bad JSON, unknown fields, wrong types).'),
+		'401' => gettext('Missing, malformed, unknown, expired or revoked key. Failed attempts are logged and count for login protection.'),
+		'403' => gettext('The key\'s user lacks the scope, the key is read-only or limited to other scopes, or the client address is not allowed.'),
+		'404' => gettext('The object does not exist.'),
+		'409' => gettext('The object is in use, or the change conflicts with the current state.'),
+		'412' => gettext('ETag mismatch: the configuration changed since the ETag in If-Match was read.'),
+		'422' => gettext('The GUI validation refused the input; details.messages lists the GUI\'s messages.'),
+	);
+?>
+<div class="row g-3 mb-3 fx-guide">
+	<div class="col-lg-7">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Quick start')?></h2></div>
+			<div class="panel-body fx-pad">
+				<ol class="fx-steps">
+					<li><strong><?=gettext('Enable the API and grant access')?></strong>
+						<?=$can_settings ?
+						    sprintf(gettext('Turn it on in %1$sSettings%2$s and give users the "WebCfg - System: REST API access" privilege in %3$sUser Manager%4$s.'),
+						    '<a href="system_restapi.php">', '</a>', '<a href="system_usermanager.php">', '</a>') :
+						    gettext('An administrator enables the API and grants the "WebCfg - System: REST API access" privilege.')?></li>
+					<li><strong><?=gettext('Create a key')?></strong>
+						<?=sprintf(gettext('In %1$sMy API Keys%2$s. A key acts as your user: it can do what your account can do in the GUI, ' .
+						    'and less if it is read-only, expires or is limited to scopes. It is shown only once.'),
+						    $can_keys ? '<a href="system_restapi_keys.php">' : '<span>', $can_keys ? '</a>' : '</span>')?></li>
+					<li><strong><?=gettext('Send it with every request')?></strong>
+						<?=gettext('As a bearer token in the Authorization header:')?></li>
+				</ol>
+				<pre class="fx-code">curl -H "Authorization: Bearer $FREESENSE_API_KEY" \
+  https://<?=$host?>/api/v1/me</pre>
+			</div>
+		</div>
+	</div>
+	<div class="col-lg-5">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('OpenAPI document')?></h2></div>
+			<div class="panel-body fx-pad">
+				<p><?=sprintf(gettext('Every endpoint is described in an OpenAPI 3 document at %1$s (it needs an API key). Import it into an API client ' .
+				    'or a code generator. The download below is the same document, without needing a key.'), '<code>/api/v1/openapi.json</code>')?></p>
+				<div class="d-flex flex-wrap gap-2">
+					<a class="btn btn-sm btn-primary" href="system_restapi_explorer.php">
+						<i class="fa-solid fa-compass icon-embed-btn"></i><?=gettext('Open the API Explorer')?></a>
+					<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?download=openapi">
+						<i class="fa-solid fa-download icon-embed-btn"></i><?=gettext('Download openapi.json')?></a>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-key fa-fw me-1"></i><?=gettext('Scopes')?></h2></div>
+			<div class="panel-body fx-pad">
+				<p><?=htmlspecialchars(gettext('Each endpoint needs a scope such as firewall.aliases:read or firewall.aliases:write; a write scope includes reading.'))?></p>
+				<p><?=htmlspecialchars(gettext('The key\'s user holds a scope with GUI access to the page the endpoint mirrors, or with the "REST API - <area>" privilege. ' .
+				    'Limiting a key to scopes only narrows it: it never gets more than its user holds.'))?></p>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-layer-group fa-fw me-1"></i><?=gettext('Staged changes')?></h2></div>
+			<div class="panel-body fx-pad">
+				<p><?=htmlspecialchars(gettext('Most changes are staged like in the GUI. Apply them with the area\'s POST .../apply endpoint, ' .
+				    'or add ?apply=true to the change to apply it at once.'))?></p>
+				<p><?=gettext('The API Explorer marks each change as <em>staged</em>, <em>applies</em> or <em>no staging</em>.')?></p>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-code-compare fa-fw me-1"></i><?=gettext('Concurrent changes (ETag)')?></h2></div>
+			<div class="panel-body fx-pad">
+				<p><?=htmlspecialchars(gettext('Responses carry an ETag of the configuration. Send it back as If-Match on a change to have it refused (412) ' .
+				    'when the configuration changed meanwhile.'))?></p>
+				<p><?=htmlspecialchars(gettext('List entries are addressed by position, so this matters when several clients or administrators make changes.'))?></p>
+			</div>
+		</div>
+	</div>
+	<div class="col-md-6">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation fa-fw me-1"></i><?=gettext('Disruptive operations')?></h2></div>
+			<div class="panel-body fx-pad">
+				<p><?=htmlspecialchars(gettext('Interface assignments, service control, state resets, reboot, halt, packages, the system update and ' .
+				    'configuration restore require {"confirm": true} in the body.'))?></p>
+				<p><?=htmlspecialchars(gettext('Reboot, halt, packages and the system update also need an administrator (the admin user or "WebCfg - All pages").'))?></p>
+			</div>
+		</div>
+	</div>
+	<div class="col-12">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-circle-exclamation fa-fw me-1"></i><?=gettext('Errors')?></h2></div>
+			<div class="panel-body">
+				<p class="fx-pad pb-0"><?=gettext('Errors are JSON:')?> <code>{"error": {"code": "...", "message": "...", "details": {...}}}</code></p>
+				<div class="table-responsive">
+					<table class="table table-sm table-striped mb-0">
+						<thead><tr><th style="width: 6em"><?=gettext('Status')?></th><th><?=gettext('Meaning')?></th></tr></thead>
+						<tbody>
+<?php	foreach ($errors as $code => $meaning): ?>
+							<tr><td><span class="badge <?=($code === '401' || $code === '403') ? 'text-bg-danger' : 'text-bg-warning'?>"><?=$code?></span></td>
+								<td><?=htmlspecialchars($meaning)?></td></tr>
+<?php	endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+<?php
+	include("foot.inc");
+	exit;
+endif;
+
 global $priv_list;
 $model = restapi_explorer_model(restapi_routes_v1(), restapi_areas(),
     restapi_explorer_privnames_for(is_array($priv_list) ? $priv_list : array()), restapi_explorer_access_for($viewer));
@@ -67,23 +257,6 @@ foreach ($model['areas'] as $group) {
 	foreach ($group['endpoints'] as $ep) {
 		$callable_count += $ep['callable'] ? 1 : 0;
 	}
-}
-$settings = restapi_settings();
-
-$pgtitle = array(gettext('System'), gettext('REST API'), gettext('API Explorer'));
-$pglinks = array('', isAllowedPage('system_restapi.php') ? 'system_restapi.php' : '', '@self');
-include("head.inc");
-
-restapi_print_tabs('system_restapi_explorer.php');
-
-if (!restapi_enabled()) {
-	print_info_box(isAllowedPage('system_restapi.php') ?
-	    sprintf(gettext('The REST API is disabled. Enable it in %1$sSettings & All Keys%2$s before trying requests.'),
-	    '<a href="system_restapi.php">', '</a>') :
-	    gettext('The REST API is disabled by the administrator; requests will fail until it is enabled.'), 'warning', false);
-} elseif (empty($settings['allowhttp']) && (($_SERVER['HTTPS'] ?? '') !== 'on')) {
-	print_info_box(gettext('This page was loaded over HTTP, but the REST API only accepts HTTPS requests. Open the WebGUI over HTTPS to try requests.'),
-	    'warning', false);
 }
 
 $method_class = array('GET' => 'text-bg-info', 'POST' => 'text-bg-success', 'PUT' => 'text-bg-warning',
@@ -122,6 +295,7 @@ $i18n = array(
 	'pathParams' => gettext('Path parameters'),
 	'queryParams' => gettext('Query parameters'),
 	'requestBody' => gettext('Request body'),
+	'showSchema' => gettext('Show the schema'),
 	'responseType' => gettext('Response type'),
 	'access' => gettext('Your access'),
 	'youCan' => gettext('You can call this endpoint with a key of your own (unless the key is read-only or limited to other scopes).'),
@@ -142,164 +316,164 @@ $i18n = array(
 	'notCallable' => gettext('Not available to you: %s'),
 );
 ?>
-<style>
-	.fx-method { display: inline-block; min-width: 4.6em; text-align: center; font-family: var(--bs-font-monospace); }
-	.fx-path { font-family: var(--bs-font-monospace); white-space: nowrap; }
-	.fx-row { cursor: pointer; }
-	.fx-row.fx-denied .fx-path, .fx-row.fx-denied .fx-summary { opacity: .6; }
-	.fx-flags .badge { margin: 0 .15em .15em 0; font-weight: 500; }
-	.fx-details > td { background-color: var(--bs-tertiary-bg) !important; }
-	.fx-details pre, .fx-out pre { max-height: 32em; overflow: auto; background-color: var(--bs-body-bg);
-	    color: var(--bs-body-color); border: 1px solid var(--bs-border-color); border-radius: .25rem; padding: .5em; font-size: .85em; }
-	.fx-details dl { margin-bottom: .5em; }
-	.fx-details dt { font-weight: 600; }
-	.fx-try { border-top: 1px solid var(--bs-border-color); margin-top: .75em; padding-top: .75em; }
-	.fx-try textarea { font-family: var(--bs-font-monospace); font-size: .85em; }
-	.fx-headers td { font-family: var(--bs-font-monospace); font-size: .85em; padding: .1em .5em; }
-	.fx-filter .form-control, .fx-filter .form-select { max-width: 100%; }
-</style>
 
 <div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Getting started')?></h2></div>
-	<div class="panel-body">
-		<ol class="mb-2">
-			<li><?=isAllowedPage('system_restapi.php') ?
-			    sprintf(gettext('Enable the API in %1$sSettings & All Keys%2$s and grant users the "WebCfg - System: REST API access" privilege.'),
-			    '<a href="system_restapi.php">', '</a>') :
-			    gettext('An administrator enables the API and grants the "WebCfg - System: REST API access" privilege.')?></li>
-			<li><?=sprintf(gettext('Create a key in %1$sMy API Keys%2$s. A key acts as your user: it can do what your account can do in the GUI, ' .
-			    'and less if it is read-only, expires or is limited to scopes.'),
-			    isAllowedPage('system_restapi_keys.php') ? '<a href="system_restapi_keys.php">' : '<span>',
-			    isAllowedPage('system_restapi_keys.php') ? '</a>' : '</span>')?></li>
-			<li><?=gettext('Send it with every request:')?> <code>Authorization: Bearer fsk_&lt;id&gt;_&lt;secret&gt;</code>.
-			    <?=htmlspecialchars(gettext('Each endpoint needs a scope such as firewall.aliases:read or firewall.aliases:write (write includes read). ' .
-			    'You hold it with GUI access to the page the endpoint mirrors or with the "REST API - <area>" privilege.'))?></li>
-			<li><?=htmlspecialchars(gettext('Most changes are staged like in the GUI: apply them with the area\'s POST .../apply endpoint, or add ?apply=true to the change.'))?></li>
-			<li><?=htmlspecialchars(gettext('Responses carry an ETag of the configuration. Send it back as If-Match on a change to have it refused (412) ' .
-			    'when the configuration changed meanwhile; list entries are addressed by position, so this matters.'))?></li>
-			<li><?=htmlspecialchars(gettext('Disruptive operations (interface assignments, service control, state resets, reboot, halt, packages, system update, ' .
-			    'configuration restore) require {"confirm": true}; reboot, halt, packages and the system update also need an administrator.'))?></li>
-			<li><?=htmlspecialchars(gettext('Errors are JSON: {"error": {"code", "message", "details"}}. 400 invalid input, 401 missing or invalid key ' .
-			    '(failed attempts are logged and count for login protection), 403 missing scope or read-only key, 404 not found, ' .
-			    '409 in use, 412 ETag mismatch, 422 validation failed (details.messages lists the GUI\'s messages).'))?></li>
-		</ol>
-		<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?download=openapi">
-			<i class="fa-solid fa-download icon-embed-btn"></i><?=gettext('Download openapi.json')?>
-		</a>
-		<span class="text-muted ms-2"><?=gettext('The same document as GET /api/v1/openapi.json, without needing a key.')?></span>
+	<div class="panel-heading fx-panel-heading">
+		<h2 class="panel-title"><?=gettext('API key for "Try it"')?></h2>
+		<div class="d-flex flex-wrap gap-2">
+			<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?view=guide">
+				<i class="fa-solid fa-book-open icon-embed-btn"></i><?=gettext('Guide')?></a>
+			<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?download=openapi"
+			    title="<?=gettext('The same document as GET /api/v1/openapi.json, without needing a key.')?>">
+				<i class="fa-solid fa-download icon-embed-btn"></i><?=gettext('Download openapi.json')?></a>
+		</div>
+	</div>
+	<div class="panel-body fx-pad">
+		<div class="row g-4">
+			<div class="col-lg-7">
+				<label class="form-label" for="fx-key"><?=gettext('API key')?></label>
+				<div class="input-group">
+					<span class="input-group-text"><i class="fa-solid fa-key"></i></span>
+					<input type="password" class="form-control" id="fx-key" autocomplete="off" spellcheck="false"
+					    placeholder="fsk_..." data-lpignore="true" aria-describedby="fx-key-help" />
+					<button type="button" class="btn btn-secondary" id="fx-key-show" title="<?=gettext('Show or hide the key')?>"
+					    aria-label="<?=gettext('Show or hide the key')?>"><i class="fa-solid fa-eye"></i></button>
+					<button type="button" class="btn btn-secondary" id="fx-key-clear" title="<?=gettext('Forget the key')?>"
+					    aria-label="<?=gettext('Forget the key')?>"><i class="fa-solid fa-xmark"></i></button>
+				</div>
+				<small id="fx-key-note" class="text-danger d-block mt-1" role="status"></small>
+				<div class="form-check form-switch mt-2">
+					<input class="form-check-input" type="checkbox" role="switch" id="fx-key-remember" />
+					<label class="form-check-label" for="fx-key-remember"><?=gettext('Remember for this browser tab')?>
+						<span class="text-muted small"><?=gettext('(sessionStorage; forgotten when the tab closes)')?></span></label>
+				</div>
+				<p class="text-muted small mt-2 mb-0" id="fx-key-help"><i class="fa-solid fa-shield-halved me-1"></i><?=gettext('The key stays in this browser tab. ' .
+				    'It is only sent as the Authorization header of the requests you send to /api/v1 from here, never to this page, never in a URL, ' .
+				    'and it is not stored on the firewall.')?></p>
+			</div>
+			<div class="col-lg-5">
+<?php	if ($viewer === null): ?>
+				<p class="mb-0 text-muted"><?=htmlspecialchars(gettext('API keys are available to local users only, so no endpoint is marked as available to you.'))?></p>
+<?php	else: ?>
+				<div class="text-muted small"><?=htmlspecialchars(sprintf(gettext('Signed in as %s'), $me))?></div>
+				<div class="fx-stat"><?=(int)$callable_count?> <span class="text-muted fs-6 fw-normal">/ <?=(int)$model['count']?></span></div>
+				<p class="mb-1"><?=gettext('endpoints you could call with a key of your own')?></p>
+				<p class="text-muted small mb-0"><?=gettext('A read-only key or one limited to scopes allows fewer.')?>
+<?php		if ($can_keys): ?>
+					<a href="system_restapi_keys.php"><?=gettext('Create a key')?></a>
+<?php		endif; ?>
+				</p>
+<?php	endif; ?>
+			</div>
+		</div>
 	</div>
 </div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('API key for "Try it"')?></h2></div>
-	<div class="panel-body">
-		<div class="input-group mb-2">
-			<span class="input-group-text"><i class="fa-solid fa-key"></i></span>
-			<input type="password" class="form-control" id="fx-key" autocomplete="off" spellcheck="false"
-			    placeholder="fsk_..." aria-label="<?=gettext('API key')?>" data-lpignore="true" />
-			<button type="button" class="btn btn-secondary" id="fx-key-show" title="<?=gettext('Show or hide the key')?>"><i class="fa-solid fa-eye"></i></button>
-			<button type="button" class="btn btn-secondary" id="fx-key-clear" title="<?=gettext('Forget the key')?>"><i class="fa-solid fa-xmark"></i></button>
-		</div>
-		<div class="form-check mb-2">
-			<input class="form-check-input" type="checkbox" id="fx-key-remember" />
-			<label class="form-check-label" for="fx-key-remember"><?=gettext('Remember for this browser tab (sessionStorage; forgotten when the tab closes)')?></label>
-		</div>
-		<p class="text-muted mb-1"><small><?=gettext('The key stays in this browser tab. It is only sent as the Authorization header of the requests you send ' .
-		    'to /api/v1 from here, never to this page, never in a URL, and it is not stored on the firewall.')?></small></p>
-		<p class="mb-0"><small id="fx-key-note" class="text-danger"></small></p>
-		<p class="mb-0"><?php
-if ($viewer === null) {
-	echo htmlspecialchars(gettext('API keys are available to local users only, so no endpoint is marked as available to you.'));
-} else {
-	echo htmlspecialchars(sprintf(gettext('Signed in as %1$s: you could call %2$d of the %3$d endpoints with a key of your own ' .
-	    '(a read-only key or one limited to scopes allows fewer).'), $me, $callable_count, $model['count']));
-}
-?></p>
-	</div>
-</div>
-
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Endpoints')?></h2></div>
-	<div class="panel-body">
-		<div class="row g-2 fx-filter mb-2">
-			<div class="col-md-5">
-				<input type="search" class="form-control" id="fx-search" autocomplete="off"
-				    placeholder="<?=gettext('Search path, summary, area or scope')?>" />
-			</div>
-			<div class="col-md-2">
-				<select class="form-select" id="fx-method" aria-label="<?=gettext('Method')?>">
-					<option value=""><?=gettext('All methods')?></option>
-<?php	foreach (array_keys($method_class) as $m): ?>
-					<option value="<?=$m?>"><?=$m?></option>
-<?php	endforeach; ?>
-				</select>
-			</div>
-			<div class="col-md-3">
-				<select class="form-select" id="fx-area" aria-label="<?=gettext('Area')?>">
-					<option value=""><?=gettext('All areas')?></option>
+<div class="row g-3">
+	<div class="col-lg-3 d-none d-lg-block">
+		<nav class="panel panel-default fx-areas" aria-label="<?=gettext('Areas')?>">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Areas')?></h2></div>
+			<div class="list-group list-group-flush" id="fx-area-nav">
+				<button type="button" class="list-group-item list-group-item-action active" data-area="" aria-current="true">
+					<span><?=gettext('All areas')?></span><span class="badge rounded-pill text-bg-secondary" data-count=""><?=(int)$model['count']?></span></button>
 <?php	foreach ($model['areas'] as $group): ?>
-					<option value="<?=htmlspecialchars($group['id'])?>"><?=htmlspecialchars($group['label'])?></option>
+				<button type="button" class="list-group-item list-group-item-action" data-area="<?=htmlspecialchars($group['id'])?>">
+					<span><?=htmlspecialchars($group['label'])?></span><span class="badge rounded-pill text-bg-secondary"
+					    data-count="<?=htmlspecialchars($group['id'])?>"><?=count($group['endpoints'])?></span></button>
 <?php	endforeach; ?>
-				</select>
 			</div>
-			<div class="col-md-2">
-				<select class="form-select" id="fx-access" aria-label="<?=gettext('Access')?>">
-					<option value=""><?=gettext('All endpoints')?></option>
-					<option value="callable"><?=gettext('Available to me')?></option>
-					<option value="read"><?=gettext('Reads')?></option>
-					<option value="write"><?=gettext('Writes')?></option>
-				</select>
+		</nav>
+	</div>
+	<div class="col-lg-9" id="fx-endpoints">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Endpoints')?></h2></div>
+			<div class="panel-body fx-pad">
+				<div class="row g-2 align-items-center">
+					<div class="col-md">
+						<div class="input-group">
+							<span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+							<input type="search" class="form-control" id="fx-search" autocomplete="off"
+							    placeholder="<?=gettext('Search path, summary, area or scope')?>" aria-label="<?=gettext('Search endpoints')?>" />
+						</div>
+					</div>
+					<div class="col-6 col-md-auto">
+						<select class="form-select" id="fx-method" aria-label="<?=gettext('Method')?>">
+							<option value=""><?=gettext('All methods')?></option>
+<?php	foreach (array_keys($method_class) as $m): ?>
+							<option value="<?=$m?>"><?=$m?></option>
+<?php	endforeach; ?>
+						</select>
+					</div>
+					<div class="col-6 col-md-auto">
+						<select class="form-select" id="fx-access" aria-label="<?=gettext('Access')?>">
+							<option value=""><?=gettext('All endpoints')?></option>
+							<option value="callable"><?=gettext('Available to me')?></option>
+							<option value="read"><?=gettext('Reads')?></option>
+							<option value="write"><?=gettext('Writes')?></option>
+						</select>
+					</div>
+					<div class="col-12 d-lg-none">
+						<select class="form-select" id="fx-area" aria-label="<?=gettext('Area')?>">
+							<option value=""><?=gettext('All areas')?></option>
+<?php	foreach ($model['areas'] as $group): ?>
+							<option value="<?=htmlspecialchars($group['id'])?>"><?=htmlspecialchars($group['label'])?></option>
+<?php	endforeach; ?>
+						</select>
+					</div>
+				</div>
+				<p class="text-muted small mt-2 mb-0" id="fx-count" aria-live="polite"></p>
 			</div>
 		</div>
-		<p class="text-muted mb-0" id="fx-count"></p>
-	</div>
-</div>
+		<div class="alert alert-info d-none" id="fx-none"><?=gettext('No endpoint matches the filters.')?></div>
 
 <?php foreach ($model['areas'] as $group): ?>
-<div class="panel panel-default fx-area" data-area="<?=htmlspecialchars($group['id'])?>">
-	<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($group['label'])?>
-		<?php if ($group['id'] !== 'meta'): ?><small class="text-muted ms-1"><code><?=htmlspecialchars($group['id'])?></code></small><?php endif; ?>
-		<span class="badge text-bg-secondary ms-1"><?=count($group['endpoints'])?></span></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-hover table-sm mb-0">
-				<tbody>
+		<div class="panel panel-default fx-area" data-area="<?=htmlspecialchars($group['id'])?>">
+			<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($group['label'])?>
+				<?php if ($group['id'] !== 'meta'): ?><code class="ms-1 fw-normal"><?=htmlspecialchars($group['id'])?></code><?php endif; ?>
+				<span class="badge text-bg-secondary ms-1"><?=count($group['endpoints'])?></span></h2></div>
+			<div class="panel-body">
+				<div class="table-responsive">
+					<table class="table table-hover table-sm mb-0">
+						<tbody>
 <?php	foreach ($group['endpoints'] as $ep):
 		$f = $ep['flags'];
 		$search = strtolower("{$ep['method']} {$ep['url']} {$ep['summary']} {$group['label']} {$ep['area']} {$ep['scope']} {$ep['page']}");
 ?>
-					<tr class="fx-row<?=$ep['callable'] ? '' : ' fx-denied'?>" id="<?=$ep['id']?>" data-ep="<?=$ep['id']?>"
-					    data-method="<?=htmlspecialchars($ep['method'])?>" data-kind="<?=$f['kind']?>" data-callable="<?=$ep['callable'] ? '1' : '0'?>"
-					    data-search="<?=htmlspecialchars($search)?>" tabindex="0" aria-expanded="false">
-						<td style="width: 6em"><span class="badge fx-method <?=$method_class[$ep['method']] ?? 'text-bg-secondary'?>"><?=htmlspecialchars($ep['method'])?></span></td>
-						<td class="fx-path"><?=htmlspecialchars($ep['url'])?></td>
-						<td class="fx-summary"><?=htmlspecialchars($ep['summary'])?></td>
-						<td class="fx-flags text-nowrap">
+							<tr class="fx-row<?=$ep['callable'] ? '' : ' fx-denied'?>" id="<?=$ep['id']?>" data-ep="<?=$ep['id']?>"
+							    data-method="<?=htmlspecialchars($ep['method'])?>" data-kind="<?=$f['kind']?>" data-callable="<?=$ep['callable'] ? '1' : '0'?>"
+							    data-search="<?=htmlspecialchars($search)?>" tabindex="0" aria-expanded="false">
+								<td style="width: 5.5em"><span class="badge fx-method <?=$method_class[$ep['method']] ?? 'text-bg-secondary'?>"><?=htmlspecialchars($ep['method'])?></span></td>
+								<td><div class="fx-path"><?=htmlspecialchars($ep['url'])?></div>
+									<div class="fx-summary"><?=htmlspecialchars($ep['summary'])?></div></td>
+								<td class="fx-flags text-end text-nowrap">
 <?php		if ($ep['scope'] !== ''): ?>
-							<span class="badge text-bg-light border" title="<?=gettext('Required scope')?>"><?=htmlspecialchars($ep['scope'])?></span>
+									<span class="badge fx-soft d-none d-xl-inline-block" title="<?=gettext('Required scope')?>"><?=htmlspecialchars($ep['scope'])?></span>
 <?php		endif; ?>
-							<span class="badge <?=($f['kind'] === 'write') ? 'text-bg-warning' : 'text-bg-secondary'?>"><?=($f['kind'] === 'write') ? gettext('write') : gettext('read')?></span>
+									<span class="badge <?=($f['kind'] === 'write') ? 'text-bg-warning' : 'text-bg-secondary'?>"><?=($f['kind'] === 'write') ? gettext('write') : gettext('read')?></span>
 <?php		if ($f['apply'] !== ''): ?>
-							<span class="badge text-bg-light border" title="<?=htmlspecialchars($apply_label[$f['apply']][1])?>"><?=htmlspecialchars($apply_label[$f['apply']][0])?></span>
+									<span class="badge fx-soft" title="<?=htmlspecialchars($apply_label[$f['apply']][1])?>"><?=htmlspecialchars($apply_label[$f['apply']][0])?></span>
 <?php		endif;
 		if ($f['confirm'] !== ''): ?>
-							<span class="badge text-bg-danger" title="<?=htmlspecialchars(($f['confirm'] === 'always') ? $i18n['confirmAlways'] : $i18n['confirmConditional'])?>"><?=($f['confirm'] === 'always') ? gettext('confirm') : gettext('confirm?')?></span>
+									<span class="badge text-bg-danger" title="<?=htmlspecialchars(($f['confirm'] === 'always') ? $i18n['confirmAlways'] : $i18n['confirmConditional'])?>"><?=($f['confirm'] === 'always') ? gettext('confirm') : gettext('confirm?')?></span>
 <?php		endif;
 		if ($f['admin']): ?>
-							<span class="badge text-bg-danger" title="<?=htmlspecialchars($i18n['adminOnly'])?>"><?=gettext('admin')?></span>
+									<span class="badge text-bg-danger" title="<?=htmlspecialchars($i18n['adminOnly'])?>"><?=gettext('admin')?></span>
 <?php		endif;
 		if (!$ep['callable']): ?>
-							<span class="badge text-bg-dark" title="<?=htmlspecialchars(sprintf($i18n['notCallable'], $ep['reason']))?>"><i class="fa-solid fa-lock"></i> <?=gettext('not for you')?></span>
+									<span class="badge text-bg-dark" title="<?=htmlspecialchars(sprintf($i18n['notCallable'], $ep['reason']))?>"><i class="fa-solid fa-lock"></i> <?=gettext('not for you')?></span>
 <?php		endif; ?>
-						</td>
-					</tr>
+								</td>
+								<td class="fx-chev text-end" style="width: 2em"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></td>
+							</tr>
 <?php	endforeach; ?>
-				</tbody>
-			</table>
+						</tbody>
+					</table>
+				</div>
+			</div>
 		</div>
+<?php endforeach; ?>
 	</div>
 </div>
-<?php endforeach; ?>
 
 <script type="application/json" id="fx-model"><?=restapi_explorer_json($model)?></script>
 <script type="application/json" id="fx-i18n"><?=restapi_explorer_json($i18n)?></script>
@@ -356,18 +530,23 @@ events.push(function() {
 		keyField.type = (keyField.type === 'password') ? 'text' : 'password';
 	});
 
-	/* ---- filtering ---- */
+	/* ---- filtering: search, method, access and the area (side navigation, or a select on small screens) ---- */
 	var rows = Array.prototype.slice.call(document.querySelectorAll('tr.fx-row'));
 	var search = document.getElementById('fx-search'), fMethod = document.getElementById('fx-method'),
 	    fArea = document.getElementById('fx-area'), fAccess = document.getElementById('fx-access');
+	var areaNav = Array.prototype.slice.call(document.querySelectorAll('#fx-area-nav [data-area]'));
+	var area = '';
 	function applyFilter() {
 		var words = search.value.toLowerCase().split(/\s+/).filter(function(w) { return w !== ''; });
-		var shown = 0;
+		var shown = 0, perArea = {}, any = 0;
 		rows.forEach(function(r) {
-			var ok = words.every(function(w) { return r.dataset.search.indexOf(w) !== -1; }) &&
+			var rowArea = r.closest('.fx-area').dataset.area;
+			var match = words.every(function(w) { return r.dataset.search.indexOf(w) !== -1; }) &&
 			    (fMethod.value === '' || r.dataset.method === fMethod.value) &&
-			    (fArea.value === '' || r.closest('.fx-area').dataset.area === fArea.value) &&
 			    (fAccess.value === '' || (fAccess.value === 'callable' ? r.dataset.callable === '1' : r.dataset.kind === fAccess.value));
+			var ok = match && (area === '' || rowArea === area);
+			perArea[rowArea] = (perArea[rowArea] || 0) + (match ? 1 : 0);
+			any += match ? 1 : 0;
 			r.classList.toggle('d-none', !ok);
 			var d = r.nextElementSibling;
 			if (d && d.classList.contains('fx-details')) { d.classList.toggle('d-none', !ok || r.getAttribute('aria-expanded') !== 'true'); }
@@ -376,20 +555,42 @@ events.push(function() {
 		document.querySelectorAll('.fx-area').forEach(function(p) {
 			p.classList.toggle('d-none', p.querySelector('tr.fx-row:not(.d-none)') === null);
 		});
+		/* The side navigation shows how many endpoints of each area match the other filters. */
+		areaNav.forEach(function(b) {
+			var n = (b.dataset.area === '') ? any : (perArea[b.dataset.area] || 0);
+			b.querySelector('[data-count]').textContent = n;
+			b.classList.toggle('fx-empty', n === 0);
+			b.classList.toggle('active', b.dataset.area === area);
+			if (b.dataset.area === area) { b.setAttribute('aria-current', 'true'); } else { b.removeAttribute('aria-current'); }
+		});
+		document.getElementById('fx-none').classList.toggle('d-none', shown !== 0);
 		document.getElementById('fx-count').textContent = fmt(T.showing, shown, model.count);
+	}
+	function setArea(a) {
+		area = a;
+		fArea.value = a;
+		applyFilter();
 	}
 	var timer = null;
 	search.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(applyFilter, 120); });
-	[fMethod, fArea, fAccess].forEach(function(s) { s.addEventListener('change', applyFilter); });
+	[fMethod, fAccess].forEach(function(s) { s.addEventListener('change', applyFilter); });
+	fArea.addEventListener('change', function() { setArea(fArea.value); });
+	areaNav.forEach(function(b) {
+		b.addEventListener('click', function() {
+			setArea(b.dataset.area);
+			var top = document.getElementById('fx-endpoints').getBoundingClientRect().top;
+			if (top < 0) { document.getElementById('fx-endpoints').scrollIntoView({block: 'start'}); }
+		});
+	});
 	applyFilter();
 
 	/* ---- details and "Try it" ---- */
-	function shq(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
+	function shq(s) { return "'" + String(s).replace(/'/g, "'\''") + "'"; }
 	function dl(pairs) {
 		var d = el('dl', {cls: 'row'});
 		pairs.forEach(function(p) {
-			d.appendChild(el('dt', {cls: 'col-sm-2', text: p[0]}));
-			var dd = el('dd', {cls: 'col-sm-10'});
+			d.appendChild(el('dt', {cls: 'col-sm-4', text: p[0]}));
+			var dd = el('dd', {cls: 'col-sm-8'});
 			(Array.isArray(p[1]) ? p[1] : [p[1]]).forEach(function(c) { dd.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
 			d.appendChild(dd);
 		});
@@ -402,10 +603,11 @@ events.push(function() {
 		return ul;
 	}
 
+	/* Reference on the left, "Try it" on the right (stacked on narrow screens). */
 	function buildDetails(ep) {
-		var f = ep.flags, box = el('div');
+		var f = ep.flags, box = el('div', {cls: 'row g-3'}), ref = el('div', {cls: 'col-xl-5'});
 		if (f.destructive || f.admin || f.confirm !== '') {
-			var warn = el('div', {cls: 'alert alert-danger py-2 mb-2'});
+			var warn = el('div', {cls: 'alert alert-danger py-2 mb-2 small'});
 			var parts = [];
 			if (f.destructive) { parts.push(T.confirmDanger); }
 			if (f.confirm === 'always') { parts.push(T.confirmAlways); }
@@ -413,45 +615,47 @@ events.push(function() {
 			if (f.admin) { parts.push(T.adminOnly); }
 			warn.appendChild(el('i', {cls: 'fa-solid fa-triangle-exclamation me-1'}));
 			warn.appendChild(document.createTextNode(parts.join(' ')));
-			box.appendChild(warn);
+			ref.appendChild(warn);
 		}
 		var access = ep.callable ? el('span', {cls: 'text-success', text: T.youCan}) : el('span', {cls: 'text-danger', text: ep.reason});
 		var bodyDoc = null;
 		if (ep.body) {
-			bodyDoc = ep.body.properties ? el('pre', {cls: 'mb-0', text: JSON.stringify(ep.body, null, 2)}) :
+			bodyDoc = ep.body.properties ? el('details', {}, [el('summary', {cls: 'small', text: T.showSchema}),
+			    el('pre', {cls: 'mb-0 mt-1', text: JSON.stringify(ep.body, null, 2)})]) :
 			    (ep.body.description || JSON.stringify(ep.body));
 		}
-		var pairs = [[T.summary, ep.summary], [T.scope, ep.scope || T.none], [T.guiPage, ep.page]];
+		var pairs = [[T.summary, ep.summary], [T.scope, ep.scope ? el('code', {text: ep.scope}) : T.none], [T.guiPage, ep.page]];
 		if (ep.privileges.length) { pairs.push([T.grantedBy, ep.privileges.join(' | ')]); }
 		pairs.push([T.pathParams, codeList(ep.params.map(function(p) { return [p, '']; }))]);
 		pairs.push([T.queryParams, codeList(ep.query.map(function(q) { return [q.name, q.description]; }))]);
 		if (bodyDoc) { pairs.push([T.requestBody, bodyDoc]); }
 		pairs.push([T.responseType, ep.produces], [T.access, access]);
-		box.appendChild(dl(pairs));
-		box.appendChild(buildTry(ep));
+		ref.appendChild(dl(pairs));
+		box.appendChild(ref);
+		box.appendChild(el('div', {cls: 'col-xl-7'}, [buildTry(ep)]));
 		return box;
 	}
 
 	function buildTry(ep) {
 		var f = ep.flags, wrap = el('div', {cls: 'fx-try'});
-		wrap.appendChild(el('h3', {cls: 'h6', text: T.tryIt}));
+		wrap.appendChild(el('h3', {cls: 'h6 mb-2', text: T.tryIt}));
 		var inputs = {}, query = {};
 		var grid = el('div', {cls: 'row g-2 mb-2'});
 		ep.params.forEach(function(p) {
 			inputs[p] = el('input', {type: 'text', cls: 'form-control form-control-sm', placeholder: p, 'aria-label': p, autocomplete: 'off'});
-			grid.appendChild(el('div', {cls: 'col-md-3'}, [el('label', {cls: 'form-label small mb-0', text: '{' + p + '}'}), inputs[p]]));
+			grid.appendChild(el('div', {cls: 'col-sm-6'}, [el('label', {cls: 'form-label small mb-0', text: '{' + p + '}'}), inputs[p]]));
 		});
 		ep.query.forEach(function(q) {
 			query[q.name] = el('input', {type: 'text', cls: 'form-control form-control-sm', placeholder: q.description, title: q.description,
 			    'aria-label': q.name, autocomplete: 'off'});
-			grid.appendChild(el('div', {cls: 'col-md-3'}, [el('label', {cls: 'form-label small mb-0', text: '?' + q.name}), query[q.name]]));
+			grid.appendChild(el('div', {cls: 'col-sm-6'}, [el('label', {cls: 'form-label small mb-0', text: '?' + q.name}), query[q.name]]));
 		});
 		var ifMatch = null;
 		if (f.kind === 'write') {
 			ifMatch = el('input', {type: 'text', cls: 'form-control form-control-sm', title: T.ifMatchHelp, autocomplete: 'off'});
 			var useEtag = el('button', {type: 'button', cls: 'btn btn-sm btn-outline-secondary', text: T.useEtag});
 			useEtag.addEventListener('click', function() { ifMatch.value = lastEtag; update(); });
-			grid.appendChild(el('div', {cls: 'col-md-4'}, [el('label', {cls: 'form-label small mb-0', text: T.ifMatch}),
+			grid.appendChild(el('div', {cls: 'col-sm-6'}, [el('label', {cls: 'form-label small mb-0', text: T.ifMatch}),
 			    el('div', {cls: 'input-group input-group-sm'}, [ifMatch, useEtag])]));
 		}
 		if (grid.childNodes.length) { wrap.appendChild(grid); }
