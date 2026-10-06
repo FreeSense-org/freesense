@@ -906,18 +906,16 @@ function local_user_set_password(&$user_item_config, $password) {
 	if (isset($user_item_config['idx'])) {
 		config_set_path("system/user/{$user_item_config['idx']}", $user);
 	}
-	/* A changed password also ends the user's REST API keys (stored by the caller's write_config()). */
-	if (!empty($user['name'])) {
-		local_user_revoke_api_keys($user['name']);
-	}
+	/* REST API keys are separate credentials (like personal access tokens):
+	 * a password change leaves them working. Use "Revoke all keys" when an
+	 * account may be compromised. */
 }
 
 /*
  * Remove the REST API keys of the local user $username from the
- * configuration (the caller writes it). Used when the user is deleted or
- * its password changes: a key must never outlive the account or password it
- * was created under (a new user with the same name would inherit it).
- * Returns the number of keys removed.
+ * configuration (the caller writes it). Used when the user is deleted (a
+ * new user with the same name must never inherit them) and by "Revoke all
+ * keys". Returns the number of keys removed.
  */
 function local_user_revoke_api_keys($username) {
 	$tokens = config_get_path('restapi/apitoken', []);

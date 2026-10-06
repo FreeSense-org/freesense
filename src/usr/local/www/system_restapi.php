@@ -54,6 +54,10 @@ if ($_POST['save']) {
 	} else {
 		$input_errors[] = gettext('The API key no longer exists.');
 	}
+} elseif (($_POST['act'] ?? '') === 'revoke_all') {
+	$revoke_user = (string)($_POST['username'] ?? '');
+	$savemsg = sprintf(gettext('%1$d API key(s) of user %2$s revoked.'), restapi_revoke_user_tokens($revoke_user),
+	    htmlspecialchars($revoke_user));
 }
 
 if (!isset($pconfig)) {
@@ -115,6 +119,25 @@ $form->add($section);
 print($form);
 
 restapi_print_key_table(restapi_tokens(), true, 'system_restapi.php');
+
+/* "Revoke all keys" per user, for an account that may be compromised (a password change keeps keys). */
+$key_owners = array_unique(array_map(function ($t) {
+	return (string)($t['username'] ?? '');
+}, restapi_tokens()));
+sort($key_owners);
+if (!empty($key_owners)):
+?>
+<nav class="action-buttons">
+	<span class="me-2"><?=gettext('Revoke all keys of:')?></span>
+<?php	foreach ($key_owners as $owner): ?>
+	<a href="system_restapi.php?act=revoke_all&amp;username=<?=urlencode($owner)?>" class="btn btn-sm btn-danger do-confirm" usepost
+	    title="<?=htmlspecialchars(sprintf(gettext('Revoke every API key of %s'), $owner))?>">
+		<i class="fa-solid fa-ban icon-embed-btn"></i><?=htmlspecialchars($owner)?>
+	</a>
+<?php	endforeach; ?>
+</nav>
+<?php
+endif;
 
 if (empty($users)) {
 	print_info_box(sprintf(gettext('No user has REST API access yet. Edit a user or group in %1$sSystem > User Manager%2$s and ' .

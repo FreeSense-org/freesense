@@ -58,6 +58,8 @@ if ($me_user === null) {
 	} else {
 		$input_errors[] = gettext('The API key no longer exists.');
 	}
+} elseif (($_POST['act'] ?? '') === 'revoke_all') {
+	$savemsg = sprintf(gettext('%d API key(s) revoked.'), restapi_revoke_user_tokens($me));
 }
 
 $pgtitle = array(gettext('System'), gettext('REST API'), gettext('My API Keys'));
@@ -90,6 +92,16 @@ if ($me_user !== null) {
 		return ($t['username'] ?? '') === $me;
 	}));
 	restapi_print_key_table($mine, false, 'system_restapi_keys.php');
+	if (!empty($mine)):
+?>
+<nav class="action-buttons">
+	<a href="system_restapi_keys.php?act=revoke_all" class="btn btn-sm btn-danger do-confirm" usepost
+	    title="<?=gettext('Revoke every one of your API keys, e.g. if your account may be compromised. Changing your password does not revoke keys.')?>">
+		<i class="fa-solid fa-ban icon-embed-btn"></i><?=gettext('Revoke all my keys')?>
+	</a>
+</nav>
+<?php
+	endif;
 	restapi_print_create_form(array(), $create, $me);
 
 	print_info_box(gettext('A key can do exactly what your account can do in the GUI, and nothing more. ' .

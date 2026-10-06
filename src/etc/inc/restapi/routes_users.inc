@@ -69,7 +69,7 @@ function restapi_routes_users() {
 	};
 
 	$user_body = array('type' => 'object', 'description' => 'A user as its page\'s form: name, password (write-only; required for a ' .
-	    'new user, "(set)" or leaving it out keeps it, changing it revokes the user\'s REST API keys), descr (full name), expires ' .
+	    'new user, "(set)" or leaving it out keeps it; the user\'s REST API keys keep working after a password change), descr (full name), expires ' .
 	    '(MM/DD/YYYY), disabled, groups (list of group names), authorizedkeys (SSH keys, write-only; "(set)" or leaving it out keeps ' .
 	    'them), ipsecpsk (write-only), keephistory, customsettings, webguicss, webguifixedmenu, webguihostnamemenu, dashboardcolumns, ' .
 	    'interfacessort, dashboardavailablewidgetspanel, systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, ' .
@@ -114,6 +114,8 @@ function restapi_routes_users() {
 		    'The privileges of a user: assigned, and effective (with the groups they come from)'),
 		$route('PUT', "{$u}/{name}/privileges", 'restapi_h_users_privs_set', $um,
 		    'Set the assigned privileges of a user (applied at once)', true, $privs_body),
+		$route('DELETE', "{$u}/{name}/api-keys", 'restapi_h_users_keys_revoke', $um,
+		    'Revoke all REST API keys of a user (e.g. when the account may be compromised)', true),
 		$route('GET', "{$u}/{name}/certificates", 'restapi_h_users_certs_list', $um, 'The certificates associated with a user'),
 		$route('POST', "{$u}/{name}/certificates", 'restapi_h_users_certs_add', 'system_certmanager.php',
 		    'Create a certificate for a user, or associate an existing one (applied at once)', true, $cert_body, 'pki'),
@@ -563,6 +565,17 @@ function restapi_users_certs_out($id) {
 		    'exists' => is_array($cert));
 	}
 	return $out;
+}
+
+/* Revoke every REST API key of a user the caller may manage (like the user manager's other changes). */
+function restapi_h_users_keys_revoke($req) {
+	$id = restapi_users_id($req['params']['name']);
+	$user = config_get_path("system/user/{$id}");
+	$refusal = usermgr_manage_user_refusal($req['user'], $user);
+	if ($refusal !== null) {
+		throw restapi_users_refusal_error($refusal);
+	}
+	return array('data' => array('user' => $user['name'], 'revoked' => restapi_revoke_user_tokens($user['name'])));
 }
 
 function restapi_h_users_certs_list($req) {

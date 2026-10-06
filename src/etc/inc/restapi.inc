@@ -215,6 +215,30 @@ function restapi_revoke_token($id, $only_user = null) {
 	return true;
 }
 
+/*
+ * Revoke every API key of $username and save ("Revoke all keys", for an
+ * account that may be compromised; a password change does not revoke keys).
+ * Returns the number of keys removed.
+ */
+function restapi_revoke_user_tokens($username) {
+	$ids = array();
+	foreach (restapi_tokens() as $token) {
+		if (($token['username'] ?? null) === $username) {
+			$ids[] = $token['id'];
+		}
+	}
+	$removed = local_user_revoke_api_keys($username);
+	if ($removed > 0) {
+		write_config(sprintf(gettext('All %1$d API key(s) of user %2$s revoked.'), $removed, $username));
+		$used = restapi_last_used_read();
+		foreach ($ids as $id) {
+			unset($used[$id]);
+		}
+		@file_put_contents(RESTAPI_LAST_USED, json_encode($used), LOCK_EX);
+	}
+	return $removed;
+}
+
 function restapi_last_used_read() {
 	$used = @json_decode((string)@file_get_contents(RESTAPI_LAST_USED), true);
 	return is_array($used) ? $used : array();

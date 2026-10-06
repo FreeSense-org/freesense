@@ -54,6 +54,9 @@ function restapi_routes_v1() {
 		restapi_route('GET', '/v1/me', 'restapi_h_me', array(
 			'page' => '@authenticated',
 			'summary' => 'The user and API key making the request')),
+		restapi_route('DELETE', '/v1/me/api-keys', 'restapi_h_me_keys_revoke', array(
+			'page' => '@authenticated', 'write' => true,
+			'summary' => 'Revoke all of your own API keys, including the one making this request')),
 
 		restapi_route('GET', '/v1/system/info', 'restapi_h_system_info', array(
 			'page' => 'index.php', 'area' => 'system',
@@ -132,6 +135,11 @@ function restapi_h_openapi($req) {
 	return array('raw' => json_encode(restapi_openapi(restapi_routes_v1(),
 	    trim((string)@file_get_contents('/etc/version')) ?: '1'), JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
 	    'type' => 'application/json');
+}
+
+function restapi_h_me_keys_revoke($req) {
+	return array('data' => array('user' => $req['user']['name'],
+	    'revoked' => restapi_revoke_user_tokens($req['user']['name'])));
 }
 
 function restapi_h_me($req) {

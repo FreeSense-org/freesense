@@ -2061,6 +2061,7 @@ $users_routes = array(
 	'DELETE /v1/auth-servers/{name}' => array('restapi_h_authsrv_delete', 'system_authservers.php', 'users'),
 	'POST /v1/auth-servers/{name}/test' => array('restapi_h_authsrv_test', 'diag_authentication.php', 'users'),
 	'GET /v1/privileges' => array('restapi_h_privileges', 'system_usermanager.php', 'users'),
+	'DELETE /v1/users/{name}/api-keys' => array('restapi_h_users_keys_revoke', 'system_usermanager.php', 'users'),
 );
 foreach ($v1 as $r) {
 	$key = "{$r['method']} {$r['path']}";
@@ -2318,8 +2319,19 @@ check_api(substr_count($um_body('usermgr_user_save'), '$_SESSION') === 3 && strp
     'the user save reads the session only to clear the insecure password warnings (like the page)');
 $auth_inc = file_get_contents("{$root}/src/etc/inc/auth.inc");
 $set_pw = substr($auth_inc, strpos($auth_inc, 'function local_user_set_password('));
-check_api(strpos(substr($set_pw, 0, strpos($set_pw, "\n}\n")), "local_user_revoke_api_keys(\$user['name'])") !== false && strpos($auth_inc, 'function local_user_revoke_api_keys(') !== false,
-    'a changed password (user manager, password page, console, wizard) revokes the user\'s REST API keys');
+check_api(strpos(substr($set_pw, 0, strpos($set_pw, "\n}\n")), 'local_user_revoke_api_keys(') === false && strpos($auth_inc, 'function local_user_revoke_api_keys(') !== false,
+    'a changed password leaves the user\'s REST API keys working (decision 2026-10-06); revoking is explicit');
+$restapi_inc_rk = file_get_contents("{$root}/src/etc/inc/restapi.inc");
+check_api(strpos($restapi_inc_rk, 'function restapi_revoke_user_tokens($username)') !== false &&
+    strpos($restapi_inc_rk, 'local_user_revoke_api_keys($username)') !== false, '"Revoke all keys" revokes through local_user_revoke_api_keys() and saves');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_restapi_keys.php"), 'restapi_revoke_user_tokens($me)') !== false,
+    'My API Keys can revoke all of the signed-in user\'s keys (and only theirs)');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/system_restapi.php"), "=== 'revoke_all'") !== false,
+    'the REST API admin page can revoke all keys of a user');
+$rk_users = file_get_contents("{$root}/src/etc/inc/restapi/routes_users.inc");
+$rk_fn = substr($rk_users, strpos($rk_users, 'function restapi_h_users_keys_revoke('));
+check_api(strpos(substr($rk_fn, 0, strpos($rk_fn, "\n}\n")), 'usermgr_manage_user_refusal($req[\'user\']') !== false,
+    'revoking another user\'s keys through the API needs the right to manage that user');
 $restapi_um = file_get_contents("{$root}/src/etc/inc/restapi.inc");
 $local_user = substr($restapi_um, strpos($restapi_um, 'function restapi_local_user('));
 $local_user = substr($local_user, 0, strpos($local_user, "\n}\n"));
