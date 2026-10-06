@@ -317,7 +317,9 @@
 		var out = [];
 		Array.prototype.forEach.call(this.table.tBodies, function (tb) {
 			Array.prototype.forEach.call(tb.rows, function (tr) {
-				if (!tr.classList.contains('fs-empty') && !tr.hasAttribute('data-fs-static')) {
+				// rule separators (filter.inc display_separator) are static like data-fs-static rows
+				if (!tr.classList.contains('fs-empty') && !tr.classList.contains('separator') &&
+				    !tr.hasAttribute('data-fs-static')) {
 					out.push(tr);
 				}
 			});

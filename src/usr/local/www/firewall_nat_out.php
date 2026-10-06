@@ -77,6 +77,10 @@ if ($_POST['apply']) {
 
 $pgtitle = array(gettext("Firewall"), gettext("NAT"), gettext("Outbound"));
 $pglinks = array("", "firewall_nat.php", "@self");
+if (isAllowedPage('firewall_nat_out_edit.php')) {
+	fs_page_action(gettext('Add mapping'), 'firewall_nat_out_edit.php', 'fa-plus');
+	fs_page_action(gettext('Add mapping to the top'), 'firewall_nat_out_edit.php?after=-1', 'fa-turn-up', 'secondary');
+}
 include("head.inc");
 
 if ($default_rules_msg) {
@@ -92,12 +96,7 @@ if (is_subsystem_dirty('natconf')) {
 					gettext('The changes must be applied for them to take effect.'));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Port Forward"), false, "firewall_nat.php");
-$tab_array[] = array(gettext("1:1"), false, "firewall_nat_1to1.php");
-$tab_array[] = array(gettext("Outbound"), true, "firewall_nat_out.php");
-$tab_array[] = array(gettext("NPt"), false, "firewall_nat_npt.php");
-display_top_tabs($tab_array);
+fs_tabs('firewall-nat', 'firewall_nat_out.php');
 
 $form = new Form();
 
@@ -150,10 +149,31 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 ?>
 
 <form action="firewall_nat_out.php" method="post" name="iform">
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Mappings')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php ob_start(); ?>
+<?php if (isAllowedPage('firewall_nat_out_edit.php')): ?>
+		<button id="del_x" name="del_x" data-fs-confirm="<?=gettext('Delete the selected mappings?')?>" data-fs-confirm-action="<?=gettext('Delete')?>" type="submit" class="btn btn-sm btn-outline-danger" value="<?=gettext("Delete selected map"); ?>" disabled title="<?=gettext('Delete selected maps')?>">
+			<i class="fa-solid fa-trash-can icon-embed-btn"></i>
+			<?=gettext("Delete"); ?>
+		</button>
+		<button id="toggle_x" name="toggle_x" type="submit" class="btn btn-sm btn-outline-secondary" value="<?=gettext("Toggle selected rules"); ?>" disabled title="<?=gettext('Toggle selected rules')?>">
+			<i class="fa-solid fa-ban icon-embed-btn"></i>
+			<?=gettext("Toggle"); ?>
+		</button>
+		<button type="submit" id="order-store" class="btn btn-sm btn-outline-secondary" value="Save changes" disabled name="order-store" title="<?=gettext('Save mapping order')?>">
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
+			<?=gettext("Save")?>
+		</button>
+	<?php endif; ?>
+<?php fs_table_toolbar([
+	'title' => gettext('Mappings'),
+	'search' => gettext('Search mappings…'),
+	'noun' => gettext('mappings'),
+	'noun_one' => gettext('mapping'),
+	'actions' => ob_get_clean(),
+]); ?>
 		<div class="panel-body table-responsive">
-			<table id="ruletable" class="table table-hover table-striped table-sm">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -194,7 +214,7 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 				);
 ?>
 
-					<tr id="fr<?=$i;?>" <?=$trclass?> onClick="fr_toggle(<?=$i;?>)" ondblclick="document.location='firewall_nat_out_edit.php?id=<?=$i;?>';">
+					<tr id="fr<?=$i;?>" <?=$trclass?> onClick="fr_toggle(<?=$i;?>)">
 						<td >
 							<input type="checkbox" id="frc<?=$i;?>" onClick="fr_toggle(<?=$i;?>)" name="rule[]" value="<?=$i;?>"/>
 						</td>
@@ -341,42 +361,26 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 
 						<!-- Action	 icons -->
 						<td>
-							<a class="fa-solid fa-pencil"	 title="<?=gettext("Edit mapping")?>" href="firewall_nat_out_edit.php?id=<?=$i?>"></a>
-							<a class="fa-regular fa-clone" title="<?=gettext("Add a new mapping based on this one")?>" href="firewall_nat_out_edit.php?dup=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	 title="<?=gettext("Delete mapping")?>" href="firewall_nat_out.php?act=del&amp;id=<?=$i?>" usepost></a>
+							<?=fs_row_actions([
+								['edit', "firewall_nat_out_edit.php?id={$i}", $natent['descr'] ?: sprintf(gettext('mapping %d'), $i + 1)],
+								['copy', "firewall_nat_out_edit.php?dup={$i}", $natent['descr'] ?: sprintf(gettext('mapping %d'), $i + 1)],
+								['delete', "firewall_nat_out.php?act=del&id={$i}", $natent['descr'] ?: sprintf(gettext('mapping %d'), $i + 1), ['thing' => gettext('mapping')]],
+							])?>
 						</td>
 					</tr>
 <?php
 				$i++;
 			endforeach;
 ?>
+<?php if ($i == 0) {
+	fs_empty_row(12, gettext('No outbound mappings yet.'), isAllowedPage('firewall_nat_out_edit.php') ? 'firewall_nat_out_edit.php' : null, gettext('Add mapping'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 
-	<nav class="action-buttons">
-		<a href="firewall_nat_out_edit.php?after=-1" class="btn btn-sm btn-success" title="<?=gettext('Add new mapping to the top of the list')?>">
-			<i class="fa-solid fa-turn-up icon-embed-btn"></i>
-			<?=gettext('Add')?>
-		</a>
-		<a href="firewall_nat_out_edit.php" class="btn btn-sm btn-success" title="<?=gettext('Add new mapping to the end of the list')?>">
-			<i class="fa-solid fa-turn-down icon-embed-btn"></i>
-			<?=gettext('Add')?>
-		</a>
-		<button id="del_x" name="del_x" type="submit" class="btn btn-danger btn-sm" value="<?=gettext("Delete selected map"); ?>" disabled title="<?=gettext('Delete selected maps')?>">
-			<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-			<?=gettext("Delete"); ?>
-		</button>
-		<button id="toggle_x" name="toggle_x" type="submit" class="btn btn-primary btn-sm" value="<?=gettext("Toggle selected rules"); ?>" disabled title="<?=gettext('Toggle selected rules')?>">
-			<i class="fa-solid fa-ban icon-embed-btn"></i>
-			<?=gettext("Toggle"); ?>
-		</button>
-		<button type="submit" id="order-store" class="btn btn-primary btn-sm" value="Save changes" disabled name="order-store" title="<?=gettext('Save mapping order')?>">
-			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
-			<?=gettext("Save")?>
-		</button>
-	</nav>
+
 
 <?php
 if ($mode == "automatic" || $mode == "hybrid"):

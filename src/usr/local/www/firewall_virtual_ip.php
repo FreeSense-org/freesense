@@ -57,6 +57,7 @@ $types = array('proxyarp' => gettext('Proxy ARP'),
 			   );
 
 $pgtitle = array(gettext("Firewall"), gettext("Virtual IPs"));
+fs_page_action(gettext('Add virtual IP'), 'firewall_virtual_ip_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($input_errors) {
@@ -74,17 +75,23 @@ $tab_array[] = array(gettext("Virtual IPs"), true, "firewall_virtual_ip.php");
 display_top_tabs($tab_array);
 */
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Virtual IP Address')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Virtual IP Address'),
+	'search' => gettext('Search virtual IPs…'),
+	'noun' => gettext('virtual IPs'),
+	'noun_one' => gettext('virtual IP'),
+	'filters' => ['type' => array_merge([gettext('All types')], $types)],
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Virtual IP address")?></th>
-					<th><?=gettext("Interface")?></th>
-					<th><?=gettext("Type")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Virtual IP address")?></th>
+					<th data-fs-search><?=gettext("Interface")?></th>
+					<th data-fs-search><?=gettext("Type")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -107,53 +114,46 @@ foreach ($viplist as $vipname => $address) {
 $interfaces['lo0'] = "Localhost";
 
 $i = 0;
+$shown = 0;
 foreach (config_get_path('virtualip/vip', []) as $vipent):
 	if ($vipent['subnet'] != ""):
-?>
-				<tr>
-					<td>
-<?php
-	if (($vipent['type'] == "single") || ($vipent['type'] == "network")) {
-		if ($vipent['subnet_bits']) {
-			print("{$vipent['subnet']}/{$vipent['subnet_bits']}");
+		$shown++;
+		$address = '';
+		if ((($vipent['type'] == "single") || ($vipent['type'] == "network")) && $vipent['subnet_bits']) {
+			$address = "{$vipent['subnet']}/{$vipent['subnet_bits']}";
 		}
-	}
-
-	if ($vipent['mode'] == "carp") {
-		print(" (vhid: {$vipent['vhid']})");
-	}
+		$label = $address ?: ($vipent['descr'] ?: $types[$vipent['mode']]);
 ?>
+				<tr data-fs-filter-type="<?=htmlspecialchars($vipent['mode'])?>">
+					<td class="fs-mono">
+						<a href="firewall_virtual_ip_edit.php?id=<?=$i?>"><?=htmlspecialchars($address)?></a>
+<?php	if ($vipent['mode'] == "carp"): ?>
+						<span class="fs-muted">(vhid: <?=htmlspecialchars($vipent['vhid'])?>)</span>
+<?php	endif; ?>
 					</td>
-					<td>
-						<?=htmlspecialchars($interfaces[$vipent['interface']])?>&nbsp;
-					</td>
-					<td>
-						<?=$types[$vipent['mode']]?>
-					</td>
-					<td>
-						<?=htmlspecialchars($vipent['descr'])?>
-					</td>
-					<td>
-						<a class="fa-solid fa-pencil" title="<?=gettext("Edit virtual ip"); ?>" href="firewall_virtual_ip_edit.php?id=<?=$i?>"></a>
-						<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete virtual ip")?>" href="firewall_virtual_ip.php?act=del&amp;id=<?=$i?>" usepost></a>
+					<td><?=htmlspecialchars($interfaces[$vipent['interface']])?></td>
+					<td><?=htmlspecialchars($types[$vipent['mode']])?></td>
+					<td><?=htmlspecialchars($vipent['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', "firewall_virtual_ip_edit.php?id={$i}", $label],
+							['delete', "firewall_virtual_ip.php?act=del&id={$i}", $label, ['thing' => gettext('virtual IP')]],
+						])?>
 					</td>
 				</tr>
 <?php
 	endif;
 	$i++;
 endforeach;
+
+if ($shown == 0) {
+	fs_empty_row(5, gettext('No virtual IPs yet.'), 'firewall_virtual_ip_edit.php', gettext('Add virtual IP'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
-
-<nav class="action-buttons">
-	<a href="firewall_virtual_ip_edit.php" class="btn btn-sm btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box(sprintf(gettext('The virtual IP addresses defined on this page may be used in %1$sNAT%2$s mappings.'), '<a href="firewall_nat.php">', '</a>') . '<br />' .
