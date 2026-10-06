@@ -36,7 +36,6 @@ require_once("ipsec.inc");
 $pgtitle = array(gettext("Status"), gettext("IPsec"), gettext("SADs"));
 $pglinks = array("", "status_ipsec.php", "@self");
 $shortcut_section = "ipsec";
-include("head.inc");
 
 /* delete any SA? */
 /* The values are written into setkey's command input, so accept only an
@@ -63,80 +62,82 @@ if (($_POST['act'] == "del") &&
 }
 
 $sad = ipsec_dump_sad();
+if (!is_array($sad)) {
+	$sad = [];
+}
+
+$protos = [];
+foreach ($sad as $sa) {
+	$protos[strtolower($sa['proto'])] = strtoupper($sa['proto']);
+}
+ksort($protos);
+
+include("head.inc");
 
 fs_tabs('status-ipsec', 'status_ipsec_sad.php');
 
-if (count($sad)) {
+if (!ipsec_enabled()) {
+	print_info_box(sprintf(gettext('IPsec is disabled. %1$sConfigure IPsec%2$s.'), '<a href="vpn_ipsec.php">', '</a>'), 'info', false);
+}
+
+$filters = [];
+if (count($protos) > 1) {
+	$filters['proto'] = [gettext('All protocols')] + $protos;
+}
 ?>
-	<div table-responsive>
-		<table class="table table-striped table-hover table-sm">
+
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Security associations'),
+	'search' => gettext('Search addresses, SPIs…'),
+	'noun' => gettext('associations'),
+	'noun_one' => gettext('association'),
+	'filters' => $filters,
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Source")?></th>
-					<th><?=gettext("Destination")?></th>
-					<th><?=gettext("Protocol")?></th>
-					<th><?=gettext("SPI")?></th>
-					<th><?=gettext("Enc. alg.")?></th>
-					<th><?=gettext("Auth. alg.")?></th>
+					<th data-fs-search><?=gettext("Source")?></th>
+					<th data-fs-search><?=gettext("Destination")?></th>
+					<th data-fs-search><?=gettext("Protocol")?></th>
+					<th data-fs-search><?=gettext("SPI")?></th>
+					<th data-fs-search><?=gettext("Encryption")?></th>
+					<th data-fs-search><?=gettext("Authentication")?></th>
 					<th><?=gettext("Data")?></th>
-					<th></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
-			<?php foreach ($sad as $sa) { ?>
-			<tr>
-				<td>
-					<?=htmlspecialchars($sa['src'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars($sa['dst'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars(strtoupper($sa['proto']))?>
-				</td>
-				<td>
-					<?=htmlspecialchars($sa['spi'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars($sa['ealgo'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars($sa['aalgo'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars($sa['data'])?></td>
-				<td>
-					<?php
-						$args = "src=" . rawurlencode($sa['src']);
-						$args .= "&amp;dst=" . rawurlencode($sa['dst']);
-						$args .= "&amp;proto=" . rawurlencode($sa['proto']);
-						$args .= "&amp;spi=" . rawurlencode("0x" . $sa['spi']);
-					?>
-					<a href="status_ipsec_sad.php?act=del&amp;<?=$args?>" usepost><i class="fa-solid fa-trash-can" title="<?=gettext("Remove this SPD Entry")?>"></i></a>
-				</td>
-			</tr>
-
-			<?php
-			} ?>
+<?php foreach ($sad as $sa):
+	$args = "src=" . rawurlencode($sa['src']);
+	$args .= "&dst=" . rawurlencode($sa['dst']);
+	$args .= "&proto=" . rawurlencode($sa['proto']);
+	$args .= "&spi=" . rawurlencode("0x" . $sa['spi']);
+	$label = sprintf('%s %s → %s', strtoupper($sa['proto']), $sa['src'], $sa['dst']);
+?>
+				<tr data-fs-filter-proto="<?=htmlspecialchars(strtolower($sa['proto']))?>">
+					<td class="fs-mono"><?=htmlspecialchars($sa['src'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($sa['dst'])?></td>
+					<td><?=htmlspecialchars(strtoupper($sa['proto']))?></td>
+					<td class="fs-mono"><?=htmlspecialchars($sa['spi'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($sa['ealgo'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($sa['aalgo'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($sa['data'])?></td>
+					<td class="fs-col-actions"><?=fs_row_actions([
+						['delete', "status_ipsec_sad.php?act=del&{$args}", "0x{$sa['spi']}", [
+						    'thing' => gettext('security association'),
+						    'detail' => sprintf(gettext('%s. Traffic using it stops until the tunnel rekeys.'), $label)]],
+					])?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($sad)) {
+	fs_empty_row(8, gettext('No IPsec security associations.'));
+} ?>
 			</tbody>
 		</table>
 	</div>
-<?php
-} else {
-	print_info_box(gettext('No IPsec security associations.'));
-}
-
-if (ipsec_enabled()) {
-?>
-<div class="infoblock">
-<?php
-} else {
-?>
-<div class="infoblock blockopen">
-<?php
-}
-print_info_box(sprintf(gettext('IPsec can be configured %1$shere%2$s.'), '<a href="vpn_ipsec.php">', '</a>'), 'info', false);
-?>
 </div>
+
 <?php
 include("foot.inc");

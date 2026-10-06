@@ -44,12 +44,40 @@ $pgtitle = array(gettext("Diagnostics"), gettext("Reboot"));
 $platform = system_identify_specific_platform();
 
 include("head.inc");
+?>
 
+<style>
+.fs-danger-card { max-width: 48rem; }
+.fs-danger-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
+.fs-danger-card .panel-title > i { color: var(--fs-block); }
+.fs-danger-body { padding: var(--fs-sp-4); }
+.fs-danger-body > p { margin-bottom: var(--fs-sp-3); }
+.fs-danger-list { margin: 0 0 var(--fs-sp-4); padding-left: 1.25rem; }
+.fs-danger-list li + li { margin-top: var(--fs-sp-1); }
+.fs-danger-card .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+.fs-reboot-modes { display: grid; gap: var(--fs-sp-2); }
+.fs-reboot-mode {
+	position: relative; display: flex; flex-direction: column; gap: .15rem; padding: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-3) 2.6rem;
+	border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); cursor: pointer;
+}
+.fs-reboot-mode:hover { border-color: var(--fs-text-muted); }
+.fs-reboot-mode:has(input:checked) { border-color: var(--fs-coral); background: var(--fs-accent-tint); }
+.fs-reboot-mode:has(input:focus-visible) { outline: 2px solid var(--fs-coral); outline-offset: 2px; }
+.fs-reboot-mode > input { position: absolute; top: 1.05rem; left: 1rem; accent-color: var(--fs-coral); }
+.fs-reboot-mode-name { color: var(--fs-text-strong); font-weight: 600; }
+.fs-reboot-mode-help { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-reboot-wait { display: flex; flex-direction: column; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; }
+.fs-reboot-wait > i { color: var(--fs-coral); font-size: var(--fs-fs-xl); }
+.fs-reboot-wait h2 { margin: 0; font-size: var(--fs-fs-lg); }
+.fs-reboot-wait p { margin: 0; color: var(--fs-text-muted); }
+</style>
+
+<?php
 if (isset($_POST['rebootmode'])):
 	if (g_get('debug')) {
 		print_info_box(gettext("Not actually rebooting (DEBUG is set true)."), 'success');
 	} else {
-		print('<div><pre>');
+		print('<div><pre class="fs-console">');
 		if (!diag_reboot_run($_POST['rebootmode'])) {
 			header('Location: /diag_reboot.php');
 		}
@@ -57,13 +85,21 @@ if (isset($_POST['rebootmode'])):
 	}
 ?>
 
-<div id="countdown" class="text-center"></div>
+<div class="panel panel-default">
+	<div class="fs-reboot-wait" aria-live="polite">
+		<i class="fa-solid fa-rotate fa-spin" aria-hidden="true"></i>
+		<h2 id="reboot-title"><?=gettext('Rebooting')?></h2>
+		<p><span id="reboot-text"><?=gettext('The page reloads automatically in')?></span> <span id="secs" class="fs-mono"><?=$guitimeout?></span> <?=gettext('seconds')?></p>
+	</div>
+</div>
 
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
 
-	var time = 0;
+	var time = <?=(int)$guitimeout?>;
+	var retry = <?=(int)$guiretry?>;
+	var secs = document.getElementById('secs');
 
 	function checkonline() {
 		$.ajax({
@@ -75,59 +111,65 @@ events.push(function() {
 		});
 	}
 
-	function startCountdown() {
-		setInterval(function() {
-			if (time == "<?=$guitimeout?>") {
-				$('#countdown').html('<h4><?=sprintf(gettext('Rebooting%1$sPage will automatically reload in %2$s seconds'), "<br />", "<span id=\"secs\"></span>");?></h4>');
-			}
-
-			if (time > 0) {
-				$('#secs').html(time);
-				time--;
-			} else {
-				time = "<?=$guiretry?>";
-				$('#countdown').html('<h4><?=sprintf(gettext('Not yet ready%1$s Retrying in another %2$s seconds'), "<br />", "<span id=\"secs\"></span>");?></h4>');
-				$('#secs').html(time);
-				checkonline();
-			}
-		}, 1000);
-	}
-
-	time = "<?=$guitimeout?>";
-	startCountdown();
-
+	setInterval(function() {
+		if (time > 0) {
+			time--;
+		} else {
+			time = retry;
+			document.getElementById('reboot-title').textContent = <?=json_encode(gettext('Not yet ready'))?>;
+			document.getElementById('reboot-text').textContent = <?=json_encode(gettext('Retrying in'))?>;
+			checkonline();
+		}
+		secs.textContent = time;
+	}, 1000);
 });
 //]]>
 </script>
 <?php
 else:
 
-$form = new Form(false);
-
-$section = new Form_Section(gettext('Reboot Method'));
-
 $rebootmodes = diag_reboot_modes();
-$help = $rebootmodes['help'];
 $modeslist = $rebootmodes['modes'];
+$mode_help = [
+	'reboot' => gettext('Restarts the system right away.'),
+	'fsckreboot' => gettext('Restarts and checks the filesystem during boot. Boot takes longer.'),
+	'reroot' => gettext('Stops processes, remounts the disks and runs the startup sequence again, without restarting the kernel.'),
+];
+$checked = array_key_first($modeslist);
+?>
 
-$section->addInput(new Form_Select(
-        'rebootmode',
-        '*'.gettext('Reboot Method'),
-        $rebootmode,
-        $modeslist
-))->setHelp(implode("<br />", $help));
+<form method="post" action="diag_reboot.php">
+	<div class="panel panel-default fs-danger-card">
+		<div class="panel-heading">
+			<h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Reboot the system')?></h2>
+		</div>
+		<div class="panel-body fs-danger-body">
+			<p><?=gettext('Rebooting interrupts every service this firewall provides until it is back up.')?></p>
+			<ul class="fs-danger-list">
+				<li><?=gettext('Routing, firewalling and NAT stop: clients lose internet and network access.')?></li>
+				<li><?=gettext('VPN tunnels, DHCP, DNS and other services go down and active connections are dropped.')?></li>
+				<li><?=gettext('This page reconnects automatically when the system is back, usually within a few minutes.')?></li>
+			</ul>
+			<div class="fs-reboot-modes" role="radiogroup" aria-label="<?=gettext('Reboot method')?>">
+<?php foreach ($modeslist as $mode => $label): ?>
+				<label class="fs-reboot-mode">
+					<input type="radio" name="rebootmode" value="<?=htmlspecialchars($mode)?>"<?=($mode === $checked) ? ' checked' : ''?>>
+					<span class="fs-reboot-mode-name"><?=htmlspecialchars($label)?></span>
+					<span class="fs-reboot-mode-help"><?=htmlspecialchars($mode_help[$mode] ?? '')?></span>
+				</label>
+<?php endforeach; ?>
+			</div>
+		</div>
+		<div class="panel-footer">
+			<button type="submit" class="btn btn-danger" name="Submit" value="Submit">
+				<i class="fa-solid fa-power-off icon-embed-btn" aria-hidden="true"></i><?=gettext('Reboot now')?>
+			</button>
+			<a href="/index.php" class="btn btn-outline-secondary"><?=gettext('Cancel')?></a>
+		</div>
+	</div>
+</form>
 
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-        'Submit',
-        'Submit',
-        null,
-        'fa-solid fa-wrench'
-))->addClass('btn-primary');
-
-print($form);
-
+<?php
 endif;
 
 include("foot.inc");

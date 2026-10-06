@@ -27,6 +27,9 @@
 ##|*MATCH=diag_states_summary.php*
 ##|-PRIV
 
+/* authenticate before reading the state table */
+require_once("guiconfig.inc");
+
 exec("/sbin/pfctl -s state", $states);
 
 $srcipinfo = array();
@@ -128,79 +131,98 @@ function build_port_info($portarr, $proto) {
 	return implode(', ', $ports);
 }
 
-function print_summary_table($label, $iparr, $sort = TRUE) {
-	if ($sort) {
-		uksort($iparr, "sort_by_ip");
-	}
+$pgtitle = array(gettext("Diagnostics"), gettext("States Summary"));
 
-?>
-	<div class="panel panel-default">
-		<div class="panel-heading">
-			<h2 class="panel-title"><?=$label?></h2>
-		</div>
-		<div class="panel-body">
-			<div class="table-responsive">
-				<table class="table table-hover table-sm table-striped">
-					<thead>
-						<tr>
-							<th></th><th></th><th></th>
-							<th colspan="3" class="text-center colspanth"><?=gettext("Protocol counts")?></th>
-						</tr>
-
-						<tr>
-							<th ><?=gettext("IP");?></th>
-							<th class="text-center"># <?=gettext("States");?></th>
-							<th ><?=gettext("Protocol");?></th>
-							<th class="text-center"># <?=gettext("States");?></th>
-							<th class="text-center"><?=gettext("Source Ports");?></th>
-							<th class="text-center"><?=gettext("Dest. Ports");?></th>
-						</tr>
-					</thead>
-					<tbody>
-<?php foreach ($iparr as $ip => $ipinfo):
-	$protocolCount = count($ipinfo['protos']);
-	$rowSpan = '';
-	$i = 0;
-
-	if ($protocolCount > 1) {
-		$rowSpan = ' rowspan="' . $protocolCount . '"';
-	}
-?>
-						<tr>
-							<td<?= $rowSpan ?>><?=$ip;?></td>
-							<td<?= $rowSpan ?> class="text-center"><?=$ipinfo['seen'];?></td>
-
-<?php foreach ($ipinfo['protos'] as $proto => $protoinfo): ?>
-<?php if ($protocolCount > 1 && $i > 0): ?>
-							</tr><tr>
-<?php endif;
-
-	$srccnt = is_array($protoinfo['srcports']) ? count($protoinfo['srcports']) : 0;
-	$dstcnt = is_array($protoinfo['dstports']) ? count($protoinfo['dstports']) : 0;
-
-?>
-							<td><?=$proto;?></td>
-							<td class="text-center" ><?=$protoinfo['seen'];?></td>
-							<td class="text-center" ><span title="<?=build_port_info($protoinfo['srcports'], $proto);?>"><?=$srccnt?></span></td>
-							<td class="text-center" ><span title="<?=build_port_info($protoinfo['dstports'], $proto);?>"><?=$dstcnt?></span></td>
-<?php $i++; endforeach; ?>
-						</tr>
-<?php endforeach; ?>
-					</tbody>
-				</table>
-			</div>
-		</div>
-	</div>
-<?php
+$views = array(
+	'source' => gettext('By source IP'),
+	'destination' => gettext('By destination IP'),
+	'total' => gettext('Total per IP'),
+	'pair' => gettext('By IP pair'),
+);
+$view = fs_view_param(array_keys($views), 'source');
+$data = array(
+	'source' => $srcipinfo,
+	'destination' => $dstipinfo,
+	'total' => $allipinfo,
+	'pair' => $pairipinfo,
+);
+$iparr = $data[$view];
+if ($view !== 'pair') {
+	uksort($iparr, "sort_by_ip");
 }
 
-$pgtitle = array(gettext("Diagnostics"), gettext("States Summary"));
-require_once("guiconfig.inc");
 include("head.inc");
+?>
 
-print_summary_table(gettext("By Source IP"), $srcipinfo);
-print_summary_table(gettext("By Destination IP"), $dstipinfo);
-print_summary_table(gettext("Total per IP"), $allipinfo);
-print_summary_table(gettext("By IP Pair"), $pairipinfo, FALSE);
+<style>
+.fs-ss-protos { display: flex; flex-direction: column; gap: 2px; }
+.fs-ss-proto { display: flex; gap: var(--fs-sp-2); white-space: nowrap; }
+.fs-ss-proto > b { min-width: 3.5rem; font-weight: 600; }
+.fs-ss-ports { cursor: help; text-decoration: underline dotted var(--fs-text-muted); text-underline-offset: 3px; }
+</style>
 
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('States'), count($states));
+fs_tile(gettext('Source IPs'), count($srcipinfo));
+fs_tile(gettext('Destination IPs'), count($dstipinfo));
+fs_tile(gettext('IP pairs'), count($pairipinfo));
+?>
+</div>
+
+<?php fs_view_switch($views, $view); ?>
+
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => $views[$view],
+	'search' => gettext('Search IP addresses, protocols…'),
+	'noun' => ($view === 'pair') ? gettext('pairs') : gettext('addresses'),
+	'noun_one' => ($view === 'pair') ? gettext('pair') : gettext('address'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=($view === 'pair') ? gettext('Source → destination') : gettext('IP address')?></th>
+					<th><?=gettext('States')?></th>
+					<th data-fs-search><?=gettext('Protocols')?></th>
+					<th data-sortable="false"><?=gettext('Source ports')?></th>
+					<th data-sortable="false"><?=gettext('Destination ports')?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($iparr as $ip => $ipinfo): ?>
+				<tr>
+					<td class="fs-mono"><?=htmlspecialchars(str_replace(' -> ', ' → ', $ip))?></td>
+					<td class="fs-mono"><?=(int)$ipinfo['seen']?></td>
+					<td><div class="fs-ss-protos">
+<?php foreach ($ipinfo['protos'] as $proto => $protoinfo): ?>
+						<span class="fs-ss-proto"><b><?=htmlspecialchars($proto)?></b><span class="fs-mono"><?=(int)$protoinfo['seen']?></span></span>
+<?php endforeach; ?>
+					</div></td>
+<?php foreach (['srcports', 'dstports'] as $key): ?>
+					<td><div class="fs-ss-protos">
+<?php foreach ($ipinfo['protos'] as $proto => $protoinfo):
+	$cnt = is_array($protoinfo[$key]) ? count($protoinfo[$key]) : 0;
+	$title = build_port_info($protoinfo[$key], $proto);
+?>
+						<span class="fs-ss-proto fs-mono"><?php if ($cnt): ?><span class="fs-ss-ports" title="<?=htmlspecialchars($title)?>"><?=$cnt?></span><?php else: ?><span class="fs-muted">0</span><?php endif; ?></span>
+<?php endforeach; ?>
+					</div></td>
+<?php endforeach; ?>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($iparr)) {
+	fs_empty_row(5, gettext('There are no states.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('Port columns count the distinct ports per protocol. Point at a number to see the ports and how many states use each. NAT states are counted by their internal address.')?>
+	</div>
+</div>
+
+<?php
 include("foot.inc");
