@@ -21,8 +21,9 @@
 
 /*
  * REST API v1 routes for the DHCP and DHCPv6 servers, area services.dhcp:
- * the global (Kea) settings, the interfaces the servers can serve and the
- * static mappings of an interface.
+ * the global (Kea) settings, the interfaces the servers can serve, the DHCP
+ * server of an interface with its additional address pools and the static
+ * mappings of an interface.
  *
  * Writes go through the functions the DHCP pages call (services_dhcp.inc),
  * so validation is the GUI's, for the Kea and the ISC backend alike. Like
@@ -35,6 +36,14 @@
  * list is kept sorted by address, so a write returns the mapping's new id)
  * or by their MAC address (DHCP) / DUID (DHCPv6). The dynamic DNS key of a
  * mapping reads as "(set)"; sending "(set)" keeps it.
+ *
+ * The DHCP server of an interface (GET/PUT /v1/services/dhcp/{if}) and its
+ * additional pools (/v1/services/dhcp/{if}/pools, addressed by position) carry
+ * the DHCP Server page's fields for the running backend; WINS, DNS and NTP
+ * servers and the ISC custom options are lists. Only interfaces the page offers
+ * (a static IPv4 subnet smaller than /31) have a DHCP server (409 otherwise).
+ * The ISC dynamic DNS and OMAPI keys read as "(set)"; sending "(set)" keeps
+ * them.
  *
  * The front controller loads services_dhcp.inc at file scope.
  */
@@ -73,6 +82,21 @@ function restapi_routes_dhcp() {
 	    'ddnsdomainprimary, ddnsdomainsecondary, ddnsdomainkeyname, ddnsdomainkeyalgorithm, ddnsdomainkey ("(set)" keeps ' .
 	    'it) (strings); ddnsupdate, ddnsforcehostname (booleans); numberoptions (list of {number, type, value}). ' .
 	    'Omitted fields keep their value (create: empty).');
+	$server_body = array('type' => 'object', 'description' => 'The DHCP Server page of the interface: enable, staticarp, ' .
+	    'netboot (booleans); range_from, range_to, denyunknown (disabled|enabled|class), gateway, domain, domainsearchlist, ' .
+	    'deftime, maxtime, mac_allow, mac_deny, tftp, ldap, nextserver, filename, filename32, filename64, filename32arm, ' .
+	    'filename64arm, uefihttpboot, rootpath (strings); winsserver (at most 2), dnsserver (at most 4), ntpserver (at most 4) ' .
+	    '(lists of addresses); ignoreclientuids (boolean). Kea backend: dnsregpolicy, earlydnsregpolicy (default|enable|disable), ' .
+	    'custom_kea_config (JSON text). ISC backend: ignorebootp, nonak, omapi_gen_key, ddnsupdate, ddnsforcehostname, ' .
+	    'dhcpleaseinlocaltime, statsgraph, disablepingcheck (booleans); failover_peerip, omapi_port, omapi_key, ' .
+	    'omapi_key_algorithm, ddnsdomain, ddnsdomainprimary, ddnsdomainprimaryport, ddnsdomainsecondary, ' .
+	    'ddnsdomainsecondaryport, ddnsdomainkeyname, ddnsdomainkeyalgorithm, ddnsdomainkey, ddnsclientupdates (strings; ' .
+	    '"(set)" keeps a key); numberoptions (list of {number, type, value}). Omitted fields keep their value.');
+	$pool_body = array('type' => 'object', 'description' => 'An additional address pool: the fields of the DHCP server ' .
+	    'of the interface that the pool form has: descr, range_from, range_to (required), denyunknown, the server lists, gateway, ' .
+	    'domain, domainsearchlist, mac_allow, mac_deny, tftp, ldap, netboot and the boot file names; Kea: custom_kea_config; ' .
+	    'ISC: also ignoreclientuids, deftime, maxtime, nextserver, the OMAPI, dynamic DNS and custom option fields. ' .
+	    'Omitted fields keep their value (create: empty).');
 	$map6_body = array('type' => 'object', 'description' => 'The DHCPv6 static mapping edit form: duid (required), ' .
 	    'ipaddrv6, hostname, descr, earlydnsregpolicy (default|enable|disable). Kea backend: pdprefix (delegated ' .
 	    'prefix/length), custom_kea_config (JSON text). ISC backend with network booting enabled on the interface: ' .
@@ -110,6 +134,24 @@ function restapi_routes_dhcp() {
 			    "Delete a {$name} static mapping", true),
 		));
 	}
+	/* after the fixed paths (settings, interfaces, apply), which {if} would match too */
+	$base = '/v1/services/dhcp';
+	$routes = array_merge($routes, array(
+		$route('GET', "{$base}/{if}", 'restapi_h_dhcp_server_get', 'services_dhcp.php',
+		    'The DHCP server of an interface: its settings for the running backend, choices and whether changes are pending'),
+		$route('PUT', "{$base}/{if}", 'restapi_h_dhcp_server_set', 'services_dhcp.php',
+		    'Change the DHCP server of an interface (omitted fields keep their value)', true, $server_body),
+		$route('GET', "{$base}/{if}/pools", 'restapi_h_dhcp_pool_list', 'services_dhcp.php',
+		    'List the additional address pools of an interface'),
+		$route('GET', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp_pool_get', 'services_dhcp.php',
+		    'Get an additional address pool by position'),
+		$route('POST', "{$base}/{if}/pools", 'restapi_h_dhcp_pool_create', 'services_dhcp.php',
+		    'Add an address pool (the response has its id)', true, $pool_body),
+		$route('PUT', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp_pool_update', 'services_dhcp.php',
+		    'Change an address pool (omitted fields keep their value)', true, $pool_body),
+		$route('DELETE', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp_pool_delete', 'services_dhcp.php',
+		    'Delete an address pool', true),
+	));
 	return $routes;
 }
 
@@ -139,7 +181,7 @@ function restapi_dhcp_option_rows($options) {
 		throw new RestApiError(400, 'invalid_field', '"numberoptions" must be a list of {number, type, value}.');
 	}
 	if (count($options) > 99) {
-		throw new RestApiError(400, 'invalid_field', 'A static mapping has at most 99 custom options.');
+		throw new RestApiError(400, 'invalid_field', 'At most 99 custom options.');
 	}
 	$post = array();
 	foreach ($options as $i => $opt) {
@@ -495,6 +537,255 @@ function restapi_h_dhcp_map_delete($req) {
 	$id = restapi_dhcp_map_id($if, $req['params']['id'], false);
 	if (!dhcp_staticmap_delete($if, $id)) {
 		throw new RestApiError(404, 'not_found', 'No static mapping with that id.');
+	}
+	return array('data' => array('deleted' => $id) + restapi_dhcp_maybe_apply($req, false));
+}
+
+/* ------------------------------------------------------------------ */
+/* DHCP server of an interface and its address pools                  */
+/* ------------------------------------------------------------------ */
+
+/* The "Deny Unknown Clients" choices of the DHCP Server page. */
+function restapi_dhcp_denyunknown_choices() {
+	return array(
+		'disabled' => gettext('Allow all clients'),
+		'enabled' => gettext('Allow known clients from any interface'),
+		'class' => gettext('Allow known clients from only this interface'),
+	);
+}
+
+/* The "DDNS Client Updates" choices of the DHCP Server page (ISC). */
+function restapi_dhcp_ddnsclientupdates_choices() {
+	return array('allow' => gettext('Allow'), 'deny' => gettext('Deny'), 'ignore' => gettext('Ignore'));
+}
+
+/* The OMAPI key algorithms of the DHCP Server page (ISC). */
+function restapi_dhcp_omapi_algorithms() {
+	return array(
+		'hmac-md5' => 'HMAC-MD5 (legacy default)',
+		'hmac-sha1' => 'HMAC-SHA1',
+		'hmac-sha224' => 'HMAC-SHA224',
+		'hmac-sha256' => 'HMAC-SHA256 (current bind9 default)',
+		'hmac-sha384' => 'HMAC-SHA384',
+		'hmac-sha512' => 'HMAC-SHA512 (most secure)',
+	);
+}
+
+/*
+ * The DHCP Server page's fields for the running backend: the interface's
+ * form, or with $pool an additional pool's form.
+ */
+function restapi_dhcp_server_types($pool) {
+	$kea = dhcp_is_backend('kea');
+	$types = $pool ? array('id' => 'ro', 'descr' => 'string') :
+	    array('interface' => 'ro', 'backend' => 'ro', 'subnet' => 'ro', 'pending' => 'ro', 'pools' => 'ro', 'choices' => 'ro',
+	    'enable' => 'bool', 'staticarp' => 'bool');
+	foreach (array('range_from', 'range_to', 'denyunknown', 'gateway', 'domain', 'domainsearchlist', 'mac_allow', 'mac_deny',
+	    'tftp', 'ldap', 'filename', 'filename32', 'filename64', 'filename32arm', 'filename64arm', 'uefihttpboot', 'rootpath') as $field) {
+		$types[$field] = 'string';
+	}
+	$types += array('winsserver' => 'list', 'dnsserver' => 'list', 'ntpserver' => 'list', 'netboot' => 'bool');
+	if (!$kea || !$pool) {
+		$types += array('ignoreclientuids' => 'bool', 'deftime' => 'string', 'maxtime' => 'string', 'nextserver' => 'string');
+	}
+	if ($kea) {
+		if (!$pool) {
+			$types += array('dnsregpolicy' => 'string', 'earlydnsregpolicy' => 'string');
+		}
+		$types['custom_kea_config'] = 'string';
+	} else {
+		$types += array('ignorebootp' => 'bool', 'nonak' => 'bool', 'omapi_port' => 'string', 'omapi_key' => 'string',
+		    'omapi_gen_key' => 'bool', 'omapi_key_algorithm' => 'string');
+		if (!$pool) {
+			$types += array('failover_peerip' => 'string', 'dhcpleaseinlocaltime' => 'bool', 'statsgraph' => 'bool',
+			    'disablepingcheck' => 'bool');
+		}
+		foreach (array('ddnsupdate', 'ddnsforcehostname') as $flag) {
+			$types[$flag] = 'bool';
+		}
+		foreach (array('ddnsdomain', 'ddnsdomainprimary', 'ddnsdomainprimaryport', 'ddnsdomainsecondary', 'ddnsdomainsecondaryport',
+		    'ddnsdomainkeyname', 'ddnsdomainkeyalgorithm', 'ddnsdomainkey', 'ddnsclientupdates') as $field) {
+			$types[$field] = 'string';
+		}
+		$types['numberoptions'] = 'objects';
+	}
+	return $types;
+}
+
+/* The interface of a DHCP server route: a configured interface (else 404) the page offers (else 409). */
+function restapi_dhcp_server_iface($req) {
+	$if = restapi_dhcp_iface($req, false);
+	$ctx = dhcp_iface_context($if);
+	if (empty($ctx['eligible'])) {
+		throw new RestApiError(409, 'not_available',
+		    'The DHCP server can only serve an interface with a static IPv4 subnet smaller than /31.');
+	}
+	return $if;
+}
+
+function restapi_dhcp_pools($if) {
+	$pools = config_get_path("dhcpd/{$if}/pool", []);
+	return is_array($pools) ? $pools : array();
+}
+
+/*
+ * The form values the DHCP Server page shows for the interface ($id null),
+ * pool $id, or with $act "newpool" a new pool (keys unmasked). Checkboxes the
+ * page reads with isset() come from the stored settings (a flag held as false
+ * right after a save reads as unticked); selects read as the form preselects
+ * them.
+ */
+function restapi_dhcp_server_values($if, $id, $act = '') {
+	global $ddnsdomainkeyalgorithms;
+	$pool = (($id !== null) || ($act === 'newpool'));
+	$conf = dhcp_server_conf($if, $id, $act);
+	$p = dhcp_server_form($conf, $pool);
+	$stored = is_array($conf) ? $conf : array();
+	$out = array();
+	foreach (restapi_dhcp_server_types($pool) as $key => $type) {
+		if ($type === 'bool') {
+			$out[$key] = in_array($key, array('dhcpleaseinlocaltime', 'statsgraph', 'disablepingcheck', 'omapi_gen_key'), true) ?
+			    !empty($p[$key]) : restapi_dhcp_flag($stored, $key);
+		} elseif ($type === 'string') {
+			$out[$key] = (string)($p[$key] ?? '');
+		}
+	}
+	$out['winsserver'] = restapi_dhcp_addr_list($stored['winsserver'] ?? array());
+	$out['dnsserver'] = restapi_dhcp_addr_list($stored['dnsserver'] ?? array());
+	$out['ntpserver'] = restapi_dhcp_addr_list($stored['ntpserver'] ?? array());
+	$out['denyunknown'] = restapi_select_choice($p['denyunknown'] ?? 'disabled', restapi_dhcp_denyunknown_choices());
+	if (array_key_exists('dnsregpolicy', $out)) {
+		$out['dnsregpolicy'] = restapi_select_choice($p['dnsregpolicy'] ?? 'default', dhcp_server_dnsregpolicy_values());
+		$out['earlydnsregpolicy'] = restapi_select_choice($p['earlydnsregpolicy'] ?? 'default', dhcp_server_dnsregpolicy_values());
+	}
+	if (!dhcp_is_backend('kea')) {
+		$out['omapi_key_algorithm'] = empty($p['omapi_key_algorithm']) ? 'hmac-sha256' :
+		    restapi_select_choice($p['omapi_key_algorithm'], restapi_dhcp_omapi_algorithms());
+		$out['ddnsdomainkeyalgorithm'] = restapi_select_choice($p['ddnsdomainkeyalgorithm'] ?? '', (array)$ddnsdomainkeyalgorithms);
+		$out['ddnsclientupdates'] = restapi_select_choice($p['ddnsclientupdates'] ?? '', restapi_dhcp_ddnsclientupdates_choices());
+		$out['numberoptions'] = restapi_dhcp_options_out($stored['numberoptions'] ?? array());
+	}
+	return $out;
+}
+
+/* The keys of a DHCP server or pool read as "(set)". */
+function restapi_dhcp_server_mask(array $out) {
+	foreach (array('ddnsdomainkey', 'omapi_key') as $key) {
+		if (array_key_exists($key, $out)) {
+			$out[$key] = restapi_svc_mask($out[$key]);
+		}
+	}
+	return $out;
+}
+
+/* A body without the "(set)" placeholders of the keys (they keep the stored key). */
+function restapi_dhcp_server_body(array $body) {
+	return restapi_ddns_secret_body(restapi_ddns_secret_body($body, 'ddnsdomainkey'), 'omapi_key');
+}
+
+function restapi_dhcp_server_out($if) {
+	global $ddnsdomainkeyalgorithms;
+	$choices = array('denyunknown' => restapi_svc_choices(restapi_dhcp_denyunknown_choices()));
+	if (dhcp_is_backend('kea')) {
+		$choices['dnsregpolicy'] = restapi_svc_choices(dhcp_server_dnsregpolicy_values());
+	} else {
+		$choices['omapi_key_algorithm'] = restapi_svc_choices(restapi_dhcp_omapi_algorithms());
+		$choices['ddnsdomainkeyalgorithm'] = restapi_svc_choices((array)$ddnsdomainkeyalgorithms);
+		$choices['ddnsclientupdates'] = restapi_svc_choices(restapi_dhcp_ddnsclientupdates_choices());
+	}
+	$cfgip = config_get_path("interfaces/{$if}/ipaddr");
+	$cfgsn = config_get_path("interfaces/{$if}/subnet");
+	return array('interface' => $if, 'backend' => (string)dhcp_get_backend(), 'subnet' => gen_subnet($cfgip, $cfgsn) . '/' . $cfgsn,
+	    'pending' => restapi_dhcp_pending(false), 'pools' => count(restapi_dhcp_pools($if))) +
+	    restapi_dhcp_server_mask(restapi_dhcp_server_values($if, null)) + array('choices' => $choices);
+}
+
+function restapi_dhcp_pool_out($if, $id) {
+	return array('id' => (int)$id) + restapi_dhcp_server_mask(restapi_dhcp_server_values($if, (int)$id));
+}
+
+/* The page's form for $values as the browser posts it. */
+function restapi_dhcp_server_post($if, array $values, $pool) {
+	$types = restapi_dhcp_server_types($pool);
+	$post = restapi_svc_post($values, $types);
+	unset($post['winsserver'], $post['dnsserver'], $post['ntpserver']);
+	$post += restapi_dhcp_server_rows($values);
+	if (array_key_exists('numberoptions', $types)) {
+		$post += restapi_dhcp_option_rows($values['numberoptions'] ?? array());
+	}
+	$post['if'] = $if;
+	$post['save'] = 'Save';
+	return $post;
+}
+
+/* Save the interface ($id null), pool $id or a new pool ($act "newpool") through the page's save. */
+function restapi_dhcp_server_write($req, $if, array $values, $id, $act = '', $status = 200) {
+	$pool = (($id !== null) || ($act === 'newpool'));
+	$post = restapi_dhcp_server_post($if, $values, $pool);
+	if ($act === 'newpool') {
+		$post['act'] = 'newpool';
+	} elseif ($id !== null) {
+		$post['pool'] = (string)$id;
+	}
+	$rv = dhcp_server_save($if, $id, $act, $post);
+	if ($rv['missing_pool']) {
+		throw new RestApiError(404, 'not_found', 'No pool with that id.');
+	}
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	if (!$rv['saved'] || ($pool && !isset($rv['id']))) {
+		throw new RestApiError(500, 'internal_error', 'The DHCP server settings were not saved.');
+	}
+	$extra = restapi_dhcp_maybe_apply($req, false);
+	$data = $pool ? restapi_dhcp_pool_out($if, $rv['id']) : restapi_dhcp_server_out($if);
+	return array('status' => $status, 'data' => array_merge($data, $extra));
+}
+
+function restapi_h_dhcp_server_get($req) {
+	$if = restapi_dhcp_server_iface($req);
+	return array('data' => restapi_dhcp_server_out($if));
+}
+
+function restapi_h_dhcp_server_set($req) {
+	$if = restapi_dhcp_server_iface($req);
+	$values = restapi_svc_merge(restapi_dhcp_server_body($req['body']), restapi_dhcp_server_values($if, null),
+	    restapi_dhcp_server_types(false));
+	return restapi_dhcp_server_write($req, $if, $values, null);
+}
+
+function restapi_h_dhcp_pool_list($req) {
+	$if = restapi_dhcp_server_iface($req);
+	return array('data' => array_map(function ($id) use ($if) {
+		return restapi_dhcp_pool_out($if, $id);
+	}, array_keys(restapi_dhcp_pools($if))));
+}
+
+function restapi_h_dhcp_pool_get($req) {
+	$if = restapi_dhcp_server_iface($req);
+	return array('data' => restapi_dhcp_pool_out($if, restapi_index_param($req['params']['id'], restapi_dhcp_pools($if), 'pool')));
+}
+
+function restapi_h_dhcp_pool_create($req) {
+	$if = restapi_dhcp_server_iface($req);
+	$values = restapi_svc_merge(restapi_dhcp_server_body($req['body']), restapi_dhcp_server_values($if, null, 'newpool'),
+	    restapi_dhcp_server_types(true));
+	return restapi_dhcp_server_write($req, $if, $values, null, 'newpool', 201);
+}
+
+function restapi_h_dhcp_pool_update($req) {
+	$if = restapi_dhcp_server_iface($req);
+	$id = restapi_index_param($req['params']['id'], restapi_dhcp_pools($if), 'pool');
+	$values = restapi_svc_merge(restapi_dhcp_server_body($req['body']), restapi_dhcp_server_values($if, $id),
+	    restapi_dhcp_server_types(true));
+	return restapi_dhcp_server_write($req, $if, $values, $id);
+}
+
+function restapi_h_dhcp_pool_delete($req) {
+	$if = restapi_dhcp_server_iface($req);
+	$id = restapi_index_param($req['params']['id'], restapi_dhcp_pools($if), 'pool');
+	if (!dhcp_pool_delete($if, $id)) {
+		throw new RestApiError(404, 'not_found', 'No pool with that id.');
 	}
 	return array('data' => array('deleted' => $id) + restapi_dhcp_maybe_apply($req, false));
 }

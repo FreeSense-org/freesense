@@ -1040,6 +1040,70 @@ check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp_settings_section'), "dhcp_
 check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp_iface'), 'dhcp6_iface_context($if) : dhcp_iface_context($if)') !== false,
     'static mapping routes take only configured interfaces');
 
+/* DHCP server of an interface and its address pools */
+$d5_routes = array('GET /v1/services/dhcp/{if}' => 'restapi_h_dhcp_server_get', 'PUT /v1/services/dhcp/{if}' => 'restapi_h_dhcp_server_set',
+    'GET /v1/services/dhcp/{if}/pools' => 'restapi_h_dhcp_pool_list', 'GET /v1/services/dhcp/{if}/pools/{id}' => 'restapi_h_dhcp_pool_get',
+    'POST /v1/services/dhcp/{if}/pools' => 'restapi_h_dhcp_pool_create', 'PUT /v1/services/dhcp/{if}/pools/{id}' => 'restapi_h_dhcp_pool_update',
+    'DELETE /v1/services/dhcp/{if}/pools/{id}' => 'restapi_h_dhcp_pool_delete');
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (isset($d5_routes[$key])) {
+		check_api($r['handler'] === $d5_routes[$key] && $r['page'] === 'services_dhcp.php' && $r['area'] === 'services.dhcp',
+		    "{$key} is handled by {$d5_routes[$key]} and guarded by services_dhcp.php");
+		if ($r['write']) {
+			check_api(isset($r['query']['apply']), "{$key} takes ?apply=true");
+		}
+		unset($d5_routes[$key]);
+	}
+}
+check_api(empty($d5_routes), 'every DHCP server and pool route exists');
+foreach (array('GET /v1/services/dhcp/settings' => 'restapi_h_dhcp_settings_get', 'PUT /v1/services/dhcp/settings' => 'restapi_h_dhcp_settings_set',
+    'GET /v1/services/dhcp/interfaces' => 'restapi_h_dhcp_interfaces', 'POST /v1/services/dhcp/apply' => 'restapi_h_dhcp_apply',
+    'GET /v1/services/dhcp/lan' => 'restapi_h_dhcp_server_get', 'GET /v1/services/dhcp/opt1/pools/2' => 'restapi_h_dhcp_pool_get') as $key => $handler) {
+	list($m, $p) = explode(' ', $key);
+	check_api(restapi_match($v1, $m, $p)[0]['handler'] === $handler, "{$key} reaches {$handler} (the fixed paths come before {if})");
+}
+check_api(restapi_dhcp_server_mask(array('ddnsdomainkey' => 'k', 'omapi_key' => '', 'domain' => 'd')) ===
+    array('ddnsdomainkey' => '(set)', 'omapi_key' => '', 'domain' => 'd') && restapi_dhcp_server_mask(array('descr' => 'x')) === array('descr' => 'x'),
+    'the ISC dynamic DNS and OMAPI keys read as "(set)"');
+check_api(restapi_dhcp_server_body(array('ddnsdomainkey' => '(set)', 'omapi_key' => '(set)', 'domain' => 'd')) === array('domain' => 'd') &&
+    restapi_dhcp_server_body(array('omapi_key' => 'new')) === array('omapi_key' => 'new'), '"(set)" keeps the stored keys');
+check_api(array_keys(restapi_dhcp_denyunknown_choices()) === array('disabled', 'enabled', 'class'), 'the Deny Unknown Clients choices are the page\'s');
+check_api(strpos($fn_body($routes_dhcp, 'restapi_dhcp_server_iface'), "\$ctx['eligible']") !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp_server_write'), 'dhcp_server_save($if, $id, $act, $post)') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp_server_out'), 'restapi_dhcp_server_mask(') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_dhcp_pool_out'), 'restapi_dhcp_server_mask(') !== false &&
+    strpos($fn_body($routes_dhcp, 'restapi_h_dhcp_pool_delete'), 'dhcp_pool_delete($if, $id)') !== false,
+    'DHCP server routes need an interface the page offers, save and delete through the page functions and mask the keys');
+foreach (array('restapi_h_dhcp_server_set', 'restapi_h_dhcp_pool_create', 'restapi_h_dhcp_pool_update') as $fn) {
+	check_api(strpos($fn_body($routes_dhcp, $fn), 'restapi_dhcp_server_body($req[\'body\'])') !== false, "{$fn}() keeps \"(set)\" keys");
+}
+$d5_save = $fn_body($dhcp_inc, 'dhcp_server_save');
+check_api(strpos($d5_save, '$ctx = dhcp_iface_context($if);') !== false && strpos($d5_save, "!\$ctx['eligible']") !== false,
+    'the DHCP server is saved only for an interface the page offers');
+check_api(strpos($d5_save, "if (\$post['dnsregpolicy'] && !array_key_exists(\$post['dnsregpolicy'], \$dnsregpolicy_values))") !== false &&
+    substr_count($d5_save, "\$post['earlydnsregpolicy'] && !array_key_exists(") === 1, 'both DNS registration policies are validated (the early one was checked twice)');
+check_api(strpos($d5_save, "\$post['if']") === false && strpos($d5_save, '$parent_ip = get_interface_ip($if);') !== false,
+    'the gateway check uses the page\'s interface, not the posted if field');
+check_api(strpos($d5_save, "kea_custom_config_enforce(array_get_path(\$dhcpdconf, 'custom_kea_config'), \$input_errors, \$post);") !== false,
+    'dhcp_server_save() enforces the Kea custom configuration privilege on its form');
+check_api(strpos($d5_save, "dhcp_is_backend('isc')") !== false && strpos($d5_save, "\$post['omapi_gen_key'] == \"yes\"") !== false &&
+    strpos($d5_save, "\$ret['missing_pool'] = true;") !== false && strpos($d5_save, "mark_subsystem_dirty('dhcpd');") !== false,
+    'dhcp_server_save() keeps the ISC branch, reports a missing pool and stages the DHCP server');
+check_api(strpos($fn_body($dhcp_inc, 'dhcp_pool_delete'), 'is_numericint($id)') !== false, 'deleting a pool needs the position of an existing pool');
+check_api(strpos($fn_body($dhcp_inc, 'dhcp_build_pooltable'), 'global $if') === false, 'the pool table takes the interface as a parameter');
+$dhcp_page = file_get_contents("{$root}/src/usr/local/www/services_dhcp.php");
+foreach (array('dhcp_server_conf($if, $pool, $act)', 'dhcp_server_form($dhcpdconf ?? null,', 'dhcp_server_save($if, $pool ?? null, $act, $_POST)',
+    'dhcp_pool_delete($if, $_POST[\'id\'])', 'dhcp_build_pooltable($if)', 'dhcp_server_dnsregpolicy_values()') as $call) {
+	check_api(strpos($dhcp_page, $call) !== false, "services_dhcp.php uses {$call}");
+}
+check_api(strpos($dhcp_page, 'write_config(') === false && strpos($dhcp_page, 'config_set_path(') === false && strpos($dhcp_page, 'config_del_path(') === false &&
+    preg_match('/^function\s/m', $dhcp_page) === 0, 'services_dhcp.php changes nothing itself and declares no functions');
+check_api(preg_match("/header\('Location: \/services_dhcp.php\?if='\.\\\$if\);\n\t\t}\n\t}\n}/", $dhcp_page) === 1,
+    'a saved pool redirects to the interface without exit (the page goes on like before)');
+check_api(preg_match('/\$rv\[\'missing_pool\'\]\) \{\n[^\n]*\n\t\theader\("Location: services_dhcp.php"\);\n\t\texit;/', $dhcp_page) === 1,
+    'saving a missing pool goes back to the start');
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');
