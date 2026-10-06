@@ -2032,6 +2032,389 @@ check_api(strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'is_webgui_cert($refid)
     strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'is_kea_cert(') !== false && strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'pki_packages_using(') !== false,
     'used_by lists what the page\'s In Use column lists');
 
+/* User manager: users, groups, privileges and authentication servers (area users) */
+check_api(isset(restapi_areas()['users']), 'the users permission area exists');
+$users_routes = array(
+	'GET /v1/users' => array('restapi_h_users_list', 'system_usermanager.php', 'users'),
+	'GET /v1/users/{name}' => array('restapi_h_users_get', 'system_usermanager.php', 'users'),
+	'POST /v1/users' => array('restapi_h_users_create', 'system_usermanager.php', 'users'),
+	'PUT /v1/users/{name}' => array('restapi_h_users_update', 'system_usermanager.php', 'users'),
+	'DELETE /v1/users/{name}' => array('restapi_h_users_delete', 'system_usermanager.php', 'users'),
+	'GET /v1/users/{name}/privileges' => array('restapi_h_users_privs_get', 'system_usermanager.php', 'users'),
+	'PUT /v1/users/{name}/privileges' => array('restapi_h_users_privs_set', 'system_usermanager.php', 'users'),
+	'GET /v1/users/{name}/certificates' => array('restapi_h_users_certs_list', 'system_usermanager.php', 'users'),
+	'POST /v1/users/{name}/certificates' => array('restapi_h_users_certs_add', 'system_certmanager.php', 'pki'),
+	'DELETE /v1/users/{name}/certificates/{refid}' => array('restapi_h_users_certs_remove', 'system_usermanager.php', 'users'),
+	'GET /v1/groups' => array('restapi_h_groups_list', 'system_groupmanager.php', 'users'),
+	'GET /v1/groups/{name}' => array('restapi_h_groups_get', 'system_groupmanager.php', 'users'),
+	'POST /v1/groups' => array('restapi_h_groups_create', 'system_groupmanager.php', 'users'),
+	'PUT /v1/groups/{name}' => array('restapi_h_groups_update', 'system_groupmanager.php', 'users'),
+	'DELETE /v1/groups/{name}' => array('restapi_h_groups_delete', 'system_groupmanager.php', 'users'),
+	'GET /v1/groups/{name}/privileges' => array('restapi_h_groups_privs_get', 'system_groupmanager.php', 'users'),
+	'PUT /v1/groups/{name}/privileges' => array('restapi_h_groups_privs_set', 'system_groupmanager.php', 'users'),
+	'GET /v1/groups/{name}/members' => array('restapi_h_groups_members_get', 'system_groupmanager.php', 'users'),
+	'PUT /v1/groups/{name}/members' => array('restapi_h_groups_members_set', 'system_groupmanager.php', 'users'),
+	'GET /v1/auth-servers' => array('restapi_h_authsrv_list', 'system_authservers.php', 'users'),
+	'GET /v1/auth-servers/{name}' => array('restapi_h_authsrv_get', 'system_authservers.php', 'users'),
+	'POST /v1/auth-servers' => array('restapi_h_authsrv_create', 'system_authservers.php', 'users'),
+	'PUT /v1/auth-servers/{name}' => array('restapi_h_authsrv_update', 'system_authservers.php', 'users'),
+	'DELETE /v1/auth-servers/{name}' => array('restapi_h_authsrv_delete', 'system_authservers.php', 'users'),
+	'POST /v1/auth-servers/{name}/test' => array('restapi_h_authsrv_test', 'diag_authentication.php', 'users'),
+	'GET /v1/privileges' => array('restapi_h_privileges', 'system_usermanager.php', 'users'),
+);
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (preg_match('#^/v1/(users|groups|auth-servers|privileges)(/|$)#', $r['path'])) {
+		check_api(isset($users_routes[$key]), "{$key} is a known user manager route");
+		check_api($r['handler'] === $users_routes[$key][0] && $r['page'] === $users_routes[$key][1] && $r['area'] === $users_routes[$key][2],
+		    "{$key} is handled by {$users_routes[$key][0]}, guarded by {$users_routes[$key][1]} in area {$users_routes[$key][2]}");
+		check_api(($r['method'] === 'GET') xor $r['write'], "{$key}: only GET is a read");
+		check_api(!isset($r['query']['apply']), "{$key} has no ?apply (applied at once like the pages)");
+		unset($users_routes[$key]);
+	}
+}
+check_api(empty($users_routes), 'every user manager route exists: ' . implode(', ', array_keys($users_routes)));
+foreach (array('GET /v1/auth-servers/Local%20Database' => 'restapi_h_authsrv_get', 'POST /v1/auth-servers/E6%20LDAP/test' => 'restapi_h_authsrv_test',
+    'DELETE /v1/users/apitest-u1/certificates/6ac0b594bc838' => 'restapi_h_users_certs_remove', 'PUT /v1/groups/admins/members' => 'restapi_h_groups_members_set') as $key => $want) {
+	list($m, $p) = explode(' ', $key);
+	list($r, $params) = restapi_match($v1, $m, $p);
+	check_api($r['handler'] === $want, "{$key} reaches {$want}");
+}
+check_api(restapi_match($v1, 'GET', '/v1/auth-servers/E6%20LDAP')[1] === array('name' => 'E6 LDAP'), 'server names with spaces are URL-encoded path parameters');
+
+/* Users: secrets are write-only, SSH keys as fingerprints */
+$smoke_key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGq1jQvDq0fA8Oq7sQx2KX1q0oS5D0b6Yf8kq3cK9w9F ops@example';
+$smoke_fp = 'SHA256:' . rtrim(base64_encode(hash('sha256', base64_decode('AAAAC3NzaC1lZDI1NTE5AAAAIGq1jQvDq0fA8Oq7sQx2KX1q0oS5D0b6Yf8kq3cK9w9F'), true)), '=');
+$fps = restapi_users_key_fingerprints("# comment\n{$smoke_key}\n\nfrom=\"192.0.2.1\",no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGq1jQvDq0fA8Oq7sQx2KX1q0oS5D0b6Yf8kq3cK9w9F x\r\njunk line\nssh-rsa %%%");
+check_api($fps === array(array('type' => 'ssh-ed25519', 'fingerprint' => $smoke_fp), array('type' => 'ssh-ed25519', 'fingerprint' => $smoke_fp),
+    array('type' => '(unknown)', 'fingerprint' => '(invalid)'), array('type' => 'ssh-rsa', 'fingerprint' => '(invalid)')),
+    'SSH keys are returned as SHA256 fingerprints (options, comments, blank and invalid lines handled)');
+check_api(strpos(json_encode($fps), 'AAAAC3Nza') === false && strpos(json_encode($fps), 'ops@example') === false, 'fingerprints carry neither the key nor its comment');
+check_api(restapi_users_has_password(array('bcrypt-hash' => '$2y$x')) && restapi_users_has_password(array('sha512-hash' => 'x')) &&
+    !restapi_users_has_password(array('name' => 'x')), 'a password is reported as set from any stored hash');
+$css = array('FreeSense.css' => 'FreeSense', 'FreeSense-dark.css' => 'Dark');
+$unew = restapi_users_values(array(), $css);
+check_api($unew['webguicss'] === 'FreeSense.css' && $unew['dashboardcolumns'] === '2' && $unew['webguifixedmenu'] === '' && $unew['webguihostnamemenu'] === '' &&
+    $unew['groups'] === array() && $unew['disabled'] === false && $unew['password'] === '', 'a new user starts as the page\'s new form (theme, 2 columns, no groups)');
+$uform = array('usernamefld' => 'bob', 'descr' => 'Bob', 'webguicss' => 'gone.css', 'dashboardcolumns' => '9', 'webguifixedmenu' => 'fixed', 'webguihostnamemenu' => 'bogus',
+    'groups' => array('ops'), 'authorizedkeys' => $smoke_key, 'ipsecpsk' => 'psk1', 'disabled' => true, 'keephistory' => false);
+$ucur = restapi_users_values($uform, $css);
+check_api($ucur['webguicss'] === 'FreeSense.css' && $ucur['dashboardcolumns'] === '2' && $ucur['webguifixedmenu'] === 'fixed' && $ucur['webguihostnamemenu'] === '' &&
+    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (unknown theme, columns and menu fall back)');
+$up = restapi_users_post(array('descr' => 'Bobby', 'password' => '(set)', 'ipsecpsk' => '(set)'), $ucur);
+check_api($up['usernamefld'] === 'bob' && $up['passwordfld1'] === '' && $up['passwordfld2'] === '' && $up['ipsecpsk'] === 'psk1' && $up['authorizedkeys'] === $smoke_key &&
+    $up['disabled'] === 'yes' && !isset($up['keephistory']) && $up['groups'] === array('ops') && $up['descr'] === 'Bobby' && !isset($up['name']) && !isset($up['password']) &&
+    $up['save'] === 'Save', 'a user post: "(set)" and omitted secrets keep their value, checkboxes "yes" or left out');
+$up = restapi_users_post(array('password' => 'N3w-pass', 'groups' => array(), 'disabled' => false, 'uid' => 0), $ucur);
+check_api($up['passwordfld1'] === 'N3w-pass' && $up['passwordfld2'] === 'N3w-pass' && !isset($up['groups']) && !isset($up['disabled']) && !isset($up['uid']),
+    'a new password is posted twice (confirmation); no groups and unticked boxes are left out; read-only fields are ignored');
+foreach (array(array('bcrypt-hash' => 'x'), array('createcert' => true), array('disabled' => 'yes'), array('groups' => 'admins'), array('password' => array('x')),
+    array('scope' => 'system')) as $bad) {
+	check_api(api_error_status(function () use ($bad, $ucur) { restapi_users_post($bad, $ucur); }) === 400 || isset($bad['scope']), 'malformed user bodies are 400: ' . json_encode($bad));
+}
+$up = restapi_users_post(array('scope' => 'system'), $ucur);
+check_api(!isset($up['scope']) && !isset($up['utype']), 'the scope is read-only (never posted from the body)');
+check_api(restapi_users_priv_list(array('a', 'b', 'a')) === array('a', 'b') && api_error_status(function () { restapi_users_priv_list('page-all'); }) === 400 &&
+    api_error_status(function () { restapi_users_priv_list(array('x' => 'page-all')); }) === 400 && api_error_status(function () { restapi_users_priv_list(array(1)); }) === 400 &&
+    api_error_status(function () { restapi_users_priv_list(null); }) === 400, 'privilege lists must be lists of ids');
+check_api(api_error_status(function () { restapi_users_only(array('members' => array(), 'x' => 1), array('members')); }) === 400 &&
+    api_error_status(function () { restapi_users_only(array('members' => array()), array('members')); }) === null, 'sub-resource bodies take only their field');
+$e403 = restapi_users_refusal_error(array('status' => 403, 'errors' => array('Only privileges the current user holds can be granted. Not held: <b>x</b>.')));
+$e409 = restapi_users_refusal_error(array('status' => 409, 'errors' => array('Cannot delete user admin because it is a system user.')));
+check_api($e403->status === 403 && $e403->error_code === 'privilege_escalation' && $e403->getMessage() === 'Only privileges the current user holds can be granted. Not held: x.' &&
+    $e409->status === 409 && $e409->error_code === 'protected', 'refusals are 403 privilege_escalation or 409 protected with the page\'s message');
+
+/* Authentication servers: bind password and shared secret are write-only */
+$asc = array('type' => array('ldap' => 'LDAP', 'radius' => 'RADIUS'), 'ldap_urltype' => array('Standard TCP' => 'Standard TCP', 'STARTTLS Encrypted' => 'x',
+    'SSL/TLS Encrypted' => 'y'), 'ldap_caref' => array('global' => 'Global'), 'ldap_protver' => array(2 => 2, 3 => 3), 'ldap_scope' => array('one' => 'One', 'subtree' => 'Sub'),
+    'radius_protocol' => array('PAP' => 'PAP', 'MSCHAPv2' => 'MS-CHAPv2'), 'radius_srvcs' => array('both' => 'b', 'auth' => 'a', 'acct' => 'c'),
+    'radius_nasip_attribute' => array('lan' => 'LAN'));
+$asnew = restapi_authsrv_values(array('ldap_protver' => 3, 'ldap_anon' => true, 'radius_protocol' => 'MSCHAPv2', 'radius_srvcs' => 'both', 'radius_auth_port' => '1812',
+    'radius_acct_port' => '1813'), $asc, true, array('attr_user' => 'cn', 'attr_group' => 'cn', 'attr_member' => 'member', 'allow_unauthenticated' => 'true'));
+check_api($asnew['type'] === 'ldap' && $asnew['ldap_port'] === '389' && $asnew['ldap_protver'] === '3' && $asnew['ldap_scope'] === 'one' && $asnew['ldap_caref'] === 'global' &&
+    $asnew['ldap_attr_user'] === 'cn' && $asnew['ldap_attr_member'] === 'member' && $asnew['ldap_allow_unauthenticated'] === true && $asnew['ldap_anon'] === true &&
+    $asnew['radius_protocol'] === 'MSCHAPv2' && $asnew['radius_auth_port'] === '1812' && $asnew['ldap_timeout'] === '',
+    'a new server starts as the page\'s form after its script ran (LDAP, port 389, OpenLDAP template)');
+$asedit = restapi_authsrv_values(array('type' => 'radius', 'radius_host' => '192.0.2.61', 'radius_secret' => 'sekrit', 'radius_srvcs' => 'auth',
+    'ldap_bindpw' => 'bindpw', 'ldap_authcn' => 'ou=a;ou=b'), $asc, false);
+$asmask = restapi_authsrv_mask($asedit);
+check_api($asmask['radius_secret'] === '(set)' && $asmask['ldap_bindpw'] === '(set)' && strpos(json_encode($asmask), 'sekrit') === false &&
+    restapi_authsrv_mask(array('radius_secret' => ''))['radius_secret'] === '', 'the shared secret and bind password read as "(set)"');
+$aspost = restapi_authsrv_post($asedit, restapi_authsrv_types(true));
+check_api($aspost['ldapauthcontainers'] === 'ou=a;ou=b' && !isset($aspost['ldap_authcn']) && $aspost['save'] === 'Save' && $aspost['type'] === 'radius',
+    'a server post names the containers ldapauthcontainers like the form');
+check_api(restapi_authsrv_types(false)['type'] === 'ro' && restapi_authsrv_types(true)['type'] === 'string' && restapi_authsrv_types(false)['name'] === 'string',
+    'the type of a server is fixed once created (the page disables the other types when editing)');
+
+/* The security rules of system_usermanager.inc, run with stub configuration functions in a separate PHP process */
+$um_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_usermanager.inc");
+$um_fns = array('usermgr_caller_privs', 'usermgr_is_superuser', 'usermgr_missing_privs', 'usermgr_priv_names', 'usermgr_group_privs', 'usermgr_user_privs',
+    'usermgr_refusal', 'usermgr_grant_refusal', 'usermgr_manage_user_refusal', 'usermgr_manage_group_refusal', 'usermgr_admin_members',
+    'usermgr_last_admin_refusal', 'usermgr_caller_name', 'usermgr_user_delete_refusal', 'usermgr_user_save_refusal', 'usermgr_group_members_fixed',
+    'usermgr_group_used_by', 'usermgr_group_delete_refusal', 'usermgr_group_save_refusal', 'usermgr_user_privs_add_refusal', 'usermgr_group_privs_add_refusal',
+    'usermgr_unknown_privs');
+$um_code = '';
+foreach ($um_fns as $fn) {
+	check_api(strpos($um_inc, "function {$fn}(") !== false, "system_usermanager.inc defines {$fn}()");
+	$um_code .= $fn_body($um_inc, $fn) . "\n}\n\n";
+}
+$um_harness = <<<'PHP'
+<?php
+function gettext($t) { return $t; }
+function g_get($k) { return ($k === 'admin_group') ? 'admins' : null; }
+function is_numericint($a) { return (is_int($a) && $a >= 0) || (is_string($a) && ($a !== '') && ctype_digit($a)); }
+function config_get_path($path, $default = null) {
+	$v = $GLOBALS['cfg'];
+	foreach (explode('/', $path) as $p) {
+		if (!is_array($v) || !array_key_exists($p, $v)) { return $default; }
+		$v = $v[$p];
+	}
+	return $v;
+}
+function getGroupEntry($name) {
+	foreach (config_get_path('system/group', []) as $idx => $g) { if ($g['name'] === $name) { return array('idx' => $idx, 'item' => $g); } }
+	return null;
+}
+function local_user_get_groups($user, $all = false) {
+	$out = array();
+	foreach (config_get_path('system/group', []) as $g) {
+		if (($all || ($g['name'] != 'all')) && is_array($g['member'] ?? null) && in_array($user['uid'] ?? null, $g['member'])) { $out[] = $g['name']; }
+	}
+	if ($all) { $out[] = 'all'; }
+	sort($out);
+	return $out;
+}
+function get_user_privileges(&$user) {
+	$privs = is_array($user['priv'] ?? null) ? $user['priv'] : array();
+	foreach (local_user_get_groups($user, true) as $name) { $g = getGroupEntry($name); if (is_array($g['item']['priv'] ?? null)) { $privs = array_merge($privs, $g['item']['priv']); } }
+	return $privs;
+}
+$priv_list = array();
+foreach (array('page-all' => 'WebCfg - All pages', 'user-shell-access' => 'User - System: Shell account access', 'page-system-usermanager' => 'WebCfg - System: User Manager',
+    'page-status-interfaces' => 'WebCfg - Status: Interfaces', 'api-users-write' => 'REST API - Users: write', 'api-pki-write' => 'REST API - PKI: write',
+    'system-xmlrpc-ha-sync' => 'User - System: Copy files (HA sync)', 'page-dashboard-all' => 'WebCfg - Dashboard (all)') as $id => $name) {
+	$priv_list[$id] = array('name' => $name);
+}
+$cfg = array('system' => array(
+	'user' => array(
+		0 => array('name' => 'admin', 'uid' => '0', 'scope' => 'system', 'priv' => array('user-shell-access')),
+		1 => array('name' => 'mgr', 'uid' => '2001', 'scope' => 'user', 'priv' => array('page-system-usermanager', 'api-users-write', 'page-dashboard-all')),
+		2 => array('name' => 'bob', 'uid' => '2002', 'scope' => 'user', 'priv' => array('page-dashboard-all')),
+		3 => array('name' => 'boss', 'uid' => '2003', 'scope' => 'user', 'priv' => array('page-status-interfaces')),
+		4 => array('name' => 'root2', 'uid' => '2005', 'scope' => 'user'),
+	),
+	'group' => array(
+		0 => array('name' => 'admins', 'gid' => '1998', 'scope' => 'system', 'member' => array('0', '2005'), 'priv' => array('page-all')),
+		1 => array('name' => 'ops', 'gid' => '2000', 'scope' => 'local', 'member' => array('2002'), 'priv' => array('page-dashboard-all')),
+		2 => array('name' => 'net', 'gid' => '2001', 'scope' => 'local', 'member' => array(), 'priv' => array('page-status-interfaces')),
+	)),
+	'ipsec' => array('client' => array('auth_groups' => 'x,net')));
+$u = function ($i) { return $GLOBALS['cfg']['system']['user'][$i]; };
+$admin = $u(0); $mgr = $u(1); $bob = $u(2); $boss = $u(3); $root2 = $u(4);
+$fail = 0;
+function t($ok, $msg) { global $fail; if (!$ok) { $fail++; echo "FAIL {$msg}\n"; } }
+function st($r) { return ($r === null) ? null : $r['status']; }
+PHP;
+$um_tests = <<<'PHP'
+t(usermgr_is_superuser($admin) && usermgr_is_superuser($root2) && !usermgr_is_superuser($mgr) && !usermgr_is_superuser(null) && !usermgr_is_superuser(array('name' => 'x')),
+    'administrators: uid 0 and page-all holders only (unknown callers never)');
+t(usermgr_missing_privs($mgr, array('page-all', 'page-dashboard-all', 'page-all')) === array('page-all') && usermgr_missing_privs($admin, array('page-all', 'x')) === array() &&
+    usermgr_missing_privs(null, array('page-dashboard-all')) === array('page-dashboard-all'), 'missing privileges of a caller');
+foreach (array('page-all', 'user-shell-access', 'system-xmlrpc-ha-sync', 'api-pki-write') as $p) {
+	t(st(usermgr_grant_refusal($mgr, array($p))) === 403, "a limited caller cannot grant {$p}");
+}
+t(usermgr_grant_refusal($mgr, array('api-users-write', 'page-dashboard-all')) === null && usermgr_grant_refusal($root2, array('page-all', 'user-shell-access')) === null,
+    'privileges the caller holds can be granted; administrators grant anything');
+t(strpos(usermgr_grant_refusal($mgr, array('page-all'))['errors'][0], 'Not held: WebCfg - All pages.') !== false, 'the refusal names the privileges');
+t(st(usermgr_manage_user_refusal($mgr, $boss)) === 403 && st(usermgr_manage_user_refusal($mgr, $admin)) === 403 && usermgr_manage_user_refusal($mgr, $bob) === null &&
+    usermgr_manage_user_refusal($mgr, $mgr) === null, 'a limited caller manages only users whose privileges it holds (not admin, not boss)');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'esc', 'groups' => array('admins')), null, $mgr)) === 403, 'a new user in the admins group: 403');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'esc', 'groups' => array('net')), null, $mgr)) === 403, 'a new user in a group with privileges the caller lacks: 403');
+t(usermgr_user_save_refusal(array('usernamefld' => 'esc', 'groups' => array('ops', 'nosuch')), null, $mgr) === null, 'a new user in a group within the caller\'s privileges');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'bob', 'groups' => array('ops', 'net')), 2, $mgr)) === 403, 'adding a user to a group with privileges the caller lacks: 403');
+t(usermgr_user_save_refusal(array('usernamefld' => 'bob', 'groups' => array(), 'disabled' => 'yes'), 2, $mgr) === null, 'a limited caller may disable a user it manages');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'boss', 'passwordfld1' => 'x'), 3, $mgr)) === 403, 'a limited caller cannot set the password of a user it does not manage');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'admin', 'passwordfld1' => 'x', 'groups' => array('admins')), 0, $mgr)) === 403, 'nor of admin');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'mgr', 'disabled' => 'yes'), 1, $mgr)) === 409, 'the caller cannot disable its own user');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'admin', 'disabled' => 'yes', 'groups' => array('admins')), 0, $root2)) === 409, 'a system user cannot be disabled');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'boss2', 'groups' => array('admins')), 0, $root2)) === 409, 'a system user cannot be renamed');
+t(usermgr_user_save_refusal(array('usernamefld' => 'admin', 'groups' => array('admins')), 0, $admin) === null, 'admin saves itself');
+$GLOBALS['cfg']['system']['group'][0]['member'] = array('0');
+t(st(usermgr_user_save_refusal(array('usernamefld' => 'admin', 'groups' => array()), 0, $admin)) === 409, 'the last admins member stays in the group');
+$GLOBALS['cfg']['system']['group'][0]['member'] = array('2005');
+t(st(usermgr_user_delete_refusal($root2, $admin)) === 409, 'the last admins member cannot be deleted');
+$GLOBALS['cfg']['system']['group'][0]['member'] = array('0', '2005');
+t(usermgr_user_delete_refusal($root2, $admin) === null, 'an admins member is deleted while others remain');
+t(st(usermgr_user_delete_refusal($admin, $root2)) === 409 && st(usermgr_user_delete_refusal($mgr, $mgr)) === 409 && st(usermgr_user_delete_refusal($boss, $mgr)) === 403 &&
+    usermgr_user_delete_refusal($bob, $mgr) === null, 'deletes: system user 409, own user 409, a user with privileges the caller lacks 403');
+$g = function ($i) { return $GLOBALS['cfg']['system']['group'][$i]; };
+t(st(usermgr_group_save_refusal(array('groupname' => 'admins', 'members' => array('0')), 0, $mgr)) === 403, 'a limited caller cannot change admins');
+t(st(usermgr_group_save_refusal(array('groupname' => 'wheel', 'members' => array('0')), 0, $admin)) === 409, 'a system group cannot be renamed');
+$GLOBALS['cfg']['system']['group'][0]['gid'] = '1999';
+t(st(usermgr_group_save_refusal(array('groupname' => 'admins', 'members' => array()), 0, $admin)) === 409 &&
+    usermgr_group_save_refusal(array('groupname' => 'admins', 'members' => array('0')), 0, $admin) === null, 'an admins group with its membership shown (gid 1999) keeps a member');
+$GLOBALS['cfg']['system']['group'][0]['gid'] = '1998';
+t(usermgr_group_save_refusal(array('groupname' => 'admins'), 0, $admin) === null, 'the group with gid 1998 keeps its members (no membership on the form)');
+t(st(usermgr_group_save_refusal(array('groupname' => 'copy', 'dup' => '0'), null, $mgr)) === 403 && usermgr_group_save_refusal(array('groupname' => 'copy', 'dup' => '1'), null, $mgr) === null &&
+    usermgr_group_save_refusal(array('groupname' => 'new'), null, $mgr) === null, 'a copy of a group (also the first, position 0) needs its privileges');
+t(st(usermgr_group_save_refusal(array('groupname' => 'net', 'members' => array('2002')), 2, $mgr)) === 403 && usermgr_group_save_refusal(array('groupname' => 'ops', 'members' => array()), 1, $mgr) === null,
+    'group members change only for groups whose privileges the caller holds');
+t(st(usermgr_group_delete_refusal($g(0), $admin)) === 409 && st(usermgr_group_delete_refusal($g(2), $admin)) === 409 && usermgr_group_delete_refusal($g(1), $mgr) === null,
+    'group deletes: system 409, in use by IPsec 409, allowed otherwise');
+t(strpos(usermgr_group_delete_refusal($g(2), $admin)['errors'][0], 'IPsec mobile client group authentication') !== false, 'the in-use refusal names the user');
+$GLOBALS['cfg']['ipsec']['client']['auth_groups'] = 'x';
+t(st(usermgr_group_delete_refusal($g(2), $mgr)) === 403 && usermgr_group_delete_refusal($g(2), $admin) === null, 'a group with privileges the caller lacks: 403');
+t(st(usermgr_user_privs_add_refusal(2, array('page-all'), $mgr)) === 403 && usermgr_user_privs_add_refusal(2, array('page-dashboard-all'), $mgr) === null &&
+    st(usermgr_user_privs_add_refusal(3, array('page-dashboard-all'), $mgr)) === 403, 'adding user privileges: held only, to users the caller manages');
+t(st(usermgr_group_privs_add_refusal(1, array('user-shell-access'), $mgr)) === 403 && st(usermgr_group_privs_add_refusal(0, array(), $mgr)) === 403 &&
+    usermgr_group_privs_add_refusal(1, array('api-users-write'), $mgr) === null, 'adding group privileges: held only, to groups the caller manages');
+t(usermgr_unknown_privs(array('page-all', 'nope', 7)) === array('nope', '7'), 'unknown privilege ids');
+t(usermgr_group_members_fixed($g(0)) && !usermgr_group_members_fixed($g(1)) && !usermgr_group_members_fixed(array('name' => 'x')), 'the gid 1998 group keeps its members');
+t(usermgr_user_privs($bob) === array('page-dashboard-all') && usermgr_user_privs($bob, array('net')) === array('page-dashboard-all', 'page-status-interfaces'),
+    'a user\'s privileges: its own and its groups\'');
+echo ($fail === 0) ? "ALL OK\n" : "{$fail} failed\n";
+PHP;
+$um_file = tempnam(sys_get_temp_dir(), 'umtest');
+file_put_contents($um_file, $um_harness . "\n" . $um_code . $um_tests);
+$um_out = (string)shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($um_file) . ' 2>&1');
+unlink($um_file);
+check_api(trim($um_out) === 'ALL OK', "the user manager security rules hold (escalation, protected objects, in use):\n{$um_out}");
+
+/* Static guards: every change runs the security checks, in the GUI and the API */
+$um_body = function ($fn) use ($fn_body, $um_inc) { return $fn_body($um_inc, $fn); };
+check_api(strpos($um_body('usermgr_is_superuser'), "(string)\$caller['uid'] === '0'") !== false && strpos($um_body('usermgr_is_superuser'), "in_array('page-all', usermgr_caller_privs(\$caller), true)") !== false,
+    'administrators are uid 0 or page-all holders');
+check_api(strpos($um_body('usermgr_user_save'), 'usermgr_user_save_refusal($post, $id, $caller)') !== false &&
+    strpos($um_body('usermgr_group_save'), 'usermgr_group_save_refusal($post, $id, $caller)') !== false &&
+    strpos($um_body('usermgr_user_privs_add'), 'usermgr_user_privs_add_refusal($userid, $pconfig[\'sysprivs\'], $caller)') !== false &&
+    strpos($um_body('usermgr_group_privs_add'), 'usermgr_group_privs_add_refusal($groupid, $pconfig[\'sysprivs\'], $caller)') !== false &&
+    strpos($um_body('usermgr_user_privs_add'), 'usermgr_unknown_privs(') !== false && strpos($um_body('usermgr_group_privs_add'), 'usermgr_unknown_privs(') !== false,
+    'every save and privilege change runs the escalation checks (and refuses unknown privileges)');
+check_api(strpos($um_body('usermgr_user_delete'), 'usermgr_user_delete_refusal(') !== false && strpos($um_body('usermgr_users_delete'), 'usermgr_user_delete_refusal(') !== false &&
+    strpos($um_body('usermgr_user_delete_refusal'), "if (\$user['scope'] == \"system\")") !== false,
+    '[fix] single and bulk user deletes refuse system users (the single delete had no system check)');
+check_api(strpos($um_body('usermgr_group_delete'), 'usermgr_group_delete_refusal(') !== false && strpos($um_body('usermgr_groups_delete'), 'usermgr_group_delete_refusal(') !== false &&
+    strpos($um_body('usermgr_group_delete_refusal'), "if (\$group['scope'] == \"system\")") !== false && strpos($um_body('usermgr_group_delete_refusal'), 'usermgr_group_used_by(') !== false &&
+    strpos($um_body('usermgr_group_used_by'), "'ipsec/client/auth_groups'") !== false, '[fix] group deletes refuse system groups and groups in use (IPsec mobile clients)');
+foreach (array('usermgr_user_priv_remove', 'usermgr_user_cert_remove') as $fn) {
+	check_api(strpos($um_body($fn), 'usermgr_manage_user_refusal($caller, ') !== false, "{$fn}() changes only users the caller manages");
+}
+check_api(strpos($um_body('usermgr_group_priv_remove'), 'usermgr_manage_group_refusal($caller, ') !== false, 'removing a group privilege needs the group\'s privileges');
+check_api(strpos($um_body('usermgr_user_save'), "if (!isset(\$userent['scope'])) {") !== false && strpos($um_body('usermgr_user_save'), "\$post['utype']") === false,
+    '[fix] the scope of a user never comes from the form (a posted utype made a user a system user)');
+check_api(strpos($um_body('usermgr_group_save'), 'if (usermgr_group_members_fixed($group)) {') !== false && strpos($um_body('usermgr_group_save'), "\$existing['scope'] == 'system'") !== false &&
+    strpos($um_body('usermgr_group_save'), "in_array(\$post['gtype'], array('local', 'remote'), true)") !== false,
+    '[fix] saving the gid 1998 group keeps its members (the admins group was emptied); scopes are local, remote or the stored system scope');
+check_api(substr_count($um_inc, "isset(\$post['dup']) && is_numericint(\$post['dup'])") === 2, '[fix] copying the first group copies its privileges, and the copy is checked');
+check_api(strpos($um_body('usermgr_user_remove'), 'local_user_revoke_api_keys($user[\'name\'])') !== false && strpos($um_body('usermgr_user_save'), 'local_user_rename_api_keys($stored_name, $userent[\'name\'])') !== false &&
+    strpos($um_body('usermgr_user_save'), 'local_user_revoke_api_keys($userent[\'name\'])') !== false,
+    'REST API keys: revoked with a deleted user (and never inherited by a new user of the same name), moved with a renamed one');
+foreach (array('usermgr_user_delete', 'usermgr_users_delete', 'usermgr_user_cert_remove', 'usermgr_user_priv_remove', 'usermgr_group_save', 'usermgr_group_delete',
+    'usermgr_groups_delete', 'usermgr_group_priv_remove', 'usermgr_user_privs_add', 'usermgr_group_privs_add', 'usermgr_user_save_refusal', 'usermgr_group_save_refusal') as $fn) {
+	$body = $um_body($fn);
+	check_api(strpos($body, '$_POST') === false && strpos($body, '$_REQUEST') === false && strpos($body, '$_SESSION') === false, "{$fn}() reads the form and caller passed in");
+}
+check_api(substr_count($um_body('usermgr_user_save'), '$_SESSION') === 3 && strpos($um_body('usermgr_user_save'), '$_POST') === false,
+    'the user save reads the session only to clear the insecure password warnings (like the page)');
+$auth_inc = file_get_contents("{$root}/src/etc/inc/auth.inc");
+$set_pw = substr($auth_inc, strpos($auth_inc, 'function local_user_set_password('));
+check_api(strpos(substr($set_pw, 0, strpos($set_pw, "\n}\n")), "local_user_revoke_api_keys(\$user['name'])") !== false && strpos($auth_inc, 'function local_user_revoke_api_keys(') !== false,
+    'a changed password (user manager, password page, console, wizard) revokes the user\'s REST API keys');
+$restapi_um = file_get_contents("{$root}/src/etc/inc/restapi.inc");
+$local_user = substr($restapi_um, strpos($restapi_um, 'function restapi_local_user('));
+$local_user = substr($local_user, 0, strpos($local_user, "\n}\n"));
+check_api(strpos($local_user, "!isset(\$entry['idx'])") !== false && strpos($local_user, "isset(\$user['disabled']) && (\$user['disabled'] !== false)") !== false &&
+    strpos($local_user, "empty(\$user['disabled'])") === false,
+    '[fix] a key of a deleted user never resolves to a stand-in user, and a disabled user (stored as an empty element) is refused');
+
+$as_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_authservers.inc");
+$as_used = $fn_body($as_inc, 'authsrv_used_by');
+foreach (array("'system/webgui/authmode'", "'openvpn/openvpn-server'", "'ipsec/client/user_source'", "'captiveportal'", "'auth_server', 'auth_server2'", "'radacct_server'") as $needle) {
+	check_api(strpos($as_used, $needle) !== false, "authentication servers in use: {$needle}");
+}
+$as_del = $fn_body($as_inc, 'authsrv_delete');
+check_api(strpos($as_del, '$used = authsrv_used_by($serverdeleted);') !== false && strpos($as_del, 'authsrv_used_by') < strpos($as_del, 'config_del_path(') &&
+    strpos($as_del, 'is built in and cannot be deleted') !== false, '[fix] a server in use (or the Local Database) is never deleted');
+$as_save = $fn_body($as_inc, 'authsrv_save');
+check_api(strpos($as_save, 'authsrv_webgui_refusal($a_server[$id][\'name\'], $caller)') !== false && strpos($as_save, 'A valid authentication server type must be selected.') !== false &&
+    strpos($as_save, 'The authentication server to edit does not exist or cannot be changed.') !== false && strpos($as_save, '$_POST') === false,
+    '[fix] server saves: only administrators change the webConfigurator\'s server; the type and position must be valid');
+check_api(strpos($fn_body($as_inc, 'authsrv_webgui_refusal'), 'usermgr_is_superuser($caller)') !== false, 'the webConfigurator\'s server needs an administrator');
+check_api(strpos($fn_body($as_inc, 'authsrv_test'), 'logger') === false && strpos($fn_body($as_inc, 'authsrv_test'), 'authenticate_user($username, $password, $authcfg, $attributes)') !== false,
+    'the authentication test authenticates like Diagnostics > Authentication and logs no password');
+$guiconfig = file_get_contents("{$root}/src/usr/local/www/guiconfig.inc");
+foreach (array("'Standard TCP' => 389", "'SSL/TLS Encrypted' => 636", "'CHAP_MD5' => \"MD5-CHAP\"", "'acct' => gettext(\"Accounting\")", "'subtree' => gettext(\"Entire Subtree\")") as $needle) {
+	check_api(strpos($guiconfig, $needle) !== false && strpos($as_inc, $needle) !== false, "authentication server choices match guiconfig.inc: {$needle}");
+}
+
+/* The pages are thin wrappers */
+$pages_um = array(
+	'system_usermanager.php' => array('usermgr_user_form($this_user)', "usermgr_user_delete(\$id ?? null, \$_POST['username'] ?? null, \$guiuser)",
+	    "usermgr_users_delete(\$_POST['delete_check'], \$guiuser)", "usermgr_user_cert_remove(\$id ?? null, \$_POST['certid'], \$guiuser)",
+	    "usermgr_user_priv_remove(\$id, \$_POST['privid'], \$guiuser)", 'usermgr_user_save($_POST, $id ?? null, $guiuser, $pconfig, $savemsg)',
+	    'usermgr_user_priv_table($id, $read_only)', 'usermgr_user_cert_table($id, $read_only)', 'usermgr_user_cert_cas()'),
+	'system_groupmanager.php' => array("usermgr_group_delete(\$id, \$_REQUEST['groupname'] ?? null, \$guiuser)", "usermgr_group_priv_remove(\$id, \$_REQUEST['privid'], \$guiuser)",
+	    'usermgr_group_form($id, $dup)', "usermgr_groups_delete(\$_POST['delete_check'], \$guiuser)", 'usermgr_group_save($_POST, $id, $guiuser, $pconfig, $savemsg)',
+	    'usermgr_group_priv_table($id, $read_only, $dup)'),
+	'system_usermanager_addprivs.php' => array('usermgr_user_privs_add($userid, $_POST, $guiuser)', 'usermgr_priv_list_sorted()', "usermgr_priv_choices(\$spriv_list, \$a_user['priv'])",
+	    'usermgr_root_priv_text()'),
+	'system_groupmanager_addprivs.php' => array('usermgr_group_privs_add($groupid, $_POST, $guiuser)', 'usermgr_priv_list_sorted()', 'usermgr_root_priv_text()',
+	    "if (!is_numericint(\$groupid) || !is_array(config_get_path(\"system/group/{\$groupid}\"))) {"),
+	'system_authservers.php' => array('authsrv_ldap_containers_html($_REQUEST)', 'authsrv_list()', "authsrv_delete(\$_POST['id'], \$guiuser)", 'authsrv_form($a_server[$id], $dup ?? false)',
+	    'authsrv_new_form()', 'authsrv_save($_POST, $id, $guiuser)', 'authsrv_radiusnas_list()', "\$read_only = (is_array(\$guiuser) && userHasPrivilege(\$guiuser, \"user-config-readonly\"));",
+	    "if (\$_POST['save'] && !\$read_only) {"),
+);
+foreach ($pages_um as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(!preg_match('/(?<![a-z_])(write_config|config_set_path|config_del_path|local_user_set|local_user_del|local_group_set|local_group_del|local_user_set_password|cert_create)\(/', $src),
+	    "{$page} changes the configuration only through the shared functions");
+	preg_match_all('/^function (\w+)\(/m', $src, $m);
+	check_api($m[1] === array(), "{$page} defines no PHP functions (they are prefixed in the shared includes)");
+}
+foreach (array('build_priv_table', 'build_cert_table', 'cpusercmp', 'admin_groups_sort', 'build_priv_list', 'get_root_priv_item_text', 'build_radiusnas_list') as $old) {
+	check_api(strpos($um_inc . $as_inc, "function {$old}(") === false, "the pages' {$old}() is prefixed in the shared includes");
+}
+$front_um = file_get_contents("{$root}/src/usr/local/www/api/index.php");
+check_api(strpos($front_um, "require_once('system_usermanager.inc');") !== false && strpos($front_um, "require_once('system_authservers.inc');") !== false,
+    'the API front controller loads system_usermanager.inc and system_authservers.inc');
+
+/* The API never returns a password hash or a secret; every write runs the page's security checks first */
+$routes_users = file_get_contents("{$root}/src/etc/inc/restapi/routes_users.inc");
+check_api(substr_count($routes_users, "'bcrypt-hash'") === 1 && strpos($fn_body($routes_users, 'restapi_users_has_password'), "\$user['bcrypt-hash']") !== false,
+    'only restapi_users_has_password() reads a password hash (to say whether there is one)');
+foreach (array('restapi_users_out', 'restapi_groups_out', 'restapi_authsrv_out', 'restapi_users_privs_out', 'restapi_users_certs_out') as $fn) {
+	$body = $fn_body($routes_users, $fn);
+	check_api(strpos($routes_users, "function {$fn}(") !== false && !preg_match('/return \$(user|group|server|cert|values|p|form)\b|\$out = \$(user|group|server|values|form);|\+ \$(user|group|server|values|form|p)\b|array_merge\(\$(user|group|server|values|form)\b/', $body),
+	    "{$fn}() copies fields one by one (never the stored entry or form)");
+}
+$users_out = $fn_body($routes_users, 'restapi_users_out');
+check_api(strpos($users_out, "'ipsecpsk' => restapi_svc_mask(\$values['ipsecpsk'])") !== false && strpos($users_out, "'authorizedkeys' =>") === false &&
+    strpos($users_out, "restapi_users_key_fingerprints(\$values['authorizedkeys'])") !== false && strpos($users_out, "'password' => restapi_users_has_password(\$user) ? '(set)' : ''") !== false,
+    'users: the IPsec key and password read as "(set)", SSH keys as count and fingerprints');
+check_api(strpos($fn_body($routes_users, 'restapi_authsrv_out'), "'fields' => restapi_authsrv_mask(\$fields)") !== false, 'servers: the bind password and shared secret are masked');
+foreach (array('restapi_users_save' => 'usermgr_user_save_refusal($post, $id, $caller)', 'restapi_h_users_privs_set' => 'usermgr_user_privs_add_refusal($id, $add, $req[\'user\'])',
+    'restapi_h_users_certs_add' => "usermgr_manage_user_refusal(\$req['user'], ", 'restapi_groups_save' => 'usermgr_group_save_refusal($post, $id, $caller)',
+    'restapi_h_groups_privs_set' => 'usermgr_group_privs_add_refusal($id, $add, $req[\'user\'])', 'restapi_authsrv_save' => 'authsrv_webgui_refusal($server[\'name\'], $caller)') as $fn => $call) {
+	check_api(strpos($fn_body($routes_users, $fn), $call) !== false, "{$fn}() refuses privilege escalation before saving ({$call})");
+}
+foreach (array('restapi_users_save' => 'usermgr_user_save(', 'restapi_h_users_delete' => 'usermgr_user_delete(', 'restapi_h_users_privs_set' => 'usermgr_user_priv_remove(',
+    'restapi_h_users_certs_add' => 'pki_cert_save(', 'restapi_h_users_certs_remove' => 'usermgr_user_cert_remove(', 'restapi_groups_save' => 'usermgr_group_save(',
+    'restapi_h_groups_delete' => 'usermgr_group_delete(', 'restapi_h_groups_privs_set' => 'usermgr_group_privs_add(', 'restapi_authsrv_save' => 'authsrv_save(',
+    'restapi_h_authsrv_delete' => 'authsrv_delete(', 'restapi_h_authsrv_test' => 'authsrv_test(') as $fn => $call) {
+	check_api(strpos($fn_body($routes_users, $fn), $call) !== false, "{$fn}() writes through the page's {$call})");
+}
+check_api(!preg_match('/(?<![a-z_])(write_config|config_set_path|config_del_path|local_user_set|local_user_del|local_user_set_password)\(/', $routes_users),
+    'routes_users.inc changes nothing itself');
+foreach (array('restapi_users_post' => array('password', 'authorizedkeys', 'ipsecpsk'), 'restapi_authsrv_save' => array('ldap_bindpw', 'radius_secret')) as $fn => $secrets) {
+	foreach ($secrets as $secret) {
+		check_api(strpos($fn_body($routes_users, $fn), "restapi_vpn_secret_body(\$body, '{$secret}')") !== false ||
+		    strpos($fn_body($routes_users, $fn), "array('password', 'authorizedkeys', 'ipsecpsk')") !== false, "{$fn}(): \"(set)\" keeps {$secret}");
+	}
+}
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');

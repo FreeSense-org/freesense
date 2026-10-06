@@ -34,17 +34,21 @@
 
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
-
-$logging_level = LOG_WARNING;
+require_once("system_usermanager.inc");
 
 $groupid = $_REQUEST['groupid'];
 
 $pgtitle = array(gettext("System"), gettext("User Manager"), gettext("Groups"), gettext("Edit"), gettext("Add Privileges"));
 $pglinks = array("", "system_usermanager.php", "system_groupmanager.php", "system_groupmanager.php?act=edit&groupid=" . $groupid, "@self");
 
+/* The group must exist (an unknown position created a group entry holding only the privileges). */
+if (!is_numericint($groupid) || !is_array(config_get_path("system/group/{$groupid}"))) {
+	FreeSenseHeader("system_groupmanager.php");
+	exit;
+}
+
 // Make a local copy and sort it
-$spriv_list = $priv_list;
-uasort($spriv_list, "compare_by_name");
+$spriv_list = usermgr_priv_list_sorted();
 
 /*
  * Check user privileges to test if the user is allowed to make changes.
@@ -62,73 +66,14 @@ if (!empty($_POST) && $read_only) {
 }
 
 if ($_POST['save'] && !$read_only) {
-
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "sysprivs");
-	$reqdfieldsn = array(gettext("Selected privileges"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
+	$input_errors = usermgr_group_privs_add($groupid, $_POST, $guiuser);
 	if (!$input_errors) {
-
-		if (!is_array($pconfig['sysprivs'])) {
-			$pconfig['sysprivs'] = array();
-		}
-
-		if (!count(config_get_path("system/group/{$groupid}/priv", []))) {
-			config_set_path("system/group/{$groupid}/priv", $pconfig['sysprivs']);
-		} else {
-			config_set_path("system/group/{$groupid}/priv", array_merge(config_get_path("system/group/{$groupid}/priv", []), $pconfig['sysprivs']));
-		}
-
-		foreach (config_get_path("system/group/{$groupid}/member", []) as $uid) {
-			$user = getUserEntryByUID($uid);
-			$user = $user['item'];
-			if ($user) {
-				local_user_set($user);
-			}
-		}
-
-		$savemsg = localize_text("Privileges changed for group: %s", config_get_path("system/group/{$groupid}/name"));
-		write_config($savemsg);
-		logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);
-
 		FreeSenseHeader("system_groupmanager.php?act=edit&groupid={$groupid}");
 		exit;
 	}
-}
-
-function build_priv_list() {
-	global $spriv_list, $groupid;
-
-	$list = array();
-
-	foreach ($spriv_list as $pname => $pdata) {
-		if (in_array($pname, config_get_path("system/group/{$groupid}/priv", []))) {
-			continue;
-		}
-
-		$list[$pname] = $pdata['name'];
-	}
-
-	return($list);
-}
-
-function get_root_priv_item_text() {
-	global $priv_list;
-
-	$priv_text = "";
-
-	foreach ($priv_list as $pdata) {
-		if (isset($pdata['warn']) && ($pdata['warn'] == 'standard-warning-root')) {
-			$priv_text .= '<br/>' . $pdata['name'];
-		}
-	}
-
-	return($priv_text);
 }
 
 include("head.inc");
@@ -171,7 +116,7 @@ $section->addInput(new Form_Select(
 	'sysprivs',
 	'*Assigned privileges',
 	config_get_path("system/group/{$groupid}/priv", []),
-	build_priv_list(),
+	usermgr_priv_choices($spriv_list, config_get_path("system/group/{$groupid}/priv", [])),
 	true
 ))->addClass('multiselect')
   ->setHelp('Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');
@@ -180,7 +125,7 @@ $section->addInput(new Form_Select(
 	'shadow',
 	'Shadow',
 	null,
-	build_priv_list(),
+	usermgr_priv_choices($spriv_list, config_get_path("system/group/{$groupid}/priv", [])),
 	true
 ))->addClass('shadowselect')
   ->setHelp('Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');
@@ -199,7 +144,7 @@ $section->addInput(new Form_StaticText(
 		' because the user gains access to execute general commands, edit system files, ' .
 		' modify users, change passwords or similar:') .
 	'<br/>' .
-	get_root_priv_item_text() .
+	usermgr_root_priv_text() .
 	'<br/><br/>' .
 	gettext('Please take care when granting these privileges.') .
 	'</span>'

@@ -906,6 +906,51 @@ function local_user_set_password(&$user_item_config, $password) {
 	if (isset($user_item_config['idx'])) {
 		config_set_path("system/user/{$user_item_config['idx']}", $user);
 	}
+	/* A changed password also ends the user's REST API keys (stored by the caller's write_config()). */
+	if (!empty($user['name'])) {
+		local_user_revoke_api_keys($user['name']);
+	}
+}
+
+/*
+ * Remove the REST API keys of the local user $username from the
+ * configuration (the caller writes it). Used when the user is deleted or
+ * its password changes: a key must never outlive the account or password it
+ * was created under (a new user with the same name would inherit it).
+ * Returns the number of keys removed.
+ */
+function local_user_revoke_api_keys($username) {
+	$tokens = config_get_path('restapi/apitoken', []);
+	if (!is_array($tokens) || empty($tokens) || !is_string($username) || ($username === '')) {
+		return 0;
+	}
+	$keep = array();
+	$removed = 0;
+	foreach ($tokens as $token) {
+		if (is_array($token) && (($token['username'] ?? null) === $username)) {
+			$removed++;
+			continue;
+		}
+		$keep[] = $token;
+	}
+	if ($removed > 0) {
+		config_set_path('restapi/apitoken', $keep);
+		logger(LOG_NOTICE, localize_text("Revoked %d REST API key(s) of user %s.", $removed, $username), LOG_PREFIX_AUTHPROVIDER_LOCAL);
+	}
+	return $removed;
+}
+
+/* A renamed local user keeps its REST API keys (the caller writes the configuration). */
+function local_user_rename_api_keys($oldname, $newname) {
+	$tokens = config_get_path('restapi/apitoken', []);
+	if (!is_array($tokens) || empty($tokens) || !is_string($oldname) || ($oldname === '') || !is_string($newname) || ($newname === '')) {
+		return;
+	}
+	foreach ($tokens as $idx => $token) {
+		if (is_array($token) && (($token['username'] ?? null) === $oldname)) {
+			config_set_path("restapi/apitoken/{$idx}/username", $newname);
+		}
+	}
 }
 
 function local_user_get_groups($user, $all = false) {

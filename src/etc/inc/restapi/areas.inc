@@ -61,6 +61,7 @@ function restapi_areas() {
 		'vpn.l2tp' => 'L2TP VPN server and users',
 		'vpn.openvpn' => 'OpenVPN servers, clients and client-specific overrides',
 		'pki' => 'Certificates, certificate authorities and revocation lists',
+		'users' => 'Users, groups, privileges and authentication servers',
 	);
 }
 

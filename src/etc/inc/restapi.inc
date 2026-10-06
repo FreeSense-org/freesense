@@ -124,11 +124,20 @@ function restapi_find_token($id) {
 	return array(null, null);
 }
 
-/* API tokens belong to local users only. */
+/*
+ * API tokens belong to local users only. getUserEntry() also returns a
+ * stand-in entry (no position) for a name that is not a local user unless
+ * the webConfigurator authenticates locally; a key of a deleted user must
+ * not resolve to it.
+ */
 function restapi_local_user($username) {
 	$entry = getUserEntry($username);
 	$user = $entry['item'] ?? null;
-	return (is_array($user) && empty($user['disabled'])) ? $user : null;
+	if (!isset($entry['idx']) || !is_array($user) || (($user['name'] ?? null) !== $username)) {
+		return null;
+	}
+	/* A disabled user is stored with an empty <disabled/> element (read back as ""), like the GUI tests it: isset(). */
+	return (isset($user['disabled']) && ($user['disabled'] !== false)) ? null : $user;
 }
 
 /*

@@ -76,6 +76,9 @@ require_once('vpn_ipsec.inc');
 require_once('vpn_openvpn.inc');
 /* The certificate manager pages' shared functions (certificate authorities, revocation lists). */
 require_once('system_certificates.inc');
+/* The user manager pages' shared functions (users, groups, privileges, authentication servers). */
+require_once('system_usermanager.inc');
+require_once('system_authservers.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
