@@ -108,18 +108,18 @@ Rules:
 
 ```
 Diagnostics › Ping
-┌ Parameters ─────────────────────────────────────────────────────┐
-│ Host  [8.8.8.8    ]  Protocol [IPv4 ▾]  Count [3]               │
-│                                                    [▶ Run]       │
-└─────────────────────────────────────────────────────────────────┘
-┌ Output ─────────────────────────────────────── [⧉ Copy] ────────┐
-│ <pre class="fs-console"> mono, scrolls inside, max 60vh </pre>  │
-└─────────────────────────────────────────────────────────────────┘
+┌ Options ──────────────┐ ┌ Results ─────────────────────── [⧉ Copy] ┐
+│ Host  [8.8.8.8      ] │ │ <pre class="fs-console"> mono, scrolls   │
+│ Protocol [IPv4     ▾] │ │ inside, max 60vh </pre>                  │
+│ Source   [Auto     ▾] │ │                                          │
+│ Count [3▾]  Wait [1▾] │ │ (before the first run: empty state)      │
+│ [▶ Ping]              │ │                                          │
+└───────────────────────┘ └──────────────────────────────────────────┘
 ```
 
 Rules:
-- Use a compact inline form, not one field per row, when it has 4 fields or fewer.
-- Run shows a spinner and `aria-busy` while working. The output card appears only once there is output.
+- Use the shared tool layout (`.fs-tool`, see 03-components.md): options card left, results card right, stacked below 992px.
+- Run shows a spinner and `aria-busy` while working. The results card shows an empty state until there is output; Copy appears with the output.
 - Tabular output (DNS, routes, sockets, states) uses the List table styling without bulk or Add.
 - Dangerous tools (halt, reboot, factory defaults, command prompt, edit file) use the **danger confirm** card: a red-edged card that states the consequence, plus a button whose label names the action ("Reboot now"), never "Yes".
 

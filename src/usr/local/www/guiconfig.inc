@@ -315,11 +315,12 @@ function print_apply_result_box($retval, $extra_text="") {
 }
 
 /*
- * Print Bootstrap callout
+ * Print a callout: a themed alert card with an icon, an optional heading and
+ * the message (css/_freesense-components.css .fs-callout).
  *
- * @param string $msg     message to display
+ * @param string $msg     message to display (HTML, from the caller)
  * @param string $class   contextual class, defaults to info (default | danger | warning | info)
- * @param string $heading optional callout heading
+ * @param string $heading optional callout heading (plain text)
  */
 function print_callout($msg, $class = 'info', $heading = '') {
 
@@ -327,17 +328,22 @@ function print_callout($msg, $class = 'info', $heading = '') {
 		return;
 	}
 	$class = strtolower($class);
-	$callout = '';
-
-	if ($class != 'default' && $class != 'danger' && $class != 'warning' && $class != 'info') {
+	$styles = array(
+		'default' => array('alert-secondary', 'fa-solid fa-circle-info'),
+		'info'    => array('alert-info', 'fa-solid fa-circle-info'),
+		'warning' => array('alert-warning', 'fa-solid fa-triangle-exclamation'),
+		'danger'  => array('alert-danger', 'fa-solid fa-triangle-exclamation'),
+	);
+	if (!isset($styles[$class])) {
 		$class = 'info';
 	}
-	$callout .= '<div class="bs-callout bs-callout-' . $class . '">';
 
+	$callout = '<div class="alert ' . $styles[$class][0] . ' fs-callout fs-callout-' . $class . '" role="note">';
+	$callout .= '<i class="' . $styles[$class][1] . '" aria-hidden="true"></i><div class="fs-callout-body">';
 	if ('' != $heading) {
-		$callout .= '<h4>' . $heading . '</h4>';
+		$callout .= '<h2 class="fs-callout-title">' . htmlspecialchars($heading) . '</h2>';
 	}
-	$callout .= $msg . '</div>';
+	$callout .= $msg . '</div></div>';
 	echo $callout;
 }
 

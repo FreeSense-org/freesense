@@ -182,21 +182,6 @@ if ($input_errors) {
 $sources = ['' => gettext('Any')] + get_possible_traffic_source_addresses(true);
 ?>
 
-<style>
-.fs-tool { display: grid; grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; margin-bottom: var(--fs-sp-5); }
-.fs-tool .panel { margin-bottom: 0; }
-.fs-tool-form .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
-.fs-tool-form .form-label { margin-bottom: var(--fs-sp-1); font-weight: 500; }
-.fs-tool-form .form-text { margin-top: var(--fs-sp-1); }
-.fs-tool-form .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
-.fs-tool-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fs-sp-3); }
-.fs-tool-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--fs-sp-2); min-height: 16rem; padding: var(--fs-sp-5); color: var(--fs-text-muted); text-align: center; }
-.fs-tool-empty > i { font-size: var(--fs-fs-xl); opacity: .6; }
-.fs-tool-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
-.fs-tool-verdict + .fs-console { border-top: 1px solid var(--fs-border); }
-@media (max-width: 991.98px) { .fs-tool { grid-template-columns: minmax(0, 1fr); } }
-</style>
-
 <div class="fs-tool">
 	<form method="post" action="diag_testport.php" class="fs-tool-form">
 		<div class="panel panel-default">
