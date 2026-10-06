@@ -25,3 +25,19 @@ $fs_tab_groups['status-gateways'] = [
 	[gettext('Gateways'), 'status_gateways.php'],
 	[gettext('Gateway Groups'), 'status_gateway_groups.php'],
 ];
+
+$fs_tab_groups['status-ipsec'] = [
+	[gettext('Overview'), 'status_ipsec.php'],
+	[gettext('Leases'), 'status_ipsec_leases.php'],
+	[gettext('SADs'), 'status_ipsec_sad.php'],
+	[gettext('SPDs'), 'status_ipsec_spd.php'],
+];
+
+/* fs_tabs(..., ['zone' => $cpzone]) */
+$fs_tab_groups['status-captiveportal'] = [
+	[gettext('Active Users'), 'status_captiveportal.php'],
+	[gettext('Active Vouchers'), 'status_captiveportal_vouchers.php'],
+	[gettext('Voucher Rolls'), 'status_captiveportal_voucher_rolls.php'],
+	[gettext('Test Vouchers'), 'status_captiveportal_test.php'],
+	[gettext('Expire Vouchers'), 'status_captiveportal_expire.php'],
+];

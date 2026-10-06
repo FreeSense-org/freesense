@@ -57,11 +57,7 @@ $pgtitle = array(gettext("Diagnostics"), gettext("States"), gettext("Source Trac
 $pglinks = array("", "diag_dump_states.php", "@self");
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("States"), false, "diag_dump_states.php");
-$tab_array[] = array(gettext("Source Tracking"), true, "diag_dump_states_sources.php");
-$tab_array[] = array(gettext("Reset States"), false, "diag_resetstate.php");
-display_top_tabs($tab_array);
+fs_tabs('diagnostics-states', 'diag_dump_states_sources.php');
 
 ?>
 

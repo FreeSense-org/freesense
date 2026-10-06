@@ -192,10 +192,10 @@ $choices = ['inherit' => gettext('Inherit profile'), 'on' => gettext('Enabled'),
 	<tr>
 		<td><strong><?=htmlspecialchars($nic['assignment'])?></strong><br><span class="text-muted"><?=htmlspecialchars($nic['device'])?></span></td>
 		<td><?=htmlspecialchars(($nic['dmesg'] ?? '') ?: strtoupper($nic['driver']))?><br><small><?=htmlspecialchars($nic['hwaddr'] ?? $nic['macaddr'] ?? $nic['mac'] ?? '')?></small></td>
-		<td><span class="label label-<?=$nic['up'] ? 'success' : 'default'?>"><?=$nic['up'] ? gettext('Up') : gettext('Down')?></span><br><?=htmlspecialchars($nic['media'] ?? gettext('Unknown'))?></td>
+		<td><?=fs_badge($nic['up'] ? 'up' : 'down')?><br><span class="fs-muted small"><?=htmlspecialchars($nic['media'] ?? gettext('Unknown'))?></span></td>
 		<td><?=htmlspecialchars((string)($nic['mtu'] ?? '-'))?></td>
 		<td><small><?=gettext('Checksum')?>: <strong><?=htmlspecialchars($nic['effective']['checksum'])?></strong> &middot; TSO: <strong><?=htmlspecialchars($nic['effective']['tso'])?></strong> &middot; LRO: <strong><?=htmlspecialchars($nic['effective']['lro'])?></strong></small></td>
-		<td><span class="label label-info"><?=count($caps)?> <?=gettext('capabilities')?></span></td>
+		<td class="fs-muted"><?=sprintf((count($caps) === 1) ? gettext('%d capability') : gettext('%d capabilities'), count($caps))?></td>
 	</tr>
 	<?php endforeach; ?>
 	</tbody></table></div>
@@ -203,12 +203,12 @@ $choices = ['inherit' => gettext('Inherit profile'), 'on' => gettext('Enabled'),
 
 <?php elseif ($view === 'configure'): ?>
 <?php if ($preview): ?>
-<div class="panel panel-warning"><div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation"></i> <?=gettext('Confirm NIC changes')?></h2></div><div class="panel-body">
+<div class="panel panel-default"><div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i><?=gettext('Confirm NIC changes')?></h2></div><div class="panel-body">
 	<p><?=gettext('Review the effective profile and overrides below. Applying changes to an active interface can briefly interrupt traffic.')?></p>
-	<table class="table table-condensed"><thead><tr><th><?=gettext('Interface')?></th><th><?=gettext('Checksum')?></th><th>TSO</th><th>LRO</th><th><?=gettext('VLAN acceleration')?></th></tr></thead><tbody>
+	<div class="table-responsive"><table class="table table-sm"><thead><tr><th><?=gettext('Interface')?></th><th><?=gettext('Checksum')?></th><th>TSO</th><th>LRO</th><th><?=gettext('VLAN acceleration')?></th></tr></thead><tbody>
 	<?php foreach ($inventory as $nic): ?><tr><td><?=htmlspecialchars($nic['assignment'])?> (<?=htmlspecialchars($nic['device'])?>)</td><?php foreach (['checksum', 'tso', 'lro', 'vlan'] as $setting): ?><td><?=htmlspecialchars($_POST["{$nic['id']}_{$setting}"] ?? 'inherit')?></td><?php endforeach; ?></tr><?php endforeach; ?>
-	</tbody></table>
-	<form method="post"><?php foreach ($_POST as $name => $value): if ($name === 'action' || is_array($value)) continue; ?><input type="hidden" name="<?=htmlspecialchars($name)?>" value="<?=htmlspecialchars($value)?>"><?php endforeach; ?><button class="btn btn-warning" name="action" value="apply"><i class="fa-solid fa-check"></i> <?=gettext('Confirm and apply')?></button> <a class="btn btn-default" href="interfaces_nic_settings.php?view=configure"><?=gettext('Cancel')?></a></form>
+	</tbody></table></div>
+	<form method="post"><?php foreach ($_POST as $name => $value): if ($name === 'action' || is_array($value)) continue; ?><input type="hidden" name="<?=htmlspecialchars($name)?>" value="<?=htmlspecialchars($value)?>"><?php endforeach; ?><div class="fs-actionbar fs-actionbar--plain"><button class="btn btn-primary" name="action" value="apply"><i class="fa-solid fa-check icon-embed-btn" aria-hidden="true"></i><?=gettext('Confirm and apply')?></button> <a class="btn btn-outline-secondary" href="interfaces_nic_settings.php?view=configure"><?=gettext('Cancel')?></a></div></form>
 </div></div>
 <?php else: ?>
 <form method="post">
@@ -232,7 +232,9 @@ $choices = ['inherit' => gettext('Inherit profile'), 'on' => gettext('Enabled'),
 	<div class="panel-body"><div class="row"><div class="col-sm-4"><div class="form-group"><label><?=gettext('MTU override')?></label><input class="form-control" type="number" min="576" max="16384" name="<?=$nic['id']?>_mtu" value="<?=htmlspecialchars((string)($saved['mtu'] ?? ''))?>" placeholder="<?=htmlspecialchars((string)($nic['mtu'] ?? 1500))?>"><small class="text-muted"><?=gettext('Leave empty to use the interface default. Jumbo MTU is accepted only when the driver reports support.')?></small></div></div><div class="col-sm-4"><div class="form-group"><label><?=gettext('Wake-on-LAN magic packet')?></label><select class="form-control" name="<?=$nic['id']?>_wol"><?php foreach ($choices as $value => $choice): ?><option value="<?=$value?>" <?=($saved['wol'] ?? 'inherit') === $value ? 'selected' : ''?> <?=!isset($nic['caps']['wolmagic']) && $value !== 'inherit' ? 'disabled' : ''?>><?=htmlspecialchars($choice)?></option><?php endforeach; ?></select><small class="text-muted"><?=isset($nic['caps']['wolmagic']) ? gettext('Supported by this adapter') : gettext('Fixed or unsupported')?></small></div></div></div></div>
 </div>
 <?php endforeach; ?>
-<button class="btn btn-primary" name="action" value="preview"><i class="fa-solid fa-eye"></i> <?=gettext('Review changes')?></button>
+<div class="fs-actionbar fs-actionbar--plain">
+	<button class="btn btn-primary" name="action" value="preview"><i class="fa-solid fa-eye icon-embed-btn" aria-hidden="true"></i><?=gettext('Review changes')?></button>
+</div>
 </form>
 <?php endif; ?>
 

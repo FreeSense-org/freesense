@@ -53,3 +53,10 @@ $fs_tab_groups['services-dnsresolver'] = [
 	[gettext('Access Lists'), 'services_unbound_acls.php'],
 	[gettext('Advanced Settings'), 'services_unbound_advanced.php'],
 ];
+
+$fs_tab_groups['services-ntp'] = [
+	[gettext('Settings'), 'services_ntpd.php'],
+	[gettext('ACLs'), 'services_ntpd_acls.php'],
+	[gettext('Serial GPS'), 'services_ntpd_gps.php'],
+	[gettext('PPS'), 'services_ntpd_pps.php'],
+];

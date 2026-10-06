@@ -80,6 +80,12 @@ The active tab has `aria-current="page"` and a 2px coral underline. When tabs do
 rest move into a **More ▾** dropdown (the active tab always stays visible); without JS the bar
 scrolls horizontally. The old `<select>` fallback is removed.
 
+Conditional tabs: a third element hides the tab when false (it still shows on its own page):
+
+```php
+[gettext('Source Tracking'), 'diag_dump_states_sources.php', config_path_enabled('system', 'lb_use_sticky')],
+```
+
 ## View switch (second level inside one tab)
 
 Use it only for a second level *below* a tab, e.g. DHCP's interface tabs, then
@@ -283,6 +289,13 @@ Use it when each row has ≤ 3 simple fields and no per-row options. Otherwise, 
   which some pages use to find it.
 - Column visibility (`.hidden`) and placeholder-based titles follow the page on change, click and load
   (alias type, IPsec PRF). Row labels, field names, numbering and `add_row()` / `delete_row()` are untouched.
+
+## Advanced toggle
+
+"Display Advanced" / "Hide Advanced" buttons (a `Form_Button` with the `fa-solid fa-gear` icon and `btn-info`,
+whose text the page flips while it shows / hides its own fields) are restyled by `js/freesense-ui.js`
+(`initAdvancedToggles`) as quiet disclosure buttons with a chevron and `aria-expanded`. Keep that convention
+for new toggles; the open state is read from the translated "Hide Advanced" / "Hide Advanced Options" text.
 
 ## Searchable checklist
 

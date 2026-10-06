@@ -54,3 +54,13 @@ $fs_tab_groups['system-bootenv'] = [
 	[gettext('Environments'), 'system_boot_environments.php?view=environments'],
 	[gettext('Settings'), 'system_boot_environments.php?view=settings'],
 ];
+
+$fs_tab_groups['system-packages'] = [
+	[gettext('Installed Packages'), 'pkg_mgr_installed.php'],
+	[gettext('Available Packages'), 'pkg_mgr.php'],
+];
+
+$fs_tab_groups['system-update'] = [
+	[gettext('System Update'), 'pkg_mgr_install.php?id=firmware'],
+	[gettext('Update Settings'), 'system_update_settings.php'],
+];

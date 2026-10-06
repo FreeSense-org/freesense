@@ -36,12 +36,7 @@ include("head.inc");
 
 $mobile = ipsec_dump_mobile();
 
-$tab_array = array();
-$tab_array[] = array(gettext("Overview"), false, "status_ipsec.php");
-$tab_array[] = array(gettext("Leases"), true, "status_ipsec_leases.php");
-$tab_array[] = array(gettext("SADs"), false, "status_ipsec_sad.php");
-$tab_array[] = array(gettext("SPDs"), false, "status_ipsec_spd.php");
-display_top_tabs($tab_array);
+fs_tabs('status-ipsec', 'status_ipsec_leases.php');
 
 if (isset($mobile['pool']) && is_array($mobile['pool'])) {
 ?>

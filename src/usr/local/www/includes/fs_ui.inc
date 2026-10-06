@@ -167,6 +167,9 @@ function fs_page_title($title, $links = true) {
  *   $fs_tab_groups['group-id'] = [[label, url], ...];
  * or, when installed packages add tabs to the group,
  *   $fs_tab_groups['group-id'] = ['package_group' => 'NAT', 'tabs' => [[label, url], ...]];
+ * A third element hides a tab when false (e.g. a feature that is off); the
+ * tab still shows on its own page:
+ *   [gettext('Source Tracking'), 'diag_dump_states_sources.php', config_path_enabled('system', 'lb_use_sticky')],
  */
 function fs_tab_groups() {
 	static $groups = null;
@@ -200,6 +203,9 @@ function fs_tabs($group, $active_url, array $query = []) {
 
 	$tab_array = [];
 	foreach ($tabs as $tab) {
+		if (array_key_exists(2, $tab) && !$tab[2] && ($tab[1] !== $active_url)) {
+			continue;
+		}
 		$url = $tab[1];
 		if ($suffix !== '') {
 			$url .= ((strpos($url, '?') === false) ? '?' : '&') . $suffix;

@@ -150,10 +150,7 @@ $pgtitle = array(gettext("System"), gettext("Package Manager"), gettext("Availab
 $pglinks = array("", "pkg_mgr_installed.php", "@self");
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("Installed Packages"), false, "pkg_mgr_installed.php");
-$tab_array[] = array(gettext("Available Packages"), true, "pkg_mgr.php");
-display_top_tabs($tab_array);
+fs_tabs('system-packages', 'pkg_mgr.php');
 ?>
 <div class="card mb-3" id="search-panel">
 	<div class="card-header">

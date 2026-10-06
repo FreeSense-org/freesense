@@ -43,12 +43,7 @@ include("head.inc");
 
 $spd = ipsec_dump_spd();
 
-$tab_array = array();
-$tab_array[0] = array(gettext("Overview"), false, "status_ipsec.php");
-$tab_array[1] = array(gettext("Leases"), false, "status_ipsec_leases.php");
-$tab_array[2] = array(gettext("SADs"), false, "status_ipsec_sad.php");
-$tab_array[3] = array(gettext("SPDs"), true, "status_ipsec_spd.php");
-display_top_tabs($tab_array);
+fs_tabs('status-ipsec', 'status_ipsec_spd.php');
 
 if (count($spd)) {
 ?>

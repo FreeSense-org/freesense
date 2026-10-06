@@ -55,10 +55,7 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("System Update"), false, "pkg_mgr_install.php?id=firmware");
-$tab_array[] = array(gettext("Update Settings"), true, "system_update_settings.php");
-display_top_tabs($tab_array);
+fs_tabs('system-update', 'system_update_settings.php');
 
 if (pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path')) === 'candidate') {
 	print_info_box(gettext('RC Preview is based on FreeBSD 16-CURRENT, has no upstream security support, and must not be used for production systems.'), 'warning');
