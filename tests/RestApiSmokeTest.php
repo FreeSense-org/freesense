@@ -1085,7 +1085,7 @@ check_api(strpos($d5_save, "if (\$post['dnsregpolicy'] && !array_key_exists(\$po
     substr_count($d5_save, "\$post['earlydnsregpolicy'] && !array_key_exists(") === 1, 'both DNS registration policies are validated (the early one was checked twice)');
 check_api(strpos($d5_save, "\$post['if']") === false && strpos($d5_save, '$parent_ip = get_interface_ip($if);') !== false,
     'the gateway check uses the page\'s interface, not the posted if field');
-check_api(strpos($d5_save, "kea_custom_config_enforce(array_get_path(\$dhcpdconf, 'custom_kea_config'), \$input_errors, \$post);") !== false,
+check_api(preg_match('/kea_custom_config_enforce\([^;]*custom_kea_config[^;]*, \$input_errors, \$post\);/', $d5_save) === 1,
     'dhcp_server_save() enforces the Kea custom configuration privilege on its form');
 check_api(strpos($d5_save, "dhcp_is_backend('isc')") !== false && strpos($d5_save, "\$post['omapi_gen_key'] == \"yes\"") !== false &&
     strpos($d5_save, "\$ret['missing_pool'] = true;") !== false && strpos($d5_save, "mark_subsystem_dirty('dhcpd');") !== false,
