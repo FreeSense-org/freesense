@@ -214,6 +214,9 @@ body:has(> #topmenu.fixed-top) > .fs-main { padding-top: calc(var(--fs-navbar-h)
 	color: var(--fs-text-strong);
 }
 .panel-footer { background: var(--fs-surface-raised); }
+/* footer notes: room to breathe, icon set apart from the text */
+.panel-footer { padding: .85rem 1rem; line-height: 1.55; }
+.panel-footer > i:first-child { margin-right: .4rem; }
 .panel-group .panel + .panel { margin-top: var(--fs-sp-2); }
 .fs-count {
 	display: inline-block;
