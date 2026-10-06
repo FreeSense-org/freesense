@@ -67,7 +67,7 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 	     the parent never invalidates, so deploys kept serving stale partials) -->
 	<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css?v=<?=filemtime('/usr/local/www/vendor/bootstrap/css/bootstrap.min.css')?>">
 	<link rel="stylesheet" href="/css/fonts/roboto.css?v=<?=filemtime('/usr/local/www/css/fonts/roboto.css')?>">
-	<link rel="stylesheet" href="/vendor/jquery-ui/jquery-ui-1.13.2.min.css?v=<?=filemtime('/usr/local/www/vendor/jquery-ui/jquery-ui-1.13.2.min.css')?>">
+	<link rel="stylesheet" href="/vendor/jquery-ui/jquery-ui-1.14.2.min.css?v=<?=filemtime('/usr/local/www/vendor/jquery-ui/jquery-ui-1.14.2.min.css')?>">
 	<link rel="stylesheet" href="/vendor/font-awesome/css/all.min.css?v=<?=filemtime('/usr/local/www/vendor/font-awesome/css/all.min.css')?>">
 	<link rel="stylesheet" href="/vendor/sortable/sortable-theme-bootstrap.css?v=<?=filemtime('/usr/local/www/vendor/sortable/sortable-theme-bootstrap.css')?>">
 	<link rel="stylesheet" href="/vendor/jquery-treegrid/css/jquery.treegrid.css?v=<?=filemtime('/usr/local/www/vendor/jquery-treegrid/css/jquery.treegrid.css')?>">
