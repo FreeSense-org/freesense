@@ -40,6 +40,14 @@ check_api(api_error_status(function () use ($routes) { restapi_match($routes, 'G
     'parameters never span path segments');
 check_api(api_error_status(function () use ($routes) { restapi_match($routes, 'GET', '/v1/things/..%2f'); }) === 404,
     'encoded traversal is not a valid parameter');
+check_api(api_error_status(function () use ($routes) { restapi_match($routes, 'GET', '/v1/things/a%2Fb'); }) === 404 &&
+    api_error_status(function () use ($routes) { restapi_match($routes, 'GET', '/v1/things/a%0Ab'); }) === 404 &&
+    api_error_status(function () use ($routes) { restapi_match($routes, 'GET', '/v1/things/%00'); }) === 404,
+    'an encoded slash or control character is never a parameter');
+list(, $params) = restapi_match($routes, 'GET', '/v1/things/vpn%40example.org');
+check_api($params === array('id' => 'vpn@example.org'), 'URL-encoded parameters are decoded (e.g. an @ in an identifier)');
+list(, $params) = restapi_match($routes, 'GET', '/v1/things/user@example.org');
+check_api($params === array('id' => 'user@example.org'), 'a literal @ is accepted');
 $rejected = false;
 try {
 	restapi_route('GET', '/v1/x', 'h', array());

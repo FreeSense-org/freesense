@@ -108,7 +108,7 @@ function restapi_route($method, $path, $handler, array $opts) {
 function restapi_compile_path($template) {
 	preg_match_all('#\{([a-z_][a-z0-9_]*)\}#i', $template, $names);
 	/* preg_quote() escapes the braces, so match the escaped placeholders. */
-	$regex = preg_replace('#\\\\\{[a-z_][a-z0-9_]*\\\\\}#i', '([A-Za-z0-9._:-]+)',
+	$regex = preg_replace('#\\\\\{[a-z_][a-z0-9_]*\\\\\}#i', '([A-Za-z0-9._:%@+-]+)',
 	    preg_quote($template, '#'));
 	return array('#^' . $regex . '$#D', $names[1]);
 }
@@ -129,7 +129,14 @@ function restapi_match(array $routes, $method, $path) {
 		}
 		$params = array();
 		foreach ($route['params'] as $i => $name) {
-			$params[$name] = $m[$i + 1];
+			/* Parameters may be URL-encoded (e.g. user%40example.org). Never allow
+			 * a decoded slash or control character: some handlers build config
+			 * paths from these values. */
+			$value = rawurldecode($m[$i + 1]);
+			if (($value === '') || preg_match('#[/\x00-\x1f\x7f]#', $value)) {
+				throw new RestApiError(404, 'not_found', 'No such API endpoint.');
+			}
+			$params[$name] = $value;
 		}
 		return array($route, $params);
 	}
