@@ -39,7 +39,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | (all 11) | — | **one registry group `interfaces`**: Assignments, Groups, VLANs, Bridges, LAGGs, then QinQs, VXLANs, GRE, GIF, PPPs, Wireless under More ▾ (decision 3) | A | |
-| interfaces_assign | Special | restyle the table + Add row; badges for status | B | M |
+| interfaces_assign | Special | **done**: searchable list (interface, inline port select, configured addresses, disabled badge), changed / duplicate ports marked, Edit / Delete (confirmed) row actions, header Add interface modal; add / save / delete / apply logic unchanged | B | M |
 | interfaces_groups, _vlan, _qinq, _vxlan, _gre, _gif, _bridge, _lagg, _ppps, _wireless | List | **identical template**: search, columns name / parent / mono details / descr, row actions edit + delete, header Add. Convert one, then copy it 9× | B | |
 | the matching `*_edit` (10) | Editor | standard; qinq_edit tags become the entry grid | D | |
 | interfaces | Special (Settings) | **done**: MAC / MTU / MSS / Speed and Duplex moved to a collapsible "Link Settings" section (open when any is set or a save failed); field names and save logic unchanged; sticky Save from the Form bar | D | **H** |
