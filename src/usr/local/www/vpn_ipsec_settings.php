@@ -68,26 +68,49 @@ if ($input_errors) {
 
 fs_tabs('vpn-ipsec', 'vpn_ipsec_settings.php');
 
+/* summary of the saved settings (purely informative) */
+$saved_levels = ipsec_get_loglevels();
+$raised = 0;
+foreach ($ipsec_log_cats as $cat => $desc) {
+	if ((string)($saved_levels[$cat] ?? '1') !== '1') {
+		$raised++;
+	}
+}
+$saved_filtermode = config_get_path('ipsec/filtermode', 'enc');
+$saved_bypass = config_path_enabled('ipsec', 'ipsecbypass') ? count(config_get_path('ipsec/bypassrules/rule', [])) : 0;
+?>
+<style>
+.fs-ipsec-sum { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; padding: 1rem 1.25rem; }
+.fs-ipsec-sum-head { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.fs-ipsec-sum-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
+.fs-ipsec-sum-title { font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); }
+.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-ipsec-sum-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
+.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
+.fs-ipsec-sum-facts dd { margin: 0; color: var(--fs-text-strong); }
+</style>
+<div class="panel panel-default">
+	<div class="fs-ipsec-sum">
+		<div class="fs-ipsec-sum-head">
+			<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-sliders" aria-hidden="true"></i></span>
+			<div>
+				<div class="fs-ipsec-sum-title"><?=gettext('IPsec daemon')?></div>
+				<div class="fs-ipsec-sum-sub"><?=gettext('Settings shared by all tunnels')?></div>
+			</div>
+		</div>
+		<dl class="fs-ipsec-sum-facts">
+			<div><dt><?=gettext('Filter mode')?></dt><dd><?=($saved_filtermode == 'if_ipsec') ? gettext('Assigned VTI and transport interfaces') : gettext('IPsec tab (enc0)')?></dd></div>
+			<div><dt><?=gettext('IKE / NAT-T ports')?></dt><dd class="fs-mono"><?=htmlspecialchars(config_get_path('ipsec/port', '') ?: '500')?> / <?=htmlspecialchars(config_get_path('ipsec/port_nat_t', '') ?: '4500')?></dd></div>
+			<div><dt><?=gettext('Logging')?></dt><dd><?=$raised ? htmlspecialchars(sprintf(gettext('Raised for %d categories'), $raised)) : gettext('Default (Control)')?></dd></div>
+			<div><dt><?=gettext('Bypass rules')?></dt><dd><?=$saved_bypass ? (int)$saved_bypass : gettext('none')?></dd></div>
+		</dl>
+	</div>
+</div>
+<?php
+
 $form = new Form;
 
-$section = new Form_Section('IPsec Logging Controls');
-
-foreach ($ipsec_log_cats as $cat => $desc) {
-	$section->addInput(new Form_Select(
-		'logging_' . $cat,
-		$desc,
-		$pconfig['logging'][$cat],
-		$ipsec_log_sevs
-	))->setWidth(2);
-}
-
-$section->addInput(new Form_StaticText('', ''))->setHelp(
-	'Changes the log verbosity for the IPsec daemon, so that more detail will be generated to aid in troubleshooting.'
-);
-
-$form->add($section);
-
-$section = new Form_Section('Advanced IPsec Settings');
+$section = new Form_Section('General');
 
 $section->addInput(new Form_Select(
 	'uniqueids',
@@ -95,13 +118,9 @@ $section->addInput(new Form_Select(
 	$pconfig['uniqueids'],
 	$ipsec_idhandling
 ))->setHelp(
-	'Whether a particular participant ID should be kept unique, with any new IKE_SA using an ID ' .
-	'deemed to replace all old ones using that ID. Participant IDs normally are unique, so a new ' .
-	'IKE_SA using the same ID is almost invariably intended to replace an old one. ' .
-	'The difference between %1$sno%2$s and %1$snever%2$s is that the old IKE_SAs will be replaced when receiving an ' .
-	'INITIAL_CONTACT notify if the option is no but will ignore these notifies if %1$snever%2$s is configured. ' .
-	'The daemon also accepts the value %1$skeep%2$s to reject ' .
-	'new IKE_SA setups and keep the duplicate established earlier. Defaults to Yes.',
+	'Whether a participant ID is kept unique: a new IKE_SA with the same ID replaces the old ones. ' .
+	'With %1$sno%2$s, old IKE_SAs are still replaced on an INITIAL_CONTACT notify; %1$snever%2$s ignores those notifies; ' .
+	'%1$skeep%2$s rejects the new IKE_SA and keeps the existing one. Defaults to Yes.',
 	'<b>', '</b>'
 );
 
@@ -111,13 +130,66 @@ $section->addInput(new Form_Select(
 	$pconfig['filtermode'],
 	$ipsec_filtermodes
 ))->setHelp(
-	'Experimental. Controls how the firewall will filter IPsec traffic. By default, rules on ' .
-	'the IPsec tab filter all IPsec traffic, including tunnel mode, transport mode, and VTI mode. %3$s' .
-	'This is limited in that it does not allow for filtering on assigned VTI or transport mode interfaces (e.g. GRE), and it does not ' .
-	'support features such as NAT rules and reply-to for return routing. ' .
-	'When set to filter on assigned VTI and transport interfaces, %1$sall tunnel mode traffic is blocked%2$s. ' .
-	'Do not set this option unless %1$sall%2$s IPsec tunnels are using VTI or transport mode.',
+	'Experimental. By default, rules on the IPsec tab filter all IPsec traffic (tunnel, transport and VTI), without NAT or reply-to support. %3$s' .
+	'When filtering on assigned VTI and transport interfaces, %1$sall tunnel mode traffic is blocked%2$s: ' .
+	'only use it when %1$sall%2$s tunnels use VTI or transport mode.',
 	'<b>', '</b>', '<br />'
+);
+
+$group = new Form_Group('Custom ports');
+$group->add(new Form_Input(
+	'port',
+	'IKE port',
+	'number',
+	$pconfig['port'],
+	['min' => 1, 'max' => 65535]
+))->setHelp('Local UDP port for IKE (Default: 500)');
+
+$group->add(new Form_Input(
+	'port_nat_t',
+	'NAT-T port',
+	'number',
+	$pconfig['port_nat_t'],
+	['min' => 1, 'max' => 65535]
+))->setHelp('Local UDP port for NAT-T (Default: 4500)');
+$section->add($group);
+
+$section->addInput(new Form_Input(
+	'dns-interval',
+	'FQDN Endpoints Resolve Interval',
+	'number',
+	$pconfig['dns-interval'],
+	['placeholder' => '60']
+))->setHelp('Interval, in seconds, that will be used to resolve FQDN remote gateways.');
+
+$section->addInput(new Form_Checkbox(
+	'enableinterfacesuse',
+	'Strict interface binding',
+	'Enable strict interface binding',
+	$pconfig['enableinterfacesuse']
+))->setHelp('Binds strongSwan to the tunnel interfaces only (interfaces_use). Known to break IPsec on dynamic IP interfaces; not recommended.');
+
+$form->add($section);
+
+$section = new Form_Section('Negotiation and performance');
+
+$section->addInput(new Form_Checkbox(
+	'makebeforebreak',
+	'Make before Break',
+	'Initiate IKEv2 reauthentication with a make-before-break',
+	$pconfig['makebeforebreak']
+))->setHelp('Creates the new SAs before deleting the old ones during reauthentication, avoiding connectivity gaps. ' .
+	'The peer must support overlapping SAs.');
+
+$section->addInput(new Form_Input(
+	'maxexchange',
+	'Maximum IKEv1 Phase 2 Exchanges',
+	'number',
+	$pconfig['maxexchange'],
+	['placeholder' => '3']
+))->setHelp(
+	'Parallel IKEv1 phase 2 rekeys per gateway (default 3). Too low a value can break tunnels with many phase 2 entries: ' .
+	'if unsure, use the largest number of phase 2 entries on any phase 1.'
 );
 
 $section->addInput(new Form_Checkbox(
@@ -189,42 +261,29 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp('IPComp compression of content is proposed on the connection.');
 
 $section->addInput(new Form_Checkbox(
+	'async_crypto',
+	'Asynchronous Cryptography',
+	'Use asynchronous mode to parallelize multiple cryptography jobs',
+	($pconfig['async_crypto'] == "enabled")
+))->setHelp('Dispatches crypto(9) jobs to several threads for more throughput. Packets are still reinjected in order.');
+
+$form->add($section);
+
+$section = new Form_Section('Compatibility and certificates');
+
+$section->addInput(new Form_Checkbox(
+	'strictcrlpolicy',
+	'Strict CRL Checking',
+	'Enable strict Certificate Revocation List checking',
+	$pconfig['strictcrlpolicy']
+))->setHelp('Check this to require availability of a fresh CRL for peer authentication based on certificate signatures to succeed.');
+
+$section->addInput(new Form_Checkbox(
 	'pkcs11support',
 	'PKCS#11 Support',
 	'Enable PKCS#11',
 	$pconfig['pkcs11support']
 ))->setHelp('Allow use of PKCS#11 tokens for Phase 1 authentication. Note that restarting the PS/SC Smart Card service will restart IPsec and vice versa.');
-
-$section->addInput(new Form_Checkbox(
-	'enableinterfacesuse',
-	'Strict interface binding',
-	'Enable strict interface binding',
-	$pconfig['enableinterfacesuse']
-))->setHelp('Enable strongSwan\'s interfaces_use option to bind specific interfaces only. This option is known to break IPsec with dynamic IP interfaces. This is not recommended at this time.');
-
-$section->addInput(new Form_Checkbox(
-	'acceptunencryptedmainmode',
-	'Unencrypted payloads in IKEv1 Main Mode',
-	'Accept unencrypted ID and HASH payloads in IKEv1 Main Mode',
-	$pconfig['acceptunencryptedmainmode']
-))->setHelp(
-	'Some implementations send the third Main Mode message unencrypted, probably to find the PSKs for the specified ID for authentication. ' .
-	'This is very similar to Aggressive Mode, and has the same security implications: ' .
-	'A passive attacker can sniff the negotiated Identity, and start brute forcing the PSK using the HASH payload. ' .
-	'It is recommended to keep this option to no, unless the exact implications are known and compatibility is required for such devices (for example, some SonicWall boxes).'
-);
-
-$section->addInput(new Form_Input(
-	'maxexchange',
-	'Maximum IKEv1 Phase 2 Exchanges',
-	'number',
-	$pconfig['maxexchange'],
-	['placeholder' => '3']
-))->setHelp(
-	'IKEv1 phase 2 rekeying for one VPN gateway can be initiated in parallel. By default only 3 parallel rekeys are allowed. ' .
-	'Undersized values can break VPN connections with many phase 2 definitions. ' .
-	'If unsure, set this value to match the largest number of phase 2 entries on any phase 1.'
-);
 
 $section->addInput(new Form_Checkbox(
 	'unityplugin',
@@ -234,54 +293,19 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp('Enable Unity Plugin which provides Cisco Extension support such as Split-Include, Split-Exclude and Split-Dns.');
 
 $section->addInput(new Form_Checkbox(
-	'strictcrlpolicy',
-	'Strict CRL Checking',
-	'Enable strict Certificate Revocation List checking',
-	$pconfig['strictcrlpolicy']
-))->setHelp('Check this to require availability of a fresh CRL for peer authentication based on certificate signatures to succeed.');
+	'acceptunencryptedmainmode',
+	'Unencrypted payloads in IKEv1 Main Mode',
+	'Accept unencrypted ID and HASH payloads in IKEv1 Main Mode',
+	$pconfig['acceptunencryptedmainmode']
+))->setHelp(
+	'Some peers (for example some SonicWall devices) send the third Main Mode message unencrypted. ' .
+	'This has the same risk as Aggressive Mode: a passive attacker can read the identity and brute-force the PSK. ' .
+	'Leave it off unless such a peer requires it.'
+);
 
-$section->addInput(new Form_Input(
-	'dns-interval',
-	'FQDN Endpoints Resolve Interval',
-	'number',
-	$pconfig['dns-interval'],
-	['placeholder' => '60']
-))->setHelp('Interval, in seconds, that will be used to resolve FQDN remote gateways.');
+$form->add($section);
 
-$section->addInput(new Form_Checkbox(
-	'makebeforebreak',
-	'Make before Break',
-	'Initiate IKEv2 reauthentication with a make-before-break',
-	$pconfig['makebeforebreak']
-))->setHelp('Instead of a break-before-make scheme. Make-before-break uses overlapping IKE and CHILD_SA during reauthentication ' .
-			'by first recreating all new SAs before deleting the old ones. This behavior can be beneficial to avoid connectivity gaps ' .
-			'during reauthentication, but requires support for overlapping SAs by the peer.');
-
-$section->addInput(new Form_Checkbox(
-	'async_crypto',
-	'Asynchronous Cryptography',
-	'Use asynchronous mode to parallelize multiple cryptography jobs',
-	($pconfig['async_crypto'] == "enabled")
-))->setHelp('Allow crypto(9) jobs to be dispatched multi-threaded to increase performance. ' .
-		'Jobs are handled in the order they are received so that packets will be reinjected in the correct order.');
-
-$group = new Form_Group('Custom ports');
-$group->add(new Form_Input(
-  'port',
-	'IKE port',
-	'number',
-	$pconfig['port'],
-	['min' => 1, 'max' => 65535]
-))->setHelp('Local UDP port for IKE (Default: 500)');
-
-$group->add(new Form_Input(
-  'port_nat_t',
-	'NAT-T port',
-	'number',
-	$pconfig['port_nat_t'],
-	['min' => 1, 'max' => 65535]
-))->setHelp('Local UDP port for NAT-T (Default: 4500)');
-$section->add($group);
+$section = new Form_Section('Bypass');
 
 $section->addInput(new Form_Checkbox(
 	'autoexcludelanaddress',
@@ -308,7 +332,6 @@ if (!$pconfig['bypassrules']) {
 	       					'destination' => '', 'dstmask' => '32'));
 }
 
-$numrows = count($item) -1;
 $counter = 0;
 
 $numrows = count($pconfig['bypassrules']['rule']) -1;
@@ -347,6 +370,24 @@ $section->addInput(new Form_Button(
 	null,
 	'fa-solid fa-plus'
 ))->addClass('btn-success');
+
+$form->add($section);
+
+/* log levels: closed unless a level was raised or a save failed */
+$section = new Form_Section('Logging', 'ipsec-logging', COLLAPSIBLE | ((!empty($input_errors) || $raised) ? SEC_OPEN : SEC_CLOSED));
+
+foreach ($ipsec_log_cats as $cat => $desc) {
+	$section->addInput(new Form_Select(
+		'logging_' . $cat,
+		$desc,
+		$pconfig['logging'][$cat],
+		$ipsec_log_sevs
+	))->setWidth(2);
+}
+
+$section->addInput(new Form_StaticText('', ''))->setHelp(
+	'Changes the log verbosity for the IPsec daemon, so that more detail will be generated to aid in troubleshooting.'
+);
 
 $form->add($section);
 

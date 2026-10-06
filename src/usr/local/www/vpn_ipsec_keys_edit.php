@@ -55,8 +55,15 @@ if ($_POST['save']) {
 	}
 }
 
-$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Pre-Shared Keys"), gettext("Edit"));
-$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec_keys.php", "@self");
+$editing = (isset($id) && config_get_path('ipsec/mobilekey/' . $id));
+$stored = $editing ? config_get_path('ipsec/mobilekey/' . $id) : array();
+if ($editing) {
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Pre-Shared Keys"), htmlspecialchars($stored['ident']), gettext("Edit key"));
+	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec_keys.php", "", "@self");
+} else {
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Pre-Shared Keys"), gettext("Add key"));
+	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec_keys.php", "@self");
+}
 $shortcut_section = "ipsec";
 
 include("head.inc");
@@ -64,16 +71,52 @@ include("head.inc");
 if ($input_errors)
 	print_input_errors($input_errors);
 
+if ($editing):
+	$stored_type = empty($stored['type']) ? 'PSK' : $stored['type'];
+	$ident_types = ipsec_psk_ident_type_list();
+?>
+<style>
+.fs-ipsec-sum { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; padding: 1rem 1.25rem; }
+.fs-ipsec-sum-head { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.fs-ipsec-sum-icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
+.fs-ipsec-sum-title { font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); word-break: break-all; }
+.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-ipsec-sum-facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
+.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; }
+.fs-ipsec-sum-facts dd { margin: 0; color: var(--fs-text-strong); }
+</style>
+<div class="panel panel-default">
+	<div class="fs-ipsec-sum">
+		<div class="fs-ipsec-sum-head">
+			<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-key" aria-hidden="true"></i></span>
+			<div>
+				<div class="fs-ipsec-sum-title"><?=htmlspecialchars($stored['ident'])?></div>
+				<div class="fs-ipsec-sum-sub"><?=gettext('Mobile pre-shared key')?></div>
+			</div>
+		</div>
+		<dl class="fs-ipsec-sum-facts">
+			<div><dt><?=gettext('Secret type')?></dt><dd><?=htmlspecialchars($stored_type)?></dd></div>
+<?php if ($stored_type == 'EAP'): ?>
+			<div><dt><?=gettext('Identifier type')?></dt><dd><?=htmlspecialchars(!empty($stored['ident_type']) ? ($ident_types[$stored['ident_type']] ?? $stored['ident_type']) : gettext('Not set'))?></dd></div>
+			<div><dt><?=gettext('Address pool')?></dt><dd class="fs-mono"><?=htmlspecialchars(!empty($stored['pool_address']) ? $stored['pool_address'] . '/' . $stored['pool_netbits'] : gettext('Mobile clients pool'))?></dd></div>
+			<div><dt><?=gettext('DNS server')?></dt><dd class="fs-mono"><?=htmlspecialchars(!empty($stored['dns_address']) ? $stored['dns_address'] : gettext('Mobile clients DNS'))?></dd></div>
+<?php endif; ?>
+		</dl>
+	</div>
+</div>
+<?php
+endif;
+
 $form = new Form;
 
-$section = new Form_Section('Edit Pre-Shared-Secret');
+$section = new Form_Section('Pre-shared key');
 
 $section->addInput(new Form_Input(
 	'ident',
 	'*Identifier',
 	'text',
 	$pconfig['ident']
-))->setHelp('This can be either an IP address, fully qualified domain name or an e-mail address.');
+))->setHelp('An IP address, fully qualified domain name or e-mail address. Use "any" for any user.');
 
 $section->addInput(new Form_Select(
 	'type',
@@ -89,6 +132,11 @@ $section->addInput(new Form_Input(
 	$pconfig['psk']
 ));
 
+$form->add($section);
+
+$section = new Form_Section('EAP options');
+$section->addClass('fs-psk-eap');
+
 $section->addInput(new Form_Select(
 	'ident_type',
 	'Identifier type',
@@ -102,14 +150,14 @@ $group->add(new Form_IpAddress(
 	'pool_address',
 	'Virtual Address Pool',
 	$pconfig['pool_address']
-))->setWidth(4)->setHelp('Optional. If used, must be IPv4 address. If left blank, "Virtual Address Pool" of "Mobile Clients" will be used.')->addMask('pool_netbits', $pconfig['pool_netbits'], 32, 0);
+))->setWidth(4)->setHelp('Optional IPv4 network. Blank uses the "Virtual Address Pool" of Mobile Clients.')->addMask('pool_netbits', $pconfig['pool_netbits'], 32, 0);
 $section->add($group);
 
 $section->addInput(new Form_IpAddress(
 	'dns_address',
 	'DNS Server',
 	$pconfig['dns_address']
-))->setWidth(4)->setHelp('Optional. If used, must be IPv4 address. Individual DNS server only for this user. If left blank, "DNS Servers" of "Mobile Clients" will be used.');
+))->setWidth(4)->setHelp('Optional IPv4 DNS server for this user only. Blank uses the "DNS Servers" of Mobile Clients.');
 
 if (isset($id) && config_get_path('ipsec/mobilekey/' . $id)) {
 	$form->addGlobal(new Form_Input(
@@ -125,11 +173,6 @@ $form->add($section);
 fs_form_cancel($form, 'vpn_ipsec_keys.php');
 print $form;
 ?>
-<div class="infoblock blockopen">
-<?php
-print_info_box(gettext("PSK for any user can be set by using an identifier of any."), 'info', false);
-?>
-</div>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
@@ -138,6 +181,7 @@ events.push(function() {
 		hideInput('ident_type', hide);
 		hideClass('virtualip', hide);
 		hideInput('dns_address', hide);
+		hideClass('fs-psk-eap', hide);
 	}
 
 	$('#type').change(function () {
