@@ -21,20 +21,28 @@
 
 /*
  * REST API v1 routes for the certificate manager (area pki): certificate
- * authorities (/v1/pki/cas) and certificate revocation lists (/v1/pki/crls),
- * addressed by refid.
+ * authorities (/v1/pki/cas), certificates (/v1/pki/certificates) and
+ * certificate revocation lists (/v1/pki/crls), addressed by refid.
  *
  * Writes go through the functions the pages call (system_certificates.inc),
  * so validation is the GUI's. Like the pages, every write is applied at once:
  * a saved or deleted CA rebuilds the trust store; CRL changes refresh the
- * OpenVPN servers' CRLs and reconfigure IPsec. There is nothing to stage and
- * no apply endpoint.
+ * OpenVPN servers' CRLs and reconfigure IPsec; certificates are stored (the
+ * services using one are not restarted, like the page). There is nothing to
+ * stage and no apply endpoint.
  *
- * Private keys are never returned and cannot be exported: responses say
- * whether an entry has one ("has_private_key"); the CA edit form's "key"
- * reads as "(set)". A key may be sent (importing or editing a CA); sending
- * "(set)" or leaving it out keeps the stored one. The public CA certificate
- * and the CRL can be downloaded in PEM format.
+ * Private keys are never returned and cannot be exported (no key or PKCS #12
+ * export; the GUI keeps its own): responses say whether an entry has one
+ * ("has_private_key"); the edit forms' "key" reads as "(set)". A key may be
+ * sent (importing a certificate or CA, signing a pasted request, editing);
+ * it is stored on the firewall only; sending "(set)" or leaving it out keeps
+ * the stored one. Certificates, CA certificates, signing requests and CRLs
+ * can be downloaded in PEM format; downloads and returned certificate fields
+ * hold only the certificate (or request) blocks of the stored text, so a key
+ * pasted into a certificate field is never returned either.
+ *
+ * Certificates of users (the page's userid parameter, "Choose an existing
+ * certificate") are not handled here; they belong to the user routes.
  *
  * The output builders below copy the fields they return one by one; stored
  * entries (which hold private keys, also inside revoked certificate copies
@@ -80,8 +88,26 @@ function restapi_routes_pki() {
 	    'the CRL\'s CA; serials: serial numbers (decimal or 0x hex; list or text separated by spaces); reason: RFC 5280 ' .
 	    'reason code (-1: no status, the default). Internal CRLs only. Applied at once.');
 
+	$cert_create = array('type' => 'object', 'description' => 'A new certificate as its page\'s form. method: internal (create a ' .
+	    'certificate signed by the internal CA "caref": keytype (RSA|ECDSA), keylen, ecname, digest_alg, lifetime (days), ' .
+	    'dn_commonname, dn_country, dn_state, dn_city, dn_organization, dn_organizationalunit, autorenew), import ' .
+	    '(import_type x509: "cert" and the optional private key "key" in PEM format; import_type pkcs12: "pkcs12" (the ' .
+	    'PKCS #12 file, base64), pkcs12_pass, pkcs12_intermediate (also import its intermediate CAs)), external (create a ' .
+	    'private key and a certificate signing request: csr_keytype, csr_keylen, csr_ecname, csr_digest_alg, ' .
+	    'csr_dn_commonname, csr_dn_country, ...; complete it with POST .../{refid}/complete), sign (sign a request with the ' .
+	    'internal CA "catosignwith": csrtosign "new" with csrpaste (PEM) and the optional private key keypaste, or the refid ' .
+	    'of a pending request; csrsign_lifetime, csrsign_digest_alg). Also descr, type (server|user) and altnames: list of ' .
+	    '{type: DNS|IP|URI|email, value} (subject alternative names; the common name is added automatically). Omitted ' .
+	    'fields take the page\'s defaults. Private keys are stored on the firewall only. Applied at once.');
+	$cert_update = array('type' => 'object', 'description' => 'The certificate edit form ("fields" of GET): descr, autorenew, ' .
+	    'cert (PEM), key (private key PEM; "(set)" or leaving it out keeps it, "" removes it). Omitted fields keep their ' .
+	    'value. Not for a pending signing request (complete it). Applied at once.');
+	$cert_complete = array('type' => 'object', 'description' => 'certificate: the signed certificate (PEM; it must match the ' .
+	    'pending request\'s key), descr: optional new name. Applied at once.');
+
 	$ca = '/v1/pki/cas';
 	$crl = '/v1/pki/crls';
+	$cert = '/v1/pki/certificates';
 	return array(
 		$route('GET', $ca, 'restapi_h_pki_ca_list', 'system_camanager.php',
 		    'List the certificate authorities (subject, issuer, validity, serial, has_private_key, used_by)'),
@@ -95,6 +121,22 @@ function restapi_routes_pki() {
 		    'Update a certificate authority (applied at once; omitted fields keep their value)', true, $ca_update),
 		$route('DELETE', "{$ca}/{refid}", 'restapi_h_pki_ca_delete', 'system_camanager.php',
 		    'Delete a certificate authority and its CRLs (409 while in use; its certificates are kept)', true),
+		$route('GET', $cert, 'restapi_h_pki_cert_list', 'system_certmanager.php',
+		    'List the certificates and pending signing requests (subject, issuer, SANs, validity, has_private_key, is_csr, used_by)'),
+		$route('GET', "{$cert}/{refid}", 'restapi_h_pki_cert_get', 'system_certmanager.php',
+		    'Get a certificate with its certificate or signing request (PEM) and edit form ("fields"); never its private key'),
+		$route('GET', "{$cert}/{refid}/certificate", 'restapi_h_pki_cert_pem', 'system_certmanager.php',
+		    'Download a certificate (PEM)', false, null, 'text/plain'),
+		$route('GET', "{$cert}/{refid}/csr", 'restapi_h_pki_cert_csr', 'system_certmanager.php',
+		    'Download the certificate signing request of a pending request (PEM)', false, null, 'text/plain'),
+		$route('POST', $cert, 'restapi_h_pki_cert_create', 'system_certmanager.php',
+		    'Create (internal), import, request (external) or sign a certificate (applied at once)', true, $cert_create),
+		$route('PUT', "{$cert}/{refid}", 'restapi_h_pki_cert_update', 'system_certmanager.php',
+		    'Update a certificate (applied at once; omitted fields keep their value)', true, $cert_update),
+		$route('POST', "{$cert}/{refid}/complete", 'restapi_h_pki_cert_complete', 'system_certmanager.php',
+		    'Complete a pending signing request with the signed certificate (applied at once)', true, $cert_complete),
+		$route('DELETE', "{$cert}/{refid}", 'restapi_h_pki_cert_delete', 'system_certmanager.php',
+		    'Delete a certificate or pending signing request (409 while in use)', true),
 		$route('GET', $crl, 'restapi_h_pki_crl_list', 'system_crlmanager.php', 'List the certificate revocation lists'),
 		$route('GET', "{$crl}/{refid}", 'restapi_h_pki_crl_get', 'system_crlmanager.php',
 		    'Get a certificate revocation list with its revoked certificates and edit form ("fields")'),
@@ -268,6 +310,155 @@ function restapi_pki_revoke_post(array $body, $refid, array $form) {
 	return $post;
 }
 
+/*
+ * Only the PEM blocks labelled $labels (e.g. CERTIFICATE) of a stored text,
+ * each on its own line ('' when there is none). A certificate field may hold
+ * anything that was pasted with the certificate, a private key included;
+ * returned certificates and requests go through this.
+ */
+function restapi_pki_pem_only($text, array $labels) {
+	if (!is_string($text) || ($text === '')) {
+		return '';
+	}
+	$alt = implode('|', array_map(function ($l) {
+		return preg_quote($l, '/');
+	}, $labels));
+	if (!preg_match_all('/-----BEGIN (' . $alt . ')-----[A-Za-z0-9+\/=\s]*-----END \1-----/', $text, $m)) {
+		return '';
+	}
+	return implode("\n", $m[0]) . "\n";
+}
+
+/* The labels of certificate and signing request PEM blocks. */
+function restapi_pki_cert_labels() {
+	return array('CERTIFICATE');
+}
+
+function restapi_pki_csr_labels() {
+	return array('CERTIFICATE REQUEST', 'NEW CERTIFICATE REQUEST');
+}
+
+/*
+ * Subject alternative names as OpenSSL lists them (cert_get_sans():
+ * "DNS:host", "IP Address:192.0.2.1", "email:...", "URI:...") as a list of
+ * {type, value} with the page's types (DNS, IP, URI, email).
+ */
+function restapi_pki_san_list(array $sans) {
+	$map = array('DNS' => 'DNS', 'IP Address' => 'IP', 'IP' => 'IP', 'URI' => 'URI', 'email' => 'email');
+	$out = array();
+	foreach ($sans as $san) {
+		$san = trim((string)$san);
+		$pos = strpos($san, ':');
+		if (($san === '') || ($pos === false)) {
+			continue;
+		}
+		$type = substr($san, 0, $pos);
+		$out[] = array('type' => $map[$type] ?? $type, 'value' => substr($san, $pos + 1));
+	}
+	return $out;
+}
+
+/*
+ * The subject alternative names of a request body (list of {type, value})
+ * as the page's rows (altname_type0/altname_value0, ...); 400 when malformed.
+ */
+function restapi_pki_altname_post($altnames) {
+	$msg = 'Field "altnames" must be a list of {type, value}.';
+	if (!is_array($altnames) || !array_is_list($altnames)) {
+		throw new RestApiError(400, 'invalid_field', $msg);
+	}
+	$post = array();
+	foreach ($altnames as $i => $altname) {
+		if (!is_array($altname) || array_is_list($altname) && !empty($altname)) {
+			throw new RestApiError(400, 'invalid_field', $msg);
+		}
+		foreach (array_keys($altname) as $key) {
+			if (!in_array($key, array('type', 'value'), true)) {
+				throw new RestApiError(400, 'invalid_field', $msg);
+			}
+		}
+		$type = $altname['type'] ?? '';
+		$value = $altname['value'] ?? '';
+		if (!is_string($type) || !is_string($value)) {
+			throw new RestApiError(400, 'invalid_field', $msg);
+		}
+		$post["altname_type{$i}"] = $type;
+		$post["altname_value{$i}"] = $value;
+	}
+	return $post;
+}
+
+/* The field types of a new certificate (POST; altnames and pkcs12 are converted separately) and of the edit form (PUT). */
+function restapi_pki_cert_create_types() {
+	return restapi_ovpn_typemap(array(), array('autorenew', 'pkcs12_intermediate'), array(),
+	    array('method', 'descr', 'type', 'caref', 'keytype', 'keylen', 'ecname', 'digest_alg', 'lifetime', 'dn_commonname', 'dn_country',
+	    'dn_state', 'dn_city', 'dn_organization', 'dn_organizationalunit', 'import_type', 'cert', 'key', 'pkcs12_pass', 'csr_keytype',
+	    'csr_keylen', 'csr_ecname', 'csr_digest_alg', 'csr_dn_commonname', 'csr_dn_country', 'csr_dn_state', 'csr_dn_city',
+	    'csr_dn_organization', 'csr_dn_organizationalunit', 'catosignwith', 'csrtosign', 'csrpaste', 'keypaste', 'csrsign_lifetime',
+	    'csrsign_digest_alg'));
+}
+
+function restapi_pki_cert_edit_types() {
+	return restapi_ovpn_typemap(array(), array('autorenew'), array(), array('descr', 'cert', 'key'));
+}
+
+/*
+ * The new certificate form as a browser posts it: the page's defaults
+ * (pki_cert_new_form()) and the fields the page leaves empty or preselects
+ * (sign: a new pasted request, the default lifetime; import: X.509).
+ */
+function restapi_pki_cert_new_form(array $defaults, $lifetime) {
+	return $defaults + array('descr' => '', 'caref' => '', 'catosignwith' => '', 'csrtosign' => 'new', 'csrpaste' => '', 'keypaste' => '',
+	    'csrsign_lifetime' => $lifetime, 'import_type' => 'x509', 'cert' => '', 'key' => '', 'pkcs12_pass' => '');
+}
+
+/*
+ * The body of a new certificate (POST) as the page's post: fields merged over
+ * $current (the new form in API shape, see restapi_pki_form_fields()),
+ * altnames as rows, the PKCS #12 file decoded. Returns array(post, pkcs12
+ * file or null).
+ */
+function restapi_pki_cert_create_post(array $body, array $current) {
+	$types = restapi_pki_cert_create_types();
+	$rows = array();
+	if (array_key_exists('altnames', $body)) {
+		$rows = restapi_pki_altname_post($body['altnames']);
+		unset($body['altnames']);
+	}
+	$pkcs12 = null;
+	if (array_key_exists('pkcs12', $body)) {
+		if (!is_string($body['pkcs12'])) {
+			throw new RestApiError(400, 'invalid_field', 'Field "pkcs12" must be a string (the PKCS #12 file, base64).');
+		}
+		if ($body['pkcs12'] !== '') {
+			$pkcs12 = base64_decode($body['pkcs12'], true);
+			if (($pkcs12 === false) || ($pkcs12 === '')) {
+				throw new RestApiError(400, 'invalid_field', 'Field "pkcs12" must be the PKCS #12 file in base64.');
+			}
+		}
+		unset($body['pkcs12']);
+	}
+	$post = restapi_svc_post(restapi_svc_merge($body, $current, $types), $types) + $rows;
+	$post['act'] = 'new';
+	$post['save'] = 'Save';
+	return array($post, $pkcs12);
+}
+
+/* The subject of a signing request in PEM format (OpenSSL's one-line form; '' when it does not parse). */
+function restapi_pki_csr_subject($pem) {
+	$d = (is_string($pem) && ($pem !== '')) ? @openssl_csr_get_subject($pem, true) : false;
+	if (!is_array($d)) {
+		return '';
+	}
+	$items = array();
+	foreach ($d as $key => $value) {
+		foreach ((array)$value as $v) {
+			$items[] = "{$key}={$v}";
+		}
+	}
+	return implode(', ', $items);
+}
+
 /* ------------------------------------------------------------------ */
 /* Certificate authorities                                             */
 /* ------------------------------------------------------------------ */
@@ -337,7 +528,9 @@ function restapi_pki_ca_out(array $ca, $full, $packages = null) {
 		}
 	}
 	$fields = restapi_pki_form_fields(pki_ca_form('edit', $ca), restapi_pki_ca_edit_types(), array());
-	return $out + array('certificate' => $pem, 'crls' => $crls, 'fields' => restapi_pki_mask_key($fields),
+	$fields['cert'] = restapi_pki_pem_only($fields['cert'], restapi_pki_cert_labels());
+	return $out + array('certificate' => restapi_pki_pem_only($pem, restapi_pki_cert_labels()), 'crls' => $crls,
+	    'fields' => restapi_pki_mask_key($fields),
 	    'choices' => array_map('restapi_svc_choices', restapi_pki_ca_choices()));
 }
 
@@ -358,7 +551,7 @@ function restapi_h_pki_ca_get($req) {
 
 function restapi_h_pki_ca_pem($req) {
 	$ca = restapi_pki_ca_item($req['params']['refid']);
-	return array('raw' => base64_decode((string)($ca['crt'] ?? '')), 'type' => 'text/plain');
+	return array('raw' => restapi_pki_pem_only(base64_decode((string)($ca['crt'] ?? '')), restapi_pki_cert_labels()), 'type' => 'text/plain');
 }
 
 function restapi_h_pki_ca_create($req) {
@@ -595,4 +788,234 @@ function restapi_h_pki_crl_unrevoke($req) {
 		throw restapi_validation_error(array($rv['savemsg']));
 	}
 	return array('data' => restapi_pki_crl_out(restapi_pki_crl_item($refid)['item'], true));
+}
+
+/* ------------------------------------------------------------------ */
+/* Certificates                                                        */
+/* ------------------------------------------------------------------ */
+
+/* The certificate with refid $refid (lookup_cert(): its index and item), or a 404. */
+function restapi_pki_cert_item($refid) {
+	$item = ctype_alnum((string)$refid) ? lookup_cert((string)$refid) : array('item' => null);
+	if (empty($item['item']) || !is_array($item['item'])) {
+		throw new RestApiError(404, 'not_found', 'No certificate with that refid.');
+	}
+	return $item;
+}
+
+/* The choices of the new certificate form. */
+function restapi_pki_cert_choices() {
+	global $openssl_digest_algs, $cert_altname_types;
+	$digests = array_combine($openssl_digest_algs, $openssl_digest_algs);
+	$keytypes = array_combine(pki_key_types(), pki_key_types());
+	$keylens = array_combine(pki_key_lengths(), pki_key_lengths());
+	return array(
+		'method' => pki_cert_methods(),
+		'type' => pki_cert_types(),
+		'caref' => pki_ca_signing_list(),
+		'catosignwith' => pki_ca_signing_list(),
+		'csrtosign' => pki_cert_csr_list(),
+		'keytype' => $keytypes,
+		'csr_keytype' => $keytypes,
+		'keylen' => $keylens,
+		'csr_keylen' => $keylens,
+		'ecname' => cert_build_curve_list(),
+		'csr_ecname' => cert_build_curve_list(),
+		'digest_alg' => $digests,
+		'csr_digest_alg' => $digests,
+		'csrsign_digest_alg' => $digests,
+		'dn_country' => get_cert_country_codes(),
+		'csr_dn_country' => get_cert_country_codes(),
+		'import_type' => array('x509' => 'X.509 (PEM)', 'pkcs12' => 'PKCS #12 (PFX)'),
+		'altname_type' => (array)$cert_altname_types,
+	);
+}
+
+/*
+ * A certificate in API shape: its summary, or (full) also its certificate or
+ * signing request (PEM blocks only), purpose and edit form. Never its private key.
+ */
+function restapi_pki_cert_out(array $cert, $full, $packages = null) {
+	if ($packages === null) {
+		$packages = pki_package_usage('used_certificates');
+	}
+	$refid = (string)$cert['refid'];
+	$crt = base64_decode((string)($cert['crt'] ?? ''));
+	$csr = base64_decode((string)($cert['csr'] ?? ''));
+	$is_csr = ($csr !== '');
+	$details = restapi_pki_cert_details($crt);
+	/* the page's Issuer column */
+	if ($crt !== '') {
+		$issuer_name = ($details['subject'] === $details['issuer']) ? 'self-signed' : 'external';
+	} else {
+		$issuer_name = 'private key only';
+	}
+	if ($is_csr) {
+		$issuer_name = 'external - signature pending';
+		$details['subject'] = restapi_pki_csr_subject($csr);
+	}
+	$ca = lookup_ca($cert['caref'] ?? '');
+	if (!empty($ca['item'])) {
+		$issuer_name = (string)$ca['item']['descr'];
+	}
+	$out = array(
+		'refid' => $refid,
+		'descr' => (string)($cert['descr'] ?? ''),
+		'type' => is_scalar($cert['type'] ?? null) ? (string)$cert['type'] : '',
+		'caref' => is_scalar($cert['caref'] ?? null) ? (string)$cert['caref'] : '',
+		'issuer_name' => $issuer_name,
+	) + $details + array(
+		'sans' => ($crt !== '') ? restapi_pki_san_list((array)cert_get_sans($crt, false)) : array(),
+		'has_private_key' => restapi_pki_has_key($cert),
+		'is_csr' => $is_csr,
+		'autorenew' => (($cert['autorenew'] ?? '') === 'enabled'),
+		'revoked' => (bool)is_cert_revoked($cert),
+		'in_use' => (bool)cert_in_use($refid),
+		'used_by' => pki_cert_used_by($refid, $packages),
+	);
+	if (!$full) {
+		return $out;
+	}
+	$purpose = ($crt !== '') ? cert_get_purpose($crt, false) : array();
+	$extra = array(
+		'certificate' => restapi_pki_pem_only($crt, restapi_pki_cert_labels()),
+		'csr' => restapi_pki_pem_only($csr, restapi_pki_csr_labels()),
+		'purpose' => array(
+			'ca' => (($purpose['ca'] ?? '') === 'Yes'),
+			'server' => (($purpose['server'] ?? '') === 'Yes'),
+			'key_usage' => array_values(array_map('strval', (array)($purpose['ku'] ?? array()))),
+			'extended_key_usage' => array_values(array_map('strval', (array)($purpose['eku'] ?? array()))),
+		),
+		'renewable' => (bool)is_cert_locally_renewable($cert),
+	);
+	if ($is_csr) {
+		$extra['fields'] = array('descr' => (string)($cert['descr'] ?? ''), 'csr' => $extra['csr']);
+	} else {
+		$fields = restapi_pki_form_fields(pki_cert_form('edit', $cert), restapi_pki_cert_edit_types(), array());
+		$fields['cert'] = restapi_pki_pem_only($fields['cert'], restapi_pki_cert_labels());
+		$extra['fields'] = restapi_pki_mask_key($fields);
+	}
+	return $out + $extra;
+}
+
+function restapi_h_pki_cert_list($req) {
+	$packages = pki_package_usage('used_certificates');
+	$out = array();
+	foreach ((array)config_get_path('cert', []) as $cert) {
+		if (is_array($cert) && isset($cert['refid'])) {
+			$out[] = restapi_pki_cert_out($cert, false, $packages);
+		}
+	}
+	return array('data' => $out);
+}
+
+function restapi_h_pki_cert_get($req) {
+	return array('data' => restapi_pki_cert_out(restapi_pki_cert_item($req['params']['refid'])['item'], true));
+}
+
+function restapi_h_pki_cert_pem($req) {
+	$cert = restapi_pki_cert_item($req['params']['refid'])['item'];
+	$pem = restapi_pki_pem_only(base64_decode((string)($cert['crt'] ?? '')), restapi_pki_cert_labels());
+	if ($pem === '') {
+		throw new RestApiError(404, 'not_found', 'The entry has no certificate (a pending signing request?).');
+	}
+	return array('raw' => $pem, 'type' => 'text/plain');
+}
+
+function restapi_h_pki_cert_csr($req) {
+	$cert = restapi_pki_cert_item($req['params']['refid'])['item'];
+	$pem = restapi_pki_pem_only(base64_decode((string)($cert['csr'] ?? '')), restapi_pki_csr_labels());
+	if ($pem === '') {
+		throw new RestApiError(404, 'not_found', 'The certificate has no pending signing request.');
+	}
+	return array('raw' => $pem, 'type' => 'text/plain');
+}
+
+function restapi_h_pki_cert_create($req) {
+	$c = restapi_pki_cert_choices();
+	unset($c['altname_type']);
+	$form = restapi_pki_cert_new_form(pki_cert_new_form(null), pki_cert_default_lifetime());
+	$current = restapi_pki_form_fields($form, restapi_pki_cert_create_types(), $c);
+	list($post, $pkcs12) = restapi_pki_cert_create_post($req['body'], $current);
+	$before = array();
+	foreach ((array)config_get_path('cert', []) as $cert) {
+		$before[] = (string)($cert['refid'] ?? '');
+	}
+	$errors = pki_cert_save($post, null, 'new', null, $pkcs12);
+	if (!empty($errors)) {
+		throw restapi_validation_error($errors);
+	}
+	$new = null;
+	foreach ((array)config_get_path('cert', []) as $cert) {
+		if (is_array($cert) && isset($cert['refid']) && !in_array((string)$cert['refid'], $before, true)) {
+			$new = $cert;
+		}
+	}
+	if ($new === null) {
+		throw new RestApiError(500, 'internal_error', 'The certificate was not stored.');
+	}
+	return array('status' => 201, 'data' => restapi_pki_cert_out($new, true));
+}
+
+function restapi_h_pki_cert_update($req) {
+	$cert = restapi_pki_cert_item($req['params']['refid'])['item'];
+	$refid = (string)$cert['refid'];
+	if (!empty($cert['csr'])) {
+		throw new RestApiError(409, 'csr_pending', 'The certificate signing request is pending: complete it with POST ' .
+		    "/api/v1/pki/certificates/{$refid}/complete.");
+	}
+	$body = restapi_vpn_secret_body($req['body'], 'key');
+	$types = restapi_pki_cert_edit_types();
+	$current = restapi_pki_form_fields(pki_cert_form('edit', $cert), $types, array());
+	$post = restapi_svc_post(restapi_svc_merge($body, $current, $types), $types);
+	$post['method'] = 'edit';
+	$post['import_type'] = 'x509';
+	$post['id'] = $refid;
+	$post['act'] = 'edit';
+	$post['save'] = 'Save';
+	$errors = pki_cert_save($post, $refid, 'edit');
+	if (!empty($errors)) {
+		throw restapi_validation_error($errors);
+	}
+	return array('data' => restapi_pki_cert_out(restapi_pki_cert_item($refid)['item'], true));
+}
+
+function restapi_h_pki_cert_complete($req) {
+	$item = restapi_pki_cert_item($req['params']['refid']);
+	$refid = (string)$item['item']['refid'];
+	if (empty($item['item']['csr'])) {
+		throw new RestApiError(409, 'not_pending', 'The certificate has no pending signing request.');
+	}
+	$body = $req['body'];
+	foreach ($body as $key => $value) {
+		if (!in_array($key, array('certificate', 'descr'), true)) {
+			throw new RestApiError(400, 'unknown_field', "Unknown field \"{$key}\".");
+		}
+		if (!is_string($value)) {
+			throw new RestApiError(400, 'invalid_field', "Field \"{$key}\" must be a string.");
+		}
+	}
+	$form = pki_cert_form('csr', $item['item']);
+	$post = array('descr' => $body['descr'] ?? (string)$form['descr'], 'csr' => (string)$form['csr'],
+	    'cert' => $body['certificate'] ?? '', 'id' => $refid, 'act' => 'csr', 'save' => 'Update');
+	$errors = pki_cert_csr_complete($post, $item);
+	if (!empty($errors)) {
+		throw restapi_validation_error($errors);
+	}
+	return array('data' => restapi_pki_cert_out(restapi_pki_cert_item($refid)['item'], true));
+}
+
+function restapi_h_pki_cert_delete($req) {
+	$cert = restapi_pki_cert_item($req['params']['refid'])['item'];
+	$refid = (string)$cert['refid'];
+	$rv = pki_cert_delete($refid);
+	if ($rv === null) {
+		throw new RestApiError(404, 'not_found', 'No certificate with that refid.');
+	}
+	if (!$rv['deleted']) {
+		$e = restapi_validation_error(array($rv['savemsg']));
+		throw new RestApiError(409, 'in_use', $e->details['messages'][0],
+		    array('used_by' => pki_cert_used_by($refid, pki_package_usage('used_certificates'))));
+	}
+	return array('data' => array('deleted' => $refid));
 }

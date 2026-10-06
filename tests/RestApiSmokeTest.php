@@ -1712,6 +1712,14 @@ $pki_routes = array(
 	'POST /v1/pki/cas' => array('restapi_h_pki_ca_create', 'system_camanager.php'),
 	'PUT /v1/pki/cas/{refid}' => array('restapi_h_pki_ca_update', 'system_camanager.php'),
 	'DELETE /v1/pki/cas/{refid}' => array('restapi_h_pki_ca_delete', 'system_camanager.php'),
+	'GET /v1/pki/certificates' => array('restapi_h_pki_cert_list', 'system_certmanager.php'),
+	'GET /v1/pki/certificates/{refid}' => array('restapi_h_pki_cert_get', 'system_certmanager.php'),
+	'GET /v1/pki/certificates/{refid}/certificate' => array('restapi_h_pki_cert_pem', 'system_certmanager.php'),
+	'GET /v1/pki/certificates/{refid}/csr' => array('restapi_h_pki_cert_csr', 'system_certmanager.php'),
+	'POST /v1/pki/certificates' => array('restapi_h_pki_cert_create', 'system_certmanager.php'),
+	'PUT /v1/pki/certificates/{refid}' => array('restapi_h_pki_cert_update', 'system_certmanager.php'),
+	'POST /v1/pki/certificates/{refid}/complete' => array('restapi_h_pki_cert_complete', 'system_certmanager.php'),
+	'DELETE /v1/pki/certificates/{refid}' => array('restapi_h_pki_cert_delete', 'system_certmanager.php'),
 	'GET /v1/pki/crls' => array('restapi_h_pki_crl_list', 'system_crlmanager.php'),
 	'GET /v1/pki/crls/{refid}' => array('restapi_h_pki_crl_get', 'system_crlmanager.php'),
 	'GET /v1/pki/crls/{refid}/crl' => array('restapi_h_pki_crl_pem', 'system_crlmanager.php'),
@@ -1737,7 +1745,10 @@ check_api(empty($pki_routes), 'every certificate manager route exists: ' . implo
 foreach (array('GET /v1/pki/cas/6ac0b56a1c325/certificate' => array('restapi_h_pki_ca_pem', 'text/plain'),
     'GET /v1/pki/crls/6ac0b56a1c325/crl' => array('restapi_h_pki_crl_pem', 'text/plain'),
     'GET /v1/pki/cas/6ac0b56a1c325' => array('restapi_h_pki_ca_get', 'application/json'),
-    'DELETE /v1/pki/crls/6ac0b56a1c325/revoked/6ac0b56aa7f4a' => array('restapi_h_pki_crl_unrevoke', 'application/json')) as $key => $want) {
+    'DELETE /v1/pki/crls/6ac0b56a1c325/revoked/6ac0b56aa7f4a' => array('restapi_h_pki_crl_unrevoke', 'application/json'),
+    'GET /v1/pki/certificates/6ac0b56aa7f4a/certificate' => array('restapi_h_pki_cert_pem', 'text/plain'),
+    'GET /v1/pki/certificates/6ac0b56aa7f4a/csr' => array('restapi_h_pki_cert_csr', 'text/plain'),
+    'POST /v1/pki/certificates/6ac0b56aa7f4a/complete' => array('restapi_h_pki_cert_complete', 'application/json')) as $key => $want) {
 	list($m, $p) = explode(' ', $key);
 	$r = restapi_match($v1, $m, $p)[0];
 	check_api($r['handler'] === $want[0] && $r['produces'] === $want[1], "{$key} reaches {$want[0]} ({$want[1]})");
@@ -1808,9 +1819,9 @@ foreach (array_merge(glob("{$root}/src/etc/inc/restapi/*.inc"), array("{$root}/s
 }
 $routes_pki = file_get_contents("{$root}/src/etc/inc/restapi/routes_pki.inc");
 check_api(strpos($fn_body($routes_pki, 'restapi_pki_has_key'), "return !empty(\$entry['prv']);") !== false, 'the stored key is only tested for presence');
-foreach (array('restapi_pki_ca_out', 'restapi_pki_crl_out', 'restapi_pki_crl_fields') as $fn) {
+foreach (array('restapi_pki_ca_out', 'restapi_pki_crl_out', 'restapi_pki_crl_fields', 'restapi_pki_cert_out') as $fn) {
 	$body = $fn_body($routes_pki, $fn);
-	check_api(strpos($routes_pki, "function {$fn}(") !== false && !preg_match('/return \$(ca|crl)\b|\$out = \$(ca|crl);|\+ \$(ca|crl)\b|array_merge\(\$(ca|crl)\b/', $body),
+	check_api(strpos($routes_pki, "function {$fn}(") !== false && !preg_match('/return \$(ca|crl|cert)\b|\$out = \$(ca|crl|cert);|\+ \$(ca|crl|cert)\b|array_merge\(\$(ca|crl|cert)\b/', $body),
 	    "{$fn}() copies fields one by one (never the stored entry)");
 }
 check_api(strpos($fn_body($routes_pki, 'restapi_pki_ca_out'), "restapi_pki_mask_key(\$fields)") !== false, 'the CA edit form is returned with the key masked');
@@ -1863,6 +1874,163 @@ check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "
 foreach (array('pki_key_lengths', 'pki_key_types', 'pki_descr_is_invalid', 'pki_dn_validate', 'pki_dn_from_form', 'pki_openssl_errors', 'pki_package_usage') as $fn) {
 	check_api(strpos($pki_inc, "function {$fn}(") !== false, "the shared certificate manager helper {$fn}() exists");
 }
+
+/* Certificate manager: certificates */
+$smoke_cert_pem = "-----BEGIN CERTIFICATE-----\nMIIB+TCCAZ+gAwIBAgICWhcwCgYIKoZIzj0EAwIwLDEWMBQGA1UEAwwNc21va2Uu\nZXhhbXBsZTESMBAGA1UECgwJRnJlZVNlbnNlMB4XDTI2MTAwNjA1MDQzOFoXDTM2\n" .
+    "MTAwMzA1MDQzOFowLDEWMBQGA1UEAwwNc21va2UuZXhhbXBsZTESMBAGA1UECgwJ\nRnJlZVNlbnNlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE32D5ANNjYI1nIuww\n" .
+    "yirxCfSKGehbse6V+ghZJpYLnooiAXXV69GG8e1sxtxxtz2KLnClfvSBEMLQQ3jq\nl3eQtaOBsDCBrTAdBgNVHQ4EFgQUsCIH5FWff+AtundzDf3YO8fRdjUwHwYDVR0j\n" .
+    "BBgwFoAUsCIH5FWff+AtundzDf3YO8fRdjUwDwYDVR0TAQH/BAUwAwEB/zBaBgNV\nHREEUzBRgg1zbW9rZS5leGFtcGxlhwTAAAIHhxAgAQ24AAAAAAAAAAAAAAAHgQ9v\n" .
+    "cHNAZXhhbXBsZS5vcmeGF2h0dHBzOi8vc21va2UuZXhhbXBsZS94MAoGCCqGSM49\nBAMCA0gAMEUCIFZvcc7w9Dhed06c4YJ02ZCso4AbFCRYKTwOEL1Hjr+kAiEAwsQZ\n" .
+    "H35T5T/mWzRpQ3LjVhs4B5tf4foqWUk4JYMw9w4=\n-----END CERTIFICATE-----\n";
+$smoke_csr_pem = "-----BEGIN CERTIFICATE REQUEST-----\nMIHkMIGMAgEAMCoxFDASBgNVBAMMC2Nzci5leGFtcGxlMRIwEAYDVQQKDAlGcmVl\n" .
+    "U2Vuc2UwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATfYPkA02NgjWci7DDKKvEJ\n9IoZ6Fux7pX6CFkmlgueiiIBddXr0Ybx7WzG3HG3PYoucKV+9IEQwtBDeOqXd5C1\n" .
+    "oAAwCgYIKoZIzj0EAwIDRwAwRAIgEOPSB4Oaq5dVyvt+6YPN7QE2iYJKhrfb3cdx\n5u+kn00CIDOkn02LwVdS5pvYVt5kNaLVkHq4UEFsVLOfu6UH5zz7\n-----END CERTIFICATE REQUEST-----\n";
+$smoke_key_pem = base64_decode($fake_prv);
+
+/* Returned certificates and requests hold only their PEM blocks (never a key pasted with them). */
+$bundle = "junk before\n{$smoke_cert_pem}{$smoke_key_pem}-----BEGIN EC PRIVATE KEY-----\nAAAA\n-----END EC PRIVATE KEY-----\n{$smoke_ca_pem}";
+$only = restapi_pki_pem_only($bundle, restapi_pki_cert_labels());
+check_api($only === rtrim($smoke_cert_pem, "\n") . "\n" . $smoke_ca_pem && strpos($only, 'PRIVATE') === false,
+    'a stored certificate text is returned as its certificate blocks only (a pasted private key is left out)');
+check_api(restapi_pki_pem_only($smoke_cert_pem . $smoke_csr_pem, restapi_pki_csr_labels()) === $smoke_csr_pem &&
+    restapi_pki_pem_only(str_replace('CERTIFICATE REQUEST', 'NEW CERTIFICATE REQUEST', $smoke_csr_pem), restapi_pki_csr_labels()) ===
+    str_replace('CERTIFICATE REQUEST', 'NEW CERTIFICATE REQUEST', $smoke_csr_pem), 'signing requests (also "NEW CERTIFICATE REQUEST") are returned as requests only');
+check_api(restapi_pki_pem_only('', restapi_pki_cert_labels()) === '' && restapi_pki_pem_only(null, restapi_pki_cert_labels()) === '' &&
+    restapi_pki_pem_only($smoke_key_pem, restapi_pki_cert_labels()) === '' &&
+    restapi_pki_pem_only("-----BEGIN CERTIFICATE-----\nAA\n-----BEGIN PRIVATE KEY-----\nBB\n-----END CERTIFICATE-----\n", restapi_pki_cert_labels()) === '',
+    'a key alone, or a key inside a certificate block, is never returned');
+
+$sd = openssl_x509_parse($smoke_cert_pem);
+$sans = restapi_pki_san_list(explode(',', $sd['extensions']['subjectAltName']));
+check_api($sans === array(array('type' => 'DNS', 'value' => 'smoke.example'), array('type' => 'IP', 'value' => '192.0.2.7'),
+    array('type' => 'IP', 'value' => '2001:DB8:0:0:0:0:0:7'), array('type' => 'email', 'value' => 'ops@example.org'),
+    array('type' => 'URI', 'value' => 'https://smoke.example/x')), 'SANs as {type, value} with the page\'s types (DNS, IP, email, URI)');
+check_api(restapi_pki_san_list(array('', 'nocolon', ' othername:x')) === array(array('type' => 'othername', 'value' => 'x')), 'unknown SAN types are kept, junk skipped');
+check_api(restapi_pki_cert_details($smoke_cert_pem)['serial'] === '23063' && restapi_pki_cert_details($smoke_cert_pem)['subject'] === 'CN=smoke.example, O=FreeSense',
+    'certificate details of a certificate');
+check_api(restapi_pki_csr_subject($smoke_csr_pem) === 'CN=csr.example, O=FreeSense' && restapi_pki_csr_subject('junk') === '' && restapi_pki_csr_subject(null) === '',
+    'the subject of a signing request');
+
+check_api(restapi_pki_altname_post(array(array('type' => 'DNS', 'value' => 'a.example'), array('type' => 'IP', 'value' => '192.0.2.1'))) ===
+    array('altname_type0' => 'DNS', 'altname_value0' => 'a.example', 'altname_type1' => 'IP', 'altname_value1' => '192.0.2.1') &&
+    restapi_pki_altname_post(array()) === array(), 'altnames become the page\'s rows (altname_type0/altname_value0, ...)');
+foreach (array('x', array('a' => array('type' => 'DNS')), array('DNS:a'), array(array('type' => 'DNS', 'value' => 1)), array(array('type' => 'DNS', 'host' => 'a')),
+    array(array('DNS', 'a'))) as $badsan) {
+	check_api(api_error_status(function () use ($badsan) { restapi_pki_altname_post($badsan); }) === 400, 'malformed altnames are 400: ' . json_encode($badsan));
+}
+
+$cc = array('method' => array('internal' => 'i', 'import' => 'm', 'external' => 'e', 'sign' => 's'), 'type' => array('server' => 'S', 'user' => 'U'),
+    'caref' => array('ca1' => 'One'), 'catosignwith' => array('ca1' => 'One'), 'csrtosign' => array('new' => 'New', 'csr1' => 'Pending'),
+    'keytype' => array('RSA' => 'RSA', 'ECDSA' => 'ECDSA'), 'csr_keytype' => array('RSA' => 'RSA', 'ECDSA' => 'ECDSA'),
+    'keylen' => array('1024' => '1024', '2048' => '2048'), 'csr_keylen' => array('1024' => '1024', '2048' => '2048'),
+    'ecname' => array('secp384r1' => 'x', 'prime256v1' => 'y'), 'csr_ecname' => array('secp384r1' => 'x', 'prime256v1' => 'y'),
+    'digest_alg' => array('sha1' => 'sha1', 'sha256' => 'sha256'), 'csr_digest_alg' => array('sha1' => 'sha1', 'sha256' => 'sha256'),
+    'csrsign_digest_alg' => array('sha1' => 'sha1', 'sha256' => 'sha256'), 'dn_country' => array('' => 'None', 'US' => 'US'),
+    'csr_dn_country' => array('' => 'None', 'US' => 'US'), 'import_type' => array('x509' => 'X', 'pkcs12' => 'P'));
+$newdefaults = array('method' => null, 'keytype' => 'RSA', 'keylen' => '2048', 'ecname' => 'prime256v1', 'digest_alg' => 'sha256', 'csr_keytype' => 'RSA',
+    'csr_keylen' => '2048', 'csr_ecname' => 'prime256v1', 'csr_digest_alg' => 'sha256', 'csrsign_digest_alg' => 'sha256', 'type' => 'user', 'lifetime' => 3650);
+$certcur = restapi_pki_form_fields(restapi_pki_cert_new_form($newdefaults, 3650), restapi_pki_cert_create_types(), $cc);
+check_api($certcur['method'] === 'internal' && $certcur['type'] === 'user' && $certcur['caref'] === 'ca1' && $certcur['catosignwith'] === 'ca1' &&
+    $certcur['csrtosign'] === 'new' && $certcur['import_type'] === 'x509' && $certcur['keylen'] === '2048' && $certcur['ecname'] === 'prime256v1' &&
+    $certcur['csrsign_digest_alg'] === 'sha256' && $certcur['lifetime'] === '3650' && $certcur['csrsign_lifetime'] === '3650' && $certcur['dn_country'] === '' &&
+    $certcur['autorenew'] === false && $certcur['key'] === '' && $certcur['descr'] === '',
+    'a new certificate starts as the page\'s new form (internal, user, first CA, a new pasted request to sign, X.509 import)');
+list($cp, $cp12) = restapi_pki_cert_create_post(array('descr' => 'API cert', 'dn_commonname' => 'www.example', 'type' => 'server', 'autorenew' => true,
+    'altnames' => array(array('type' => 'DNS', 'value' => 'www.example'), array('type' => 'IP', 'value' => '192.0.2.10'))), $certcur);
+check_api($cp['descr'] === 'API cert' && $cp['type'] === 'server' && $cp['autorenew'] === 'yes' && !isset($cp['pkcs12_intermediate']) &&
+    $cp['altname_value1'] === '192.0.2.10' && $cp['altname_type0'] === 'DNS' && $cp['act'] === 'new' && $cp['save'] === 'Save' && $cp['method'] === 'internal' &&
+    $cp['keylen'] === '2048' && $cp12 === null && !isset($cp['altnames']) && !isset($cp['pkcs12']), 'a certificate post: fields over the new form, SAN rows, ticked boxes "yes"');
+list($ip, $ip12) = restapi_pki_cert_create_post(array('method' => 'import', 'import_type' => 'pkcs12', 'pkcs12' => base64_encode("\x30\x82binary"),
+    'pkcs12_pass' => 'pw', 'pkcs12_intermediate' => true), $certcur);
+check_api($ip12 === "\x30\x82binary" && $ip['pkcs12_intermediate'] === 'yes' && $ip['pkcs12_pass'] === 'pw' && !isset($ip['pkcs12']),
+    'a PKCS #12 import: the file is decoded and passed apart from the post');
+list(, $none12) = restapi_pki_cert_create_post(array('pkcs12' => ''), $certcur);
+check_api($none12 === null, 'an empty PKCS #12 field is no file');
+check_api(api_error_status(function () use ($certcur) { restapi_pki_cert_create_post(array('pkcs12' => '%%%not base64'), $certcur); }) === 400 &&
+    api_error_status(function () use ($certcur) { restapi_pki_cert_create_post(array('pkcs12' => array()), $certcur); }) === 400 &&
+    api_error_status(function () use ($certcur) { restapi_pki_cert_create_post(array('bogus' => 'x'), $certcur); }) === 400 &&
+    api_error_status(function () use ($certcur) { restapi_pki_cert_create_post(array('autorenew' => 'yes'), $certcur); }) === 400 &&
+    api_error_status(function () use ($certcur) { restapi_pki_cert_create_post(array('prv' => 'x'), $certcur); }) === 400 &&
+    api_error_status(function () use ($certcur) { restapi_pki_cert_create_post(array('altnames' => 'DNS:a'), $certcur); }) === 400,
+    'malformed certificate posts are 400 (bad PKCS #12 data, unknown fields, non-boolean checkboxes, altnames not a list)');
+check_api(!isset(restapi_pki_cert_create_types()['pkcs12']) && !isset(restapi_pki_cert_create_types()['altnames']) &&
+    array_keys(restapi_pki_cert_edit_types()) === array('autorenew', 'descr', 'cert', 'key'),
+    'certificate forms: new (PKCS #12 and SANs converted apart), edit (name, auto renewal, certificate, key)');
+$certedit = restapi_pki_form_fields(array('descr' => 'C', 'autorenew' => true, 'cert' => $smoke_cert_pem, 'key' => $smoke_key_pem), restapi_pki_cert_edit_types(), array());
+check_api(restapi_pki_mask_key($certedit)['key'] === '(set)' && $certedit['autorenew'] === true &&
+    strpos(json_encode(restapi_pki_mask_key($certedit)), 'PRIVATE KEY') === false, 'the certificate edit form reads its key as "(set)"');
+
+$routes_pki = file_get_contents("{$root}/src/etc/inc/restapi/routes_pki.inc");
+$cert_out = $fn_body($routes_pki, 'restapi_pki_cert_out');
+check_api(strpos($cert_out, 'restapi_pki_mask_key($fields)') !== false && strpos($cert_out, "restapi_pki_pem_only(\$crt, restapi_pki_cert_labels())") !== false &&
+    strpos($cert_out, "restapi_pki_pem_only(\$csr, restapi_pki_csr_labels())") !== false &&
+    strpos($cert_out, "\$fields['cert'] = restapi_pki_pem_only(\$fields['cert'], restapi_pki_cert_labels());") !== false,
+    'a certificate is returned with its key masked and its certificate and request fields as PEM blocks only');
+check_api(strpos($fn_body($routes_pki, 'restapi_h_pki_cert_pem'), 'restapi_pki_pem_only(') !== false && strpos($fn_body($routes_pki, 'restapi_h_pki_cert_csr'), 'restapi_pki_pem_only(') !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_ca_pem'), 'restapi_pki_pem_only(') !== false && strpos($fn_body($routes_pki, 'restapi_pki_ca_out'), "restapi_pki_pem_only(\$pem") !== false,
+    'certificate, request and CA downloads hold PEM blocks only');
+check_api(strpos($fn_body($routes_pki, 'restapi_h_pki_cert_update'), "restapi_vpn_secret_body(\$req['body'], 'key')") !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_cert_update'), "new RestApiError(409, 'csr_pending'") !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_cert_update'), "pki_cert_save(\$post, \$refid, 'edit')") !== false,
+    'a certificate PUT is the edit form (key kept for "(set)"); a pending request is 409');
+check_api(strpos($fn_body($routes_pki, 'restapi_h_pki_cert_complete'), 'pki_cert_csr_complete($post, $item)') !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_cert_complete'), "new RestApiError(409, 'not_pending'") !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_cert_delete'), "new RestApiError(409, 'in_use'") !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_cert_create'), "pki_cert_save(\$post, null, 'new', null, \$pkcs12)") !== false,
+    'certificate writes go through the page\'s functions; deleting one in use is 409');
+check_api(strpos($fn_body($routes_pki, 'restapi_h_pki_cert_create'), 'userid') === false && !isset(restapi_pki_cert_create_types()['userid']) &&
+    !isset(restapi_pki_cert_create_types()['certref']), 'certificate routes do not change users (user certificates belong to the user routes)');
+
+$pki_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_certificates.inc");
+$certpage = file_get_contents("{$root}/src/usr/local/www/system_certmanager.php");
+foreach (array('pki_cert_methods($userid ?? null, $act)', 'pki_cert_types()', 'pki_cert_default_lifetime()', 'pki_cert_delete($id)',
+    "pki_cert_new_form(\$_POST['method'])", "pki_cert_form('edit', \$thiscert)", "pki_cert_form('csr', \$thiscert)",
+    'pki_cert_save($pconfig, $id ?? null, $act, $userid ?? null, $pkcs12_file, $savemsg, $unset_act)',
+    'pki_cert_csr_complete($pconfig, $cert_item_config, $savemsg)', 'pki_cert_csr_list()', 'pki_cert_existing_list($userid ?? null)',
+    'pki_ca_signing_list()', 'pki_key_lengths()', 'pki_key_types()', 'require_once("system_certificates.inc");') as $call) {
+	check_api(strpos($certpage, $call) !== false, "system_certmanager.php uses {$call}");
+}
+check_api(strpos($certpage, 'write_config(') === false && strpos($certpage, 'config_set_path(') === false && strpos($certpage, 'config_del_path(') === false &&
+    !preg_match('/(?<![a-z_])(cert_create|csr_generate|csr_sign|cert_import|ca_import|csr_complete)\(/', $certpage),
+    'system_certmanager.php changes the configuration only through system_certificates.inc');
+preg_match_all('/^function (\w+)\(/m', $certpage, $m);
+check_api($m[1] === array() && strpos($certpage, 'function list_cas(') === false && strpos($certpage, 'function list_csrs(') === false,
+    'system_certmanager.php defines no PHP functions (list_cas() and list_csrs() are pki_ca_signing_list() and pki_cert_csr_list())');
+check_api(strpos($certpage, '$internal_ca_count = count(pki_ca_signing_list());') !== false && strpos($certpage, '<?php if ($internal_ca_count): ?>') === false,
+    'the "no internal CA" note counts CAs with a key (it counted certificates), and the form script is always loaded');
+check_api(strpos($certpage, "case 'key':") !== false && strpos($certpage, 'cert_pkcs12_export(') !== false,
+    'the page keeps its own private key and PKCS #12 exports');
+foreach (array('pki_cert_save', 'pki_cert_delete', 'pki_cert_csr_complete', 'pki_cert_new_form', 'pki_cert_form', 'pki_cert_existing_list', 'pki_cert_used_by') as $fn) {
+	$body = $fn_body($pki_inc, $fn);
+	check_api(strpos($pki_inc, "function {$fn}(") !== false && strpos($body, '$_POST') === false && strpos($body, '$_REQUEST') === false &&
+	    strpos($body, '$_FILES') === false && strpos($body, '$_SESSION') === false, "{$fn}() reads the form passed in");
+}
+$cert_save = $fn_body($pki_inc, 'pki_cert_save');
+check_api(strpos($cert_save, 'pki_cert_methods($userid, $act)') !== false && strpos($cert_save, 'Please select a valid Method.') !== false,
+    'certificate save: the method must be one of the page\'s choices (an unknown one stored an empty certificate)');
+check_api(strpos($cert_save, "array_key_exists((string)\$post['type'], pki_cert_types())") !== false && strpos($cert_save, 'Please select a valid Certificate Type.') !== false,
+    'certificate save: the type must be server or user (any other value created a CA or a self-signed certificate)');
+check_api(strpos($cert_save, "array_key_exists((string)\$post['caref'], pki_ca_signing_list())") !== false &&
+    strpos($cert_save, "array_key_exists((string)\$post['catosignwith'], pki_ca_signing_list())") !== false &&
+    strpos($cert_save, "array_key_exists((string)\$post['csrtosign'], pki_cert_csr_list())") !== false,
+    'certificate save: the CA and the request to sign must be the page\'s choices (an unknown CA appended an empty CA)');
+check_api(strpos($cert_save, "if (\$post['csrsign_lifetime'] > \$max_lifetime) {") !== false && strpos($cert_save, "\$_POST['lifetime']") === false,
+    'signing checks the signed certificate\'s lifetime (it checked the internal certificate\'s field)');
+check_api(strpos($cert_save, 'The certificate signing request could not be signed.') !== false,
+    'a request that cannot be signed is refused (the CA\'s next serial was written without a certificate)');
+check_api(strpos($cert_save, "isset(\$cert) && !empty(\$cert['refid'])") !== false && strpos($cert_save, 'The user to add the certificate to does not exist.') !== false,
+    'a certificate is added to an existing user only (an unknown user position created a user without a name)');
+check_api(strpos($cert_save, 'pki_dn_validate($post, $input_errors);') !== false && strpos($cert_save, "pki_dn_from_form(\$pconfig, 'csr_dn_')") !== false &&
+    strpos($cert_save, "do_input_validation(\$post, \$reqdfields, \$reqdfieldsn, \$input_errors);") !== false,
+    'certificate save uses the shared subject helpers and the page\'s required fields');
+$csr_complete = $fn_body($pki_inc, 'pki_cert_csr_complete');
+check_api(strpos($csr_complete, "cert_get_publickey(base64_decode(\$thiscert['csr']), false, 'csr')") !== false &&
+    strpos($csr_complete, "cert_get_publickey(\$pconfig['csr']") === false && strpos($csr_complete, 'This certificate has no pending signing request.') !== false,
+    'completing a request compares the certificate with the stored request (the posted copy was compared)');
+check_api(strpos($fn_body($pki_inc, 'pki_cert_delete'), 'if (cert_in_use($id)) {') !== false, 'deleting a certificate in use is refused like the page');
+check_api(strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'is_webgui_cert($refid)') !== false && strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'is_user_cert($refid)') !== false &&
+    strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'is_kea_cert(') !== false && strpos($fn_body($pki_inc, 'pki_cert_used_by'), 'pki_packages_using(') !== false,
+    'used_by lists what the page\'s In Use column lists');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
