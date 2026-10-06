@@ -63,13 +63,10 @@ if ($dirty) {
 
 $pgtitle = array(gettext("Services"), gettext("Dynamic DNS"), gettext("Check IP Services"));
 $pglinks = array("", "services_dyndns.php", "@self");
+fs_page_action(gettext('Add service'), 'services_checkip_edit.php', 'fa-plus');
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("Dynamic DNS Clients"), false, "services_dyndns.php");
-$tab_array[] = array(gettext("RFC 2136 Clients"), false, "services_rfc2136.php");
-$tab_array[] = array(gettext("Check IP Services"), true, "services_checkip.php");
-display_top_tabs($tab_array);
+fs_tabs('services-dyndns', 'services_checkip.php');
 
 if ($input_errors) {
 	print_input_errors($input_errors);
@@ -77,18 +74,23 @@ if ($input_errors) {
 ?>
 
 <form action="services_checkip.php" method="post" name="iform" id="iform">
-	<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Check IP Services')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Check IP Services'),
+	'search' => gettext('Search check IP services…'),
+	'noun' => gettext('check IP services'),
+	'noun_one' => gettext('check IP service'),
+]); ?>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-sm">
+				<table class="table table-hover table-rowdblclickedit">
 					<thead>
 						<tr>
-							<th><?=gettext("Name")?></th>
-							<th><?=gettext("URL")?></th>
-							<th><?=gettext("Verify SSL/TLS Peer")?></th>
-							<th><?=gettext("Description")?></th>
-							<th><?=gettext("Actions")?></th>
+							<th data-fs-search><?=gettext("Name")?></th>
+							<th data-fs-search><?=gettext("URL")?></th>
+							<th data-fs-search><?=gettext("Verify SSL/TLS Peer")?></th>
+							<th data-fs-search><?=gettext("Description")?></th>
+							<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -121,22 +123,24 @@ foreach ($a_checkipservice as $checkipservice):
 							<?=htmlspecialchars($checkipservice['url'])?>
 						</td>
 						<td class="text-center">
-							<i<?=(isset($checkipservice['verifysslpeer'])) ? ' class="fa-solid fa-check"' : '';?>></i>
+							<?=isset($checkipservice['verifysslpeer']) ? fs_badge('pass', gettext('Yes')) : fs_badge('neutral', gettext('No'))?>
 						</td>
 						<td>
 							<?=htmlspecialchars($checkipservice['descr'])?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil <?=$visibility?>" title="<?=gettext('Edit service')?>" href="services_checkip_edit.php?id=<?=$i?>"></a>
-						<?php if (isset($checkipservice['enable'])) {
-						?>
-							<a	class="fa-solid fa-ban" title="<?=gettext('Disable service')?>" href="?act=toggle&amp;id=<?=$i?>" usepost></a>
-						<?php } else {
-						?>
-							<a class="fa-regular fa-square-check" title="<?=gettext('Enable service')?>" href="?act=toggle&amp;id=<?=$i?>" usepost></a>
-						<?php }
-						?>
-							<a class="fa-solid fa-trash-can <?=$visibility?>" title="<?=gettext('Delete service')?>" href="services_checkip.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+<?php
+	/* the factory default service (last entry) can only be toggled */
+	$cip_actions = [];
+	if ($i != $factory_default) {
+		$cip_actions[] = ['edit', "services_checkip_edit.php?id={$i}", $checkipservice['name']];
+	}
+	$cip_actions[] = ['toggle', "?act=toggle&id={$i}", $checkipservice['name'], ['enabled' => isset($checkipservice['enable'])]];
+	if ($i != $factory_default) {
+		$cip_actions[] = ['delete', "services_checkip.php?act=del&id={$i}", $checkipservice['name'], ['thing' => gettext('check IP service')]];
+	}
+?>
+							<?=fs_row_actions($cip_actions)?>
 						</td>
 					</tr>
 <?php
@@ -150,12 +154,6 @@ endforeach; ?>
 	</div>
 </form>
 
-<nav class="action-buttons">
-	<a href="services_checkip_edit.php" class="btn btn-sm btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box(gettext('The server must return the client IP address ' .

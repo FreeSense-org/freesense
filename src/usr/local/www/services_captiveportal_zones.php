@@ -55,6 +55,7 @@ if ($_POST['act'] == "del" && !empty($_POST['zone'])) {
 
 $pgtitle = array(gettext("Services"), gettext("Captive Portal"));
 $shortcut_section = "captiveportal";
+fs_page_action(gettext('Add zone'), 'services_captiveportal_zones_edit.php', 'fa-plus');
 include("head.inc");
 
 if (is_subsystem_dirty('captiveportal')) {
@@ -62,17 +63,22 @@ if (is_subsystem_dirty('captiveportal')) {
 }
 ?>
 <form action="services_captiveportal_zones.php" method="post">
-	<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Captive Portal Zones')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Captive Portal Zones'),
+	'search' => gettext('Search zones…'),
+	'noun' => gettext('zones'),
+	'noun_one' => gettext('zone'),
+]); ?>
 		<div class="panel-body table-responsive">
-			<table class="table table-striped table-hover table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+			<table class="table table-hover table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
-						<th><?=gettext('Zone')?></th>
-						<th><?=gettext('Interfaces')?></th>
-						<th><?=gettext('Number of users'); ?></th>
-						<th><?=gettext('Description'); ?></th>
-						<th data-sortable="false"><?=gettext('Actions'); ?></th>
+						<th data-fs-search><?=gettext('Zone')?></th>
+						<th data-fs-search><?=gettext('Interfaces')?></th>
+						<th data-fs-search><?=gettext('Number of users'); ?></th>
+						<th data-fs-search><?=gettext('Description'); ?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -95,25 +101,25 @@ if (is_subsystem_dirty('captiveportal')) {
 						</td>
 						<td><?=count(captiveportal_read_db());?></td>
 						<td><?=htmlspecialchars($cpitem['descr']);?>&nbsp;</td>
-						<td>
-							<a class="fa-solid fa-pencil" title="<?=gettext("Edit zone"); ?>" href="services_captiveportal.php?zone=<?=$cpzone?>"></a>
-							<a class="fa-solid fa-trash-can"  title="<?=gettext("Delete zone")?>" href="services_captiveportal_zones.php?act=del&amp;zone=<?=$cpzone;?>" usepost></a>
+						<td class="fs-col-actions">
+<?=fs_row_actions([
+								['edit', "services_captiveportal.php?zone=" . urlencode($cpzone), $cpzone],
+								['delete', "services_captiveportal_zones.php?act=del&zone=" . urlencode($cpzone), $cpzone, ['thing' => gettext('zone'),
+								    'detail' => gettext('Its users are disconnected and its settings are removed.')]],
+							])?>
 						</td>
 					</tr>
 <?php
 	endforeach;
 ?>
+<?php if (empty(config_get_path('captiveportal', []))) {
+	fs_empty_row(5, gettext('No captive portal zones yet.'), 'services_captiveportal_zones_edit.php', gettext('Add zone'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </form>
 
-<nav class="action-buttons">
-	<a href="services_captiveportal_zones_edit.php" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
 <?php include("foot.inc"); ?>

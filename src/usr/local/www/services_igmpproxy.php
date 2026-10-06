@@ -63,6 +63,7 @@ if ($_POST['act'] == "del") {
 }
 
 $pgtitle = array(gettext("Services"), gettext("IGMP Proxy"));
+fs_page_action(gettext('Add IGMP entry'), 'services_igmpproxy_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($input_errors) {
@@ -105,18 +106,23 @@ print($form);
 
 ?>
 <form action="services_igmpproxy.php" method="post">
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('IGMP Proxy')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Upstream and downstream interfaces'),
+	'search' => gettext('Search IGMP entries…'),
+	'noun' => gettext('IGMP entries'),
+	'noun_one' => gettext('IGMP entry'),
+]); ?>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+				<table class="table table-hover table-rowdblclickedit">
 					<thead>
 						<tr>
-							<th><?=gettext("Name")?></th>
-							<th><?=gettext("Type")?></th>
-							<th><?=gettext("Values")?></th>
-							<th><?=gettext("Description")?></th>
-							<th><?=gettext("Actions")?></th>
+							<th data-fs-search><?=gettext("Name")?></th>
+							<th data-fs-search><?=gettext("Type")?></th>
+							<th data-fs-search><?=gettext("Values")?></th>
+							<th data-fs-search><?=gettext("Description")?></th>
+							<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -146,15 +152,20 @@ foreach (config_get_path('igmpproxy/igmpentry', []) as $igmpentry):
 							<td>
 								<?=htmlspecialchars($igmpentry['descr'])?>&nbsp;
 							</td>
-							<td>
-								<a class="fa-solid fa-pencil"	title="<?=gettext('Edit IGMP entry')?>" href="services_igmpproxy_edit.php?id=<?=$i?>"></a>
-								<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete IGMP entry')?>" href="services_igmpproxy.php?act=del&amp;id=<?=$i?>" usepost></a>
+							<td class="fs-col-actions">
+<?=fs_row_actions([
+									['edit', "services_igmpproxy_edit.php?id={$i}", convert_friendly_interface_to_friendly_descr($igmpentry['ifname'])],
+									['delete', "services_igmpproxy.php?act=del&id={$i}", convert_friendly_interface_to_friendly_descr($igmpentry['ifname']), ['thing' => gettext('IGMP entry')]],
+								])?>
 							</td>
 						</tr>
 <?php
 	$i++;
 endforeach;
 ?>
+<?php if ($i == 0) {
+	fs_empty_row(5, gettext('No IGMP entries yet.'), 'services_igmpproxy_edit.php', gettext('Add IGMP entry'));
+} ?>
 					</tbody>
 				</table>
 			</div>
@@ -162,12 +173,6 @@ endforeach;
 	</div>
 </form>
 
-<nav class="action-buttons">
-	<a href="services_igmpproxy_edit.php" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
 <div class="infoblock">
 <?php print_info_box(gettext('Please add the interface for upstream, the allowed subnets, and the downstream interfaces for the proxy to allow. ' .
