@@ -888,13 +888,13 @@ ul.tree .tree-caret {
 	cursor: pointer;
 }
 ul.tree .tree-caret::before {
-	font-family: "Font Awesome 6 Free";
+	font-family: "Font Awesome 7 Free";
 	font-weight: 900;
-	content: "0d7";
+	content: "\f0d7";
 	font-size: .72rem;
 	line-height: 1;
 }
-ul.tree li.closed > .tree-caret::before { content: "0da"; }
+ul.tree li.closed > .tree-caret::before { content: "\f0da"; }
 ul.tree .tree-leaf {
 	position: absolute;
 	left: .58rem;
