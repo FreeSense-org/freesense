@@ -193,6 +193,7 @@ $section->addInput(new Form_Button(
 
 $form->add($section);
 
+fs_form_cancel($form, 'services_igmpproxy.php');
 print($form);
 
 include("foot.inc");

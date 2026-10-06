@@ -141,6 +141,7 @@ if ($this_gif_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_gif.php');
 print($form);
 
 include("foot.inc");

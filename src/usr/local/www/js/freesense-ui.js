@@ -746,6 +746,340 @@
 		}
 	});
 
+	/* --------------------------------------------------------------- entry grid */
+
+	/*
+	 * Repeatable Form groups (.form-group.repeatable, FreeSenseHelpers.js add_row /
+	 * delete_row) shown as a grid (docs/webui/03-components.md "Entry grid"):
+	 * one header row built from the column help titles (or placeholders), per-row
+	 * help hidden and its explanations shown once under the grid, an icon-only
+	 * delete button and the Add button directly under the rows. The rows, field
+	 * names and the add/delete code are unchanged.
+	 */
+	/*
+	 * Split a column's help at its first <br>: the text before it is the column
+	 * title, the nodes after it (cloned, links kept) are the explanation.
+	 */
+	function splitHelp(help) {
+		var title = '';
+		var rest = null;
+		Array.prototype.forEach.call(help.childNodes, function (node) {
+			if (rest) {
+				rest.appendChild(node.cloneNode(true));
+			} else if (node.nodeName === 'BR') {
+				rest = document.createDocumentFragment();
+			} else {
+				title += node.textContent;
+			}
+		});
+		return {title: title.replace(/\s+/g, ' ').trim(), rest: rest};
+	}
+
+	function cellTitle(cell) {
+		var help = cell.querySelector('.help-block');
+		if (help) {
+			var first = splitHelp(help).title;
+			if (first && first.length <= 40) {
+				return first;
+			}
+		}
+		var field = cell.querySelector('input:not([type=hidden]):not([type=checkbox]), select, textarea');
+		return (field && field.getAttribute('placeholder')) ? field.getAttribute('placeholder') : '';
+	}
+
+	/* {title, nodes} for the note under the grid, or null */
+	function cellNote(cell) {
+		var help = cell.querySelector('.help-block');
+		if (!help) {
+			return null;
+		}
+		var parts = splitHelp(help);
+		if (parts.rest && parts.title.length <= 40) {
+			return parts.rest.textContent.trim() ? {title: parts.title, nodes: parts.rest} : null;
+		}
+		if (parts.title.length > 40) {
+			var all = document.createDocumentFragment();
+			Array.prototype.forEach.call(help.childNodes, function (node) {
+				all.appendChild(node.cloneNode(true));
+			});
+			return {title: '', nodes: all};
+		}
+		return null;
+	}
+
+	function cellHidden(cell) {
+		return cell.classList.contains('hidden') || window.getComputedStyle(cell).display === 'none';
+	}
+
+	function initEntryGrid() {
+		var rows = document.querySelectorAll('.form-group.repeatable');
+		if (!rows.length) {
+			return;
+		}
+		var first = rows[0];
+		var last = rows[rows.length - 1];
+		var label = first.querySelector(':scope > label');
+		var cells = Array.prototype.filter.call(first.children, function (c) {
+			return c.tagName === 'DIV';
+		});
+		/* help titles live on the last row (or on every row with retainhelp) */
+		var lastCells = Array.prototype.filter.call(last.children, function (c) {
+			return c.tagName === 'DIV';
+		});
+
+		var head = document.createElement('div');
+		head.className = 'form-group fs-entrygrid-head';
+		head.setAttribute('aria-hidden', 'true');
+		var headLabel = document.createElement('div');
+		/* the row label stays on the first row: pages rewrite it (firewall_aliases_edit.php) */
+		headLabel.className = label ? label.className.replace('control-label', '').trim() : 'col-sm-2';
+		head.appendChild(headLabel);
+		var any = false;
+		var notes = [];
+		var fromPlaceholder = [];
+		cells.forEach(function (cell, i) {
+			var h = document.createElement('div');
+			h.className = cell.className;
+			h.classList.toggle('hidden', cellHidden(cell));
+			var src = lastCells[i] || cell;
+			if (!cell.querySelector('[id^=deleterow]')) {
+				h.textContent = cellTitle(src) || cellTitle(cell);
+				fromPlaceholder[i] = !src.querySelector('.help-block');
+				any = any || (h.textContent !== '');
+				var note = cellNote(src);
+				if (note) {
+					notes.push(note);
+				}
+			}
+			head.appendChild(h);
+		});
+		if (!any) {
+			return;
+		}
+		first.parentNode.insertBefore(head, first);
+		rows.forEach(function (r) {
+			r.classList.add('fs-entrygrid-row');
+		});
+
+		/* column visibility and placeholder titles follow the page (alias type, IPsec PRF) */
+		function syncHead() {
+			var row = document.querySelector('.form-group.repeatable');
+			if (!row) {
+				return;
+			}
+			var now = Array.prototype.filter.call(row.children, function (c) {
+				return c.tagName === 'DIV';
+			});
+			now.forEach(function (cell, i) {
+				var h = head.children[i + 1];
+				if (!h) {
+					return;
+				}
+				h.classList.toggle('hidden', cellHidden(cell));
+				if (fromPlaceholder[i]) {
+					h.textContent = cellTitle(cell);
+				}
+			});
+		}
+		var form = first.closest('form');
+		if (form) {
+			form.addEventListener('change', function () {
+				setTimeout(syncHead, 0);
+			});
+			form.addEventListener('click', function () {
+				setTimeout(syncHead, 0);
+			});
+		}
+		/* pages adjust their rows in their own ready handlers */
+		window.addEventListener('load', function () {
+			setTimeout(syncHead, 0);
+		});
+
+		/* addrow, or a page's own name for it (vpn_ipsec_phase1.php: algoaddrow) */
+		var section = first.closest('.panel') || document;
+		var add = section.querySelector('button[id$=addrow]') || document.querySelector('[id^=addrow]');
+		var anchor = last;
+		if (add) {
+			var addGroup = add.closest('.form-group');
+			if (!addGroup || addGroup.classList.contains('repeatable') || addGroup.parentNode !== last.parentNode) {
+				addGroup = document.createElement('div');
+				addGroup.className = 'form-group';
+				var spacer = document.createElement('div');
+				spacer.className = headLabel.className;
+				var col = document.createElement('div');
+				col.className = 'col-sm-10';
+				addGroup.appendChild(spacer);
+				addGroup.appendChild(col);
+				col.appendChild(add);
+				last.parentNode.insertBefore(addGroup, last.nextSibling);
+			} else {
+				var addLabel = addGroup.querySelector(':scope > label');
+				if (addLabel) {
+					addLabel.textContent = '';
+				}
+				if (addGroup.previousElementSibling !== last) {
+					last.parentNode.insertBefore(addGroup, last.nextSibling);
+				}
+			}
+			/* restyled in CSS: pages find the button by .btn-success / .addbtn */
+			addGroup.classList.add('fs-entrygrid-add');
+			anchor = addGroup;
+		}
+
+		if (notes.length) {
+			var noteGroup = document.createElement('div');
+			noteGroup.className = 'form-group fs-entrygrid-notes';
+			var nSpacer = document.createElement('div');
+			nSpacer.className = headLabel.className;
+			var nCol = document.createElement('div');
+			nCol.className = 'col-sm-10';
+			notes.forEach(function (n) {
+				var p = document.createElement('p');
+				if (n.title) {
+					var strong = document.createElement('strong');
+					strong.textContent = n.title + ':';
+					p.appendChild(strong);
+					p.appendChild(document.createTextNode(' '));
+				}
+				p.appendChild(n.nodes);
+				nCol.appendChild(p);
+			});
+			noteGroup.appendChild(nSpacer);
+			noteGroup.appendChild(nCol);
+			anchor.parentNode.insertBefore(noteGroup, anchor.nextSibling);
+		}
+	}
+
+	/* ---------------------------------------------------------- searchable checklist */
+
+	/*
+	 * <select multiple data-fs-checklist> shown as a searchable checklist grouped by
+	 * the label prefix before " - " (privileges: "WebCfg - …", "REST API - …").
+	 * Ticking an item selects its option, so the form posts exactly as before.
+	 * Optional: data-fs-descs (JSON value → description), data-fs-warn (JSON list
+	 * of values flagged as administrator-level).
+	 */
+	function initChecklist(select) {
+		var descs = {};
+		var warn = [];
+		try {
+			descs = JSON.parse(select.getAttribute('data-fs-descs') || '{}');
+			warn = JSON.parse(select.getAttribute('data-fs-warn') || '[]');
+		} catch (e) {
+			descs = {};
+			warn = [];
+		}
+		var t = function (key, fallback) {
+			return select.getAttribute('data-fs-text-' + key) || fallback;
+		};
+
+		var root = document.createElement('div');
+		root.className = 'fs-checklist';
+		root.innerHTML =
+		    '<div class="fs-checklist-toolbar">' +
+		    '<div class="fs-checklist-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>' +
+		    '<input type="search" class="form-control form-control-sm" autocomplete="off"></div>' +
+		    '<label class="fs-checklist-only"><input type="checkbox" class="form-check-input"> <span></span></label>' +
+		    '<span class="fs-checklist-count" aria-live="polite"></span></div>' +
+		    '<div class="fs-checklist-list" role="group"></div>' +
+		    '<div class="fs-checklist-empty" hidden></div>';
+		var search = root.querySelector('input[type=search]');
+		var only = root.querySelector('.fs-checklist-only input');
+		var count = root.querySelector('.fs-checklist-count');
+		var list = root.querySelector('.fs-checklist-list');
+		var empty = root.querySelector('.fs-checklist-empty');
+		search.setAttribute('placeholder', t('search', 'Search…'));
+		search.setAttribute('aria-label', t('search', 'Search…'));
+		root.querySelector('.fs-checklist-only span').textContent = t('only', 'Selected only');
+		empty.textContent = t('empty', 'Nothing matches the search.');
+		list.setAttribute('aria-label', select.getAttribute('aria-label') || t('search', ''));
+
+		var groups = {};
+		var items = [];
+		Array.prototype.forEach.call(select.options, function (opt, i) {
+			var label = opt.text;
+			var cut = label.indexOf(' - ');
+			var group = (cut > 0) ? label.slice(0, cut) : '';
+			var name = (cut > 0) ? label.slice(cut + 3) : label;
+			if (!groups[group]) {
+				var g = document.createElement('div');
+				g.className = 'fs-checklist-group';
+				if (group) {
+					var h = document.createElement('div');
+					h.className = 'fs-checklist-group-title';
+					h.textContent = group;
+					g.appendChild(h);
+				}
+				list.appendChild(g);
+				groups[group] = g;
+			}
+			var id = (select.id || 'fs-checklist') + '-item-' + i;
+			var row = document.createElement('div');
+			row.className = 'fs-checklist-item form-check';
+			var box = document.createElement('input');
+			box.type = 'checkbox';
+			box.className = 'form-check-input';
+			box.id = id;
+			box.checked = opt.selected;
+			var lab = document.createElement('label');
+			lab.className = 'form-check-label';
+			lab.htmlFor = id;
+			var strong = document.createElement('span');
+			strong.className = 'fs-checklist-name';
+			strong.textContent = name;
+			lab.appendChild(strong);
+			if (warn.indexOf(opt.value) !== -1) {
+				var b = document.createElement('span');
+				b.className = 'fs-badge fs-badge--warn';
+				b.textContent = t('warn', 'Admin-level');
+				lab.appendChild(document.createTextNode(' '));
+				lab.appendChild(b);
+			}
+			if (descs[opt.value]) {
+				var d = document.createElement('span');
+				d.className = 'fs-checklist-desc';
+				d.textContent = descs[opt.value];
+				lab.appendChild(d);
+			}
+			box.addEventListener('change', function () {
+				opt.selected = box.checked;
+				update();
+			});
+			row.appendChild(box);
+			row.appendChild(lab);
+			groups[group].appendChild(row);
+			items.push({row: row, box: box, text: (label + ' ' + (descs[opt.value] || '')).toLowerCase()});
+		});
+
+		function update() {
+			var q = search.value.trim().toLowerCase();
+			var shown = 0;
+			var selected = 0;
+			items.forEach(function (it) {
+				var show = (!q || it.text.indexOf(q) !== -1) && (!only.checked || it.box.checked);
+				it.row.hidden = !show;
+				shown += show ? 1 : 0;
+				selected += it.box.checked ? 1 : 0;
+			});
+			Object.keys(groups).forEach(function (k) {
+				groups[k].hidden = !groups[k].querySelector('.fs-checklist-item:not([hidden])');
+			});
+			empty.hidden = (shown !== 0);
+			count.textContent = t('count', '%d selected').replace('%d', selected);
+		}
+		search.addEventListener('input', update);
+		search.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter') {
+				e.preventDefault();
+			}
+		});
+		only.addEventListener('change', update);
+
+		select.hidden = true;
+		select.parentNode.insertBefore(root, select.nextSibling);
+		update();
+	}
+
 	/* ---------------------------------------------------------------- utilities */
 
 	function copyText(btn) {
@@ -768,6 +1102,8 @@
 
 	function init() {
 		initNavigation();
+		initEntryGrid();
+		document.querySelectorAll('select[multiple][data-fs-checklist]').forEach(initChecklist);
 
 		// icon-only header links: give them an accessible name
 		document.querySelectorAll('.context-links a[title]:not([aria-label])').forEach(function (a) {

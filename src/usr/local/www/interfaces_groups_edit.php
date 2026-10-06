@@ -116,6 +116,7 @@ if ($this_ifgroup_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_groups.php');
 print $form;
 
 unset($interface_list);

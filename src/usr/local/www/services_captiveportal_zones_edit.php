@@ -104,6 +104,7 @@ $form->addGlobal(new Form_Button(
 	'fa-solid fa-floppy-disk'
 ))->addClass('btn-primary');
 
+fs_form_cancel($form, 'services_captiveportal_zones.php');
 print($form);
 
 include("foot.inc");

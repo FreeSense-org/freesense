@@ -40,7 +40,7 @@
 				</div>
 				<div class="modal-footer">
 					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><?=gettext('Cancel')?></button>
-					<button type="button" class="btn btn-danger" data-fs-confirm-ok data-default-label="<?=gettext('Confirm')?>"><?=gettext('Confirm')?></button>
+					<button type="button" class="btn btn-danger no-confirm" data-fs-confirm-ok data-default-label="<?=gettext('Confirm')?>"><?=gettext('Confirm')?></button>
 				</div>
 			</div>
 		</div>

@@ -226,8 +226,8 @@ if (empty($versions)) {
 <style>
 .fs-diff { margin: 0; max-height: 70vh; overflow: auto; font-size: .8rem; line-height: 1.45; white-space: pre-wrap; }
 .fs-diff span { display: block; padding: 0 .5rem; }
-.fs-diff-add { background: color-mix(in srgb, var(--fs-success, #2fb36c) 18%, transparent); }
-.fs-diff-del { background: color-mix(in srgb, var(--fs-danger, #e5484d) 18%, transparent); }
+.fs-diff-add { background: color-mix(in srgb, var(--fs-pass) 18%, transparent); }
+.fs-diff-del { background: color-mix(in srgb, var(--fs-block) 18%, transparent); }
 .fs-diff-hunk { color: var(--fs-text-muted); }
 </style>
 <?php

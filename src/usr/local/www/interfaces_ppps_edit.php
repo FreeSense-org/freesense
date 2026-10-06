@@ -972,6 +972,7 @@ if ($this_ppp_config) {
 	));
 }
 
+fs_form_cancel($form, 'interfaces_ppps.php');
 print($form);
 
 ?>

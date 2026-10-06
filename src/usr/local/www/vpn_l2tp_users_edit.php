@@ -108,6 +108,7 @@ if ($this_secret_config) {
 	));
 }
 
+fs_form_cancel($form, 'vpn_l2tp_users.php');
 print($form);
 
 include("foot.inc");

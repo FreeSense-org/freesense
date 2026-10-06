@@ -210,6 +210,7 @@ if ($this_allowedhostname_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'services_captiveportal_hostname.php?zone=' . urlencode($cpzone));
 print($form);
 
 include("foot.inc");

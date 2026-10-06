@@ -102,7 +102,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system_advanced_sysctl | List + Editor (`act=edit`) | **done**: searchable list (Custom / Default filter, description under the name); Add and Edit in a modal (reopens with the input after a validation error); delete confirms; the act=edit page stays for links | C | |
 | system_usermanager | List + Editor (`act=edit`) | existing bulk becomes the bulk bar; badges (disabled, expired); search | B | M |
 | system_groupmanager | List + Editor | standard | B | |
-| system_usermanager_addprivs, _groupmanager_addprivs | Editor | the privilege multi-select becomes a **searchable checklist** (component added in Phase D) | D | |
+| system_usermanager_addprivs, _groupmanager_addprivs | Editor | **done**: the multi-select, its hidden shadow copy, the filter box and Filter/Clear buttons are one searchable checklist (grouped, descriptions inline, admin-level badges, Selected only); Cancel returns to the user / group | D | |
 | system_usermanager_settings, _passwordmg, system_user_settings | Settings | standard | D | |
 | system_authservers | List + Editor | standard | B / D | |
 | system_camanager, _certmanager, _crlmanager | List + Editor | **delete the hand-rolled search JS**, use `data-fs-table` (with a column filter replacing "Name/DN/Both"); badges for expiry (warn < 30 days, block when expired) | B | M |

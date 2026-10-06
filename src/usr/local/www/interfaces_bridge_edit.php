@@ -373,6 +373,7 @@ if ($this_bridge_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'interfaces_bridge.php');
 print($form);
 ?>
 <script type="text/javascript">

@@ -217,6 +217,7 @@ if ($this_allowedip_config) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'services_captiveportal_ip.php?zone=' . urlencode($cpzone));
 print($form);
 
 include("foot.inc");

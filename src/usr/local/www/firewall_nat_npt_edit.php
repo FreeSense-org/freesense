@@ -200,6 +200,7 @@ if (isset($id) && config_get_path("nat/npt/{$id}")) {
 }
 
 $form->add($section);
+fs_form_cancel($form, 'firewall_nat_npt.php');
 print($form);
 ?>
 
