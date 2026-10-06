@@ -114,8 +114,8 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system_update_settings | Settings | standard | D | |
 | system_boot_environments | List + **R8** | **reference for R8**: one Environments list; Create snapshot / Edit (rename + description) / Clone in modals; labelled row actions with confirmations; Settings tab kept | B | M |
 | system_restapi, _restapi_keys, _restapi_explorer | Settings / List / Special | already share one tab bar (`restapi_print_tabs()`); no change needed | — | |
-| pkg_mgr, pkg_mgr_installed | List | search becomes `data-fs-table`; badges (installed, update available). Moved to Phase E: the tables load over AJAX, so the enhancer needs a re-init hook | E | |
-| pkg_mgr_install | Tool | progress console | E | |
+| pkg_mgr, pkg_mgr_installed | List | **done**: tiles (available / installed / updates; installed / up to date / updates / need attention), fs-table with search, category and status filters, count and sort after the AJAX load via `FreeSenseUI.initTables()`; status badges, version current → available in mono; Install / Manage / Update / Reinstall / Remove as row actions (GET flows unchanged, Update / Reinstall / Remove confirm first); Available now lists installed packages too, with an Installed badge | E | |
+| pkg_mgr_install | Tool | **done**: review step (header, fs tiles, capabilities, Cancel + action button), progress step (state header with icon and badge, progress bar, result message with links back) and mono output console with Auto-scroll and Copy; System Update uses the `system-update` tabs and tiles; all POST fields and polling unchanged | E | |
 | pkg, pkg_edit | Special | **last**, CSS only unless decided otherwise; test 3 XML packages | F | **H** |
 
 ## W7 — Status and logs

@@ -240,8 +240,6 @@ $tab_array = array();
 if ($firmwareupdate) {
 	$pgtitle = array(gettext("System"), gettext("Update"), gettext("System Update"));
 	$pglinks = array("", "@self", "@self");
-	$tab_array[] = array(gettext("System Update"), true, "pkg_mgr_install.php?id=firmware");
-	$tab_array[] = array(gettext("Update Settings"), false, "system_update_settings.php");
 } else {
 	$pgtitle = array(gettext("System"), gettext("Package Manager"), gettext("Package Installer"));
 	$pglinks = array("", "pkg_mgr_installed.php", "@self");
@@ -250,134 +248,187 @@ if ($firmwareupdate) {
 	$tab_array[] = array(gettext("Package Installer"), true, "");
 }
 
+/* what the page acts on, for the review and progress headers */
+$catalog_shortname = $pkgname;
+pkg_remove_prefix($catalog_shortname);
+$package_meta = freesense_package_catalog_entry($catalog_shortname);
+if ($firmwareupdate) {
+	$subject_name = gettext('FreeSense system');
+	$back_href = 'pkg_mgr_install.php?id=firmware';
+	$back_label = gettext('Back to system update');
+} elseif ($pkgmode == 'reinstallall') {
+	$subject_name = gettext('All packages');
+	$back_href = 'pkg_mgr_installed.php';
+	$back_label = gettext('Back to installed packages');
+} else {
+	$subject_name = $package_meta['display_name'] ?: $catalog_shortname;
+	$back_href = ($pkgmode == 'delete' || $pkgmode == 'reinstallpkg') ? 'pkg_mgr_installed.php' : 'pkg_mgr.php';
+	$back_label = ($pkgmode == 'delete' || $pkgmode == 'reinstallpkg') ? gettext('Back to installed packages') : gettext('Back to available packages');
+}
+
 include("head.inc");
-?>
 
-<div id="final" class="alert" role="alert" style="display: none;"></div>
-
-<?php
-display_top_tabs($tab_array);
+if ($firmwareupdate) {
+	fs_tabs('system-update', 'pkg_mgr_install.php?id=firmware');
+} else {
+	display_top_tabs($tab_array);
+}
 
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
 ?>
+<style>
+.fs-pkg-head { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--fs-border); }
+.fs-pkg-head-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 2.75rem; height: 2.75rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: 1.25rem; }
+.fs-pkg-head-text { min-width: 0; flex: 1 1 auto; }
+.fs-pkg-eyebrow { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.fs-pkg-title { margin: 0; color: var(--fs-text-strong); font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
+.fs-pkg-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); overflow-wrap: anywhere; }
+.fs-pkg-body { padding: 1.25rem; }
+.fs-pkg-body > .fs-tiles { margin-bottom: 1rem; }
+#installed_version, #version { font-size: 1.15rem; overflow-wrap: anywhere; }
+.fs-pkg-section { margin: 1.25rem 0 .5rem; color: var(--fs-text-strong); font-size: 1rem; font-weight: 600; }
+.fs-pkg-caps { display: flex; flex-wrap: wrap; gap: 6px; }
+.fs-pkg-cap { display: inline-flex; align-items: center; gap: .35rem; padding: .1rem .55rem; border: 1px solid var(--fs-border); border-radius: 999px; font-size: var(--fs-fs-sm); }
+.fs-pkg-cap > i { color: var(--fs-pass); font-size: var(--fs-fs-xs); }
+.fs-pkg-notes { margin: 0; padding: 0; list-style: none; }
+.fs-pkg-notes li { padding: .45rem 0; border-top: 1px solid var(--fs-border); }
+.fs-pkg-notes li:first-child { border-top: 0; }
+.fs-pkg-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; padding: .85rem 1.25rem; border-top: 1px solid var(--fs-border); }
+.fs-pkg-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem 1rem; padding: .85rem 1rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); }
+.fs-pkg-status-label { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.fs-pkg-status .fs-pkg-status-text { display: flex; align-items: center; gap: .75rem; }
+.fs-pkg-state { flex: 0 0 auto; }
+.fs-pkg-state > .fs-badge[hidden], .fs-pkg-head-icon > i[hidden] { display: none; }
+#pkg-run.is-success .fs-pkg-head-icon { background: color-mix(in srgb, var(--fs-pass) 14%, transparent); color: var(--fs-pass); }
+#pkg-run.is-failure .fs-pkg-head-icon { background: color-mix(in srgb, var(--fs-block) 14%, transparent); color: var(--fs-block); }
+#pkg-run .progress { height: .6rem; margin: 0 0 1rem; }
+#pkg-run #final { margin-bottom: 1rem; }
+#pkg-run #final p:last-child { margin-bottom: 0; }
+#countdown h4 { margin: 0 0 1rem; font-size: 1rem; text-align: center; }
+.fs-pkg-done { display: flex; flex-wrap: wrap; gap: .5rem; }
+.fs-pkg-log .panel-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+.fs-pkg-log .panel-title { margin-right: auto; }
+.fs-pkg-log .fs-console { min-height: 12rem; }
+@media (max-width: 575.98px) { .fs-pkg-head { align-items: flex-start; flex-wrap: wrap; } .fs-pkg-body { padding: 1rem; } }
+</style>
+
 <form action="pkg_mgr_install.php" method="post" class="">
 <?php
 
 if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
     ($firmwareupdate || $pkgmode == 'reinstallall' || !empty($pkgname))):
-	switch ($pkgmode) {
-		case 'reinstallpkg':
-			$pkgtxt = sprintf(gettext('Confirmation Required to reinstall package %s.'), $pkgname);
-			break;
-		case 'delete':
-			$pkgtxt = $pkgname_vital ? $pkgname : sprintf(gettext('Confirmation Required to remove package %s.'), $pkgname);
-			break;
-		case 'installed':
-		default:
-			$pkgtxt = sprintf(gettext('Confirmation Required to install package %s.'), $pkgname);
-			break;
+	if ($pkgmode === 'delete') {
+		$confirm_button_class = 'btn-danger';
+		$confirm_button_icon = 'trash-can';
+		$confirm_button_label = gettext('Remove package');
+	} elseif ($pkgmode === 'reinstallpkg' || $pkgmode === 'reinstallall') {
+		$confirm_button_class = 'btn-primary';
+		$confirm_button_icon = 'arrows-rotate';
+		$confirm_button_label = ($pkgmode === 'reinstallall') ? gettext('Reinstall all packages') : gettext('Reinstall package');
+	} else {
+		$confirm_button_class = 'btn-success';
+		$confirm_button_icon = 'download';
+		$confirm_button_label = gettext('Install package');
 	}
-
+	$is_upgrade = ($pkgmode == 'reinstallpkg') && is_string($_REQUEST['from'] ?? null) && is_string($_REQUEST['to'] ?? null) &&
+	    preg_match('/^[A-Za-z0-9._,+-]{1,64}$/D', $_REQUEST['from']) && preg_match('/^[A-Za-z0-9._,+-]{1,64}$/D', $_REQUEST['to']);
+	if ($is_upgrade) {
+		$confirm_button_label = gettext('Update package');
+	}
+	$category_icons = ['Security'=>'shield-halved', 'VPN'=>'lock', 'Monitoring'=>'chart-line', 'Routing'=>'route', 'Services'=>'layer-group', 'System'=>'gear', 'Authentication'=>'user-shield', 'Diagnostics'=>'stethoscope'];
+	$package_icon = $category_icons[$package_meta['category']] ?? 'box-open';
 ?>
-	<div class="card mb-3">
-		<div class="card-header">
-			<h2 class="h5 mb-0">
-<?php
-			if ($pkgmode == 'reinstallall'):
-?>
-				<?=gettext("Confirmation Required to reinstall all packages.");?>
-<?php
-			elseif ($_REQUEST['from'] && $_REQUEST['to']):
-?>
-				<?=sprintf(gettext('Confirmation Required to upgrade package %1$s from %2$s to %3$s.'), $pkgname, htmlspecialchars($_REQUEST['from']), htmlspecialchars($_REQUEST['to']))?>
-<?php
-			elseif ($firmwareupdate):
-?>
-				<i class="fa-solid fa-arrows-rotate text-primary me-2"></i><?=gettext('System Update')?>
-<?php
-			else:
-?>
-				<?=$pkgtxt;?>
-<?php
-			endif;
-?>
-			</h2>
-		</div>
-
-		<div class="card-body">
-			<div class="content">
-				<input type="hidden" name="mode" value="<?=$pkgmode;?>" />
+	<div class="panel panel-default">
 <?php
 	if ($firmwareupdate):
 		// Check to see if any new repositories have become available. This data is cached and
 		// refreshed every 24 hours. Still needed below for the upgrade path + messages.
 		$repos = update_repos();
-
+?>
+		<div class="fs-pkg-head">
+			<span class="fs-pkg-head-icon"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></span>
+			<div class="fs-pkg-head-text">
+				<div class="fs-pkg-eyebrow"><?=gettext('System Update')?></div>
+				<h2 class="fs-pkg-title"><?=gettext('Check for and install system updates')?></h2>
+			</div>
+		</div>
+		<div class="fs-pkg-body">
+			<input type="hidden" name="mode" value="<?=htmlspecialchars($pkgmode)?>" />
+<?php
 		if (isset($repos['messages']) && count($repos['messages']) > 0) {
-			print('<div class="row mb-3">' .
-				'<label class="col-sm-2 col-form-label">' .
-					gettext("Messages") .
-				'</label>' .
-				'<div class="col-sm-10" id="netgate_messages">'
-
-			);
+			print('<div class="mb-3" id="netgate_messages">');
 			foreach ($repos['messages'] as $message) {
 				print(gettext($message));
 			}
-			print('</div></div>');
-
+			print('</div>');
 		}
 ?>
-				<div class="row g-3 mb-4">
-					<div class="col-md-6"><div class="card h-100 border-0 bg-body-tertiary"><div class="card-body d-flex align-items-center gap-3">
-						<div class="fs-2 text-secondary"><i class="fa-solid fa-server"></i></div><div><div class="small text-body-secondary text-uppercase"><?=gettext('Installed system')?></div><div class="h5 mb-0" id="installed_version"><i class="fa-solid fa-ellipsis fa-fade"></i></div></div>
-					</div></div></div>
-					<div class="col-md-6"><div class="card h-100 border-0 bg-body-tertiary"><div class="card-body d-flex align-items-center gap-3">
-						<div class="fs-2 text-primary"><i class="fa-solid fa-cloud-arrow-down"></i></div><div><div class="small text-body-secondary text-uppercase"><?=gettext('Available system')?></div><div class="h5 mb-0" id="version"><i class="fa-solid fa-ellipsis fa-fade"></i></div></div>
-					</div></div></div>
-				</div>
+			<div class="fs-tiles">
+				<div class="fs-tile"><div class="fs-tile-label"><i class="fa-solid fa-server" aria-hidden="true"></i><?=gettext('Installed system')?></div><div class="fs-tile-value fs-mono" id="installed_version"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
+				<div class="fs-tile"><div class="fs-tile-label"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><?=gettext('Available system')?></div><div class="fs-tile-value fs-mono" id="version"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
+			</div>
 
-				<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 rounded bg-body-tertiary px-3 py-3 mb-3" id="confirm">
-					<div class="d-flex align-items-center gap-3">
-						<span class="text-body-secondary"><i class="fa-solid fa-signal"></i></span>
-						<div><div class="small text-body-secondary text-uppercase" id="confirmlabel"><?=gettext('Update status')?></div>
+			<div class="fs-pkg-status mb-3" id="confirm">
+				<div class="fs-pkg-status-text">
+					<div>
+						<div class="fs-pkg-status-label" id="confirmlabel"><?=gettext('Update status')?></div>
 						<input type="hidden" name="id" value="firmware" />
 						<input type="hidden" name="confirmed" id="confirmed" value="true" />
 						<span id="uptodate">
-							<i class="fa-solid fa-rotate fa-spin fa-lg text-warning"></i>
+							<i class="fa-solid fa-rotate fa-spin text-warning" aria-hidden="true"></i>
 							<span class="text-muted"><?=gettext("Checking for updates…")?></span>
 						</span>
-						</div>
 					</div>
-					<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>" style="display: none"><i class="fa-solid fa-download icon-embed-btn"></i><?=gettext("Install update")?></button>
 				</div>
+				<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>" style="display: none"><i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext("Install update")?></button>
+			</div>
 
-				<div class="d-flex justify-content-end mb-4" id="release_info">
-						<a target="_blank" href="https://docs.freesense.org/guides/updates-and-channels/"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i><?=gettext("Release channels and update documentation")?></a>
-				</div>
-				<div class="card border-0 bg-body-tertiary mb-3" id="update_notes_card" style="display:none">
-					<div class="card-header bg-transparent d-flex justify-content-between align-items-center"><h3 class="h6 mb-0"><i class="fa-solid fa-wand-magic-sparkles text-primary me-2"></i><?=gettext('What is new')?></h3><span class="badge text-bg-primary" id="update_notes_count"></span></div>
-					<div class="card-body">
-						<ul class="nav nav-tabs mb-3" id="update_notes_tabs" role="tablist">
-							<li class="nav-item" role="presentation"><button class="nav-link active" id="update_notes_freesense_tab" data-bs-toggle="tab" data-bs-target="#update_notes_freesense" type="button" role="tab" aria-controls="update_notes_freesense" aria-selected="true"><i class="fa-solid fa-shield-halved me-1"></i><?=gettext('FreeSense')?><span class="badge text-bg-secondary ms-2" id="update_notes_freesense_count"></span></button></li>
-							<li class="nav-item" role="presentation"><button class="nav-link" id="update_notes_platform_tab" data-bs-toggle="tab" data-bs-target="#update_notes_platform" type="button" role="tab" aria-controls="update_notes_platform" aria-selected="false"><i class="fa-brands fa-freebsd me-1"></i><?=gettext('Platform & packages')?><span class="badge text-bg-secondary ms-2" id="update_notes_platform_count"></span></button></li>
-						</ul>
-						<div class="tab-content">
-							<div class="tab-pane fade show active" id="update_notes_freesense" role="tabpanel" aria-labelledby="update_notes_freesense_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_freesense_summary"></div><div class="list-group list-group-flush" id="update_notes_freesense_list"></div></div>
-							<div class="tab-pane fade" id="update_notes_platform" role="tabpanel" aria-labelledby="update_notes_platform_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_platform_summary"></div><div class="list-group list-group-flush" id="update_notes_platform_list"></div></div>
-						</div>
+			<div class="d-flex justify-content-end mb-3" id="release_info">
+				<a target="_blank" rel="noopener" href="https://docs.freesense.org/guides/updates-and-channels/"><i class="fa-solid fa-arrow-up-right-from-square me-1" aria-hidden="true"></i><?=gettext("Release channels and update documentation")?></a>
+			</div>
+			<div class="panel panel-default mb-0" id="update_notes_card" style="display:none">
+				<div class="panel-heading d-flex justify-content-between align-items-center"><h3 class="panel-title"><i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i><?=gettext('What is new')?></h3><span class="badge text-bg-primary" id="update_notes_count"></span></div>
+				<div class="panel-body p-3">
+					<ul class="nav nav-tabs mb-3" id="update_notes_tabs" role="tablist">
+						<li class="nav-item" role="presentation"><button class="nav-link active" id="update_notes_freesense_tab" data-bs-toggle="tab" data-bs-target="#update_notes_freesense" type="button" role="tab" aria-controls="update_notes_freesense" aria-selected="true"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i><?=gettext('FreeSense')?><span class="badge text-bg-secondary ms-2" id="update_notes_freesense_count"></span></button></li>
+						<li class="nav-item" role="presentation"><button class="nav-link" id="update_notes_platform_tab" data-bs-toggle="tab" data-bs-target="#update_notes_platform" type="button" role="tab" aria-controls="update_notes_platform" aria-selected="false"><i class="fa-brands fa-freebsd me-1" aria-hidden="true"></i><?=gettext('Platform & packages')?><span class="badge text-bg-secondary ms-2" id="update_notes_platform_count"></span></button></li>
+					</ul>
+					<div class="tab-content">
+						<div class="tab-pane fade show active" id="update_notes_freesense" role="tabpanel" aria-labelledby="update_notes_freesense_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_freesense_summary"></div><div class="list-group list-group-flush" id="update_notes_freesense_list"></div></div>
+						<div class="tab-pane fade" id="update_notes_platform" role="tabpanel" aria-labelledby="update_notes_platform_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_platform_summary"></div><div class="list-group list-group-flush" id="update_notes_platform_list"></div></div>
 					</div>
 				</div>
+			</div>
+		</div>
 <?php
 	elseif (($pkgmode == 'delete') && $pkgname_vital):
-		print_info_box($pkgname_vital_message);
+?>
+		<div class="fs-pkg-body">
+			<?php print_info_box($pkgname_vital_message); ?>
+			<a class="btn btn-outline-secondary" href="pkg_mgr_installed.php"><i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i><?=gettext('Back to installed packages')?></a>
+		</div>
+<?php
+	elseif ($pkgmode == 'reinstallall'):
+?>
+		<div class="fs-pkg-head">
+			<span class="fs-pkg-head-icon"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></span>
+			<div class="fs-pkg-head-text">
+				<div class="fs-pkg-eyebrow"><?=gettext('Review')?></div>
+				<h2 class="fs-pkg-title"><?=gettext('Reinstall all packages')?></h2>
+				<div class="fs-pkg-sub"><?=gettext('Every installed package is reinstalled from the package repository. This can take several minutes.')?></div>
+			</div>
+		</div>
+		<input type="hidden" name="mode" value="<?=htmlspecialchars($pkgmode)?>" />
+		<input type="hidden" name="confirmed" value="true" />
+		<div class="fs-pkg-foot">
+			<a class="btn btn-outline-secondary" href="pkg_mgr_installed.php"><?=gettext('Cancel')?></a>
+			<button type="submit" class="btn <?=htmlspecialchars($confirm_button_class)?>" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"><i class="fa-solid fa-<?=htmlspecialchars($confirm_button_icon)?> icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars($confirm_button_label)?></button>
+		</div>
+<?php
 	else:
-		$catalog_shortname = $pkgname;
-		pkg_remove_prefix($catalog_shortname);
-		$package_meta = freesense_package_catalog_entry($catalog_shortname);
 		$package_version = gettext('Current repository');
 		$package_summary = '';
 		$package_description = '';
@@ -388,7 +439,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			$package_summary = trim(preg_replace('/\s+/', ' ', $detail_out));
 		}
 		if (pkg_exec('rquery %e ' . escapeshellarg($pkgname), $detail_out, $detail_err) === 0) {
-			$package_description = trim(preg_replace('/\s+/', ' ', $detail_out));
+			$package_description = trim(preg_replace('/\s+/', ' ', strip_tags(preg_replace('/<br\s*\/?>/i', ' ', $detail_out))));
 		}
 		$package_notes = [];
 		$product_version = trim((string)@file_get_contents('/etc/version'));
@@ -404,48 +455,62 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 				$package_notes = array_slice($notes_doc['packages'][$catalog_shortname], 0, 3);
 			}
 		}
-		$category_icons = ['Security'=>'shield-halved', 'VPN'=>'lock', 'Monitoring'=>'chart-line', 'Routing'=>'route', 'Services'=>'layer-group', 'System'=>'gear', 'Authentication'=>'user-shield', 'Diagnostics'=>'stethoscope'];
-		$package_icon = $category_icons[$package_meta['category']] ?? 'box-open';
 		if ($pkgmode === 'delete') {
-			$confirm_button_class = 'btn-danger';
-			$confirm_button_icon = 'trash-can';
-			$confirm_button_label = gettext('Remove package');
-		} elseif ($pkgmode === 'reinstallpkg' || $pkgmode === 'reinstallall') {
-			$confirm_button_class = 'btn-primary';
-			$confirm_button_icon = 'arrows-rotate';
-			$confirm_button_label = gettext('Reinstall package');
+			$review_title = gettext('Review the removal');
+		} elseif ($is_upgrade) {
+			$review_title = gettext('Review the update');
+		} elseif ($pkgmode === 'reinstallpkg') {
+			$review_title = gettext('Review the reinstallation');
 		} else {
-			$confirm_button_class = 'btn-success';
-			$confirm_button_icon = 'download';
-			$confirm_button_label = gettext('Install package');
+			$review_title = gettext('Review the installation');
 		}
 ?>
-				<input type="hidden" name="pkg" value="<?=$pkgname;?>" />
-				<input type="hidden" name="confirmed" value="true" />
-				<div class="card mb-3 overflow-hidden">
-					<div class="card-body p-4">
-						<div class="d-flex align-items-start gap-3 mb-4"><div class="fs-1 text-primary"><i class="fa-solid fa-<?=htmlspecialchars($package_icon)?>"></i></div><div>
-							<div class="d-flex flex-wrap align-items-center gap-2"><h3 class="h4 mb-0"><?=htmlspecialchars($package_meta['display_name'])?></h3><span class="badge text-bg-primary"><?=htmlspecialchars($package_meta['category'])?></span></div>
-							<?php if ($package_summary): ?><div class="lead fs-6 mt-2 mb-1"><?=htmlspecialchars($package_summary)?></div><?php endif; ?>
-							<?php if ($package_description): ?><p class="text-body-secondary mb-0"><?=htmlspecialchars($package_description)?></p><?php endif; ?>
-						</div></div>
-						<div class="row g-2 mb-4">
-							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-code-branch me-1"></i><?=gettext('Version')?></div><strong><?=htmlspecialchars($package_version)?></strong></div></div>
-							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-gauge-high me-1"></i><?=gettext('Resource use')?></div><strong><?=htmlspecialchars(ucfirst($package_meta['resource_profile']))?></strong></div></div>
-							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-life-ring me-1"></i><?=gettext('Support')?></div><strong><?=htmlspecialchars(ucfirst($package_meta['support']))?></strong></div></div>
-							<div class="col-sm-6 col-lg-3"><div class="rounded bg-body-tertiary p-3 h-100"><div class="small text-body-secondary text-uppercase"><i class="fa-solid fa-flask me-1"></i><?=gettext('Tested on')?></div><strong><?=htmlspecialchars(ucfirst($package_meta['last_tested_release']))?></strong></div></div>
-						</div>
-						<?php if (!empty($package_meta['capabilities'])): ?><h4 class="h6"><i class="fa-solid fa-puzzle-piece text-primary me-2"></i><?=gettext('What it adds')?></h4><div class="d-flex flex-wrap gap-2 mb-3"><?php foreach ($package_meta['capabilities'] as $capability): ?><span class="badge rounded-pill text-bg-secondary"><i class="fa-solid fa-check me-1"></i><?=htmlspecialchars(ucwords(str_replace('-', ' ', $capability)))?></span><?php endforeach; ?></div><?php endif; ?>
-						<?php if (!empty($package_meta['services'])): ?><div class="small text-body-secondary mb-3"><i class="fa-solid fa-server me-2"></i><strong><?=gettext('Background services')?>:</strong> <?=htmlspecialchars(implode(', ', $package_meta['services']))?></div><?php endif; ?>
-						<?php if ($package_notes): ?><h4 class="h6 mt-4"><i class="fa-solid fa-clock-rotate-left text-primary me-2"></i><?=gettext('Recent updates')?></h4><div class="list-group list-group-flush"><?php foreach ($package_notes as $note): ?><div class="list-group-item bg-transparent px-0"><div class="fw-semibold"><?=htmlspecialchars($note['title'] ?? '')?></div><small class="text-body-secondary"><?=htmlspecialchars($note['date'] ?? '')?></small></div><?php endforeach; ?></div><?php endif; ?>
-					</div>
-				</div>
-				<div class="d-flex justify-content-end"><button type="submit" class="btn <?=htmlspecialchars($confirm_button_class)?> btn-lg" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"><i class="fa-solid fa-<?=htmlspecialchars($confirm_button_icon)?> icon-embed-btn"></i><?=htmlspecialchars($confirm_button_label)?></button></div>
+		<input type="hidden" name="mode" value="<?=htmlspecialchars($pkgmode)?>" />
+		<input type="hidden" name="pkg" value="<?=htmlspecialchars($pkgname)?>" />
+		<input type="hidden" name="confirmed" value="true" />
+		<div class="fs-pkg-head">
+			<span class="fs-pkg-head-icon"><i class="fa-solid fa-<?=htmlspecialchars($package_icon)?>" aria-hidden="true"></i></span>
+			<div class="fs-pkg-head-text">
+				<div class="fs-pkg-eyebrow"><?=htmlspecialchars($review_title)?></div>
+				<h2 class="fs-pkg-title"><?=htmlspecialchars($subject_name)?></h2>
+				<div class="fs-pkg-sub"><span class="fs-mono"><?=htmlspecialchars($pkgname)?></span> · <?=htmlspecialchars($package_meta['category'])?></div>
+			</div>
+		</div>
+		<div class="fs-pkg-body">
+			<?php if ($package_summary): ?><p class="mb-1"><strong><?=htmlspecialchars($package_summary)?></strong></p><?php endif; ?>
+			<?php if ($package_description): ?><p class="fs-muted"><?=htmlspecialchars($package_description)?></p><?php endif; ?>
+			<div class="fs-tiles">
+<?php
+		if ($is_upgrade) {
+			fs_tile(gettext('Version'), $_REQUEST['from'] . ' → ' . $_REQUEST['to']);
+		} else {
+			fs_tile(gettext('Version'), $package_version);
+		}
+		fs_tile(gettext('Resource use'), ucfirst($package_meta['resource_profile']));
+		fs_tile(gettext('Support'), ucfirst($package_meta['support']));
+		fs_tile(gettext('Tested on'), ucfirst($package_meta['last_tested_release']));
+?>
+			</div>
+			<?php if (!empty($package_meta['capabilities'])): ?>
+			<h3 class="fs-pkg-section"><?=gettext('What it adds')?></h3>
+			<div class="fs-pkg-caps"><?php foreach ($package_meta['capabilities'] as $capability): ?><span class="fs-pkg-cap"><i class="fa-solid fa-check" aria-hidden="true"></i><?=htmlspecialchars(ucwords(str_replace('-', ' ', $capability)))?></span><?php endforeach; ?></div>
+			<?php endif; ?>
+			<?php if (!empty($package_meta['services'])): ?>
+			<h3 class="fs-pkg-section"><?=gettext('Background services')?></h3>
+			<div class="fs-mono small"><?=htmlspecialchars(implode(', ', $package_meta['services']))?></div>
+			<?php endif; ?>
+			<?php if ($package_notes): ?>
+			<h3 class="fs-pkg-section"><?=gettext('Recent updates')?></h3>
+			<ul class="fs-pkg-notes"><?php foreach ($package_notes as $note): ?><li><div class="fw-semibold"><?=htmlspecialchars($note['title'] ?? '')?></div><small class="fs-muted"><?=htmlspecialchars($note['date'] ?? '')?></small></li><?php endforeach; ?></ul>
+			<?php endif; ?>
+		</div>
+		<div class="fs-pkg-foot">
+			<a class="btn btn-outline-secondary" href="<?=htmlspecialchars($back_href)?>"><?=gettext('Cancel')?></a>
+			<button type="submit" class="btn <?=htmlspecialchars($confirm_button_class)?>" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"><i class="fa-solid fa-<?=htmlspecialchars($confirm_button_icon)?> icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars($confirm_button_label)?></button>
+		</div>
 <?php
 	endif;
 ?>
-			</div>
-		</div>
 	</div>
 <?php
 endif;
@@ -463,27 +528,27 @@ if ($_POST) {
 $pkgname_bold = '<b>' . $pkgname . '</b>';
 
 if ($firmwareupdate) {
-	$panel_heading_txt = gettext("Updating System");
+	$panel_heading_txt = gettext("Updating the system");
 	$pkg_success_txt = gettext('Upgrade will continue after the system restarts. Please do not reset or power off.');
 	$pkg_fail_txt = gettext('System update failed!');
 	$pkg_wait_txt = gettext('Please wait while the system update completes.');
 } else if ($pkgmode == 'delete') {
-	$panel_heading_txt = gettext("Package Removal");
+	$panel_heading_txt = gettext("Removing package");
 	$pkg_success_txt = sprintf(gettext('%1$s removal successfully completed.'), $pkgname_bold);
 	$pkg_fail_txt = sprintf(gettext('%1$s removal failed!'), $pkgname_bold);
 	$pkg_wait_txt = sprintf(gettext('Please wait while the removal of %1$s completes.'), $pkgname_bold);
 } else if ($pkgmode == 'reinstallall') {
-	$panel_heading_txt = gettext("Packages Reinstallation");
+	$panel_heading_txt = gettext("Reinstalling all packages");
 	$pkg_success_txt = gettext('All packages reinstallation successfully completed.');
 	$pkg_fail_txt = gettext('All packages reinstallation failed!');
 	$pkg_wait_txt = gettext('Please wait while the reinstallation of all packages completes.');
 } else if ($pkgmode == 'reinstallpkg') {
-	$panel_heading_txt = gettext("Package Reinstallation");
+	$panel_heading_txt = gettext("Reinstalling package");
 	$pkg_success_txt = sprintf(gettext('%1$s reinstallation successfully completed.'), $pkgname_bold);
 	$pkg_fail_txt = sprintf(gettext('%1$s reinstallation failed!'), $pkgname_bold);
 	$pkg_wait_txt = sprintf(gettext('Please wait while the reinstallation of %1$s completes.'), $pkgname_bold);
 } else {
-	$panel_heading_txt = gettext("Package Installation");
+	$panel_heading_txt = gettext("Installing package");
 	$pkg_success_txt = sprintf(gettext('%1$s installation successfully completed.'), $pkgname_bold);
 	$pkg_fail_txt = sprintf(gettext('%1$s installation failed!'), $pkgname_bold);
 	$pkg_wait_txt = sprintf(gettext('Please wait while the installation of %1$s completes.'), $pkgname_bold);
@@ -494,46 +559,71 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 		$start_polling = true;
 	}
 ?>
-	<input type="hidden" name="id" value="<?=$_REQUEST['id']?>" />
-	<input type="hidden" name="mode" value="<?=$pkgmode?>" />
-	<input type="hidden" name="pkg" value="<?=$pkgname?>" />
+	<input type="hidden" name="id" value="<?=htmlspecialchars($_REQUEST['id'] ?? '')?>" />
+	<input type="hidden" name="mode" value="<?=htmlspecialchars($pkgmode)?>" />
+	<input type="hidden" name="pkg" value="<?=htmlspecialchars($pkgname)?>" />
 	<input type="hidden" name="completed" value="true" />
 	<input type="hidden" name="confirmed" value="true" />
 	<input type="hidden" id="reboot_needed" name="reboot_needed" value="no" />
 
-	<div id="countdown" class="text-center"></div>
-
-	<div class="progress" style="display: none;">
-		<div id="progressbar" class="progress-bar progress-bar-striped" role="progressbar" aria-valuemin="0" aria-valuemax="100" style="width: 1%"></div>
-	</div>
-	<br />
-	<div class="card mb-3">
-		<div class="card-header">
-			<div style="float: right;">
-				<label>
-					<input style="margin: 4px 4px 0;" type="checkbox" checked="true" id="autoscroll" />
-				<?=gettext('Auto-scroll')?>
-				</label>
+	<div class="panel panel-default is-running" id="pkg-run">
+		<div class="fs-pkg-head">
+			<span class="fs-pkg-head-icon">
+				<i class="fa-solid fa-gear fa-spin" data-run-state="running" aria-hidden="true"></i>
+				<i class="fa-solid fa-check" data-run-state="success" aria-hidden="true" hidden></i>
+				<i class="fa-solid fa-xmark" data-run-state="failure" aria-hidden="true" hidden></i>
+			</span>
+			<div class="fs-pkg-head-text">
+				<div class="fs-pkg-eyebrow" id="status"><?=htmlspecialchars($panel_heading_txt)?></div>
+				<h2 class="fs-pkg-title"><?=htmlspecialchars($subject_name)?></h2>
+<?php if (!$firmwareupdate && $pkgname !== ''): ?>
+				<div class="fs-pkg-sub fs-mono"><?=htmlspecialchars($pkgname)?></div>
+<?php endif; ?>
 			</div>
-			<h2 class="h5 mb-0" id="status"><?=$panel_heading_txt?></h2>
+			<span class="fs-pkg-state" aria-live="polite">
+				<?=fs_badge('pending', gettext('In progress'))?>
+				<span hidden><?=fs_badge('pass', gettext('Completed'))?></span>
+				<span hidden><?=fs_badge('error', gettext('Failed'))?></span>
+			</span>
 		</div>
+		<div class="fs-pkg-body">
+			<div id="countdown"></div>
+			<div class="progress" role="progressbar" aria-label="<?=gettext('Progress')?>" style="display: none;">
+				<div id="progressbar" class="progress-bar progress-bar-striped progress-bar-animated" aria-valuemin="0" aria-valuemax="100" style="width: 1%"></div>
+			</div>
+			<div id="final" class="alert" role="alert" style="display: none;"></div>
+			<div class="fs-pkg-done" id="run-done" style="display: none;">
+				<a class="btn btn-sm btn-primary" href="<?=htmlspecialchars($back_href)?>"><i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars($back_label)?></a>
+<?php if (!$firmwareupdate && $back_href !== 'pkg_mgr_installed.php'): ?>
+				<a class="btn btn-sm btn-outline-secondary" href="pkg_mgr_installed.php"><?=gettext('Installed packages')?></a>
+<?php endif; ?>
+			</div>
+		</div>
+	</div>
 
-		<div class="card-body">
-			<textarea rows="15" class="form-control" id="output" name="output" spellcheck="false"><?=($completed ? htmlspecialchars($_POST['output']) : gettext("Please wait while the update system initializes"))?></textarea>
+	<div class="panel panel-default fs-pkg-log">
+		<div class="panel-heading">
+			<h2 class="panel-title"><?=gettext('Output')?></h2>
+			<div class="form-check form-switch mb-0">
+				<input class="form-check-input" type="checkbox" role="switch" checked id="autoscroll" />
+				<label class="form-check-label" for="autoscroll"><?=gettext('Auto-scroll')?></label>
+			</div>
+			<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#output-view"><i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?></button>
 		</div>
+		<pre class="fs-console" id="output-view" aria-live="off"></pre>
+		<textarea id="output" name="output" hidden spellcheck="false"><?=($completed ? htmlspecialchars($_POST['output']) : gettext("Please wait while the update system initializes"))?></textarea>
 	</div>
 
 
 	<!-- Modal used to display installation notices -->
-	<div id="notice" name="notice" class="modal fade" role="dialog">
-		<div class="modal-dialog">
+	<div id="notice" name="notice" class="modal fade" role="dialog" tabindex="-1" aria-labelledby="notice-title">
+		<div class="modal-dialog modal-dialog-centered">
 			<div class="modal-content">
-				<div class="modal-body" id="noticebody" name="noticebody" style="background-color:#1e3f75; color:white;">
+				<div class="modal-header"><h2 class="modal-title" id="notice-title"><?=gettext('Notice')?></h2></div>
+				<div class="modal-body" id="noticebody" name="noticebody">
 				</div>
-				<div class="modal-footer" style="background-color:#1e3f75; color:white;">
-					<button type="button" id="modalbtn" name="modalbtn" class="btn btn-sm btn-success" data-bs-dismiss="modal" aria-label="Close">
-						<span aria-hidden="true">Accept</span>
-					</button>
+				<div class="modal-footer">
+					<button type="button" id="modalbtn" name="modalbtn" class="btn btn-primary" data-bs-dismiss="modal"><?=gettext('Accept')?></button>
 				</div>
 			</div>
 		</div>
@@ -605,8 +695,36 @@ function setProgress(barName, percent, transition) {
 	$('#' + barName).css('width', percent + '%').attr('aria-valuenow', percent);
 }
 
+// Header icon, badge and the "back" links follow the run state
+function setRunState(state) {
+	var run = $('#pkg-run');
+	run.removeClass('is-running is-success is-failure').addClass('is-' + state);
+	run.find('[data-run-state]').each(function () {
+		this.hidden = (this.getAttribute('data-run-state') !== state);
+	});
+	var badges = run.find('.fs-pkg-state > .fs-badge, .fs-pkg-state > span');
+	badges.each(function (i) {
+		this.hidden = (i !== ['running', 'success', 'failure'].indexOf(state));
+	});
+	if (state !== 'running') {
+		$('#progressbar').removeClass('progress-bar-animated progress-bar-striped');
+		$('#run-done').show();
+	}
+}
+
+// Mirror the log (decoded by the textarea, which is also posted on reload) into the console
+function showOutput(force) {
+	var view = $('#output-view');
+	view.text($('#output').val());
+	if (force || $('#autoscroll').prop('checked')) {
+		view.scrollTop(view.prop('scrollHeight'));
+	}
+}
+
 // Display a success banner
 function show_success() {
+	setRunState('success');
+	$('#progressbar').addClass('bg-success');
 	if (!"<?=$firmwareupdate?>") {
 		$('#final').removeClass("alert-info").addClass("alert-success");
 	} else {
@@ -623,6 +741,8 @@ function show_success() {
 
 // Display a failure banner
 function show_failure() {
+	setRunState('failure');
+	$('#progressbar').addClass('bg-danger');
 	$('#final').removeClass("alert-info");
 	$('#final').addClass("alert-danger");
 	if ("<?=$pkgmode?>" != "reinstallall") {
@@ -787,14 +907,9 @@ function getLogsStatus() {
 
 		if (json.log != "not_ready") {
 			var _o = $('#output');
-			// Write the log file to the "output" textarea
+			// Write the log file to the "output" textarea and show it in the console
 			_o.html(json.log);
-
-			if ($('#autoscroll').prop('checked')) {
-				overrideScroll = true;
-				_o.scrollTop(_o.prop('scrollHeight'));
-				overrideScroll = false;
-			}
+			showOutput(false);
 
 			// Update the progress bar
 			progress = 0;
@@ -833,9 +948,7 @@ function getLogsStatus() {
 
 				// Display any UI notice the package installer may have created
 				if (json.notice.length > 0) {
-					var modalheader = "<div align=\"center\" style=\"font-size:24px;\"><strong>NOTICE</strong></div><br>";
-
-					$('#noticebody').html(modalheader + json.notice);
+					$('#noticebody').html(json.notice);
 					bootstrap.Modal.getOrCreateInstance(document.getElementById('notice')).show();
 				} else {
 					$('form').submit();
@@ -856,13 +969,7 @@ function getLogsStatus() {
 }
 
 function scrollToBottom(force) {
-	var _o = $('#output');
-	var _d = _o.scrollTop() + _o.outerHeight() * 2;
-	if (force || _d > _o.prop('scrollHeight')) {
-		_o.scrollTop(_o.prop('scrollHeight'));
-		console.log('scroll locked');
-	}
-	console.log('scroll unlocked');
+	showOutput(force);
 }
 
 var time = 0;
@@ -896,11 +1003,14 @@ function startCountdown() {
 }
 
 events.push(function() {
+	showOutput(true);
+
 	// If the update has a message to be displayed, do that here
 	var failmsg = "<?=$failmsg?>".replace(/%%/g, "\n");
 
 	if (failmsg.length > 0) {
-		$('#output').html(failmsg)
+		$('#output').html(failmsg);
+		showOutput(true);
 		show_failure();
 	}
 
@@ -914,7 +1024,6 @@ events.push(function() {
 	// we only need to re-populate the progress indicator and the status banner
 	if ("<?=$completed?>") {
 		setProgress('progressbar', 100, false);
-		$('#progressbar').addClass("progress-bar-success");
 		show_success();
 		setTimeout(scrollToBottom, 200, true); /* force scroll */
 	}
