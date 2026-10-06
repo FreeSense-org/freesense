@@ -105,6 +105,10 @@ if (isset($_POST['add']) && isset($_POST['if_add'])) {
 /* Create a list of unused ports */
 $unused_portlist = interfaces_assign_unused_ports($portlist);
 
+if (!empty($unused_portlist)) {
+	fs_page_action(gettext('Add interface'), '#', 'fa-plus', 'primary', ['data-fs-modal' => '#assign-add']);
+}
+
 include("head.inc");
 
 if (file_exists("/var/run/interface_mismatch_reboot_needed")) {
@@ -140,7 +144,6 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-fs_tabs('interfaces', 'interfaces_assign.php');
 
 /*Generate the port select box only once.
 Not indenting the HTML to produce smaller code
@@ -152,84 +155,133 @@ foreach ($portlist as $portname => $portinfo) {
 	$portselect.=">".$ifdescrs[$portname]."</option>\n";
 }
 
+fs_tabs('interfaces', 'interfaces_assign.php');
+
+$type_labels = ['dhcp' => 'DHCP', 'pppoe' => 'PPPoE', 'pptp' => 'PPTP', 'l2tp' => 'L2TP', 'ppp' => 'PPP',
+    'dhcp6' => 'DHCPv6', 'slaac' => 'SLAAC', 'track6' => gettext('Track interface'), '6rd' => '6rd', '6to4' => '6to4'];
 ?>
-<form action="interfaces_assign.php" method="post">
-	<div class="table-responsive">
-	<table class="table table-striped table-hover">
-	<thead>
-		<tr>
-			<th><?=gettext("Interface")?></th>
-			<th><?=gettext("Network port")?></th>
-			<th>&nbsp;</th>
-		</tr>
-	</thead>
-	<tbody>
+<form action="interfaces_assign.php" method="post" id="fs-assign-form">
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Interfaces'),
+	'search' => gettext('Search interfaces, ports, addresses…'),
+	'noun' => gettext('interfaces'),
+	'noun_one' => gettext('interface'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("Interface")?></th>
+					<th data-fs-search><?=gettext("Network port")?></th>
+					<th data-fs-search><?=gettext("Addresses")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
+				</tr>
+			</thead>
+			<tbody>
 <?php
-	$i=0;
 	foreach (config_get_path('interfaces', []) as $ifname => $iface):
-		if ($iface['descr']) {
-			$ifdescr = $iface['descr'];
-		} else {
-			$ifdescr = strtoupper($ifname);
+		$ifdescr = $iface['descr'] ? $iface['descr'] : strtoupper($ifname);
+		$addrs = [];
+		foreach ([['ipaddr', 'subnet'], ['ipaddrv6', 'subnetv6']] as $af) {
+			$addr = $iface[$af[0]] ?? '';
+			if ($addr === '' || $addr === 'none') {
+				continue;
+			}
+			$addrs[] = isset($type_labels[$addr]) ? $type_labels[$addr] : $addr . (empty($iface[$af[1]]) ? '' : '/' . $iface[$af[1]]);
+		}
+		$actions = [['edit', 'interfaces.php?if=' . $ifname, $ifdescr]];
+		if ($ifname != 'wan') {
+			$actions[] = ['delete', 'interfaces_assign.php?del[' . $ifname . ']=' . $gettextArray['delete'], $ifdescr, [
+				'thing' => gettext('interface'),
+				'detail' => gettext('Its settings are removed. The network port becomes available again.'),
+			]];
 		}
 ?>
-		<tr>
-			<td><a href="/interfaces.php?if=<?=$ifname?>"><?=$ifdescr?></a></td>
-			<td>
-				<select name="<?=$ifname?>" id="<?=$ifname?>" class="form-control">
+				<tr>
+					<td>
+						<a class="fs-assign-name" href="/interfaces.php?if=<?=$ifname?>"><?=htmlspecialchars($ifdescr)?></a>
+						<?php if (!isset($iface['enable'])): ?><?=fs_badge('disabled')?><?php endif; ?>
+						<div class="fs-mono fs-muted small"><?=htmlspecialchars($ifname)?></div>
+					</td>
+					<td>
+						<select name="<?=$ifname?>" id="<?=$ifname?>" class="form-control fs-assign-port" aria-label="<?=htmlspecialchars(sprintf(gettext('Network port for %s'), $ifdescr))?>" data-fs-initial="<?=htmlspecialchars($iface['if'])?>">
 <?php
 /*port select menu generation loop replaced with pre-prepared select menu to reduce page generation time */
 echo str_replace('value="'.$iface['if'].'">','value="'.$iface['if'].'" selected>',$portselect);
 ?>
-				</select>
-			</td>
-			<td>
-<?php if ($ifname != 'wan'):?>
-				<button type="submit" name="del[<?=$ifname?>]" class="btn btn-danger btn-sm" title="<?=$gettextArray['deleteif']?>">
-					<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-					<?=$gettextArray["delete"]?>
-				</button>
-<?php endif;?>
-			</td>
-		</tr>
-<?php $i++;
-endforeach;
-	if (count(config_get_path('interfaces', [])) < count($portlist)):
-?>
-		<tr>
-			<th>
-				<?=gettext("Available network ports:")?>
-			</th>
-			<td>
-				<select name="if_add" id="if_add" class="form-control">
-<?php
-/* HTML not indented to save on transmission/render time */
-foreach ($unused_portlist as $portname => $portinfo):?>
-<option value="<?=$portname?>" <?=($portname == $iface['if']) ? ' selected': ''?>><?=$ifdescrs[$portname]?></option>
-<?php endforeach;
-?>
-				</select>
-			</td>
-			<td>
-				<button type="submit" name="add" title="<?=gettext("Add selected interface")?>" value="add interface" class="btn btn-success btn-sm" >
-					<i class="fa-solid fa-plus icon-embed-btn"></i>
-					<?=$gettextArray["add"]?>
-				</button>
-			</td>
-		</tr>
-<?php endif;?>
-		</tbody>
-	</table>
+						</select>
+					</td>
+					<td class="fs-mono small"><?=$addrs ? implode('<br>', array_map('htmlspecialchars', $addrs)) : '<span class="fs-muted">' . gettext('none') . '</span>'?></td>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+				</tr>
+<?php endforeach; ?>
+			</tbody>
+		</table>
 	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext("Ports that are members of a LAGG are not listed. Wireless interfaces must be created on the Wireless tab before they can be assigned.")?>
+	</div>
+</div>
 
-	<button name="Submit" type="submit" class="btn btn-primary" value="<?=gettext('Save')?>"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
+<div class="fs-actionbar fs-actionbar--plain">
+	<button name="Submit" type="submit" class="btn btn-primary" value="<?=gettext('Save')?>"><i class="fa-solid fa-floppy-disk icon-embed-btn" aria-hidden="true"></i><?=gettext('Save')?></button>
+	<span class="fs-assign-dirty fs-muted small" hidden><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><?=gettext('Port changes are not saved yet.')?></span>
+</div>
 </form>
-<br />
 
 <?php
-print_info_box(gettext("Interfaces that are configured as members of a lagg(4) interface will not be shown.") .
-    '<br/><br/>' .
-    gettext("Wireless interfaces must be created on the Wireless tab before they can be assigned."), 'info', false);
+if (!empty($unused_portlist)) {
+	fs_modal_form_begin('assign-add', gettext('Add interface'));
 ?>
+	<div class="mb-3">
+		<label class="form-label" for="if_add"><?=gettext('Network port')?></label>
+		<select class="form-select" name="if_add" id="if_add">
+<?php foreach ($unused_portlist as $portname => $portinfo): ?>
+			<option value="<?=htmlspecialchars($portname)?>"><?=htmlspecialchars($ifdescrs[$portname])?></option>
+<?php endforeach; ?>
+		</select>
+		<div class="form-text"><?=gettext('The new interface is named OPTn and starts disabled; edit it afterwards to set addresses.')?></div>
+	</div>
+<?php
+	fs_modal_form_end(gettext('Add'), 'add', 'add interface', 'fa-plus');
+}
+?>
+
+<style>
+.fs-assign-name { font-weight: 600; margin-right: .4rem; }
+.fs-assign-port { min-width: 16rem; max-width: 28rem; }
+tr.fs-assign-changed > td { background-color: var(--fs-accent-tint); }
+tr.fs-assign-changed .fs-assign-port { border-color: var(--fs-coral); }
+.fs-assign-dirty { display: inline-flex; align-items: center; gap: .4rem; margin-left: var(--fs-sp-3); }
+.fs-assign-dirty > i { color: var(--fs-coral); }
+</style>
+<script>
+//<![CDATA[
+(function () {
+	var form = document.getElementById('fs-assign-form');
+	var note = form.querySelector('.fs-assign-dirty');
+	function sync() {
+		var dirty = false;
+		var selects = form.querySelectorAll('select.fs-assign-port');
+		var used = {};
+		selects.forEach(function (s) {
+			used[s.value] = (used[s.value] || 0) + 1;
+		});
+		selects.forEach(function (s) {
+			var changed = s.value !== s.getAttribute('data-fs-initial');
+			s.closest('tr').classList.toggle('fs-assign-changed', changed);
+			/* one port per interface; the server rejects duplicates on save */
+			s.classList.toggle('is-invalid', used[s.value] > 1);
+			dirty = dirty || changed;
+		});
+		note.hidden = !dirty;
+	}
+	form.addEventListener('change', sync);
+	sync();
+})();
+//]]>
+</script>
 
 <?php include("foot.inc")?>
