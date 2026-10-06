@@ -107,6 +107,9 @@ if ($act == "new" || $act == "edit") {
 	$pgtitle[] = gettext('Edit');
 }
 $shortcut_section = "resolver";
+if (!($act == "new" || $act == "edit")) {
+	fs_page_action(gettext('Add access list'), 'services_unbound_acls.php?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -212,17 +215,22 @@ if ($act == "new" || $act == "edit") {
 } else {
 	// NOT 'edit' or 'add'
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Access Lists to Control Access to the DNS Resolver')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Access Lists to Control Access to the DNS Resolver'),
+	'search' => gettext('Search access lists…'),
+	'noun' => gettext('access lists'),
+	'noun_one' => gettext('access list'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+			<table class="table table-hover table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
-						<th><?=gettext("Access List Name")?></th>
-						<th><?=gettext("Action")?></th>
-						<th><?=gettext("Description")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search><?=gettext("Access List Name")?></th>
+						<th data-fs-search><?=gettext("Action")?></th>
+						<th data-fs-search><?=gettext("Description")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -230,7 +238,7 @@ if ($act == "new" || $act == "edit") {
 	$i = 0;
 	foreach (config_get_path('unbound/acls', []) as $acl):
 ?>
-					<tr ondblclick="document.location='services_unbound_acls.php?act=edit&amp;id=<?=$i?>'">
+					<tr>
 						<td>
 							<?=htmlspecialchars($acl['aclname'])?>
 						</td>
@@ -240,27 +248,26 @@ if ($act == "new" || $act == "edit") {
 						<td>
 							<?=htmlspecialchars($acl['description'])?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil"	title="<?=gettext('Edit ACL')?>" href="services_unbound_acls.php?act=edit&amp;id=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete ACL')?>" href="services_unbound_acls.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+<?=fs_row_actions([
+								['edit', "services_unbound_acls.php?act=edit&id={$i}", $acl['aclname']],
+								['delete', "services_unbound_acls.php?act=del&id={$i}", $acl['aclname'], ['thing' => gettext('access list')]],
+							])?>
 						</td>
 					</tr>
 <?php
 		$i++;
 	endforeach;
 ?>
+<?php if (empty(config_get_path('unbound/acls', []))) {
+	fs_empty_row(4, gettext('No access lists yet.'), 'services_unbound_acls.php?act=new', gettext('Add access list'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="services_unbound_acls.php?act=new" class="btn btn-sm btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <?php
 }

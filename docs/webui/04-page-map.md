@@ -84,7 +84,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
-| vpn_ipsec | Special | badges, `fs_row_actions`, toolbar; keep P1/P2 nesting and the existing bulk | B | **H** |
+| vpn_ipsec | Special | badges, `fs_row_actions`, toolbar; keep P1/P2 nesting and the existing bulk. Deferred from Phase B to its own PR (deletes run through hidden submit buttons; needs test tunnels) | B+ | **H** |
 | vpn_ipsec_phase1, _phase2 | Editor | sections; advanced collapsed | D | M |
 | vpn_ipsec_mobile, _settings | Settings | standard | D | |
 | vpn_ipsec_keys / _edit | List / Editor | standard | B / D | |
@@ -113,8 +113,8 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system_hasync | Settings | standard | D | |
 | system_update_settings | Settings | standard | D | |
 | system_boot_environments | List | row actions (activate, delete) with confirm; badge "Active" | B | M |
-| system_restapi, _restapi_keys, _restapi_explorer | Settings / List / Special | **one registry group `restapi`**: Settings · My keys · Explorer · Guide (today a mix of `$view` and separate menu entries) | B | |
-| pkg_mgr, pkg_mgr_installed | List | search becomes `data-fs-table`; badges (installed, update available) | B | |
+| system_restapi, _restapi_keys, _restapi_explorer | Settings / List / Special | already share one tab bar (`restapi_print_tabs()`); no change needed | — | |
+| pkg_mgr, pkg_mgr_installed | List | search becomes `data-fs-table`; badges (installed, update available). Moved to Phase E: the tables load over AJAX, so the enhancer needs a re-init hook | E | |
 | pkg_mgr_install | Tool | progress console | E | |
 | pkg, pkg_edit | Special | **last**, CSS only unless decided otherwise; test 3 XML packages | F | **H** |
 

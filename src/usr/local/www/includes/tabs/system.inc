@@ -49,3 +49,9 @@ $fs_tab_groups['system-advanced'] = [
 	[gettext('System Tunables'), 'system_advanced_sysctl.php'],
 	[gettext('Notifications'), 'system_advanced_notifications.php'],
 ];
+
+$fs_tab_groups['system-bootenv'] = [
+	[gettext('Environments'), 'system_boot_environments.php?view=environments'],
+	[gettext('Create & Clone'), 'system_boot_environments.php?view=create'],
+	[gettext('Settings'), 'system_boot_environments.php?view=settings'],
+];

@@ -133,6 +133,9 @@ if ($_POST['Submit']) {
 	exit;
 }
 
+if ($_REQUEST['act'] != 'add') {
+	fs_page_action(gettext('Upload file'), 'services_captiveportal_filemanager.php?zone=' . urlencode($cpzone) . '&act=add', 'fa-upload');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -170,22 +173,27 @@ if ($_REQUEST['act'] == 'add') {
 		null,
 		'fa-solid fa-upload'
 	))->addClass('btn-primary');
+	fs_form_cancel($form, 'services_captiveportal_filemanager.php?zone=' . urlencode($cpzone));
 
 	print($form);
 }
 
-if (is_array(config_get_path("captiveportal/{$cpzone}/element"))):
 ?>
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext("Installed Files")?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Installed Files'),
+	'search' => gettext('Search files…'),
+	'noun' => gettext('files'),
+	'noun_one' => gettext('file'),
+]); ?>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-sm">
+				<table class="table table-hover">
 					<thead>
 						<tr>
-							<th><?=gettext("Name"); ?></th>
+							<th data-fs-search><?=gettext("Name"); ?></th>
 							<th><?=gettext("Size"); ?></th>
-							<th><?=gettext("Actions"); ?></th>
+							<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions"); ?></span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -196,17 +204,23 @@ if (is_array(config_get_path("captiveportal/{$cpzone}/element"))):
 						<tr>
 							<td><?=htmlspecialchars($element['name'])?></td>
 							<td><?=format_bytes($element['size'])?></td>
-							<td>
-								<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete file")?>" href="services_captiveportal_filemanager.php?zone=<?=$cpzone?>&amp;act=del&amp;id=<?=$i?>" usepost></a>
+							<td class="fs-col-actions">
+								<?=fs_row_actions([
+									['delete', "services_captiveportal_filemanager.php?zone=" . urlencode($cpzone) . "&act=del&id={$i}", $element['name'], ['thing' => gettext('file')]],
+								])?>
 							</td>
 						</tr>
 <?php
 		$i++;
 	endforeach;
 
+	if ($i == 0) {
+		fs_empty_row(3, gettext('No files uploaded yet.'), ($_REQUEST['act'] != 'add') ? 'services_captiveportal_filemanager.php?zone=' . urlencode($cpzone) . '&act=add' : null, gettext('Upload file'));
+	}
+
 	if ($total_size > 0) :
 ?>
-						<tr>
+						<tr data-fs-static>
 							<th>
 								<?=gettext("Total");?>
 							</th>
@@ -221,18 +235,6 @@ if (is_array(config_get_path("captiveportal/{$cpzone}/element"))):
 			</div>
 		</div>
 	</div>
-<?php
-endif;
-
-?>
-	   <nav class="action-buttons">
-<?php if (!$_REQUEST['act'] == 'add'): ?>
-			<a href="services_captiveportal_filemanager.php?zone=<?=$cpzone?>&amp;act=add" class="btn btn-success">
-		   		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		   		<?=gettext("Add")?>
-		   	</a>
-<?php endif; ?>
-	   </nav>
 <?php
 // The notes displayed on the page are large, the page content comparatively small. A "Note" button
 // is provided so that you only see the notes if you ask for them
