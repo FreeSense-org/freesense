@@ -668,6 +668,13 @@ function write_config($desc="Unknown", $backup = true, $write_config_only = fals
 	/* NOTE: We assume that the file can be parsed since we wrote it. */
 	config_read_file(true, false);
 
+	/* Queue an on-change remote backup. This only touches a flag file; the
+	   upload runs from cron so a save never waits on the network. */
+	if ($doacb && config_path_enabled('remotebackup') &&
+	    config_path_enabled('remotebackup', 'onchange')) {
+		@touch('/var/run/remote_backup.pending');
+	}
+
 	if ($write_config_only) {
 		return config_get_path('');
 	}

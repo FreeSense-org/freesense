@@ -156,10 +156,19 @@ function freesense_package_restore_cleanup_previews() {
 	}
 }
 
-function freesense_package_restore_create_preview($post, $postfiles) {
+/*
+ * $local_file is set only by server-side callers (the remote backup restore)
+ * for a file the firewall downloaded itself; it bypasses the upload check.
+ */
+function freesense_package_restore_create_preview($post, $postfiles, $local_file = null) {
 	$errors = array();
 	$upload = $postfiles['conffile']['tmp_name'] ?? '';
-	if ($upload === '' || !is_uploaded_file($upload) || !filesize($upload)) {
+	if ($local_file !== null) {
+		$upload = is_file($local_file) ? $local_file : '';
+	} elseif (!is_uploaded_file($upload)) {
+		$upload = '';
+	}
+	if ($upload === '' || !filesize($upload)) {
 		return array('input_errors' => array(gettext(
 		    'A readable configuration file is required for restore preview.')));
 	}
