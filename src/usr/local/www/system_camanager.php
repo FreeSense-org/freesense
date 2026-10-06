@@ -108,6 +108,9 @@ if ($act == "new" || $act == "edit" || $act == gettext("Save") || $input_errors)
 	$pgtitle[] = gettext('Edit');
 	$pglinks[] = "@self";
 }
+if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_errors)) {
+	fs_page_action(gettext('Add CA'), '?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -118,63 +121,30 @@ if ($savemsg) {
 	print_info_box($savemsg, $class);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext('Authorities'), true, 'system_camanager.php');
-$tab_array[] = array(gettext('Certificates'), false, 'system_certmanager.php');
-$tab_array[] = array(gettext('Revocation'), false, 'system_crlmanager.php');
-display_top_tabs($tab_array);
+fs_tabs('system-certificates', 'system_camanager.php');
 
 if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_errors)) {
 ?>
-<div class="panel panel-default" id="search-panel">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-			<?=gettext('Search')?>
-			<span class="widget-heading-icon float-end">
-				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-circle-plus"></i>
-				</a>
-			</span>
-		</h2>
-	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse show">
-		<div class="form-group">
-			<label class="col-sm-2 control-label">
-				<?=gettext("Search term")?>
-			</label>
-			<div class="col-sm-5"><input class="form-control" name="searchstr" id="searchstr" type="text"/></div>
-			<div class="col-sm-2">
-				<select id="where" class="form-control">
-					<option value="0"><?=gettext("Name")?></option>
-					<option value="1"><?=gettext("Distinguished Name")?></option>
-					<option value="2" selected><?=gettext("Both")?></option>
-				</select>
-			</div>
-			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
-			</div>
-			<div class="col-sm-10 col-sm-offset-2">
-				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to search certificate names and distinguished names.')?></span>
-			</div>
-		</div>
-	</div>
-</div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Certificate Authorities')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Certificate Authorities'),
+	'search' => gettext('Search certificate authorities…'),
+	'noun' => gettext('certificate authorities'),
+	'noun_one' => gettext('certificate authority'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-		<table id="catable" class="table table-striped table-hover table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+		<table id="catable" class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext("Name")?></th>
-					<th><?=gettext("Internal")?></th>
-					<th><?=gettext("Issuer")?></th>
-					<th><?=gettext("Certificates")?></th>
-					<th><?=gettext("Identity")?></th>
-					<th><?=gettext("In Use")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Name")?></th>
+					<th data-fs-search><?=gettext("Internal")?></th>
+					<th data-fs-search><?=gettext("Issuer")?></th>
+					<th data-fs-search><?=gettext("Certificates")?></th>
+					<th data-fs-search><?=gettext("Identity")?></th>
+					<th data-fs-search><?=gettext("In Use")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -217,7 +187,7 @@ foreach (config_get_path('ca', []) as $ca):
 ?>
 				<tr>
 					<td><?=$name?></td>
-					<td><i class="<?= (!empty($ca['prv'])) ? "fa-solid fa-check" : "fa-solid fa-xmark" ; ?>"></i></td>
+					<td><?=!empty($ca['prv']) ? fs_badge('pass', gettext('Yes')) : fs_badge('neutral', gettext('No'))?></td>
 					<td><i><?=$issuer_name?></i></td>
 					<td><?=$certcount?></td>
 					<td>
@@ -240,86 +210,37 @@ foreach (config_get_path('ca', []) as $ca):
 						<?php endif?>
 						<?php echo cert_usedby_description($ca['refid'], $certificates_used_by_packages); ?>
 					</td>
-					<td class="text-nowrap">
-						<a class="fa-solid fa-pencil"	title="<?=gettext("Edit CA")?>"	href="system_camanager.php?act=edit&amp;id=<?=$ca['refid']?>"></a>
-						<a class="fa-solid fa-certificate"	title="<?=gettext("Export CA")?>"	href="system_camanager.php?act=exp&amp;id=<?=$ca['refid']?>"></a>
-					<?php if ($ca['prv']): ?>
-						<a class="fa-solid fa-key"	title="<?=gettext("Export key")?>"	href="system_camanager.php?act=expkey&amp;id=<?=$ca['refid']?>"></a>
-					<?php endif?>
-					<?php if (is_cert_locally_renewable($ca)): ?>
-						<a href="system_certmanager_renew.php?type=ca&amp;refid=<?=$ca['refid']?>" class="fa-solid fa-arrow-rotate-right" title="<?=gettext("Reissue/Renew")?>"></a>
-					<?php endif ?>
-					<?php if (!ca_in_use($ca['refid'])): ?>
-						<a class="fa-solid fa-trash-can" 	title="<?=gettext("Delete CA and its CRLs")?>"	href="system_camanager.php?act=del&amp;id=<?=$ca['refid']?>" usepost ></a>
-					<?php endif?>
+					<td class="fs-col-actions">
+<?php
+	$item_label = $ca['descr'];
+	$ca_actions = [
+		['edit', "system_camanager.php?act=edit&id={$ca['refid']}", $item_label],
+		['custom', "system_camanager.php?act=exp&id={$ca['refid']}", $item_label, ['icon' => 'fa-solid fa-certificate', 'label' => gettext('Export CA')]],
+	];
+	if ($ca['prv']) {
+		$ca_actions[] = ['custom', "system_camanager.php?act=expkey&id={$ca['refid']}", $item_label, ['icon' => 'fa-solid fa-key', 'label' => gettext('Export key')]];
+	}
+	if (is_cert_locally_renewable($ca)) {
+		$ca_actions[] = ['custom', "system_certmanager_renew.php?type=ca&refid={$ca['refid']}", $item_label, ['icon' => 'fa-solid fa-arrow-rotate-right', 'label' => gettext('Reissue/Renew')]];
+	}
+	if (!ca_in_use($ca['refid'])) {
+		$ca_actions[] = ['delete', "system_camanager.php?act=del&id={$ca['refid']}", $item_label, ['thing' => gettext('CA'),
+		    'detail' => gettext('Its certificate revocation lists are deleted too.')]];
+	}
+?>
+						<?=fs_row_actions($ca_actions)?>
 					</td>
 				</tr>
 <?php endforeach; ?>
+<?php if (empty(config_get_path('ca', []))) {
+	fs_empty_row(7, gettext('No certificate authorities yet.'), '?act=new', gettext('Add CA'));
+} ?>
 			</tbody>
 		</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="?act=new" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
-<script type="text/javascript">
-//<![CDATA[
-
-events.push(function() {
-
-	// Make these controls plain buttons
-	$("#btnsearch").prop('type', 'button');
-	$("#btnclear").prop('type', 'button');
-
-	// Search for a term in the entry name and/or dn
-	$("#btnsearch").click(function() {
-		var searchstr = $('#searchstr').val().toLowerCase();
-		var table = $("table tbody");
-		var where = $('#where').val();
-
-		table.find('tr').each(function (i) {
-			var $tds = $(this).find('td'),
-				shortname = $tds.eq(0).text().trim().toLowerCase(),
-				dn = $tds.eq(4).text().trim().toLowerCase();
-
-			regexp = new RegExp(searchstr);
-			if (searchstr.length > 0) {
-				if (!(regexp.test(shortname) && (where != 1)) && !(regexp.test(dn) && (where != 0))) {
-					$(this).hide();
-				} else {
-					$(this).show();
-				}
-			} else {
-				$(this).show();	// A blank search string shows all
-			}
-		});
-	});
-
-	// Clear the search term and unhide all rows (that were hidden during a previous search)
-	$("#btnclear").click(function() {
-		var table = $("table tbody");
-
-		$('#searchstr').val("");
-
-		table.find('tr').each(function (i) {
-			$(this).show();
-		});
-	});
-
-	// Hitting the enter key will do the same as clicking the search button
-	$("#searchstr").on("keyup", function (event) {
-		if (event.keyCode == 13) {
-			$("#btnsearch").get(0).click();
-		}
-	});
-});
-//]]>
-</script>
 
 <?php
 	include("foot.inc");
