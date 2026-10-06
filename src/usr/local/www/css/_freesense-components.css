@@ -557,3 +557,6 @@ form > .fs-actionbar .fs-actionbar-cancel { margin-left: var(--fs-sp-2); }
 @media (min-width: 576px) and (max-width: 991px) {
 	.fs-megamenu-grid { --fs-mega-cols: 2; }
 }
+
+/* row actions rendered as submit buttons (forms per row, e.g. boot environments) */
+button.fs-action { padding: 0; border: 0; background: none; line-height: 1; }

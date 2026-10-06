@@ -240,18 +240,18 @@ if (!$available || !$compatible): ?>
 	<div class="alert alert-info"><?=gettext('ZFS boot environments are unavailable. This feature requires a compatible ZFS root installation and bectl support.')?></div>
 <?php else: ?>
 <?php
-$tab_array = [
-	[gettext('Environments'), $view === 'environments', 'system_boot_environments.php?view=environments'],
-	[gettext('Create & Clone'), $view === 'create', 'system_boot_environments.php?view=create'],
-	[gettext('Settings'), $view === 'settings', 'system_boot_environments.php?view=settings'],
-];
-display_top_tabs($tab_array);
+fs_tabs('system-bootenv', 'system_boot_environments.php?view=' . $view);
 if ($view === 'environments'):
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Boot Environments')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Boot Environments'),
+	'search' => gettext('Search boot environments…'),
+	'noun' => gettext('boot environments'),
+	'noun_one' => gettext('boot environment'),
+]); ?>
 	<div class="panel-body table-responsive">
-	<table class="table table-striped table-hover table-sm bootenv-table">
+	<table class="table table-hover bootenv-table">
 		<colgroup>
 			<col style="width: 27%">
 			<col style="width: 8%">
@@ -262,35 +262,43 @@ if ($view === 'environments'):
 			<col style="width: 14%">
 			<col style="width: 13%">
 		</colgroup>
-		<thead><tr><th><?=gettext('Name')?></th><th><?=gettext('State')?></th><th><?=gettext('Health')?></th><th><?=gettext('Version')?></th><th><?=gettext('Created')?></th><th><?=gettext('Space')?></th><th><?=gettext('Description')?></th><th><?=gettext('Actions')?></th></tr></thead>
+		<thead><tr><th data-fs-search><?=gettext('Name')?></th><th><?=gettext('State')?></th><th data-fs-search><?=gettext('Health')?></th><th data-fs-search><?=gettext('Version')?></th><th><?=gettext('Created')?></th><th><?=gettext('Space')?></th><th data-fs-search><?=gettext('Description')?></th><th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th></tr></thead>
 		<tbody>
 		<?php foreach ($environments as $be):
 			$meta = $be['metadata'] ?? [];
 			$states = [];
-			if ($be['active_now']) $states[] = gettext('Current');
-			if ($be['active_reboot']) $states[] = gettext('Next');
-			if ($be['active_once']) $states[] = gettext('Once');
+			if ($be['active_now']) $states[] = fs_badge('active', gettext('Current'));
+			if ($be['active_reboot']) $states[] = fs_badge('info', gettext('Next'));
+			if ($be['active_once']) $states[] = fs_badge('warn', gettext('Once'));
 			$version_parts = be_version_parts((string)($meta['version'] ?? '-'));
 			$created_parts = be_created_parts((string)($meta['created'] ?? $be['created']));
 		?>
 		<tr>
 			<td class="bootenv-table__name"><?=htmlspecialchars($be['name'])?></td>
-			<td><span class="bootenv-cell-lines"><?php if ($states): foreach ($states as $state): ?><span><?=htmlspecialchars($state)?></span><?php endforeach; else: ?><span>-</span><?php endif; ?></span></td>
+			<td><span class="bootenv-cell-lines"><?php if ($states): foreach ($states as $state): ?><span><?=$state?></span><?php endforeach; else: ?><span>-</span><?php endif; ?></span></td>
 			<td><?=htmlspecialchars($meta['health'] ?? '-')?></td>
 			<td><span class="bootenv-cell-lines"><span><?=htmlspecialchars($version_parts[0])?></span><?php if ($version_parts[1] !== ''): ?><span class="bootenv-cell-lines__secondary"><?=htmlspecialchars($version_parts[1])?></span><?php endif; ?></span></td>
 			<td><span class="bootenv-cell-lines"><span><?=htmlspecialchars($created_parts[0])?></span><?php if ($created_parts[1] !== ''): ?><span class="bootenv-cell-lines__secondary"><?=htmlspecialchars($created_parts[1])?></span><?php endif; ?></span></td>
 			<td><?=htmlspecialchars($be['space'])?></td>
 			<td><?=htmlspecialchars($meta['description'] ?? '')?></td>
-			<td class="bootenv-table__actions">
+			<td class="bootenv-table__actions fs-col-actions">
 				<form method="post" class="bootenv-actions">
 					<input type="hidden" name="name" value="<?=htmlspecialchars($be['name'])?>">
-					<button class="btn btn-xs btn-primary" name="action" value="activate" title="<?=gettext('Activate persistently')?>"><i class="fa-solid fa-star"></i></button>
-					<button class="btn btn-xs btn-info" name="action" value="activate-once" title="<?=gettext('Activate once')?>"><i class="fa-solid fa-play"></i></button>
-					<button class="btn btn-xs btn-warning" name="action" value="activate-once" title="<?=gettext('Activate once and reboot')?>" onclick="this.form.reboot.value='1'; return confirm('<?=gettext('Reboot into this boot environment now?')?>')"><i class="fa-solid fa-power-off"></i></button>
+					<div class="fs-actions">
+					<button class="fs-action" name="action" value="activate" title="<?=gettext('Activate persistently')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s persistently'), $be['name']))?>"><i class="fa-solid fa-star" aria-hidden="true"></i></button>
+					<button class="fs-action" name="action" value="activate-once" title="<?=gettext('Activate once')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s once'), $be['name']))?>"><i class="fa-solid fa-play" aria-hidden="true"></i></button>
+					<button class="fs-action" name="action" value="activate-once" title="<?=gettext('Activate once and reboot')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s once and reboot'), $be['name']))?>"
+					    data-fs-confirm="<?=htmlspecialchars(sprintf(gettext('Reboot into boot environment “%s” now?'), $be['name']))?>"
+					    data-fs-confirm-detail="<?=gettext('The firewall restarts and is unreachable until it is back up.')?>"
+					    data-fs-confirm-action="<?=gettext('Reboot')?>"
+					    onclick="this.form.reboot.value='1';"><i class="fa-solid fa-power-off" aria-hidden="true"></i></button>
 					<input type="hidden" name="reboot" value="0">
 					<?php if (!$be['active_now'] && !$be['active_reboot'] && !$be['active_once'] && ($meta['health'] ?? '') !== 'pending'): ?>
-					<button class="btn btn-xs btn-danger" name="action" value="destroy" title="<?=gettext('Delete')?>" onclick="return confirm('<?=gettext('Delete this boot environment?')?>')"><i class="fa-solid fa-trash"></i></button>
+					<button class="fs-action fs-action--delete" name="action" value="destroy" title="<?=gettext('Delete')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Delete %s'), $be['name']))?>"
+					    data-fs-confirm="<?=htmlspecialchars(sprintf(gettext('Delete boot environment “%s”?'), $be['name']))?>"
+					    data-fs-confirm-action="<?=gettext('Delete')?>"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
 					<?php endif; ?>
+					</div>
 				</form>
 			</td>
 		</tr>
