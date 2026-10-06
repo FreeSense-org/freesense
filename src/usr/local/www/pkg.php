@@ -584,7 +584,7 @@ if ($savemsg) {
 	if ($pkg['adddeleteeditpagefields']['description']) {
 ?>
 								<td>
-									<i class="fa-solid fa-info-circle"><?=$pkg['adddeleteeditpagefields']['description']?></i>
+									<i class="fa-solid fa-circle-info"><?=$pkg['adddeleteeditpagefields']['description']?></i>
 								</td>
 <?php
 	}
@@ -596,7 +596,7 @@ if ($savemsg) {
 				<?=$final_footer?>
 			</table>
 			</div>
-		<button class="btn btn-primary" type="button" value="Save" name="Submit" onclick="save_changes_to_xml('<?=$xml?>')"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext("Save")?></button>
+		<button class="btn btn-primary" type="button" value="Save" name="Submit" onclick="save_changes_to_xml('<?=$xml?>')"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext("Save")?></button>
 
 </form>
 <?php

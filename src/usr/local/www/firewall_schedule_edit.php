@@ -304,7 +304,7 @@ $group->add(new Form_Button(
 	'btnclrsel',
 	'Clear selection',
 	null,
-	'fa-solid fa-undo'
+	'fa-solid fa-arrow-rotate-left'
 ))->setAttribute('type','button')->addClass('btn-info btn-sm');
 
 $section->add($group);

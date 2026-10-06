@@ -216,7 +216,7 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 
 	<div class="form-group">
 		<div class="col-sm-offset-3 col-sm-6">
-			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
+			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
 		</div>
 	</div>
 </form>

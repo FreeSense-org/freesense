@@ -191,7 +191,7 @@ else:
 		'save',
 		gettext('Save'),
 		null,
-		'fa-solid fa-save'
+		'fa-solid fa-floppy-disk'
 	))->addClass('btn-primary');
 	$form->add($section);
 	print($form);

@@ -173,7 +173,7 @@ if (is_array($browse)):
 								<input type="hidden" name="target" value="<?=htmlspecialchars($browse_target['id'])?>" />
 								<input type="hidden" name="name" value="<?=htmlspecialchars($name)?>" />
 								<button type="submit" class="btn btn-xs btn-danger">
-									<i class="fa-solid fa-undo"></i> <?=gettext('Restore')?>
+									<i class="fa-solid fa-arrow-rotate-left"></i> <?=gettext('Restore')?>
 								</button>
 							</form>
 						</td>
@@ -254,7 +254,7 @@ $section->addInput(new Form_Button(
 	'save',
 	gettext('Save'),
 	null,
-	'fa-solid fa-save'
+	'fa-solid fa-floppy-disk'
 ))->addClass('btn-primary');
 $form->add($section);
 print($form);
@@ -284,10 +284,10 @@ foreach ($targets as $t):
 	$tid = $t['id'];
 	$st = $state[$tid] ?? array();
 	if (!empty($st['last_error'])) {
-		$icon = 'fa-solid fa-times-circle text-danger';
+		$icon = 'fa-solid fa-circle-xmark text-danger';
 		$icon_title = gettext('Failed');
 	} elseif (!empty($st['last_success'])) {
-		$icon = 'fa-solid fa-check-circle text-success';
+		$icon = 'fa-solid fa-circle-check text-success';
 		$icon_title = gettext('OK');
 	} else {
 		$icon = 'fa-regular fa-circle text-muted';

@@ -112,7 +112,7 @@ $form->addGlobal(new Form_Button(
         'Submit',
         'Lookup',
         null,
-        'fa-solid fa-search'
+        'fa-solid fa-magnifying-glass'
 ))->addClass('btn-primary');
 
 if (!empty($resolved) && isAllowedPage('firewall_aliases_edit.php')) {

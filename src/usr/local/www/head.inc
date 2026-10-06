@@ -739,7 +739,7 @@ if (are_notices_pending()) {
 	<?php if (isset($widgets)): ?>
 		<li>
 			<a href="#" title="<?=gettext("Save dashboard layout")?>" id="btnstore" class="invisible">
-				<i class="fa-solid fa-save icon-pointer"></i>
+				<i class="fa-solid fa-floppy-disk icon-pointer"></i>
 			</a>
 		</li>
 	<?php endif?>
@@ -834,7 +834,7 @@ if (('' != ($link = get_shortcut_log_link($shortcut_section, false))) && (isAllo
 	<?php if (!g_get('disablehelpicon') && isAllowedPage("help.php")): ?>
 		<li>
 			<a href="<?=$helpurl?>" target="_blank" title="<?=gettext("Help for items on this page")?>">
-				<i class="fa-solid fa-question-circle"></i>
+				<i class="fa-solid fa-circle-question"></i>
 			</a>
 		</li>
 	<?php endif?>
@@ -928,7 +928,7 @@ if ($display_notices):
 			</div>
 
 			<div class="modal-footer">
-				<button type="button" class="btn btn-info" data-bs-dismiss="modal"><i class="fa-solid fa-times icon-embed-btn"></i><?=gettext("Close")?></button>
+				<button type="button" class="btn btn-info" data-bs-dismiss="modal"><i class="fa-solid fa-xmark icon-embed-btn"></i><?=gettext("Close")?></button>
 <?php if ($allow_clear_notices && isAllowedPage("/index.php")):?>
 				<button type="button" id="clearallnotices" class="btn btn-primary"><i class="fa-regular fa-trash-can icon-embed-btn"></i><?=gettext("Mark All as Read")?></button>
 <?php endif;?>

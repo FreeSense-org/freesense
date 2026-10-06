@@ -108,11 +108,11 @@ if (count($devs) > 0)  {
 			case "":
 				$dev_state = gettext("Unknown");
 				$color = "text-info";
-				$icon = "fa-solid fa-times-circle";
+				$icon = "fa-solid fa-circle-xmark";
 				break;
 			default:
 				$color = "text-alert";
-				$icon = "fa-solid fa-question-circle";
+				$icon = "fa-solid fa-circle-question";
 				break;
 		}
 ?>
@@ -174,8 +174,8 @@ if (count($devs) > 0)  {
 
 	<div class="form-group">
 		<div class="col-sm-offset-3 col-sm-6">
-			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
-			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext('All')?></button>
+			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
+			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext('All')?></button>
 		</div>
 	</div>
 </form>

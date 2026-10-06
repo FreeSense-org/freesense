@@ -71,7 +71,7 @@ function showDef($show, $term, $def) {
 		if ($def == "up" || $def == "associated") {
 			$icon = 'fa-solid fa-arrow-up text-success';
 		} elseif ($def == "no carrier") {
-			$icon = 'fa-solid fa-times-circle text-danger';
+			$icon = 'fa-solid fa-circle-xmark text-danger';
 		} elseif ($def == "down") {
 			$icon = 'fa-solid fa-arrow-down text-danger';
 		} else {

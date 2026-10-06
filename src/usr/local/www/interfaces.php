@@ -2455,7 +2455,7 @@ $section->addInput(new Form_Button(
 	'btnadvppp',
 	'Advanced PPP',
 	array_path_enabled($pconfig, '', 'pppid') ? 'interfaces_ppps_edit.php?id=' . htmlspecialchars(array_get_path($pconfig, 'pppid')) : 'interfaces_ppps_edit.php',
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 ))->setAttribute('type','button')->addClass('btn-info')->setAttribute('id')->setHelp('Create a new PPP configuration.');
 
 $form->add($section);
@@ -2588,7 +2588,7 @@ $section->addInput(new Form_Button(
 	'btnadvppp',
 	'Advanced and MLPPP',
 	array_path_enabled($pconfig, '', 'pppid') ? 'interfaces_ppps_edit.php?id=' . htmlspecialchars(array_get_path($pconfig, 'pppid')) : 'interfaces_ppps_edit.php',
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 ))->setAttribute('type','button')->addClass('btn-info')->setAttribute('id')->setHelp('Click for additional PPPoE configuration options. Save first if changes have been made.');
 
 $form->add($section);
@@ -2669,7 +2669,7 @@ $section->addInput(new Form_Button(
 	'btnadvppp',
 	'Advanced and MLPPP',
 	array_path_enabled($pconfig, '', 'pppid') ? 'interfaces_ppps_edit.php?id=' . htmlspecialchars(array_get_path($pconfig, 'pppid')) : 'interfaces_ppps_edit.php',
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 ))->setAttribute('type','button')->addClass('btn-info')->setAttribute('id')->setHelp('%sClick for additional PPTP and L2TP configuration options. Save first if changes have been made.', $mlppp_text);
 
 $form->add($section);
@@ -2757,7 +2757,7 @@ $btncnxgw6 = new Form_Button(
 	'cnx6',
 	'Cancel',
 	null,
-	'fa-solid fa-undo'
+	'fa-solid fa-arrow-rotate-left'
 );
 
 $btncnxgw6->setAttribute('type','button')->addClass('btn-warning');
@@ -3666,7 +3666,7 @@ $btncnxgw4 = new Form_Button(
 	'cnx4',
 	'Cancel',
 	null,
-	'fa-solid fa-undo'
+	'fa-solid fa-arrow-rotate-left'
 );
 
 $btncnxgw4->setAttribute('type','button')->addClass('btn-warning');

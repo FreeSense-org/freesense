@@ -125,7 +125,7 @@ print_callout(gettext("The capabilities offered here can be dangerous. No suppor
 							<?=gettext('Browse')?>
 						</button>
 						<button type="button" class="btn btn-secondary btn-sm" onclick="saveFile();"	value="<?=gettext('Save')?>">
-							<i class="fa-solid fa-save"></i>
+							<i class="fa-solid fa-floppy-disk"></i>
 							<?=gettext('Save')?>
 						</button>
 					</p>

@@ -634,14 +634,14 @@ function get_service_status_icon($service, $withtext = true, $smallicon = false,
 	if (get_service_status($service)) {
 		$statustext = gettext("Running");
 		$text_class = "text-success";
-		$fa_class = "fa-solid fa-check-circle";
+		$fa_class = "fa-solid fa-circle-check";
 		$fa_class_thumbs = "fa-regular fa-thumbs-up";
 		$Thumbs_UpDown = "Thumbs up";
 	} else {
 		if (is_service_enabled($service['name'])) {
 			$statustext = gettext("Stopped");
 			$text_class = "text-danger";
-			$fa_class = "fa-solid fa-times-circle";
+			$fa_class = "fa-solid fa-circle-xmark";
 		} else {
 			$statustext = gettext("Disabled");
 			$text_class = "text-warning";
@@ -726,7 +726,7 @@ function get_service_control_links($service, $addname = false) {
 
 		if ($service['name'] == 'openvpn' || $service['name'] == 'captiveportal' || $service_enabled) {
 			$output .= sprintf($link, sprintf(gettext("Start %sService"), $stitle), 'startservice');
-			$output .= '<i class="fa-solid fa-play-circle"></i></a> ';
+			$output .= '<i class="fa-solid fa-circle-play"></i></a> ';
 		}
 	}
 

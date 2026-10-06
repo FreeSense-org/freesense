@@ -134,11 +134,11 @@ if (isset($_POST['save'])) {
 
 		<nav class="action-buttons">
 			<button type="submit" class="btn btn-primary">
-				<i class="fa-solid fa-save icon-embed-btn"></i>
+				<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
 				<?=htmlspecialchars(gettext('Save'))?>
 			</button>
 			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info">
-				<i class="fa-solid fa-undo icon-embed-btn"></i>
+				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
 				<?=htmlspecialchars(gettext('All'))?>
 			</button>
 		</nav>

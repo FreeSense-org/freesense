@@ -103,7 +103,7 @@ class Form_Section extends Form_Element
 		if (intval($this->_collapsible) & COLLAPSIBLE) {
 			$hdricon = '<span class="widget-heading-icon">' .
 				'<a data-bs-toggle="collapse" href="#' . $id . '_panel-body">' .
-					'<i class="fa-solid fa-plus-circle"></i>' .
+					'<i class="fa-solid fa-circle-plus"></i>' .
 				'</a>' .
 			'</span>';
 			$bodyclass = '<div id="' . $id . '_panel-body" class="panel-body collapse ';

@@ -369,14 +369,14 @@ if (isset($if)):
 						<td></td>
 						<td><?=gettext("Anti-Lockout Rule");?></td>
 						<td>
-							<a href="system_advanced_admin.php" title="<?=gettext("Settings");?>"><i class="fa-solid fa-cog"></i></a>
+							<a href="system_advanced_admin.php" title="<?=gettext("Settings");?>"><i class="fa-solid fa-gear"></i></a>
 						</td>
 					</tr>
 <?php 	endif;?>
 <?php 	if ($showprivate): ?>
 					<tr id="private">
 						<td></td>
-						<td title="<?=gettext("traffic is blocked")?>"><i class="fa-solid fa-times text-danger"></i></td>
+						<td title="<?=gettext("traffic is blocked")?>"><i class="fa-solid fa-xmark text-danger"></i></td>
 						<td><?php print_states(intval(RFC1918_TRACKER_START), intval(RFC1918_TRACKER_END)); ?></td>
 						<td>*</td>
 						<td><?=gettext("RFC 1918 networks");?></td>
@@ -388,14 +388,14 @@ if (isset($if)):
 						<td></td>
 						<td><?=gettext("Block private networks");?></td>
 						<td>
-							<a href="interfaces.php?if=<?=htmlspecialchars($if)?>" title="<?=gettext("Settings");?>" usepost><i class="fa-solid fa-cog"></i></a>
+							<a href="interfaces.php?if=<?=htmlspecialchars($if)?>" title="<?=gettext("Settings");?>" usepost><i class="fa-solid fa-gear"></i></a>
 						</td>
 					</tr>
 <?php 	endif;?>
 <?php 	if ($showblockbogons): ?>
 					<tr id="bogons">
 						<td></td>
-						<td title="<?=gettext("traffic is blocked")?>"><i class="fa-solid fa-times text-danger"></i></td>
+						<td title="<?=gettext("traffic is blocked")?>"><i class="fa-solid fa-xmark text-danger"></i></td>
 						<td><?php print_states(intval(BOGONS_TRACKER_START), intval(BOGONS_TRACKER_END)); ?></td>
 						<td>*</td>
 						<td><?=sprintf(gettext("Reserved%sNot assigned by IANA"), "<br />");?></td>
@@ -407,7 +407,7 @@ if (isset($if)):
 						<td></td>
 						<td><?=gettext("Block bogon networks");?></td>
 						<td>
-							<a href="interfaces.php?if=<?=htmlspecialchars($if)?>" title="<?=gettext("Settings");?>" usepost><i class="fa-solid fa-cog"></i></a>
+							<a href="interfaces.php?if=<?=htmlspecialchars($if)?>" title="<?=gettext("Settings");?>" usepost><i class="fa-solid fa-gear"></i></a>
 						</td>
 					</tr>
 <?php 	endif;?>
@@ -446,7 +446,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 
 	<?php
 		if ($filterent['type'] == "block") {
-			$iconfn = "fa-solid fa-times text-danger";
+			$iconfn = "fa-solid fa-xmark text-danger";
 			$title_text = gettext("traffic is blocked");
 		} else if ($filterent['type'] == "reject") {
 			$iconfn = "fa-regular fa-hand text-warning";
@@ -470,11 +470,11 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 
 		$isadvset = firewall_check_for_advanced_options($filterent);
 		if ($isadvset) {
-			print '<i class="fa-solid fa-cog" title="'. gettext("advanced setting") .': '. $isadvset .'" style="cursor: pointer;"></i>';
+			print '<i class="fa-solid fa-gear" title="'. gettext("advanced setting") .': '. $isadvset .'" style="cursor: pointer;"></i>';
 		}
 
 		if (isset($filterent['log'])) {
-			print '<i class="fa-solid fa-tasks" title="'. gettext("traffic is logged") .'" style="cursor: pointer;"></i>';
+			print '<i class="fa-solid fa-list-check" title="'. gettext("traffic is logged") .'" style="cursor: pointer;"></i>';
 		}
 
 		if (isset($filterent['direction']) &&
@@ -613,20 +613,20 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 		if (!isset($filterent['disabled'])) {
 			if ($schedstatus) {
 				if ($filterent['type'] == "block" || $filterent['type'] == "reject") {
-					$image = "fa-solid fa-times-circle";
+					$image = "fa-solid fa-circle-xmark";
 					$dispcolor = "text-danger";
 					$alttext = gettext("Traffic matching this rule is currently being denied");
 				} else {
-					$image = "fa-solid fa-play-circle";
+					$image = "fa-solid fa-circle-play";
 					$dispcolor = "text-success";
 					$alttext = gettext("Traffic matching this rule is currently being allowed");
 				}
 				$printicon = true;
 			} else if ($filterent['sched']) {
 				if ($filterent['type'] == "block" || $filterent['type'] == "reject") {
-					$image = "fa-solid fa-times-circle";
+					$image = "fa-solid fa-circle-xmark";
 				} else {
-					$image = "fa-solid fa-play-circle";
+					$image = "fa-solid fa-circle-play";
 				}
 				$alttext = gettext("This rule is not currently active because its period has expired");
 				$dispcolor = "text-warning";
@@ -866,7 +866,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							<a href="?act=del&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>" class="fa-solid fa-trash-can" title="<?=gettext('Delete this rule')?>" usepost></a>
 <?php if (($filterent['type'] == 'pass') &&
 	    !empty($filterent['tracker'])): ?>
-							<a href="?act=killid&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>&amp;tracker=<?=$filterent['tracker']?>" class="fa-solid fa-times do-confirm" title="<?=gettext('Kill states on this interface created by this rule')?>" usepost></a>
+							<a href="?act=killid&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>&amp;tracker=<?=$filterent['tracker']?>" class="fa-solid fa-xmark do-confirm" title="<?=gettext('Kill states on this interface created by this rule')?>" usepost></a>
 <?php endif; ?>
 						</td>
 					</tr>
@@ -925,7 +925,7 @@ foreach ($seprows as $idx => $sep) {
 		</button>
 		<?php endif;?>
 		<button type="submit" id="order-store" name="order-store" class="btn btn-sm btn-primary" value="store changes" disabled title="<?=gettext('Save rule order')?>">
-			<i class="fa-solid fa-save icon-embed-btn"></i>
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
 			<?=gettext("Save")?>
 		</button>
 		<button type="submit" id="addsep" name="addsep" class="btn btn-sm btn-warning" title="<?=gettext('Add separator')?>">
@@ -963,7 +963,7 @@ $btncancelcopyrules = new Form_Button(
 	'cancel_copyr',
 	'Cancel',
 	null,
-	'fa-solid fa-undo'
+	'fa-solid fa-arrow-rotate-left'
 );
 $btncancelcopyrules->setAttribute('type','button')->addClass('btn-warning');
 $modal->addInput(new Form_StaticText(
@@ -997,10 +997,10 @@ else: ?>
 			<dt><?=gettext('Legend')?></dt>				<dd></dd>
 			<dt><i class="fa-solid fa-check text-success"></i></dt>		<dd><?=gettext("Pass");?></dd>
 			<dt><i class="fa-solid fa-filter"></i></dt>	<dd><?=gettext("Match");?></dd>
-			<dt><i class="fa-solid fa-times text-danger"></i></dt>	<dd><?=gettext("Block");?></dd>
+			<dt><i class="fa-solid fa-xmark text-danger"></i></dt>	<dd><?=gettext("Block");?></dd>
 			<dt><i class="fa-regular fa-hand text-warning"></i></dt>		<dd><?=gettext("Reject");?></dd>
-			<dt><i class="fa-solid fa-tasks"></i></dt>	<dd> <?=gettext("Log");?></dd>
-			<dt><i class="fa-solid fa-cog"></i></dt>		<dd> <?=gettext("Advanced filter");?></dd>
+			<dt><i class="fa-solid fa-list-check"></i></dt>	<dd> <?=gettext("Log");?></dd>
+			<dt><i class="fa-solid fa-gear"></i></dt>		<dd> <?=gettext("Advanced filter");?></dd>
 			<dt><i class="fa-solid fa-forward text-success"></i></dt><dd> <?=gettext("&quot;Quick&quot; rule. Applied immediately on match.")?></dd>
 		</dl>
 

@@ -899,7 +899,7 @@ if ($pkg['step'][$stepid]['fields']['field'] != "") {
 					$name,
 					$field['name'],
 					null,
-					'fa-solid fa-angle-double-right'
+					'fa-solid fa-angles-right'
 				))->addClass('btn-primary');
 
 				break;

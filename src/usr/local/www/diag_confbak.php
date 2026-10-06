@@ -164,7 +164,7 @@ $section->addInput(new Form_Button(
 	'Submit',
 	gettext('Save'),
 	null,
-	'fa-solid fa-save'
+	'fa-solid fa-floppy-disk'
 ))->addClass('btn-primary');
 
 $form->add($section);
@@ -249,7 +249,7 @@ if (is_array($confvers)):
 					<td><?= format_bytes($version['filesize']) ?></td>
 					<td><?= htmlspecialchars($version['description']) ?></td>
 					<td>
-						<a class="fa-solid fa-undo do-confirm"	title="<?=gettext('Replace the current configuration with this backup')?>"	href="diag_confbak.php?newver=<?=$version['time']?>" usepost></a>
+						<a class="fa-solid fa-arrow-rotate-left do-confirm"	title="<?=gettext('Replace the current configuration with this backup')?>"	href="diag_confbak.php?newver=<?=$version['time']?>" usepost></a>
 						<a class="fa-solid fa-download"		title="<?=gettext('Download this configuration revision')?>"			href="diag_confbak.php?getcfg=<?=$version['time']?>"></a>
 						<a class="fa-solid fa-trash-can"			title="<?=gettext('Delete this configuration revision')?>"			href="diag_confbak.php?rmver=<?=$version['time']?>" usepost></a>
 					</td>

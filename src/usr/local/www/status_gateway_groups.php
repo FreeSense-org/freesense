@@ -165,7 +165,7 @@ display_top_tabs($tab_array);
 							<?=htmlspecialchars($gateway_group['descr'])?>
 						</td>
 						<td>
-							<a href="?act=killgwg&amp;gwgname=<?=urlencode($gateway_group['name']);?>" class="fa-solid fa-times-circle do-confirm" title="<?=gettext('Kill firewall states created by policy routing rules using this specific gateway group.')?>" usepost></a>
+							<a href="?act=killgwg&amp;gwgname=<?=urlencode($gateway_group['name']);?>" class="fa-solid fa-circle-xmark do-confirm" title="<?=gettext('Kill firewall states created by policy routing rules using this specific gateway group.')?>" usepost></a>
 						</td>
 					</tr>
 			<?php endforeach; ?>

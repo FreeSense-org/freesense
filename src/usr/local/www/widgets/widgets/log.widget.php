@@ -248,7 +248,7 @@ if (!$_REQUEST['ajax']) {
 		}
 
 		if ($filterent['act'] == "block") {
-			$iconfn = "fa-solid fa-times text-danger";
+			$iconfn = "fa-solid fa-xmark text-danger";
 		} else if ($filterent['act'] == "reject") {
 			$iconfn = "fa-regular fa-hand text-warning";
 		} else if ($filterent['act'] == "match") {
@@ -485,8 +485,8 @@ $pconfig['nentriesinterval'] = isset($user_settings['widgets'][$widgetkey]['filt
 
 		<div class="form-group">
 			<div class="col-sm-offset-4 col-sm-6">
-<!-- In the past:		<button type="submit" class="btn btn-primary"><i class="fa fa-save icon-embed-btn"></i><?=gettext('Save')?></button> -->
-				<button type="submit" class="btn btn-primary"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
+<!-- In the past:		<button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button> -->
+				<button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
 			</div>
 		</div>
 	</form>

@@ -177,7 +177,7 @@ endif; /* dhcp_is_backend('isc') */
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-plus-circle"></i>
+					<i class="fa-solid fa-circle-plus"></i>
 				</a>
 			</span>
 		</h2>
@@ -204,8 +204,8 @@ endif; /* dhcp_is_backend('isc') */
 				</select>
 			</div>
 			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
+				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
+				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
 			</div>
 			<div class="col-sm-10 col-sm-offset-2">
 				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to filter entries.')?></span>
@@ -332,7 +332,7 @@ foreach ($leases['lease'] as $data):
 <?php if ($data['type'] == $dynamic_string): ?>
 						<a class="fa-regular fa-square-plus"	title="<?=gettext('Add static mapping')?>" href="services_dhcp_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($data['mac']))?>&amp;hostname=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
 <?php endif; ?>
-						<a class="fa-solid fa-plus-square" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($data['mac']))?>&amp;descr=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
+						<a class="fa-solid fa-square-plus" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($data['mac']))?>&amp;descr=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
 <?php if ($data['online'] != $online_string):?>
 						<a class="fa-solid fa-power-off" title="<?=gettext('Send WOL packet')?>" href="services_wol.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($data['mac']))?>" usepost></a>
 <?php endif; ?>
@@ -421,9 +421,9 @@ else:
 
 <nav class="action-buttons">
 <?php if ($_REQUEST['all']): ?>
-	<a class="btn btn-info" href="status_dhcp_leases.php?all=0"><i class="fa-solid fa-minus-circle icon-embed-btn"></i><?=gettext("Show Active and Static Leases Only")?></a>
+	<a class="btn btn-info" href="status_dhcp_leases.php?all=0"><i class="fa-solid fa-circle-minus icon-embed-btn"></i><?=gettext("Show Active and Static Leases Only")?></a>
 <?php else: ?>
-	<a class="btn btn-info" href="status_dhcp_leases.php?all=1"><i class="fa-solid fa-plus-circle icon-embed-btn"></i><?=gettext("Show All Configured Leases")?></a>
+	<a class="btn btn-info" href="status_dhcp_leases.php?all=1"><i class="fa-solid fa-circle-plus icon-embed-btn"></i><?=gettext("Show All Configured Leases")?></a>
 <?php endif; ?>
 	<a class="btn btn-danger no-confirm" id="cleardhcp"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Clear All DHCP Leases")?></a>
 </nav>

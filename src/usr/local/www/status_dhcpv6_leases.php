@@ -264,7 +264,7 @@ endif; /* dhcp_is_backend('kea') */
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-plus-circle"></i>
+					<i class="fa-solid fa-circle-plus"></i>
 				</a>
 			</span>
 		</h2>
@@ -292,8 +292,8 @@ endif; /* dhcp_is_backend('kea') */
 				</select>
 			</div>
 			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext('Search')?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext('Clear')?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
+				<a id="btnsearch" title="<?=gettext('Search')?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
+				<a id="btnclear" title="<?=gettext('Clear')?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
 			</div>
 			<div class="col-sm-10 col-sm-offset-2">
 				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to filter entries.')?></span>
@@ -415,7 +415,7 @@ foreach ($leases as $data):
 						<a class="fa-regular fa-square-plus" title="<?=gettext('Add static mapping')?>" href="services_dhcpv6_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;duid=<?=htmlspecialchars(urlencode($data['duid']))?>&amp;hostname=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
 <?php endif; ?>
 <?php if ($mac): /* we can only add a WOL mapping if MAC address is known */ ?>
-						<a class="fa-solid fa-plus-square" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($mac))?>&amp;descr=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
+						<a class="fa-solid fa-square-plus" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($mac))?>&amp;descr=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
 <?php endif; ?>
 <?php if ($data['type'] == $static_string): ?>
 						<a class="fa-solid fa-pencil" title="<?=gettext('Edit static mapping')?>" href="services_dhcpv6_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;id=<?=htmlspecialchars(urlencode($data['staticmap_array_index']))?>"></a>
@@ -624,9 +624,9 @@ else:
 
 <nav class="action-buttons">
 <?php if ($_REQUEST['all']): ?>
-	<a class="btn btn-info" href="status_dhcpv6_leases.php?all=0"><i class="fa-solid fa-minus-circle icon-embed-btn"></i><?=gettext('Show Active and Static Leases Only')?></a>
+	<a class="btn btn-info" href="status_dhcpv6_leases.php?all=0"><i class="fa-solid fa-circle-minus icon-embed-btn"></i><?=gettext('Show Active and Static Leases Only')?></a>
 <?php else: ?>
-	<a class="btn btn-info" href="status_dhcpv6_leases.php?all=1"><i class="fa-solid fa-plus-circle icon-embed-btn"></i><?=gettext('Show all Configured Leases')?></a>
+	<a class="btn btn-info" href="status_dhcpv6_leases.php?all=1"><i class="fa-solid fa-circle-plus icon-embed-btn"></i><?=gettext('Show all Configured Leases')?></a>
 <?php endif; ?>
 	<a class="btn btn-danger no-confirm" id="cleardhcp"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext('Clear all DHCPv6 Leases')?></a>
 </nav>

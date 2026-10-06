@@ -208,7 +208,7 @@ display_top_tabs($tab_array);
 	<div class="card-header"><h2 class="h5 mb-0"><?=gettext('Installed Packages')?></h2></div>
 	<div id="pkgtbl" class="card-body">
 		<div id="waitmsg">
-			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-cog fa-spin"></i>'); ?>
+			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-gear fa-spin"></i>'); ?>
 		</div>
 
 		<div id="errmsg" style="display: none;">

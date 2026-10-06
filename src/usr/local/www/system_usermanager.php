@@ -444,14 +444,14 @@ if ($act == "new" || $act == "edit" || $input_errors):
 		'movetoenabled',
 		'Move to "Member of" list',
 		null,
-		'fa-solid fa-angle-double-right'
+		'fa-solid fa-angles-right'
 	))->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-info btn-sm');
 
 	$group->add(new Form_Button(
 		'movetodisabled',
 		'Move to "Not member of" list',
 		null,
-		'fa-solid fa-angle-double-left'
+		'fa-solid fa-angles-left'
 	))->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-info btn-sm');
 
 	$group->setHelp('Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');
@@ -496,7 +496,7 @@ if ($act == "new" || $act == "edit" || $input_errors):
 		}));
 		$api_text = restapi_user_has_access($this_user) ?
 		    '<i class="fa-solid fa-check text-success"></i> ' . gettext('Allowed') :
-		    '<i class="fa-solid fa-times text-muted"></i> ' . gettext('Not allowed (add the "WebCfg - System: REST API access" privilege)');
+		    '<i class="fa-solid fa-xmark text-muted"></i> ' . gettext('Not allowed (add the "WebCfg - System: REST API access" privilege)');
 		$api_text .= ' &middot; ' . sprintf(ngettext('%d API key', '%d API keys', $api_keys), $api_keys);
 		if (isAllowedPage('system_restapi.php')) {
 			$api_text .= ' &middot; <a href="system_restapi.php">' . gettext('Manage API keys') . '</a>';

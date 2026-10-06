@@ -1077,7 +1077,7 @@ function manage_log_section() {
 		'save_settings',
 		gettext('Save'),
 		null,
-		'fa-solid fa-save'
+		'fa-solid fa-floppy-disk'
 	);
 
 	$btnsavesettings->addClass('btn-sm btn-primary');

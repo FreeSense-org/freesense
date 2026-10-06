@@ -334,7 +334,7 @@ if ($pconfig['gid'] != 1998) {
 		'movetoenabled',
 		'Move to "Members"',
 		null,
-		'fa-solid fa-angle-double-right'
+		'fa-solid fa-angles-right'
 	))->setAttribute('type','button')->removeClass('btn-primary')->addClass(
 	    'btn-info btn-sm');
 
@@ -342,7 +342,7 @@ if ($pconfig['gid'] != 1998) {
 		'movetodisabled',
 		'Move to "Not members',
 		null,
-		'fa-solid fa-angle-double-left'
+		'fa-solid fa-angles-left'
 	))->setAttribute('type','button')->removeClass('btn-primary')->addClass(
 	    'btn-info btn-sm');
 

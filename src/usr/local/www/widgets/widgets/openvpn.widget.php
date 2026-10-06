@@ -90,13 +90,13 @@ if (!function_exists('printPanel')) {
 		$opstring .=						htmlspecialchars($conn['remote_host']);
 		$opstring .=					"</td>";
 		$opstring .=					"<td>";
-		$opstring .=						"<i class=\"fa-solid fa-times\" ";
+		$opstring .=						"<i class=\"fa-solid fa-xmark\" ";
 		$opstring .=							"onclick='killClient(" . json_encode(htmlspecialchars($server['mgmt'])) . ", " . json_encode(htmlspecialchars($conn['remote_host'])) . ", \"\");' ";
 		$opstring .=							"style=\"cursor:pointer;\" ";
 		$opstring .=							"name=\"" . htmlspecialchars("i:" . $server['mgmt'] . ":" . $conn['remote_host']) . "\" ";
 		$opstring .=							"title=\"" . sprintf(gettext('Kill client connection from %s'), htmlspecialchars($conn['remote_host'])) . "\">";
 		$opstring .=						"</i>&nbsp;";
-		$opstring .=						"<i class=\"fa-solid fa-times-circle text-danger\" ";
+		$opstring .=						"<i class=\"fa-solid fa-circle-xmark text-danger\" ";
 		$opstring .=							"onclick='killClient(" . json_encode(htmlspecialchars($server['mgmt'])) . ", " . json_encode(htmlspecialchars($conn['remote_host'])) . ", " . json_encode(htmlspecialchars($conn['client_id'])) . ");' ";
 		$opstring .=							"style=\"cursor:pointer;\" ";
 		$opstring .=							"name=\"" . htmlspecialchars("i:" . $server['mgmt'] . ":" . $conn['remote_host']) . "\" ";
@@ -430,8 +430,8 @@ $widgetkey_nodash = str_replace("-", "", $widgetkey);
 
 	<div class="form-group">
 		<div class="col-sm-offset-3 col-sm-6">
-			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
-			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext('All')?></button>
+			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
+			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext('All')?></button>
 		</div>
 	</div>
 </form>
@@ -440,9 +440,9 @@ $widgetkey_nodash = str_replace("-", "", $widgetkey);
 //<![CDATA[
 	function killClient(mport, remipp, client_id) {
 		if (client_id === '') {
-			$('i[name="i:' + mport + ":" + remipp + '"]').first().removeClass().addClass('fa-solid fa-cog fa-spin text-danger');
+			$('i[name="i:' + mport + ":" + remipp + '"]').first().removeClass().addClass('fa-solid fa-gear fa-spin text-danger');
 		} else {
-			$('i[name="i:' + mport + ":" + remipp + '"]').last().removeClass().addClass('fa-solid fa-cog fa-spin text-danger');
+			$('i[name="i:' + mport + ":" + remipp + '"]').last().removeClass().addClass('fa-solid fa-gear fa-spin text-danger');
 		}
 
 		$.ajax(

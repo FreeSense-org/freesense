@@ -132,7 +132,7 @@ if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_error
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-plus-circle"></i>
+					<i class="fa-solid fa-circle-plus"></i>
 				</a>
 			</span>
 		</h2>
@@ -151,8 +151,8 @@ if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_error
 				</select>
 			</div>
 			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
+				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
+				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
 			</div>
 			<div class="col-sm-10 col-sm-offset-2">
 				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to search certificate names and distinguished names.')?></span>
@@ -217,7 +217,7 @@ foreach (config_get_path('ca', []) as $ca):
 ?>
 				<tr>
 					<td><?=$name?></td>
-					<td><i class="<?= (!empty($ca['prv'])) ? "fa-solid fa-check" : "fa-solid fa-times" ; ?>"></i></td>
+					<td><i class="<?= (!empty($ca['prv'])) ? "fa-solid fa-check" : "fa-solid fa-xmark" ; ?>"></i></td>
 					<td><i><?=$issuer_name?></i></td>
 					<td><?=$certcount?></td>
 					<td>

@@ -754,7 +754,7 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 			'exportp12',
 			'Export PKCS#12',
 			null,
-			'fa-solid fa-archive'
+			'fa-solid fa-box-archive'
 		))->addClass('btn-primary');
 	}
 
@@ -812,7 +812,7 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 		'save',
 		'Update',
 		null,
-		'fa-solid fa-save'
+		'fa-solid fa-floppy-disk'
 	))->addClass('btn-primary');
 
 	print($form);
@@ -824,7 +824,7 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-plus-circle"></i>
+					<i class="fa-solid fa-circle-plus"></i>
 				</a>
 			</span>
 		</h2>
@@ -843,8 +843,8 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 				</select>
 			</div>
 			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
+				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
+				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
 			</div>
 			<div class="col-sm-10 col-sm-offset-2">
 				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to search certificate names and distinguished names.')?></span>
@@ -969,7 +969,7 @@ foreach (config_get_path('cert', []) as $cert):
 							<a href="system_certmanager.php?act=exp&amp;id=<?=$cert['refid']?>" class="fa-solid fa-certificate" title="<?=gettext("Export Certificate")?>"></a>
 							<?php if ($cert['prv']): ?>
 								<a href="system_certmanager.php?act=key&amp;id=<?=$cert['refid']?>" class="fa-solid fa-key" title="<?=gettext("Export Key")?>"></a>
-								<a href="system_certmanager.php?act=p12&amp;id=<?=$cert['refid']?>" class="fa-solid fa-archive" title="<?=gettext("Export PCKS#12 Archive without Encryption")?>"></a>
+								<a href="system_certmanager.php?act=p12&amp;id=<?=$cert['refid']?>" class="fa-solid fa-box-archive" title="<?=gettext("Export PCKS#12 Archive without Encryption")?>"></a>
 							<?php endif?>
 							<?php if (is_cert_locally_renewable($cert)): ?>
 								<a href="system_certmanager_renew.php?type=cert&amp;refid=<?=$cert['refid']?>" class="fa-solid fa-arrow-rotate-right" title="<?=gettext("Reissue/Renew")?>"></a>

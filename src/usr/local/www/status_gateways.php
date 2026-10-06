@@ -153,15 +153,15 @@ display_top_tabs($tab_array);
 					<?=htmlspecialchars(array_get_path($gateway_details, 'config/descr', '')); ?>
 				</td>
 				<td>
-					<a href="?act=killgw&amp;gwname=<?=urlencode(array_get_path($gateway_details, 'config/name', ''));?>" class="fa-solid fa-times-circle do-confirm" title="<?=gettext('Kill all firewall states created by policy routing rules using this specific gateway by name.')?>" usepost></a>
+					<a href="?act=killgw&amp;gwname=<?=urlencode(array_get_path($gateway_details, 'config/name', ''));?>" class="fa-solid fa-circle-xmark do-confirm" title="<?=gettext('Kill all firewall states created by policy routing rules using this specific gateway by name.')?>" usepost></a>
 <?php if (!empty($gwip) && is_ipaddr($gwip)): ?>
 					<a href="?act=killgw&amp;gwip=<?=urlencode($gwip);?>" class="fa-regular fa-circle-xmark do-confirm" title="<?=gettext('Kill all firewall states using this gateway IP address via policy routing and reply-to.')?>" usepost></a>
 <?php endif; ?>
 <?php if (!is_null(array_get_path($gateway_details, 'config/isdefaultgw'))): ?>
 	<?php if (array_get_path($gateway_details, 'config/ipprotocol') != 'inet6'): ?>
-					<a href="?act=killgw&amp;gwdef4=true" class="fa-solid fa-times do-confirm" title="<?=gettext('Kill all firewall states which use the default IPv4 gateway (0.0.0.0) and not policy routing or reply-to rules.')?>" usepost></a>
+					<a href="?act=killgw&amp;gwdef4=true" class="fa-solid fa-xmark do-confirm" title="<?=gettext('Kill all firewall states which use the default IPv4 gateway (0.0.0.0) and not policy routing or reply-to rules.')?>" usepost></a>
 	<?php else: ?>
-					<a href="?act=killgw&amp;gwdef6=true" class="fa-solid fa-times do-confirm" title="<?=gettext('Kill all firewall states which use the default IPv6 gateway (::) and not policy routing or reply-to rules.')?>" usepost></a>
+					<a href="?act=killgw&amp;gwdef6=true" class="fa-solid fa-xmark do-confirm" title="<?=gettext('Kill all firewall states which use the default IPv6 gateway (::) and not policy routing or reply-to rules.')?>" usepost></a>
 	<?php endif; ?>
 <?php endif; ?>
 				</td>

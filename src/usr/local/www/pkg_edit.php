@@ -619,7 +619,7 @@ if ($pkg['savehelp'] != "") {
 	$savehelp = $pkg['savehelp'];
 }
 
-$saveicon = "fa-solid fa-save";
+$saveicon = "fa-solid fa-floppy-disk";
 if ($pkg['saveicon'] != "") {
 	$saveicon = $pkg['saveicon'];
 }
@@ -1309,7 +1309,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 
 		// Create form button
 		case "button":
-			$newbtnicon = "fa-solid fa-save";
+			$newbtnicon = "fa-solid fa-floppy-disk";
 			if ($pkga['buttonicon'] != "") {
 				$newbtnicon = $pkga['buttonicon'];
 			}
@@ -1516,7 +1516,7 @@ if (!empty($advanced)) {
 		'showadv',
 		'Show Advanced Options',
 		null,
-		'fa-solid fa-cog'
+		'fa-solid fa-gear'
 	))->setAttribute('type','button')->addClass('btn-info');
 
 	$form->add($advanced);
@@ -1556,10 +1556,10 @@ if ($pkg['fields']['field'] != "") { ?>
 
 		if (advanced_visible) {
 			$('.advancedoptions').show();
-			$("#showadv").html('<i class="fa-solid fa-cog icon-embed-btn"></i>' + "<?=$showmsg?>");
+			$("#showadv").html('<i class="fa-solid fa-gear icon-embed-btn"></i>' + "<?=$showmsg?>");
 		} else {
 			$('.advancedoptions').hide();
-			$("#showadv").html('<i class="fa-solid fa-cog icon-embed-btn"></i>' + "<?=$hidemsg?>");
+			$("#showadv").html('<i class="fa-solid fa-gear icon-embed-btn"></i>' + "<?=$hidemsg?>");
 		}
 	});
 
