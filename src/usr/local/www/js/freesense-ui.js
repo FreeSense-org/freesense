@@ -756,13 +756,29 @@
 	 * delete button and the Add button directly under the rows. The rows, field
 	 * names and the add/delete code are unchanged.
 	 */
+	/*
+	 * Split a column's help at its first <br>: the text before it is the column
+	 * title, the nodes after it (cloned, links kept) are the explanation.
+	 */
+	function splitHelp(help) {
+		var title = '';
+		var rest = null;
+		Array.prototype.forEach.call(help.childNodes, function (node) {
+			if (rest) {
+				rest.appendChild(node.cloneNode(true));
+			} else if (node.nodeName === 'BR') {
+				rest = document.createDocumentFragment();
+			} else {
+				title += node.textContent;
+			}
+		});
+		return {title: title.replace(/\s+/g, ' ').trim(), rest: rest};
+	}
+
 	function cellTitle(cell) {
 		var help = cell.querySelector('.help-block');
 		if (help) {
-			var first = (help.innerHTML.split(/<br\s*\/?>/i)[0] || '').replace(/<[^>]*>/g, '').trim();
-			var tmp = document.createElement('div');
-			tmp.innerHTML = first;
-			first = tmp.textContent.trim();
+			var first = splitHelp(help).title;
 			if (first && first.length <= 40) {
 				return first;
 			}
@@ -771,20 +787,24 @@
 		return (field && field.getAttribute('placeholder')) ? field.getAttribute('placeholder') : '';
 	}
 
+	/* {title, nodes} for the note under the grid, or null */
 	function cellNote(cell) {
 		var help = cell.querySelector('.help-block');
 		if (!help) {
-			return '';
+			return null;
 		}
-		var parts = help.innerHTML.split(/<br\s*\/?>/i);
-		var tmp = document.createElement('div');
-		tmp.innerHTML = parts[0];
-		var title = tmp.textContent.trim();
-		if (parts.length > 1 && title.length <= 40) {
-			tmp.innerHTML = parts.slice(1).join(' ');
-			return {title: title, text: tmp.innerHTML.trim()};
+		var parts = splitHelp(help);
+		if (parts.rest && parts.title.length <= 40) {
+			return parts.rest.textContent.trim() ? {title: parts.title, nodes: parts.rest} : null;
 		}
-		return (title.length > 40) ? {title: '', text: help.innerHTML.trim()} : '';
+		if (parts.title.length > 40) {
+			var all = document.createDocumentFragment();
+			Array.prototype.forEach.call(help.childNodes, function (node) {
+				all.appendChild(node.cloneNode(true));
+			});
+			return {title: '', nodes: all};
+		}
+		return null;
 	}
 
 	function cellHidden(cell) {
@@ -827,7 +847,7 @@
 				fromPlaceholder[i] = !src.querySelector('.help-block');
 				any = any || (h.textContent !== '');
 				var note = cellNote(src);
-				if (note && note.text) {
+				if (note) {
 					notes.push(note);
 				}
 			}
@@ -915,10 +935,13 @@
 			nCol.className = 'col-sm-10';
 			notes.forEach(function (n) {
 				var p = document.createElement('p');
-				p.innerHTML = (n.title ? '<strong></strong> ' : '') + n.text;
 				if (n.title) {
-					p.querySelector('strong').textContent = n.title + ':';
+					var strong = document.createElement('strong');
+					strong.textContent = n.title + ':';
+					p.appendChild(strong);
+					p.appendChild(document.createTextNode(' '));
 				}
+				p.appendChild(n.nodes);
 				nCol.appendChild(p);
 			});
 			noteGroup.appendChild(nSpacer);
