@@ -258,6 +258,13 @@ if ($_POST['save']) {
 	}
 }
 
+/* the rolls and the voucher settings are views of this page (docs/webui/PLAN.md, rule R1) */
+$rolls = config_get_path("voucher/{$cpzone}/roll", []);
+$view = fs_view_param(['rolls', 'settings'], ($pconfig['enable'] || !empty($rolls)) && !isset($_POST['save']) ? 'rolls' : 'settings');
+if ($view === 'rolls' && $pconfig['enable']) {
+	fs_page_action(gettext('Add roll'), 'services_captiveportal_vouchers_edit.php?zone=' . urlencode($cpzone), 'fa-plus');
+}
+
 include("head.inc");
 
 if ($input_errors) {
@@ -269,61 +276,75 @@ if ($savemsg) {
 }
 
 fs_tabs('services-captiveportal', 'services_captiveportal_vouchers.php', ['zone' => $cpzone]);
+fs_view_switch([
+	'rolls' => sprintf(gettext('Rolls (%d)'), count($rolls)),
+	'settings' => gettext('Settings'),
+], $view);
 
-// We draw a simple table first, then present the controls to work with it
+if ($view === 'rolls'):
+	if (!$pconfig['enable']) {
+		print_info_box(gettext('Vouchers are turned off for this zone.') . ' <a href="services_captiveportal_vouchers.php?view=settings&amp;zone=' .
+		    htmlspecialchars(urlencode($cpzone)) . '">' . gettext('Turn them on under Settings to create rolls.') . '</a>', 'warning', false);
+	}
+	$zq = 'zone=' . urlencode($cpzone);
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Voucher Rolls");?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
-				<thead>
-					<tr>
-						<th><?=gettext("Roll #")?></th>
-						<th><?=gettext("Minutes/Ticket")?></th>
-						<th><?=gettext("# of Tickets")?></th>
-						<th><?=gettext("Comment")?></th>
-						<th><?=gettext("Actions")?></th>
-					</tr>
-				</thead>
-				<tbody>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Voucher Rolls'),
+	'search' => gettext('Search rolls…'),
+	'noun' => gettext('rolls'),
+	'noun_one' => gettext('roll'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("Roll")?></th>
+					<th><?=gettext("Minutes per ticket")?></th>
+					<th><?=gettext("Tickets")?></th>
+					<th data-fs-search><?=gettext("Comment")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
+				</tr>
+			</thead>
+			<tbody>
 <?php
-$i = 0;
-foreach (config_get_path("voucher/{$cpzone}/roll", []) as $rollent):
+foreach ($rolls as $i => $rollent):
+	$roll_name = sprintf(gettext('roll %s'), $rollent['number']);
 ?>
-					<tr>
-						<td><?=htmlspecialchars($rollent['number']); ?></td>
-						<td><?=htmlspecialchars($rollent['minutes'])?></td>
-						<td><?=htmlspecialchars($rollent['count'])?></td>
-						<td><?=htmlspecialchars($rollent['descr']); ?></td>
-						<td>
-							<!-- These buttons are hidden/shown on checking the 'enable' checkbox -->
-							<a class="fa-solid fa-pencil"		title="<?=gettext("Edit voucher roll"); ?>" href="services_captiveportal_vouchers_edit.php?zone=<?=$cpzone?>&amp;id=<?=$i; ?>"></a>
-							<a class="fa-solid fa-trash-can"		title="<?=gettext("Delete voucher roll")?>" href="services_captiveportal_vouchers.php?zone=<?=$cpzone?>&amp;act=del&amp;id=<?=$i; ?>" usepost></a>
-							<a class="fa-regular fa-file-excel"	title="<?=gettext("Export vouchers for this roll to a .csv file")?>" href="services_captiveportal_vouchers.php?zone=<?=$cpzone?>&amp;act=csv&amp;id=<?=$i; ?>"></a>
-						</td>
-					</tr>
+				<tr>
+					<td><a href="services_captiveportal_vouchers_edit.php?<?=htmlspecialchars($zq)?>&amp;id=<?=$i?>"><strong>#<?=htmlspecialchars($rollent['number'])?></strong></a></td>
+					<td class="fs-mono"><?=htmlspecialchars($rollent['minutes'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($rollent['count'])?></td>
+					<td><?=htmlspecialchars($rollent['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['custom', "services_captiveportal_vouchers.php?{$zq}&act=csv&id={$i}", $roll_name, [
+								'icon' => 'fa-file-csv',
+								'label' => sprintf(gettext('Export the vouchers of %s as CSV'), $roll_name),
+							]],
+							['edit', "services_captiveportal_vouchers_edit.php?{$zq}&id={$i}", $roll_name],
+							['delete', "services_captiveportal_vouchers.php?{$zq}&act=del&id={$i}", $roll_name, [
+								'thing' => gettext('voucher roll'),
+								'detail' => gettext('Its vouchers stop working.'),
+							]],
+						])?>
+					</td>
+				</tr>
 <?php
-	$i++;
 endforeach;
+if (empty($rolls)) {
+	fs_empty_row(5, gettext('No voucher rolls yet.'),
+	    $pconfig['enable'] ? 'services_captiveportal_vouchers_edit.php?' . $zq : null, $pconfig['enable'] ? gettext('Add roll') : null);
+}
 ?>
-				</tbody>
-			</table>
-		</div>
+			</tbody>
+		</table>
 	</div>
 </div>
 <?php
+endif; /* rolls */
 
-if ($pconfig['enable']) : ?>
-	<nav class="action-buttons">
-		<a href="services_captiveportal_vouchers_edit.php?zone=<?=$cpzone?>" class="btn btn-success">
-			<i class="fa-solid fa-plus icon-embed-btn"></i>
-			<?=gettext("Add")?>
-		</a>
-	</nav>
-<?php
-endif;
-
+if ($view === 'settings'):
 $form = new Form();
 
 $section = new Form_Section('Create, Generate and Activate Rolls with Vouchers');
@@ -439,11 +460,6 @@ events.push(function() {
 	function setShowHide (show) {
 		hideClass('rolledit', !show);
 
-		if (show) {
-			$('td:nth-child(5),th:nth-child(5)').show();
-		} else {
-			$('td:nth-child(5),th:nth-child(5)').hide();
-		}
 	}
 
 	// Show/hide on checkbox change
@@ -473,4 +489,5 @@ events.push(function() {
 });
 //]]>
 </script>
+<?php endif; /* settings */ ?>
 <?php include("foot.inc");

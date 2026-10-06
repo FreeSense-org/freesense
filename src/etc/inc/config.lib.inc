@@ -985,7 +985,9 @@ function get_backups() {
 		$toreturn = array();
 		sort($bakvers);
 		foreach (array_reverse($bakvers) as $bakver) {
-			$toreturn[] = array('time' => $bakver, 'description' => $confvers[$bakver]['description'], 'version' => $confvers[$bakver]['version'], 'filesize' => $confvers[$bakver]['filesize']);
+			/* entries cached before backup_config() recorded the size have filesize false */
+			$size = $confvers[$bakver]['filesize'] ?: (int)@filesize("{$g['cf_conf_path']}/backup/config-{$bakver}.xml");
+			$toreturn[] = array('time' => $bakver, 'description' => $confvers[$bakver]['description'], 'version' => $confvers[$bakver]['version'], 'filesize' => $size);
 		}
 	} else {
 		return false;
@@ -1013,11 +1015,15 @@ function backup_config(): bool
 	} else {
 		$backupcache = array();
 	}
-	$backupcache[$backup_time] = array('description' => $bakdesc, 'version' => $bakver, 'filesize' => filesize($backup_file));
+
+	/* Do the backup (first, so the cache records its real size) */
+	$written = safe_write_file($backup_file, file_get_contents(g_get('cf_conf_path') . '/config.xml'));
+	clearstatcache(true, $backup_file);
+
+	$backupcache[$backup_time] = array('description' => $bakdesc, 'version' => $bakver, 'filesize' => (int)@filesize($backup_file));
 	safe_write_file(g_get('cf_conf_path') . '/backup/backup.cache', serialize($backupcache));
 
-	/* Do the backup */
-	return safe_write_file($backup_file, file_get_contents(g_get('cf_conf_path') . '/config.xml'));
+	return $written;
 }
 
 function backup_info($backup_info, $number) {

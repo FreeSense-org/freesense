@@ -67,12 +67,12 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | services_captiveportal_zones / _edit | List / Editor | standard | B / D | |
 | services_captiveportal | Settings | 7-tab registry group with `['zone' => $cpzone]`; sections | D | M |
 | services_captiveportal_ip, _mac, _hostname (+ `_edit`) | List / Editor | standard list template | B / D | |
-| services_captiveportal_vouchers | List + **R1** | view switch Rolls / Settings; rolls list standard | C | M |
+| services_captiveportal_vouchers | List + **R1** | **done**: view switch Rolls (n) / Settings; rolls list with CSV export / edit / delete; header Add roll when vouchers are on (otherwise a hint links to Settings) | C | M |
 | services_captiveportal_vouchers_edit | Editor | standard | D | |
 | services_captiveportal_filemanager | List | header action "Upload file" opens the upload card; list standard | B | |
 | services_captiveportal_hasync | Settings | standard | D | |
 | services_ntpd, _gps, _pps | Settings | ntpd servers become the entry grid | D | |
-| services_ntpd_acls | Settings + **R2** | "Custom access restrictions" rows (network + mask + 8 flags) become a **List** with an editor (`?act=edit` branch in the same file); defaults stay as Settings. **logic: moves fields from a repeater to a record form; config format unchanged** | C | M |
+| services_ntpd_acls | Settings + **R2** | **done**: custom restrictions are a List (network + flag badges) with an Add / Edit modal; the Default restrictions card below saves on its own; the page rebuilds the former form post for ntpd_save_acls(), so config format and REST API are unchanged | C | M |
 | services_dyndns / _edit, services_rfc2136 / _edit, services_checkip / _edit | List / Editor | standard; badges for update status; copy exists for dyndns/rfc2136 | B / D | |
 | services_igmpproxy / _edit | List / Editor | standard; edit networks become the entry grid | B / D | |
 | services_pppoe / _edit | List / Editor | standard; users in the editor become the entry grid | B / D | |
@@ -147,8 +147,8 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | diag_dump_states, _dump_states_sources, diag_resetstate | Status / Tool | registry group `states`; filter toolbar (server-side); kill state as a row action | E | M |
 | diag_tables | Status | table selector becomes a toolbar select; entries list with search; per-row delete | E | |
 | diag_backup | Tool | registry group `backup`: Backup & Restore · Remote · History | E | M |
-| diag_backup_remote / _edit | List + **R1** / Editor | view switch Targets / Settings; browse = sub-view of a target | C | M |
-| diag_confbak | List + **R1** | history list with search; retention settings become the header action "Settings", which expands a card | C | |
+| diag_backup_remote / _edit | List + **R1** / Editor | **done**: view switch Targets / Settings; targets list (status badge, last success, run / browse / test / edit / toggle / delete); browse results are a list with download / restore | C | M |
+| diag_confbak | List + **R1** | **done**: history list with search, Old/New compare radios and Compare in the toolbar, current config marked; restore / download / delete with confirmations; retention in a header "Settings" modal; readable diff. Fixed: backup sizes showed 0 B (backup_config() cached the size before writing the file) | C | |
 | diag_command, diag_edit | Tool | danger styling; no structure change | E | M |
 | diag_reboot, diag_halt, diag_defaults | Tool | **danger confirm card** pattern | E | M |
 

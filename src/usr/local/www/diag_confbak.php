@@ -44,12 +44,14 @@ if (isset($_POST['backupcount'])) {
 			$changedescr = gettext('platform default');
 		}
 		write_config(sprintf(gettext('Changed backup revision count to %s'), $changedescr));
+		$savemsg = sprintf(gettext('Keeping up to %s configuration backups.'), htmlspecialchars($changedescr));
 	}
 }
 
 $confvers = unserialize_data(file_get_contents(g_get('cf_conf_path') . '/backup/backup.cache'), []);
 
-if ($_POST['newver'] != "") {
+/* backups are named by their timestamp */
+if (($_POST['newver'] != "") && is_numericint($_POST['newver'])) {
 	if (config_restore(g_get('conf_path') . '/backup/config-' . $_POST['newver'] . '.xml', htmlspecialchars($confvers[$_POST['newver']]['description']))) {
 		$savemsg = sprintf(gettext('Successfully reverted configuration to timestamp %1$s with description "%2$s".%3$s%3$sTo activate the changes, manually reboot or apply/reload relevant features.'), date(gettext("n/j/y H:i:s"), $_POST['newver']), htmlspecialchars($confvers[$_POST['newver']]['description']), '<br/>');
 	} else {
@@ -57,7 +59,7 @@ if ($_POST['newver'] != "") {
 	}
 }
 
-if ($_POST['rmver'] != "") {
+if (($_POST['rmver'] != "") && is_numericint($_POST['rmver'])) {
 	unlink_if_exists(g_get('conf_path') . '/backup/config-' . $_POST['rmver'] . '.xml');
 	$savemsg = sprintf(gettext('Deleted backup with timestamp %1$s and description "%2$s".'), date(gettext("n/j/y H:i:s"), $_POST['rmver']), htmlspecialchars($confvers[$_POST['rmver']]['description']));
 }
@@ -74,17 +76,19 @@ if (($_REQUEST['compare'] == 'compare') && isset($_REQUEST['oldtime']) && isset(
     (is_numeric($_REQUEST['newtime']) || ($_REQUEST['newtime'] == 'current'))) {
 	$diff = "";
 	$oldfile = g_get('conf_path') . '/backup/config-' . $_REQUEST['oldtime'] . '.xml';
-	$oldtime = $_REQUEST['oldtime'];
+	$oldtime = (int)$_REQUEST['oldtime'];
 	if ($_REQUEST['newtime'] == 'current') {
 		$newfile = g_get('conf_path') . '/config.xml';
-		$newtime = config_get_path('revision/time');
+		$newtime = (int)config_get_path('revision/time');
 	} else {
 		$newfile = g_get('conf_path') . '/backup/config-' . $_REQUEST['newtime'] . '.xml';
-		$newtime = $_REQUEST['newtime'];
+		$newtime = (int)$_REQUEST['newtime'];
 	}
 	if (file_exists($oldfile) && file_exists($newfile)) {
 		exec("/usr/bin/diff -u " . escapeshellarg($oldfile) . " " . escapeshellarg($newfile), $diff);
 	}
+} elseif ($_REQUEST['compare'] == 'compare') {
+	$input_errors[] = gettext('Select an older configuration in the "Old" column and a newer one in the "New" column to compare them.');
 }
 
 cleanup_backupcache(false);
@@ -93,6 +97,7 @@ unset($confvers['versions']);
 
 $pgtitle = [gettext('Diagnostics'), htmlspecialchars(gettext('Backup & Restore')), gettext('Configuration History')];
 $pglinks = ['', 'diag_backup.php', '@self'];
+fs_page_action(gettext('Settings'), '#', 'fa-gear', 'secondary', ['data-fs-modal' => '#confbak-settings']);
 include('head.inc');
 
 if ($input_errors) {
@@ -103,246 +108,141 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = [htmlspecialchars(gettext('Backup & Restore')), false, "diag_backup.php"];
-$tab_array[] = [gettext('Configuration History'), true, 'diag_confbak.php'];
-$tab_array[] = [gettext('Remote Backup'), false, 'diag_backup_remote.php'];
-display_top_tabs($tab_array);
+fs_tabs('diagnostics-backup', 'diag_confbak.php');
 
-if ($diff):
+if ($diff !== null && $diff !== ""):
 ?>
 <div class="panel panel-default">
 	<div class="panel-heading">
 		<h2 class="panel-title">
-			<?=sprintf(gettext('Configuration Difference from %1$s to %2$s'), date(gettext("n/j/y H:i:s"), $oldtime), date(gettext("n/j/y H:i:s"), $newtime))?>
+			<i class="fa-solid fa-right-left me-1" aria-hidden="true"></i>
+			<?=htmlspecialchars(sprintf(gettext('Changes from %1$s to %2$s'), date(gettext("n/j/y H:i:s"), $oldtime), date(gettext("n/j/y H:i:s"), $newtime)))?>
 		</h2>
 	</div>
-	<div class="panel-body table-responsive">
-	<!-- This table is left un-bootstrapped to maintain the original diff format output -->
-		<table style="padding-top: 4px; padding-bottom: 4px; vertical-align:middle;">
-
-<?php
-$colors = [
-	'+' => '#caffd3',
-	'-' => '#ffe8e8',
-	'@' => '#a0a0a0'
-];
-	foreach ($diff as $line):
-?>
-			<tr>
-				<td class="diff-text" style="vertical-align:middle; background-color:<?=$colors[substr($line, 0, 1)] ?? '#ffffff'?>; white-space:pre-wrap;"><?=htmlentities($line)?></td>
-			</tr>
-<?php
-	endforeach;
-?>
-		</table>
+	<div class="panel-body">
+<?php if (empty($diff)): ?>
+		<p class="fs-muted mb-0"><?=gettext('The two configurations are identical.')?></p>
+<?php else: ?>
+		<pre class="fs-diff"><?php
+	foreach ($diff as $line) {
+		$kind = ['+' => 'add', '-' => 'del', '@' => 'hunk'][substr($line, 0, 1)] ?? 'ctx';
+		echo '<span class="fs-diff-' . $kind . '">' . htmlentities($line) . "</span>";
+	}
+?></pre>
+<?php endif; ?>
 	</div>
 </div>
 <?php
 endif;
 
-$form = new Form(false);
-
-$section = new Form_Section(gettext('Configuration Backup Settings'), 'configsettings');
-
-$section->addInput(new Form_Input(
-	'backupcount',
-	gettext('Maximum Backups'),
-	'number',
-	config_get_path('system/backupcount'),
-	['min' => '0', 'placeholder' => g_get('default_config_backup_count')]
-))->setHelp(gettext('Maximum number of old configuration backups to keep in the cache, 0 for no backups, or leave blank for the default value.'));
-
-$space = exec("/usr/bin/du -sh /conf/backup | /usr/bin/awk '{print $1;}'");
-
-$section->addInput(new Form_StaticText(
-	gettext('Used Space'),
-	$space
-));
-
-$section->addInput(new Form_Button(
-	'Submit',
-	gettext('Save'),
-	null,
-	'fa-solid fa-floppy-disk'
-))->addClass('btn-primary');
-
-$form->add($section);
-
-print($form);
-
-if (is_array($confvers)) {
+$current_time = config_get_path('revision/time');
 ?>
-<div>
-	<div class="infoblock blockopen">
-		<?php print_info_box(
-			gettext(
-				'To view the differences between an older configuration and a newer configuration, ' .
-				'select the older configuration using the left column of radio options and select the newer configuration in the right column, ' .
-				'then press the "Compare" button.'), 'info', false); ?>
-	</div>
-</div>
-<?php
-}
-?>
-
-<form action="diag_confbak.php" method="get">
-	<div class="table-responsive">
-		<table class="table table-striped table-hover table-sm">
-<?php
-if (is_array($confvers)):
-?>
+<form id="confbak-compare" action="diag_confbak.php" method="get"></form>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Configuration History'),
+	'search' => gettext('Search changes…'),
+	'noun' => gettext('backups'),
+	'noun_one' => gettext('backup'),
+	'actions' => '<button type="submit" form="confbak-compare" name="compare" value="compare" class="btn btn-sm btn-outline-secondary">'
+	    . '<i class="fa-solid fa-right-left icon-embed-btn" aria-hidden="true"></i>' . htmlspecialchars(gettext('Compare')) . '</button>',
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover confbak-table">
 			<thead>
 				<tr>
-					<th colspan="2">
-						<button type="submit" name="compare" class="btn btn-info btn-sm text-nowrap" value="compare">
-							<i class="fa-solid fa-right-left icon-embed-btn"></i>
-							<?=gettext('Compare'); ?>
-						</button>
-					</th>
-					<th><?=gettext('Date')?></th>
+					<th class="fs-col-icon" title="<?=gettext('Older configuration to compare')?>"><?=gettext('Old')?></th>
+					<th class="fs-col-icon" title="<?=gettext('Newer configuration to compare')?>"><?=gettext('New')?></th>
+					<th data-fs-search><?=gettext('Date')?></th>
+					<th data-fs-search><?=gettext('Configuration Change')?></th>
 					<th><?=gettext('Version')?></th>
 					<th><?=gettext('Size')?></th>
-					<th><?=gettext('Configuration Change')?></th>
-					<th><?=gettext('Actions')?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
 				</tr>
 			</thead>
 			<tbody>
-				<!-- First row is the current configuration -->
-				<tr style="vertical-align:top;">
-					<td></td>
-					<td>
-						<input type="radio" name="newtime" value="current" />
-					</td>
-					<td><?= date(gettext("n/j/y H:i:s"), config_get_path('revision/time')) ?></td>
-					<td><?= config_get_path('version') ?></td>
-					<td><?= format_bytes(filesize("/conf/config.xml")) ?></td>
-					<td><?= htmlspecialchars(config_get_path('revision/description')) ?></td>
-					<td><?=gettext("Current configuration")?></td>
+				<tr class="fs-row-current" data-fs-static>
+					<td class="fs-col-icon"></td>
+					<td class="fs-col-icon"><input class="form-check-input" type="radio" name="newtime" value="current" form="confbak-compare" aria-label="<?=gettext('Compare with the current configuration')?>"></td>
+					<td><?=date(gettext("n/j/y H:i:s"), $current_time)?></td>
+					<td><?=fs_badge('active', gettext('Current'))?> <?=htmlspecialchars(config_get_path('revision/description'))?></td>
+					<td class="fs-mono"><?=htmlspecialchars(config_get_path('version'))?></td>
+					<td class="fs-mono"><?=format_bytes(filesize("/conf/config.xml"))?></td>
+					<td class="fs-col-actions"></td>
 				</tr>
 <?php
-	// And now for the table of prior backups
-	$c = 0;
-	foreach ($confvers as $version):
-		if ($version['time'] != 0) {
-			$date = date(gettext("n/j/y H:i:s"), $version['time']);
-		} else {
-			$date = gettext("Unknown");
-		}
-?>
-				<tr class="confrev">
-					<td>
-						<input type="radio" name="oldtime" value="<?=$version['time']?>" />
-					</td>
-					<td>
-<?php
-		if ($c < (count($confvers) - 1)) {
-?>
-								<input type="radio" name="newtime" value="<?=$version['time']?>" />
-<?php
-		}
-		$c++;
-?>
-					</td>
-					<td><?= $date ?></td>
-					<td><?= $version['version'] ?></td>
-					<td><?= format_bytes($version['filesize']) ?></td>
-					<td><?= htmlspecialchars($version['description']) ?></td>
-					<td>
-						<a class="fa-solid fa-arrow-rotate-left do-confirm"	title="<?=gettext('Replace the current configuration with this backup')?>"	href="diag_confbak.php?newver=<?=$version['time']?>" usepost></a>
-						<a class="fa-solid fa-download"		title="<?=gettext('Download this configuration revision')?>"			href="diag_confbak.php?getcfg=<?=$version['time']?>"></a>
-						<a class="fa-solid fa-trash-can"			title="<?=gettext('Delete this configuration revision')?>"			href="diag_confbak.php?rmver=<?=$version['time']?>" usepost></a>
-					</td>
-				</tr>
-<?php
-	endforeach;
+$c = 0;
+$versions = is_array($confvers) ? $confvers : [];
+foreach ($versions as $version):
+	$time = (int)$version['time'];
+	$date = ($time != 0) ? date(gettext("n/j/y H:i:s"), $time) : gettext("Unknown");
+	$c++;
 ?>
 				<tr>
-					<td colspan="2" style="vertical-align: middle;">
-						<button type="submit" name="compare" class="btn btn-info btn-sm text-nowrap" value="compare">
-							<i class="fa-solid fa-right-left icon-embed-btn"></i>
-							<?=gettext('Compare'); ?>
-						</button>
+					<td class="fs-col-icon"><input class="form-check-input" type="radio" name="oldtime" value="<?=$time?>" form="confbak-compare" aria-label="<?=htmlspecialchars(sprintf(gettext('Compare from %s'), $date))?>"></td>
+					<td class="fs-col-icon">
+<?php	if ($c < count($versions)): ?>
+						<input class="form-check-input" type="radio" name="newtime" value="<?=$time?>" form="confbak-compare" aria-label="<?=htmlspecialchars(sprintf(gettext('Compare to %s'), $date))?>">
+<?php	endif; ?>
 					</td>
-					<td colspan="5" style="vertical-align: middle;">
-						<div id="confrev-pager" class="d-flex flex-wrap align-items-center gap-2">
-							<button type="button" class="btn btn-sm btn-secondary text-nowrap" id="confrev-prev">
-								<i class="fa-solid fa-chevron-left"></i> <?=gettext('Newer')?>
-							</button>
-							<span id="confrev-status" class="text-nowrap"></span>
-							<button type="button" class="btn btn-sm btn-secondary text-nowrap" id="confrev-next">
-								<?=gettext('Older')?> <i class="fa-solid fa-chevron-right"></i>
-							</button>
-							<label for="confrev-size" class="ms-auto mb-0 d-flex align-items-center gap-2 text-nowrap">
-								<?=gettext('Rows per page')?>
-								<select id="confrev-size" class="form-control" style="width: auto;">
-									<option value="25">25</option>
-									<option value="50">50</option>
-									<option value="100">100</option>
-									<option value="0"><?=gettext('All')?></option>
-								</select>
-							</label>
-						</div>
+					<td class="text-nowrap"><?=$date?></td>
+					<td><?=htmlspecialchars($version['description'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($version['version'])?></td>
+					<td class="fs-mono text-nowrap"><?=format_bytes($version['filesize'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['custom', 'diag_confbak.php?newver=' . $time, $date, [
+								'icon' => 'fa-arrow-rotate-left',
+								'label' => sprintf(gettext('Restore the configuration from %s'), $date),
+								'post' => true,
+								'confirm' => sprintf(gettext('Restore the configuration from %s?'), $date),
+								'detail' => gettext('It replaces the current configuration. Reboot, or apply the affected settings, to activate it.'),
+								'confirm_action' => gettext('Restore'),
+							]],
+							['custom', 'diag_confbak.php?getcfg=' . $time, $date, [
+								'icon' => 'fa-download',
+								'label' => sprintf(gettext('Download the configuration from %s'), $date),
+							]],
+							['delete', 'diag_confbak.php?rmver=' . $time, $date, ['thing' => gettext('backup')]],
+						])?>
 					</td>
 				</tr>
 <?php
-else:
-	print_info_box(gettext("No backups found."), 'danger');
-endif;
+endforeach;
+
+if (empty($versions)) {
+	fs_empty_row(7, gettext('No backups yet. A backup is kept each time the configuration changes.'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
-</form>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('To compare two configurations, pick the older one under "Old" and the newer one under "New", then press Compare.')?>
+	</div>
+</div>
 
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	/* Page the history rows in the browser. Hidden rows stay in the form,
-	 * so a Compare selection may span pages. */
-	var rows = $('tr.confrev');
-	if (!rows.length) {
-		return;
-	}
-	var page = 0;
-	var size = 25;
-	try {
-		var stored = parseInt(window.localStorage.getItem('diag_confbak_page_size'), 10);
-		if ([0, 25, 50, 100].indexOf(stored) >= 0) {
-			size = stored;
-		}
-	} catch (e) {}
-	$('#confrev-size').val(String(size));
+<style>
+.fs-diff { margin: 0; max-height: 70vh; overflow: auto; font-size: .8rem; line-height: 1.45; white-space: pre-wrap; }
+.fs-diff span { display: block; padding: 0 .5rem; }
+.fs-diff-add { background: color-mix(in srgb, var(--fs-success, #2fb36c) 18%, transparent); }
+.fs-diff-del { background: color-mix(in srgb, var(--fs-danger, #e5484d) 18%, transparent); }
+.fs-diff-hunk { color: var(--fs-text-muted); }
+</style>
+<?php
+/* retention settings */
+fs_modal_form_begin('confbak-settings', gettext('Configuration history settings'), 'diag_confbak.php', [],
+    ($input_errors && isset($_POST['backupcount'])) ? ['backupcount' => $_POST['backupcount']] : null);
+$space = exec("/usr/bin/du -sh /conf/backup | /usr/bin/awk '{print $1;}'");
+?>
+	<div class="mb-3">
+		<label class="form-label" for="confbak-count"><?=gettext('Maximum backups')?></label>
+		<input class="form-control" type="number" min="0" id="confbak-count" name="backupcount" value="<?=htmlspecialchars(config_get_path('system/backupcount'))?>" placeholder="<?=htmlspecialchars(g_get('default_config_backup_count'))?>">
+		<div class="form-text"><?=gettext('Older backups are removed beyond this number. 0 keeps none; leave empty for the default.')?></div>
+	</div>
+	<p class="fs-muted mb-0"><i class="fa-solid fa-hard-drive me-1" aria-hidden="true"></i><?=sprintf(gettext('Backups currently use %s.'), htmlspecialchars($space))?></p>
+<?php
+fs_modal_form_end(gettext('Save'), 'Submit', gettext('Save'), 'fa-floppy-disk');
 
-	function render() {
-		var total = rows.length;
-		var pages = (size > 0) ? Math.max(1, Math.ceil(total / size)) : 1;
-		page = Math.min(Math.max(page, 0), pages - 1);
-		var first = (size > 0) ? page * size : 0;
-		var last = (size > 0) ? Math.min(total, first + size) : total;
-		rows.each(function(i) {
-			$(this).toggle(i >= first && i < last);
-		});
-		$('#confrev-status').text(<?=json_encode(gettext('Backups %1$s-%2$s of %3$s'))?>
-		    .replace('%1$s', total ? first + 1 : 0).replace('%2$s', last).replace('%3$s', total));
-		$('#confrev-prev').prop('disabled', page === 0);
-		$('#confrev-next').prop('disabled', page >= pages - 1);
-		$('#confrev-pager').toggle(total > 25);
-	}
-
-	$('#confrev-prev').on('click', function() { page--; render(); });
-	$('#confrev-next').on('click', function() { page++; render(); });
-	$('#confrev-size').on('change', function() {
-		size = parseInt($(this).val(), 10) || 0;
-		page = 0;
-		try {
-			window.localStorage.setItem('diag_confbak_page_size', String(size));
-		} catch (e) {}
-		render();
-	});
-	render();
-});
-//]]>
-</script>
-
-<?php include("foot.inc");
+include("foot.inc");

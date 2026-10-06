@@ -124,15 +124,21 @@ $pconfig = $_POST['save'] ? $_POST : array(
 $state = remote_backup_state_read();
 $types = remote_backup_types();
 
+/* the targets and the schedule/passphrase settings are views of this page (docs/webui/PLAN.md, rule R1) */
+$view = fs_view_param(['targets', 'settings'], isset($_POST['save']) ? 'settings' : 'targets');
+
 $pgtitle = array(gettext('Diagnostics'), htmlspecialchars(gettext('Backup & Restore')), gettext('Remote Backup'));
 $pglinks = array('', 'diag_backup.php', '@self');
+if ($view === 'targets') {
+	fs_page_action(gettext('Add target'), 'diag_backup_remote_edit.php', 'fa-plus');
+}
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(htmlspecialchars(gettext('Backup & Restore')), false, 'diag_backup.php');
-$tab_array[] = array(gettext('Configuration History'), false, 'diag_confbak.php');
-$tab_array[] = array(gettext('Remote Backup'), true, 'diag_backup_remote.php');
-display_top_tabs($tab_array);
+fs_tabs('diagnostics-backup', 'diag_backup_remote.php');
+fs_view_switch([
+	'targets' => gettext('Targets'),
+	'settings' => gettext('Settings'),
+], $view);
 
 if ($input_errors) {
 	print_input_errors($input_errors);
@@ -142,52 +148,58 @@ if ($savemsg) {
 }
 
 if (is_array($browse)):
+	$browse_label = $browse_target['descr'] ?: $browse_target['id'];
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=sprintf(gettext('Backups on %s'), htmlspecialchars($browse_target['descr'] ?: $browse_target['id']))?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm">
-				<thead><tr>
-					<th><?=gettext('File')?></th>
-					<th><?=gettext('Actions')?></th>
-				</tr></thead>
-				<tbody>
-<?php	if (empty($browse)): ?>
-					<tr><td colspan="2"><?=gettext('No backups of this firewall were found on the target.')?></td></tr>
-<?php	endif;
-	foreach ($browse as $name): ?>
-					<tr>
-						<td><?=htmlspecialchars($name)?></td>
-						<td>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => sprintf(gettext('Backups on %s'), $browse_label),
+	'search' => gettext('Search files…'),
+	'noun' => gettext('backups'),
+	'noun_one' => gettext('backup'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead><tr>
+				<th data-fs-search><?=gettext('File')?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+			</tr></thead>
+			<tbody>
+<?php	foreach ($browse as $name): ?>
+				<tr>
+					<td class="fs-mono"><i class="fa-solid fa-file-shield fs-muted me-2" aria-hidden="true"></i><?=htmlspecialchars($name)?></td>
+					<td class="fs-col-actions">
+						<div class="fs-actions">
 							<form method="post" action="diag_backup_remote.php" class="d-inline">
-								<input type="hidden" name="act" value="download" />
-								<input type="hidden" name="id" value="<?=htmlspecialchars($browse_target['id'])?>" />
-								<input type="hidden" name="name" value="<?=htmlspecialchars($name)?>" />
-								<button type="submit" class="btn btn-xs btn-primary">
-									<i class="fa-solid fa-download"></i> <?=gettext('Download')?>
-								</button>
+								<input type="hidden" name="act" value="download">
+								<input type="hidden" name="id" value="<?=htmlspecialchars($browse_target['id'])?>">
+								<input type="hidden" name="name" value="<?=htmlspecialchars($name)?>">
+								<button type="submit" class="fs-action" title="<?=gettext('Download')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Download %s'), $name))?>"><i class="fa-solid fa-download" aria-hidden="true"></i></button>
 							</form>
 							<form method="post" action="diag_backup.php" class="d-inline">
-								<input type="hidden" name="remote_restore" value="1" />
-								<input type="hidden" name="target" value="<?=htmlspecialchars($browse_target['id'])?>" />
-								<input type="hidden" name="name" value="<?=htmlspecialchars($name)?>" />
-								<button type="submit" class="btn btn-xs btn-danger">
-									<i class="fa-solid fa-arrow-rotate-left"></i> <?=gettext('Restore')?>
-								</button>
+								<input type="hidden" name="remote_restore" value="1">
+								<input type="hidden" name="target" value="<?=htmlspecialchars($browse_target['id'])?>">
+								<input type="hidden" name="name" value="<?=htmlspecialchars($name)?>">
+								<button type="submit" class="fs-action" title="<?=gettext('Restore')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Restore %s'), $name))?>"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i></button>
 							</form>
-						</td>
-					</tr>
-<?php	endforeach; ?>
-				</tbody>
-			</table>
-		</div>
-		<p class="text-muted"><?=gettext('Restore downloads the file, decrypts it with the current passphrase and opens the normal restore review on the Backup & Restore tab. A downloaded file can also be restored there manually with "Configuration file is encrypted" and the passphrase.')?></p>
+						</div>
+					</td>
+				</tr>
+<?php	endforeach;
+	if (empty($browse)) {
+		fs_empty_row(2, gettext('No backups of this firewall were found on the target.'));
+	} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('Restore downloads the file, decrypts it with the current passphrase and opens the normal restore review on the Backup & Restore tab. A downloaded file can also be restored there manually with "Configuration file is encrypted" and the passphrase.')?>
 	</div>
 </div>
 <?php
 endif;
 
+if ($view === 'settings'):
 $form = new Form(false);
 $section = new Form_Section(gettext('Remote Backup Settings'));
 $section->addInput(new Form_Checkbox(
@@ -258,85 +270,95 @@ $section->addInput(new Form_Button(
 ))->addClass('btn-primary');
 $form->add($section);
 print($form);
-?>
+endif; /* settings */
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Backup Targets')?></h2></div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
-				<thead><tr>
-					<th><?=gettext('Status')?></th>
-					<th><?=gettext('Description')?></th>
-					<th><?=gettext('Type')?></th>
-					<th><?=gettext('Last success')?></th>
-					<th><?=gettext('Last result')?></th>
-					<th><?=gettext('Actions')?></th>
-				</tr></thead>
-				<tbody>
+if ($view === 'targets'):
+	$targets = remote_backup_targets();
+	if (empty($settings['enable']) && !empty($targets)) {
+		print_info_box(sprintf(gettext('Remote backup is turned off; targets are only used for manual backups. Turn it on under %1$sSettings%2$s.'),
+		    '<a href="diag_backup_remote.php?view=settings">', '</a>'), 'warning', false);
+	}
+?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Backup Targets'),
+	'search' => gettext('Search targets…'),
+	'noun' => gettext('targets'),
+	'noun_one' => gettext('target'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover table-rowdblclickedit">
+			<thead><tr>
+				<th data-fs-search><?=gettext('Target')?></th>
+				<th><?=gettext('Status')?></th>
+				<th data-fs-search><?=gettext('Last success')?></th>
+				<th data-fs-search><?=gettext('Last result')?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+			</tr></thead>
+			<tbody>
 <?php
-$targets = remote_backup_targets();
-if (empty($targets)): ?>
-					<tr><td colspan="6"><?=gettext('No backup targets are configured.')?></td></tr>
-<?php
-endif;
 foreach ($targets as $t):
 	$tid = $t['id'];
 	$st = $state[$tid] ?? array();
-	if (!empty($st['last_error'])) {
-		$icon = 'fa-solid fa-circle-xmark text-danger';
-		$icon_title = gettext('Failed');
-	} elseif (!empty($st['last_success'])) {
-		$icon = 'fa-solid fa-circle-check text-success';
-		$icon_title = gettext('OK');
-	} else {
-		$icon = 'fa-regular fa-circle text-muted';
-		$icon_title = gettext('Not run yet');
-	}
+	$name = $t['descr'] ?: $tid;
 	$type_label = explode(' (', $types[$t['type']] ?? $t['type'])[0];
+	if (empty($t['enable'])) {
+		$badge = fs_badge('disabled');
+	} elseif (!empty($st['last_error'])) {
+		$badge = fs_badge('block', gettext('Failed'));
+	} elseif (!empty($st['last_success'])) {
+		$badge = fs_badge('pass', gettext('OK'));
+	} else {
+		$badge = fs_badge('idle', gettext('Not run yet'));
+	}
+	$url = 'diag_backup_remote.php?id=' . urlencode($tid) . '&act=';
 ?>
-					<tr<?=empty($t['enable']) ? ' class="disabled"' : ''?> ondblclick="document.location='diag_backup_remote_edit.php?id=<?=htmlspecialchars($tid)?>';">
-						<td><i class="<?=$icon?>" title="<?=$icon_title?>"></i></td>
-						<td><?=htmlspecialchars($t['descr'] ?: $tid)?></td>
-						<td><?=htmlspecialchars($type_label)?></td>
-						<td><?=!empty($st['last_success']) ? htmlspecialchars(date('Y-m-d H:i', $st['last_success'])) .
-						    '<br /><small>' . htmlspecialchars($st['last_file'] ?? '') . '</small>' : gettext('Never')?></td>
-						<td><?=!empty($st['last_error']) ? '<span class="text-danger">' . htmlspecialchars($st['last_error']) . '</span>' :
-						    (!empty($st['last_attempt']) ? gettext('OK') : '')?></td>
-						<td>
-							<a class="fa-solid fa-pencil" title="<?=gettext('Edit target')?>" href="diag_backup_remote_edit.php?id=<?=htmlspecialchars($tid)?>"></a>
-<?php	if (!empty($t['enable'])): ?>
-							<a class="fa-solid fa-ban" title="<?=gettext('Disable target')?>" href="?act=toggle&amp;id=<?=htmlspecialchars($tid)?>" usepost></a>
+				<tr<?=empty($t['enable']) ? ' class="fs-row-disabled"' : ''?>>
+					<td>
+						<a href="diag_backup_remote_edit.php?id=<?=htmlspecialchars(urlencode($tid))?>"><strong><?=htmlspecialchars($name)?></strong></a>
+						<div class="fs-muted small"><?=htmlspecialchars($type_label)?></div>
+					</td>
+					<td><?=$badge?></td>
+					<td>
+<?php	if (!empty($st['last_success'])): ?>
+						<?=htmlspecialchars(date('Y-m-d H:i', $st['last_success']))?>
+						<div class="fs-muted small fs-mono"><?=htmlspecialchars($st['last_file'] ?? '')?></div>
 <?php	else: ?>
-							<a class="fa-regular fa-square-check" title="<?=gettext('Enable target')?>" href="?act=toggle&amp;id=<?=htmlspecialchars($tid)?>" usepost></a>
+						<span class="fs-muted"><?=gettext('Never')?></span>
 <?php	endif; ?>
-							<a class="fa-solid fa-plug" title="<?=gettext('Test connection')?>" href="?act=test&amp;id=<?=htmlspecialchars($tid)?>" usepost></a>
-							<a class="fa-solid fa-cloud-arrow-up" title="<?=gettext('Back up now')?>" href="?act=run&amp;id=<?=htmlspecialchars($tid)?>" usepost></a>
-							<a class="fa-solid fa-folder-open" title="<?=gettext('Browse and restore')?>" href="?act=browse&amp;id=<?=htmlspecialchars($tid)?>" usepost></a>
-							<a class="fa-solid fa-trash-can" title="<?=gettext('Delete target')?>" href="?act=del&amp;id=<?=htmlspecialchars($tid)?>" usepost></a>
-						</td>
-					</tr>
+					</td>
+					<td><?=!empty($st['last_error']) ? '<span class="text-danger">' . htmlspecialchars($st['last_error']) . '</span>' :
+					    (!empty($st['last_attempt']) ? gettext('OK') : '')?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['custom', $url . 'run', $name, ['icon' => 'fa-cloud-arrow-up', 'label' => sprintf(gettext('Back up to %s now'), $name), 'post' => true]],
+							['custom', $url . 'browse', $name, ['icon' => 'fa-folder-open', 'label' => sprintf(gettext('Browse and restore backups on %s'), $name), 'post' => true]],
+							['custom', $url . 'test', $name, ['icon' => 'fa-plug', 'label' => sprintf(gettext('Test the connection to %s'), $name), 'post' => true]],
+							['edit', 'diag_backup_remote_edit.php?id=' . urlencode($tid), $name],
+							['toggle', $url . 'toggle', $name, ['enabled' => !empty($t['enable'])]],
+							['delete', $url . 'del', $name, ['thing' => gettext('backup target'), 'detail' => gettext('Backups already uploaded to it are not deleted.')]],
+						])?>
+					</td>
+				</tr>
 <?php
-endforeach; ?>
-				</tbody>
-			</table>
-		</div>
+endforeach;
+if (empty($targets)) {
+	fs_empty_row(5, gettext('No backup targets yet. Add an SFTP, S3, WebDAV or other target to keep encrypted copies of the configuration off the firewall.'), 'diag_backup_remote_edit.php', gettext('Add target'));
+}
+?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-lock" aria-hidden="true"></i>
+		<?=gettext('Backups are encrypted with AES-256 (OpenSSL, PBKDF2) before they leave the firewall. A .sha256 checksum file is uploaded beside each backup to detect corruption; it does not prove who wrote the file, so restrict write access to the storage location.')?>
 	</div>
 </div>
-
-<nav class="action-buttons">
-	<a href="diag_backup_remote_edit.php" class="btn btn-sm btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
-
 <?php
-print_info_box(gettext('Backups are encrypted with AES-256 (OpenSSL, PBKDF2) before they leave the firewall. ' .
-    'A .sha256 checksum file is uploaded beside each backup to detect corruption; it does not prove who wrote the file, ' .
-    'so restrict write access to the storage location. Deleting a target here does not delete its uploaded backups.'), 'info', false);
-?>
+endif; /* targets */
 
+if ($view === 'settings'):
+?>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
@@ -355,6 +377,7 @@ events.push(function() {
 });
 //]]>
 </script>
+<?php endif; /* settings */ ?>
 
 <?php
 include("foot.inc");

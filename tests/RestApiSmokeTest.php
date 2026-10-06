@@ -907,7 +907,7 @@ check_api(strpos($fn_body($ddns_inc, 'dyndns_client_cache_files'), '_v6.cache') 
     strpos($fn_body($ddns_inc, 'rfc2136_delete_client'), 'rfc2136_client_cache_files(') !== false, 'deleting a client removes its IPv4 and IPv6 cache files');
 
 foreach (array('services_ntpd.php' => array('ntpd_save_settings($_POST, $leapfile)', 'ntpd_settings()', 'ntpd_timeserver_rows()', 'ntpd_build_interface_list('),
-    'services_ntpd_acls.php' => array('ntpd_save_acls($_POST)', 'ntpd_acl_rows()'),
+    'services_ntpd_acls.php' => array('ntpd_save_acls($acl_post)', 'ntpd_acl_rows()', 'ntpd_acl_flags()'),
     'services_dyndns.php' => array('dyndns_delete_client($_POST[\'id\'])', 'dyndns_toggle_client($_POST[\'id\'])'),
     'services_dyndns_edit.php' => array('dyndns_save_client($_POST, $id, $dup)', 'dyndns_client_settings($id, $dup)', 'dyndns_build_if_list()'),
     'services_rfc2136.php' => array('rfc2136_delete_client($_POST[\'id\'])', 'rfc2136_toggle_client($_POST[\'id\'])'),

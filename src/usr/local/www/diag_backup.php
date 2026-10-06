@@ -229,11 +229,7 @@ $pgtitle = [gettext('Diagnostics'), htmlspecialchars(gettext('Backup & Restore')
 $pglinks = ['', '@self', '@self'];
 include("head.inc");
 
-$tab_array[] = [htmlspecialchars(gettext('Backup & Restore')), true, 'diag_backup.php'];
-$tab_array[] = [gettext('Configuration History'), false, 'diag_confbak.php'];
-$tab_array[] = [gettext('Remote Backup'), false, 'diag_backup_remote.php'];
-
-display_top_tabs($tab_array);
+fs_tabs('diagnostics-backup', 'diag_backup.php');
 
 if ($input_errors) {
 	print_input_errors($input_errors);
