@@ -23,7 +23,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | firewall_schedule | List | **pilot**: toolbar + search, badge "Active", row actions (edit, delete), header Add | A | |
 | firewall_schedule_edit | Editor | **pilot**; time-range builder keeps its custom widget, restyled | A | |
 | firewall_aliases | List | tabs IP/Ports/URLs/All via registry; search over name/values/descr; type filter; header actions Add + Import; copy | B | |
-| firewall_aliases_edit | Editor | entry grid for entries (can hold hundreds; grid gets its own search when > 20 rows) | D | M |
+| firewall_aliases_edit | Editor | **done**: entry grid; a filter appears above it when the alias has > 20 entries (any page's grid gets it) | D | M |
 | firewall_aliases_import | Tool | compact form, consistent with the Tool type | E | |
 | firewall_nat, _1to1, _npt | List | toolbar + search + existing bulk bar (`del_x`, `toggle_x`); keep drag order; Save order in the toolbar | B | M |
 | firewall_nat_out | List | mode selector becomes a one-row strip above the list (allowed exception); both tables get the list styling | B | M |

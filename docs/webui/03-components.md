@@ -289,6 +289,9 @@ Use it when each row has ≤ 3 simple fields and no per-row options. Otherwise, 
   which some pages use to find it.
 - Column visibility (`.hidden`) and placeholder-based titles follow the page on change, click and load
   (alias type, IPsec PRF). Row labels, field names, numbering and `add_row()` / `delete_row()` are untouched.
+- More than 20 rows at load: a filter field and "n of m shown" count above the header. It matches the
+  rows' text fields and selected options; non-matching rows are only hidden (`.fs-entrygrid-filtered`), so
+  the page still posts every row. Empty rows and a row just added always stay visible; Enter does not submit.
 
 ## Advanced toggle
 

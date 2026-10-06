@@ -597,6 +597,11 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 .form-group.fs-entrygrid-notes { padding-top: .25rem !important; }
 .fs-entrygrid-notes p { margin: 0 0 .35rem; color: var(--fs-text-muted); font-size: .85rem; }
 .fs-entrygrid-notes strong { color: var(--fs-text); font-weight: 600; }
+.form-group.fs-entrygrid-filter { border-bottom: 0 !important; padding-bottom: .25rem !important; }
+.fs-entrygrid-filter .col-sm-10 { display: flex; align-items: center; gap: .75rem; }
+.fs-entrygrid-filter input { max-width: 22rem; }
+.fs-entrygrid-count { color: var(--fs-text-muted); font-size: .85rem; white-space: nowrap; }
+.form-group.repeatable.fs-entrygrid-filtered { display: none !important; }
 @media (max-width: 575.98px) { .fs-entrygrid-head { display: none !important; } }
 
 /* searchable checklist (select[multiple][data-fs-checklist], js/freesense-ui.js) */
