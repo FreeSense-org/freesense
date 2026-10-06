@@ -146,12 +146,7 @@ if ($changes_applied) {
 	print_apply_result_box($retval);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Settings"), false, "services_ntpd.php");
-$tab_array[] = array(gettext("ACLs"), true, "services_ntpd_acls.php");
-$tab_array[] = array(gettext("Serial GPS"), false, "services_ntpd_gps.php");
-$tab_array[] = array(gettext("PPS"), false, "services_ntpd_pps.php");
-display_top_tabs($tab_array);
+fs_tabs('services-ntp', 'services_ntpd_acls.php');
 
 /* custom restrictions: one network per row (the placeholder row of an empty configuration is skipped) */
 $acl_rows = array_values(array_filter($networkacl, static function ($r) {

@@ -26,3 +26,9 @@ $fs_tab_groups['diagnostics-backup'] = [
 	[gettext('Configuration History'), 'diag_confbak.php'],
 	[gettext('Remote Backup'), 'diag_backup_remote.php'],
 ];
+
+$fs_tab_groups['diagnostics-states'] = [
+	[gettext('States'), 'diag_dump_states.php'],
+	[gettext('Source Tracking'), 'diag_dump_states_sources.php', config_path_enabled('system', 'lb_use_sticky')],
+	[gettext('Reset States'), 'diag_resetstate.php'],
+];

@@ -62,15 +62,7 @@ $sourcetablehelp = sprintf(gettext('Resetting the source tracking table will rem
 					'will be cleared for all clients.%s' .
 					'This does not clear active connection states, only source tracking.'), "<br /><br />");
 
-$tab_array = array();
-$tab_array[] = array(gettext("States"), false, "diag_dump_states.php");
-
-if (diag_resetstate_sourcetracking_available()) {
-	$tab_array[] = array(gettext("Source Tracking"), false, "diag_dump_states_sources.php");
-}
-
-$tab_array[] = array(gettext("Reset States"), true, "diag_resetstate.php");
-display_top_tabs($tab_array);
+fs_tabs('diagnostics-states', 'diag_resetstate.php');
 
 $form = new Form(false);
 

@@ -391,12 +391,7 @@ if (is_subsystem_dirty('shaper')) {
 	print_apply_box(gettext("The traffic shaper configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("By Interface"), false, "firewall_shaper.php");
-$tab_array[] = array(gettext("By Queue"), false, "firewall_shaper_queues.php");
-$tab_array[] = array(gettext("Limiters"), true, "firewall_shaper_vinterface.php");
-$tab_array[] = array(gettext("Wizards"), false, "firewall_shaper_wizards.php");
-display_top_tabs($tab_array);
+fs_tabs('firewall-shaper', 'firewall_shaper_vinterface.php');
 ?>
 <div class="table-responsive">
 	<table class="table">

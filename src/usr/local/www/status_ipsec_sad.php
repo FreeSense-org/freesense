@@ -64,12 +64,7 @@ if (($_POST['act'] == "del") &&
 
 $sad = ipsec_dump_sad();
 
-$tab_array = array();
-$tab_array[] = array(gettext("Overview"), false, "status_ipsec.php");
-$tab_array[] = array(gettext("Leases"), false, "status_ipsec_leases.php");
-$tab_array[] = array(gettext("SADs"), true, "status_ipsec_sad.php");
-$tab_array[] = array(gettext("SPDs"), false, "status_ipsec_spd.php");
-display_top_tabs($tab_array);
+fs_tabs('status-ipsec', 'status_ipsec_sad.php');
 
 if (count($sad)) {
 ?>

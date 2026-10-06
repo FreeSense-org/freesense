@@ -369,12 +369,7 @@ if ($changes_applied) {
 	print_apply_result_box($retval);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Settings"), false, "services_ntpd.php");
-$tab_array[] = array(gettext("ACLs"), false, "services_ntpd_acls.php");
-$tab_array[] = array(gettext("Serial GPS"), true, "services_ntpd_gps.php");
-$tab_array[] = array(gettext("PPS"), false, "services_ntpd_pps.php");
-display_top_tabs($tab_array);
+fs_tabs('services-ntp', 'services_ntpd_gps.php');
 
 $form = new Form;
 

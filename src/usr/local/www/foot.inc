@@ -66,7 +66,7 @@
 	<script src="/js/FreeSenseHelpers.js?v=<?=filemtime('/usr/local/www/js/FreeSenseHelpers.js')?>"></script>
 	<script src="/js/polyfills.js?v=<?=filemtime('/usr/local/www/js/polyfills.js')?>"></script>
 	<script src="/vendor/sortable/sortable.js?v=<?=filemtime('/usr/local/www/vendor/sortable/sortable.js')?>"></script>
-	<script src="/js/freesense-ui.js?v=<?=filemtime('/usr/local/www/js/freesense-ui.js')?>"></script>
+	<script src="/js/freesense-ui.js?v=<?=filemtime('/usr/local/www/js/freesense-ui.js')?>" data-fs-i18n="<?=htmlspecialchars(json_encode(['hideAdvanced' => [gettext('Hide Advanced'), gettext('Hide Advanced Options')]]))?>"></script>
 
 	<script type="text/javascript" src="/vendor/jquery-treegrid/js/jquery.treegrid.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery-treegrid/js/jquery.treegrid.min.js')?>"></script>
 	<script type="text/javascript" src="/vendor/js-cookie/js.cookie.min.js?v=<?=filemtime('/usr/local/www/vendor/js-cookie/js.cookie.min.js')?>"></script>

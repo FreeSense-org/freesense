@@ -87,13 +87,7 @@ events.push(function() {
 </script>
 
 <?php
-$tab_array = array();
-$tab_array[] = array(gettext("States"), true, "diag_dump_states.php");
-if (config_path_enabled('system', 'lb_use_sticky')) {
-	$tab_array[] = array(gettext("Source Tracking"), false, "diag_dump_states_sources.php");
-}
-$tab_array[] = array(gettext("Reset States"), false, "diag_resetstate.php");
-display_top_tabs($tab_array);
+fs_tabs('diagnostics-states', 'diag_dump_states.php');
 
 // Start of tab content
 $current_statecount = shell_exec('pfctl -si | grep "current entries" | awk \'{ print $3 }\'');

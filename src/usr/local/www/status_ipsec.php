@@ -594,12 +594,7 @@ $shortcut_section = "ipsec";
 
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("Overview"), true, "status_ipsec.php");
-$tab_array[] = array(gettext("Leases"), false, "status_ipsec_leases.php");
-$tab_array[] = array(gettext("SADs"), false, "status_ipsec_sad.php");
-$tab_array[] = array(gettext("SPDs"), false, "status_ipsec_spd.php");
-display_top_tabs($tab_array);
+fs_tabs('status-ipsec', 'status_ipsec.php');
 ?>
 
 <div class="panel panel-default">

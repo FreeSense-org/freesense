@@ -617,3 +617,13 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 .fs-checklist-name { color: var(--fs-text-strong); }
 .fs-checklist-desc { display: block; color: var(--fs-text-muted); font-size: .82rem; }
 .fs-checklist-empty { padding: .75rem; color: var(--fs-text-muted); }
+
+/* advanced toggles ("Display Advanced"; js/freesense-ui.js initAdvancedToggles) */
+.btn.fs-disclosure {
+	--bs-btn-padding-y: .25rem; --bs-btn-padding-x: .6rem; --bs-btn-font-size: .85rem;
+	background: none; border: 1px solid var(--fs-border-color); color: var(--fs-text);
+}
+.btn.fs-disclosure:hover, .btn.fs-disclosure:focus-visible { border-color: var(--fs-coral); color: var(--fs-text-strong); background: none; }
+.btn.fs-disclosure > i { transition: transform .15s ease; color: var(--fs-text-muted); }
+.btn.fs-disclosure.is-open > i { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .btn.fs-disclosure > i { transition: none; } }

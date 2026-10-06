@@ -35,3 +35,9 @@ $fs_tab_groups['firewall-nat'] = [
 	[gettext('NPt'), 'firewall_nat_npt.php'],
 ];
 
+$fs_tab_groups['firewall-shaper'] = [
+	[gettext('By Interface'), 'firewall_shaper.php'],
+	[gettext('By Queue'), 'firewall_shaper_queues.php'],
+	[gettext('Limiters'), 'firewall_shaper_vinterface.php'],
+	[gettext('Wizards'), 'firewall_shaper_wizards.php'],
+];

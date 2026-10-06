@@ -64,12 +64,7 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("By Interface"), false, "firewall_shaper.php");
-$tab_array[] = array(gettext("By Queue"), false, "firewall_shaper_queues.php");
-$tab_array[] = array(gettext("Limiters"), false, "firewall_shaper_vinterface.php");
-$tab_array[] = array(gettext("Wizards"), true, "firewall_shaper_wizards.php");
-display_top_tabs($tab_array);
+fs_tabs('firewall-shaper', 'firewall_shaper_wizards.php');
 
 if ($_POST['apply']) {
 	print_apply_result_box($retval);

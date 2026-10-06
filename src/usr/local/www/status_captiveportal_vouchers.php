@@ -78,13 +78,7 @@ foreach (config_get_path("voucher/{$cpzone}/roll", []) as $rollent) {
 
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("Active Users"), false, "status_captiveportal.php?zone=" . htmlspecialchars($cpzone));
-$tab_array[] = array(gettext("Active Vouchers"), true, "status_captiveportal_vouchers.php?zone=" . htmlspecialchars($cpzone));
-$tab_array[] = array(gettext("Voucher Rolls"), false, "status_captiveportal_voucher_rolls.php?zone=" . htmlspecialchars($cpzone));
-$tab_array[] = array(gettext("Test Vouchers"), false, "status_captiveportal_test.php?zone=" . htmlspecialchars($cpzone));
-$tab_array[] = array(gettext("Expire Vouchers"), false, "status_captiveportal_expire.php?zone=" . htmlspecialchars($cpzone));
-display_top_tabs($tab_array);
+fs_tabs('status-captiveportal', 'status_captiveportal_vouchers.php', ['zone' => $cpzone]);
 ?>
 
 <div class="panel panel-default">
