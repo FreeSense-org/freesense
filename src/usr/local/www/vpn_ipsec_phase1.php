@@ -214,7 +214,7 @@ if ($p1_is_new) {
 	<div class="fs-ipsec-sum-head">
 		<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
 		<div class="fs-ipsec-sum-name">
-			<div class="fs-ipsec-sum-title"><?=($p1_sum_title === '') ? '<span class="fs-muted">' . fs_h($p1_is_new ? gettext("New phase 1") : gettext("No description")) . '</span>' : fs_h($p1_sum_title)?></div>
+			<div class="fs-ipsec-sum-title"><?php if ($p1_sum_title === ''): ?><span class="fs-muted"><?=htmlspecialchars($p1_is_new ? gettext("New phase 1") : gettext("No description"))?></span><?php else: ?><?=htmlspecialchars($p1_sum_title)?><?php endif; ?></div>
 			<div class="fs-ipsec-sum-sub"><?=fs_h(implode(' · ', $p1_sum_sub))?></div>
 		</div>
 		<?=$p1_sum_badge?>
