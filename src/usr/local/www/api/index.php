@@ -74,6 +74,8 @@ require_once('vpn_l2tp.inc');
 require_once('vpn_ipsec.inc');
 /* The OpenVPN pages' shared functions (servers, clients, client specific overrides). */
 require_once('vpn_openvpn.inc');
+/* The certificate manager pages' shared functions (certificate authorities, revocation lists). */
+require_once('system_certificates.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

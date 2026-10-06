@@ -60,6 +60,7 @@ function restapi_areas() {
 		'vpn.ipsec' => 'IPsec (tunnels, pre-shared keys, status)',
 		'vpn.l2tp' => 'L2TP VPN server and users',
 		'vpn.openvpn' => 'OpenVPN servers, clients and client-specific overrides',
+		'pki' => 'Certificates, certificate authorities and revocation lists',
 	);
 }
 

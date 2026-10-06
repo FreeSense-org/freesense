@@ -1194,9 +1194,10 @@ function cert_unrevoke($cert, &$crl_config) {
 	$serial = crl_get_entry_serial($cert);
 
 	foreach ($crl['cert'] as $id => $rcert) {
-		/* Check for a match by refid, name, or serial number */
-		if (($rcert['refid'] == $cert['refid']) ||
-		    ($rcert['descr'] == $cert['descr']) ||
+		/* Check for a match by refid, name, or serial number (an entry
+		 * revoked by serial has no refid or name to match) */
+		if ((!empty($cert['refid']) && ($rcert['refid'] == $cert['refid'])) ||
+		    (!empty($cert['descr']) && ($rcert['descr'] == $cert['descr'])) ||
 		    (crl_get_entry_serial($rcert) == $serial)) {
 			unset($crl['cert'][$id]);
 			if (count($crl['cert']) == 0) {

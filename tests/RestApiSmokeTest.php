@@ -1703,6 +1703,167 @@ check_api(strpos($status_fn, 'openvpn_get_active_servers()') !== false && strpos
     strpos($status_fn, 'shared_key') === false, 'the OpenVPN status reads the status helpers only (no configuration fields)');
 check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('vpn_openvpn.inc');") !== false, 'the API front controller loads vpn_openvpn.inc');
 
+/* Certificate manager: certificate authorities and revocation lists */
+check_api(isset(restapi_areas()['pki']), 'the certificate manager permission area exists');
+$pki_routes = array(
+	'GET /v1/pki/cas' => array('restapi_h_pki_ca_list', 'system_camanager.php'),
+	'GET /v1/pki/cas/{refid}' => array('restapi_h_pki_ca_get', 'system_camanager.php'),
+	'GET /v1/pki/cas/{refid}/certificate' => array('restapi_h_pki_ca_pem', 'system_camanager.php'),
+	'POST /v1/pki/cas' => array('restapi_h_pki_ca_create', 'system_camanager.php'),
+	'PUT /v1/pki/cas/{refid}' => array('restapi_h_pki_ca_update', 'system_camanager.php'),
+	'DELETE /v1/pki/cas/{refid}' => array('restapi_h_pki_ca_delete', 'system_camanager.php'),
+	'GET /v1/pki/crls' => array('restapi_h_pki_crl_list', 'system_crlmanager.php'),
+	'GET /v1/pki/crls/{refid}' => array('restapi_h_pki_crl_get', 'system_crlmanager.php'),
+	'GET /v1/pki/crls/{refid}/crl' => array('restapi_h_pki_crl_pem', 'system_crlmanager.php'),
+	'POST /v1/pki/crls' => array('restapi_h_pki_crl_create', 'system_crlmanager.php'),
+	'PUT /v1/pki/crls/{refid}' => array('restapi_h_pki_crl_update', 'system_crlmanager.php'),
+	'DELETE /v1/pki/crls/{refid}' => array('restapi_h_pki_crl_delete', 'system_crlmanager.php'),
+	'POST /v1/pki/crls/{refid}/revoke' => array('restapi_h_pki_crl_revoke', 'system_crlmanager.php'),
+	'DELETE /v1/pki/crls/{refid}/revoked/{cert}' => array('restapi_h_pki_crl_unrevoke', 'system_crlmanager.php'),
+);
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (strpos($r['path'], '/v1/pki/') === 0) {
+		check_api(isset($pki_routes[$key]), "{$key} is a known certificate manager route");
+		check_api($r['handler'] === $pki_routes[$key][0] && $r['page'] === $pki_routes[$key][1] && $r['area'] === 'pki',
+		    "{$key} is handled by {$pki_routes[$key][0]}, guarded by {$pki_routes[$key][1]} in area pki");
+		check_api(($r['method'] === 'GET') xor $r['write'], "{$key}: only GET is a read");
+		check_api(!isset($r['query']['apply']), "{$key} has no ?apply (applied at once like the pages)");
+		check_api(!preg_match('/key|p12|pkcs/i', $r['path'] . ' ' . $r['handler']), "{$key} exports no private key");
+		unset($pki_routes[$key]);
+	}
+}
+check_api(empty($pki_routes), 'every certificate manager route exists: ' . implode(', ', array_keys($pki_routes)));
+foreach (array('GET /v1/pki/cas/6ac0b56a1c325/certificate' => array('restapi_h_pki_ca_pem', 'text/plain'),
+    'GET /v1/pki/crls/6ac0b56a1c325/crl' => array('restapi_h_pki_crl_pem', 'text/plain'),
+    'GET /v1/pki/cas/6ac0b56a1c325' => array('restapi_h_pki_ca_get', 'application/json'),
+    'DELETE /v1/pki/crls/6ac0b56a1c325/revoked/6ac0b56aa7f4a' => array('restapi_h_pki_crl_unrevoke', 'application/json')) as $key => $want) {
+	list($m, $p) = explode(' ', $key);
+	$r = restapi_match($v1, $m, $p)[0];
+	check_api($r['handler'] === $want[0] && $r['produces'] === $want[1], "{$key} reaches {$want[0]} ({$want[1]})");
+}
+
+$smoke_ca_pem = "-----BEGIN CERTIFICATE-----\nMIIBmzCCAUGgAwIBAgICEjQwCgYIKoZIzj0EAwIwLDEWMBQGA1UEAwwNU21va2Ug\nVGVzdCBDQTESMBAGA1UECgwJRnJlZVNlbnNlMB4XDTI2MTAwNjA0MjcyMVoXDTM2\n" .
+    "MTAwMzA0MjcyMVowLDEWMBQGA1UEAwwNU21va2UgVGVzdCBDQTESMBAGA1UECgwJ\nRnJlZVNlbnNlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAESu825UEBzdJygwsC\n" .
+    "v8yGr8Ncx+mRMgBiMHVC8RxiHuEfGGgQiVwQuWPxNW3KRGJ3kbVzV9BiI8sfCFIV\nYJqNJ6NTMFEwHQYDVR0OBBYEFG8WaLMBy9jEIqQudCQS/7zZ06m7MB8GA1UdIwQY\n" .
+    "MBaAFG8WaLMBy9jEIqQudCQS/7zZ06m7MA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZI\nzj0EAwIDSAAwRQIgW1MaTugqbpMAq9IDC7vQlBuyAOZwZwd1XuSVPTSlhvUCIQDr\n" .
+    "HA3XZ8bGYJEliPAT6gw7MEbs+4Ton3bzlSQ3e+03oA==\n-----END CERTIFICATE-----\n";
+$cd = restapi_pki_cert_details($smoke_ca_pem);
+check_api($cd === array('subject' => 'CN=Smoke Test CA, O=FreeSense', 'issuer' => 'CN=Smoke Test CA, O=FreeSense', 'serial' => '4660',
+    'valid_from' => '2026-10-06T04:27:21Z', 'valid_until' => '2036-10-03T04:27:21Z'), 'certificate details: subject, issuer, serial and validity (ISO 8601 UTC)');
+check_api(restapi_pki_cert_details('not a certificate') === array('subject' => '', 'issuer' => '', 'serial' => '', 'valid_from' => '', 'valid_until' => '') &&
+    restapi_pki_time(0) === '' && restapi_pki_time('1760000000') === '2025-10-09T08:53:20Z', 'unparsable certificates and unknown times read as empty');
+$fake_prv = base64_encode("-----BEGIN PRIVATE KEY-----\nSMOKEPRIVATEKEYDATA\n-----END PRIVATE KEY-----\n");
+check_api(restapi_pki_has_key(array('prv' => $fake_prv)) === true && restapi_pki_has_key(array('prv' => '')) === false && restapi_pki_has_key(array()) === false,
+    'has_private_key says whether a key is stored');
+$caform = array('method' => 'existing', 'descr' => 'CA "1"', 'refid' => 'r1', 'cert' => $smoke_ca_pem, 'serial' => '7', 'trust' => true, 'randomserial' => false,
+    'key' => base64_decode($fake_prv));
+$caf = restapi_pki_form_fields($caform, restapi_pki_ca_edit_types(), array());
+check_api($caf['key'] === base64_decode($fake_prv) && restapi_pki_mask_key($caf)['key'] === '(set)' && restapi_pki_mask_key(array('key' => ''))['key'] === '' &&
+    $caf['trust'] === true && $caf['randomserial'] === false && $caf['serial'] === '7' && $caf['refid'] === 'r1' && $caf['cert'] === $smoke_ca_pem &&
+    array_keys(restapi_pki_ca_edit_types()) === array_keys($caf), 'the CA edit form: flags as booleans, the private key read as "(set)"');
+check_api(restapi_pki_ca_edit_types()['refid'] === 'ro' && restapi_pki_ca_edit_types()['method'] === 'ro' && restapi_pki_ca_edit_types()['key'] === 'string' &&
+    !isset(restapi_pki_ca_edit_types()['keytype']), 'a CA PUT changes the edit form\'s fields only (refid and method read-only)');
+$cac = array('method' => array('internal' => 'Create', 'existing' => 'Import', 'intermediate' => 'Intermediate'), 'caref' => array('r1' => 'One', 'r2' => 'Two'),
+    'keytype' => array_combine(array('RSA', 'ECDSA'), array('RSA', 'ECDSA')), 'keylen' => array_combine(array('1024', '2048', '4096'), array('1024', '2048', '4096')),
+    'ecname' => array('secp384r1' => 'secp384r1', 'prime256v1' => 'prime256v1 [HTTPS]'), 'digest_alg' => array('sha1' => 'sha1', 'sha256' => 'sha256'),
+    'dn_country' => array('' => 'None', 'US' => 'US'));
+$cnew = restapi_pki_form_fields(array('method' => null, 'keytype' => 'RSA', 'keylen' => '2048', 'ecname' => 'prime256v1', 'digest_alg' => 'sha256', 'lifetime' => 3650,
+    'dn_commonname' => 'internal-ca'), restapi_pki_ca_create_types(), $cac);
+check_api($cnew['method'] === 'internal' && $cnew['caref'] === 'r1' && $cnew['keylen'] === '2048' && $cnew['ecname'] === 'prime256v1' && $cnew['digest_alg'] === 'sha256' &&
+    $cnew['dn_country'] === '' && $cnew['lifetime'] === '3650' && $cnew['trust'] === false && $cnew['key'] === '' && $cnew['dn_commonname'] === 'internal-ca',
+    'a new CA starts as the page\'s new form (internal, first signing CA, RSA 2048, sha256)');
+$cpost = restapi_svc_post(array('trust' => true) + $cnew, restapi_pki_ca_create_types());
+check_api($cpost['trust'] === 'yes' && !isset($cpost['randomserial']) && $cpost['keylen'] === '2048', 'a CA post: ticked boxes "yes", unticked left out');
+
+$rev = restapi_pki_revoked_out(array('refid' => 'c9', 'descr' => 'old cert', 'crt' => base64_encode($smoke_ca_pem), 'prv' => $fake_prv, 'caref' => 'r1',
+    'reason' => '1', 'revoke_time' => '1760000000', 'serial' => '4660'), '4660', array(-1 => 'No Status (default)', 1 => 'Key Compromise'));
+check_api($rev === array('refid' => 'c9', 'descr' => 'old cert', 'serial' => '4660', 'reason' => 1, 'reason_text' => 'Key Compromise', 'revoke_time' => 1760000000,
+    'revoked_at' => '2025-10-09T08:53:20Z'), 'a revoked certificate reads without its stored certificate copy (no key)');
+check_api(strpos(json_encode($rev), 'SMOKEPRIVATEKEY') === false && strpos(json_encode($rev), $fake_prv) === false &&
+    strpos(json_encode(restapi_pki_mask_key($caf)), 'PRIVATE KEY') === false, 'no private key in the CA form or revoked entry output');
+check_api(restapi_pki_revoked_out(array(), null, array())['serial'] === '' && restapi_pki_revoked_out(array(), null, array(-1 => 'x'))['reason_text'] === 'x',
+    'an entry without serial or reason reads as empty / no status');
+check_api(array_keys(restapi_pki_crl_edit_types(true)) === array('refid', 'descr', 'lifetime', 'serial') &&
+    array_keys(restapi_pki_crl_edit_types(false)) === array('refid', 'descr', 'crltext') &&
+    array_keys(restapi_pki_crl_create_types()) === array('caref', 'method', 'descr', 'crltext', 'lifetime', 'serial'),
+    'CRL forms: internal (name, lifetime, serial), imported (name, data), new');
+$rp = restapi_pki_revoke_post(array('certref' => 'c1', 'serials' => ' 12  0x1F ', 'reason' => 4), 'crl1', array('descr' => 'L', 'lifetime' => '730', 'serial' => '3'));
+check_api($rp === array('descr' => 'L', 'lifetime' => '730', 'serial' => '3', 'crlreason' => '4', 'revokeserial' => '12 0x1F', 'id' => 'crl1', 'act' => 'addcert',
+    'crlref' => 'crl1', 'certref' => array('c1')), 'a revocation posts the CRL edit form\'s Add (no Save): certificates, serials, reason, the CRL\'s current fields');
+$rp2 = restapi_pki_revoke_post(array('serials' => array('5', 6)), 'crl1', array('descr' => 'L'));
+check_api($rp2['revokeserial'] === '5 6' && $rp2['crlreason'] === '-1' && !isset($rp2['certref']) && !isset($rp2['save']), 'serial lists; the reason defaults to no status');
+check_api(api_error_status(function () { restapi_pki_revoke_post(array('bogus' => 1), 'c', array()); }) === 400 &&
+    api_error_status(function () { restapi_pki_revoke_post(array('certref' => array('k' => 'v')), 'c', array()); }) === 400 &&
+    api_error_status(function () { restapi_pki_revoke_post(array('reason' => 'x'), 'c', array()); }) === 400 &&
+    api_error_status(function () { restapi_pki_revoke_post(array('serials' => array(array())), 'c', array()); }) === 400, 'malformed revocations are 400');
+
+/* No API route returns or exports a private key. */
+foreach (array_merge(glob("{$root}/src/etc/inc/restapi/*.inc"), array("{$root}/src/etc/inc/restapi.inc", "{$root}/src/usr/local/www/api/index.php")) as $f) {
+	$src = file_get_contents($f);
+	$expected = (basename($f) === 'routes_pki.inc') ? 1 : 0;
+	check_api(substr_count($src, "'prv'") === $expected && substr_count($src, '"prv"') === 0, basename($f) . ' reads no stored private key' .
+	    ($expected ? ' except to say whether there is one' : ''));
+	check_api(stripos($src, 'cert_pkcs12_export') === false && stripos($src, 'expkey') === false, basename($f) . ' has no private key export');
+}
+$routes_pki = file_get_contents("{$root}/src/etc/inc/restapi/routes_pki.inc");
+check_api(strpos($fn_body($routes_pki, 'restapi_pki_has_key'), "return !empty(\$entry['prv']);") !== false, 'the stored key is only tested for presence');
+foreach (array('restapi_pki_ca_out', 'restapi_pki_crl_out', 'restapi_pki_crl_fields') as $fn) {
+	$body = $fn_body($routes_pki, $fn);
+	check_api(strpos($routes_pki, "function {$fn}(") !== false && !preg_match('/return \$(ca|crl)\b|\$out = \$(ca|crl);|\+ \$(ca|crl)\b|array_merge\(\$(ca|crl)\b/', $body),
+	    "{$fn}() copies fields one by one (never the stored entry)");
+}
+check_api(strpos($fn_body($routes_pki, 'restapi_pki_ca_out'), "restapi_pki_mask_key(\$fields)") !== false, 'the CA edit form is returned with the key masked');
+check_api(strpos($fn_body($routes_pki, 'restapi_h_pki_ca_update'), "restapi_vpn_secret_body(\$req['body'], 'key')") !== false, 'a CA PUT keeps the key for "(set)"');
+check_api(strpos($fn_body($routes_pki, 'restapi_h_pki_ca_delete'), "new RestApiError(409, 'in_use'") !== false &&
+    strpos($fn_body($routes_pki, 'restapi_h_pki_crl_delete'), "new RestApiError(409, 'in_use'") !== false, 'deleting a CA or CRL in use is 409');
+
+$pki_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_certificates.inc");
+foreach (array('system_camanager.php' => array('pki_ca_methods()', 'pki_ca_delete($id)', "pki_ca_form('edit', \$thisca)", "pki_ca_form('new', null, \$_POST['method'])",
+    'pki_ca_save($pconfig, $id ?? null, $act, $savemsg)', 'pki_ca_signing_list()', 'pki_key_lengths()', 'pki_key_types()'),
+    'system_crlmanager.php' => array('pki_crl_methods()', 'pki_crl_cleanup()', 'pki_crl_delete($id)', "pki_crl_new_form(\$_REQUEST['method'], \$_REQUEST['caref'])",
+    'pki_crl_revoke($pconfig, $_POST)', "pki_crl_unrevoke(\$crl_item_config, \$_REQUEST['certref'])", 'pki_crl_export($crl_item_config)',
+    'pki_crl_save($pconfig, $crl_item_config, $act)', 'pki_crl_method_list(', 'pki_crl_cert_list($crl, $id)', 'pki_crl_ca_list()')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false && strpos($src, 'config_del_path(') === false &&
+	    strpos($src, 'openvpn_refresh_crls') === false && strpos($src, 'ipsec_configure') === false && strpos($src, 'ca_setup_trust_store') === false &&
+	    strpos($src, 'cert_revoke') === false && strpos($src, 'require_once("system_certificates.inc");') !== false,
+	    "{$page} changes the configuration only through system_certificates.inc");
+	preg_match_all('/^function (\w+)\(/m', $src, $m);
+	check_api(array_diff($m[1], array('method_change')) === array(), "{$page} defines no PHP functions (only its JavaScript method_change())");
+}
+foreach (array('pki_ca_save', 'pki_ca_delete', 'pki_crl_revoke', 'pki_crl_save', 'pki_crl_unrevoke', 'pki_crl_delete', 'pki_crl_new_form') as $fn) {
+	$body = $fn_body($pki_inc, $fn);
+	check_api(strpos($pki_inc, "function {$fn}(") !== false && strpos($body, '$_POST') === false && strpos($body, '$_REQUEST') === false &&
+	    strpos($body, '$_SESSION') === false, "{$fn}() reads the form passed in");
+}
+check_api(strpos($fn_body($pki_inc, 'pki_ca_delete'), 'if (ca_in_use($id)) {') !== false && strpos($fn_body($pki_inc, 'pki_ca_delete'), 'cert_in_use(') === false,
+    'deleting a CA checks ca_in_use() (the page checked cert_in_use() with a CA refid, so a CA in use was deleted)');
+check_api(strpos($fn_body($pki_inc, 'pki_ca_delete'), 'ca_setup_trust_store();') !== false && strpos($fn_body($pki_inc, 'pki_ca_save'), 'ca_setup_trust_store();') !== false,
+    'saving or deleting a CA rebuilds the trust store like the page');
+$ca_save = $fn_body($pki_inc, 'pki_ca_save');
+check_api(strpos($ca_save, 'Please select a valid Method.') !== false && strpos($ca_save, 'Please select a valid Signing Certificate Authority.') !== false &&
+    strpos($ca_save, "do_input_validation(\$pconfig, \$reqdfields, \$reqdfieldsn, \$input_errors);") !== false,
+    'CA save: the method and signing CA must be the page\'s choices (an empty or certificate-less CA was stored)');
+$crl_revoke = $fn_body($pki_inc, 'pki_crl_revoke');
+check_api(strpos($crl_revoke, "config_set_path(\"crl/{\$crl_item_config['idx']}\", \$crl);") !== false && strpos($crl_revoke, 'Please select a valid revocation reason.') !== false &&
+    strpos($crl_revoke, 'openvpn_refresh_crls();') !== false && strpos($crl_revoke, 'ipsec_configure();') !== false,
+    'CRL edit: Save stores the name, lifetime and serial (they were lost without a revocation); the reason must be a choice; revocations refresh OpenVPN and IPsec');
+check_api(strpos($fn_body($pki_inc, 'pki_crl_save'), 'Please select a valid Method.') !== false && strpos($fn_body($pki_inc, 'pki_crl_save'), 'openvpn_refresh_crls();') !== false,
+    'new CRL: the method must be the page\'s choice (an internal CRL for a CA without a key was stored)');
+$certs_inc = file_get_contents("{$root}/src/etc/inc/certs.inc");
+check_api(strpos($fn_body($certs_inc, 'cert_unrevoke'), "(!empty(\$cert['refid']) && (\$rcert['refid'] == \$cert['refid'])) ||") !== false &&
+    strpos($fn_body($certs_inc, 'cert_unrevoke'), "(!empty(\$cert['descr']) && (\$rcert['descr'] == \$cert['descr'])) ||") !== false,
+    'removing an entry revoked by serial matches its serial (it matched the first entry without a refid)');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('system_certificates.inc');") !== false,
+    'the API front controller loads system_certificates.inc');
+foreach (array('pki_key_lengths', 'pki_key_types', 'pki_descr_is_invalid', 'pki_dn_validate', 'pki_dn_from_form', 'pki_openssl_errors', 'pki_package_usage') as $fn) {
+	check_api(strpos($pki_inc, "function {$fn}(") !== false, "the shared certificate manager helper {$fn}() exists");
+}
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');
