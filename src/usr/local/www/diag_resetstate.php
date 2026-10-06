@@ -32,25 +32,10 @@
 
 require_once("guiconfig.inc");
 require_once("filter.inc");
+require_once("diag_system.inc");
 
 if ($_POST) {
-	$savemsg = "";
-
-	if ($_POST['statetable']) {
-		filter_flush_state_table();
-		if ($savemsg) {
-			$savemsg .= " ";
-		}
-		$savemsg .= gettext("The state table has been flushed successfully.");
-	}
-
-	if ($_POST['sourcetracking']) {
-		mwexec("/sbin/pfctl -F Sources");
-		if ($savemsg) {
-			$savemsg .= " <br />";
-		}
-		$savemsg .= gettext("The source tracking table has been flushed successfully.");
-	}
+	$savemsg = diag_resetstate_run(!empty($_POST['statetable']), !empty($_POST['sourcetracking']));
 }
 
 $pgtitle = array(gettext("Diagnostics"), gettext("States"), gettext("Reset States"));
@@ -80,7 +65,7 @@ $sourcetablehelp = sprintf(gettext('Resetting the source tracking table will rem
 $tab_array = array();
 $tab_array[] = array(gettext("States"), false, "diag_dump_states.php");
 
-if (config_path_enabled('system', 'lb_use_sticky')) {
+if (diag_resetstate_sourcetracking_available()) {
 	$tab_array[] = array(gettext("Source Tracking"), false, "diag_dump_states_sources.php");
 }
 
@@ -98,7 +83,7 @@ $section->addInput(new Form_Checkbox(
 	false
 ))->setHelp($statetablehelp);
 
-if (config_path_enabled('system', 'lb_use_sticky')) {
+if (diag_resetstate_sourcetracking_available()) {
 	$section->addInput(new Form_Checkbox(
 		'sourcetracking',
 		'Source Tracking',

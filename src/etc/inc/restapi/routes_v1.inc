@@ -47,6 +47,7 @@ require_once('restapi/routes_system.inc');
 require_once('restapi/routes_logs.inc');
 require_once('restapi/routes_packages.inc');
 require_once('restapi/routes_diagnostics.inc');
+require_once('restapi/routes_operations.inc');
 
 function restapi_routes_v1() {
 	$routes = array(
@@ -116,7 +117,7 @@ function restapi_routes_v1() {
 	    restapi_routes_interfaces(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
 	    restapi_routes_ddns(), restapi_routes_dhcp(), restapi_routes_vpn(), restapi_routes_openvpn(),
 	    restapi_routes_pki(), restapi_routes_users(), restapi_routes_system(), restapi_routes_logs(), restapi_routes_packages(),
-	    restapi_routes_diagnostics());
+	    restapi_routes_diagnostics(), restapi_routes_operations());
 
 	/* Packages may add resources: return a list of restapi_route() entries. */
 	if (function_exists('pkg_call_plugins')) {
@@ -229,11 +230,18 @@ function restapi_h_status_services($req) {
 		if (empty($service['name'])) {
 			continue;
 		}
-		$out[] = array(
+		$entry = array(
 			'name' => $service['name'],
 			'description' => $service['description'] ?? '',
 			'running' => (bool)get_service_status($service),
 		);
+		/* What POST /v1/services/{name}/start|stop|restart needs to address OpenVPN instances and captive portal zones. */
+		foreach (array('mode', 'vpnid', 'zone') as $field) {
+			if (isset($service[$field])) {
+				$entry[$field] = $service[$field];
+			}
+		}
+		$out[] = $entry;
 	}
 	return array('data' => $out);
 }

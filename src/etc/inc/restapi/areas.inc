@@ -64,8 +64,9 @@ function restapi_areas() {
 		'users' => 'Users, groups, privileges and authentication servers',
 		'system.settings' => 'System settings (general setup, high availability, update settings, admin access, advanced firewall, networking, miscellaneous, notifications, tunables)',
 		'logs' => 'System logs (read)',
-		'packages' => 'Packages and system version (lists and update check)',
+		'packages' => 'Packages and system version (lists, update check, install, reinstall, remove, system update)',
 		'diagnostics' => 'Diagnostics (ping, traceroute, DNS lookup, states)',
+		'operations' => 'System operations (service start/stop/restart, state table reset, reboot, halt)',
 	);
 }
 

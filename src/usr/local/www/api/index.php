@@ -99,6 +99,10 @@ require_once('pkg-utils.inc');
 require_once('diag_tools.inc');
 require_once('diag_dump_states.inc');
 require_once('diag_ndp.inc');
+/* The operations' shared functions (service control, reboot, halt, state table reset, Package Installer). */
+require_once('status_services.inc');
+require_once('diag_system.inc');
+require_once('pkg_mgr_install.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

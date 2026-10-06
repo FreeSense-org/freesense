@@ -588,7 +588,7 @@ foreach (array('dns-forwarder/host-overrides', 'dns-forwarder/domain-overrides',
 	}
 }
 foreach ($v1 as $r) {
-	if (strpos($r['path'], '/v1/services/') === 0) {
+	if ((strpos($r['path'], '/v1/services/') === 0) && !preg_match('#^/v1/services/\{name\}/(start|stop|restart)$#', $r['path'])) {
 		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' :
 		    (preg_match('#^/v1/services/ntp(/|$)#', $r['path']) ? 'services.time' :
 		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' :
@@ -2463,8 +2463,8 @@ foreach (array(
 	    ($f1_routes[$key]['write'] === $want[2]), "route {$key} (page {$want[0]}, area {$want[1]})");
 }
 foreach ($v1 as $r) {
-	if (in_array($r['area'], array('logs', 'packages'), true)) {
-		check_api(($r['method'] === 'GET') && !$r['write'], "{$r['method']} {$r['path']}: logs and packages are read only in this step");
+	if (($r['area'] === 'logs') || (($r['area'] === 'packages') && ($r['handler'] !== 'restapi_h_firmware_update') && (strpos($r['handler'], 'restapi_h_pkgop_') !== 0))) {
+		check_api(($r['method'] === 'GET') && !$r['write'], "{$r['method']} {$r['path']}: logs and the package lists are read only (the operations are step F4)");
 	}
 }
 list($r) = restapi_match($v1, 'GET', '/v1/logs/firewall');
@@ -2667,7 +2667,9 @@ check_api(restapi_route('POST', '/v1/x', 'h', array('page' => 'x.php', 'area' =>
 check_api(in_array('confirm', $f2_routes['DELETE /v1/diagnostics/states']['body']['required'], true) &&
     in_array('source', $f2_routes['DELETE /v1/diagnostics/states']['body']['required'], true), 'killing states documents confirm and source');
 foreach ($v1 as $r) {
-	check_api(!preg_match('#^/v1/diagnostics/(states/)?(reset|flush|all)#', $r['path']), "{$r['path']}: no state table reset in this step");
+	check_api(!preg_match('#^/v1/diagnostics/(states/)?(reset|flush|all)#', $r['path']) ||
+	    (($r['method'] === 'POST') && ($r['path'] === '/v1/diagnostics/states/reset') && ($r['area'] === 'operations') && ($r['page'] === 'diag_resetstate.php')),
+	    "{$r['path']}: the only state table reset is the F4 operation (POST /v1/diagnostics/states/reset, area operations)");
 }
 
 /* Request bodies become the pages' form posts */
@@ -3114,6 +3116,238 @@ foreach (array('restapi_h_sysgen_set' => 'system_general_save($post)', 'restapi_
 foreach (array('system_general.inc', 'system_hasync.inc', 'system_update_settings.inc', 'system_advanced_admin.inc') as $inc) {
 	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false, "the API front controller loads {$inc}");
 }
+
+/* F4: system operations (services, state table reset, reboot, halt, packages, system update) */
+check_api(isset(restapi_areas()['operations']) && strpos(restapi_areas()['packages'], 'install, reinstall, remove, system update') !== false,
+    'the operations area exists and the packages area names the operations');
+$f4_routes = array();
+foreach ($v1 as $r) {
+	$f4_routes["{$r['method']} {$r['path']}"] = $r;
+}
+$f4_want = array(
+    'POST /v1/services/{name}/start' => array('status_services.php', 'operations', 'restapi_h_service_start'),
+    'POST /v1/services/{name}/stop' => array('status_services.php', 'operations', 'restapi_h_service_stop'),
+    'POST /v1/services/{name}/restart' => array('status_services.php', 'operations', 'restapi_h_service_restart'),
+    'POST /v1/diagnostics/states/reset' => array('diag_resetstate.php', 'operations', 'restapi_h_states_reset'),
+    'POST /v1/system/reboot' => array('diag_reboot.php', 'operations', 'restapi_h_system_reboot'),
+    'POST /v1/system/halt' => array('diag_halt.php', 'operations', 'restapi_h_system_halt'),
+    'POST /v1/packages/{name}/install' => array('pkg_mgr_install.php', 'packages', 'restapi_h_pkgop_install'),
+    'POST /v1/packages/{name}/reinstall' => array('pkg_mgr_install.php', 'packages', 'restapi_h_pkgop_reinstall'),
+    'DELETE /v1/packages/{name}' => array('pkg_mgr_install.php', 'packages', 'restapi_h_pkgop_delete'),
+    'POST /v1/system/firmware/update' => array('pkg_mgr_install.php', 'packages', 'restapi_h_firmware_update'));
+foreach ($f4_want as $key => $want) {
+	check_api(isset($f4_routes[$key]) && ($f4_routes[$key]['page'] === $want[0]) && ($f4_routes[$key]['area'] === $want[1]) &&
+	    ($f4_routes[$key]['handler'] === $want[2]) && $f4_routes[$key]['write'] && !$f4_routes[$key]['safe'] &&
+	    ($f4_routes[$key]['scope'] === "{$want[1]}:write") && in_array('confirm', $f4_routes[$key]['body']['required'] ?? array(), true),
+	    "route {$key} (page {$want[0]}, scope {$want[1]}:write, confirm in the body schema)");
+}
+check_api(isset($f4_routes['GET /v1/packages/operation']) && !$f4_routes['GET /v1/packages/operation']['write'] &&
+    $f4_routes['GET /v1/packages/operation']['page'] === 'pkg_mgr_install.php', 'GET /v1/packages/operation (packages:read)');
+foreach (array('POST /v1/system/reboot', 'POST /v1/system/halt', 'POST /v1/packages/{name}/install', 'POST /v1/packages/{name}/reinstall',
+    'DELETE /v1/packages/{name}', 'POST /v1/system/firmware/update') as $key) {
+	check_api(strpos($f4_routes[$key]['summary'], 'Requires {"confirm": true} and an administrator') !== false, "{$key}: the summary documents confirm and administrator");
+}
+foreach ($v1 as $r) {
+	check_api(stripos($r['path'], 'reroot') === false && stripos($r['summary'] . json_encode($r['body']), '"reroot"') === false,
+	    "{$r['method']} {$r['path']}: reroot is not exposed");
+	if ($r['area'] === 'operations') {
+		check_api($r['write'] && isset($f4_want["{$r['method']} {$r['path']}"]), "{$r['method']} {$r['path']}: every operations route is a known write");
+	}
+}
+foreach (array('ntpd', 'unbound', 'syslogd', 'dpinger', 'kea-dhcp4', 'openvpn', 'captiveportal', 'syslog-ng', 'dnsmasq', 'radvd', 'sshd', 'ipsec',
+    'dhcrelay6', 'miniupnpd', 'FRR%20zebra') as $svc) {
+	foreach (array('start', 'stop', 'restart') as $action) {
+		list($r, $p) = restapi_match($v1, 'POST', "/v1/services/{$svc}/{$action}");
+		check_api(($r['handler'] === "restapi_h_service_{$action}") && ($p['name'] === rawurldecode($svc)), "POST /v1/services/{$svc}/{$action} is the service control");
+	}
+}
+list($r, $p) = restapi_match($v1, 'DELETE', '/v1/packages/FreeSense-pkg-nut');
+check_api($r['handler'] === 'restapi_h_pkgop_delete' && $p['name'] === 'FreeSense-pkg-nut', 'DELETE /v1/packages/{name}');
+list($r) = restapi_match($v1, 'GET', '/v1/packages/operation');
+check_api($r['handler'] === 'restapi_h_pkgop_status', 'GET /v1/packages/operation is the status, not a package');
+list($r) = restapi_match($v1, 'GET', '/v1/packages/installed');
+check_api($r['handler'] === 'restapi_h_pkg_installed', 'the package lists keep their routes');
+check_api(api_error_status(function () use ($v1) { restapi_match($v1, 'GET', '/v1/packages/FreeSense-pkg-nut'); }) === 405 &&
+    api_error_status(function () use ($v1) { restapi_match($v1, 'POST', '/v1/system/reroot'); }) === 404 &&
+    api_error_status(function () use ($v1) { restapi_match($v1, 'DELETE', '/v1/packages/a%2Fb'); }) === 404, 'no GET of a package, no reroot, no slash in a package name');
+
+/* Bodies, confirm and administrators */
+check_api(restapi_ops_body(array('confirm' => true, 'vpnid' => 1, 'zone' => 'z'), array('confirm' => 'bool', 'vpnid' => 'int', 'zone' => 'string')) ===
+    array('confirm' => true, 'vpnid' => 1, 'zone' => 'z') && restapi_ops_body(array('vpnid' => '12'), array('vpnid' => 'int')) === array('vpnid' => '12'),
+    'operation bodies: the declared fields');
+foreach (array(array('force' => true), array('confirm' => 'true'), array('confirm' => 1), array('confirm' => null), array('vpnid' => '1;id'), array('vpnid' => 1.5),
+    array('zone' => array('x')), array('type' => true)) as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_ops_body($bad, array('confirm' => 'bool', 'vpnid' => 'int', 'zone' => 'string', 'type' => 'string')); }) === 400,
+	    'operation bodies: refused ' . json_encode($bad));
+}
+check_api(api_error_status(function () { restapi_ops_confirm(array('confirm' => true), 'x'); }) === null, 'confirm: true is accepted');
+foreach (array(array(), array('confirm' => false), array('confirm' => 'true'), array('confirm' => 1), array('confirm' => 'yes'), array('confirm' => array(true))) as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_ops_confirm($bad, 'x'); }) === 400, 'confirm: only true is accepted, not ' . json_encode($bad));
+}
+$f4_privs = function ($user, $priv) { return in_array($priv, $user['privs'] ?? array(), true); };
+check_api(restapi_ops_is_admin(array('uid' => '0'), $f4_privs) && restapi_ops_is_admin(array('uid' => 0), $f4_privs) &&
+    restapi_ops_is_admin(array('uid' => '2000', 'privs' => array('page-all')), $f4_privs) &&
+    !restapi_ops_is_admin(array('uid' => '2000', 'privs' => array('page-diagnostics-rebootsystem', 'page-diagnostics-haltsystem', 'page-system-packagemanager-installpackage',
+    'api-operations-write', 'api-packages-write', 'user-shell-access')), $f4_privs) && !restapi_ops_is_admin(array('uid' => '00'), $f4_privs) &&
+    !restapi_ops_is_admin(array(), $f4_privs) && !restapi_ops_is_admin(null, $f4_privs),
+    'administrators: uid 0 or page-all; page and API privileges alone are not enough');
+
+/* Reboot types */
+check_api(restapi_ops_reboot_mode(null, false) === 'reboot' && restapi_ops_reboot_mode('normal', true) === 'reboot' && restapi_ops_reboot_mode('fsck', true) === 'fsckreboot',
+    'reboot: normal and fsck map to the page\'s methods');
+check_api(api_error_status(function () { restapi_ops_reboot_mode('fsck', false); }) === 422 && api_error_status(function () { restapi_ops_reboot_mode('reroot', true); }) === 422 &&
+    api_error_status(function () { restapi_ops_reboot_mode('fsckreboot', true); }) === 422 && api_error_status(function () { restapi_ops_reboot_mode('Normal', true); }) === 422 &&
+    api_error_status(function () { restapi_ops_reboot_mode('', true); }) === 422, 'reboot: reroot, the page\'s raw method names and fsck where it is not offered are refused');
+
+/* Services */
+$f4_svcs = array(array('name' => 'ntpd', 'description' => 'NTP'), array('name' => 'openvpn', 'mode' => 'server', 'id' => 0, 'vpnid' => '1'),
+    array('name' => 'openvpn', 'mode' => 'client', 'id' => 0, 'vpnid' => '2'), array('name' => 'captiveportal', 'zone' => 'guest'), array(), array('name' => 'syslog-ng'));
+check_api(restapi_ops_find_service($f4_svcs, 'ntpd', array())['description'] === 'NTP' && restapi_ops_find_service($f4_svcs, 'openvpn', array('mode' => 'client', 'vpnid' => 2))['vpnid'] === '2' &&
+    restapi_ops_find_service($f4_svcs, 'openvpn', array('mode' => 'server', 'vpnid' => '1'))['mode'] === 'server' &&
+    restapi_ops_find_service($f4_svcs, 'captiveportal', array('zone' => 'guest'))['zone'] === 'guest', 'services are found by name, OpenVPN by mode and vpnid, captive portal by zone');
+foreach (array(array('nosuch', array(), 404), array('openvpn', array(), 400), array('openvpn', array('mode' => 'server'), 400), array('openvpn', array('mode' => 'server', 'vpnid' => 2), 404),
+    array('captiveportal', array(), 400), array('captiveportal', array('zone' => 'other'), 404), array('ntpd', array('zone' => 'guest'), 400), array('NTPD', array(), 404), array('', array(), 404)) as $c) {
+	check_api(api_error_status(function () use ($f4_svcs, $c) { restapi_ops_find_service($f4_svcs, $c[0], $c[1]); }) === $c[2], "service lookup {$c[0]} " . json_encode($c[1]) . " is {$c[2]}");
+}
+check_api(restapi_ops_service_extras('restartservice', array('name' => 'ntpd')) === array('ajax' => 'ajax', 'mode' => 'restartservice', 'service' => 'ntpd') &&
+    restapi_ops_service_extras('stopservice', $f4_svcs[1]) === array('ajax' => 'ajax', 'mode' => 'stopservice', 'service' => 'openvpn', 'vpnmode' => 'server', 'zone' => 'server', 'id' => '1') &&
+    restapi_ops_service_extras('startservice', $f4_svcs[3]) === array('ajax' => 'ajax', 'mode' => 'startservice', 'service' => 'captiveportal', 'vpnmode' => 'guest', 'zone' => 'guest'),
+    'the service control functions get the fields the page\'s buttons post (vpnmode/zone/id like FreeSenseHelpers.js)');
+check_api(api_error_status(function () { restapi_ops_service_allowed('start', false, true); }) === null && api_error_status(function () { restapi_ops_service_allowed('start', true, true); }) === 409 &&
+    api_error_status(function () { restapi_ops_service_allowed('start', false, false); }) === 409 && api_error_status(function () { restapi_ops_service_allowed('stop', true, false); }) === null &&
+    api_error_status(function () { restapi_ops_service_allowed('restart', true, true); }) === null && api_error_status(function () { restapi_ops_service_allowed('stop', false, true); }) === 409 &&
+    api_error_status(function () { restapi_ops_service_allowed('restart', false, true); }) === 409, 'services: start only a stopped enabled service, stop/restart only a running one (like the page\'s buttons)');
+
+/* Package names, log tail, state */
+foreach (array('FreeSense-pkg-nut', 'FreeSense-pkg-Status_Traffic_Totals', 'FreeSense-pkg-mDNS-Bridge', 'FreeSense-pkg-a.b') as $ok) {
+	check_api(restapi_pkgop_valid_name($ok, 'FreeSense-pkg-'), "package name {$ok} is accepted");
+}
+foreach (array('nut', 'FreeSense-pkg-', 'ALL_PACKAGES', 'FreeSense-pkg-ALL_PACKAGES -f', 'FreeSense-pkg-a;id', 'FreeSense-pkg-$(id)', 'FreeSense-pkg-a b', "FreeSense-pkg-a\n",
+    'FreeSense-pkg-a/../../x', '-rFreeSense-pkg-x', 'FreeSense-pkg-a+b', 'freesense-pkg-nut', 'FreeSense-pkg-' . str_repeat('a', 120), 'xFreeSense-pkg-nut', '', null, array('FreeSense-pkg-nut')) as $bad) {
+	check_api(!restapi_pkgop_valid_name($bad, 'FreeSense-pkg-'), 'package name ' . json_encode($bad) . ' is refused');
+}
+check_api(restapi_pkgop_tail("a\nb\nc\n", 2) === array('b', 'c') && restapi_pkgop_tail("a\r\nb", 5) === array('a', 'b') && restapi_pkgop_tail('', 5) === array() &&
+    restapi_pkgop_tail("x\n\n", 5) === array('x'), 'operation log: the last lines');
+check_api(restapi_pkgop_state(true, null) === 'running' && restapi_pkgop_state(true, 0) === 'running' && restapi_pkgop_state(false, 0) === 'succeeded' &&
+    restapi_pkgop_state(false, 1) === 'failed' && restapi_pkgop_state(false, null) === 'stopped', 'operation states');
+check_api(restapi_pkgop_lines(array()) === RESTAPI_PKGOP_LINES_DEFAULT && restapi_pkgop_lines(array('lines' => '7')) === 7 &&
+    api_error_status(function () { restapi_pkgop_lines(array('lines' => '0')); }) === 400 && api_error_status(function () { restapi_pkgop_lines(array('lines' => '1001')); }) === 400 &&
+    api_error_status(function () { restapi_pkgop_lines(array('lines' => '5x')); }) === 400 && api_error_status(function () { restapi_pkgop_lines(array('lines' => array('5'))); }) === 400,
+    'operation log: lines 1-1000');
+
+/* The Package Installer's shared functions (log, progress and mode file parsing) */
+$f4_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/pkg_mgr_install.inc");
+foreach (array('pkg_mgr_install_name_ok', 'pkg_mgr_install_read_mode', 'pkg_mgr_install_read_log', 'pkg_mgr_install_read_progress') as $fn) {
+	if (!function_exists($fn)) {
+		eval($fn_body($f4_inc, $fn) . "\n}\n");
+	}
+}
+$f4_tmp = tempnam(sys_get_temp_dir(), 'f4');
+file_put_contents("{$f4_tmp}.txt", "Installing <b>x</b> & y\nmore\n__RC=0 __REBOOT_AFTER=10\n");
+$f4_log = pkg_mgr_install_read_log($f4_tmp);
+check_api($f4_log === array('log' => "Installing &lt;b&gt;x&lt;/b&gt; &amp; y\nmore\nSuccess\n", 'status' => array('reboot_needed' => 'yes', 'exitstatus' => '0')) &&
+    pkg_mgr_install_read_log($f4_tmp, false)['log'] === "Installing <b>x</b> & y\nmore\nSuccess\n", 'the log as the page shows it (escaped) and as the API returns it (plain)');
+file_put_contents("{$f4_tmp}.txt", "err\n__RC=75\n");
+check_api(pkg_mgr_install_read_log($f4_tmp) === array('log' => "err\nFailed\n", 'status' => array('reboot_needed' => 'no', 'exitstatus' => "75\n")) &&
+    pkg_mgr_install_read_log("{$f4_tmp}-none") === null, 'a failed operation; no log yet is null ("not_ready")');
+file_put_contents("{$f4_tmp}.json", "{\"type\":\"INFO_PROGRESS_TICK\",\"data\":{\"current\":3,\"total\":9}}\n{\"type\":\"INFO_PROGRESS_TICK\",\"data\":{\"current\":4,\"total\":9}}\nx\n");
+check_api(pkg_mgr_install_read_progress($f4_tmp) === array('type' => 'INFO_PROGRESS_TICK', 'data' => array('current' => 4, 'total' => 9)) &&
+    pkg_mgr_install_read_progress("{$f4_tmp}-none") === array(), 'the newest progress record');
+foreach (array("installpkg\nFreeSense-pkg-nut" => array('installpkg', 'FreeSense-pkg-nut'), 'installpkgFreeSense-pkg-nut' => array('installpkg', 'FreeSense-pkg-nut'),
+    "delete\nFreeSense-pkg-a" => array('delete', 'FreeSense-pkg-a'), 'reinstallpkgFreeSense-pkg-b' => array('reinstallpkg', 'FreeSense-pkg-b'),
+    'firmwareupdate' => array('firmwareupdate', null), 'reinstallall' => array('reinstallall', null), "installpkg\n../../x" => array('installpkg', null), '' => array(null, null)) as $content => $want) {
+	file_put_contents($f4_tmp, $content);
+	check_api(pkg_mgr_install_read_mode($f4_tmp) === $want, 'mode file ' . json_encode($content) . ' reads as ' . json_encode($want));
+}
+array_map('unlink', array($f4_tmp, "{$f4_tmp}.txt", "{$f4_tmp}.json"));
+check_api(pkg_mgr_install_name_ok('FreeSense-pkg-x') && !pkg_mgr_install_name_ok('../x') && !pkg_mgr_install_name_ok('') && !pkg_mgr_install_name_ok(array()),
+    'the page\'s package name check');
+$f4_start = $fn_body($f4_inc, 'pkg_mgr_install_start');
+check_api(strpos($f4_start, '@file_put_contents($gui_mode, implode("\n", $mode));') !== false && strpos($f4_start, '@file_put_contents($gui_mode, $mode);') === false,
+    '[fix] the mode file has one item per line (the page reads the package back)');
+check_api(strpos($f4_start, 'write_config(gettext("Creating restore point before package installation."));') < strpos($f4_start, 'mwexec_bg(') &&
+    strpos($f4_start, "if ((int)\$matches[1] != 75) {") !== false && strpos($f4_start, 'for ($idx = 0; $idx < 30; $idx++) {') !== false &&
+    strpos($f4_start, '"-i ALL_PACKAGES -f"') !== false && substr_count($f4_start, 'mwexec_bg(') === 1,
+    'the start writes a restore point first and retries while another instance holds the lock, like the page did');
+
+/* The pages are thin wrappers */
+$f4_page = function ($p) use ($root) { return file_get_contents("{$root}/src/usr/local/www/{$p}"); };
+check_api(strpos($f4_page('status_services.php'), '$savemsg = status_services_control($_POST[\'mode\'], $service_name, $_REQUEST);') !== false &&
+    !preg_match('/service_control_(start|stop|restart)\(/', $f4_page('status_services.php')) && strpos($f4_page('status_services.php'), 'sleep(5);') !== false,
+    'status_services.php controls services through status_services_control() (and still waits 5 s)');
+check_api(strpos($f4_page('diag_reboot.php'), 'if (!diag_reboot_run($_POST[\'rebootmode\'])) {') !== false && strpos($f4_page('diag_reboot.php'), '$rebootmodes = diag_reboot_modes();') !== false &&
+    !preg_match('/system_reboot|nextboot|notify_all_remote/', $f4_page('diag_reboot.php')) && strpos($f4_page('diag_reboot.php'), "if (g_get('debug')) {") !== false,
+    'diag_reboot.php reboots through diag_system.inc (debug guard kept)');
+check_api(strpos($f4_page('diag_halt.php'), 'diag_halt_run();') !== false && !preg_match('/system_halt|notify_all_remote/', $f4_page('diag_halt.php')) &&
+    strpos($f4_page('diag_halt.php'), "if (g_get('debug')) {") !== false, 'diag_halt.php halts through diag_system.inc (debug guard kept)');
+check_api(strpos($f4_page('diag_resetstate.php'), "\$savemsg = diag_resetstate_run(!empty(\$_POST['statetable']), !empty(\$_POST['sourcetracking']));") !== false &&
+    !preg_match('/filter_flush_state_table|pfctl/', $f4_page('diag_resetstate.php')), 'diag_resetstate.php resets through diag_system.inc');
+$f4_pkgpage = $f4_page('pkg_mgr_install.php');
+check_api(strpos($f4_pkgpage, '$started = pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $_POST[\'fwbranch\'] ?? \'\', $repos);') !== false &&
+    !preg_match('/mwexec_bg|write_config\(gettext\("Creating restore point|function waitfor_string_in_file|INFO_PROGRESS_TICK|__RC=/', $f4_pkgpage) &&
+    strpos($f4_pkgpage, 'pkg_mgr_install_finish($postlog);') !== false && strpos($f4_pkgpage, 'list($mode, $mode_pkgname) = pkg_mgr_install_read_mode($gui_mode);') !== false,
+    'pkg_mgr_install.php starts and polls through pkg_mgr_install.inc (the poll keeps its finished work)');
+$f4_diag = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/diag_system.inc");
+check_api(strpos($fn_body($f4_diag, 'diag_reboot_run'), "case 'reroot':") !== false && strpos($fn_body($f4_diag, 'diag_reboot_run'), 'default:') !== false,
+    'the page keeps its reroot method');
+
+/* API guards: administrators and confirm before anything happens, the dangerous work after the answer, no reroot, no system update by accident */
+$f4_ops = file_get_contents("{$root}/src/etc/inc/restapi/routes_operations.inc");
+foreach (array('restapi_h_system_reboot' => 'restapi_ops_after_response(', 'restapi_h_system_halt' => 'restapi_ops_after_response(',
+    'restapi_pkgop_handle' => 'restapi_pkgop_start(', 'restapi_h_firmware_update' => 'restapi_pkgop_start(') as $fn => $act) {
+	$b = $fn_body($f4_ops, $fn);
+	check_api(strpos($b, 'restapi_ops_require_admin($req, ') !== false && strpos($b, 'restapi_ops_require_admin($req, ') < strpos($b, 'restapi_ops_confirm($body, ') &&
+	    strpos($b, 'restapi_ops_confirm($body, ') < strpos($b, $act), "{$fn}(): administrator, then confirm, then {$act}");
+}
+foreach (array('restapi_service_control' => 'status_services_control(', 'restapi_h_states_reset' => 'restapi_ops_after_response(') as $fn => $act) {
+	$b = $fn_body($f4_ops, $fn);
+	check_api(strpos($b, 'restapi_ops_confirm($body, ') !== false && strpos($b, 'restapi_ops_confirm($body, ') < strpos($b, $act), "{$fn}(): confirm before {$act}");
+}
+check_api(strpos($fn_body($f4_ops, 'restapi_h_system_halt'), "restapi_ops_after_response(RESTAPI_OPS_DELAY, function () {\n\t\tdiag_halt_run();") !== false &&
+    substr_count($f4_ops, 'diag_halt_run(') === 1 && substr_count($f4_ops, 'diag_reboot_run(') === 1 && substr_count($f4_ops, 'diag_resetstate_run(') === 1 &&
+    strpos($fn_body($f4_ops, 'restapi_h_system_reboot'), "restapi_ops_after_response(RESTAPI_OPS_DELAY, function () use (\$mode) {\n\t\tdiag_reboot_run(\$mode);") !== false &&
+    strpos($fn_body($f4_ops, 'restapi_h_states_reset'), "function () use (\$statetable, \$sourcetracking) {\n\t\tdiag_resetstate_run(\$statetable, \$sourcetracking);") !== false,
+    'halt, reboot and the state reset run only after the answer');
+check_api(strpos($fn_body($f4_ops, 'restapi_h_system_reboot'), '$mode = restapi_ops_reboot_mode($body[\'type\'] ?? null, diag_reboot_fsck_available());') !== false &&
+    strpos($f4_ops, 'system_reboot_sync') === false && strpos($f4_ops, "'reroot')") !== false, 'reboot: only the methods restapi_ops_reboot_mode() returns (never reroot)');
+$f4_after = $fn_body($f4_ops, 'restapi_ops_after_response');
+check_api(strpos($f4_after, 'register_shutdown_function(') !== false && strpos($f4_after, 'ignore_user_abort(true);') < strpos($f4_after, 'fastcgi_finish_request();') &&
+    strpos($f4_after, 'fastcgi_finish_request();') < strpos($f4_after, 'sleep($delay);') && strpos($f4_after, 'sleep($delay);') < strpos($f4_after, '$fn();'),
+    'the deferred operations run after the response has been sent');
+check_api(strpos($fn_body($f4_ops, 'restapi_h_system_reboot'), "if (g_get('debug')) {") < strpos($fn_body($f4_ops, 'restapi_h_system_reboot'), 'restapi_ops_after_response(') &&
+    strpos($fn_body($f4_ops, 'restapi_h_system_halt'), "if (g_get('debug')) {") < strpos($fn_body($f4_ops, 'restapi_h_system_halt'), 'restapi_ops_after_response('),
+    'reboot and halt keep the pages\' debug guard');
+$f4_fw = $fn_body($f4_ops, 'restapi_h_firmware_update');
+check_api(strpos($f4_fw, "if ((\$v['pkg_version_compare'] ?? null) !== '<') {") < strpos($f4_fw, 'restapi_pkgop_start(') && strpos($f4_fw, 'restapi_pkgop_not_running();') < strpos($f4_fw, 'restapi_pkgop_start(') &&
+    strpos($f4_fw, "restapi_pkgop_start('', '', true)") !== false, 'system update: only when an update is available and nothing runs');
+$f4_handle = $fn_body($f4_ops, 'restapi_pkgop_handle');
+check_api(strpos($f4_handle, '$name = restapi_pkgop_name($req);') < strpos($f4_handle, 'restapi_pkgop_start(') && strpos($f4_handle, 'restapi_pkgop_not_running();') < strpos($f4_handle, 'restapi_pkgop_start(') &&
+    strpos($f4_handle, 'is_vital_system_default_package($name)') < strpos($f4_handle, 'restapi_pkgop_start(') &&
+    strpos($f4_handle, "pkg_exec('rquery %n ' . escapeshellarg(\$name), \$out, \$err)") < strpos($f4_handle, 'restapi_pkgop_start('),
+    'package operations: valid name, nothing running, never a vital package, install only what the repository has');
+check_api(strpos($fn_body($f4_ops, 'restapi_pkgop_name'), "!restapi_pkgop_valid_name(\$name, g_get('pkg_prefix')) || !pkg_mgr_install_name_ok(\$name) || !pkg_valid_name(\$name)") !== false &&
+    strpos($fn_body($f4_ops, 'restapi_pkgop_not_running'), 'restapi_pkg_not_busy();') !== false, 'package names pass the API, page and package checks; packagelock is respected');
+$f4_status = $fn_body($f4_ops, 'restapi_pkgop_status');
+$f4_once = $fn_body($f4_ops, 'restapi_pkgop_finish_once');
+check_api(strpos($f4_status, '$completed_now = restapi_pkgop_finish_once($postlog);') !== false && strpos($f4_status, "if (!\$running && \$finish && (\$cur['source'] === 'api')) {") !== false &&
+    strpos($f4_status, 'pkg_mgr_install_finish(') === false && substr_count($f4_ops, 'pkg_mgr_install_finish(') === 1 &&
+    strpos($f4_once, "lock('restapi-pkgop', LOCK_EX)") < strpos($f4_once, "\$rec['finish_pending'] = false;") &&
+    strpos($f4_once, 'restapi_pkgop_record_write($rec);') < strpos($f4_once, 'pkg_mgr_install_finish($postlog);') &&
+    strpos($fn_body($f4_ops, 'restapi_pkgop_start'), 'restapi_pkgop_status(20, false)') !== false && strpos($fn_body($f4_ops, 'restapi_pkgop_start'), "'finish_pending' => true,") !== false,
+    'the status read does the finished work once (API operations only, after the end, under a lock), the start answer never');
+$f4_prev = $fn_body($f4_ops, 'restapi_pkgop_complete_previous');
+$f4_st = $fn_body($f4_ops, 'restapi_pkgop_start');
+check_api(strpos($f4_prev, "(\$cur['source'] === 'api') && !empty(\$cur['record']['finish_pending']) && !isvalidpid(\$paths['gui_pidfile'])") !== false &&
+    strpos($f4_prev, 'restapi_pkgop_finish_once(') !== false && strpos($f4_st, 'restapi_pkgop_complete_previous();') < strpos($f4_st, 'pkg_mgr_install_start(') &&
+    substr_count($f4_ops, 'restapi_pkgop_complete_previous()') === 2 && strpos($fn_body($f4_ops, 'restapi_pkgop_not_running'), 'finish') === false,
+    'a new operation first completes an ended API operation whose status was never read - only once every check has passed');
+check_api(!preg_match('/(?<![a-z_])(mwexec|mwexec_bg|exec|shell_exec|system|passthru|write_config|system_reboot|system_halt|filter_flush_state_table)\(/', $f4_ops) &&
+    strpos($f4_ops, 'pfctl') === false && !preg_match('/service_control_(start|stop|restart)\(/', $f4_ops), 'routes_operations.inc acts only through the pages\' functions');
+foreach (array('status_services.inc', 'diag_system.inc', 'pkg_mgr_install.inc') as $inc) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false, "the API front controller loads {$inc}");
+}
+check_api(strpos($fn_body(file_get_contents("{$root}/src/etc/inc/restapi/routes_v1.inc"), 'restapi_h_status_services'), "foreach (array('mode', 'vpnid', 'zone') as \$field) {") !== false,
+    'the services list shows what addresses OpenVPN instances and captive portal zones');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
