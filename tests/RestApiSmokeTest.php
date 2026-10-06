@@ -1234,6 +1234,22 @@ $e1_routes = array(
 	'PUT /v1/vpn/ipsec/mobile' => array('restapi_h_ipsec_mobile_set', 'vpn_ipsec_mobile.php', 'vpn.ipsec', true),
 	'GET /v1/vpn/ipsec/settings' => array('restapi_h_ipsec_settings_get', 'vpn_ipsec_settings.php', 'vpn.ipsec', false),
 	'PUT /v1/vpn/ipsec/settings' => array('restapi_h_ipsec_settings_set', 'vpn_ipsec_settings.php', 'vpn.ipsec', false),
+	'GET /v1/vpn/openvpn/servers' => array('restapi_h_ovpn_server_list', 'vpn_openvpn_server.php', 'vpn.openvpn', false),
+	'GET /v1/vpn/openvpn/servers/{vpnid}' => array('restapi_h_ovpn_server_get', 'vpn_openvpn_server.php', 'vpn.openvpn', false),
+	'POST /v1/vpn/openvpn/servers' => array('restapi_h_ovpn_server_create', 'vpn_openvpn_server.php', 'vpn.openvpn', false),
+	'PUT /v1/vpn/openvpn/servers/{vpnid}' => array('restapi_h_ovpn_server_update', 'vpn_openvpn_server.php', 'vpn.openvpn', false),
+	'DELETE /v1/vpn/openvpn/servers/{vpnid}' => array('restapi_h_ovpn_server_delete', 'vpn_openvpn_server.php', 'vpn.openvpn', false),
+	'GET /v1/vpn/openvpn/clients' => array('restapi_h_ovpn_client_list', 'vpn_openvpn_client.php', 'vpn.openvpn', false),
+	'GET /v1/vpn/openvpn/clients/{vpnid}' => array('restapi_h_ovpn_client_get', 'vpn_openvpn_client.php', 'vpn.openvpn', false),
+	'POST /v1/vpn/openvpn/clients' => array('restapi_h_ovpn_client_create', 'vpn_openvpn_client.php', 'vpn.openvpn', false),
+	'PUT /v1/vpn/openvpn/clients/{vpnid}' => array('restapi_h_ovpn_client_update', 'vpn_openvpn_client.php', 'vpn.openvpn', false),
+	'DELETE /v1/vpn/openvpn/clients/{vpnid}' => array('restapi_h_ovpn_client_delete', 'vpn_openvpn_client.php', 'vpn.openvpn', false),
+	'GET /v1/vpn/openvpn/csc' => array('restapi_h_ovpn_csc_list', 'vpn_openvpn_csc.php', 'vpn.openvpn', false),
+	'GET /v1/vpn/openvpn/csc/{id}' => array('restapi_h_ovpn_csc_get', 'vpn_openvpn_csc.php', 'vpn.openvpn', false),
+	'POST /v1/vpn/openvpn/csc' => array('restapi_h_ovpn_csc_create', 'vpn_openvpn_csc.php', 'vpn.openvpn', false),
+	'PUT /v1/vpn/openvpn/csc/{id}' => array('restapi_h_ovpn_csc_update', 'vpn_openvpn_csc.php', 'vpn.openvpn', false),
+	'DELETE /v1/vpn/openvpn/csc/{id}' => array('restapi_h_ovpn_csc_delete', 'vpn_openvpn_csc.php', 'vpn.openvpn', false),
+	'GET /v1/vpn/openvpn/status' => array('restapi_h_ovpn_status', 'status_openvpn.php', 'vpn.openvpn', false),
 );
 foreach ($v1 as $r) {
 	$key = "{$r['method']} {$r['path']}";
@@ -1524,6 +1540,168 @@ check_api(strpos($fn_body($routes_vpn, 'restapi_ipsec_tunnel_full'), 'restapi_ip
     'a tunnel\'s form reads with its secrets as "(set)"; sending "(set)" keeps them');
 check_api(strpos($fn_body($routes_vpn, 'restapi_h_ipsec_mobile_set'), 'ipsec_mobile_apply()') !== false &&
     strpos($fn_body($routes_vpn, 'restapi_h_ipsec_settings_set'), 'restapi_want_apply') === false, 'mobile ?apply restarts IPsec like its page; settings apply at once');
+
+/* VPN: OpenVPN servers, clients, client specific overrides and status */
+check_api(isset(restapi_areas()['vpn.openvpn']), 'the OpenVPN permission area exists');
+check_api(restapi_ovpn_select(null, array(0 => 'none', 1 => 'default')) === '0' && restapi_ovpn_select('1', array(0 => 'none', 1 => 'default')) === '1' &&
+    restapi_ovpn_select('x', array('a' => 1, 'b' => 2)) === 'a' && restapi_ovpn_select('', array('' => 'Default', 64 => '64')) === '' &&
+    restapi_ovpn_select('b', array()) === '' && restapi_ovpn_select(2048, array(2048 => '2048 bit', 'none' => 'ECDH')) === '2048',
+    'OpenVPN selects read as Form_Select preselects them (loose match, else the first option; nothing without options)');
+check_api(restapi_ovpn_multi(array('2', 'x', '1'), array(1 => 'a', 2 => 'b', 3 => 'c')) === array('1', '2'), 'multiple selects post the selected options in option order');
+$osc = array('mode' => array('p2p_tls' => 1, 'p2p_shared_key' => 1, 'server_tls' => 1, 'server_tls_user' => 1), 'authmode' => array('Local Database' => 'Local Database', 'radius1' => 'r'),
+    'dev_mode' => array('tun' => 1, 'tap' => 1), 'protocol' => array('UDP4' => 1, 'TCP4' => 1), 'interface' => array('wan' => 'WAN', 'lan' => 'LAN', 'lan|10.0.0.9' => 'vip'),
+    'tls_type' => array('auth' => 1, 'crypt' => 1), 'tlsauth_keydir' => array('default' => 1, '0' => 1, '1' => 1, '2' => 1), 'caref' => array('ca1' => 'CA'), 'crlref' => array(),
+    'certref' => array(' ' => '== Server ==', 'c1' => 'Cert', '  ' => '== Non-Server =='), 'dh_length' => array(2048 => 1, 'none' => 1), 'ecdh_curve' => array('none' => 1, 'prime256v1' => 1),
+    'data_ciphers' => array('AES-256-GCM' => 1, 'AES-256-CBC' => 1), 'data_ciphers_fallback' => array('AES-256-CBC' => 1, 'AES-256-GCM' => 1), 'digest' => array('SHA256' => 1, 'SHA1' => 1),
+    'cert_depth' => array('' => 'Do Not Check', 1 => 'One', 2 => 'Two'), 'tunnel_networkv6_type' => array('staticv6' => 1, 'track6' => 1), 'tunnel_track6_interface' => array(),
+    'serverbridge_interface' => array('none' => 'none', 'lan' => 'LAN'), 'allow_compression' => array('asym' => 1, 'no' => 1, 'yes' => 1), 'compression' => array('' => 'off', 'lz4' => 1),
+    'topology' => array('subnet' => 1, 'net30' => 1), 'ping_method' => array('keepalive' => 1, 'ping' => 1), 'ping_action' => array('ping_restart' => 1, 'ping_exit' => 1),
+    'netbios_ntype' => array(0 => 'none', 1 => 'b', 8 => 'h'), 'exit_notify' => array(0 => 'off', 1 => 'once', 2 => 'twice'), 'sndrcvbuf' => array('' => 'Default', 65536 => '64 KiB'),
+    'create_gw' => array('both' => 1, 'v4only' => 1, 'v6only' => 1), 'verbosity_level' => array(0 => 'none', 1 => 'default', 3 => '3'), 'keepalive_defaults' => array(10, 60));
+$sp = array('mode' => 'server_tls', 'protocol' => 'UDP4', 'interface' => 'lan', 'local_port' => '51194', 'description' => 'd', 'tlsauth_enable' => 'yes', 'tls' => "-----BEGIN OpenVPN Static key V1-----\nk",
+    'tls_type' => 'crypt', 'tlsauth_keydir' => '', 'caref' => 'ca1', 'certref' => 'c1', 'dh_length' => '2048', 'data_ciphers' => 'AES-256-GCM,AES-256-CBC', 'data_ciphers_fallback' => 'AES-256-CBC',
+    'cert_depth' => 1, 'remote_cert_tls' => true, 'tunnel_network' => '10.250.250.0/24', 'create_gw' => 'v4only', 'verbosity_level' => 1, 'autokey_enable' => 'yes', 'autotls_enable' => 'yes',
+    'username_as_common_name' => true, 'exit_notify' => 1, 'inactive_seconds' => 0, 'keepalive_interval' => '', 'ping_push' => '', 'custom_options' => 'push "x"', 'disable' => false);
+$sf = restapi_ovpn_server_fields($sp, $osc);
+check_api($sf['mode'] === 'server_tls' && $sf['authmode'] === array('Local Database') && $sf['dev_mode'] === 'tun' && $sf['tlsauth_keydir'] === 'default' && $sf['tls_type'] === 'crypt' &&
+    $sf['autotls_enable'] === false && $sf['autokey_enable'] === true && $sf['tlsauth_enable'] === true && $sf['remote_cert_tls'] === true && $sf['username_as_common_name'] === true &&
+    $sf['data_ciphers'] === array('AES-256-GCM', 'AES-256-CBC') && $sf['cert_depth'] === '1' && $sf['create_gw'] === 'v4only' && $sf['crlref'] === '' && $sf['caref'] === 'ca1' &&
+    $sf['keepalive_interval'] === '10' && $sf['keepalive_timeout'] === '60' && $sf['ping_seconds'] === '10' && $sf['ping_action_seconds'] === '60' && $sf['inactive_seconds'] === '0' &&
+    $sf['tunnel_networkv6_type'] === 'staticv6' && $sf['tunnel_track6_prefix_id'] === '0' && $sf['exit_notify'] === '1' && $sf['verbosity_level'] === '1' && $sf['netbios_ntype'] === '0' &&
+    $sf['compression'] === '' && $sf['sndrcvbuf'] === '' && $sf['disable'] === false && $sf['tls'] === $sp['tls'],
+    'a server reads as its edit form: selects and number fields as the page fills them in, no TLS key generation while a key is set, the first authentication backend preselected');
+check_api(count(array_diff(array_keys($sf), array_keys(restapi_ovpn_server_types()))) === 0 && count(array_diff(array_keys(restapi_ovpn_server_types()), array_keys($sf))) === 0,
+    'the server fields and their types match');
+check_api(restapi_ovpn_server_fields(array('create_gw' => 'bogus') + $sp, $osc)['create_gw'] === '' &&
+    restapi_ovpn_server_fields(array('authmode' => 'radius1,Local Database') + $sp, $osc)['authmode'] === array('Local Database', 'radius1') &&
+    restapi_ovpn_server_fields(array('tls' => '', 'autotls_enable' => 'yes') + $sp, $osc)['autotls_enable'] === true &&
+    restapi_ovpn_server_fields(array('shared_key' => 'k') + $sp, $osc)['autokey_enable'] === false,
+    'no gateway radio for an unknown value; authentication backends in option order; key generation offered only without a key');
+$masked = restapi_ovpn_mask(array('tls' => 'secret', 'shared_key' => '', 'auth_pass' => 'p', 'proxy_passwd' => 'q', 'description' => 'd'), restapi_ovpn_secrets('client'));
+check_api($masked === array('tls' => '(set)', 'shared_key' => '', 'auth_pass' => '(set)', 'proxy_passwd' => '(set)', 'description' => 'd') &&
+    restapi_ovpn_secrets('server') === array('tls', 'shared_key') && restapi_ovpn_secrets('csc') === array(), 'OpenVPN keys and passwords read as "(set)"');
+$post = restapi_ovpn_post('server', $sf, $osc, false, array(), $sf);
+check_api(!isset($post['custom_options']) && !isset($post['crlref']) && $post['caref'] === 'ca1' && $post['tlsauth_enable'] === 'yes' && !isset($post['autotls_enable']) &&
+    $post['authmode'] === array('Local Database') && $post['data_ciphers'] === array('AES-256-GCM', 'AES-256-CBC') && $post['create_gw'] === 'v4only' && $post['tls'] === $sp['tls'] &&
+    !isset($post['disable']) && !isset($post['vpnid']) && $post['local_port'] === '51194' && $post['username_as_common_name'] === 'yes',
+    'the server post: ticked boxes "yes", lists as multi-selects, no custom options without the advanced privilege, no CRL select when the page has none');
+check_api(restapi_ovpn_post('server', $sf, $osc, false, array('custom_options' => 'x'), $sf)['custom_options'] === 'push "x"' &&
+    restapi_ovpn_post('server', $sf, $osc, true, array(), $sf)['custom_options'] === 'push "x"' && !isset(restapi_ovpn_post('server', array('create_gw' => '') + $sf, $osc, true, array(), $sf)['create_gw']),
+    'custom options are posted for users with the advanced privilege or when the body sets them (the save refuses the change)');
+$tap = array('dev_mode' => 'tap', 'serverbridge_dhcp' => false, 'serverbridge_interface' => 'lan', 'serverbridge_dhcp_start' => '10.0.0.10', 'serverbridge_dhcp_end' => '10.0.0.20') + $sf;
+$p1 = restapi_ovpn_post('server', $tap, $osc, true, array(), $tap);
+$p2 = restapi_ovpn_post('server', array('serverbridge_dhcp' => true) + $tap, $osc, true, array(), $tap);
+$p3 = restapi_ovpn_post('server', array('mode' => 'p2p_tls', 'serverbridge_dhcp' => true) + $tap, $osc, true, array(), $tap);
+$p4 = restapi_ovpn_post('server', array('dev_mode' => 'tun') + $tap, $osc, true, array(), $tap);
+check_api(!isset($p1['serverbridge_interface']) && !isset($p1['serverbridge_dhcp_start']) && $p2['serverbridge_interface'] === 'lan' && $p2['serverbridge_dhcp'] === 'yes' &&
+    !isset($p3['serverbridge_dhcp']) && !isset($p3['serverbridge_interface']) && $p4['serverbridge_interface'] === 'lan',
+    'tap bridge fields are posted only as far as the page enables them');
+
+$occ = array('mode' => array('p2p_tls' => 1, 'p2p_shared_key' => 1), 'proxy_authtype' => array('none' => 1, 'basic' => 1, 'ntlm' => 1), 'certref' => array('' => 'None', 'c1' => 'C')) + $osc;
+unset($occ['authmode']);
+$cp = array('mode' => 'p2p_tls', 'protocol' => 'UDP4', 'interface' => 'wan', 'server_addr' => '192.0.2.50', 'server_port' => '51194', 'auth_user' => 'u', 'auth_pass' => 'secret',
+    'proxy_passwd' => '', 'certref' => '', 'caref' => 'ca1', 'shared_key' => '', 'autokey_enable' => 'yes', 'tls' => '', 'autotls_enable' => 'yes', 'tlsauth_enable' => 'yes',
+    'data_ciphers' => 'AES-256-GCM', 'data_ciphers_fallback' => 'AES-256-CBC', 'create_gw' => 'both', 'auth-retry-none' => 'yes', 'use_shaper' => '');
+$cf = restapi_ovpn_client_fields($cp, $occ);
+check_api($cf['auth_pass'] === 'secret' && $cf['certref'] === '' && $cf['autokey_enable'] === true && $cf['autotls_enable'] === true && $cf['auth-retry-none'] === true &&
+    $cf['proxy_authtype'] === 'none' && $cf['tlsauth_keydir'] === 'default' && $cf['ping_action_seconds'] === '60' &&
+    count(array_diff(array_keys($cf), array_keys(restapi_ovpn_client_types()))) === 0 && count(array_diff(array_keys(restapi_ovpn_client_types()), array_keys($cf))) === 0,
+    'a client reads as its edit form (fields and types match)');
+$cpost = restapi_ovpn_post('client', $cf, $occ, true, array(), $cf);
+check_api($cpost['auth_pass'] === DMYPWD && $cpost['proxy_passwd'] === '' && $cpost['autotls_enable'] === 'yes' && $cpost['auth-retry-none'] === 'yes' && $cpost['certref'] === '',
+    'a stored client password the body leaves out posts the page\'s placeholder (the save keeps it); none stored posts empty');
+check_api(restapi_ovpn_post('client', array('auth_pass' => 'new') + $cf, $occ, true, array('auth_pass' => 'new'), $cf)['auth_pass'] === 'new' &&
+    restapi_vpn_secret_body(array('auth_pass' => '(set)', 'tls' => 'x'), 'auth_pass') === array('tls' => 'x'), 'a password the body sets is posted; "(set)" keeps it');
+
+$ocsc = array('server_list' => array(1 => 'OpenVPN Server 1: x', 3 => 'OpenVPN Server 3: y'), 'override_options' => array('default' => 1, 'push_reset' => 1, 'remove_specified' => 1),
+    'remove_options' => array('remove_route' => 1, 'remove_iroute' => 1, 'remove_ping' => 1), 'ping_action' => array('default' => 1, 'ping_restart' => 1, 'ping_exit' => 1),
+    'netbios_ntype' => array(0 => 'none', 1 => 'b'));
+$xf = restapi_ovpn_csc_fields(array('common_name' => 'cn1', 'server_list' => array('3', '9'), 'remove_options' => array('remove_ping', 'remove_route'), 'override_options' => 'remove_specified',
+    'block' => 'yes', 'custom_options' => 'c'), $ocsc);
+check_api($xf['common_name'] === 'cn1' && $xf['server_list'] === array('3') && $xf['remove_options'] === array('remove_route', 'remove_ping') && $xf['override_options'] === 'remove_specified' &&
+    $xf['ping_action'] === 'default' && $xf['block'] === true && $xf['disable'] === false && $xf['netbios_ntype'] === '0' &&
+    count(array_diff(array_keys($xf), array_keys(restapi_ovpn_csc_types()))) === 0 && count(array_diff(array_keys(restapi_ovpn_csc_types()), array_keys($xf))) === 0,
+    'an override reads as its edit form (reset options default to "keep", ping action to "don\'t override")');
+$xp = restapi_ovpn_post('csc', $xf, $ocsc, false, array(), $xf);
+check_api($xp['server_list'] === array('3') && $xp['block'] === 'yes' && !isset($xp['custom_options']) && $xp['override_options'] === 'remove_specified' && !isset($xp['disable']),
+    'the override post (no custom options without the advanced privilege)');
+check_api(restapi_ovpn_status_pick(array('common_name' => ' cn ', 'bytes_recv' => 5, 'x' => 'y'), array('common_name', 'bytes_recv', 'peer_id')) ===
+    array('common_name' => 'cn', 'bytes_recv' => '5', 'peer_id' => ''), 'status entries carry only the listed fields');
+
+$ovpn_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/vpn_openvpn.inc");
+$routes_ovpn = file_get_contents("{$root}/src/etc/inc/restapi/routes_openvpn.inc");
+foreach (array('vpn_openvpn_server.php' => array('openvpn_user_can_edit_advanced("page-openvpn-server-advanced")', 'openvpn_instance_delete(\'server\', $id ?? null, $user_can_edit_advanced)',
+    'openvpn_server_form($act, $this_server_config)', 'openvpn_server_save($pconfig, $id ?? null, $act, $user_can_edit_advanced)', "config_del_path(\"crl/{\$cid}\");"),
+    'vpn_openvpn_client.php' => array('openvpn_user_can_edit_advanced("page-openvpn-client-advanced")', 'openvpn_instance_delete(\'client\', $id ?? null, $user_can_edit_advanced)',
+    'openvpn_client_form($act, $this_client_config)', 'openvpn_client_save($pconfig, $id ?? null, $act, $user_can_edit_advanced)', 'openvpn_client_proxy_auth_types()', '$parentid = $id;'),
+    'vpn_openvpn_csc.php' => array('openvpn_user_can_edit_advanced("page-openvpn-csc-advanced")', 'openvpn_csc_delete($id ?? null, $user_can_edit_advanced)', 'openvpn_csc_server_list()',
+    'openvpn_csc_form($act, $this_csc_config)', 'openvpn_csc_save($pconfig, $id ?? null, $act, $user_can_edit_advanced)', 'openvpn_csc_override_options()', 'openvpn_csc_remove_options()')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false && strpos($src, 'openvpn_resync') === false &&
+	    strpos($src, 'openvpn_delete') === false && strpos($src, 'services_unbound_configure(') === false && strpos($src, 'userHasPrivilege(') === false &&
+	    !preg_match('/^function /m', $src) && strpos($src, "require_once(\"vpn_openvpn.inc\");") !== false,
+	    "{$page} changes the configuration only through vpn_openvpn.inc and defines no functions");
+}
+check_api(substr_count(file_get_contents("{$root}/src/usr/local/www/vpn_openvpn_server.php"), "is_array(\$pconfig['") === 2 &&
+    substr_count(file_get_contents("{$root}/src/usr/local/www/vpn_openvpn_client.php"), "is_array(\$pconfig['data_ciphers'])") === 1,
+    'a refused form re-joins only lists (a crafted text list crashed the page)');
+foreach (array('openvpn_server_save', 'openvpn_client_save', 'openvpn_csc_save') as $fn) {
+	$body = $fn_body($ovpn_inc, $fn);
+	check_api(strpos($body, '$_POST') === false && strpos($body, '$_SESSION') === false && strpos($body, 'do_input_validation($post,') !== false &&
+	    strpos($body, "\$post['disable'] == \"yes\"") !== false, "{$fn}() reads the form passed in (not \$_POST) and validates it like the page");
+}
+$srv_save = $fn_body($ovpn_inc, 'openvpn_server_save');
+check_api(strpos($srv_save, "!empty(\$pconfig['data_ciphers']) && is_array(\$pconfig['data_ciphers']) &&\n\t    (strlen(") !== false &&
+    strpos($srv_save, 'The Backend for Authentication list is not valid.') !== false && strpos($srv_save, 'A valid Backend for Authentication must be selected.') !== false &&
+    strpos($srv_save, "!empty(\$pconfig['authmode']) && is_array(\$pconfig['authmode']) && is_port(") !== false,
+    'server save: a text cipher or backend list is refused (implode() crashed the page); backends must exist (any name was stored)');
+check_api(strpos($fn_body($ovpn_inc, 'openvpn_client_save'), "!empty(\$pconfig['data_ciphers']) && is_array(\$pconfig['data_ciphers']) &&\n\t    (strlen(") !== false,
+    'client save: a text cipher list is refused (implode() crashed the page)');
+foreach (array('openvpn_server_save', 'openvpn_client_save') as $fn) {
+	check_api(strpos($fn_body($ovpn_inc, $fn), 'The selected Gateway creation option is not valid.') !== false, "{$fn}(): the gateway creation option must be a choice (any value was stored)");
+	check_api(strpos($fn_body($ovpn_inc, $fn), 'openvpn_resync(') !== false && strpos($fn_body($ovpn_inc, $fn), 'services_unbound_configure(false);') !== false,
+	    "{$fn}() applies at once like the page");
+}
+check_api(strpos($fn_body($ovpn_inc, 'openvpn_server_save'), 'openvpn_resync_csc_all();') !== false, 'a saved server rewrites the override files like the page');
+$cli_save = $fn_body($ovpn_inc, 'openvpn_client_save');
+check_api(strpos($cli_save, 'update_if_changed($stat') === false && strpos($cli_save, "} elseif (\$post[\$stat] != null) {") !== false &&
+    strpos($cli_save, "is_numeric(\$post['parentid'])") !== false, 'client passwords: the placeholder keeps the stored one (of the copied client for a copy); no guiconfig.inc helper');
+$csc_save = $fn_body($ovpn_inc, 'openvpn_csc_save');
+check_api(strpos($csc_save, 'The selected Reset Server Options value is not valid.') !== false && strpos($csc_save, 'The Remove Options list contains an invalid entry.') !== false &&
+    strpos($csc_save, 'openvpn_resync_csc($csc);') !== false, 'override save: reset and remove options must be the page\'s choices (anything was stored); applied at once');
+$adv = $fn_body($ovpn_inc, 'openvpn_user_can_edit_advanced');
+check_api(strpos($adv, "isAdminUID(\$_SESSION['Username'])") !== false && strpos($adv, 'userHasPrivilege($user_entry, $privilege)') !== false &&
+    strpos($adv, 'userHasPrivilege($user_entry, "page-all")') !== false, 'the advanced options privilege is checked for the signed-in user (the API key\'s user)');
+foreach (array("openvpn_inuse(\$this_config['vpnid'], \$mode)", "!\$user_can_edit_advanced && !empty(\$this_config['custom_options'])") as $needle) {
+	check_api(strpos($fn_body($ovpn_inc, 'openvpn_instance_delete'), $needle) !== false, "deleting an instance checks {$needle}");
+}
+$guiconfig_src = file_get_contents("{$root}/src/usr/local/www/guiconfig.inc");
+foreach (array("'0' => \"none\"", "'1' => \"b-node\"", "'2' => \"p-node\"", "'4' => \"m-node\"", "'8' => \"h-node\"") as $nt) {
+	check_api(strpos($guiconfig_src, $nt) !== false && strpos($fn_body($ovpn_inc, 'openvpn_netbios_nodetypes'), $nt) !== false, "the NetBIOS node types match guiconfig.inc: {$nt}");
+}
+check_api(substr_count($routes_ovpn, 'write_config(') === 0 && substr_count($routes_ovpn, 'config_set_path(') === 0 && substr_count($routes_ovpn, 'config_del_path(') === 0 &&
+    substr_count($routes_ovpn, 'openvpn_create_key(') === 0, 'OpenVPN API writes only through the GUI functions and never creates keys itself');
+check_api(strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_write'), 'openvpn_server_save($post, $pos, $act, $can_edit_advanced)') !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_write'), 'openvpn_client_save($post, $pos, $act, $can_edit_advanced)') !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_csc_write'), 'openvpn_csc_save($post, $pos, $act, $can_edit_advanced)') !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_delete'), 'openvpn_instance_delete($mode, $pos, $can_edit_advanced)') !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_h_ovpn_csc_delete'), 'openvpn_csc_delete($pos,') !== false, 'OpenVPN writes and deletes go through the pages\' functions');
+check_api(strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_out'), "restapi_ovpn_mask(\$entry, restapi_ovpn_secrets(\$mode))") !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_out'), "restapi_ovpn_mask(\$fields, restapi_ovpn_secrets(\$mode))") !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_write'), 'restapi_vpn_secret_body($body, $secret)') !== false,
+    'stored entries and forms read with keys and passwords as "(set)"; sending "(set)" keeps them');
+check_api(strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_write'), 'openvpn_user_can_edit_advanced("page-openvpn-{$mode}-advanced")') !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_csc_write'), "openvpn_user_can_edit_advanced('page-openvpn-csc-advanced')") !== false,
+    'the API checks the advanced options privilege of the key\'s user like the pages');
+check_api(strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_delete'), "new RestApiError(409, 'in_use'") !== false &&
+    strpos($fn_body($routes_ovpn, 'restapi_ovpn_instance_delete'), "new RestApiError(403, 'forbidden'") !== false, 'a refused delete is 409 (assigned) or 403 (advanced options)');
+$status_fn = $fn_body($routes_ovpn, 'restapi_h_ovpn_status');
+check_api(strpos($status_fn, 'openvpn_get_active_servers()') !== false && strpos($status_fn, 'openvpn_get_active_clients()') !== false && strpos($status_fn, "'tls'") === false &&
+    strpos($status_fn, 'shared_key') === false, 'the OpenVPN status reads the status helpers only (no configuration fields)');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('vpn_openvpn.inc');") !== false, 'the API front controller loads vpn_openvpn.inc');
 
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");

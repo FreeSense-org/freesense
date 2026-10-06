@@ -72,6 +72,8 @@ require_once('services_dhcp.inc');
 /* The VPN pages' shared functions (L2TP, IPsec pre-shared keys and tunnel list actions). */
 require_once('vpn_l2tp.inc');
 require_once('vpn_ipsec.inc');
+/* The OpenVPN pages' shared functions (servers, clients, client specific overrides). */
+require_once('vpn_openvpn.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 
