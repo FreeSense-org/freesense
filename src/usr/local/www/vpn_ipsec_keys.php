@@ -35,6 +35,7 @@ require_once("guiconfig.inc");
 require_once("ipsec.inc");
 require_once("vpn.inc");
 require_once("filter.inc");
+require_once("vpn_ipsec.inc");
 
 $userkeys = array();
 foreach (config_get_path('system/user', []) as $id => $user) {
@@ -44,20 +45,11 @@ foreach (config_get_path('system/user', []) as $id => $user) {
 }
 
 if (isset($_POST['apply'])) {
-	ipsec_configure();
-	/* reload the filter in the background */
-	$retval = 0;
-	$retval |= filter_configure();
-	if (is_subsystem_dirty('ipsec')) {
-		clear_subsystem_dirty('ipsec');
-	}
+	$retval = ipsec_apply_changes();
 }
 
 if ($_POST['act'] == "del") {
-	if (!empty(config_get_path('ipsec/mobilekey/' . $_POST['id']))) {
-		config_del_path('ipsec/mobilekey/' . $_POST['id']);
-		write_config(gettext("Deleted IPsec Pre-Shared Key"));
-		mark_subsystem_dirty('ipsec');
+	if (ipsec_psk_delete($_POST['id'])) {
 		header("Location: vpn_ipsec_keys.php");
 		exit;
 	}

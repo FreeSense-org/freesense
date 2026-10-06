@@ -33,6 +33,7 @@
 require_once("guiconfig.inc");
 require_once("functions.inc");
 require_once("captiveportal.inc");
+require_once("diag_system.inc");
 
 if ($_POST['save'] == 'No') {
 	header("Location: index.php");
@@ -51,9 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	if (g_get('debug')) {
 	   printf(gettext("Not actually halting (DEBUG is set true)%s"), "<br />");
 	} else {
-		notify_all_remote(sprintf(gettext("%s will shutdown and halt system now."), g_get('product_label')));
 		print('<pre>');
-		system_halt();
+		diag_halt_run();
 		print('</pre>');
 	}
 } else {

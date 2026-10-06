@@ -31,15 +31,14 @@ require_once("certs.inc");
 require_once("openvpn.inc");
 require_once("freesense-utils.inc");
 require_once("vpn.inc");
+require_once("system_certificates.inc");
 
 $max_lifetime = crl_get_max_lifetime();
-$default_lifetime = min(730, $max_lifetime);
+$default_lifetime = pki_crl_default_lifetime();
 
 global $openssl_crl_status;
 
-$crl_methods = array(
-	"internal" => gettext("Create an internal Certificate Revocation List"),
-	"existing" => gettext("Import an existing Certificate Revocation List"));
+$crl_methods = pki_crl_methods();
 
 if (isset($_REQUEST['id']) && ctype_alnum($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
@@ -47,11 +46,7 @@ if (isset($_REQUEST['id']) && ctype_alnum($_REQUEST['id'])) {
 
 
 /* Clean up blank entries missing a reference ID */
-foreach (config_get_path('crl', []) as $cid => $acrl) {
-	if (!isset($acrl['refid'])) {
-		config_del_path("crl/{$cid}");
-	}
-}
+pki_crl_cleanup();
 
 $act = $_REQUEST['act'];
 
@@ -76,30 +71,16 @@ if ((!empty($act) &&
 
 switch ($act) {
 	case 'del':
-		$name = htmlspecialchars($thiscrl['descr']);
-		if (crl_in_use($id)) {
-			$savemsg = sprintf(gettext("Certificate Revocation List %s is in use and cannot be deleted."), $name);
-			$class = "danger";
-		} else {
-			foreach (config_get_path('crl', []) as $cid => $acrl) {
-				if ($acrl['refid'] == $thiscrl['refid']) {
-					config_del_path("crl/{$cid}");
-				}
-			}
-			write_config("Deleted CRL {$name}.");
-			$savemsg = sprintf(gettext("Certificate Revocation List %s successfully deleted."), $name);
-			$class = "success";
-		}
+		$rv = pki_crl_delete($id);
+		$savemsg = $rv['savemsg'];
+		$class = $rv['class'];
 		break;
 	case 'new':
-		$pconfig['method'] = $_REQUEST['method'];
-		$pconfig['caref'] = $_REQUEST['caref'];
-		$pconfig['lifetime'] = $default_lifetime;
-		$pconfig['serial'] = "0";
-		$crlca = lookup_ca($pconfig['caref']);
-		$crlca = $crlca['item'];
+		$rv = pki_crl_new_form($_REQUEST['method'], $_REQUEST['caref']);
+		$pconfig = $rv['pconfig'];
+		$crlca = $rv['ca'];
 		if (!$crlca) {
-			$input_errors[] = gettext('Invalid CA');
+			$input_errors = $rv['input_errors'];
 			unset($act);
 		}
 		break;
@@ -107,78 +88,9 @@ switch ($act) {
 		unset($input_errors);
 		$pconfig = $_REQUEST;
 
-		/* input validation */
-		$reqdfields = explode(" ", "descr id");
-		$reqdfieldsn = array(
-			gettext("Descriptive name"),
-			gettext("CRL ID"));
-
-		do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-		if (preg_match("/[\?\>\<\&\/\\\"\']/", $pconfig['descr'])) {
-			array_push($input_errors, "The field 'Descriptive Name' contains invalid characters.");
-		}
-		if ($pconfig['lifetime'] > $max_lifetime) {
-			$input_errors[] = gettext("Lifetime is longer than the maximum allowed value. Use a shorter lifetime.");
-		}
-		if ((strlen($pconfig['serial']) > 0) && !cert_validate_serial($pconfig['serial'])) {
-			$input_errors[] = gettext("Please enter a valid integer serial number.");
-		}
-
-		$revoke_list = array();
-		if (!$pconfig['crlref']) {
-			FreeSenseHeader("system_crlmanager.php");
-			exit;
-		}
-		$crl_item_config = lookup_crl($pconfig['crlref']);
-		$crl = &$crl_item_config['item'];
-
-		if (!is_array($pconfig['certref'])) {
-			$pconfig['certref'] = array();
-		}
-		if (!is_crl_internal($crl)) {
-			$input_errors[] = gettext("Cannot revoke certificates for an imported/external CRL.");
-		}
-		if (!empty($pconfig['revokeserial'])) {
-			foreach (explode(' ', $pconfig['revokeserial']) as $serial) {
-				$vserial = cert_validate_serial($serial, true, true);
-				if ($vserial != null) {
-					$revoke_list[] = $vserial;
-				} else {
-					$input_errors[] = gettext("Invalid serial in list (Must be ASN.1 integer compatible decimal or hex string).");
-				}
-			}
-		}
-		if (empty($pconfig['save']) && empty($pconfig['certref']) && empty($revoke_list)) {
-			$input_errors[] = gettext("Select one or more certificates or enter a serial number to revoke.");
-		}
-		foreach ($pconfig['certref'] as $rcert) {
-			$cert = lookup_cert($rcert);
-			$cert = $cert['item'];
-			if ($crl['caref'] == $cert['caref']) {
-				$revoke_list[] = $cert;
-			} else {
-				$input_errors[] = gettext("CA mismatch between the Certificate and CRL. Unable to Revoke.");
-			}
-		}
-
-		if (!$input_errors) {
-			$crl['descr'] = $pconfig['descr'];
-			$crl['lifetime'] = $pconfig['lifetime'];
-			$crl['serial'] = $pconfig['serial'];
-			if (!empty($revoke_list)) {
-				$savemsg = "Revoked certificate(s) in CRL {$crl['descr']}.";
-				$reason = (empty($pconfig['crlreason'])) ? 0 : $pconfig['crlreason'];
-				foreach ($revoke_list as $cert) {
-					cert_revoke($cert, $crl_item_config, $reason);
-				}
-				// refresh IPsec and OpenVPN CRLs
-				openvpn_refresh_crls();
-				ipsec_configure();
-			} else {
-				$savemsg = "Saved CRL {$crl['descr']}.";
-			}
-			write_config($savemsg);
+		/* null: no CRL posted; no errors: saved */
+		$input_errors = pki_crl_revoke($pconfig, $_POST);
+		if (($input_errors === null) || !$input_errors) {
 			FreeSenseHeader("system_crlmanager.php");
 			exit;
 		} else {
@@ -186,40 +98,18 @@ switch ($act) {
 		}
 		break;
 	case 'delcert':
-		if (!is_array($thiscrl['cert'])) {
+		$rv = pki_crl_unrevoke($crl_item_config, $_REQUEST['certref']);
+		if ($rv === null) {
 			FreeSenseHeader("system_crlmanager.php");
 			exit;
 		}
-		$found = false;
-		foreach ($thiscrl['cert'] as $acert) {
-			if ($acert['refid'] == $_REQUEST['certref']) {
-				$found = true;
-				$thiscert = $acert;
-			}
-		}
-		if (!$found) {
-			FreeSenseHeader("system_crlmanager.php");
-			exit;
-		}
-		$certname = htmlspecialchars($thiscert['descr']);
-		$crlname = htmlspecialchars($thiscrl['descr']);
-		if (cert_unrevoke($thiscert, $crl_item_config)) {
-			$savemsg = sprintf(gettext('Deleted Certificate %1$s from CRL %2$s.'), $certname, $crlname);
-			$class = "success";
-			// refresh IPsec and OpenVPN CRLs
-			openvpn_refresh_crls();
-			ipsec_configure();
-			write_config($savemsg);
-		} else {
-			$savemsg = sprintf(gettext('Failed to delete Certificate %1$s from CRL %2$s.'), $certname, $crlname);
-			$class = "danger";
-		}
+		$savemsg = $rv['savemsg'];
+		$class = $rv['class'];
 		$act="edit";
 		break;
 	case 'exp':
 		/* Exporting the CRL contents*/
-		crl_update($crl_item_config);
-		send_user_download('data', base64_decode($thiscrl['text']), "{$thiscrl['descr']}.crl");
+		send_user_download('data', pki_crl_export($crl_item_config), "{$thiscrl['descr']}.crl");
 		break;
 	default:
 		break;
@@ -229,71 +119,8 @@ if ($_POST['save'] && empty($input_errors)) {
 	$input_errors = array();
 	$pconfig = $_POST;
 
-	/* input validation */
-	if (($pconfig['method'] == "existing") || ($act == "editimported")) {
-		$reqdfields = explode(" ", "descr crltext");
-		$reqdfieldsn = array(
-			gettext("Descriptive name"),
-			gettext("Certificate Revocation List data"));
-	}
-	if (($pconfig['method'] == "internal") ||
-	    ($act == "addcert")) {
-		$reqdfields = explode(" ", "descr caref");
-		$reqdfieldsn = array(
-			gettext("Descriptive name"),
-			gettext("Certificate Authority"));
-	}
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (preg_match("/[\?\>\<\&\/\\\"\']/", $pconfig['descr'])) {
-		array_push($input_errors, "The field 'Descriptive Name' contains invalid characters.");
-	}
-	if ($pconfig['lifetime'] > $max_lifetime) {
-		$input_errors[] = gettext("Lifetime is longer than the maximum allowed value. Use a shorter lifetime.");
-	}
-
-	if ((strlen($pconfig['serial']) > 0) && !cert_validate_serial($pconfig['serial'])) {
-		$input_errors[] = gettext("Please enter a valid integer serial number.");
-	}
-
-	/* save modifications */
+	$input_errors = pki_crl_save($pconfig, $crl_item_config, $act);
 	if (!$input_errors) {
-		$result = false;
-
-		if ($thiscrl) {
-			$crl =& $thiscrl;
-		} else {
-			$crl = array();
-			$crl['refid'] = uniqid();
-		}
-
-		$crl['descr'] = $pconfig['descr'];
-		if ($act != "editimported") {
-			$crl['caref'] = $pconfig['caref'];
-			$crl['method'] = $pconfig['method'];
-		}
-
-		if (($pconfig['method'] == "existing") || ($act == "editimported")) {
-			$crl['text'] = base64_encode($pconfig['crltext']);
-		}
-
-		if ($pconfig['method'] == "internal") {
-			$crl['serial'] = empty($pconfig['serial']) ? '0' : $pconfig['serial'];
-			$crl['lifetime'] = empty($pconfig['lifetime']) ? $default_lifetime : $pconfig['lifetime'];
-			$crl['cert'] = array();
-		}
-
-		if (!$thiscrl) {
-			config_set_path('crl/', $crl);
-		} else {
-			config_set_path("crl/{$crl_item_config['idx']}", $crl);
-		}
-
-		write_config("Saved CRL {$crl['descr']}");
-		// refresh IPsec and OpenVPN CRLs
-		openvpn_refresh_crls();
-		ipsec_configure();
 		FreeSenseHeader("system_crlmanager.php");
 	}
 }
@@ -332,47 +159,6 @@ function method_change() {
 
 <?php
 
-function build_method_list($importonly = false) {
-	global $_POST, $crl_methods;
-
-	$list = array();
-
-	foreach ($crl_methods as $method => $desc) {
-		if ($importonly && ($method != "existing")) {
-			continue;
-		}
-
-		$list[$method] = $desc;
-	}
-
-	return($list);
-}
-
-function build_ca_list() {
-	$list = array();
-
-	foreach (config_get_path('ca', []) as $ca) {
-		$list[$ca['refid']] = $ca['descr'];
-	}
-
-	return($list);
-}
-
-function build_cacert_list() {
-	global $crl, $id;
-
-	$list = array();
-	foreach (config_get_path('cert', []) as $cert) {
-		if ((isset($cert['caref']) && !empty($cert['caref'])) &&
-		    ($cert['caref'] == $crl['caref']) &&
-		    !is_cert_revoked($cert, $id)) {
-			$list[$cert['refid']] = $cert['descr'];
-		}
-	}
-
-	return($list);
-}
-
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
@@ -402,7 +188,7 @@ if ($act == "new" || $act == gettext("Save")) {
 			'method',
 			'*Method',
 			$pconfig['method'],
-			build_method_list((!isset($crlca['prv']) || empty($crlca['prv'])))
+			pki_crl_method_list((!isset($crlca['prv']) || empty($crlca['prv'])))
 		));
 	}
 
@@ -593,7 +379,7 @@ if ($act == "new" || $act == gettext("Save")) {
 		$openssl_crl_status
 		))->setHelp('Select the reason for which the certificates are being revoked.');
 
-	$cacert_list = build_cacert_list();
+	$cacert_list = pki_crl_cert_list($crl, $id);
 	if (count($cacert_list) == 0) {
 		print_info_box(gettext("No certificates found for this CA."), 'danger');
 	} else {
@@ -736,7 +522,7 @@ if ($act == "new" || $act == gettext("Save")) {
 		'caref',
 		'Certificate Authority',
 		null,
-		build_ca_list()
+		pki_crl_ca_list()
 		))->setHelp('Select a Certificate Authority for the new CRL');
 	$group->add(new Form_Button(
 		'submit',

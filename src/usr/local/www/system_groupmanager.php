@@ -35,8 +35,7 @@
 
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
-
-$logging_level = LOG_WARNING;
+require_once("system_usermanager.inc");
 
 $id = is_numericint($_REQUEST['groupid']) ? $_REQUEST['groupid'] : null;
 $act = (isset($_REQUEST['act']) ? $_REQUEST['act'] : '');
@@ -46,21 +45,6 @@ $dup = null;
 if ($act == 'dup') {
 	$dup = $id;
 	$act = 'edit';
-}
-
-function cpusercmp($a, $b) {
-	return strcasecmp($a['name'], $b['name']);
-}
-
-function admin_groups_sort() {
-	$group_config = config_get_path('system/group');
-
-	if (!is_array($group_config)) {
-		return;
-	}
-
-	usort($group_config, "cpusercmp");
-	config_set_path("system/group", $group_config);
 }
 
 /*
@@ -80,272 +64,61 @@ if (!empty($_POST) && $read_only) {
 
 if (($_POST['act'] == "delgroup") && !$read_only) {
 
-	if (!isset($id) || !isset($_REQUEST['groupname']) ||
-	    (config_get_path("system/group/{$id}") === null) ||
-	    ($_REQUEST['groupname'] != config_get_path("system/group/{$id}/name"))) {
+	$rv = usermgr_group_delete($id, $_REQUEST['groupname'] ?? null, $guiuser);
+	if ($rv === null) {
 		FreeSenseHeader("system_groupmanager.php");
 		exit;
 	}
-
-	local_group_del(config_get_path("system/group/{$id}"));
-	$groupdeleted = config_get_path("system/group/{$id}/name");
-	config_del_path("system/group/{$id}");
-	/*
-	 * Reindex the array to avoid operating on an incorrect index
-	 * upstream issue 7733
-	 */
-	config_set_path("system/group", array_values(config_get_path('system/group', [])));
-
-	$savemsg = localize_text("Successfully deleted group: %s",
-	    $groupdeleted);
-	write_config($savemsg);
-	logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);
+	if ($rv['deleted']) {
+		$savemsg = $rv['savemsg'];
+	} else {
+		$input_errors = $rv['errors'];
+	}
 }
 
 if (($_POST['act'] == "delpriv") && !$read_only && ($dup === null)) {
 
-	if (!isset($id) || (config_get_path("system/group/{$id}") === null)) {
+	$rv = usermgr_group_priv_remove($id, $_REQUEST['privid'], $guiuser);
+	if ($rv === null) {
 		FreeSenseHeader("system_groupmanager.php");
 		exit;
 	}
-
-	$privdeleted = array_get_path($priv_list, (config_get_path("system/group/{$id}/priv/{$_REQUEST['privid']}") . "/name"));
-	config_del_path("system/group/{$id}/priv/{$_REQUEST['privid']}");
-
-	foreach (config_get_path("system/group/{$id}/member", []) as $uid) {
-		$user = getUserEntryByUID($uid);
-		$user = $user['item'];
-		if ($user) {
-			local_user_set($user);
-		}
+	if (!empty($rv['errors'])) {
+		$input_errors = $rv['errors'];
+	} else {
+		$savemsg = $rv['savemsg'];
 	}
-
-	$savemsg = localize_text("Removed Privilege \"%s\" from group %s",
-	    $privdeleted, config_get_path("system/group/{$id}/name"));
-	write_config($savemsg);
-	logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);
 
 	$act = "edit";
 }
 
 if ($act == "edit") {
 	if (isset($id)) {
-		$this_group = config_get_path("system/group/{$id}");
-		if ($dup === null) {
-			$pconfig['name'] = $this_group['name'];
-			$pconfig['gid'] = $this_group['gid'];
-			$pconfig['gtype'] = empty($this_group['scope'])
-			    ? "local" : $this_group['scope'];
-		} else {
-			$pconfig['gtype'] = ($this_group['scope'] == 'system')
-			    ? "local" : $this_group['scope'];
-		}
-		$pconfig['priv'] = $this_group['priv'];
-		$pconfig['description'] = $this_group['description'];
-		$pconfig['members'] = $this_group['member'];
+		$pconfig = usermgr_group_form($id, $dup);
 	}
 }
 
 if (isset($_POST['dellall_x']) && !$read_only) {
 
-	$del_groups = $_POST['delete_check'];
-	$deleted_groups = array();
-
-	if (!empty($del_groups)) {
-		foreach ($del_groups as $groupid) {
-			$this_group = config_get_path("system/group/{$groupid}");
-			if (isset($this_group) &&
-			    $this_group['scope'] != "system") {
-				$deleted_groups[] = $this_group['name'];
-				local_group_del($this_group);
-				config_del_path("system/group/{$groupid}");
-			}
-		}
-
-		$savemsg = localize_text("Successfully deleted %s: %s",
-		    (count($deleted_groups) == 1)
-		    ? gettext("group") : gettext("groups"),
-		    implode(', ', $deleted_groups));
-		/*
-		 * Reindex the array to avoid operating on an incorrect index
-		 * upstream issue 7733
-		 */
-		config_set_path("system/group", array_values(config_get_path('system/group', [])));
-		write_config($savemsg);
-		logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);
+	$rv = usermgr_groups_delete($_POST['delete_check'], $guiuser);
+	if (!empty($rv['errors'])) {
+		$input_errors = $rv['errors'];
+	}
+	if ($rv['savemsg'] !== null) {
+		$savemsg = $rv['savemsg'];
 	}
 }
 
 if (isset($_POST['save']) && !$read_only) {
 	unset($input_errors);
-	$pconfig = $_POST;
-
-	/* input validation */
-	$reqdfields = explode(" ", "groupname");
-	$reqdfieldsn = array(gettext("Group Name"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ($_POST['gtype'] != "remote") {
-		if (preg_match("/[^a-zA-Z0-9\.\-_]/", $_POST['groupname'])) {
-			$input_errors[] = sprintf(gettext(
-			    "The (%s) group name contains invalid characters."),
-			    $_POST['gtype']);
-		}
-		if (strlen($_POST['groupname']) > 16) {
-			$input_errors[] = gettext(
-			    "The group name is longer than 16 characters.");
-		}
-	} else {
-		if (preg_match("/[^a-zA-Z0-9\.\- _]/", $_POST['groupname'])) {
-			$input_errors[] = sprintf(gettext(
-			    "The (%s) group name contains invalid characters."),
-			    $_POST['gtype']);
-		}
-	}
-
-	/* Check the POSTed members to ensure they are valid and exist */
-	if (is_array($_POST['members'])) {
-		foreach ($_POST['members'] as $newmember) {
-			if (!is_numeric($newmember) ||
-			    empty(getUserEntryByUID($newmember))) {
-				$input_errors[] = gettext("One or more " .
-				    "invalid group members was submitted.");
-			}
-		}
-	}
-
-	if (!$input_errors && !(isset($id) && config_get_path("system/group/{$id}"))) {
-		/* make sure there are no dupes */
-		foreach (config_get_path('system/group', []) as $group) {
-			if ($group['name'] == $_POST['groupname']) {
-				$input_errors[] = gettext("Another entry " .
-				    "with the same group name already exists.");
-				break;
-			}
-		}
-	}
+	$input_errors = usermgr_group_save($_POST, $id, $guiuser, $pconfig, $savemsg);
 
 	if (!$input_errors) {
-		$group = array();
-		if (isset($id) && config_get_path("system/group/{$id}")) {
-			$group = config_get_path("system/group/{$id}");
-		}
-
-		$group['name'] = $_POST['groupname'];
-		$group['description'] = $_POST['description'];
-		$group['scope'] = $_POST['gtype'];
-
-		if (empty($_POST['members'])) {
-			unset($group['member']);
-		} else if ($group['gid'] != 1998) { // all group
-			$group['member'] = $_POST['members'];
-		}
-
-		if (isset($id) && config_get_path("system/group/{$id}")) {
-			config_set_path("system/group/{$id}", $group);
-		} else {
-			$nextgid = config_get_path('system/nextgid');
-			$group['gid'] = $nextgid++;
-			config_set_path('system/nextgid', $nextgid);
-			if ($_POST['dup']) {
-				$group['priv'] = config_get_path("system/group/{$_POST['dup']}/priv");
-			}
-			config_set_path('system/group/', $group);
-		}
-
-		admin_groups_sort();
-
-		local_group_set($group);
-
-		/*
-		 * Refresh users in this group since their privileges may have
-		 * changed.
-		 */
-		if (is_array($group['member'])) {
-			foreach (config_get_path('system/user', []) as $idx => $user) {
-				if (in_array($user['uid'], $group['member'])) {
-					local_user_set($user);
-					config_set_path("system/user/{$idx}", $user);
-				}
-			}
-		}
-
-		/* Sort it alphabetically */
-		$group_config = config_get_path('system/group', []);
-		usort($group_config, function($a, $b) {
-			return strcmp($a['name'], $b['name']);
-		});
-		config_set_path('system/group', $group_config);
-
-		$savemsg = localize_text("Successfully %s group %s",
-		    (strlen($id) > 0) ? gettext("edited") : gettext("created"),
-		    $group['name']);
-		write_config($savemsg);
-		logger($logging_level, $savemsg, LOG_PREFIX_AUTHPROVIDER_LOCAL);
-
 		header("Location: system_groupmanager.php");
 		exit;
 	}
 
 	$pconfig['name'] = $_POST['groupname'];
-}
-
-function build_priv_table() {
-	global $id, $read_only, $dup;
-
-	$privhtml = '<div class="table-responsive">';
-	$privhtml .=	'<table class="table table-striped table-hover table-sm">';
-	$privhtml .=		'<thead>';
-	$privhtml .=			'<tr>';
-	$privhtml .=				'<th>' . gettext('Name') . '</th>';
-	$privhtml .=				'<th>' . gettext('Description') . '</th>';
-	$privhtml .=				'<th>' . gettext('Action') . '</th>';
-	$privhtml .=			'</tr>';
-	$privhtml .=		'</thead>';
-	$privhtml .=		'<tbody>';
-
-	$user_has_root_priv = false;
-
-	if (isset($id)) {
-		foreach (get_user_privdesc(config_get_path("system/group/{$id}")) as $i => $priv) {
-			$privhtml .=		'<tr>';
-			$privhtml .=			'<td>' . htmlspecialchars($priv['name']) . '</td>';
-			$privhtml .=			'<td>' . htmlspecialchars($priv['descr']);
-			if (isset($priv['warn']) && ($priv['warn'] == 'standard-warning-root')) {
-				$privhtml .=			' ' . gettext('(admin privilege)');
-				$user_has_root_priv = true;
-			}
-			$privhtml .=			'</td>';
-			if (!$read_only && ($dup === null)) {
-				$privhtml .=			'<td><a class="fa-solid fa-trash-can" title="' . gettext('Delete Privilege') . '"	href="system_groupmanager.php?act=delpriv&amp;groupid=' . $id . '&amp;privid=' . $i . '" usepost></a></td>';
-			}
-			$privhtml .=		'</tr>';
-		}
-	}
-
-	if ($user_has_root_priv) {
-		$privhtml .=		'<tr>';
-		$privhtml .=			'<td colspan="2">';
-		$privhtml .=				'<b>' . gettext('Security notice: Users in this group effectively have administrator-level access') . '</b>';
-		$privhtml .=			'</td>';
-		$privhtml .=			'<td>';
-		$privhtml .=			'</td>';
-		$privhtml .=		'</tr>';
-
-	}
-
-	$privhtml .=		'</tbody>';
-	$privhtml .=	'</table>';
-	$privhtml .= '</div>';
-
-	$privhtml .= '<nav class="action-buttons">';
-	if (!$read_only && ($dup === null)) {
-		$privhtml .=	'<a href="system_groupmanager_addprivs.php?groupid=' . $id . '" class="btn btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>' . gettext("Add") . '</a>';
-	}
-	$privhtml .= '</nav>';
-
-	return($privhtml);
 }
 
 $pgtitle = array(gettext("System"), gettext("User Manager"), gettext("Groups"));
@@ -584,7 +357,7 @@ if (isset($pconfig['gid']) || ($dup !== null)) {
 
 	$section->addInput(new Form_StaticText(
 		null,
-		build_priv_table()
+		usermgr_group_priv_table($id, $read_only, $dup)
 	));
 
 

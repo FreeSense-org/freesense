@@ -34,6 +34,7 @@ require_once("guiconfig.inc");
 require_once("filter.inc");
 require_once("util.inc");
 require_once("gwlb.inc");
+require_once("system_routing.inc");
 
 $referer = (isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '/system_routes.php');
 
@@ -60,155 +61,12 @@ if (isset($_REQUEST['dup']) && is_numericint($_REQUEST['dup'])) {
 
 if ($_POST['save']) {
 
-	global $aliastable;
-
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "network network_subnet gateway");
-	$reqdfieldsn = explode(",",
-		gettext("Destination network") . "," .
-		gettext("Destination network bit count") . "," .
-		gettext("Gateway"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ($_POST['network'] && !is_ipaddr($_POST['network']) &&
-	    (!is_alias($_POST['network']) || !in_array(alias_get_type($_POST['network']), array('host', 'network', 'url')))) {
-		$input_errors[] = gettext("A valid IPv4 or IPv6 destination network or an alias must be specified.");
-	}
-	if (($_POST['network_subnet'] && !is_numeric($_POST['network_subnet']))) {
-		$input_errors[] = gettext("A valid destination network bit count must be specified.");
-	}
-	if (($_POST['gateway']) && is_ipaddr($_POST['network'])) {
-		if (!isset($a_gateways[$_POST['gateway']])) {
-			$input_errors[] = gettext("A valid gateway must be specified.");
-		} else if (isset($a_gateways[$_POST['gateway']]['disabled']) && !$_POST['disabled']) {
-			$input_errors[] = gettext("The gateway is disabled but the route is not. The route must be disabled in order to choose a disabled gateway.");
-		} else {
-			// Note that the 3rd parameter "disabled" must be passed as explicitly true or false.
-			if (!validate_address_family($_POST['network'], $_POST['gateway'], $_POST['disabled'] ? true : false) &&
-				!validate_address_family($_POST['network'], array_get_path($a_gateways, "{$_POST['gateway']}/gateway"), $_POST['disabled'] ? true : false)) {
-				$input_errors[] = sprintf(gettext('The gateway "%1$s" is a different Address Family than network "%2$s".'), array_get_path($a_gateways, "{$_POST['gateway']}/gateway"), $_POST['network']);
-			}
-		}
-	}
-
-	/* check for overlaps */
-	$current_targets = get_staticroutes(true);
-	$new_targets = array();
-	if (is_ipaddrv6($_POST['network'])) {
-		$osn = gen_subnetv6($_POST['network'], $_POST['network_subnet']) . "/" . $_POST['network_subnet'];
-		$new_targets[] = $osn;
-	}
-	if (is_ipaddrv4($_POST['network'])) {
-		if ($_POST['network_subnet'] > 32) {
-			$input_errors[] = gettext("A IPv4 subnet can not be over 32 bits.");
-		} else {
-			$osn = gen_subnet($_POST['network'], $_POST['network_subnet']) . "/" . $_POST['network_subnet'];
-			$new_targets[] = $osn;
-		}
-	} elseif (is_alias($_POST['network'])) {
-		$osn = $_POST['network'];
-		foreach (preg_split('/\s+/', $aliastable[$osn]) as $tgt) {
-			if (is_ipaddrv4($tgt)) {
-				$tgt .= "/32";
-			}
-			if (is_ipaddrv6($tgt)) {
-				$tgt .= "/128";
-			}
-			if (!is_subnet($tgt)) {
-				continue;
-			}
-			$new_targets[] = $tgt;
-		}
-	}
-	if (!isset($id)) {
-		$id = count(config_get_path('staticroutes/route', []));
-	}
-	$oroute = $this_routes_config;
-	$old_targets = array();
-	if (!empty($oroute)) {
-		$staticroute_file = g_get('tmp_path') . '/staticroute_' . $id;
-		if (file_exists($staticroute_file)) {
-			$old_targets = unserialize_data(file_get_contents($staticroute_file), []);
-		}
-		$staticroute_gw_file = $staticroute_file . '_gw';
-		if (file_exists($staticroute_gw_file)) {
-			$old_gateway = unserialize_data(file_get_contents($staticroute_gw_file), []);
-		}
-	}
-
-	$overlaps = array_intersect($new_targets, array_diff($current_targets, $old_targets));
-	if (!$_POST['disabled'] && count($overlaps)) {
-		$input_errors[] = gettext("A route to these destination networks already exists") . ": " . implode(", ", $overlaps);
-	}
-
-	foreach (config_get_path('interfaces', []) as $if) {
-		if (is_ipaddrv4($_POST['network']) &&
-			isset($if['ipaddr']) && isset($if['subnet']) &&
-			is_ipaddrv4($if['ipaddr']) && is_numeric($if['subnet']) &&
-			($_POST['network_subnet'] == $if['subnet']) &&
-			(gen_subnet($_POST['network'], $_POST['network_subnet']) == gen_subnet($if['ipaddr'], $if['subnet']))) {
-			$input_errors[] = sprintf(gettext("This network conflicts with address configured on interface %s."), $if['descr']);
-		} else if (is_ipaddrv6($_POST['network']) &&
-			isset($if['ipaddrv6']) && isset($if['subnetv6']) &&
-			is_ipaddrv6($if['ipaddrv6']) && is_numeric($if['subnetv6']) &&
-			($_POST['network_subnet'] == $if['subnetv6']) &&
-			(gen_subnetv6($_POST['network'], $_POST['network_subnet']) == gen_subnetv6($if['ipaddrv6'], $if['subnetv6']))) {
-			$input_errors[] = sprintf(gettext("This network conflicts with address configured on interface %s."), $if['descr']);
-		}
-	}
+	$input_errors = routing_save_static_route($_POST, $id ?? null);
 
 	if (!$input_errors) {
-		$route = array();
-		$route['network'] = $osn;
-		$route['gateway'] = $_POST['gateway'];
-		$route['descr'] = $_POST['descr'];
-		if ($_POST['disabled']) {
-			$route['disabled'] = true;
-		} else {
-			unset($route['disabled']);
-		}
-
-		$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-		if (file_exists($routes_apply_file)) {
-			$toapplylist = unserialize_data(file_get_contents($routes_apply_file), []);
-		} else {
-			$toapplylist = array();
-		}
-		config_set_path("staticroutes/route/{$id}", $route);
-
-		if (!empty($oroute)) {
-			$rgateway = $route[0]['gateway'];
-			if (!empty($old_gateway) && ($rgateway != $old_gateway)) {
-				$delete_targets = $old_targets;
-				$delgw = lookup_gateway_ip_by_name($old_gateway);
-			} else {
-				$delete_targets = array_diff($old_targets, $new_targets);
-				$delgw = lookup_gateway_ip_by_name($rgateway);
-			}
-			if (count($delete_targets)) {
-				foreach ($delete_targets as $dts) {
-					if (is_ipaddrv6($dts)) {
-						$family = "-inet6";
-					}
-					if (!count(route_get($dts, '', true))) {
-						continue;
-					}
-					$toapplylist[] = "/sbin/route delete " .
-					    $family . " " . $dts . " " . $delgw;
-				}
-			}
-		}
-
-		file_put_contents($routes_apply_file, serialize($toapplylist));
-
-		mark_subsystem_dirty('staticroutes');
-
-		write_config(gettext("Saved static route configuration."));
-
 		header("Location: system_routes.php");
 		exit;
 	}

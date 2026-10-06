@@ -113,6 +113,7 @@ define('PFCONFIG_FILTER_SELF', ['id' => 'pfc_self', 'description' => 'Required r
 define('PFCONFIG_FILTER_GATEWAY_MONITORING', ['id' => 'pfc_gwmon', 'description' => 'Rules to prevent incorrect routing of gateway monitoring traffic']);
 define('PFCONFIG_FILTER_IPSEC_INTERNAL', ['id' => 'pfc_ipsecint', 'description' => 'Required rules for IPsec host connectivity']);
 define('PFCONFIG_FILTER_ANTILOCKOUT', ['id' => 'pfc_antilock', 'description' => 'Rules to prevent accidental lockout from the firewall']);
+define('PFCONFIG_FILTER_RESTAPI', ['id' => 'pfc_restapi', 'description' => 'Rules for the REST API listeners']);
 define('PFCONFIG_FILTER_NAT_REFLECTION', ['id' => 'pfc_rnat', 'description' => 'Rules for NAT reflection']);
 define('PFCONFIG_FILTER_CAPTIVE_PORTAL', ['id' => 'pfc_cp', 'description' => 'Rules for the Captive Portal service']);
 define('PFCONFIG_ANCHOR_FILTER_USER', ['id' => 'pfc_anchorusr', 'description' => 'Anchor for user rules']);
@@ -190,6 +191,7 @@ define('PFCONFIG_CATEGORIES', [
 	PFCONFIG_FILTER_GATEWAY_MONITORING['id'] => 'PFCONFIG_FILTER_GATEWAY_MONITORING',
 	PFCONFIG_FILTER_IPSEC_INTERNAL['id'] => 'PFCONFIG_FILTER_IPSEC_INTERNAL',
 	PFCONFIG_FILTER_ANTILOCKOUT['id'] => 'PFCONFIG_FILTER_ANTILOCKOUT',
+	PFCONFIG_FILTER_RESTAPI['id'] => 'PFCONFIG_FILTER_RESTAPI',
 	PFCONFIG_FILTER_NAT_REFLECTION['id'] => 'PFCONFIG_FILTER_NAT_REFLECTION',
 	PFCONFIG_FILTER_CAPTIVE_PORTAL['id'] => 'PFCONFIG_FILTER_CAPTIVE_PORTAL',
 	PFCONFIG_ANCHOR_FILTER_USER['id'] => 'PFCONFIG_ANCHOR_FILTER_USER',
@@ -971,6 +973,70 @@ function is_module_loaded(string $module_name): bool
 }
 
 /* validate non-negative numeric string, or equivalent numeric variable */
+/*
+ * Update the changedesc and changecount(er) variables (moved here from
+ * guiconfig.inc, unchanged, for the shared page functions and the REST API).
+ */
+function update_changedesc($update) {
+	global $changedesc;
+	global $changecount;
+
+	$changedesc .= " {$update}";
+	$changecount++;
+}
+
+/* Check if variable has changed, update and log if it has
+ * returns true if var changed
+ * varname = variable name in plain text
+ * orig = original value
+ * new = new value
+ */
+function update_if_changed($varname, & $orig, $new) {
+	if (is_array($orig) && is_array($new)) {
+		$a_diff = array_diff($orig, $new);
+		foreach ($a_diff as $diff) {
+			update_changedesc("removed {$varname}: \"{$diff}\"");
+		}
+		$a_diff = array_diff($new, $orig);
+		foreach ($a_diff as $diff) {
+			update_changedesc("added {$varname}: \"{$diff}\"");
+		}
+		$orig = $new;
+		return true;
+
+	} else {
+		if ($orig != $new) {
+			update_changedesc("{$varname}: \"{$orig}\" -> \"{$new}\"");
+			$orig = $new;
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+ * Shared form validation: rejects control characters in every posted field
+ * and reports missing required fields. Used by the GUI pages and by the
+ * REST API through the same save functions (moved here from guiconfig.inc).
+ */
+function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_errors) {
+
+	/* check for bad control characters */
+	foreach ($postdata as $pn => $pd) {
+		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
+			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
+		}
+	}
+
+	if (is_array($reqdfields)) {
+		for ($i = 0; $i < count($reqdfields); $i++) {
+			if ($postdata[$reqdfields[$i]] == "") {
+				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
+			}
+		}
+	}
+}
+
 function is_numericint($arg) {
 	return (((is_int($arg) && $arg >= 0) || (is_string($arg) && strlen($arg) > 0 && ctype_digit(strval($arg)))) ? true : false);
 }

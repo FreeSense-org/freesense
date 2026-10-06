@@ -30,6 +30,7 @@
 require_once("guiconfig.inc");
 require_once("ipsec.inc");
 require_once("vpn.inc");
+require_once("system_routing.inc");
 
 $a_gateways = get_gateways();
 
@@ -65,75 +66,11 @@ if (isset($_POST['save'])) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "name");
-	$reqdfieldsn = explode(",", "Name");
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (!isset($_POST['name'])) {
-		$input_errors[] = gettext("A valid gateway group name must be specified.");
-	}
-	if (!is_validaliasname($_POST['name'])) {
-		$input_errors[] = invalidaliasnamemsg($_POST['name'], gettext("gateway group"));
-	}
-
-	if (isset($_POST['name'])) {
-		/* check for overlaps */
-		foreach (config_get_path('gateways/gateway_group', []) as $gateway_group) {
-			if (isset($id) && ($this_gateway_group_config && ($this_gateway_group_config === $gateway_group))) {
-				if ($gateway_group['name'] != $_POST['name']) {
-					$input_errors[] = gettext("Changing name on a gateway group is not allowed.");
-				}
-				continue;
-			}
-
-			if ($gateway_group['name'] == $_POST['name']) {
-				$input_errors[] = sprintf(gettext('A gateway group with this name "%s" already exists.'), $_POST['name']);
-				break;
-			}
-		}
-	}
-
-	/* Build list of items in group with priority */
-	$pconfig['item'] = array();
-	foreach ($a_gateways as $gwname => $gateway) {
-		if ($_POST[$gwname] > 0) {
-			$vipname = "{$gwname}_vip";
-			/* we have a priority above 0 (disabled), add item to list */
-			$pconfig['item'][] = "{$gwname}|{$_POST[$gwname]}|{$_POST[$vipname]}";
-		}
-		/* check for overlaps */
-		if ($_POST['name'] == $gwname) {
-			$input_errors[] = sprintf(gettext('A gateway group cannot have the same name as a gateway "%s" please choose another name.'), $_POST['name']);
-		}
-
-	}
-	if (count($pconfig['item']) == 0) {
-		$input_errors[] = gettext("No gateway(s) have been selected to be used in this group");
-	}
+	$result = routing_save_gateway_group($_POST, $id ?? null);
+	$pconfig['item'] = $result['item'];
+	$input_errors = $result['input_errors'];
 
 	if (!$input_errors) {
-		$gateway_group = array();
-		$gateway_group['name'] = $_POST['name'];
-		$gateway_group['item'] = $pconfig['item'];
-		$gateway_group['trigger'] = $_POST['trigger'];
-		if (!empty($pconfig['keep_failover_states'])) {
-			$gateway_group['keep_failover_states'] = $pconfig['keep_failover_states'];
-		}
-		$gateway_group['descr'] = $_POST['descr'];
-
-		if ($this_gateway_group_config) {
-			config_set_path("gateways/gateway_group/{$id}", $gateway_group);
-		} else {
-			config_set_path('gateways/gateway_group/', $gateway_group);
-		}
-
-		mark_subsystem_dirty('staticroutes');
-		mark_subsystem_dirty('gwgroup.' . $gateway_group['name']);
-
-		write_config("Gateway Groups settings saved");
-
 		header("Location: system_gateway_groups.php");
 		exit;
 	}

@@ -30,18 +30,16 @@
 require_once("guiconfig.inc");
 require_once("certs.inc");
 require_once("freesense-utils.inc");
+require_once("system_certificates.inc");
 
-$ca_methods = array(
-	"internal" => gettext("Create an internal Certificate Authority"),
-	"existing" => gettext("Import an existing Certificate Authority"),
-	"intermediate" => gettext("Create an intermediate Certificate Authority"));
+$ca_methods = pki_ca_methods();
 
-$ca_keylens = array("1024", "2048", "3072", "4096", "6144", "7680", "8192", "15360", "16384");
-$ca_keytypes = array("RSA", "ECDSA");
+$ca_keylens = pki_key_lengths();
+$ca_keytypes = pki_key_types();
 global $openssl_digest_algs;
 global $cert_strict_values;
 $max_lifetime = cert_get_max_lifetime();
-$default_lifetime = min(3650, $max_lifetime);
+$default_lifetime = pki_ca_default_lifetime();
 $openssl_ecnames = cert_build_curve_list();
 $class = "success";
 
@@ -67,57 +65,18 @@ if ((!empty($act) &&
 
 switch ($act) {
 	case 'del':
-		$name = htmlspecialchars($thisca['descr']);
-		if (cert_in_use($id)) {
-			$savemsg = sprintf(gettext("Certificate %s is in use and cannot be deleted"), $name);
-			$class = "danger";
-		} else {
-			/* Only remove CA reference when deleting. It can be reconnected if a new matching CA is imported */
-			foreach (config_get_path('cert', []) as $cid => $acrt) {
-				if ($acrt['caref'] == $thisca['refid']) {
-					config_del_path("cert/{$cid}/caref");
-				}
-			}
-			/* Remove any CRLs for this CA, there is no way to recover the connection once the CA has been removed. */
-			foreach (config_get_path('crl', []) as $cid => $acrl) {
-				if ($acrl['caref'] == $thisca['refid']) {
-					config_del_path("crl/{$cid}");
-				}
-			}
-			/* Delete the CA */
-			foreach (config_get_path('ca', []) as $cid => $aca) {
-				if ($aca['refid'] == $thisca['refid']) {
-					config_del_path("ca/{$cid}");
-				}
-			}
-			$savemsg = sprintf(gettext("Deleted Certificate Authority %s and associated CRLs"), htmlspecialchars($name));
-			write_config($savemsg);
-			ca_setup_trust_store();
-		}
+		$rv = pki_ca_delete($id);
+		$savemsg = $rv['savemsg'];
+		$class = $rv['class'];
 		unset($act);
 		break;
 	case 'edit':
 		/* Editing an existing CA, so populate values. */
-		$pconfig['method'] = 'existing';
-		$pconfig['descr']  = $thisca['descr'];
-		$pconfig['refid']  = $thisca['refid'];
-		$pconfig['cert']   = base64_decode($thisca['crt']);
-		$pconfig['serial'] = $thisca['serial'];
-		$pconfig['trust']  = ($thisca['trust'] == 'enabled');
-		$pconfig['randomserial']  = ($thisca['randomserial'] == 'enabled');
-		if (!empty($thisca['prv'])) {
-			$pconfig['key'] = base64_decode($thisca['prv']);
-		}
+		$pconfig = pki_ca_form('edit', $thisca);
 		break;
 	case 'new':
 		/* New CA, so set default values */
-		$pconfig['method'] = $_POST['method'];
-		$pconfig['keytype'] = "RSA";
-		$pconfig['keylen'] = "2048";
-		$pconfig['ecname'] = "prime256v1";
-		$pconfig['digest_alg'] = "sha256";
-		$pconfig['lifetime'] = $default_lifetime;
-		$pconfig['dn_commonname'] = "internal-ca";
+		$pconfig = pki_ca_form('new', null, $_POST['method']);
 		break;
 	case 'exp':
 		/* Exporting a ca */
@@ -136,202 +95,9 @@ if ($_POST['save']) {
 	$input_errors = array();
 	$pconfig = $_POST;
 
-	/* input validation */
-	switch ($pconfig['method']) {
-		case 'existing':
-			$reqdfields = explode(" ", "descr cert");
-			$reqdfieldsn = array(
-				gettext("Descriptive name"),
-				gettext("Certificate data"));
-			/* Make sure we do not have invalid characters in the fields for the certificate */
-			if (preg_match("/[\?\>\<\&\/\\\"\']/", $_POST['descr'])) {
-				array_push($input_errors, gettext("The field 'Descriptive Name' contains invalid characters."));
-			}
-			if ($_POST['cert'] && (!strstr($_POST['cert'], "BEGIN CERTIFICATE") || !strstr($_POST['cert'], "END CERTIFICATE"))) {
-				$input_errors[] = gettext("This certificate does not appear to be valid.");
-			}
-			if ($_POST['key'] && strstr($_POST['key'], "ENCRYPTED")) {
-				$input_errors[] = gettext("Encrypted private keys are not yet supported.");
-			}
-			if (!$input_errors && !empty($_POST['key']) && cert_get_publickey($_POST['cert'], false) != cert_get_publickey($_POST['key'], false, 'prv')) {
-				$input_errors[] = gettext("The submitted private key does not match the submitted certificate data.");
-			}
-			/* we must ensure the certificate is capable of acting as a CA
-			 * upstream issue 7885
-			 */
-			if (!$input_errors) {
-				$purpose = cert_get_purpose($_POST['cert'], false);
-				if ($purpose['ca'] != 'Yes') {
-					$input_errors[] = gettext("The submitted certificate does not appear to be a Certificate Authority, import it on the Certificates tab instead.");
-				}
-			}
-			break;
-		case 'internal':
-			$reqdfields = explode(" ",
-				"descr keylen ecname keytype lifetime dn_commonname");
-			$reqdfieldsn = array(
-				gettext("Descriptive name"),
-				gettext("Key length"),
-				gettext("Elliptic Curve Name"),
-				gettext("Key type"),
-				gettext("Lifetime"),
-				gettext("Common Name"));
-			break;
-		case 'intermediate':
-			$reqdfields = explode(" ",
-				"descr caref keylen ecname keytype lifetime dn_commonname");
-			$reqdfieldsn = array(
-				gettext("Descriptive name"),
-				gettext("Signing Certificate Authority"),
-				gettext("Key length"),
-				gettext("Elliptic Curve Name"),
-				gettext("Key type"),
-				gettext("Lifetime"),
-				gettext("Common Name"));
-			break;
-		default:
-			break;
-	}
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-	if ($pconfig['method'] != "existing") {
-		/* Make sure we do not have invalid characters in the fields for the certificate */
-		if (preg_match("/[\?\>\<\&\/\\\"\']/", $_POST['descr'])) {
-			array_push($input_errors, gettext("The field 'Descriptive Name' contains invalid characters."));
-		}
-		$pattern = '/[^a-zA-Z0-9\ \'\/~`\!@#\$%\^&\*\(\)_\-\+=\{\}\[\]\|;:"\<\>,\.\?\\\]/';
-		if (!empty($_POST['dn_commonname']) && preg_match($pattern, $_POST['dn_commonname'])) {
-			$input_errors[] = gettext("The field 'Common Name' contains invalid characters.");
-		}
-		if (!empty($_POST['dn_state']) && preg_match($pattern, $_POST['dn_state'])) {
-			$input_errors[] = gettext("The field 'State or Province' contains invalid characters.");
-		}
-		if (!empty($_POST['dn_city']) && preg_match($pattern, $_POST['dn_city'])) {
-			$input_errors[] = gettext("The field 'City' contains invalid characters.");
-		}
-		if (!empty($_POST['dn_organization']) && preg_match($pattern, $_POST['dn_organization'])) {
-			$input_errors[] = gettext("The field 'Organization' contains invalid characters.");
-		}
-		if (!empty($_POST['dn_organizationalunit']) && preg_match($pattern, $_POST['dn_organizationalunit'])) {
-			$input_errors[] = gettext("The field 'Organizational Unit' contains invalid characters.");
-		}
-		if (!in_array($_POST["keytype"], $ca_keytypes)) {
-			array_push($input_errors, gettext("Please select a valid Key Type."));
-		}
-		if (!in_array($_POST["keylen"], $ca_keylens)) {
-			array_push($input_errors, gettext("Please select a valid Key Length."));
-		}
-		if (!in_array($_POST["ecname"], array_keys($openssl_ecnames))) {
-			array_push($input_errors, gettext("Please select a valid Elliptic Curve Name."));
-		}
-		if (!in_array($_POST["digest_alg"], $openssl_digest_algs)) {
-			array_push($input_errors, gettext("Please select a valid Digest Algorithm."));
-		}
-		if ($_POST['lifetime'] > $max_lifetime) {
-			$input_errors[] = gettext("Lifetime is longer than the maximum allowed value. Use a shorter lifetime.");
-		}
-	}
-
-	if (!empty($_POST['serial']) && !cert_validate_serial($_POST['serial'])) {
-		$input_errors[] = gettext("Please enter a valid integer serial number.");
-	}
-
-	/* save modifications */
+	$input_errors = pki_ca_save($pconfig, $id ?? null, $act, $savemsg);
 	if (!$input_errors) {
-		$ca = array();
-		if (!isset($pconfig['refid']) || empty($pconfig['refid'])) {
-			$ca['refid'] = uniqid();
-		} else {
-			$ca['refid'] = $pconfig['refid'];
-		}
-
-		if (isset($id) && $thisca) {
-			$ca = $thisca;
-		}
-
-		$ca['descr'] = $pconfig['descr'];
-		$ca['trust'] = ($pconfig['trust'] == 'yes') ? "enabled" : "disabled";
-		$ca['randomserial'] = ($pconfig['randomserial'] == 'yes') ? "enabled" : "disabled";
-
-		if ($act == "edit") {
-			$ca['descr']  = $pconfig['descr'];
-			$ca['refid']  = $pconfig['refid'];
-			$ca['serial'] = $pconfig['serial'];
-			$ca['crt'] = base64_encode($pconfig['cert']);
-			$ca['prv'] = base64_encode($pconfig['key']);
-			$savemsg = sprintf(gettext("Updated Certificate Authority %s"), $ca['descr']);
-		} else {
-			$old_err_level = error_reporting(0); /* otherwise openssl_ functions throw warnings directly to a page screwing menu tab */
-			if ($pconfig['method'] == "existing") {
-				ca_import($ca, $pconfig['cert'], $pconfig['key'], $pconfig['serial']);
-				$savemsg = sprintf(gettext("Imported Certificate Authority %s"), $ca['descr']);
-			} else if ($pconfig['method'] == "internal") {
-				$dn = array('commonName' => $pconfig['dn_commonname']);
-				if (!empty($pconfig['dn_country'])) {
-					$dn['countryName'] = $pconfig['dn_country'];
-				}
-				if (!empty($pconfig['dn_state'])) {
-					$dn['stateOrProvinceName'] = $pconfig['dn_state'];
-				}
-				if (!empty($pconfig['dn_city'])) {
-					$dn['localityName'] = $pconfig['dn_city'];
-				}
-				if (!empty($pconfig['dn_organization'])) {
-					$dn['organizationName'] = $pconfig['dn_organization'];
-				}
-				if (!empty($pconfig['dn_organizationalunit'])) {
-					$dn['organizationalUnitName'] = $pconfig['dn_organizationalunit'];
-				}
-				if (!ca_create($ca, $pconfig['keylen'], $pconfig['lifetime'], $dn, $pconfig['digest_alg'], $pconfig['keytype'], $pconfig['ecname'])) {
-					$input_errors = array();
-					while ($ssl_err = openssl_error_string()) {
-						if (strpos($ssl_err, 'NCONF_get_string:no value') === false) {
-							array_push($input_errors, "openssl library returns: " . $ssl_err);
-						}
-					}
-				}
-				$savemsg = sprintf(gettext("Created internal Certificate Authority %s"), $ca['descr']);
-			} else if ($pconfig['method'] == "intermediate") {
-				$dn = array('commonName' => $pconfig['dn_commonname']);
-				if (!empty($pconfig['dn_country'])) {
-					$dn['countryName'] = $pconfig['dn_country'];
-				}
-				if (!empty($pconfig['dn_state'])) {
-					$dn['stateOrProvinceName'] = $pconfig['dn_state'];
-				}
-				if (!empty($pconfig['dn_city'])) {
-					$dn['localityName'] = $pconfig['dn_city'];
-				}
-				if (!empty($pconfig['dn_organization'])) {
-					$dn['organizationName'] = $pconfig['dn_organization'];
-				}
-				if (!empty($pconfig['dn_organizationalunit'])) {
-					$dn['organizationalUnitName'] = $pconfig['dn_organizationalunit'];
-				}
-				if (!ca_inter_create($ca, $pconfig['keylen'], $pconfig['lifetime'], $dn, $pconfig['caref'], $pconfig['digest_alg'], $pconfig['keytype'], $pconfig['ecname'])) {
-					$input_errors = array();
-					while ($ssl_err = openssl_error_string()) {
-						if (strpos($ssl_err, 'NCONF_get_string:no value') === false) {
-							array_push($input_errors, "openssl library returns: " . $ssl_err);
-						}
-					}
-				}
-				$savemsg = sprintf(gettext("Created internal intermediate Certificate Authority %s"), $ca['descr']);
-			}
-			error_reporting($old_err_level);
-		}
-
-		if (isset($id) && $thisca) {
-			config_set_path("ca/{$ca_item_config['idx']}", $ca);
-		} else {
-			config_set_path('ca/', $ca);
-		}
-
-		if (!$input_errors) {
-			write_config($savemsg);
-			ca_setup_trust_store();
-			FreeSenseHeader("system_camanager.php");
-		}
+		FreeSenseHeader("system_camanager.php");
 	}
 }
 
@@ -651,14 +417,7 @@ $form->add($section);
 $section = new Form_Section('Internal Certificate Authority');
 $section->addClass('toggle-internal', 'toggle-intermediate', 'collapse');
 
-$allCas = array();
-foreach (config_get_path('ca', []) as $ca) {
-	if (!$ca['prv']) {
-			continue;
-	}
-
-	$allCas[ $ca['refid'] ] = $ca['descr'];
-}
+$allCas = pki_ca_signing_list();
 
 $group = new Form_Group('*Signing Certificate Authority');
 $group->addClass('toggle-intermediate', 'collapse');

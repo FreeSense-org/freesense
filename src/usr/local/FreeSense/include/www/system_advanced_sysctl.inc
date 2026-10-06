@@ -61,8 +61,12 @@ function getTunables($json = false) {
 	return(json_encode($tunables));
 }
 
-// Delete a system tunable
-function deleteTunable($id, $complete = false) {
+/*
+ * Delete a system tunable. $complete applies the tunables at once; otherwise
+ * the change is pending (sysctl dirty) and, when $redirect is set, the page
+ * is sent back to the list (the caller exits).
+ */
+function deleteTunable($id, $complete = false, $redirect = true) {
 	/* Sort tunables to ensure they are in the expected order. */
 	sortTunables();
 	if (config_get_path('sysctl/item/' . $id)) {
@@ -72,12 +76,24 @@ function deleteTunable($id, $complete = false) {
 			system_setup_sysctl();
 		} else {
 			mark_subsystem_dirty('sysctl');
-			FreeSenseHeader("system_advanced_sysctl.php");
+			if ($redirect) {
+				FreeSenseHeader("system_advanced_sysctl.php");
+			}
 		}
 		return true;
 	}
 
 	return false;
+}
+
+/* Position of the custom tunable named $name (as entered, not encoded), or null. */
+function findTunable($name) {
+	foreach (config_get_path('sysctl/item', []) as $idx => $item) {
+		if (is_array($item) && (htmlspecialchars_decode((string)$item['tunable']) === (string)$name)) {
+			return $idx;
+		}
+	}
+	return null;
 }
 
 // Update tunable if it exists, otherwise create a new one
@@ -94,6 +110,9 @@ function saveTunable($post, $id, $json = false) {
 		$input_errors[] = gettext("Both a name and a value must be specified.");
 	} else if (preg_match("/[^a-zA-Z0-9.\-_%\/]/", $post['value'])) {
 		$input_errors[] = gettext("The value may only contain alphanumeric characters, -, _, %, and /.");
+	} else if ((($dup = findTunable($post['tunable'])) !== null) && ((string)$dup !== (string)$id)) {
+		/* A second entry for the same tunable was stored and overrode the first. */
+		$input_errors[] = gettext("A custom tunable with this name already exists.");
 	} else {
 		$tunableent['tunable'] = htmlspecialchars($post['tunable']);
 		$tunableent['value'] = htmlspecialchars($post['value']);

@@ -93,31 +93,7 @@ if (!$ignorefirmwarelock) {
 	}
 }
 
-$firewall_rules_dscp_types = array(
-	"af11",
-	"af12",
-	"af13",
-	"af21",
-	"af22",
-	"af23",
-	"af31",
-	"af32",
-	"af33",
-	"af41",
-	"af42",
-	"af43",
-	"VA",
-	"EF",
-	"cs1",
-	"cs2",
-	"cs3",
-	"cs4",
-	"cs5",
-	"cs6",
-	"cs7",
-	"0x01",
-	"0x02",
-	"0x04");
+/* $firewall_rules_dscp_types moved to firewall_rules.inc with the rest of the rule editor tables. */
 
 $auth_server_types = array(
 	'ldap' => "LDAP",
@@ -243,23 +219,7 @@ $wlan_modes = array(
 	"adhoc" => gettext("Ad-hoc (IBSS)"),
 	"hostap" => gettext("Access Point"));
 
-function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_errors) {
-
-	/* check for bad control characters */
-	foreach ($postdata as $pn => $pd) {
-		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
-			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
-		}
-	}
-
-	if (is_array($reqdfields)) {
-		for ($i = 0; $i < count($reqdfields); $i++) {
-			if ($postdata[$reqdfields[$i]] == "") {
-				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
-			}
-		}
-	}
-}
+/* do_input_validation() lives in util.inc so the REST API can use it too. */
 
 function print_input_errors($input_errors) {
 	echo '<div class="alert alert-danger input-errors">';
@@ -611,44 +571,6 @@ function set_customwidgettitle(& $user_settings) {
 	} else {
 		unset($user_settings['widgets'][$_POST['widgetkey']]['descr']);
 	}
-}
-
-/* update the changedesc and changecount(er) variables */
-function update_changedesc($update) {
-	global $changedesc;
-	global $changecount;
-
-	$changedesc .= " {$update}";
-	$changecount++;
-}
-
-/* Check if variable has changed, update and log if it has
- * returns true if var changed
- * varname = variable name in plain text
- * orig = original value
- * new = new value
- */
-function update_if_changed($varname, & $orig, $new) {
-	if (is_array($orig) && is_array($new)) {
-		$a_diff = array_diff($orig, $new);
-		foreach ($a_diff as $diff) {
-			update_changedesc("removed {$varname}: \"{$diff}\"");
-		}
-		$a_diff = array_diff($new, $orig);
-		foreach ($a_diff as $diff) {
-			update_changedesc("added {$varname}: \"{$diff}\"");
-		}
-		$orig = $new;
-		return true;
-
-	} else {
-		if ($orig != $new) {
-			update_changedesc("{$varname}: \"{$orig}\" -> \"{$new}\"");
-			$orig = $new;
-			return true;
-		}
-	}
-	return false;
 }
 
 //function to create widget tabs when called
@@ -1040,37 +962,7 @@ function alias_info_popup_html($alias_id, $is_system_alias = false) {
 	return $content;
 }
 
-/*
- * Custom Kea JSON can load hook libraries and choose file paths, which is
- * equivalent to root access (pfSense-SA-26_20). Only administrators or users
- * holding the dedicated privilege may change it.
- */
-function kea_custom_config_editable() {
-	$user_entry = getUserEntry($_SESSION['Username']);
-	$user_entry = $user_entry['item'] ?? [];
-	return (isAdminUID($_SESSION['Username']) ||
-	    userHasPrivilege($user_entry, 'page-services-dhcpserver-kea-custom') ||
-	    userHasPrivilege($user_entry, 'page-all'));
-}
-
-/*
- * For users who may not edit custom Kea JSON, keep the stored value and
- * reject any attempt to change it. $stored is the base64 config value.
- */
-function kea_custom_config_enforce($stored, &$input_errors) {
-	if (kea_custom_config_editable()) {
-		return;
-	}
-	$stored = base64_decode((string)$stored);
-	$normalize = function ($text) {
-		return trim(str_replace("\r\n", "\n", (string)$text));
-	};
-	if (isset($_POST['custom_kea_config']) &&
-	    ($normalize($_POST['custom_kea_config']) !== $normalize($stored))) {
-		$input_errors[] = gettext("This user does not have sufficient privileges to edit the custom Kea configuration.");
-	}
-	$_POST['custom_kea_config'] = $stored;
-}
+/* kea_custom_config_editable() and kea_custom_config_enforce() live in services_dhcp.inc. */
 
 function gateway_info_popup($showgw) {
 	$content = "";

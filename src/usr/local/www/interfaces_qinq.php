@@ -28,6 +28,7 @@
 
 require_once("guiconfig.inc");
 require_once("functions.inc");
+require_once("interfaces_l2.inc");
 
 if ($_POST['act'] == "del") {
 	$id = is_numericint($_POST['id']) ? $_POST['id'] : null;
@@ -37,41 +38,7 @@ if ($_POST['act'] == "del") {
 	 * Otherwise users can end up in an inconsistent state where some changes are
 	 * performed and others denied. See upstream issue 15318
 	 */
-	phpsession_begin();
-	$guiuser = getUserEntry($_SESSION['Username']);
-	$read_only = (is_array($guiuser) && userHasPrivilege($guiuser['item'], "user-config-readonly"));
-	phpsession_end();
-
-	if ($read_only) {
-		$input_errors = array(gettext("Insufficient privileges to make the requested change (read only)."));
-	}
-
-	$this_qinq_config = config_get_path("qinqs/qinqentry/{$id}");
-	/* check if still in use */
-	if ((config_get_path('qinqs/qinqentry') !== null) && vlan_inuse($this_qinq_config)) {
-		$input_errors[] = gettext("This QinQ cannot be deleted because it is still being used as an interface.");
-	} elseif (empty($this_qinq_config['vlanif']) || !does_interface_exist($this_qinq_config['vlanif'])) {
-		$input_errors[] = gettext("QinQ interface does not exist");
-	} else {
-		$delmembers = explode(" ", $this_qinq_config['members']);
-		foreach ($delmembers as $tag) {
-			if (qinq_inuse($this_qinq_config, $tag)) {
-				$input_errors[] = gettext("This QinQ cannot be deleted because one of it tags is still being used as an interface.");
-				break;
-			}
-		}
-	}
-
-	if (empty($input_errors)) {
-		$delmembers = explode(" ", $this_qinq_config['members']);
-		foreach ($delmembers as $tag) {
-			exec("/sbin/ifconfig {$this_qinq_config['vlanif']}.{$tag} destroy");
-		}
-		FreeSense_interface_destroy($this_qinq_config['vlanif']);
-		config_del_path("qinqs/qinqentry/{$id}");
-
-		write_config("QinQ interface deleted");
-
+	if (interfaces_qinq_delete($id, interfaces_gui_read_only(), $input_errors)) {
 		header("Location: interfaces_qinq.php");
 		exit;
 	}

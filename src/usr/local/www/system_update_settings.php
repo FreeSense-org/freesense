@@ -29,78 +29,14 @@
 
 require_once("guiconfig.inc");
 require_once("pkg-utils.inc");
+require_once("system_update_settings.inc");
 
 $repos = pkg_list_repos();
 
-if ($_POST && !empty($_POST['fwbranch']) &&
-    !in_array($_POST['fwbranch'], array_column($repos, 'name'), true)) {
-	$input_errors[] = gettext('That firmware branch would downgrade the running system and cannot be selected.');
-}
-
-if ($_POST && !$input_errors) {
-
-	if ($_POST['disablecheck'] == "yes") {
-		config_set_path('system/firmware/disablecheck', true);
-	} elseif (config_path_enabled('system/firmware', 'disablecheck')) {
-		config_del_path('system/firmware/disablecheck');
-	}
-
-	if ($_POST['synconupgrade'] == "yes") {
-		config_set_path('system/gitsync/synconupgrade', true);
-	} elseif (config_path_enabled('system/gitsync', 'synconupgrade')) {
-		config_del_path('system/gitsync/synconupgrade');
-	}
-
-	config_set_path('system/gitsync/repositoryurl', $_POST['repositoryurl']);
-	config_set_path('system/gitsync/branch', $_POST['branch']);
-
-	foreach ($repos as $repo) {
-		if ($repo['name'] == $_POST['fwbranch']) {
-			config_set_path('system/pkg_repo_conf_path', $repo['name']);
-			pkg_switch_repo();
-			break;
-		}
-	}
-
-	if ($_POST['minimal'] == "yes") {
-		config_set_path('system/gitsync/minimal', true);
-	} else {
-		config_del_path('system/gitsync/minimal');
-	}
-
-	if ($_POST['diff'] == "yes") {
-		config_set_path('system/gitsync/diff', true);
-	} else {
-		config_del_path('system/gitsync/diff');
-	}
-
-	if ($_POST['show_files'] == "yes") {
-		config_set_path('system/gitsync/show_files', true);
-	} else {
-		config_del_path('system/gitsync/show_files');
-	}
-
-	if ($_POST['show_command'] == "yes") {
-		config_set_path('system/gitsync/show_command', true);
-	} else {
-		config_del_path('system/gitsync/show_command');
-	}
-
-	if ($_POST['dryrun'] == "yes") {
-		config_set_path('system/gitsync/dryrun', true);
-	} else {
-		config_del_path('system/gitsync/dryrun');
-	}
-
-	if (empty(config_get_path('system/firmware'))) {
-		config_del_path('system/firmware');
-	}
-	if (empty(config_get_path('system/gitsync'))) {
-		config_del_path('system/gitsync');
-	}
-	write_config(gettext("Saved system update settings."));
-
-	$savemsg = gettext("Changes have been saved successfully");
+if ($_POST) {
+	$rv = system_update_settings_save($_POST, $repos);
+	$input_errors = $rv['input_errors'];
+	$savemsg = $rv['savemsg'];
 }
 
 $curcfg = config_get_path('system/firmware', []);

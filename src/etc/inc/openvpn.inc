@@ -1683,6 +1683,11 @@ function openvpn_delete($mode, $settings) {
 	/* remove the configuration files */
 	unlink_if_exists("{$g['openvpn_base']}/{$mode_id}/*/*");
 	unlink_if_exists("{$g['openvpn_base']}/{$mode_id}/*");
+	/* and the directories left empty (recreated when the instance starts again) */
+	foreach ((glob("{$g['openvpn_base']}/{$mode_id}/*", GLOB_ONLYDIR) ?: array()) as $dir) {
+		@rmdir($dir);
+	}
+	@rmdir("{$g['openvpn_base']}/{$mode_id}");
 	openvpn_delete_tmp($mode, $vpnid);
 	filter_configure();
 }

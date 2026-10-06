@@ -297,7 +297,7 @@ events.push(function() {
 		$('#ipv6duidllt_time').val((Date.now() / 1000 | 0) - 946684800);
 		$('#ipv6duiden_id').attr('placeholder', 'xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx');
 		<?php if (isset($pconfig['global-v6duid'])): ?>
-		var duid = '<?=$pconfig['global-v6duid']?>';
+		var duid = '<?=preg_replace('/[^0-9A-Fa-f:]/', '', (string)$pconfig['global-v6duid'])?>';
 		var duidtype = parseInt(duid.substr(6, 5).replace(':', ''), 16);
 		switch (duidtype) {
 		case 1:

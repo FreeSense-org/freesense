@@ -30,6 +30,7 @@
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
 require_once("unbound.inc");
+require_once("services_unbound.inc");
 
 $id = $_REQUEST['id'];
 
@@ -45,14 +46,10 @@ if (!empty($id) && !is_numeric($id)) {
 $act = $_REQUEST['act'];
 
 if ($_POST['act'] == "del") {
-	if (!config_get_path('unbound/acls/' . $id)) {
+	if (!unbound_delete_acl($id)) {
 		FreeSenseHeader("services_unbound_acls.php");
 		exit;
 	}
-
-	config_del_path('unbound/acls/' . $id);
-	write_config(gettext("Access list deleted from DNS Resolver."));
-	mark_subsystem_dirty('unbound');
 }
 
 if ($act == "new") {
@@ -76,69 +73,19 @@ if ($act == 'new') {
 }
 
 if ($_POST['apply']) {
-	$retval = 0;
-	$retval |= services_unbound_configure();
-	if ($retval == 0) {
-		clear_subsystem_dirty('unbound');
-	}
+	$retval = unbound_apply_changes();
 }
 if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
-	$deleting = false;
 
-	// input validation - only allow 50 entries in a single ACL
-	for ($x = 0; $x < 50; $x++) {
-		if (isset($pconfig["acl_network{$x}"])) {
-			$networkacl[$x] = array();
-			$networkacl[$x]['acl_network'] = $pconfig["acl_network{$x}"];
-			$networkacl[$x]['mask'] = $pconfig["mask{$x}"];
-			$networkacl[$x]['description'] = $pconfig["description{$x}"];
-			if (!is_ipaddr($networkacl[$x]['acl_network'])) {
-				$input_errors[] = gettext("A valid IP address must be entered for each row under Networks.");
-			}
+	if (strtolower($pconfig['save']) == strtolower(gettext("Save"))) {
+		/* An edit form posts the access list's position as "aclid"; a new one is added. */
+		$rv = unbound_save_acl($_POST, ($act == "edit") ? $id : null);
+		$input_errors = $rv['input_errors'];
+		$networkacl = $rv['networkacl'];
 
-			if (is_ipaddr($networkacl[$x]['acl_network'])) {
-				if (!is_subnet($networkacl[$x]['acl_network']."/".$networkacl[$x]['mask'])) {
-					$input_errors[] = gettext("A valid IPv4 netmask must be entered for each IPv4 row under Networks.");
-				}
-			} else if (function_exists("is_ipaddrv6")) {
-				if (!is_ipaddrv6($networkacl[$x]['acl_network'])) {
-					$input_errors[] = gettext("A valid IPv6 address must be entered for {$networkacl[$x]['acl_network']}.");
-				} else if (!is_subnetv6($networkacl[$x]['acl_network']."/".$networkacl[$x]['mask'])) {
-					$input_errors[] = gettext("A valid IPv6 netmask must be entered for each IPv6 row under Networks.");
-				}
-			} else {
-				$input_errors[] = gettext("A valid IP address must be entered for each row under Networks.");
-			}
-		} else if (isset($networkacl[$x])) {
-			unset($networkacl[$x]);
-		}
-	}
-
-	if (!$input_errors) {
-		if (strtolower($pconfig['save']) == strtolower(gettext("Save"))) {
-			$acl_entry = array();
-			$acl_entry['aclid'] = $pconfig['aclid'];
-			$acl_entry['aclname'] = $pconfig['aclname'];
-			$acl_entry['aclaction'] = $pconfig['aclaction'];
-			$acl_entry['description'] = $pconfig['description'];
-			$acl_entry['aclid'] = $pconfig['aclid'];
-			$acl_entry['row'] = array();
-
-			foreach ($networkacl as $acl) {
-				$acl_entry['row'][] = $acl;
-			}
-
-			if (isset($id) && config_get_path('unbound/acls/' . $id)) {
-				config_set_path('unbound/acls/' . $id, $acl_entry);
-			} else {
-				config_set_path('unbound/acls/' . count(config_get_path('unbound/acls', [])) + 1, $acl_entry);
-			}
-
-			mark_subsystem_dirty("unbound");
-			write_config(gettext("Access list configured for DNS Resolver."));
-
+		if (!$input_errors) {
 			FreeSenseHeader("/services_unbound_acls.php");
 			exit;
 		}
@@ -211,7 +158,7 @@ if ($act == "new" || $act == "edit") {
 		'aclaction',
 		'*Action',
 		strtolower($pconfig['aclaction']),
-		array('allow' => gettext('Allow'), 'deny' => gettext('Deny'), 'refuse' => gettext('Refuse'), 'allow snoop' => gettext('Allow Snoop'), 'deny nonlocal' => gettext('Deny Nonlocal'), 'refuse nonlocal' => gettext('Refuse Nonlocal'))
+		unbound_acl_actions()
 	))->setHelp($actionHelp);
 
 	$section->addInput(new Form_Input(

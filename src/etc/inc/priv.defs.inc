@@ -1011,6 +1011,12 @@ $priv_list['page-status-trafficshaper-queues']['descr'] = gettext("Allow access 
 $priv_list['page-status-trafficshaper-queues']['match'] = array();
 $priv_list['page-status-trafficshaper-queues']['match'][] = "status_queues.php*";
 
+$priv_list['page-status-restapi'] = array();
+$priv_list['page-status-restapi']['name'] = gettext("WebCfg - Status: REST API");
+$priv_list['page-status-restapi']['descr'] = gettext("Allow access to the 'Status: REST API' page (API activity, the request log and the listener state). Clearing the log also needs the 'System: REST API' page.");
+$priv_list['page-status-restapi']['match'] = array();
+$priv_list['page-status-restapi']['match'][] = "status_restapi.php*";
+
 $priv_list['page-status-services'] = array();
 $priv_list['page-status-services']['name'] = gettext("WebCfg - Status: Services");
 $priv_list['page-status-services']['descr'] = gettext("Allow access to the 'Status: Services' page.");
@@ -1151,6 +1157,27 @@ $priv_list['page-system-hasync']['name'] = gettext("WebCfg - System: High Availa
 $priv_list['page-system-hasync']['descr'] = gettext("Allow access to the 'System: High Availability Sync' page.");
 $priv_list['page-system-hasync']['match'] = array();
 $priv_list['page-system-hasync']['match'][] = "system_hasync.php*";
+
+$priv_list['page-system-restapi'] = array();
+$priv_list['page-system-restapi']['name'] = gettext("WebCfg - System: REST API");
+$priv_list['page-system-restapi']['descr'] = gettext("Allow access to the 'System: REST API' page (API settings and the API keys of every user).");
+$priv_list['page-system-restapi']['warn'] = "standard-warning-root";
+$priv_list['page-system-restapi']['match'] = array();
+$priv_list['page-system-restapi']['match'][] = "system_restapi.php*";
+$priv_list['page-system-restapi']['match'][] = "system_restapi_explorer.php*";
+
+$priv_list['page-system-restapi-explorer'] = array();
+$priv_list['page-system-restapi-explorer']['name'] = gettext("WebCfg - System: REST API explorer");
+$priv_list['page-system-restapi-explorer']['descr'] = gettext("Allow access to the 'System: REST API explorer' page (the endpoint reference, the OpenAPI document and Try it with the user's own API key).");
+$priv_list['page-system-restapi-explorer']['match'] = array();
+$priv_list['page-system-restapi-explorer']['match'][] = "system_restapi_explorer.php*";
+
+$priv_list['page-system-restapi-keys'] = array();
+$priv_list['page-system-restapi-keys']['name'] = gettext("WebCfg - System: REST API access");
+$priv_list['page-system-restapi-keys']['descr'] = gettext("Allow the user to use the REST API, to create and revoke their own API keys and to open the API Explorer. The API still only allows what the user's other privileges allow.");
+$priv_list['page-system-restapi-keys']['match'] = array();
+$priv_list['page-system-restapi-keys']['match'][] = "system_restapi_keys.php*";
+$priv_list['page-system-restapi-keys']['match'][] = "system_restapi_explorer.php*";
 
 $priv_list['page-system-staticroutes'] = array();
 $priv_list['page-system-staticroutes']['name'] = gettext("WebCfg - System: Static Routes");

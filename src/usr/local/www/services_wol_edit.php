@@ -30,17 +30,8 @@
 ##|*MATCH=services_wol_edit.php*
 ##|-PRIV
 
-function wolcmp($a, $b) {
-	return strcmp($a['descr'], $b['descr']);
-}
-
-function wol_sort() {
-	$wol_config = config_get_path('wol/wolentry', []);
-	usort($wol_config, "wolcmp");
-	config_set_path('wol/wolentry', $wol_config);
-}
-
 require_once("guiconfig.inc");
+require_once("services_wol.inc");
 
 if (is_numericint($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
@@ -62,45 +53,8 @@ if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "interface mac");
-	$reqdfieldsn = array(gettext("Interface"), gettext("MAC address"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (!$_POST['interface'] || !array_key_exists($_POST['interface'], get_configured_interface_with_descr())) {
-		$input_errors[] = gettext("A valid interface must be specified.");
-	}
-
-	/* normalize MAC addresses - lowercase and convert Windows-ized hyphenated MACs to colon delimited */
-	$_POST['mac'] = trim(strtolower(str_replace("-", ":", $_POST['mac'])));
-
-	if (($_POST['mac'] && !is_macaddr($_POST['mac']))) {
-		$input_errors[] = gettext("A valid MAC address must be specified.");
-	}
-
-	foreach (config_get_path('wol/wolentry', []) as $wolidx => $wolentry) {
-		if ((!isset($id) || ($wolidx != $id)) && ($wolentry['interface'] == $_POST['interface']) && ($wolentry['mac'] == $_POST['mac'])) {
-			$input_errors[] = gettext("This interface and MAC address wake-on-LAN entry already exists.");
-			break;
-		}
-	}
-
+	$input_errors = wol_save_entry($_POST, $id);
 	if (!$input_errors) {
-		$wolent = array();
-		$wolent['interface'] = $_POST['interface'];
-		$wolent['mac'] = $_POST['mac'];
-		$wolent['descr'] = $_POST['descr'];
-
-		if ($this_wol_config) {
-			config_set_path("wol/wolentry/{$id}", $wolent);
-		} else {
-			config_set_path('wol/wolentry/', $wolent);
-		}
-		wol_sort();
-
-		write_config(gettext("Configured a wake-on-LAN entry."));
-
 		header("Location: services_wol.php");
 		exit;
 	}

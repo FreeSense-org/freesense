@@ -27,39 +27,10 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-
-function bridge_inuse($num) {
-	$a_bridges = config_get_path('bridges/bridged', []);
-	$iflist = get_configured_interface_list(true);
-	$if_config = config_get_path('interfaces', []);
-	foreach ($iflist as $if) {
-		if ($if_config[$if]['if'] == $a_bridges[$num]['bridgeif']) {
-			return true;
-		}
-	}
-
-	return false;
-}
+require_once("interfaces_l2.inc");
 
 if ($_POST['act'] == "del") {
-	if (!isset($_POST['id'])) {
-		$input_errors[] = gettext("Wrong parameters supplied");
-	} else if (empty(config_get_path("bridges/bridged/{$_POST['id']}"))) {
-		$input_errors[] = gettext("Wrong index supplied");
-	/* check if still in use */
-	} else if (bridge_inuse($_POST['id'])) {
-		$input_errors[] = gettext("This bridge cannot be deleted because it is assigned as an interface.");
-	} else {
-		if (!does_interface_exist(config_get_path("bridges/bridged/{$_POST['id']}/bridgeif"))) {
-			logger(LOG_NOTICE, localize_text("Bridge interface does not exist, skipping ifconfig destroy."));
-		} else {
-			FreeSense_interface_destroy(config_get_path("bridges/bridged/{$_POST['id']}/bridgeif"));
-		}
-
-		config_del_path("bridges/bridged/{$_POST['id']}");
-
-		write_config("Bridge deleted");
-
+	if (interfaces_bridge_delete($_POST['id'] ?? null, $input_errors)) {
 		header("Location: interfaces_bridge.php");
 		exit;
 	}

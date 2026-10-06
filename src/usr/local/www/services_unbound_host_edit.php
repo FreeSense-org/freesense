@@ -32,156 +32,19 @@
 ##|*MATCH=services_unbound_host_edit.php*
 ##|-PRIV
 
-function hostcmp($a, $b) {
-	return strcasecmp($a['host'], $b['host']);
-}
-
-function hosts_sort() {
-	$hosts = config_get_path('unbound/hosts', []);
-	if (empty($hosts)) {
-		return;
-	}
-	usort($hosts, "hostcmp");
-	config_set_path('unbound/hosts', $hosts);
-}
-
 require_once("guiconfig.inc");
+require_once("services_unbound.inc");
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
-$pconfig = [];
-
-if (isset($id) &&
-    config_get_path('unbound/hosts/' . $id)) {
-	$pconfig['host']    = config_get_path('unbound/hosts/' . $id . '/host');
-	$pconfig['domain']  = config_get_path('unbound/hosts/' . $id . '/domain');
-	$pconfig['ip']      = config_get_path('unbound/hosts/' . $id . '/ip');
-	$pconfig['descr']   = config_get_path('unbound/hosts/' . $id . '/descr');
-	$pconfig['aliases'] = config_get_path('unbound/hosts/' . $id . '/aliases');
-}
+$pconfig = unbound_host_settings($id);
 
 if ($_POST['save']) {
 	unset($input_errors);
-	$pconfig = $_POST;
-
-	/* input validation */
-	$reqdfields = explode(" ", "domain ip");
-	$reqdfieldsn = array(gettext("Domain"), gettext("IP address"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ($_POST['host']) {
-		if (!is_hostname($_POST['host'])) {
-			$input_errors[] = gettext("The hostname can only contain the characters A-Z, 0-9, '_' and '-'. It may not start or end with '-'.");
-		} else {
-			if (!is_unqualified_hostname($_POST['host'])) {
-				$input_errors[] = gettext("A valid hostname is specified, but the domain name part should be omitted");
-			}
-		}
-	}
-
-	if (($_POST['domain'] && !is_domain($_POST['domain']))) {
-		$input_errors[] = gettext("A valid domain must be specified.");
-	}
-
-	if ($_POST['ip']) {
-		foreach (explode(',', $_POST['ip']) as $ip) {
-			if (!is_ipaddr($ip)) {
-				$input_errors[] = gettext("A valid IP addresses must be specified.");
-				break;
-			}
-		}
-	}
-
-	/* collect aliases */
-	$aliases = array();
-	foreach ($_POST as $key => $value) {
-		$entry = '';
-		if (!substr_compare('aliashost', $key, 0, 9)) {
-			$entry = substr($key, 9);
-			$field = 'host';
-		} elseif (!substr_compare('aliasdomain', $key, 0, 11)) {
-			$entry = substr($key, 11);
-			$field = 'domain';
-		} elseif (!substr_compare('aliasdescription', $key, 0, 16)) {
-			$entry = substr($key, 16);
-			$field = 'description';
-		}
-		if (ctype_digit(strval($entry))) {
-			array_set_path($aliases, "{$entry}/{$field}", $value);
-		}
-	}
-
-	array_set_path($pconfig, 'aliases/item', $aliases);
-
-	/* validate aliases */
-	foreach ($aliases as $idx => $alias) {
-		if ((count($aliases) > 1) ||
-		    !empty($alias['host'])) {
-			$aliasreqdfields = array('aliasdomain' . $idx);
-			$aliasreqdfieldsn = array(gettext("Alias Domain"));
-
-			do_input_validation($_POST, $aliasreqdfields, $aliasreqdfieldsn, $input_errors);
-		}
-
-		/* Remove empty values */
-		if (empty($alias['host']) &&
-		    empty($alias['domain'])) {
-			unset($aliases[$idx]);
-			continue;
-		}
-
-		if ($alias['host']) {
-			if (!is_hostname($alias['host'])) {
-				$input_errors[] = gettext("Hostnames in an alias list can only contain the characters A-Z, 0-9 and '-'. They may not start or end with '-'.");
-			} else {
-				if (!is_unqualified_hostname($alias['host'])) {
-					$input_errors[] = gettext("A valid alias hostname is specified, but the domain name part should be omitted");
-				}
-			}
-		}
-		if (($alias['domain'] && !is_domain($alias['domain']))) {
-			$input_errors[] = gettext("A valid domain must be specified in alias list.");
-		}
-	}
-
-	/* check for overlaps */
-	foreach (config_get_path('unbound/hosts', []) as $hostent) {
-		if (isset($id) && (config_get_path('unbound/hosts/' . $id) === $hostent)) {
-			continue;
-		}
-
-		if (($hostent['host'] == $_POST['host']) &&
-		    ($hostent['domain'] == $_POST['domain'])) {
-			if (is_ipaddrv4($hostent['ip']) && is_ipaddrv4($_POST['ip'])) {
-				$input_errors[] = gettext("This host/domain override combination already exists with an IPv4 address.");
-				break;
-			}
-			if (is_ipaddrv6($hostent['ip']) && is_ipaddrv6($_POST['ip'])) {
-				$input_errors[] = gettext("This host/domain override combination already exists with an IPv6 address.");
-				break;
-			}
-		}
-	}
+	$rv = unbound_save_host($_POST, $id);
+	$input_errors = $rv['input_errors'];
+	$pconfig = $rv['pconfig'];
 
 	if (!$input_errors) {
-		$hostent = array();
-		$hostent['host'] = $_POST['host'];
-		$hostent['domain'] = $_POST['domain'];
-		$hostent['ip'] = $_POST['ip'];
-		$hostent['descr'] = $_POST['descr'];
-		array_set_path($hostent, 'aliases/item', $aliases);
-
-		if (isset($id) && config_get_path('unbound/hosts/' . $id)) {
-			config_set_path('unbound/hosts/' . $id, $hostent);
-		} else {
-			config_set_path('unbound/hosts/' . count(config_get_path('unbound/hosts', [])) + 1, $hostent);
-		}
-		hosts_sort();
-
-		mark_subsystem_dirty('unbound');
-
-		write_config(gettext("Host override configured for DNS Resolver."));
-
 		header("Location: services_unbound.php");
 		exit;
 	}

@@ -28,6 +28,7 @@
 
 require_once("guiconfig.inc");
 require_once("pkg-utils.inc");
+require_once("system_routing.inc");
 
 if (isset($_POST['referer'])) {
 	$referer = $_POST['referer'];
@@ -94,10 +95,9 @@ if (isset($id) && $a_gateways[$id]) {
 
 if ($_POST['save']) {
 
-	$input_errors = validate_gateway($_POST, $id);
+	$input_errors = routing_save_gateway($_POST, $id ?? null);
 
 	if (count($input_errors) == 0) {
-		save_gateway($_POST, $realid);
 		header("Location: system_gateways.php");
 		exit;
 	} else {

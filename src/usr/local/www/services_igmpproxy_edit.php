@@ -34,6 +34,7 @@ $pgtitle = array(gettext("Services"), gettext("IGMP Proxy"), gettext("Edit"));
 $pglinks = array("", "services_igmpproxy.php", "@self");
 
 require_once("guiconfig.inc");
+require_once("services_igmpproxy.inc");
 
 //igmpproxy_sort();
 
@@ -54,68 +55,15 @@ if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	if ($_POST['type'] == "upstream") {
-		foreach (config_get_path('igmpproxy/igmpentry', []) as $pid => $proxyentry) {
-			if (isset($id) && $id == $pid) {
-				continue;
-			}
-
-			if ($proxyentry['type'] == "upstream" && $proxyentry['ifname'] != $_POST['interface']) {
-				$input_errors[] = gettext("Only one 'upstream' interface can be configured.");
-			}
-		}
-	}
-
-	if (!empty($_POST['threshold']) && (!is_numeric($_POST['threshold']) ||
-	    ($_POST['threshold'] < -1) || ($_POST['threshold'] > 256))) {
-		$input_errors[] = gettext("Threshold value should be between -1 and 256.");
-	} 
-
-	$igmpentry = array();
-	$igmpentry['ifname'] = $_POST['ifname'];
-	$igmpentry['threshold'] = $_POST['threshold'];
-	$igmpentry['type'] = $_POST['type'];
-	$address = "";
-	$isfirst = 0;
-
-	/* item is a normal igmpentry type */
-	$x = 0;
-	while ($_POST["address{$x}"]) {
-
-		if ($isfirst > 0) {
-			$address .= " ";
-		}
-
-		$this_addr =  $_POST["address{$x}"] . "/" . $_POST["address_subnet{$x}"];
-		if (is_subnetv4($this_addr)) {
-			$address .= $this_addr;
-			$isfirst++;
-		} else {
-			$input_errors[] = sprintf(gettext("The following submitted address is invalid: %s"), $this_addr);
-		}
-
-		$x++;
-	}
-
+	$rv = igmpproxy_save_entry($_POST, $id);
+	$input_errors = $rv['input_errors'];
 	if (!$input_errors) {
-		$igmpentry['address'] = $address;
-		$igmpentry['descr'] = $_POST['descr'];
-
-		if ($this_igmpproxy_config) {
-			config_set_path("igmpproxy/igmpentry/{$id}", $igmpentry);
-		} else {
-			config_set_path('igmpproxy/igmpentry/', $igmpentry);
-		}
-
-		write_config("IGMP Proxy item saved");
-
-		mark_subsystem_dirty('igmpproxy');
 		header("Location: services_igmpproxy.php");
 		exit;
 	} else {
 		//we received input errors, copy data to prevent retype
 		$pconfig['descr'] = $_POST['descr'];
-		$pconfig['address'] = $address;
+		$pconfig['address'] = $rv['address'];
 		$pconfig['type'] = $_POST['type'];
 	}
 }
@@ -147,15 +95,7 @@ $form = new Form;
 
 $section = new Form_Section('IGMP Proxy Edit');
 
-$optionlist = array();
-$iflist = get_configured_interface_with_descr();
-
-$if_config = config_get_path('interfaces', []);
-foreach ($iflist as $ifnam => $ifdescr) {
-	if (!empty($if_config[$ifnam]['ipaddr'])) {
-		$optionlist[$ifnam] = $ifdescr;
-	}
-}
+$optionlist = igmpproxy_interface_list();
 
 $section->addInput(new Form_Select(
 	'ifname',
@@ -175,7 +115,7 @@ $section->addInput(new Form_Select(
 	'type',
 	'*Type',
 	$pconfig['type'],
-	['upstream' => gettext('Upstream Interface'), 'downstream' => gettext('Downstream Interface')]
+	igmpproxy_types()
 ))->setHelp('The upstream network interface is the outgoing interface which is responsible for communicating to available multicast data sources. ' .
 			'There can only be one upstream interface.%1$s' .
 			'Downstream network interfaces are the distribution	interfaces to the destination networks, where multicast clients can join groups and '.

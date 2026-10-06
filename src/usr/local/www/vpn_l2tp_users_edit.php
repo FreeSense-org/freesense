@@ -33,16 +33,15 @@ $shortcut_section = "l2tps";
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
 require_once("vpn.inc");
+require_once("vpn_l2tp.inc");
 
 if (isset($_REQUEST['id']) && is_numericint($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
 }
 
-$this_secret_config = isset($id) ? config_get_path("l2tp/user/{$id}") : null;
+$this_secret_config = isset($id) ? l2tp_user_conf($id) : null;
 if ($this_secret_config) {
-	$pconfig['usernamefld'] = $this_secret_config['name'];
-	$pconfig['ip'] = $this_secret_config['ip'];
-	$pconfig['passwordfld'] = $this_secret_config['passwordfld'];
+	$pconfig = l2tp_user_form($id);
 	$pwd_required = "";
 } else {
 	$pwd_required = "*";
@@ -52,63 +51,8 @@ if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	if ($this_secret_config) {
-		$reqdfields = explode(" ", "usernamefld");
-		$reqdfieldsn = array(gettext("Username"));
-	} else {
-		$reqdfields = explode(" ", "usernamefld passwordfld");
-		$reqdfieldsn = array(gettext("Username"), gettext("Password"));
-	}
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (preg_match("/[^a-zA-Z0-9\.\@\-_]/", $_POST['usernamefld'])) {
-		$input_errors[] = gettext("The username contains invalid characters.");
-	}
-	if (preg_match("/^!/", trim($_POST['passwordfld']))) {
-		$input_errors[] = gettext("The password cannot start with '!'.");
-	}
-	if (($_POST['passwordfld']) && ($_POST['passwordfld'] != $_POST['passwordfld_confirm'])) {
-		$input_errors[] = gettext("The passwords do not match.");
-	}
-	if (($_POST['ip'] && !is_ipaddr($_POST['ip']))) {
-		$input_errors[] = gettext("The IP address entered is not valid.");
-	}
-
-	if (!$input_errors && !$this_secret_config) {
-		/* make sure there are no dupes */
-		foreach (config_get_path('l2tp/user', []) as $secretent) {
-			if ($secretent['name'] == $_POST['usernamefld']) {
-				$input_errors[] = gettext("Another entry with the same username already exists.");
-				break;
-			}
-		}
-	}
-
+	$input_errors = l2tp_user_save($_POST, $id ?? null);
 	if (!$input_errors) {
-
-		if ($this_secret_config) {
-			$secretent = $this_secret_config;
-		}
-
-		$secretent['name'] = $_POST['usernamefld'];
-		$secretent['ip'] = $_POST['ip'];
-
-		if ($_POST['passwordfld'] && ($_POST['passwordfld'] != DMYPWD)) {
-			$secretent['password'] = $_POST['passwordfld'];
-		}
-
-		if ($this_secret_config) {
-			config_set_path("l2tp/user/{$id}", $secretent);
-		} else {
-			config_set_path('l2tp/user/', $secretent);
-		}
-		l2tp_users_sort();
-
-		write_config(gettext("Configured a L2TP VPN user."));
-
-		vpn_l2tp_updatesecret();
 
 		FreeSenseHeader("vpn_l2tp_users.php");
 

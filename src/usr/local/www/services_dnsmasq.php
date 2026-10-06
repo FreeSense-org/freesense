@@ -51,6 +51,8 @@ if ($_POST['apply']) {
 	$iflist = $rv['iflist'];
 } else if ($_POST['act'] == "del") {
 	deleteDNSMasqEntry($_POST);
+	header("Location: services_dnsmasq.php");
+	exit;
 }
 
 $pgtitle = array(gettext("Services"), gettext("DNS Forwarder"));

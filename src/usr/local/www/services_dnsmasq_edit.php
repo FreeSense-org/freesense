@@ -50,6 +50,10 @@ if (isset($id) && $a_hosts[$id]) {
 
 if ($_POST['save']) {
 	$rv = saveDNSMasqHost($_POST, $id);
+	if (empty($rv['input_errors'])) {
+		header("Location: services_dnsmasq.php");
+		exit;
+	}
 	$pconfig = $rv['config'];
 	$input_errors = $rv['input_errors'];
 }

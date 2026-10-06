@@ -46,6 +46,10 @@ if (isset($id) && $a_domainOverrides[$id]) {
 
 if ($_POST['save']) {
 	$rv = saveDomainOverride($_POST, $id);
+	if (empty($rv['input_errors'])) {
+		header("Location: services_dnsmasq.php");
+		exit;
+	}
 	$pconfig = $rv['config'];
 	$input_errors = $rv['input_errors'];
 }

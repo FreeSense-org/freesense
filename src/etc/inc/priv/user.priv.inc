@@ -152,8 +152,8 @@ $priv_list['page-services-upnp']['match'] = array();
 $priv_list['page-services-upnp']['match'][] = "pkg_edit.php?xml=miniupnpd.xml";
 
 $priv_list['page-openvpn-server-advanced'] = array();
-$priv_list['page-openvpn-server-advanced']['name'] = gettext("WebCfg - OpenVPN: Clients Edit Advanced");
-$priv_list['page-openvpn-server-advanced']['descr'] = gettext("Allow edit access to the 'OpenVPN: Clients' Advanced settings field.");
+$priv_list['page-openvpn-server-advanced']['name'] = gettext("WebCfg - OpenVPN: Servers Edit Advanced");
+$priv_list['page-openvpn-server-advanced']['descr'] = gettext("Allow edit access to the 'OpenVPN: Servers' Advanced settings field.");
 $priv_list['page-openvpn-server-advanced']['warn'] = "standard-warning-root";
 
 $priv_list['page-openvpn-csc-advanced'] = array();
@@ -162,8 +162,8 @@ $priv_list['page-openvpn-csc-advanced']['descr'] = gettext("Allow edit access to
 $priv_list['page-openvpn-csc-advanced']['warn'] = "standard-warning-root";
 
 $priv_list['page-openvpn-client-advanced'] = array();
-$priv_list['page-openvpn-client-advanced']['name'] = gettext("WebCfg - OpenVPN: Servers Edit Advanced");
-$priv_list['page-openvpn-client-advanced']['descr'] = gettext("Allow edit access to the 'OpenVPN: Servers' Advanced settings field.");
+$priv_list['page-openvpn-client-advanced']['name'] = gettext("WebCfg - OpenVPN: Clients Edit Advanced");
+$priv_list['page-openvpn-client-advanced']['descr'] = gettext("Allow edit access to the 'OpenVPN: Clients' Advanced settings field.");
 $priv_list['page-openvpn-client-advanced']['warn'] = "standard-warning-root";
 
 $priv_list['page-services-dhcpserver-kea-custom'] = array();

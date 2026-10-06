@@ -34,39 +34,17 @@ require_once('guiconfig.inc');
 require_once('functions.inc');
 require_once('filter.inc');
 require_once('shaper.inc');
+require_once('system_routing.inc');
 
 $a_gateways = get_gateways(GW_CACHE_ALL);
-$changedesc_prefix = gettext('Static Routes') . ": ";
 
 if ($_POST['apply']) {
 	$pconfig = $_POST;
-	$retval = 0;
-	
-	$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-	if (file_exists($routes_apply_file)) {
-		foreach (unserialize_data(file_get_contents($routes_apply_file), []) as $toapply) {
-			mwexec("{$toapply}");
-		}
-		@unlink($routes_apply_file);
-	}
-
-	$retval |= system_routing_configure();
-	$retval |= filter_configure();
-	/* reconfigure our gateway monitor */
-	setup_gateways_monitor();
-
-	if ($retval == 0) {
-		clear_subsystem_dirty('staticroutes');
-	}
+	$retval = routing_apply_changes();
 }
 
 if ($_POST['act'] === 'del') {
-	if (config_get_path("staticroutes/route/{$_POST['id']}")) {
-		$changedesc = $changedesc_prefix . sprintf(gettext('removed route to %s'), config_get_path("staticroutes/route/{$_POST['id']}/network"));
-		delete_static_route($_POST['id'], true);
-		config_del_path("staticroutes/route/{$_POST['id']}");
-		write_config($changedesc);
-		mark_subsystem_dirty('staticroutes');
+	if (routing_delete_static_route($_POST['id'])) {
 		header('Location: system_routes.php');
 		exit;
 	}
@@ -75,46 +53,16 @@ if ($_POST['act'] === 'del') {
 if (isset($_POST['del_x'])) {
 	/* delete selected routes */
 	if (is_array($_POST['route']) && count($_POST['route'])) {
-		$deleted_routes = '';
-		foreach ($_POST['route'] as $routei) {
-			$deleted_routes .= ' ' . config_get_path("staticroutes/route/{$routei}/network");
-			delete_static_route($routei, true);
-			config_del_path("staticroutes/route/{$routei}");
-		}
-		$changedesc = $changedesc_prefix . sprintf(gettext('removed route to %s'), $deleted_routes);
-		write_config($changedesc);
-		mark_subsystem_dirty('staticroutes');
+		routing_delete_static_routes($_POST['route']);
 		header('Location: system_routes.php');
 		exit;
 	}
 }
 
 if ($_POST['act'] === 'toggle') {
-	$this_route_config = config_get_path("staticroutes/route/{$_POST['id']}");
-	if ($this_route_config) {
-		$do_update_config = true;
-		if (isset($this_route_config['disabled'])) {
-			// Do not enable a route whose gateway is disabled
-			if (isset($a_gateways[$this_route_config['gateway']]['disabled'])) {
-				$do_update_config = false;
-				$input_errors[] = $changedesc_prefix . sprintf(gettext('gateway is disabled, cannot enable route to %s'), $this_route_config['network']);
-			} else {
-				config_del_path("staticroutes/route/{$_POST['id']}/disabled");
-				$changedesc = $changedesc_prefix . sprintf(gettext('enabled route to %s'), $this_route_config['network']);
-			}
-		} else {
-			delete_static_route($_POST['id']);
-			config_set_path("staticroutes/route/{$_POST['id']}/disabled", true);
-			$changedesc = $changedesc_prefix . sprintf(gettext('disabled route to %s'), $this_route_config['network']);
-		}
-
-		if ($do_update_config) {
-			if (write_config($changedesc)) {
-				mark_subsystem_dirty('staticroutes');
-			}
-			header('Location: system_routes.php');
-			exit;
-		}
+	if (routing_toggle_static_route($_POST['id'], $input_errors)) {
+		header('Location: system_routes.php');
+		exit;
 	}
 }
 
@@ -129,44 +77,7 @@ if($_POST['save']) {
 	}
 	/* move selected routes before this route */
 	if (isset($movebtn) && is_array($_POST['route']) && count($_POST['route'])) {
-		$a_routes = config_get_path('staticroutes/route', []);
-		$a_routes_new = array();
-
-		/* copy all routes < $movebtn and not selected */
-		for ($i = 0; $i < $movebtn; $i++) {
-			if (!in_array($i, $_POST['route'])) {
-				$a_routes_new[] = $a_routes[$i];
-			}
-		}
-
-		/* copy all selected routes */
-		for ($i = 0; $i < count($a_routes); $i++) {
-			if ($i == $movebtn) {
-				continue;
-			}
-			if (in_array($i, $_POST['route'])) {
-				$a_routes_new[] = $a_routes[$i];
-			}
-		}
-
-		/* copy $movebtn route */
-		if ($movebtn < count($a_routes)) {
-			$a_routes_new[] = $a_routes[$movebtn];
-		}
-
-		/* copy all routes > $movebtn and not selected */
-		for ($i = $movebtn+1; $i < count($a_routes); $i++) {
-			if (!in_array($i, $_POST['route'])) {
-				$a_routes_new[] = $a_routes[$i];
-			}
-		}
-		if (count($a_routes_new) > 0) {
-			config_set_path('staticroutes/route', $a_routes_new);
-		}
-
-		if (write_config(gettext('Saved static routes configuration.'))) {
-			mark_subsystem_dirty('staticroutes');
-		}
+		routing_move_static_routes($movebtn, $_POST['route']);
 		header('Location: system_routes.php');
 		exit;
 	}

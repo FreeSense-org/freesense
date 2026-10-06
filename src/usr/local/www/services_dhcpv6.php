@@ -35,11 +35,7 @@ require_once('guiconfig.inc');
 require_once('filter.inc');
 require_once('services_dhcp.inc');
 
-$dnsregpolicy_values = [
-	'default' => gettext('Track server'),
-	'enable' => gettext('Enable'),
-	'disable' => gettext('Disable')
-];
+$dnsregpolicy_values = dhcp_server_dnsregpolicy_values();
 
 if (!g_get('services_dhcp_server_enable')) {
 	header("Location: /");
@@ -47,8 +43,7 @@ if (!g_get('services_dhcp_server_enable')) {
 }
 
 $if = $_REQUEST['if'];
-$iflist = get_configured_interface_with_descr();
-$iflist = array_merge($iflist, get_configured_pppoe_server_interfaces());
+$iflist = dhcp6_server_iflist();
 
 /* set the starting interface */
 if (!$if || !isset($iflist[$if])) {
@@ -79,523 +74,37 @@ if (!empty(config_get_path("dhcpdv6/{$if}"))) {
 		exit;
 	}
 
-	if (is_numeric($pool) && config_get_path("dhcpdv6/{$if}/pool/{$pool}")) {
-		$dhcpdconf = config_get_path("dhcpdv6/{$if}/pool/{$pool}");
-	} elseif ($act === 'newpool') {
-		$dhcpdconf = [];
-	} else {
-		$dhcpdconf = config_get_path("dhcpdv6/{$if}", []);
-	}
+	$dhcpdconf = dhcp6_server_conf($if, $pool, $act);
 }
 
-if (is_array($dhcpdconf)) {
-	if (!is_numeric($pool) && !($act === 'newpool')) {
-		$pconfig['enable'] = isset($dhcpdconf['enable']);
-		$pconfig['dnsregpolicy'] = $dhcpdconf['dnsregpolicy'];
-		$pconfig['earlydnsregpolicy'] = $dhcpdconf['earlydnsregpolicy'];
-	} else {
-		$pconfig['descr'] = $dhcpdconf['descr'];
-	}
+$pconfig = dhcp6_server_form($dhcpdconf ?? null, (is_numeric($pool ?? null) || ($act === 'newpool')));
 
-	/* DHCPv6 */
-	if (is_array($dhcpdconf['range'])) {
-		$pconfig['range_from'] = $dhcpdconf['range']['from'];
-		$pconfig['range_to'] = $dhcpdconf['range']['to'];
-	}
-
-	if (is_array($dhcpdconf['prefixrange'])) {
-		$pconfig['prefixrange_from'] = $dhcpdconf['prefixrange']['from'];
-		$pconfig['prefixrange_to'] = $dhcpdconf['prefixrange']['to'];
-		$pconfig['prefixrange_length'] = $dhcpdconf['prefixrange']['prefixlength'];
-	}
-
-	$pconfig['pdprefix'] = $dhcpdconf['pdprefix'];
-	$pconfig['pdprefixlen'] = $dhcpdconf['pdprefixlen'];
-	$pconfig['pddellen'] = $dhcpdconf['pddellen'];
-
-	$pconfig['deftime'] = $dhcpdconf['defaultleasetime'];
-	$pconfig['maxtime'] = $dhcpdconf['maxleasetime'];
-	$pconfig['domain'] = $dhcpdconf['domain'];
-	$pconfig['domainsearchlist'] = $dhcpdconf['domainsearchlist'];
-	list($pconfig['dns1'], $pconfig['dns2'], $pconfig['dns3'], $pconfig['dns4']) = $dhcpdconf['dnsserver'];
-	$pconfig['dhcp6c-dns'] = ($dhcpdconf['dhcp6c-dns'] !== 'disabled' ? 'enabled' : 'disabled');
-	if (isset($dhcpdconf['denyunknown'])) {
-		$pconfig['denyunknown'] = empty($dhcpdconf['denyunknown']) ? "enabled" : $dhcpdconf['denyunknown'];
-	} else {
-		$pconfig['denyunknown'] = "disabled";
-	}
-	$pconfig['ddnsdomain'] = $dhcpdconf['ddnsdomain'];
-	$pconfig['ddnsdomainprimary'] = $dhcpdconf['ddnsdomainprimary'];
-	$pconfig['ddnsdomainprimaryport'] = $dhcpdconf['ddnsdomainprimaryport'];
-	$pconfig['ddnsdomainsecondary'] = $dhcpdconf['ddnsdomainsecondary'];
-	$pconfig['ddnsdomainsecondaryport'] = $dhcpdconf['ddnsdomainsecondaryport'];
-	$pconfig['ddnsdomainkeyname'] = $dhcpdconf['ddnsdomainkeyname'];
-	$pconfig['ddnsdomainkeyalgorithm'] = $dhcpdconf['ddnsdomainkeyalgorithm'];
-	$pconfig['ddnsdomainkey'] = $dhcpdconf['ddnsdomainkey'];
-	$pconfig['ddnsupdate'] = isset($dhcpdconf['ddnsupdate']);
-	$pconfig['ddnsforcehostname'] = isset($dhcpdconf['ddnsforcehostname']);
-	$pconfig['ddnsclientupdates'] = $dhcpdconf['ddnsclientupdates'];
-	$pconfig['ddnsreverse'] = isset($dhcpdconf['ddnsreverse']);
-	list($pconfig['ntp1'], $pconfig['ntp2'], $pconfig['ntp3'], $pconfig['ntp4']) = $dhcpdconf['ntpserver'];
-	$pconfig['tftp'] = $dhcpdconf['tftp'];
-	$pconfig['ldap'] = $dhcpdconf['ldap'];
-	$pconfig['netboot'] = isset($dhcpdconf['netboot']);
-	$pconfig['bootfile_url'] = $dhcpdconf['bootfile_url'];
-	$pconfig['netmask'] = $dhcpdconf['netmask'];
-	$pconfig['numberoptions'] = $dhcpdconf['numberoptions'];
-	$pconfig['dhcpv6leaseinlocaltime'] = $dhcpdconf['dhcpv6leaseinlocaltime'];
-
-	if (dhcp_is_backend('kea')) {
-		$pconfig['custom_kea_config'] = base64_decode($dhcpdconf['custom_kea_config']);
-	}
-}
-
-if (config_get_path("interfaces/{$if}/ipaddrv6") == 'track6') {
-	$trackifname = config_get_path("interfaces/{$if}/track6-interface");
-	$trackcfg = config_get_path("interfaces/{$trackifname}");
-	$ifcfgsn = "64";
-	$ifcfgip = '::';
-
-	$str_help_mask = dhcpv6_pd_str_help($ifcfgsn);
-} else {
-	$ifcfgip = get_interface_ipv6($if);
-	$ifcfgsn = get_interface_subnetv6($if);
-}
+$prefix = dhcp6_server_prefix((string)$if);
+$ifcfgip = $prefix['ip'];
+$ifcfgsn = $prefix['sn'];
+$trackifname = $prefix['trackifname'];
 
 /*	 set the enabled flag which will tell us if DHCP relay is enabled
  *	 on any interface. We will use this to disable DHCP server since
  *	 the two are not compatible with each other.
  */
-
-$dhcrelay_enabled = false;
-$dhcrelaycfg = config_get_path('dhcrelay6');
-
-if (is_array($dhcrelaycfg) && isset($dhcrelaycfg['enable']) && isset($dhcrelaycfg['interface']) && !empty($dhcrelaycfg['interface'])) {
-	$dhcrelayifs = explode(",", $dhcrelaycfg['interface']);
-
-	foreach ($dhcrelayifs as $dhcrelayif) {
-
-		if (isset($iflist[$dhcrelayif]) && (!link_interface_to_bridge($dhcrelayif))) {
-			$dhcrelay_enabled = true;
-			break;
-		}
-	}
-}
+$dhcrelay_enabled = dhcp6_server_relay_enabled($iflist);
 
 if (isset($_POST['apply'])) {
 	$changes_applied = true;
 	$retval = dhcp6_apply_changes();
 } elseif (isset($_POST['save'])) {
-
 	unset($input_errors);
 
-	$old_dhcpdv6_enable = ($pconfig['enable'] == true);
-	$new_dhcpdv6_enable = ($_POST['enable'] ? true : false);
-	$dhcpdv6_enable_changed = ($old_dhcpdv6_enable != $new_dhcpdv6_enable);
-
-	$pconfig = $_POST;
-
-	$numberoptions = array();
-	for ($x = 0; $x < 99; $x++) {
-		if (isset($_POST["number{$x}"]) && ctype_digit(strval($_POST["number{$x}"]))) {
-			$numbervalue = array();
-			$numbervalue['number'] = htmlspecialchars($_POST["number{$x}"]);
-			$numbervalue['value'] = base64_encode($_POST["value{$x}"]);
-			$numberoptions['item'][] = $numbervalue;
-		}
+	$rv = dhcp6_server_save((string)$if, $pool ?? null, $act, $_POST);
+	if ($rv['missing_pool']) {
+		header("Location: services_dhcpv6.php");
+		exit;
 	}
-	// Reload the new pconfig variable that the form uses.
-	$pconfig['numberoptions'] = $numberoptions;
-
-	/* input validation */
-
-	if ($_POST['pdprefix']) {
-		if (!is_ipaddrv6($_POST['pdprefix'])) {
-			$input_errors[] = gettext('Delegated prefix must be a valid IPv6 prefix.');
-		}
-		if (!is_numericint($_POST['pdprefixlen']) ||
-		    ($_POST['pdprefixlen'] < 48) ||
-		    ($_POST['pdprefixlen'] > 64)) {
-			$input_errors[] = gettext('Delegated Prefix Length is not an integer in the required range.');
-		}
-		if (!is_numericint($_POST['pddellen']) ||
-		    ($_POST['pddellen'] < 48) ||
-		    ($_POST['pddellen'] > 128)) {
-			$input_errors[] = gettext('Delegated Length is not an integer in the required range.');
-		}
-		if ((int)$_POST['pddellen'] < (int)$_POST['pdprefixlen']) {
-			$input_errors[] = gettext('Delegated length must be greater than or equal to the prefix length.');
-		}
-	}
-
-	// Note: if DHCPv6 Server is not enabled, then it is OK to adjust other parameters without specifying range from-to.
-	if ($_POST['enable'] || is_numeric($pool) || ($act === 'newpool')) {
-		if ((empty($_POST['range_from']) || empty($_POST['range_to'])) &&
-		    (config_get_path("dhcpdv6/{$if}/ramode") != 'stateless_dhcp')) {
-			$input_errors[] = gettext('A valid range must be specified for any Router Advertisement mode except "Stateless DHCP."');
-		}
-	}
-
-	if (($_POST['prefixrange_from'] && !is_ipaddrv6($_POST['prefixrange_from']))) {
-		$input_errors[] = gettext("A valid prefix range must be specified.");
-	}
-	if (($_POST['prefixrange_to'] && !is_ipaddrv6($_POST['prefixrange_to']))) {
-		$input_errors[] = gettext("A valid prefix range must be specified.");
-	}
-
-	if ($_POST['prefixrange_from'] && $_POST['prefixrange_to'] &&
-		$_POST['prefixrange_length']) {
-		$netmask = Net_IPv6::getNetmask($_POST['prefixrange_from'],
-			$_POST['prefixrange_length']);
-		$netmask = text_to_compressed_ip6($netmask);
-
-		if ($netmask != text_to_compressed_ip6(strtolower(
-			$_POST['prefixrange_from']))) {
-			$input_errors[] = sprintf(gettext(
-				"Prefix Delegation From address is not a valid IPv6 Netmask for %s"),
-				$netmask . '/' . $_POST['prefixrange_length']);
-		}
-
-		$netmask = Net_IPv6::getNetmask($_POST['prefixrange_to'],
-			$_POST['prefixrange_length']);
-		$netmask = text_to_compressed_ip6($netmask);
-
-		if ($netmask != text_to_compressed_ip6(strtolower(
-			$_POST['prefixrange_to']))) {
-			$input_errors[] = sprintf(gettext(
-				"Prefix Delegation To address is not a valid IPv6 Netmask for %s"),
-				$netmask . '/' . $_POST['prefixrange_length']);
-		}
-	}
-
-	$range_from_to_ok = true;
-
-	if ($_POST['range_from']) {
-		if (!is_ipaddrv6($_POST['range_from'])) {
-			$input_errors[] = gettext("A valid range must be specified.");
-			$range_from_to_ok = false;
-		} elseif (config_get_path("interfaces/{$if}/ipaddrv6") == 'track6' &&
-			!Net_IPv6::isInNetmask($_POST['range_from'], '::', $ifcfgsn)) {
-			$input_errors[] = sprintf(gettext(
-				'The prefix (upper %1$s bits) must be zero.  Use the form %2$s'),
-				$ifcfgsn, $str_help_mask);
-			$range_from_to_ok = false;
-		}
-	}
-	if ($_POST['range_to']) {
-		if (!is_ipaddrv6($_POST['range_to'])) {
-			$input_errors[] = gettext("A valid range must be specified.");
-			$range_from_to_ok = false;
-		} elseif (config_get_path("interfaces/{$if}/ipaddrv6") == 'track6' &&
-			!Net_IPv6::isInNetmask($_POST['range_to'], '::', $ifcfgsn)) {
-			$input_errors[] = sprintf(gettext(
-				'The prefix (upper %1$s bits) must be zero.  Use the form %2$s'),
-				$ifcfgsn, $str_help_mask);
-			$range_from_to_ok = false;
-		}
-	}
-	if (($_POST['range_from'] && !$_POST['range_to']) || ($_POST['range_to'] && !$_POST['range_from'])) {
-		$input_errors[] = gettext("Range From and Range To must both be entered.");
-	}
-	if (($_POST['gateway'] && !is_ipaddrv6($_POST['gateway']))) {
-		$input_errors[] = gettext("A valid IPv6 address must be specified for the gateway.");
-	}
-	if (($_POST['dns1'] && !is_ipaddrv6($_POST['dns1'])) ||
-		($_POST['dns2'] && !is_ipaddrv6($_POST['dns2'])) ||
-		($_POST['dns3'] && !is_ipaddrv6($_POST['dns3'])) ||
-		($_POST['dns4'] && !is_ipaddrv6($_POST['dns4']))) {
-		$input_errors[] = gettext("A valid IPv6 address must be specified for each of the DNS servers.");
-	}
-
-	if ($_POST['dnsregpolicy'] && !array_key_exists($_POST['dnsregpolicy'], $dnsregpolicy_values)) {
-		$input_errors[] = gettext("Invalid DNS Registration Policy.");
-	}
-
-	if ($_POST['earlydnsregpolicy'] && !array_key_exists($_POST['earlydnsregpolicy'], $dnsregpolicy_values)) {
-		$input_errors[] = gettext("Invalid Early DNS Registration Policy.");
-	}
-
-	if ($_POST['deftime'] && (!is_numeric($_POST['deftime']) || ($_POST['deftime'] < 60))) {
-		$input_errors[] = gettext("The default lease time must be at least 60 seconds.");
-	}
-	if ($_POST['maxtime'] && (!is_numeric($_POST['maxtime']) || ($_POST['maxtime'] < 60) || ($_POST['maxtime'] < $_POST['deftime']))) {
-		$input_errors[] = gettext("The maximum lease time must be at least 60 seconds, and the same value or greater than the default lease time.");
-	}
-	if ($_POST['ddnsupdate']) {
-		if (!is_domain($_POST['ddnsdomain'])) {
-			$input_errors[] = gettext("A valid domain name must be specified for the dynamic DNS registration.");
-		}
-		if (!is_ipaddr($_POST['ddnsdomainprimary'])) {
-			$input_errors[] = gettext("A valid primary domain name server IP address must be specified for the dynamic domain name.");
-		}
-		if (!empty($_POST['ddnsdomainsecondary']) && !is_ipaddr($_POST['ddnsdomainsecondary'])) {
-			$input_errors[] = gettext("A valid secondary domain name server IP address must be specified for the dynamic domain name.");
-		}
-		if (!$_POST['ddnsdomainkeyname'] || !$_POST['ddnsdomainkeyalgorithm'] || !$_POST['ddnsdomainkey']) {
-			$input_errors[] = gettext("A valid domain key name, algorithm and secret must be specified.");
-		}
-		if (preg_match('/[^A-Za-z0-9\.\-\_]/', $_POST['ddnsdomainkeyname'])) {
-			$input_errors[] = gettext("The domain key name may only contain the characters a-z, A-Z, 0-9, '-', '_' and '.'");
-		}
-		if ($_POST['ddnsdomainkey'] && !base64_decode($_POST['ddnsdomainkey'], true)) {
-			$input_errors[] = gettext("The domain key secret must be a Base64 encoded value.");
-		}
-	}
-	if ($_POST['domainsearchlist']) {
-		$domain_array = preg_split("/[ ;]+/", $_POST['domainsearchlist']);
-		foreach ($domain_array as $curdomain) {
-			if (!is_domain($curdomain)) {
-				$input_errors[] = gettext("A valid domain search list must be specified.");
-				break;
-			}
-		}
-	}
-
-	if (($_POST['ntp1'] && !is_ipaddrv6($_POST['ntp1'])) ||
-	    ($_POST['ntp2'] && !is_ipaddrv6($_POST['ntp2'])) ||
-	    ($_POST['ntp3'] && !is_ipaddrv6($_POST['ntp3'])) ||
-	    ($_POST['ntp4'] && !is_ipaddrv6($_POST['ntp4']))) {
-		$input_errors[] = gettext('A valid IPv6 address must be specified for the NTP servers.');
-	}
-	if (($_POST['domain'] && !is_domain($_POST['domain']))) {
-		$input_errors[] = gettext("A valid domain name must be specified for the DNS domain.");
-	}
-	if ($_POST['tftp'] && !is_ipaddr($_POST['tftp']) && !is_domain($_POST['tftp']) && !is_URL($_POST['tftp'])) {
-		$input_errors[] = gettext("A valid IPv6 address or hostname must be specified for the TFTP server.");
-	}
-	if (($_POST['bootfile_url'] && !is_URL($_POST['bootfile_url']))) {
-		$input_errors[] = gettext("A valid URL must be specified for the network bootfile.");
-	}
-
-	// Disallow a range that includes the virtualip
-	if ($range_from_to_ok) {
-		foreach (config_get_path('virtualip/vip', []) as $vip) {
-			if ($vip['interface'] == $if) {
-				if ($vip['subnetv6'] && is_inrange_v6($vip['subnetv6'], $_POST['range_from'], $_POST['range_to'])) {
-					$input_errors[] = sprintf(gettext("The subnet range cannot overlap with virtual IPv6 address %s."), $vip['subnetv6']);
-				}
-			}
-		}
-	}
-
-	$noip = false;
-	foreach (config_get_path("dhcpdv6/{$if}/staticmap", []) as $map) {
-		if (empty($map['ipaddrv6'])) {
-			$noip = true;
-		}
-	}
-
-	/* make sure that the DHCP Relay isn't enabled on this interface */
-	if ($_POST['enable'] && $dhcrelay_enabled) {
-		$input_errors[] = sprintf(gettext("The DHCP relay on the %s interface must be disabled before enabling the DHCP server."), $iflist[$if]);
-	}
-
-	// If nothing is wrong so far, and we have range from and to, then check conditions related to the values of range from and to.
-	if (!$input_errors && $_POST['range_from'] && $_POST['range_to']) {
-		/* make sure the range lies within the current subnet */
-		$subnet_start = gen_subnetv6($ifcfgip, $ifcfgsn);
-		$subnet_end = gen_subnetv6_max($ifcfgip, $ifcfgsn);
-
-		if (is_ipaddrv6($ifcfgip)) {
-			if ((!is_inrange_v6($_POST['range_from'], $subnet_start, $subnet_end)) ||
-				(!is_inrange_v6($_POST['range_to'], $subnet_start, $subnet_end))) {
-				$input_errors[] = gettext("The specified range lies outside of the current subnet.");
-			}
-		}
-
-		if (is_numeric($pool) || ($act === 'newpool')) {
-			if (is_inrange_v6($_POST['range_from'],
-				config_get_path("dhcpdv6/{$if}/range/from"),
-				config_get_path("dhcpdv6/{$if}/range/to")) ||
-				is_inrange_v6($_POST['range_to'],
-				config_get_path("dhcpdv6/{$if}/range/from"),
-				config_get_path("dhcpdv6/{$if}/range/to"))) {
-				$input_errors[] = gettext('The specified range must not be within the primary DHCPv6 address pool for this interface.');
-			}
-		}
-
-		foreach (config_get_path("dhcpdv6/{$if}/pool", []) as $id => $p) {
-			if (is_numeric($pool) && ($id == $pool)) {
-				continue;
-			}
-
-			if (is_inrange_v6($_POST['range_from'], $p['range']['from'], $p['range']['to']) ||
-			    is_inrange_v6($_POST['range_to'], $p['range']['from'], $p['range']['to'])) {
-				$input_errors[] = gettext('The specified range must not be within the range configured on another DHCPv6 pool for this interface.');
-				break;
-			}
-		}
-
-
-		/* "from" cannot be higher than "to" */
-		if (inet_pton($_POST['range_from']) > inet_pton($_POST['range_to'])) {
-			$input_errors[] = gettext("The range is invalid (first element higher than second element).");
-		}
-
-		/* Verify static mappings do not overlap:
-		   - available DHCP range
-		   - prefix delegation range (FIXME: still need to be completed) */
-		$dynsubnet_start = inet_pton($_POST['range_from']);
-		$dynsubnet_end = inet_pton($_POST['range_to']);
-
-		foreach (config_get_path("dhcpdv6/{$if}/staticmap", []) as $map) {
-			if (empty($map['ipaddrv6'])) {
-				continue;
-			}
-			if ((inet_pton($map['ipaddrv6']) > $dynsubnet_start) &&
-				(inet_pton($map['ipaddrv6']) < $dynsubnet_end)) {
-				$input_errors[] = sprintf(gettext("The DHCP range cannot overlap any static DHCP mappings."));
-				break;
-			}
-		}
-	}
-
-	/* validate custom config */
-	if (dhcp_is_backend('kea')) {
-		kea_custom_config_enforce(array_get_path($dhcpdconf, 'custom_kea_config'), $input_errors);
-		if (!empty($_POST['custom_kea_config'])) {
-			$json = json_decode($_POST['custom_kea_config'], true);
-			if (!is_array($json) || (json_last_error() !== JSON_ERROR_NONE)) {
-				$input_errors[] = gettext('Custom configuration is not a well formed JSON object.');
-			}
-		}
-	}
-
-	if (!$input_errors) {
-		if (!is_numeric($pool)) {
-			if ($act === 'newpool') {
-				$dhcpdconf = [];
-			} else {
-				$dhcpdconf = config_get_path("dhcpdv6/{$if}", []);
-			}
-		} else {
-			if (is_array(config_get_path("dhcpdv6/{$if}/pool/{$pool}"))) {
-				$dhcpdconf = config_get_path("dhcpdv6/{$if}/pool/{$pool}");
-			} else {
-				header("Location: services_dhcpv6.php");
-				exit;
-			}
-		}
-
-		if (!is_array($dhcpdconf)) {
-			$dhcpdconf = [];
-		}
-
-		if (!is_array($dhcpdconf['range'])) {
-			$dhcpdconf['range'] = [];
-		}
-		if (!is_array($dhcpdconf['range'])) {
-			$dhcpdconf['range'] = [];
-		}
-
-		// Kea prefix delegation
-		if ($_POST['pdprefix']) {
-			$dhcpdconf['pdprefix'] = $_POST['pdprefix'];
-			$dhcpdconf['pdprefixlen'] = intval($_POST['pdprefixlen']);
-			$dhcpdconf['pddellen'] = intval($_POST['pddellen']);
-		} else {
-			unset($dhcpdconf['pdprefix']);
-			unset($dhcpdconf['pdprefixlen']);
-			unset($dhcpdconf['pddellen']);
-		}
-
-		// Global options
-		if (!is_numeric($pool) && !($act === 'newpool')) {
-			$dhcpdconf['enable'] = ($_POST['enable']) ? true : false;
-			$dhcpdconf['dnsregpolicy'] = $_POST['dnsregpolicy'];
-			$dhcpdconf['earlydnsregpolicy'] = $_POST['earlydnsregpolicy'];
-		} else {
-			// Options that exist only in pools
-			$dhcpdconf['descr'] = $_POST['descr'];
-		}
-
-
-		if (in_array($_POST['denyunknown'], array("enabled", "class"))) {
-			$dhcpdconf['denyunknown'] = $_POST['denyunknown'];
-		} else {
-			unset($dhcpdconf['denyunknown']);
-		}
-
-		$dhcpdconf['range']['from'] = $_POST['range_from'];
-		$dhcpdconf['range']['to'] = $_POST['range_to'];
-		$dhcpdconf['prefixrange']['from'] = $_POST['prefixrange_from'];
-		$dhcpdconf['prefixrange']['to'] = $_POST['prefixrange_to'];
-		$dhcpdconf['prefixrange']['prefixlength'] = $_POST['prefixrange_length'];
-		$dhcpdconf['defaultleasetime'] = $_POST['deftime'];
-		$dhcpdconf['maxleasetime'] = $_POST['maxtime'];
-		$dhcpdconf['netmask'] = $_POST['netmask'];
-
-		unset($dhcpdconf['dnsserver']);
-		if ($_POST['dns1']) {
-			$dhcpdconf['dnsserver'][] = $_POST['dns1'];
-		}
-		if ($_POST['dns2']) {
-			$dhcpdconf['dnsserver'][] = $_POST['dns2'];
-		}
-		if ($_POST['dns3']) {
-			$dhcpdconf['dnsserver'][] = $_POST['dns3'];
-		}
-		if ($_POST['dns4']) {
-			$dhcpdconf['dnsserver'][] = $_POST['dns4'];
-		}
-		$dhcpdconf['dhcp6c-dns'] = ($_POST['dhcp6c-dns']) ? 'enabled' : 'disabled';
-		$dhcpdconf['domain'] = $_POST['domain'];
-		$dhcpdconf['domainsearchlist'] = $_POST['domainsearchlist'];
-
-		$dhcpdconf['ddnsdomain'] = $_POST['ddnsdomain'];
-		$dhcpdconf['ddnsdomainprimary'] = $_POST['ddnsdomainprimary'];
-		$dhcpdconf['ddnsdomainsecondary'] = (!empty($_POST['ddnsdomainsecondary'])) ? $_POST['ddnsdomainsecondary'] : '';
-		$dhcpdconf['ddnsdomainkeyname'] = $_POST['ddnsdomainkeyname'];
-		$dhcpdconf['ddnsdomainkeyalgorithm'] = $_POST['ddnsdomainkeyalgorithm'];
-		$dhcpdconf['ddnsdomainkey'] = $_POST['ddnsdomainkey'];
-		$dhcpdconf['ddnsupdate'] = ($_POST['ddnsupdate']) ? true : false;
-		$dhcpdconf['ddnsforcehostname'] = ($_POST['ddnsforcehostname']) ? true : false;
-		$dhcpdconf['ddnsreverse'] = ($_POST['ddnsreverse']) ? true : false;
-		$dhcpdconf['ddnsclientupdates'] = $_POST['ddnsclientupdates'];
-
-		unset($dhcpdconf['ntpserver']);
-		if ($_POST['ntp1']) {
-			$dhcpdconf['ntpserver'][] = $_POST['ntp1'];
-		}
-		if ($_POST['ntp2']) {
-			$dhcpdconf['ntpserver'][] = $_POST['ntp2'];
-		}
-		if ($_POST['ntp3']) {
-			$dhcpdconf['ntpserver'][] = $_POST['ntp3'];
-		}
-		if ($_POST['ntp4']) {
-			$dhcpdconf['ntpserver'][] = $_POST['ntp4'];
-		}
-
-		$dhcpdconf['tftp'] = $_POST['tftp'];
-		$dhcpdconf['ldap'] = $_POST['ldap'];
-		$dhcpdconf['netboot'] = ($_POST['netboot']) ? true : false;
-		$dhcpdconf['bootfile_url'] = $_POST['bootfile_url'];
-		$dhcpdconf['dhcpv6leaseinlocaltime'] = $_POST['dhcpv6leaseinlocaltime'];
-
-		// Handle the custom options rowhelper
-		if (isset($dhcpdconf['numberoptions']['item'])) {
-			unset($dhcpdconf['numberoptions']['item']);
-		}
-
-		$dhcpdconf['numberoptions'] = $numberoptions;
-
-		if (dhcp_is_backend('kea')) {
-			$dhcpdconf['custom_kea_config'] = base64_encode($_POST['custom_kea_config']);
-		}
-
-		if (is_numeric($pool) && is_array(config_get_path("dhcpdv6/{$if}/pool/{$pool}"))) {
-			config_set_path("dhcpdv6/{$if}/pool/{$pool}", $dhcpdconf);
-		} elseif ($act === 'newpool') {
-			config_set_path("dhcpdv6/{$if}/pool/", $dhcpdconf);
-		} else {
-			config_set_path("dhcpdv6/{$if}", $dhcpdconf);
-		}
-
-		mark_subsystem_dirty('dhcpd6');
-
-		write_config("DHCPv6 Server settings saved");
-
+	$input_errors = $rv['input_errors'];
+	$pconfig = $rv['pconfig'];
+	if ($rv['saved']) {
+		$dhcpdconf = $rv['dhcpdconf'];
 		if (is_numeric($pool) || ($act === 'newpool')) {
 			header('Location: /services_dhcpv6.php?if='.$if);
 		}
@@ -603,72 +112,17 @@ if (isset($_POST['apply'])) {
 }
 
 if ($act == "delpool") {
-	if (config_get_path("dhcpdv6/{$if}/pool/{$_POST['id']}")) {
-		config_del_path("dhcpdv6/{$if}/pool/{$_POST['id']}");
-		write_config('DHCPv6 Server pool deleted');
-		mark_subsystem_dirty('dhcpd6');
+	if (dhcp6_pool_delete((string)$if, $_POST['id'])) {
 		header("Location: services_dhcpv6.php?if={$if}");
 		exit;
 	}
 }
 
 if ($_POST['act'] == "del") {
-	if (config_get_path("dhcpdv6/{$if}/staticmap/{$_POST['id']}")) {
-		config_del_path("dhcpdv6/{$if}/staticmap/{$_POST['id']}");
-		write_config("DHCPv6 server static map deleted");
-		if (config_path_enabled("dhcpdv6/{$if}")) {
-			mark_subsystem_dirty('dhcpd6');
-			if (config_path_enabled('dnsmasq') && config_path_enabled('dnsmasq/regdhcpstaticv6', 'regdhcpstaticv6')) {
-				mark_subsystem_dirty('hosts');
-			}
-		}
+	if (dhcp6_staticmap_delete($if, $_POST['id'])) {
 		header("Location: services_dhcpv6.php?if={$if}");
 		exit;
 	}
-}
-
-// Build an HTML table that can be inserted into a Form_StaticText element
-function build_pooltable() {
-	global $if;
-
-	$pooltbl =	'<div class="table-responsive">';
-	$pooltbl .=		'<table class="table table-striped table-hover table-sm">';
-	$pooltbl .=			'<thead>';
-	$pooltbl .=				'<tr>';
-	$pooltbl .=					'<th>' . gettext("Pool Start") . '</th>';
-	$pooltbl .=					'<th>' . gettext("Pool End") . '</th>';
-	$pooltbl .=					'<th>' . gettext("Description") . '</th>';
-	$pooltbl .=					'<th>' . gettext("Actions") . '</th>';
-	$pooltbl .=				'</tr>';
-	$pooltbl .=			'</thead>';
-	$pooltbl .=			'<tbody>';
-
-	$i = 0;
-	foreach (config_get_path("dhcpdv6/{$if}/pool", []) as $poolent) {
-		if (!empty($poolent['range']['from']) && !empty($poolent['range']['to'])) {
-			$pooltbl .= '<tr>';
-			$pooltbl .= '<td ondblclick="document.location=\'services_dhcpv6.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '\';">' .
-						htmlspecialchars($poolent['range']['from']) . '</td>';
-
-			$pooltbl .= '<td ondblclick="document.location=\'services_dhcpv6.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '\';">' .
-						htmlspecialchars($poolent['range']['to']) . '</td>';
-
-			$pooltbl .= '<td ondblclick="document.location=\'services_dhcpv6.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '\';">' .
-						htmlspecialchars($poolent['descr']) . '</td>';
-
-			$pooltbl .= '<td><a class="fa-solid fa-pencil" title="'. gettext("Edit pool") . '" href="services_dhcpv6.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '"></a>';
-
-			$pooltbl .= ' <a class="fa-solid fa-trash-can text-danger" title="'. gettext("Delete pool") . '" href="services_dhcpv6.php?if=' . htmlspecialchars($if) . '&act=delpool&id=' . $i . '" usepost></a></td>';
-			$pooltbl .= '</tr>';
-		}
-		$i++;
-	}
-
-	$pooltbl .=			'</tbody>';
-	$pooltbl .=		'</table>';
-	$pooltbl .= '</div>';
-
-	return($pooltbl);
 }
 
 $pgtitle = [gettext('Services'), gettext('DHCPv6 Server')];
@@ -940,7 +394,7 @@ if (!is_numeric($pool) && !($act === 'newpool')) {
 	if (isset($if) && (count(config_get_path("dhcpdv6/{$if}/pool", [])) > 0)) {
 		$section->addInput(new Form_StaticText(
 			gettext('Additional Pools'),
-			build_pooltable()
+			dhcp6_build_pooltable($if)
 		));
 		$has_pools = true;
 	}

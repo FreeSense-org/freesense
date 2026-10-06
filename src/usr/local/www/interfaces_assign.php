@@ -47,6 +47,7 @@ require_once("captiveportal.inc");
 require_once("rrd.inc");
 require_once("interfaces_fast.inc");
 require_once("firewall_nat.inc");
+require_once("interfaces_assign.inc");
 
 global $friendlyifnames;
 
@@ -56,363 +57,45 @@ $gettextArray = array('add'=>gettext('Add'),'addif'=>gettext('Add interface'),'d
 /*
 	In this file, "port" refers to the physical port name,
 	while "interface" refers to LAN, WAN, or OPTn.
+	The add, save, delete and apply logic is in interfaces_assign.inc.
 */
-
-/* get list without VLAN interfaces */
-$portlist = get_interface_list();
 
 /*another *_fast function from interfaces_fast.inc. These functions are basically the same as the
 ones they're named after, except they (usually) take an array and (always) return an array. This means that they only
 need to be called once per script run, the returned array contains all the data necessary for repeated use */
 $friendlyifnames = convert_real_interface_to_friendly_interface_name_fast();
 
-/* add wireless clone interfaces */
-foreach (config_get_path('wireless/clone', []) as $clone) {
-	$portlist[$clone['cloneif']] = $clone;
-	$portlist[$clone['cloneif']]['iswlclone'] = true;
-}
-
-/* add VLAN interfaces */
-//$timea = microtime(true);
-foreach (config_get_path('vlans/vlan', []) as $vlan) {
-	$portlist[$vlan['vlanif']] = $vlan;
-	$portlist[$vlan['vlanif']]['isvlan'] = true;
-}
-
-/* add Bridge interfaces */
-foreach (config_get_path('bridges/bridged', []) as $bridge) {
-	$portlist[$bridge['bridgeif']] = $bridge;
-	$portlist[$bridge['bridgeif']]['isbridge'] = true;
-}
-
-/* add GIF interfaces */
-foreach (config_get_path('gifs/gif', []) as $gif) {
-	$portlist[$gif['gifif']] = $gif;
-	$portlist[$gif['gifif']]['isgif'] = true;
-}
-
-/* add GRE interfaces */
-foreach (config_get_path('gres/gre', []) as $gre) {
-	$portlist[$gre['greif']] = $gre;
-	$portlist[$gre['greif']]['isgre'] = true;
-}
-
-/* add VXLAN interfaces */
-foreach (config_get_path('vxlans/vxlan', []) as $vxlan) {
-	if (empty($vxlan['vxlanif'])) {
-		continue;
-	}
-	$portlist[$vxlan['vxlanif']] = $vxlan;
-	$portlist[$vxlan['vxlanif']]['isvxlan'] = true;
-}
-
-/* add LAGG interfaces */
-foreach (config_get_path('laggs/lagg', []) as $lagg) {
-	$portlist[$lagg['laggif']] = $lagg;
-	$portlist[$lagg['laggif']]['islagg'] = true;
-	/* LAGG members cannot be assigned */
-	$lagifs = explode(',', $lagg['members']);
-	foreach ($lagifs as $lagif) {
-		if (isset($portlist[$lagif])) {
-			unset($portlist[$lagif]);
-		}
-	}
-}
-
-/* add QinQ interfaces */
-foreach (config_get_path('qinqs/qinqentry', []) as $qinq) {
-	$portlist["{$qinq['vlanif']}"]['descr'] = "VLAN {$qinq['tag']} on {$qinq['if']}";
-	$portlist["{$qinq['vlanif']}"]['isqinq'] = true;
-	/* QinQ members */
-	$qinqifs = explode(' ', $qinq['members']);
-	foreach ($qinqifs as $qinqif) {
-		$portlist["{$qinq['vlanif']}.{$qinqif}"]['descr'] = "QinQ {$qinqif} on VLAN {$qinq['tag']} on {$qinq['if']}";
-		$portlist["{$qinq['vlanif']}.{$qinqif}"]['isqinq'] = true;
-	}
-}
-
-/* add PPP interfaces */
-foreach (config_get_path('ppps/ppp', []) as $ppp) {
-	$portname = $ppp['if'];
-	$portlist[$portname] = $ppp;
-	$portlist[$portname]['isppp'] = true;
-	$ports_base = basename($ppp['ports']);
-	if (isset($ppp['descr'])) {
-		$portlist[$portname]['descr'] = strtoupper($ppp['if']). "({$ports_base}) - {$ppp['descr']}";
-	} else if (isset($ppp['username'])) {
-		$portlist[$portname]['descr'] = strtoupper($ppp['if']). "({$ports_base}) - {$ppp['username']}";
-	} else {
-		$portlist[$portname]['descr'] = strtoupper($ppp['if']). "({$ports_base})";
-	}
-}
-
-$ovpn_descrs = array();
-foreach (['server', 'client'] as $openvpn_mode) {
-	foreach (config_get_path("openvpn/openvpn-{$openvpn_mode}", []) as $openvpn_settings) {
-		$portname = openvpn_name($openvpn_mode, $openvpn_settings);
-		$portlist[$portname] = $openvpn_settings;
-		$ovpn_descrs[$openvpn_settings['vpnid']] = $openvpn_settings['description'];
-	}
-}
-
-global $ipsec_descrs;
-$ipsec_descrs = interface_ipsec_vti_list_all();
-foreach ($ipsec_descrs as $ifname => $ifdescr) {
-	$portlist[$ifname] = array('descr' => $ifdescr);
-}
-
-
+$portlist = interfaces_assign_port_list();
 $ifdescrs = interface_assign_description_fast($portlist,$friendlyifnames);
-if (isset($_REQUEST['add']) && isset($_REQUEST['if_add'])) {
-	/* Be sure this port is not being used */
-	$portused = false;
-	foreach (config_get_path('interfaces', []) as $ifdata) {
-		if ($ifdata['if'] == $_REQUEST['if_add']) {
-			$portused = true;
-			break;
-		}
-	}
 
-	if ($portused === false) {
-		/* find next free optional interface number */
-		if (!config_get_path('interfaces/lan')) {
-			$newifname = "lan";
-			$descr = "LAN";
-		} else {
-			$interface_count = count(config_get_path('interfaces', []));
-			for ($i = 1; $i <= $interface_count; $i++) {
-				if (!config_get_path("interfaces/opt{$i}")) {
-					break;
-				}
-			}
-			$newifname = 'opt' . $i;
-			$descr = "OPT" . $i;
-		}
-
-		config_set_path("interfaces/{$newifname}", [
-			'descr' => $descr,
-			'if' => $_POST['if_add']
-		]);
-		if (preg_match(g_get('wireless_regex'), $_POST['if_add'])) {
-			config_set_path("interfaces/{$newifname}/wireless", []);
-			$new_if_config = config_get_path("interfaces/{$newifname}");
-			interface_sync_wireless_clones($new_if_config, false);
-			config_set_path("interfaces/{$newifname}", $new_if_config);
-		}
-
-
-		$if_config = config_get_path('interfaces', []);
-		uksort($if_config, "compare_interface_friendly_names");
-		config_set_path('interfaces', $if_config);
-
-		write_config("New interface assigned");
-
-		filter_configure();
-
+if (isset($_POST['add']) && isset($_POST['if_add'])) {
+	if (interfaces_assign_add($_POST['if_add'], $portlist, $input_errors) !== null) {
 		$action_msg = gettext("Interface has been added.");
 		$class = "success";
 	}
 
 } else if (isset($_POST['apply'])) {
-	if (file_exists("/var/run/interface_mismatch_reboot_needed")) {
-		system_reboot();
+	$applied = interfaces_assign_apply();
+	if ($applied['rebooting']) {
 		$rebootingnow = true;
 	} else {
-		write_config("Interfaces assignment settings changed");
-
 		$changes_applied = true;
-		$retval = 0;
-		$retval |= filter_configure();
+		$retval = $applied['retval'];
 	}
 
 } else if (isset($_POST['Submit'])) {
 
 	unset($input_errors);
+	interfaces_assign_save($_POST, $portlist, $input_errors);
 
-	/* input validation */
-
-	/* Build a list of the port names so we can see how the interfaces map */
-	$portifmap = array();
-	foreach ($portlist as $portname => $portinfo) {
-		$portifmap[$portname] = array();
-	}
-
-	/* Go through the list of ports selected by the user,
-	build a list of port-to-interface mappings in portifmap */
-	foreach ($_POST as $ifname => $ifport) {
-		if (($ifname == 'lan') || ($ifname == 'wan') || (substr($ifname, 0, 3) == 'opt')) {
-			if (array_key_exists($ifport, $portlist)) {
-				$portifmap[$ifport][] = strtoupper($ifname);
-			} else {
-				$input_errors[] = sprintf(gettext('Cannot set port %1$s because the submitted interface does not exist.'), $ifname);
-			}
-		}
-	}
-
-	/* Deliver error message for any port with more than one assignment */
-	foreach ($portifmap as $portname => $ifnames) {
-		if (count($ifnames) > 1) {
-			$errstr = sprintf(gettext('Port %1$s '.
-				' was assigned to %2$s' .
-				' interfaces:'), $portname, count($ifnames));
-
-			foreach ($portifmap[$portname] as $ifn) {
-				$errstr .= " " . convert_friendly_interface_to_friendly_descr(strtolower($ifn)) . " (" . $ifn . ")";
-			}
-
-			$input_errors[] = $errstr;
-		} else if (count($ifnames) == 1 && preg_match('/^bridge[0-9]/', $portname)) {
-			foreach (config_get_path('bridges/bridged', []) as $bridge) {
-				if ($bridge['bridgeif'] != $portname) {
-					continue;
-				}
-
-				$members = explode(",", strtoupper($bridge['members']));
-				foreach ($members as $member) {
-					if ($member == $ifnames[0]) {
-						$input_errors[] = sprintf(gettext('Cannot set port %1$s to interface %2$s because this interface is a member of %3$s.'), $portname, $member, $portname);
-						break;
-					}
-				}
-			}
-		}
-	}
-
-	foreach (config_get_path('vlans/vlan', []) as $vlan) {
-		if (does_interface_exist($vlan['if']) == false) {
-			$input_errors[] = sprintf(gettext('Vlan parent interface %1$s does not exist anymore so vlan id %2$s cannot be created please fix the issue before continuing.'), $vlan['if'], $vlan['tag']);
-		}
-	}
-
-	if (!$input_errors) {
-		/* No errors detected, so update the config */
-		$filter_reload = false;
-		foreach ($_POST as $ifname => $ifport) {
-
-			if (($ifname == 'lan') || ($ifname == 'wan') || (substr($ifname, 0, 3) == 'opt')) {
-
-				if (!is_array($ifport)) {
-					$reloadif = false;
-					if (!empty(config_get_path("interfaces/{$ifname}/if")) && config_get_path("interfaces/{$ifname}/if") <> $ifport) {
-						interface_bring_down($ifname);
-						/* Mark this to be reconfigured in any case. */
-						$reloadif = true;
-						$filter_reload = true;
-						$gateway_monitor_reload = true;
-					}
-					$this_if_config = config_get_path("interfaces/{$ifname}");
-					$this_if_config['if'] = $ifport;
-					if (isset($portlist[$ifport]['isppp'])) {
-						$this_if_config['ipaddr'] = $portlist[$ifport]['type'];
-					}
-
-					if ((substr($ifport, 0, 3) == 'gre') ||
-					    (substr($ifport, 0, 3) == 'gif')) {
-						unset($this_if_config['ipaddr']);
-						unset($this_if_config['subnet']);
-						unset($this_if_config['ipaddrv6']);
-						unset($this_if_config['subnetv6']);
-					}
-
-					/* check for wireless interfaces, set or clear ['wireless'] */
-					if (preg_match(g_get('wireless_regex'), $ifport)) {
-						if (!is_array($this_if_config['wireless'])) {
-							$this_if_config['wireless'] = array();
-						}
-					} else {
-						unset($this_if_config['wireless']);
-					}
-
-					/* make sure there is a descr for all interfaces */
-					if (!isset($this_if_config['descr'])) {
-						$this_if_config['descr'] = strtoupper($ifname);
-					}
-					config_set_path("interfaces/{$ifname}", $this_if_config);
-
-					if ($reloadif == true) {
-						if (preg_match(g_get('wireless_regex'), $ifport)) {
-							interface_sync_wireless_clones($this_if_config, false);
-							config_set_path("interfaces/{$ifname}", $this_if_config);
-						}
-						/* Reload all for the interface. */
-						interface_configure($ifname, true);
-						$filter_reload = true;
-					}
-				}
-			}
-		}
-		/* regenerated ruleset after re-assigning the interface,
-		 * see upstream issue 12949 */
-		if ($filter_reload) {
-			filter_configure();
-		}
-		if ($gateway_monitor_reload) {
-			setup_gateways_monitor();
-		}
-		write_config("Interfaces assignment settings changed");
-
-		enable_rrd_graphing();
-	}
 } else {
 	unset($delbtn);
-	if (!empty($_POST['del']) && is_string(key($_POST['del']))) {
+	if (!empty($_POST['del']) && is_array($_POST['del']) && is_string(key($_POST['del']))) {
 		$delbtn = key($_POST['del']);
 	}
 
 	if (isset($delbtn)) {
-		$id = $delbtn;
-
-		if (link_interface_to_group($id)) {
-			$input_errors[] = gettext("The interface is part of a group. Please remove it from the group to continue");
-		} else if (link_interface_to_bridge($id)) {
-			$input_errors[] = gettext("The interface is part of a bridge. Please remove it from the bridge to continue");
-		} else if (!empty(link_interface_to_tunnelif($id, 'gre'))) {
-			$input_errors[] = gettext("The interface is part of a gre tunnel. Please delete the tunnel to continue");
-		} else if (!empty(link_interface_to_tunnelif($id, 'gif'))) {
-			$input_errors[] = gettext("The interface is part of a gif tunnel. Please delete the tunnel to continue");
-		} else if (!empty(link_interface_to_tunnelif($id, 'vxlan'))) {
-			$input_errors[] = gettext("The interface is the parent of a VXLAN tunnel. Please delete the tunnel to continue");
-		} else if (interface_has_queue($id)) {
-			$input_errors[] = gettext("The interface has a traffic shaper queue configured.\nPlease remove all queues on the interface to continue.");
-		} else {
-			config_del_path("interfaces/{$id}/enable");
-			$realid = get_real_interface($id);
-			interface_bring_down($id);
-			config_del_path("interfaces/{$id}");	/* delete the specified OPTn or LAN*/
-
-			if (is_array(config_get_path("dhcpd/{$id}"))) {
-				config_del_path("dhcpd/{$id}");
-				services_dhcpd_configure('inet');
-			}
-
-			if (is_array(config_get_path("dhcpdv6/{$id}"))) {
-				config_del_path("dhcpdv6/{$id}");
-				services_dhcpd_configure('inet6');
-			}
-			remove_filter_rules([], $id);
-			$rdr_rules_list = [];
-			foreach (get_anynat_rules_list('rdr') as $x => $rule) {
-				if ($rule['interface'] == $id) {
-					$rdr_rules_list[] = $x;
-				}
-			}
-			remove_rdr_rules($rdr_rules_list);
-
-			write_config(gettext('Interface assignment deleted'));
-
-			/* If we are in firewall/routing mode (not single interface)
-			 * then ensure that we are not running DHCP on the wan which
-			 * will make a lot of ISPs unhappy.
-			 */
-			if (config_path_enabled('interfaces', 'lan')
-				&& config_path_enabled('dhcpd', 'wan')) {
-					config_del_path('dhcpd/wan');
-			}
-
-			link_interface_to_vlans($realid, "update");
-
-			filter_configure();
-
+		if (interfaces_assign_delete($delbtn, $input_errors)) {
 			$action_msg = gettext("Interface has been deleted.");
 			$class = "success";
 		}
@@ -420,14 +103,7 @@ if (isset($_REQUEST['add']) && isset($_REQUEST['if_add'])) {
 }
 
 /* Create a list of unused ports */
-$unused_portlist = array();
-$portArray = array_keys($portlist);
-
-$ifaceArray = array_column(config_get_path('interfaces', []),'if');
-$unused = array_diff($portArray,$ifaceArray);
-$unused = array_flip($unused);
-$unused_portlist = array_intersect_key($portlist,$unused);//*/
-unset($unused,$portArray,$ifaceArray);
+$unused_portlist = interfaces_assign_unused_ports($portlist);
 
 include("head.inc");
 

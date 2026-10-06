@@ -31,24 +31,6 @@
 ##|*MATCH=services_dhcpv6_edit.php*
 ##|-PRIV
 
-$dnsregpolicy_values = [
-	'default' => gettext('Track subnet'),
-	'enable' => gettext('Enable'),
-	'disable' => gettext('Disable')
-];
-
-function staticmapcmp($a, $b) {
-	return ipcmp($a['ipaddrv6'], $b['ipaddrv6']);
-}
-
-function staticmaps_sort($ifgui) {
-	global $g;
-
-	$dhcpd6_config = config_get_path("dhcpdv6/{$ifgui}/staticmap");
-	usort($dhcpd6_config, "staticmapcmp");
-	config_set_path("dhcpdv6/{$ifgui}/staticmap", $dhcpd6_config);
-}
-
 require_once('globals.inc');
 
 if (!g_get('services_dhcp_server_enable')) {
@@ -57,6 +39,9 @@ if (!g_get('services_dhcp_server_enable')) {
 }
 
 require_once("guiconfig.inc");
+require_once('services_dhcp.inc');
+
+$dnsregpolicy_values = dhcp_staticmap_dnsregpolicy_values();
 
 $if = $_REQUEST['if'];
 
@@ -66,160 +51,19 @@ if (!$if) {
 }
 
 $netboot_enabled = config_path_enabled("dhcpdv6/{$if}", 'netboot');
-$ifcfgipv6 = get_interface_ipv6($if);
-$ifcfgsnv6 = get_interface_subnetv6($if);
-$ifcfgdescr = convert_friendly_interface_to_friendly_descr($if);
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
 $this_map_config = isset($id) ? config_get_path("dhcpdv6/{$if}/staticmap/{$id}") : null;
-if ($this_map_config) {
-	$pconfig['duid'] = $this_map_config['duid'];
-	$pconfig['hostname'] = $this_map_config['hostname'];
-	$pconfig['ipaddrv6'] = $this_map_config['ipaddrv6'];
-	$pconfig['filename'] = $this_map_config['filename'];
-	$pconfig['rootpath'] = $this_map_config['rootpath'];
-	$pconfig['descr'] = $this_map_config['descr'];
-	if (dhcp_is_backend('kea')) {
-		$pconfig['earlydnsregpolicy'] = $this_map_config['earlydnsregpolicy'];
-		$pconfig['pdprefix'] = $this_map_config['pdprefix'];
-		$pconfig['custom_kea_config'] = base64_decode($this_map_config['custom_kea_config']);
-	}
-} else {
-	$pconfig['duid'] = $_REQUEST['duid'];
-	$pconfig['hostname'] = $_REQUEST['hostname'];
-	$pconfig['filename'] = $_REQUEST['filename'];
-	$pconfig['rootpath'] = $_REQUEST['rootpath'];
-	$pconfig['descr'] = $_REQUEST['descr'];
-	if (dhcp_is_backend('kea')) {
-		$pconfig['earlydnsregpolicy'] = $_REQUEST['earlydnsregpolicy'];
-		$pconfig['pdprefix'] = $_REQUEST['pdprefix'];
-		$pconfig['custom_kea_config'] = $_REQUEST['custom_kea_config'];
-	}
-}
+$pconfig = dhcp6_staticmap_form($if, $id, $_REQUEST);
 
 if ($_POST['save']) {
-
 	unset($input_errors);
-	$pconfig = $_POST;
-
-	/* input validation */
-	$reqdfields = explode(" ", "duid");
-	$reqdfieldsn = array(gettext("DUID"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if ($_POST['hostname']) {
-		preg_match("/\-\$/", $_POST['hostname'], $matches);
-		if ($matches) {
-			$input_errors[] = gettext("The hostname cannot end with a hyphen according to RFC952");
-		}
-		if (!is_hostname($_POST['hostname'])) {
-			$input_errors[] = gettext("The hostname can only contain the characters A-Z, 0-9 and '-'.");
-		} else {
-			if (!is_unqualified_hostname($_POST['hostname'])) {
-				$input_errors[] = gettext("A valid hostname is specified, but the domain name part should be omitted");
-			}
-		}
-	}
-
-	if ($_POST['earlydnsregpolicy'] && !array_key_exists($_POST['earlydnsregpolicy'], $dnsregpolicy_values)) {
-		$input_errors[] = gettext("Invalid Early DNS Registration Policy.");
-	}
-
-	if ($_POST['ipaddrv6']) {
-		if (!is_ipaddrv6($_POST['ipaddrv6'])) {
-			$input_errors[] = gettext("A valid IPv6 address must be specified.");
-		} elseif (config_get_path("dhcpdv6/{$if}/ipaddrv6") == 'track6') {
-			$trackifname = config_get_path("interfaces/{$if}/track6-interface");
-			$trackcfg = config_get_path("interfaces/{$trackifname}");
-			$pdlen = 64 - $trackcfg['dhcp6-ia-pd-len'];
-			if (!Net_IPv6::isInNetmask($_POST['ipaddrv6'], '::', $pdlen)) {
-				$input_errors[] = sprintf(gettext(
-				    'The prefix (upper %1$s bits) must be zero.  Use the form %2$s'),
-				    $pdlen, dhcpv6_pd_str_help($ifcfgsnv6));
-			}
-		}
-	}
-
-	if (dhcp_is_backend('kea')) {
-		if ($_POST['pdprefix']) {
-			$parts = explode('/', trim($_POST['pdprefix']));
-			if (!is_ipaddrv6($parts[0]) || !is_numeric($parts[1])) {
-				$input_errors[] = gettext('A valid delegated prefix must be specified.');
-			}
-		}
-	}
-
-	if (empty($_POST['duid'])) {
-		$input_errors[] = gettext("A valid DUID must be specified.");
-	}
-
-	/* check for overlaps */
-	foreach (config_get_path("dhcpdv6/{$if}/staticmap", []) as $mapent) {
-		if ($this_map_config && ($this_map_config === $mapent)) {
-			continue;
-		}
-
-		if ((($mapent['hostname'] == $_POST['hostname']) && $mapent['hostname']) || ($mapent['duid'] == $_POST['duid'])) {
-			$input_errors[] = gettext("This Hostname, IP or DUID already exists.");
-			break;
-		}
-	}
-
-	/* make sure it's not within the dynamic subnet */
-	if ($_POST['ipaddrv6']) {
-		/* oh boy, we need to be able to somehow do this at some point. skip */
-	}
-
-	/* validate custom config */
-	if (dhcp_is_backend('kea')) {
-		kea_custom_config_enforce($this_map_config['custom_kea_config'] ?? '', $input_errors);
-		if (!empty($_POST['custom_kea_config'])) {
-			$json = json_decode($_POST['custom_kea_config'], true);
-			if (!is_array($json) || (json_last_error() !== JSON_ERROR_NONE)) {
-				$input_errors[] = gettext('Custom configuration is not a well formed JSON object.');
-			}
-		}
-	}
+	$rv = dhcp6_staticmap_save($if, $id, $_POST);
+	$input_errors = $rv['input_errors'];
+	$pconfig = $rv['pconfig'];
 
 	if (!$input_errors) {
-		$mapent = array();
-		$mapent['duid'] = str_replace("-", ":", $_POST['duid']);
-		$mapent['ipaddrv6'] = $_POST['ipaddrv6'];
-		$mapent['hostname'] = $_POST['hostname'];
-		$mapent['descr'] = $_POST['descr'];
-		$mapent['earlydnsregpolicy'] = $_POST['earlydnsregpolicy'];
-		$mapent['filename'] = $_POST['filename'];
-		$mapent['rootpath'] = $_POST['rootpath'];
-
-		if (dhcp_is_backend('kea')) {
-			if (!empty($_POST['pdprefix'])) {
-				$mapent['pdprefix'] = text_to_compressed_ip6($_POST['pdprefix']);
-			}
-			$mapent['custom_kea_config'] = base64_encode($_POST['custom_kea_config']);
-		}
-
-		if ($this_map_config) {
-			config_set_path("dhcpdv6/{$if}/staticmap/{$id}", $mapent);
-		} else {
-			config_set_path("dhcpdv6/{$if}/staticmap/", $mapent);
-		}
-		staticmaps_sort($if);
-
-		write_config("DHCPv6 server static maps saved");
-
-		if (config_path_enabled("dhcpdv6/{$if}")) {
-			mark_subsystem_dirty('dhcpd6');
-			if (config_path_enabled('dnsmasq') && config_path_enabled('dnsmasq', 'regdhcpstatic')) {
-				mark_subsystem_dirty('hosts');
-			}
-			if (config_path_enabled('unbound') && config_path_enabled('unbound', 'regdhcpstatic')) {
-				mark_subsystem_dirty('unbound');
-			}
-
-		}
-
 		header("Location: services_dhcpv6.php?if={$if}");
 		exit;
 	}

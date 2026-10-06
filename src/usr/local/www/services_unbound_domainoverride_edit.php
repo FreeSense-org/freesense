@@ -33,71 +33,21 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
+require_once("services_unbound.inc");
 
 $id = is_numericint($_REQUEST['id']) ? $_REQUEST['id'] : null;
 
 $this_domainOverrides_config = isset($id) ? config_get_path("unbound/domainoverrides/{$id}") : null;
-if ($this_domainOverrides_config) {
-	$pconfig['domain'] = $this_domainOverrides_config['domain'];
-	$pconfig['ip'] = $this_domainOverrides_config['ip'];
-	$pconfig['descr'] = $this_domainOverrides_config['descr'];
-	$pconfig['tls_hostname'] = $this_domainOverrides_config['tls_hostname'];
-	$pconfig['forward_tls_upstream'] = isset($this_domainOverrides_config['forward_tls_upstream']);
-}
+$pconfig = unbound_domain_override_settings($id);
 
 if ($_POST['save']) {
 
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "domain ip");
-	$reqdfieldsn = array(gettext("Domain"), gettext("IP address"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (str_starts_with($_POST['domain'], '_msdcs')) {
-		$subdomainstr = substr($_POST['domain'], 7);
-		if ($subdomainstr && !is_domain($subdomainstr)) {
-			$input_errors[] = gettext("A valid domain must be specified after _msdcs.");
-		}
-	} elseif ($_POST['domain'] && !is_domain($_POST['domain'])) {
-		$input_errors[] = gettext("A valid domain must be specified.");
-	}
-
-	if ($_POST['ip']) {
-		if (strpos($_POST['ip'], '@') !== false) {
-			$ip_details = explode("@", $_POST['ip']);
-			if (!is_ipaddr($ip_details[0]) || !is_port($ip_details[1])) {
-				$input_errors[] = gettext("A valid IP address and port must be specified, for example 192.168.100.10@5353.");
-			}
-		} else if (!is_ipaddr($_POST['ip'])) {
-			$input_errors[] = gettext("A valid IP address must be specified, for example 192.168.100.10.");
-		}
-	}
-
-	if (!empty($_POST['tls_hostname']) && !is_hostname($_POST['tls_hostname'])) {
-		$input_errors[] = gettext("The supplied TLS hostname is not valid.");
-	}
+	$input_errors = unbound_save_domain_override($_POST, $id);
 
 	if (!$input_errors) {
-		$doment = array();
-		$doment['domain'] = $_POST['domain'];
-		$doment['ip'] = $_POST['ip'];
-		$doment['descr'] = $_POST['descr'];
-		$doment['tls_hostname'] = $_POST['tls_hostname'];
-		$doment['forward_tls_upstream'] = isset($_POST['forward_tls_upstream']);
-
-		if ($this_domainOverrides_config) {
-			config_set_path("unbound/domainoverrides/{$id}", $doment);
-		} else {
-			config_set_path('unbound/domainoverrides/', $doment);
-		}
-
-		mark_subsystem_dirty('unbound');
-
-		write_config(gettext("Domain override configured for DNS Resolver."));
-
 		header("Location: services_unbound.php");
 		exit;
 	}

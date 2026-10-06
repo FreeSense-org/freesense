@@ -472,7 +472,7 @@ function apply1to1NATrules() {
 	return $retval;
 }
 
-function build_srctype_list() {
+function binat_build_srctype_list() {
 	return get_specialnet('', [SPECIALNET_CHECKPERM, SPECIALNET_ANY, SPECIALNET_COMPAT_ADDR,
 	                      SPECIALNET_NET, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPECIALNET_IFSUB]);
 }
@@ -503,7 +503,7 @@ function srctype_selected() {
 	return($pconfig['src']);
 }
 
-function build_dsttype_list() {
+function binat_build_dsttype_list() {
 	return get_specialnet('', [SPECIALNET_CHECKPERM, SPECIALNET_ANY,
 	                       SPECIALNET_COMPAT_ADDRAL, SPECIALNET_NET, SPECIALNET_CLIENTS,
 	                       SPECIALNET_IFADDR, SPECIALNET_IFSUB, SPECIALNET_VIPS]);

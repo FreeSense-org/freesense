@@ -2236,6 +2236,23 @@ EOD;
 
 	}
 
+	/* REST API: every /api/ request goes to one front controller, which
+	   answers 404 itself while the API is disabled. */
+	$api_location = "";
+	if ($captive_portal == false) {
+		$api_location = <<<EOD
+		location ^~ /api/ {
+			fastcgi_pass   unix:{$g['varrun_path']}/php-fpm.socket;
+			fastcgi_param  SCRIPT_FILENAME  \$document_root/api/index.php;
+			fastcgi_param  HTTP_PROXY  "";
+			fastcgi_read_timeout 300;
+			fastcgi_hide_header X-Frame-Options;
+			include        /usr/local/etc/nginx/fastcgi_params;
+		}
+
+EOD;
+	}
+
 	$plugin_locations = "";
 	if ($captive_portal == false) {
 		$pluginparams = [ 'section' => 'location' ];
@@ -2250,7 +2267,7 @@ EOD;
 
 	$nginx_config .= <<<EOD
 		root "{$document_root}";
-{$static_expires}		location / {
+{$static_expires}{$api_location}		location / {
 			index  index.php index.html index.htm;
 		}
 		location ~ (\.inc$|\.orig$|\.pkgsave$) {

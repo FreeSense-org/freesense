@@ -31,36 +31,14 @@
 ##|-PRIV
 
 require_once("guiconfig.inc");
-
-function send_wol($if, $mac, $description, & $savemsg, & $class) {
-	$ipaddr = get_interface_ip($if);
-	if (!is_ipaddr($ipaddr) || !is_macaddr($mac)) {
-		return array();
-	}
-	if (!empty($description)) {
-		$description = ' (' . htmlspecialchars($description) . ')';
-	}
-	/* determine broadcast address */
-	$bcip = gen_subnet_max($ipaddr, get_interface_subnet($if));
-	/* Execute wol command and check return code. */
-	if (!mwexec("/usr/local/bin/wol -i {$bcip} {$mac}")) {
-		$savemsg .= sprintf(gettext('Sent magic packet to %1$s%2$s.'), $mac, $description) . "<br />";
-		$class = 'success';
-	} else {
-		$savemsg .= sprintf(gettext('Please check the %1$ssystem log%2$s, the wol command for %3$s (%4$s) did not complete successfully.'), '<a href="/status_logs.php">', '</a>', $description, htmlspecialchars($mac)) . "<br />";
-		$class = 'warning';
-	}
-}
+require_once("services_wol.inc");
 
 $savemsg = "";
 $class = "";
 
 /* Waking every device changes state, so only accept it via POST. */
 if ($_POST['wakeall'] != "") {
-	foreach (config_get_path('wol/wolentry', []) as $wolent) {
-		send_wol($wolent['interface'], $wolent['mac'], $wolent['descr'], $savemsg, $class);
-	}
-	$savemsg .= gettext('Sent magic packet to all devices.') . "<br />";
+	wol_wake_all($savemsg, $class);
 }
 
 if ($_POST['Submit'] || $_POST['mac']) {
@@ -68,28 +46,15 @@ if ($_POST['Submit'] || $_POST['mac']) {
 
 	if ($_POST['mac']) {
 		/* normalize MAC addresses - lowercase and convert Windows-ized hyphenated MACs to colon delimited */
-		$mac = strtolower(str_replace("-", ":", $_POST['mac']));
+		$mac = wol_normalize_mac($_POST['mac']);
 		$if = $_POST['if'];
 	}
 
-	/* input validation */
-	if (!$mac || !is_macaddr($mac)) {
-		$input_errors[] = gettext("A valid MAC address must be specified.");
-	}
-
-	if (!$if || !array_key_exists($if, get_configured_interface_with_descr())) {
-		$input_errors[] = gettext("A valid interface must be specified.");
-	}
-
-	if (!$input_errors) {
-		send_wol($if, $mac, '', $savemsg, $class);
-	}
+	$input_errors = wol_wake_device($mac, $if, $savemsg, $class);
 }
 
 if (is_numericint($_POST['id']) && $_POST['act'] == "del") {
-	if (config_get_path("wol/wolentry/{$_POST['id']}")) {
-		config_del_path("wol/wolentry/{$_POST['id']}");
-		write_config(gettext("Deleted a device from WOL configuration."));
+	if (wol_delete_entry($_POST['id'])) {
 		header("Location: services_wol.php");
 		exit;
 	}
