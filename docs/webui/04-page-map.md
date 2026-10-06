@@ -85,7 +85,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | vpn_ipsec | Special | badges, `fs_row_actions`, toolbar; keep P1/P2 nesting and the existing bulk. Deferred from Phase B to its own PR (deletes run through hidden submit buttons; needs test tunnels) | B+ | **H** |
-| vpn_ipsec_phase1, _phase2 | Editor | **done**: Expiration and Replacement and phase 1 Advanced Options are collapsible sections, closed unless a save failed | D | M |
+| vpn_ipsec_phase1, _phase2 | Editor | **done** (Phase E): header summary card (description, enabled badge, IKE version/mode, remote gateway or local/remote networks, proposal, parent phase 1); cards in fill-in order (General, Connection, Authentication, Proposal / General, Networks, Proposal); Keep alive, Expiration and replacement and phase 1 Advanced options collapsible; Save + Cancel; form posts unchanged (parity-checked) | D | M |
 | vpn_ipsec_mobile, _settings | Settings | standard | D | |
 | vpn_ipsec_keys / _edit | List / Editor | standard | B / D | |
 | vpn_openvpn_server, _client, _csc | List + Editor (`act=edit`) | list view standard (badges, row actions); editor sections | B / D | M |

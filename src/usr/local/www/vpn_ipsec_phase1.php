@@ -79,6 +79,10 @@ if (isset($_REQUEST['dup']) && is_numericint($_REQUEST['dup'])) {
 	unset($p1index);
 }
 
+// the header summary shows the saved entry (or the defaults of a new one), not posted values
+$p1_summary = $pconfig;
+$p1_is_new = (!$p1 || isset($_REQUEST['dup']));
+
 if ($_POST['save']) {
 	unset($input_errors);
 	$pconfig = $_POST;
@@ -90,11 +94,15 @@ if ($_POST['save']) {
 	}
 }
 
+$p1_heading = $p1_is_new ? gettext("Add phase 1") : gettext("Edit phase 1");
 if (isset($pconfig['mobile'])) {
-	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Mobile Clients"), gettext("Edit Phase 1"));
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Mobile Clients"), $p1_heading);
 	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec_mobile.php", "@self");
+} elseif (!$p1_is_new && (trim((string)$p1_summary['descr']) !== '')) {
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Tunnels"), htmlspecialchars($p1_summary['descr']), $p1_heading);
+	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec.php", "", "@self");
 } else {
-	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Tunnels"), gettext("Edit Phase 1"));
+	$pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Tunnels"), $p1_heading);
 	$pglinks = array("", "vpn_ipsec.php", "vpn_ipsec.php", "@self");
 }
 
@@ -111,21 +119,131 @@ if ($input_errors) {
 
 fs_tabs('vpn-ipsec', 'vpn_ipsec.php');
 
+/* ------------------------------------------------------------ header summary */
+
+$p1_iflist = ipsec_p1_interface_list();
+$p1_protocols = array("inet" => gettext("IPv4"), "inet6" => gettext("IPv6"), "both" => gettext("Dual stack"));
+$p1_sum_facts = array();
+
+$p1_sum_ike = array("ikev1" => "IKEv1", "ikev2" => "IKEv2", "auto" => gettext("Auto (IKEv1 or IKEv2)"))[$p1_summary['iketype']] ?? strtoupper((string)$p1_summary['iketype']);
+if ($p1_summary['iketype'] != 'ikev2') {
+	$p1_sum_ike .= ' · ' . (($p1_summary['mode'] == 'aggressive') ? gettext("Aggressive mode") : gettext("Main mode"));
+}
+$p1_sum_facts[] = array(gettext("Key exchange"), fs_h($p1_sum_ike));
+
+$p1_sum_if = ($p1_iflist[$p1_summary['interface']] ?? strtoupper((string)$p1_summary['interface'])) .
+    ' · ' . ($p1_protocols[$p1_summary['protocol']] ?? gettext("IPv4"));
+if (isset($p1_summary['mobile'])) {
+	$p1_sum_facts[] = array(gettext("Remote gateway"), fs_h(gettext("Mobile clients")) .
+	    '<span class="fs-ipsec-sum-note">' . fs_h($p1_sum_if) . '</span>');
+} else {
+	$p1_sum_gw = trim((string)$p1_summary['remotegw']);
+	if (!empty($p1_summary['ikeport'])) {
+		$p1_sum_if .= ' � ' . sprintf(gettext("port %s"), $p1_summary['ikeport']);
+	}
+	$p1_sum_facts[] = array(gettext("Remote gateway"),
+	    (($p1_sum_gw === '') ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : '<span class="fs-mono">' . fs_h($p1_sum_gw) . '</span>') .
+	    '<span class="fs-ipsec-sum-note">' . fs_h($p1_sum_if) . '</span>');
+}
+
+$p1_sum_auth = $p1_authentication_methods[$p1_summary['authentication_method']]['name'] ?? '';
+$p1_sum_facts[] = array(gettext("Authentication"), ($p1_sum_auth === '') ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : fs_h($p1_sum_auth));
+
+$p1_sum_props = array();
+foreach (array_get_path($p1_summary, 'encryption/item', []) as $p1_sum_item) {
+	$p1_sum_alg = (string)array_get_path($p1_sum_item, 'encryption-algorithm/name', '');
+	$p1_sum_txt = $p1_ealgos[$p1_sum_alg]['name'] ?? strtoupper($p1_sum_alg);
+	$p1_sum_keylen = array_get_path($p1_sum_item, 'encryption-algorithm/keylen');
+	if (is_numericint($p1_sum_keylen) && is_array($p1_ealgos[$p1_sum_alg]['keysel'] ?? null)) {
+		$p1_sum_txt .= ' ' . $p1_sum_keylen;
+	}
+	$p1_sum_hash = (string)array_get_path($p1_sum_item, 'hash-algorithm', '');
+	$p1_sum_txt .= ' · ' . ($p1_halgos[$p1_sum_hash] ?? strtoupper($p1_sum_hash));
+	$p1_sum_txt .= ' · ' . sprintf(gettext("DH %s"), array_get_path($p1_sum_item, 'dhgroup', ''));
+	$p1_sum_props[] = $p1_sum_txt;
+}
+$p1_sum_prop = empty($p1_sum_props) ? '<span class="fs-muted">' . fs_h(gettext("Not set")) . '</span>' : fs_h($p1_sum_props[0]);
+if (count($p1_sum_props) > 1) {
+	$p1_sum_prop .= '<span class="fs-ipsec-sum-note" title="' . fs_h(implode("\n", array_slice($p1_sum_props, 1))) . '">' .
+	    fs_h(sprintf(gettext("+%d more"), count($p1_sum_props) - 1)) . '</span>';
+}
+$p1_sum_facts[] = array(gettext("Proposal"), $p1_sum_prop);
+
+$p1_sum_sub = array(gettext("Phase 1"));
+if (!$p1_is_new) {
+	$p1_sum_sub[] = sprintf(gettext("IKE ID %s"), $p1_summary['ikeid']);
+	$p1_sum_p2 = 0;
+	foreach (config_get_path('ipsec/phase2', []) as $p1_sum_ph2) {
+		if ($p1_sum_ph2['ikeid'] == $p1_summary['ikeid']) {
+			$p1_sum_p2++;
+		}
+	}
+	$p1_sum_sub[] = sprintf(ngettext("%d phase 2 entry", "%d phase 2 entries", $p1_sum_p2), $p1_sum_p2);
+} elseif (isset($_REQUEST['dup'])) {
+	$p1_sum_sub[] = gettext("Copy, not saved yet");
+} else {
+	$p1_sum_sub[] = gettext("Defaults, not saved yet");
+}
+if (isset($p1_summary['mobile'])) {
+	$p1_sum_sub[] = gettext("Mobile clients");
+}
+
+$p1_sum_title = trim((string)$p1_summary['descr']);
+if ($p1_is_new) {
+	$p1_sum_badge = fs_badge('info', isset($_REQUEST['dup']) ? gettext("Copy") : gettext("New"));
+} else {
+	$p1_sum_badge = $p1_summary['disabled'] ? fs_badge('disabled') : fs_badge('enabled');
+}
+?>
+<style>
+.fs-ipsec-sum { padding: var(--fs-sp-4); }
+.fs-ipsec-sum-head { display: flex; align-items: center; gap: var(--fs-sp-3); min-width: 0; }
+.fs-ipsec-sum-icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: var(--fs-r-md); background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: 1.1rem; }
+.fs-ipsec-sum-name { flex: 1 1 auto; min-width: 0; }
+.fs-ipsec-sum-title { overflow-wrap: anywhere; color: var(--fs-text-strong); font-size: var(--fs-fs-lg); font-weight: 600; line-height: 1.3; }
+.fs-ipsec-sum-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-ipsec-sum-head > .fs-badge { flex: 0 0 auto; }
+.fs-ipsec-sum-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: var(--fs-sp-3) var(--fs-sp-4); margin: var(--fs-sp-4) 0 0; padding-top: var(--fs-sp-3); border-top: 1px solid var(--fs-border); }
+.fs-ipsec-sum-facts > div { min-width: 0; }
+.fs-ipsec-sum-facts dt { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 500; text-transform: uppercase; letter-spacing: .03em; }
+.fs-ipsec-sum-facts dd { margin: .1rem 0 0; overflow-wrap: anywhere; color: var(--fs-text); font-weight: 500; }
+.fs-ipsec-sum-note { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); font-weight: 400; }
+@media (max-width: 575.98px) { .fs-ipsec-sum-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+</style>
+<div class="panel panel-default fs-ipsec-sum" aria-label="<?=fs_h(gettext("Phase 1 summary"))?>" role="region">
+	<div class="fs-ipsec-sum-head">
+		<span class="fs-ipsec-sum-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
+		<div class="fs-ipsec-sum-name">
+			<div class="fs-ipsec-sum-title"><?=($p1_sum_title === '') ? '<span class="fs-muted">' . fs_h($p1_is_new ? gettext("New phase 1") : gettext("No description")) . '</span>' : fs_h($p1_sum_title)?></div>
+			<div class="fs-ipsec-sum-sub"><?=fs_h(implode(' · ', $p1_sum_sub))?></div>
+		</div>
+		<?=$p1_sum_badge?>
+	</div>
+	<dl class="fs-ipsec-sum-facts">
+<?php foreach ($p1_sum_facts as $p1_sum_fact): ?>
+		<div><dt><?=fs_h($p1_sum_fact[0])?></dt><dd><?=$p1_sum_fact[1]?></dd></div>
+<?php endforeach; ?>
+	</dl>
+</div>
+<?php
+
+/* ------------------------------------------------------------------- form */
+
 $form = new Form();
 
-$section = new Form_Section('General Information');
+$section = new Form_Section('General');
 
 $section->addInput(new Form_Input(
 	'descr',
 	'Description',
 	'text',
 	$pconfig['descr']
-))->setHelp('A description may be entered here for administrative reference (not parsed).');
+))->setHelp('A name for administrative reference (not parsed).');
 
 $section->addInput(new Form_Checkbox(
 	'disabled',
 	'Disabled',
-	'Set this option to disable this phase1 without removing it from the list. ',
+	'Disable this phase 1 without removing it from the list',
 	$pconfig['disabled']
 ));
 
@@ -138,38 +256,45 @@ if (!empty($pconfig['ikeid'])) {
 
 $form->add($section);
 
-$section = new Form_Section('IKE Endpoint Configuration');
+$section = new Form_Section('Connection');
 
 $section->addInput(new Form_Select(
 	'iketype',
-	'*Key Exchange version',
+	'*Key exchange version',
 	$pconfig['iketype'],
 	array("ikev1" => "IKEv1", "ikev2" => "IKEv2", "auto" => gettext("Auto"))
-))->setHelp('Select the Internet Key Exchange protocol version to be used. Auto uses IKEv2 when initiator, and accepts either IKEv1 or IKEv2 as responder.');
+))->setHelp('Auto uses IKEv2 when initiating and accepts IKEv1 or IKEv2 as responder.');
+
+$section->addInput(new Form_Select(
+	'mode',
+	'*Negotiation mode',
+	$pconfig['mode'],
+	array("main" => gettext("Main"), "aggressive" => gettext("Aggressive"))
+))->setHelp('IKEv1 only. Aggressive is more flexible, but less secure.');
 
 $section->addInput(new Form_Select(
 	'protocol',
-	'*Internet Protocol',
+	'*Internet protocol',
 	$pconfig['protocol'],
 	array("inet" => "IPv4", "inet6" => "IPv6", "both" => "Both (Dual Stack)")
-))->setHelp('Select the Internet Protocol family.');
+))->setHelp('Address family of the tunnel endpoints.');
 
 $section->addInput(new Form_Select(
 	'interface',
 	'*Interface',
 	$pconfig['interface'],
-	ipsec_p1_interface_list()
-))->setHelp('Select the interface for the local endpoint of this phase1 entry.');
+	$p1_iflist
+))->setHelp('Interface for the local endpoint of this phase 1.');
 
 if (!isset($pconfig['mobile'])) {
-	$group = new Form_Group('*Remote Gateway');
+	$group = new Form_Group('*Remote gateway');
 
 	$group->add(new Form_Input(
 		'remotegw',
-		'Remote Gateway',
+		'Remote gateway',
 		'text',
 		$pconfig['remotegw']
-	))->setHelp('Enter the public IP address or host name of the remote gateway.%1$s%2$s%3$s',
+	))->setHelp('Public IP address or host name of the remote gateway.%1$s%2$s%3$s',
 	    '<div class="infoblock">',
 	    sprint_info_box(gettext('Use \'0.0.0.0\' to allow connections from any IPv4 address or \'::\' ' .
 	    'to allow connections from any IPv6 address. For dual stack tunnels, either form will allow connections from ' .
@@ -186,21 +311,49 @@ if (!isset($pconfig['mobile'])) {
 
 $form->add($section);
 
-$section = new Form_Section('Phase 1 Proposal (Authentication)');
+$section = new Form_Section('Authentication');
 
 $section->addInput(new Form_Select(
 	'authentication_method',
-	'*Authentication Method',
+	'*Authentication method',
 	$pconfig['authentication_method'],
 	ipsec_p1_auth_method_list(isset($pconfig['mobile']))
 ))->setHelp('Must match the setting chosen on the remote side.');
 
+$section->addInput(new Form_Input(
+	'pskey',
+	'*Pre-shared key',
+	'text',
+	$pconfig['pskey']
+))->setHelp('Must match on both peers. Use a long, random key: a weak key can lead to a tunnel compromise.%1$s', '<br/>');
+
 $section->addInput(new Form_Select(
-	'mode',
-	'*Negotiation mode',
-	$pconfig['mode'],
-	array("main" => gettext("Main"), "aggressive" => gettext("Aggressive"))
-))->setHelp('Aggressive is more flexible, but less secure.');
+	'certref',
+	'*My certificate',
+	$pconfig['certref'],
+	cert_build_list('cert', 'IPsec')
+))->setHelp('Certificate which identifies this firewall. It must have at least one non-wildcard SAN.');
+
+$section->addInput(new Form_Select(
+	'pkcs11certref',
+	'*PKCS#11 certificate',
+	$pconfig['pkcs11certref'],
+	ipsec_p1_pkcs11cert_list()
+))->setHelp('Certificate from an attached PKCS#11 token device.');
+
+$section->addInput(new Form_Input(
+	'pkcs11pin',
+	'*PKCS#11 PIN',
+	'text',
+	$pconfig['pkcs11pin']
+))->setHelp('PIN of the PKCS#11 token.');
+
+$section->addInput(new Form_Select(
+	'caref',
+	'*Peer certificate authority',
+	$pconfig['caref'],
+	cert_build_list('ca', 'IPsec')
+))->setHelp('Certificate authority that validates the peer certificate.');
 
 $group = new Form_Group('*My identifier');
 
@@ -243,46 +396,11 @@ if (isset($pconfig['mobile'])) {
 
 $section->add($group);
 
-$section->addInput(new Form_Input(
-	'pskey',
-	'*Pre-Shared Key',
-	'text',
-	$pconfig['pskey']
-))->setHelp('Enter the Pre-Shared Key string. This key must match on both peers. %1$sThis key should be long and random to protect the tunnel and its contents. A weak Pre-Shared Key can lead to a tunnel compromise.%1$s', '<br/>');
-
-$section->addInput(new Form_Select(
-	'certref',
-	'*My Certificate',
-	$pconfig['certref'],
-	cert_build_list('cert', 'IPsec')
-))->setHelp('Select a certificate which identifies this firewall. The certificate must have at least one non-wildcard SAN.');
-
-$section->addInput(new Form_Select(
-	'pkcs11certref',
-	'*PKCS#11 Certificate',
-	$pconfig['pkcs11certref'],
-	ipsec_p1_pkcs11cert_list()
-))->setHelp('Select a Certificate from an attached PKCS#11 token device');
-
-$section->addInput(new Form_Input(
-	'pkcs11pin',
-	'*PKCS#11 PIN',
-	'text',
-	$pconfig['pkcs11pin']
-))->setHelp('Enter PKCS#11 token PIN number');
-
-$section->addInput(new Form_Select(
-	'caref',
-	'*Peer Certificate Authority',
-	$pconfig['caref'],
-	cert_build_list('ca', 'IPsec')
-))->setHelp('Select a certificate authority to validate the peer certificate.');
-
 $form->add($section);
 
 $eitems = array_get_path($pconfig, 'encryption/item', []);
 $rowcount = count($eitems);
-$section = new Form_Section('Phase 1 Proposal (Encryption Algorithm)');
+$section = new Form_Section('Proposal');
 foreach($eitems as $key => $p1enc) {
 	$lastrow = ($counter == $rowcount - 1);
 	$group = new Form_Group($counter == 0 ? '*Encryption Algorithm' : '');
@@ -304,14 +422,14 @@ foreach($eitems as $key => $p1enc) {
 
 	$group->add(new Form_Select(
 		'halgo'.$key,
-		'*Hash Algorithm',
+		'*Hash algorithm',
 		array_get_path($p1enc, 'hash-algorithm'),
 		$p1_halgos
 	))->setHelp($lastrow ? 'Hash' : '')->setWidth(2);
 
 	$group->add(new Form_Select(
 		'dhgroup'.$key,
-		'*DH Group',
+		'*DH group',
 		array_get_path($p1enc, 'dhgroup'),
 		$p1_dhgroups
 	))->setHelp($lastrow ? 'DH Group' : '')->setWidth(2);
@@ -330,7 +448,7 @@ foreach($eitems as $key => $p1enc) {
 
 	$group->add(new Form_Select(
 		'prfalgo'.$key,
-		'*PRF Algorithm',
+		'*PRF algorithm',
 		array_get_path($p1enc, 'prf-algorithm'),
 		$p1_halgos
 	))->setHelp($lastrow ? 'PRF' : '')->setWidth(2);
@@ -342,20 +460,27 @@ $section->addInput(new Form_StaticText('', ''))->setHelp('Note: SHA1 and DH grou
 
 $btnaddopt = new Form_Button(
 	'algoaddrow',
-	'Add Algorithm',
+	'Add algorithm',
 	null,
 	'fa-solid fa-plus'
 );
 $btnaddopt->removeClass('btn-primary')->addClass('btn-success btn-sm');
 $section->addInput($btnaddopt);
 
+$section->addInput(new Form_Checkbox(
+	'prfselect_enable',
+	'PRF selection',
+	'Enable manual Pseudo-Random Function (PRF) selection',
+	$pconfig['prfselect_enable']
+))->setHelp('IKEv2 only. Rarely needed, but useful with AEAD algorithms such as AES-GCM.');
+
 $form->add($section);
 
-$section = new Form_Section('Expiration and Replacement', 'ph1-lifetimes', $fs_section_state);
+$section = new Form_Section('Expiration and replacement', 'ph1-lifetimes', $fs_section_state);
 
 $section->addInput(new Form_Input(
 	'lifetime',
-	'Life Time',
+	'Life time',
 	'number',
 	$pconfig['lifetime'],
 	["placeholder" => ipsec_get_life_time(ipsec_timer_entry($pconfig))]
@@ -366,7 +491,7 @@ $section->addInput(new Form_Input(
 
 $section->addInput(new Form_Input(
 	'rekey_time',
-	'Rekey Time',
+	'Rekey time',
 	'number',
 	$pconfig['rekey_time'],
 	['min' => 0, "placeholder" => ipsec_get_rekey_time(ipsec_timer_entry($pconfig))]
@@ -378,7 +503,7 @@ $section->addInput(new Form_Input(
 
 $section->addInput(new Form_Input(
 	'reauth_time',
-	'Reauth Time',
+	'Reauth time',
 	'number',
 	$pconfig['reauth_time'],
 	['min' => 0, "placeholder" => ipsec_get_reauth_time(ipsec_timer_entry($pconfig))]
@@ -391,7 +516,7 @@ $section->addInput(new Form_Input(
 
 $section->addInput(new Form_Input(
 	'rand_time',
-	'Rand Time',
+	'Rand time',
 	'number',
 	$pconfig['rand_time'],
 	['min' => 0, "placeholder" => ipsec_get_rand_time(ipsec_timer_entry($pconfig))]
@@ -401,109 +526,27 @@ $section->addInput(new Form_Input(
 
 $form->add($section);
 
-$section = new Form_Section('Advanced Options', 'ph1-advanced', $fs_section_state);
+$section = new Form_Section('Advanced options', 'ph1-advanced', $fs_section_state);
 
 if (!isset($pconfig['mobile'])) {
 	$section->addInput(new Form_Select(
 		'startaction',
-		'Child SA Start Action',
+		'Child SA start action',
 		$pconfig['startaction'],
 		$ipsec_startactions
-	))->setHelp('Set this option to force specific initiation/responder behavior for child SA (P2) entries');
+	))->setHelp('Force specific initiator/responder behavior for child SA (phase 2) entries.');
 }
 
 $section->addInput(new Form_Select(
 	'closeaction',
-	'Child SA Close Action',
+	'Child SA close action',
 	$pconfig['closeaction'],
 	$ipsec_closeactions
-))->setHelp('Set this option to control the behavior when the remote peer unexpectedly closes a child SA (P2)');
-
-$section->addInput(new Form_Select(
-	'nat_traversal',
-	'NAT Traversal',
-	$pconfig['nat_traversal'],
-	array('on' => gettext('Auto'), 'force' => gettext('Force'))
-))->setHelp('Set this option to enable the use of NAT-T (i.e. the encapsulation of ESP in UDP packets) if needed, ' .
-			'which can help with clients that are behind restrictive firewalls.');
-
-$section->addInput(new Form_Select(
-	'mobike',
-	'MOBIKE',
-	$pconfig['mobike'],
-	array('on' => gettext('Enable'), 'off' => gettext('Disable'))
-))->setHelp('Set this option to control the use of MOBIKE');
-
-if (!isset($pconfig['mobile'])) {
-	$section->addInput(new Form_Checkbox(
-		'gw_duplicates',
-		'Gateway duplicates',
-		sprintf(gettext('Enable this to allow multiple phase 1 configurations with the same endpoint. ' .
-		    'When enabled, %s does not manage routing to the remote gateway and traffic will follow the default route ' .
-		    'without regard for the chosen interface. Static routes can override this behavior.'), g_get('product_label')),
-		$pconfig['gw_duplicates']
-	));
-}
-
-$section->addInput(new Form_Checkbox(
-	'splitconn',
-	'Split connections',
-	'Enable this to split connection entries with multiple phase 2 configurations. Required for remote endpoints that support only a single traffic selector per child SA.',
-	$pconfig['splitconn']
-));
-
-$section->addInput(new Form_Checkbox(
-	'prfselect_enable',
-	'PRF Selection',
-	'Enable manual Pseudo-Random Function (PRF) selection',
-	$pconfig['prfselect_enable']
-))->setHelp('Manual PRF selection is typically not required, but can be useful in combination with AEAD Encryption Algorithms such as AES-GCM');
-
-$group = new Form_Group('Custom IKE/NAT-T Ports');
-
-$group->add(new Form_Input(
-    'ikeport',
-    'Remote IKE Port',
-    'number',
-    $pconfig['ikeport'],
-    ['min' => 1, 'max' => 65535]
-))->setHelp('UDP port for IKE on the remote gateway. Leave empty for default automatic behavior (500/4500).');
-$group->add(new Form_Input(
-    'nattport',
-    'Remote NAT-T Port',
-    'number',
-    $pconfig['nattport'],
-    ['min' => 1, 'max' => 65535]
-))->setHelp('UDP port for NAT-T on the remote gateway.%1$s%2$s%3$s',
-    '<div class="infoblock">',
-    sprint_info_box(gettext('If the IKE port is empty and NAT-T contains a value, the tunnel will use only NAT-T.'),
-    'info', false),
-    '</div>');
-
-$section->add($group);
-
-/* FreeBSD doesn't yet have TFC support. this is ready to go once it does
-upstream issue 4688
-
-$section->addInput(new Form_Checkbox(
-	'tfc_enable',
-	'Traffic Flow Confidentiality',
-	'Enable TFC',
-	$pconfig['tfc_enable']
-))->setHelp('Enable Traffic Flow Confidentiality');
-
-$section->addInput(new Form_Input(
-	'tfc_bytes',
-	'TFC Bytes',
-	'Bytes TFC',
-	$pconfig['tfc_bytes']
-))->setHelp('Enter the number of bytes to pad ESP data to, or leave blank to fill to MTU size');
-
-*/
+))->setHelp('What to do when the remote peer unexpectedly closes a child SA (phase 2).');
 
 $section->addInput(new Form_Checkbox(
 	'dpd_enable',
-	'Dead Peer Detection',
+	'Dead peer detection',
 	'Enable DPD',
 	$pconfig['dpd_enable']
 ))->setHelp('Check the liveness of a peer by using IKEv2 INFORMATIONAL exchanges or IKEv1 R_U_THERE messages. ' .
@@ -524,6 +567,80 @@ $section->addInput(new Form_Input(
 	$pconfig['dpd_maxfail']
 ))->setHelp('Number of consecutive failures allowed before disconnecting. This only applies to IKEv1; in IKEv2 ' .
 	    'the %1$sretransmission timeout%2$s is used instead.', '<a href="/vpn_ipsec_settings.php">', '</a>');
+
+$section->addInput(new Form_Select(
+	'nat_traversal',
+	'NAT traversal',
+	$pconfig['nat_traversal'],
+	array('on' => gettext('Auto'), 'force' => gettext('Force'))
+))->setHelp('Encapsulate ESP in UDP packets (NAT-T) when needed; can help clients behind restrictive firewalls.');
+
+$section->addInput(new Form_Select(
+	'mobike',
+	'MOBIKE',
+	$pconfig['mobike'],
+	array('on' => gettext('Enable'), 'off' => gettext('Disable'))
+))->setHelp('IKEv2 mobility and multihoming (MOBIKE).');
+
+$group = new Form_Group('Custom IKE/NAT-T ports');
+
+$group->add(new Form_Input(
+    'ikeport',
+    'Remote IKE port',
+    'number',
+    $pconfig['ikeport'],
+    ['min' => 1, 'max' => 65535]
+))->setHelp('UDP port for IKE on the remote gateway. Leave empty for default automatic behavior (500/4500).');
+$group->add(new Form_Input(
+    'nattport',
+    'Remote NAT-T port',
+    'number',
+    $pconfig['nattport'],
+    ['min' => 1, 'max' => 65535]
+))->setHelp('UDP port for NAT-T on the remote gateway.%1$s%2$s%3$s',
+    '<div class="infoblock">',
+    sprint_info_box(gettext('If the IKE port is empty and NAT-T contains a value, the tunnel will use only NAT-T.'),
+    'info', false),
+    '</div>');
+
+$section->add($group);
+
+if (!isset($pconfig['mobile'])) {
+	$section->addInput(new Form_Checkbox(
+		'gw_duplicates',
+		'Gateway duplicates',
+		sprintf(gettext('Enable this to allow multiple phase 1 configurations with the same endpoint. ' .
+		    'When enabled, %s does not manage routing to the remote gateway and traffic will follow the default route ' .
+		    'without regard for the chosen interface. Static routes can override this behavior.'), g_get('product_label')),
+		$pconfig['gw_duplicates']
+	));
+}
+
+$section->addInput(new Form_Checkbox(
+	'splitconn',
+	'Split connections',
+	'Enable this to split connection entries with multiple phase 2 configurations. Required for remote endpoints that support only a single traffic selector per child SA.',
+	$pconfig['splitconn']
+));
+
+/* FreeBSD doesn't yet have TFC support. this is ready to go once it does
+upstream issue 4688
+
+$section->addInput(new Form_Checkbox(
+	'tfc_enable',
+	'Traffic Flow Confidentiality',
+	'Enable TFC',
+	$pconfig['tfc_enable']
+))->setHelp('Enable Traffic Flow Confidentiality');
+
+$section->addInput(new Form_Input(
+	'tfc_bytes',
+	'TFC Bytes',
+	'Bytes TFC',
+	$pconfig['tfc_bytes']
+))->setHelp('Enter the number of bytes to pad ESP data to, or leave blank to fill to MTU size');
+
+*/
 
 if ((!empty($_REQUEST['ikeid']) &&
     $p1['ikeid']) &&
@@ -561,12 +678,11 @@ $form->addGlobal(new Form_Input(
 
 $form->add($section);
 
+fs_form_cancel($form, 'vpn_ipsec.php');
+
 print($form);
 
 ?>
-
-
-<form action="vpn_ipsec_phase1.php" method="post" name="iform" id="iform">
 
 <script type="text/javascript">
 //<![CDATA[
@@ -820,7 +936,7 @@ foreach($pconfig['encryption']['item'] as $key => $p1enc) {
 
 	// ---------- On initial page load ------------------------------------------------------------
 
-	var generateButton = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new Pre-Shared Key");?></a>');
+	var generateButton = $('<button type="button" class="btn btn-sm btn-outline-secondary fs-ipsec-genkey"><i class="fa-solid fa-arrows-rotate icon-embed-btn" aria-hidden="true"></i><?=gettext("Generate new Pre-Shared Key");?></button>');
 	generateButton.on('click', function() {
 		$.ajax({
 			type: 'post',
@@ -838,7 +954,6 @@ foreach($pconfig['encryption']['item'] as $key => $p1enc) {
 });
 //]]>
 </script>
-</form>
 <?php
 
 include("foot.inc");
