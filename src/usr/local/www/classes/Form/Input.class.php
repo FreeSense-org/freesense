@@ -183,10 +183,13 @@ class Form_Input extends Form_Element
 
 	public function toggles($selector = null, $type = 'collapse')
 	{
-		if (isset($selector))
-			$this->_attributes['data-target'] = $selector;
+		/* Bootstrap 5 reads data-bs-*; the "disable" toggle is FreeSense.js's own plugin */
+		$prefix = ($type === 'collapse') ? 'data-bs-' : 'data-';
 
-		$this->_attributes['data-toggle'] = $type;
+		if (isset($selector))
+			$this->_attributes[$prefix . 'target'] = $selector;
+
+		$this->_attributes[$prefix . 'toggle'] = $type;
 
 		return $this;
 	}

@@ -2164,7 +2164,7 @@ $group->add(new Form_Button(
 	'Add a new gateway',
 	null,
 	'fa-solid fa-plus'
-))->setAttribute('type','button')->addClass('btn-success')->setAttribute('data-target', '#newgateway4')->setAttribute('data-toggle', 'modal');
+))->setAttribute('type','button')->addClass('btn-success')->setAttribute('data-bs-target', '#newgateway4')->setAttribute('data-bs-toggle', 'modal');
 
 $group->setHelp('If this interface is an Internet connection, select an existing Gateway from the list or add a new one using the "Add" button.%1$s' .
 				'On local area network interfaces the upstream gateway should be "none".%1$s' .
@@ -2712,7 +2712,7 @@ $group->add(new Form_Button(
 	'Add a new gateway',
 	null,
 	'fa-solid fa-plus'
-))->setAttribute('type','button')->addClass('btn-success')->setAttribute('data-target', '#newgateway6')->setAttribute('data-toggle', 'modal');
+))->setAttribute('type','button')->addClass('btn-success')->setAttribute('data-bs-target', '#newgateway6')->setAttribute('data-bs-toggle', 'modal');
 
 $group->setHelp('If this interface is an Internet connection, select an existing Gateway from the list or add a new one using the "Add" button.%s' .
 				'On local LANs the upstream gateway should be "none". ', '<br />');
