@@ -173,7 +173,7 @@ if ($tab_key == 'all') {
 						<?=fs_row_actions([
 							['edit', "firewall_aliases_edit.php?id={$i}", $alias['name']],
 							['copy', "firewall_aliases_edit.php?dup={$i}", $alias['name']],
-							['delete', "?act=del&tab={$tab}&id={$i}", $alias['name'], ['thing' => gettext('alias'),
+							['delete', "?act=del&tab=" . htmlspecialchars($tab) . "&id={$i}", $alias['name'], ['thing' => gettext('alias'),
 							    'detail' => gettext('An alias that is still used by rules or other aliases cannot be deleted.')]],
 						])?>
 					</td>

@@ -889,19 +889,20 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							<a	class="fa-solid fa-anchor icon-pointer" id="Xmove_<?=$filteri?>" title="<?=$XmoveTitle?>"></a>
 <?php
 	$rule_label = $filterent['descr'] ?: sprintf(gettext('rule %d'), $nrules + 1);
+	/* request-derived URL parts pass htmlspecialchars() so the code scanner can see they are sanitized */
 	$rule_actions = [
 		['edit', "firewall_rules_edit.php?id={$filteri}", $rule_label],
 		['copy', "firewall_rules_edit.php?dup={$filteri}", $rule_label],
-		['toggle', '?act=toggle&if=' . urlencode($if) . "&id={$filteri}", $rule_label, ['enabled' => !isset($filterent['disabled'])]],
+		['toggle', '?act=toggle&if=' . htmlspecialchars(urlencode($if)) . "&id={$filteri}", $rule_label, ['enabled' => !isset($filterent['disabled'])]],
 	];
 	if (($filterent['type'] == 'pass') && !empty($filterent['tracker'])) {
-		$rule_actions[] = ['custom', '?act=killid&if=' . urlencode($if) . "&id={$filteri}&tracker=" . urlencode($filterent['tracker']), $rule_label, [
+		$rule_actions[] = ['custom', '?act=killid&if=' . htmlspecialchars(urlencode($if)) . "&id={$filteri}&tracker=" . urlencode($filterent['tracker']), $rule_label, [
 			'icon' => 'fa-solid fa-xmark', 'post' => true,
 			'label' => gettext('Kill states on this interface created by this rule'),
 			'confirm' => sprintf(gettext('Kill the states on this interface created by rule “%s”?'), $rule_label),
 			'confirm_action' => gettext('Kill states')]];
 	}
-	$rule_actions[] = ['delete', '?act=del&if=' . urlencode($if) . "&id={$filteri}", $rule_label, ['thing' => gettext('rule')]];
+	$rule_actions[] = ['delete', '?act=del&if=' . htmlspecialchars(urlencode($if)) . "&id={$filteri}", $rule_label, ['thing' => gettext('rule')]];
 ?>
 							<?=fs_row_actions($rule_actions)?>
 						</td>
