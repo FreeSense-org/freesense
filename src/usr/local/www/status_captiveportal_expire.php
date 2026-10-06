@@ -49,44 +49,57 @@ if (empty($cpzone)) {
 $pgtitle = array(gettext("Status"), gettext("Captive Portal"), htmlspecialchars($cpzone), gettext("Expire Vouchers"));
 $pglinks = array("", "status_captiveportal.php", "status_captiveportal.php?zone=" . $cpzone, "@self");
 
-include("head.inc");
-
+$expired = null;
 if ($_POST['Submit'] && $_POST['vouchers']) {
-	if (voucher_expire(trim($_POST['vouchers']))) {
-		print_info_box(gettext('Voucher(s) successfully marked.'), 'success', false);
-	} else {
-		print_info_box(gettext('Voucher(s) could not be processed.'), 'danger', false);
-	}
+	$expired = voucher_expire(trim($_POST['vouchers'])) ? true : false;
 }
 
+include("head.inc");
+
 fs_tabs('status-captiveportal', 'status_captiveportal_expire.php', ['zone' => $cpzone]);
+?>
 
-$form = new Form(false);
-
-$section = new Form_Section('Expire Vouchers');
-
-$section->addInput(new Form_Textarea(
-	'vouchers',
-	'*Vouchers',
-	$_POST['vouchers']
-))->setHelp('Enter multiple vouchers separated by space or newline. All valid vouchers will be marked as expired.');
-
-$form->addGlobal(new Form_Input(
-	'zone',
-	null,
-	'hidden',
-	$cpzone
-));
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Expire',
-	null,
-	'fa-solid fa-trash-can'
-))->addClass('btn-warning');
-
-print($form);
-
+<div class="fs-tool">
+	<form method="post" action="status_captiveportal_expire.php" class="fs-tool-form">
+		<input type="hidden" name="zone" value="<?=htmlspecialchars($cpzone)?>">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Expire vouchers')?></h2></div>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="vouchers"><?=gettext('Vouchers')?></label>
+					<textarea class="form-control fs-mono" id="vouchers" name="vouchers" rows="6" required autofocus><?=htmlspecialchars($_POST['vouchers'])?></textarea>
+					<div class="form-text"><?=gettext('Enter multiple vouchers separated by space or newline. All valid vouchers will be marked as expired.')?></div>
+				</div>
+			</div>
+			<div class="panel-footer">
+				<button type="submit" class="btn btn-warning" name="Submit" value="Expire"
+					data-fs-confirm="<?=gettext('Expire these vouchers?')?>"
+					data-fs-confirm-detail="<?=gettext('Valid vouchers are marked as used. Users logged in with them are disconnected and the vouchers cannot be used again.')?>"
+					data-fs-confirm-action="<?=gettext('Expire')?>">
+					<i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i><?=gettext('Expire')?>
+				</button>
+			</div>
+		</div>
+	</form>
+	<div class="panel panel-default">
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Result')?></h2></div>
+<?php if ($expired === true): ?>
+		<div class="fs-tool-verdict">
+			<?=fs_badge('pass', gettext('Done'))?>
+			<span><?=gettext('Voucher(s) successfully marked.')?></span>
+		</div>
+<?php elseif ($expired === false): ?>
+		<div class="fs-tool-verdict">
+			<?=fs_badge('error', gettext('Failed'))?>
+			<span><?=gettext('Voucher(s) could not be processed.')?></span>
+		</div>
+<?php else: ?>
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-ticket" aria-hidden="true"></i>
+			<span><?=gettext('Expire vouchers to end their sessions early or to take lost vouchers out of use.')?></span>
+		</div>
+<?php endif; ?>
+	</div>
+</div>
+<?php
 include("foot.inc");
