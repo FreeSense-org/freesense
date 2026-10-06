@@ -79,6 +79,17 @@ require_once('system_certificates.inc');
 /* The user manager pages' shared functions (users, groups, privileges, authentication servers). */
 require_once('system_usermanager.inc');
 require_once('system_authservers.inc');
+/*
+ * System > Advanced (not Admin Access) and the System Tunables; they set globals at file scope.
+ * The log and package libraries for the read-only status routes.
+ */
+require_once('system_advanced_firewall.inc');
+require_once('system_advanced_network.inc');
+require_once('system_advanced_misc.inc');
+require_once('system_advanced_notifications.inc');
+require_once('system_advanced_sysctl.inc');
+require_once('syslog.inc');
+require_once('pkg-utils.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

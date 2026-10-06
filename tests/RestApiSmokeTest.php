@@ -2415,6 +2415,217 @@ foreach (array('restapi_users_post' => array('password', 'authorizedkeys', 'ipse
 	}
 }
 
+/* F1: System > Advanced settings, tunables, logs, packages and the system version */
+foreach (array('system.settings', 'logs', 'packages') as $area) {
+	check_api(isset(restapi_areas()[$area]), "the {$area} permission area exists");
+}
+$f1_routes = array();
+foreach ($v1 as $r) {
+	$f1_routes["{$r['method']} {$r['path']}"] = $r;
+}
+foreach (array(
+    'GET /v1/system/advanced/firewall' => array('system_advanced_firewall.php', 'system.settings', false),
+    'PUT /v1/system/advanced/firewall' => array('system_advanced_firewall.php', 'system.settings', true),
+    'GET /v1/system/advanced/networking' => array('system_advanced_network.php', 'system.settings', false),
+    'PUT /v1/system/advanced/networking' => array('system_advanced_network.php', 'system.settings', true),
+    'GET /v1/system/advanced/misc' => array('system_advanced_misc.php', 'system.settings', false),
+    'PUT /v1/system/advanced/misc' => array('system_advanced_misc.php', 'system.settings', true),
+    'GET /v1/system/advanced/notifications' => array('system_advanced_notifications.php', 'system.settings', false),
+    'PUT /v1/system/advanced/notifications' => array('system_advanced_notifications.php', 'system.settings', true),
+    'GET /v1/system/tunables' => array('system_advanced_sysctl.php', 'system.settings', false),
+    'GET /v1/system/tunables/{name}' => array('system_advanced_sysctl.php', 'system.settings', false),
+    'POST /v1/system/tunables' => array('system_advanced_sysctl.php', 'system.settings', true),
+    'PUT /v1/system/tunables/{name}' => array('system_advanced_sysctl.php', 'system.settings', true),
+    'DELETE /v1/system/tunables/{name}' => array('system_advanced_sysctl.php', 'system.settings', true),
+    'POST /v1/system/tunables/apply' => array('system_advanced_sysctl.php', 'system.settings', true),
+    'GET /v1/logs' => array('status_logs.php', 'logs', false),
+    'GET /v1/logs/{name}' => array('status_logs.php', 'logs', false),
+    'GET /v1/logs/firewall' => array('status_logs_filter.php', 'logs', false),
+    'GET /v1/logs/vpn/{name}' => array('status_logs_vpn.php', 'logs', false),
+    'GET /v1/packages/installed' => array('pkg_mgr_installed.php', 'packages', false),
+    'GET /v1/packages/available' => array('pkg_mgr.php', 'packages', false),
+    'GET /v1/system/version' => array('pkg_mgr_install.php', 'packages', false),
+    'GET /v1/status/services' => array('status_services.php', 'status', false)) as $key => $want) {
+	check_api(isset($f1_routes[$key]) && ($f1_routes[$key]['page'] === $want[0]) && ($f1_routes[$key]['area'] === $want[1]) &&
+	    ($f1_routes[$key]['write'] === $want[2]), "route {$key} (page {$want[0]}, area {$want[1]})");
+}
+foreach ($v1 as $r) {
+	if (in_array($r['area'], array('logs', 'packages'), true)) {
+		check_api(($r['method'] === 'GET') && !$r['write'], "{$r['method']} {$r['path']}: logs and packages are read only in this step");
+	}
+}
+list($r) = restapi_match($v1, 'GET', '/v1/logs/firewall');
+check_api($r['handler'] === 'restapi_h_logs_firewall', 'the firewall log route wins over /v1/logs/{name}');
+list($r, $p) = restapi_match($v1, 'GET', '/v1/logs/dmesg.boot');
+check_api($r['handler'] === 'restapi_h_logs_get' && $p['name'] === 'dmesg.boot', 'log names may contain a dot');
+list($r, $p) = restapi_match($v1, 'GET', '/v1/logs/vpn/logins');
+check_api($r['handler'] === 'restapi_h_logs_vpn' && $p['name'] === 'logins', 'VPN log route');
+list($r, $p) = restapi_match($v1, 'GET', '/v1/system/tunables/net.inet.tcp.log_debug');
+check_api($r['handler'] === 'restapi_h_tunables_get' && $p['name'] === 'net.inet.tcp.log_debug', 'tunables are addressed by name');
+list($r) = restapi_match($v1, 'POST', '/v1/system/tunables/apply');
+check_api($r['handler'] === 'restapi_h_tunables_apply', 'POST .../tunables/apply is the apply action, not a tunable');
+foreach (array('/v1/logs/..%2F..%2Fetc%2Fpasswd', '/v1/logs/%2Fetc%2Fpasswd', '/v1/logs/a%00b', '/v1/logs/vpn/..%2Fpasswd') as $path) {
+	check_api(api_error_status(function () use ($v1, $path) { restapi_match($v1, 'GET', $path); }) === 404, "{$path} is not a log name");
+}
+
+/* Logs: only the GUI's log names, mapped to fixed files */
+$catalog = restapi_log_catalog();
+foreach (array('system', 'dhcpd', 'auth', 'portalauth', 'ipsec', 'ppp', 'openvpn', 'ntpd', 'gateways', 'routing', 'resolver', 'wireless',
+    'nginx', 'dmesg.boot', 'utx', 'userlog') as $name) {
+	check_api(isset($catalog[$name]) && ($catalog[$name]['family'] === 'system') && ($catalog[$name]['page'] === 'status_logs.php'),
+	    "{$name} is a system log (status_logs.php)");
+}
+check_api($catalog['firewall']['file'] === 'filter.log' && $catalog['firewall']['page'] === 'status_logs_filter.php', 'the firewall log is filter.log');
+check_api($catalog['vpn/logins']['file'] === 'vpn.log' && $catalog['vpn/pppoe']['file'] === 'poes.log' && $catalog['vpn/l2tp']['file'] === 'l2tps.log',
+    'the PPPoE/L2TP logs');
+foreach ($catalog as $name => $entry) {
+	check_api((basename($entry['file']) === $entry['file']) && preg_match('/^[a-z0-9.]+$/D', $entry['file']) &&
+	    (strpos(restapi_log_path($entry), '/var/log/') === 0), "log {$name} is a plain file name in /var/log");
+	check_api(is_file("{$root}/src/usr/local/www/{$entry['page']}"), "log {$name}: page {$entry['page']} exists");
+}
+$status_logs = file_get_contents("{$root}/src/usr/local/www/status_logs.php");
+preg_match('/\$allowed_logs = array\((.*?)\n\);/s', $status_logs, $m);
+preg_match_all('/^\t"([a-z.]+)" => array/m', $m[1], $gui_logs);
+check_api(!empty($gui_logs[1]) && (array_keys(array_filter($catalog, function ($e) { return $e['family'] === 'system'; })) === $gui_logs[1]),
+    'the system log names are exactly the list status_logs.php allows');
+foreach (array('passwd', '../../etc/passwd', '/etc/passwd', 'system.log', 'filter', 'firewall', 'config.xml', 'vpn', 'vpn/logins', '', '.', '..',
+    'SYSTEM', 'system ', "system\0") as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_log_entry('system', $bad); }) === 404, "\"{$bad}\" is not a system log name");
+}
+foreach (array('system', 'vpn', 'poes', '../vpn', 'logins/../x') as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_log_entry('vpn', $bad); }) === 404, "\"{$bad}\" is not a VPN log name");
+}
+check_api(api_error_status(function () { restapi_log_entry('firewall', 'system'); }) === 404, 'the firewall family has only the firewall log');
+check_api(restapi_log_entry('system', 'dhcpd')['file'] === 'dhcpd.log' && restapi_log_entry('vpn', 'l2tp')['file'] === 'l2tps.log', 'known names resolve');
+check_api(restapi_log_path(array('file' => '../../etc/passwd')) === '/var/log/passwd', 'a log path never leaves the log directory');
+check_api(restapi_log_lines(array()) === 50 && restapi_log_lines(array('lines' => '')) === 50 && restapi_log_lines(array('lines' => '2000')) === 2000 &&
+    restapi_log_lines(array('lines' => '1')) === 1, 'lines: default 50, 1 to 2000');
+foreach (array('0', '2001', '-1', '1.5', 'abc', '10; ls', ' 5', array('5')) as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_log_lines(array('lines' => $bad)); }) === 400, 'lines ' . json_encode($bad) . ' is refused');
+}
+check_api(restapi_log_format(array(), $catalog['system']) === 'parsed' && restapi_log_format(array('format' => 'raw'), $catalog['system']) === 'raw' &&
+    restapi_log_format(array(), $catalog['dmesg.boot']) === 'raw' && restapi_log_format(array(), $catalog['utx']) === 'parsed', 'formats like the GUI views');
+foreach (array(array('dmesg.boot', 'parsed'), array('userlog', 'parsed'), array('utx', 'raw'), array('system', 'table'), array('system', 'notable'), array('system', 'none')) as $c) {
+	check_api(api_error_status(function () use ($catalog, $c) { restapi_log_format(array('format' => $c[1]), $catalog[$c[0]]); }) === 400,
+	    "{$c[0]} cannot be read as {$c[1]}");
+}
+check_api(restapi_log_text(array('filter' => 'sshd'), 'filter') === 'sshd' && restapi_log_text(array(), 'filter') === '', 'text parameters');
+foreach (array(str_repeat('a', 201), "a\nb", "a\x00", array('x')) as $bad) {
+	check_api(api_error_status(function () use ($bad) { restapi_log_text(array('filter' => $bad), 'filter'); }) === 400, 'filter ' . json_encode($bad) . ' is refused');
+}
+$routes_logs = file_get_contents("{$root}/src/etc/inc/restapi/routes_logs.inc");
+check_api(!preg_match('/(?<![a-z_])(file_get_contents|fopen|readfile|file|exec|shell_exec|system|passthru|popen)\(/', $routes_logs),
+    'routes_logs.inc reads logs only through dump_log() and conv_log_filter()');
+check_api(strpos($fn_body($routes_logs, 'restapi_log_read'), 'dump_log($path, $lines,') !== false &&
+    strpos($fn_body($routes_logs, 'restapi_log_read'), 'conv_log_filter($path, $lines,') !== false, 'logs are read with the GUI functions');
+foreach (array('restapi_h_logs_get' => "restapi_log_entry('system', \$name)", 'restapi_h_logs_vpn' => "restapi_log_entry('vpn', \$name)",
+    'restapi_h_logs_firewall' => "restapi_log_entry('firewall', 'firewall')") as $fn => $call) {
+	check_api(strpos($fn_body($routes_logs, $fn), $call) !== false && strpos($fn_body($routes_logs, $fn), 'restapi_log_lines(') !== false &&
+	    strpos($fn_body($routes_logs, $fn), 'restapi_log_filter(') !== false, "{$fn}() resolves the name through the whitelist and bounds lines and filter");
+}
+check_api(strpos($fn_body($routes_logs, 'restapi_log_filter'), 'cleanup_regex_pattern($filter)') !== false, 'filters are cleaned like the GUI raw filter');
+
+/* System > Advanced: the forms as the API shows them */
+check_api(restapi_sysadv_natreflection(array()) === 'proxy' && restapi_sysadv_natreflection(array('enablenatreflectionpurenat' => 'yes')) === 'purenat' &&
+    restapi_sysadv_natreflection(array('disablenatreflection' => 'yes', 'enablenatreflectionpurenat' => 'yes')) === 'disable', 'NAT reflection mode as the page preselects it');
+$pft = array();
+foreach (array('TCP' => array('first', 'opening'), 'UDP' => array('first'), 'Other' => array('first', 'single', 'multiple'), 'FRAG' => array('frag'),
+    'ADAPTIVE' => array('start', 'end')) as $proto => $types) {
+	foreach ($types as $t) {
+		$key = strtolower($proto) . $t . 'timeout';
+		$pft[$proto][$t] = array('keyname' => $key, 'value' => '1', 'name' => $key);
+	}
+}
+check_api(restapi_sysadv_timeout_keys($pft) === array('tcpfirsttimeout', 'tcpopeningtimeout', 'udpfirsttimeout', 'otherfirsttimeout',
+    'othersingletimeout', 'othermultipletimeout'), 'state timeout fields stop after the Other group, like the page');
+check_api(restapi_sysadv_timeout_keys(array()) === array(), 'no pf timeouts, no fields');
+$masked = restapi_sysadv_mask(array('a' => 'secret', 'b' => '', 'c' => 'x'), array('a', 'b', 'missing'));
+check_api($masked === array('a' => '(set)', 'b' => '', 'c' => 'x'), 'secrets read as "(set)" (empty stays empty)');
+check_api(restapi_sysadv_keep_secrets(array('a' => '(set)', 'b' => 'new', 'c' => '(set)'), array('a', 'b')) === array('b' => 'new', 'c' => '(set)'),
+    '"(set)" keeps a secret');
+check_api(restapi_sysadv_password_post('proxypass', 'old', array()) === array('proxypass' => DMYPWD, 'proxypass_confirm' => DMYPWD) &&
+    restapi_sysadv_password_post('proxypass', '', array()) === array('proxypass' => '', 'proxypass_confirm' => '') &&
+    restapi_sysadv_password_post('smtppassword', 'old', array('smtppassword' => 'n')) === array('smtppassword' => 'n', 'smtppassword_confirm' => 'n') &&
+    restapi_sysadv_password_post('proxypass', 'old', array('proxypass' => '')) === array('proxypass' => '', 'proxypass_confirm' => ''),
+    'passwords post like the page: the placeholder keeps, a new value is confirmed, "" clears');
+$choices = array('optimization' => array('normal' => 'N', 'aggressive' => 'A'), 'tftpinterface' => array('lan' => 'LAN'), 'harddiskstandby' => array('' => 'on', '0.5' => '6'));
+restapi_sysadv_check_choices(array('optimization' => 'normal', 'tftpinterface' => array('lan'), 'harddiskstandby' => '0.5', 'other' => 'x'), $choices,
+    array('optimization', 'tftpinterface', 'harddiskstandby'));
+foreach (array(array('optimization' => 'bogus'), array('tftpinterface' => array('lan', 'opt9')), array('harddiskstandby' => '1; reboot'), array('optimization' => '')) as $bad) {
+	check_api(api_error_status(function () use ($bad, $choices) { restapi_sysadv_check_choices($bad, $choices, array('optimization', 'tftpinterface', 'harddiskstandby')); }) === 422,
+	    'select value ' . json_encode($bad) . ' outside the options is a 422');
+}
+$t = restapi_tunable_out(array('tunable' => 'a&amp;b', 'value' => '1&lt;2', 'descr' => 'd', 'modified' => true));
+check_api($t === array('tunable' => 'a&b', 'value' => '1<2', 'descr' => 'd', 'custom' => true), 'tunables are decoded from the stored HTML encoding');
+check_api(restapi_tunable_out(array('tunable' => 'x', 'value' => 'default'), '5')['custom'] === false &&
+    restapi_tunable_out(array('tunable' => 'x', 'value' => 'default'), '5')['running_value'] === '5', 'system defaults are not custom');
+
+/* Packages and version */
+check_api(restapi_pkg_status(array('broken' => true), null) === 'not_installed' && restapi_pkg_status(array('obsolete' => true), null) === 'not_in_repository' &&
+    restapi_pkg_status(array('installed_version' => '1', 'version' => '2'), '<') === 'upgrade_available' &&
+    restapi_pkg_status(array('installed_version' => '2', 'version' => '2'), '=') === 'up_to_date' &&
+    restapi_pkg_status(array('installed_version' => '3', 'version' => '2'), '>') === 'newer_than_available' &&
+    restapi_pkg_status(array('installed_version' => '3'), null) === 'unknown' && restapi_pkg_status(array('installed_version' => '1', 'version' => '2'), '?') === 'compare_error',
+    'package status as the Installed Packages page shows it');
+$pkg = restapi_pkg_out(array('name' => 'FreeSense-pkg-x', 'shortname' => 'x', 'desc' => 'A <b>tool</b> &amp; more', 'version' => '2', 'installed_version' => '1',
+    'www' => 'UNKNOWN', 'deps' => array('php83' => array('origin' => 'lang/php83')), 'freesense' => array('display_name' => 'X', 'category' => 'c',
+    'capabilities' => array('vpn'))), '<');
+check_api($pkg['description'] === 'A tool & more' && $pkg['www'] === null && $pkg['dependencies'] === array('php83') && $pkg['status'] === 'upgrade_available' &&
+    $pkg['display_name'] === 'X' && $pkg['capabilities'] === array('vpn') && $pkg['installed_version'] === '1', 'installed package entry');
+check_api(!array_key_exists('installed_version', restapi_pkg_out(array('name' => 'p'), false)) && !array_key_exists('status', restapi_pkg_out(array('name' => 'p'), false)),
+    'available packages have no installed version or status');
+$ver = restapi_version_out(array('version' => '1.1.1', 'installed_version' => '1.1.0', 'pkg_version_compare' => '<'), '1.1.0-DEVELOPMENT');
+check_api($ver === array('running_version' => '1.1.0-DEVELOPMENT', 'installed_version' => '1.1.0', 'latest_version' => '1.1.1', 'update_available' => true,
+    'status' => 'update_available'), 'version: update available');
+check_api(restapi_version_out(array('version' => '1', 'installed_version' => '1', 'pkg_version_compare' => '='), 'x')['update_available'] === false,
+    'version: up to date');
+
+/* The pages and shared functions */
+$net_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_advanced_network.inc");
+$net_save = $fn_body($net_inc, 'saveAdvancedNetworking');
+check_api(substr_count($net_save, "\treturn ") === 1 && str_ends_with($net_save, "\n\treturn \$json ? json_encode(\$rv) : \$rv;") &&
+    strpos($net_save, "\$rv['input_errors'] = \$input_errors;") > strrpos($net_save, "\n\t}\n"), '[fix] saveAdvancedNetworking() returns its result (and the errors) when validation fails');
+check_api(strpos($net_save, "\$post['duid'] = get_duid_from_file();") !== false, '[fix] the networking form keeps the system DUID placeholder after a save');
+$net_page = file_get_contents("{$root}/src/usr/local/www/system_advanced_network.php");
+check_api(strpos($net_page, "var duid = '<?=\$pconfig['global-v6duid']?>';") === false &&
+    strpos($net_page, "var duid = '<?=preg_replace('/[^0-9A-Fa-f:]/', '', (string)\$pconfig['global-v6duid'])?>';") !== false,
+    'the posted DUID is not echoed unescaped into the page script now that errors re-render the form');
+$misc_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_advanced_misc.inc");
+check_api(strpos($misc_inc, "\$pconfig['mds_disable'] = config_get_path('system/mds_disable', '');") !== false,
+    '[fix] the MDS select preselects only Default when unset (a browser posted "Mitigation disabled")');
+$sysctl_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_advanced_sysctl.inc");
+check_api(strpos($sysctl_inc, 'function deleteTunable($id, $complete = false, $redirect = true) {') !== false &&
+    strpos($fn_body($sysctl_inc, 'deleteTunable'), "if (\$redirect) {\n\t\t\t\tFreeSenseHeader(") !== false, 'deleteTunable() redirects only when asked');
+check_api(strpos($fn_body($sysctl_inc, 'saveTunable'), 'findTunable($post[\'tunable\'])') !== false, '[fix] a second entry for the same tunable is refused');
+$sysctl_page = file_get_contents("{$root}/src/usr/local/www/system_advanced_sysctl.php");
+check_api(strpos($sysctl_page, 'deleteTunable($id)') !== false && strpos($sysctl_page, 'saveTunable($_POST, $id)') !== false, 'the tunables page is unchanged');
+$routes_system = file_get_contents("{$root}/src/etc/inc/restapi/routes_system.inc");
+check_api(!preg_match('/(?<![a-z_])(write_config|config_set_path|config_del_path|mark_subsystem_dirty|set_sysctl|set_single_sysctl)\(/', $routes_system),
+    'routes_system.inc changes nothing itself');
+foreach (array('restapi_h_sysadv_fw_set' => 'saveSystemAdvancedFirewall(', 'restapi_h_sysadv_net_set' => 'saveAdvancedNetworking(',
+    'restapi_h_sysadv_misc_set' => 'saveSystemAdvancedMisc(', 'restapi_h_sysadv_notif_set' => 'saveAdvancedNotifications(',
+    'restapi_tunables_save' => 'saveTunable(', 'restapi_h_tunables_delete' => 'deleteTunable($idx, $apply, false)') as $fn => $call) {
+	check_api(strpos($fn_body($routes_system, $fn), $call) !== false, "{$fn}() writes through the page's {$call})");
+}
+check_api(!preg_match("/'test-(smtp|telegram|pushover|slack)'/", $routes_system) && strpos($fn_body($routes_system, 'restapi_h_sysadv_notif_set'), "array('save' => 'Save')") !== false,
+    'the notification test buttons are never posted (only Save)');
+check_api(strpos($fn_body($routes_system, 'restapi_sysadv_notif_out'), 'restapi_sysadv_mask($settings, restapi_sysadv_notif_secrets())') !== false &&
+    restapi_sysadv_notif_secrets() === array('smtppassword', 'api', 'pushoverapikey', 'pushoveruserkey', 'slack_api') &&
+    strpos($fn_body($routes_system, 'restapi_sysadv_misc_out'), "restapi_sysadv_mask(\$settings, array('proxypass'))") !== false,
+    'the SMTP and proxy passwords and the Telegram, Pushover and Slack keys are masked');
+foreach (array('system_advanced_firewall.inc', 'system_advanced_network.inc', 'system_advanced_misc.inc', 'system_advanced_notifications.inc',
+    'system_advanced_sysctl.inc', 'syslog.inc', 'pkg-utils.inc') as $inc) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"),"require_once('{$inc}');") !== false, "the API front controller loads {$inc}");
+}
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), 'system_advanced_admin.inc') === false,
+    'the Admin Access functions are not loaded by the API (step F3)');
+$routes_pkg = file_get_contents("{$root}/src/etc/inc/restapi/routes_packages.inc");
+check_api(strpos($fn_body($routes_pkg, 'restapi_h_pkg_installed'), 'restapi_pkg_not_busy();') !== false &&
+    strpos($fn_body($routes_pkg, 'restapi_h_pkg_available'), 'restapi_pkg_not_busy();') !== false &&
+    strpos($fn_body($routes_pkg, 'restapi_pkg_not_busy'), "is_subsystem_dirty('packagelock')") !== false, 'package lists are refused while packages are being changed');
+check_api(!preg_match('/(?<![a-z_])(pkg_install|pkg_delete|install_package|delete_package|pkg_exec|mwexec|exec|shell_exec)\(/', $routes_pkg),
+    'routes_packages.inc installs or removes nothing');
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');

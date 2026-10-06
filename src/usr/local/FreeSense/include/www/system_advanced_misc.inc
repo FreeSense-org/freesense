@@ -90,7 +90,12 @@ function getSystemAdvancedMisc($json = false) {
 	$pconfig['crypto_hardware'] = config_get_path('system/crypto_hardware');
 	$pconfig['thermal_hardware'] = config_get_path('system/thermal_hardware');
 	$pconfig['pti_disabled'] = config_path_enabled('system', 'pti_disabled');
-	$pconfig['mds_disable'] = config_get_path('system/mds_disable');
+	/*
+	 * "" when unset: the page's MDS select compared null loosely with both
+	 * "Default" ("") and "Mitigation disabled" (0), so a browser posted 0
+	 * and saving the page turned the mitigation off.
+	 */
+	$pconfig['mds_disable'] = config_get_path('system/mds_disable', '');
 	$pconfig['schedule_states'] = config_path_enabled('system', 'schedule_states');
 	$pconfig['remove_failover_states_default'] = config_get_path('system/remove_failover_states_default');
 	$pconfig['keep_failover_states'] = config_path_enabled('system', 'keep_failover_states');

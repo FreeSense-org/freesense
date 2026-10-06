@@ -62,6 +62,9 @@ function restapi_areas() {
 		'vpn.openvpn' => 'OpenVPN servers, clients and client-specific overrides',
 		'pki' => 'Certificates, certificate authorities and revocation lists',
 		'users' => 'Users, groups, privileges and authentication servers',
+		'system.settings' => 'System settings (advanced firewall, networking, miscellaneous, notifications, tunables)',
+		'logs' => 'System logs (read)',
+		'packages' => 'Packages and system version (lists and update check)',
 	);
 }
 
