@@ -53,9 +53,9 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | services_unbound_host_edit, _domainoverride_edit | Editor | Cancel returns to `services_unbound.php?view=hosts` / `view=domains`; host aliases become the entry grid | D | |
 | services_unbound_acls | List + Editor (`act=edit`) | list view standard; editor networks become the entry grid | B / D | |
 | services_unbound_advanced | Settings | standard | D | |
-| services_dnsmasq | Settings + **R1** | same split as Unbound: General / Host overrides / Domain overrides | C | M |
-| services_dnsmasq_edit, _domainoverride_edit | Editor | standard; Cancel returns to the view | D | |
-| services_dhcp, services_dhcpv6 | Settings + **R1** | interface tabs stay; add view switch General / Address pools / Static mappings; static mappings become a List with search (MAC, IP, hostname, descr) | C | **H** |
+| services_dnsmasq | Settings + **R1** | **done**: General / Host overrides / Domain overrides tabs (`?view=`), searchable lists, header Add | C | M |
+| services_dnsmasq_edit, _domainoverride_edit | Editor | **done**: save and Cancel return to the view | D | |
+| services_dhcp, services_dhcpv6 | Settings + **R1** | **done (mappings)**: interface tabs stay; view switch Settings / Static Mappings (n); mappings are a searchable List with header Add, editors return to it. Address pools stay in Settings (still a sub-list there) | C | **H** |
 | services_dhcp_edit, _dhcpv6_edit | Editor | standard | D | |
 | services_dhcp_settings, _dhcpv6_settings, _dhcp_relay, _dhcpv6_relay | Settings | relay server lists become the entry grid | D | |
 | services_radvd | Settings | DNS lists become the entry grid | D | |
@@ -76,7 +76,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | services_dyndns / _edit, services_rfc2136 / _edit, services_checkip / _edit | List / Editor | standard; badges for update status; copy exists for dyndns/rfc2136 | B / D | |
 | services_igmpproxy / _edit | List / Editor | standard; edit networks become the entry grid | B / D | |
 | services_pppoe / _edit | List / Editor | standard; users in the editor become the entry grid | B / D | |
-| services_wol | List + **R1** | list of devices with row action **Wake**, header actions "Add device" + "Wake all"; the one-off "wake by MAC" form becomes a compact card above the list; remove the duplicate Add | C | |
+| services_wol | List + **R8** | **done**: one device list (Wake / Edit / Delete per row); header Wake all (confirm), Wake a MAC… (modal), Add device (modal; needs the edit privilege) | C | |
 | services_wol_edit | Editor | standard | D | |
 | services_snmp | Settings | standard | D | |
 

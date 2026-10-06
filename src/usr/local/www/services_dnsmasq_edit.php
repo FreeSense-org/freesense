@@ -51,7 +51,7 @@ if (isset($id) && $a_hosts[$id]) {
 if ($_POST['save']) {
 	$rv = saveDNSMasqHost($_POST, $id);
 	if (empty($rv['input_errors'])) {
-		header("Location: services_dnsmasq.php");
+		header("Location: services_dnsmasq.php?view=hosts");
 		exit;
 	}
 	$pconfig = $rv['config'];
@@ -59,7 +59,7 @@ if ($_POST['save']) {
 }
 
 $pgtitle = array(gettext("Services"), gettext("DNS Forwarder"), gettext("Edit Host Override"));
-$pglinks = array("", "services_dnsmasq.php", "@self");
+$pglinks = array("", "services_dnsmasq.php?view=hosts", "@self");
 $shortcut_section = "forwarder";
 include("head.inc");
 
@@ -166,6 +166,7 @@ $form->addGlobal(new Form_Button(
 ))->addClass('btn-success addbtn');
 
 $form->add($section);
+fs_form_cancel($form, 'services_dnsmasq.php?view=hosts');
 print($form);
 
 include("foot.inc");

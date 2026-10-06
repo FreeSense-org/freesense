@@ -65,7 +65,7 @@ if ($_POST['save']) {
 	$pconfig = $rv['pconfig'];
 
 	if (!$input_errors) {
-		header("Location: services_dhcp.php?if={$if}");
+		header("Location: services_dhcp.php?if={$if}&view=mappings");
 		exit;
 	}
 }
@@ -81,7 +81,7 @@ if (!empty($if) && isset($iflist[$if])) {
 	$ifname = $iflist[$if];
 }
 $pgtitle = [gettext('Services'), gettext('DHCP Server'), $ifname, gettext('Static Mapping'), gettext('Edit')];
-$pglinks = ['', 'services_dhcp.php', 'services_dhcp.php?if='.$if, '@self', '@self'];
+$pglinks = ['', 'services_dhcp.php', 'services_dhcp.php?if='.$if, 'services_dhcp.php?if='.$if.'&view=mappings', '@self'];
 $shortcut_section = 'dhcp';
 if (dhcp_is_backend('kea')) {
 	$shortcut_section = 'kea-dhcp4';
@@ -646,6 +646,7 @@ if (!kea_custom_config_editable()) {
 $form->add($section);
 endif;
 
+fs_form_cancel($form, 'services_dhcp.php?if=' . urlencode($if) . '&view=mappings');
 print($form);
 ?>
 

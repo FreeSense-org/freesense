@@ -35,13 +35,28 @@ require_once("services_wol.inc");
 
 $savemsg = "";
 $class = "";
+/* adding and editing devices is its own privilege (services_wol_edit.php) */
+$can_edit = isAllowedPage('services_wol_edit.php');
 
 /* Waking every device changes state, so only accept it via POST. */
 if ($_POST['wakeall'] != "") {
 	wol_wake_all($savemsg, $class);
 }
 
-if ($_POST['Submit'] || $_POST['mac']) {
+if (isset($_POST['save_device'])) {
+	/* the add / edit device modal (same handler as services_wol_edit.php) */
+	$id = is_numericint($_POST['id'] ?? null) ? $_POST['id'] : null;
+	if (!$can_edit) {
+		$device_errors = [gettext('You do not have permission to add or edit Wake-on-LAN devices.')];
+	} else {
+		$device_errors = wol_save_entry($_POST, $id);
+	}
+	if (empty($device_errors)) {
+		header("Location: services_wol.php");
+		exit;
+	}
+	$input_errors = $device_errors;
+} elseif ($_POST['Submit'] || $_POST['mac']) {
 	unset($input_errors);
 
 	if ($_POST['mac']) {
@@ -60,18 +75,30 @@ if (is_numericint($_POST['id']) && $_POST['act'] == "del") {
 	}
 }
 
-$pgtitle = array(gettext("Services"), gettext("Wake-on-LAN"));
-include("head.inc");
-?>
-<div class="infoblock blockopen">
-<?php
-print_info_box(gettext('This service can be used to wake up (power on) computers by sending special "Magic Packets".') . '<br />' .
-			   gettext('The NIC in the computer that is to be woken up must support Wake-on-LAN and must be properly configured (WOL cable, BIOS settings).'),
-			   'info', false);
+$devices = config_get_path('wol/wolentry', []);
+$interfaces = get_configured_interface_with_descr();
+$selected_if = (empty($if) ? 'lan' : $if);
+if (!isset($interfaces[$selected_if])) {
+	$selected_if = array_key_first($interfaces);
+}
 
-?>
-</div>
-<?php
+$pgtitle = array(gettext("Services"), gettext("Wake-on-LAN"));
+if (!empty($devices)) {
+	fs_page_action(gettext('Wake all'), 'services_wol.php?wakeall=true', 'fa-power-off', 'outline-secondary', [
+		'usepost' => true,
+		'data-fs-confirm' => sprintf(gettext('Send a magic packet to all %d devices?'), count($devices)),
+		'data-fs-confirm-action' => gettext('Wake all'),
+	]);
+}
+fs_page_action(gettext('Wake a MAC…'), '#', 'fa-bolt', 'outline-secondary', ['data-fs-modal' => '#wol-wake']);
+if ($can_edit) {
+	fs_page_action(gettext('Add device'), '#', 'fa-plus', 'primary', [
+		'data-fs-modal' => '#wol-device',
+		'data-fs-modal-title' => gettext('Add device'),
+		'data-fs-fill' => json_encode(['id' => '', 'interface' => $selected_if]),
+	]);
+}
+include("head.inc");
 
 if ($input_errors) {
 	print_input_errors($input_errors);
@@ -80,126 +107,109 @@ if ($input_errors) {
 if ($savemsg) {
 	print_info_box($savemsg, $class);
 }
-
-$selected_if = (empty($if) ? 'lan' : $if);
-if (!isset(get_configured_interface_list(false)[$selected_if])) {
-	$selected_if = null;
-}
-
-$form = new Form(false);
-
-$section = new Form_Section('Wake-on-LAN');
-
-$section->addInput(new Form_Select(
-	'if',
-	'*Interface',
-	$selected_if,
-	get_configured_interface_with_descr()
-))->setHelp('Choose which interface the host to be woken up is connected to.');
-
-$section->addInput(new Form_Input(
-	'mac',
-	'*MAC address',
-	'text',
-	$mac
-))->setHelp('Enter a MAC address in the following format: xx:xx:xx:xx:xx:xx');
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Send',
-	null,
-	'fa-solid fa-power-off'
-))->addClass('btn-primary');
-
-print $form;
 ?>
-
-<div class="panel panel-default">
-	<div class="panel-heading">
-		<h2 class="panel-title"><?=gettext("Wake-on-LAN Devices");?></h2>
-	</div>
-
-<?php
-	// Add top buttons if more than 24 entries in the table
-	if (count(config_get_path('wol/wolentry', [])) > 24) {
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Devices'),
+	'search' => gettext('Search devices, MAC addresses…'),
+	'noun' => gettext('devices'),
+	'noun_one' => gettext('device'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("Device")?></th>
+					<th data-fs-search><?=gettext("Interface")?></th>
+					<th data-fs-search><?=gettext("MAC address")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($devices as $i => $wolent):
+	$name = ($wolent['descr'] !== '') ? $wolent['descr'] : strtolower($wolent['mac']);
+	$wake_url = 'services_wol.php?mac=' . urlencode($wolent['mac']) . '&if=' . urlencode($wolent['interface']);
+	$actions = [
+		['custom', $wake_url, $name, ['icon' => 'fa-power-off', 'label' => sprintf(gettext('Wake %s'), $name), 'post' => true]],
+	];
+	if ($can_edit) {
+		$actions[] = ['edit', '#', $name, ['attrs' => [
+			'data-fs-modal' => '#wol-device',
+			'data-fs-modal-title' => sprintf(gettext('Edit “%s”'), $name),
+			'data-fs-fill' => json_encode(['id' => (string)$i, 'interface' => $wolent['interface'], 'mac' => $wolent['mac'], 'descr' => $wolent['descr']]),
+		]]];
+	}
+	$actions[] = ['delete', 'services_wol.php?act=del&id=' . $i, $name, ['thing' => gettext('device')]];
 ?>
-	<div class="panel-footer">
-		<a class="btn btn-success" href="services_wol_edit.php">
-			<i class="fa-solid fa-plus icon-embed-btn"></i>
-			<?=gettext("Add");?>
-		</a>
-
-		<button type="button" class="btn btn-primary wakeall">
-			<i class="fa-solid fa-power-off icon-embed-btn"></i>
-			<?=gettext("Wake All Devices")?>
-		</button>
+				<tr>
+					<td>
+						<span class="fs-device"><i class="fa-solid fa-desktop" aria-hidden="true"></i>
+						<?php if ($wolent['descr'] !== ''): ?><strong><?=htmlspecialchars($wolent['descr'])?></strong><?php else: ?><span class="fs-muted"><?=gettext('(no description)')?></span><?php endif; ?></span>
+					</td>
+					<td><?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($wolent['interface']))?></td>
+					<td class="fs-mono"><?=htmlspecialchars(strtolower($wolent['mac']))?></td>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($devices)) {
+	fs_empty_row(4, gettext('No devices saved yet. Save the machines you wake regularly, or wake any MAC address directly.'));
+} ?>
+			</tbody>
+		</table>
 	</div>
-<?php } ?>
-
-	<div class="panel-body">
-		<p class="text-danger" style="margin-left: 8px;margin-bottom:0px;"><?=gettext("Click the MAC address to wake up an individual device.")?></p>
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-rowdblclickedit">
-				<thead>
-					<tr>
-						<th><?=gettext("Interface")?></th>
-						<th><?=gettext("MAC address")?></th>
-						<th><?=gettext("Description")?></th>
-						<th><?=gettext("Actions")?></th>
-					</tr>
-				</thead>
-				<tbody>
-					<?php foreach (config_get_path('wol/wolentry', []) as $i => $wolent): ?>
-						<tr>
-							<td>
-								<?=htmlspecialchars(convert_friendly_interface_to_friendly_descr($wolent['interface']));?>
-							</td>
-							<td>
-								<a href="?mac=<?=urlencode($wolent['mac']);?>&amp;if=<?=urlencode($wolent['interface']);?>" usepost><?=htmlspecialchars(strtolower($wolent['mac']));?></a>
-							</td>
-							<td>
-								<?=htmlspecialchars($wolent['descr']);?>
-							</td>
-							<td>
-								<a class="fa-solid fa-pencil"	title="<?=gettext('Edit Device')?>"	href="services_wol_edit.php?id=<?=$i?>"></a>
-								<a class="fa-solid fa-trash-can"	title="<?=gettext('Delete Device')?>" href="services_wol.php?act=del&amp;id=<?=$i?>" usepost></a>
-								<a class="fa-solid fa-power-off" title="<?=gettext('Wake Device')?>" href="?mac=<?=urlencode($wolent['mac']);?>&amp;if=<?=urlencode($wolent['interface']);?>" usepost></a>
-							</td>
-						</tr>
-					<?php endforeach?>
-				</tbody>
-			</table>
-		</div>
-	</div>
-	<div class="panel-footer">
-		<a class="btn btn-success" href="services_wol_edit.php">
-			<i class="fa-solid fa-plus icon-embed-btn"></i>
-			<?=gettext("Add");?>
-		</a>
-
-		<button type="button" class="btn btn-primary wakeall">
-			<i class="fa-solid fa-power-off icon-embed-btn"></i>
-			<?=gettext("Wake All Devices")?>
-		</button>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+		<?=gettext('Wake-on-LAN powers on a computer by sending it a "magic packet". Its network card must support Wake-on-LAN and have it enabled (BIOS/UEFI settings).')?>
 	</div>
 </div>
 
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-
-	$('.wakeall').click(function() {
-		if (confirm("Are you sure you wish to Wake All Devices?")) {
-			postSubmit({wakeall: 'true'}, 'services_wol.php');
-		}
-	});
-
-});
-//]]>
-</script>
-
+<style>
+.fs-device { display: inline-flex; align-items: center; gap: .55rem; }
+.fs-device > i { color: var(--fs-text-muted); }
+</style>
 <?php
+/* wake any MAC address once (not saved) */
+fs_modal_form_begin('wol-wake', gettext('Wake a MAC address'));
+?>
+	<div class="mb-3">
+		<label class="form-label" for="wol-wake-if"><?=gettext('Interface')?></label>
+		<select class="form-select" id="wol-wake-if" name="if">
+		<?php foreach ($interfaces as $ifname => $ifdescr): ?>
+			<option value="<?=htmlspecialchars($ifname)?>"<?=($ifname === $selected_if) ? ' selected' : ''?>><?=htmlspecialchars($ifdescr)?></option>
+		<?php endforeach; ?>
+		</select>
+		<div class="form-text"><?=gettext('The interface the computer is connected to.')?></div>
+	</div>
+	<div class="mb-3">
+		<label class="form-label" for="wol-wake-mac"><?=gettext('MAC address')?></label>
+		<input class="form-control fs-mono" id="wol-wake-mac" name="mac" required placeholder="xx:xx:xx:xx:xx:xx">
+	</div>
+<?php
+fs_modal_form_end(gettext('Wake'), 'Submit', 'Send', 'fa-power-off');
+
+if ($can_edit) {
+	/* add / edit a saved device */
+	fs_modal_form_begin('wol-device', gettext('Add device'));
+?>
+	<input type="hidden" name="id" value="">
+	<div class="mb-3">
+		<label class="form-label" for="wol-device-descr"><?=gettext('Description')?></label>
+		<input class="form-control" id="wol-device-descr" name="descr" placeholder="<?=gettext('Office PC')?>">
+	</div>
+	<div class="mb-3">
+		<label class="form-label" for="wol-device-if"><?=gettext('Interface')?></label>
+		<select class="form-select" id="wol-device-if" name="interface">
+		<?php foreach ($interfaces as $ifname => $ifdescr): ?>
+			<option value="<?=htmlspecialchars($ifname)?>"<?=($ifname === $selected_if) ? ' selected' : ''?>><?=htmlspecialchars($ifdescr)?></option>
+		<?php endforeach; ?>
+		</select>
+	</div>
+	<div class="mb-3">
+		<label class="form-label" for="wol-device-mac"><?=gettext('MAC address')?></label>
+		<input class="form-control fs-mono" id="wol-device-mac" name="mac" required placeholder="xx:xx:xx:xx:xx:xx">
+	</div>
+<?php
+	fs_modal_form_end(gettext('Save'), 'save_device', '1', 'fa-floppy-disk');
+}
 
 include("foot.inc");

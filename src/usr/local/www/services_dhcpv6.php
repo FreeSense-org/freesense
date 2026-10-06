@@ -120,10 +120,14 @@ if ($act == "delpool") {
 
 if ($_POST['act'] == "del") {
 	if (dhcp6_staticmap_delete($if, $_POST['id'])) {
-		header("Location: services_dhcpv6.php?if={$if}");
+		header("Location: services_dhcpv6.php?if={$if}&view=mappings");
 		exit;
 	}
 }
+
+/* static mappings are a view of each interface (docs/webui/PLAN.md, rule R1) */
+$editing_pool = (is_numeric($pool ?? null) || ($act === 'newpool'));
+$view = $editing_pool ? 'settings' : fs_view_param(['settings', 'mappings'], 'settings');
 
 $pgtitle = [gettext('Services'), gettext('DHCPv6 Server')];
 $pglinks = [null, 'services_dhcpv6.php'];
@@ -138,6 +142,12 @@ if (!empty($if) && isset($iflist[$if])) {
 		$pgtitle[] = gettext('Edit');
 		$pglinks[] = '@self';
 	}
+}
+
+if (($view === 'mappings') && !empty($if)) {
+	$pgtitle[] = gettext('Static Mappings');
+	$pglinks[] = '@self';
+	fs_page_action(gettext('Add static mapping'), 'services_dhcpv6_edit.php?if=' . urlencode($if), 'fa-plus');
 }
 
 $shortcut_section = "dhcp6";
@@ -213,6 +223,13 @@ if ($dhcrelay_enabled) {
 }
 
 display_top_tabs($tab_array);
+
+if (!$editing_pool) {
+	fs_view_switch([
+		'settings' => gettext('Settings'),
+		'mappings' => sprintf(gettext('Static Mappings (%d)'), count(config_get_path("dhcpdv6/{$if}/staticmap", []))),
+	], $view);
+}
 
 if (is_null($pconfig) || !is_array($pconfig)) {
 	$pconfig = [];
@@ -911,78 +928,77 @@ $form->addGlobal(new Form_Input(
 	$if
 ));
 
-print($form);
+if ($view === 'settings') {
+	print($form);
+}
 
-// DHCP Static Mappings table
-if (!is_numeric($pool) && !($act === 'newpool')):
+// DHCPv6 Static Mappings table (a view of the interface, docs/webui/PLAN.md rule R1)
+if ($view === 'mappings'):
+	$staticmaps = config_get_path("dhcpdv6/{$if}/staticmap", []);
+	$kea = dhcp_is_backend('kea');
+	$shown = 0;
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('DHCPv6 Static Mappings');?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Static Mappings'),
+	'search' => gettext('Search address, hostname, DUID…'),
+	'noun' => gettext('static mappings'),
+	'noun_one' => gettext('static mapping'),
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm">
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
 			<thead>
 				<tr>
-					<th><!-- status icons --></th>
-					<th><?=gettext("IPv6 Address")?></th>
-<?php if (dhcp_is_backend('kea')): ?>
-					<th><?=gettext('Delegated Prefix')?></th>
+					<th class="fs-col-icon"><span class="visually-hidden"><?=gettext('Flags')?></span></th>
+					<th data-fs-search><?=gettext("IPv6 Address")?></th>
+<?php if ($kea): ?>
+					<th data-fs-search><?=gettext('Delegated Prefix')?></th>
 <?php endif; ?>
-					<th><?=gettext("Hostname")?></th>
-					<th><?=gettext("DUID")?></th>
-					<th><?=gettext("Description")?></th>
-					<th><?=gettext("Actions")?></th>
+					<th data-fs-search><?=gettext("Hostname")?></th>
+					<th data-fs-search><?=gettext("DUID")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 				</tr>
 			</thead>
 			<tbody>
 <?php
-$i = 0;
-foreach (config_get_path("dhcpdv6/{$if}/staticmap", []) as $mapent):
-	if ($mapent['duid'] != "" or $mapent['ipaddrv6'] != ""):
+	foreach ($staticmaps as $i => $mapent):
+		if ($mapent['duid'] == "" && $mapent['ipaddrv6'] == "") {
+			continue;
+		}
+		$shown++;
+		$edit_url = 'services_dhcpv6_edit.php?if=' . urlencode($if) . '&id=' . $i;
+		$map_name = $mapent['hostname'] ?: ($mapent['ipaddrv6'] ?: $mapent['duid']);
 ?>
-			<tr ondblclick="document.location='services_dhcpv6_edit.php?if=<?=htmlspecialchars($if)?>&amp;id=<?=$i?>';">
-				<td>
-					<?=dhcp6_static_mapping_icons($dhcpdconf, $mapent)?>
-				</td>
-				<td>
-					<?=htmlspecialchars($mapent['ipaddrv6'])?>
-				</td>
-<?php if (dhcp_is_backend('kea')): ?>
-				<td>
-					<?=htmlspecialchars($mapent['pdprefix'])?>
-				</td>
+				<tr>
+					<td class="fs-col-icon"><?=dhcp6_static_mapping_icons($dhcpdconf, $mapent)?></td>
+					<td class="fs-mono"><a href="<?=htmlspecialchars($edit_url)?>"><?=htmlspecialchars($mapent['ipaddrv6'] ?: '-')?></a></td>
+<?php if ($kea): ?>
+					<td class="fs-mono"><?=htmlspecialchars($mapent['pdprefix'])?></td>
 <?php endif; ?>
-				<td>
-					<?=htmlspecialchars($mapent['hostname'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars($mapent['duid'])?>
-				</td>
-				<td>
-					<?=htmlspecialchars($mapent['descr'])?>
-				</td>
-				<td>
-					<a class="fa-solid fa-pencil" title="<?=gettext('Edit static mapping')?>" href="services_dhcpv6_edit.php?if=<?=$if?>&amp;id=<?=$i?>"></a>
-					<a class="fa-solid fa-trash-can text-danger" title="<?=gettext('Delete static mapping')?>" href="services_dhcpv6.php?if=<?=$if?>&amp;act=del&amp;id=<?=$i?>" usepost></a>
-				</td>
-			</tr>
+					<td><?=htmlspecialchars($mapent['hostname'])?></td>
+					<td class="fs-mono small"><?=htmlspecialchars($mapent['duid'])?></td>
+					<td><?=htmlspecialchars($mapent['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', $edit_url, $map_name],
+							['delete', 'services_dhcpv6.php?if=' . urlencode($if) . '&act=del&view=mappings&id=' . $i, $map_name, ['thing' => gettext('static mapping')]],
+						])?>
+					</td>
+				</tr>
 <?php
-	endif;
-	$i++;
-endforeach;
+	endforeach;
+	if ($shown === 0) {
+		fs_empty_row($kea ? 7 : 6, gettext('No static mappings on this interface yet.'), 'services_dhcpv6_edit.php?if=' . urlencode($if), gettext('Add static mapping'));
+	}
 ?>
 			</tbody>
 		</table>
 	</div>
 </div>
-
-<nav class="action-buttons">
-	<a href="services_dhcpv6_edit.php?if=<?=$if?>" class="btn btn-success"/>
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add Static Mapping')?>
-	</a>
-</nav>
 <?php endif; ?>
 
+<?php if ($view === 'settings'): ?>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
@@ -1216,6 +1232,7 @@ events.push(function() {
 });
 //]]>
 </script>
+<?php endif; /* settings */ ?>
 
 <?php
 include('foot.inc');

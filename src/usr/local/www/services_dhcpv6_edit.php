@@ -64,7 +64,7 @@ if ($_POST['save']) {
 	$pconfig = $rv['pconfig'];
 
 	if (!$input_errors) {
-		header("Location: services_dhcpv6.php?if={$if}");
+		header("Location: services_dhcpv6.php?if={$if}&view=mappings");
 		exit;
 	}
 }
@@ -76,7 +76,7 @@ if (!empty($if) && isset($iflist[$if])) {
 	$ifname = $iflist[$if];
 }
 $pgtitle = [gettext('Services'), gettext('DHCPv6 Server'), $ifname, gettext('Static Mapping'), gettext('Edit')];
-$pglinks = [null, 'services_dhcpv6.php', "services_dhcpv6.php?if={$if}", "services_dhcpv6.php?if={$if}", '@self'];
+$pglinks = [null, 'services_dhcpv6.php', "services_dhcpv6.php?if={$if}", "services_dhcpv6.php?if={$if}&view=mappings", '@self'];
 $shortcut_section = 'dhcp6';
 if (dhcp_is_backend('kea')) {
 	$shortcut_section = 'kea-dhcp6';
@@ -210,6 +210,7 @@ $form->addGlobal(new Form_Input(
 	$if
 ));
 
+fs_form_cancel($form, 'services_dhcpv6.php?if=' . urlencode($if) . '&view=mappings');
 print($form);
 
 include("foot.inc");
