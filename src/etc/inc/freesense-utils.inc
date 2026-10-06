@@ -570,7 +570,27 @@ function nic_settings_device_id($iface, $options = null) {
 		$options = get_interface_addresses($iface);
 	}
 	$identity = $options['hwaddr'] ?? $options['macaddr'] ?? $iface;
-	return strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($identity)));
+	/* the id is an XML tag name in config.xml, so it must not start with a digit
+	 * (a MAC such as 00:0c:29:... made write_config() produce an invalid file) */
+	return 'nic_' . strtolower(preg_replace('/[^a-z0-9]+/i', '_', trim($identity)));
+}
+
+/* Saved per-adapter settings; reads the pre-prefix key that was valid when the MAC started with a letter. */
+function nic_settings_saved($id) {
+	$saved = config_get_path("system/nicsettings/adapters/{$id}");
+	if (!is_array($saved)) {
+		$saved = config_get_path('system/nicsettings/adapters/' . substr($id, 4));
+	}
+	if (!is_array($saved)) {
+		return [];
+	}
+	/* "vlan" is a list tag in config.xml, so it reads back as a one-element array */
+	foreach ($saved as $key => $value) {
+		if (is_array($value) && count($value) === 1 && isset($value[0]) && !is_array($value[0])) {
+			$saved[$key] = $value[0];
+		}
+	}
+	return $saved;
 }
 
 function nic_settings_profiles() {
@@ -590,7 +610,7 @@ function nic_settings_effective($iface, $options = null) {
 	}
 	$result = $profiles[$profile];
 	$id = nic_settings_device_id($iface, $options);
-	$saved = config_get_path("system/nicsettings/adapters/{$id}", []);
+	$saved = nic_settings_saved($id);
 	foreach (array_keys($result) as $setting) {
 		if (isset($saved[$setting]) && in_array($saved[$setting], ['inherit', 'on', 'off'], true) && $saved[$setting] !== 'inherit') {
 			$result[$setting] = $saved[$setting];
@@ -673,7 +693,7 @@ function hardware_offloading_applyflags($iface) {
 
 	FreeSense_interface_capabilities($iface, -$flags_off);
 	FreeSense_interface_capabilities($iface, $flags_on);
-	$mtu = config_get_path("system/nicsettings/adapters/{$nic_settings['id']}/mtu");
+	$mtu = nic_settings_saved($nic_settings['id'])['mtu'] ?? null;
 	if (is_numeric($mtu)) {
 		FreeSense_interface_mtu($iface, (int)$mtu);
 	}
