@@ -25,6 +25,7 @@
 ##|*DESCR=Allow access to the 'System: REST API' page (API settings and the API keys of every user).
 ##|*WARN=standard-warning-root
 ##|*MATCH=system_restapi.php*
+##|*MATCH=system_restapi_explorer.php*
 ##|-PRIV
 
 require_once("guiconfig.inc");
@@ -69,10 +70,7 @@ $pgtitle = array(gettext('System'), gettext('REST API'));
 $pglinks = array('', '@self');
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext('Settings & All Keys'), true, 'system_restapi.php');
-$tab_array[] = array(gettext('My API Keys'), false, 'system_restapi_keys.php');
-display_top_tabs($tab_array);
+restapi_print_tabs('system_restapi.php', true);
 
 if ($input_errors) {
 	print_input_errors($input_errors);
@@ -147,8 +145,9 @@ if (empty($users)) {
 	restapi_print_create_form($users, $create);
 }
 
-print_info_box(sprintf(gettext('The API is described by an OpenAPI document at %s (it needs an API key). ' .
+print_info_box(sprintf(gettext('The API is described by an OpenAPI document at %1$s (it needs an API key); the %2$sAPI Explorer%3$s ' .
+    'lists every endpoint, lets you try them with your own key and downloads the document without one. ' .
     'Every change made through the API appears in Diagnostics > Backup & Restore > Configuration History with the key ID.'),
-    '<code>/api/v1/openapi.json</code>'), 'info', false);
+    '<code>/api/v1/openapi.json</code>', '<a href="system_restapi_explorer.php">', '</a>'), 'info', false);
 
 include("foot.inc");

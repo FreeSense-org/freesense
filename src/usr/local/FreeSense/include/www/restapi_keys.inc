@@ -245,3 +245,22 @@ function restapi_users_with_access() {
 	}
 	return $users;
 }
+
+/*
+ * The System > REST API tabs the signed-in user may open. $always shows them
+ * even when only the current page is allowed (the settings page always did).
+ */
+function restapi_print_tabs($active, $always = false) {
+	$tab_array = array();
+	foreach (array(
+	    'system_restapi.php' => gettext('Settings & All Keys'),
+	    'system_restapi_keys.php' => gettext('My API Keys'),
+	    'system_restapi_explorer.php' => gettext('API Explorer')) as $page => $label) {
+		if (isAllowedPage($page)) {
+			$tab_array[] = array($label, $page === $active, $page);
+		}
+	}
+	if ($always || (count($tab_array) > 1)) {
+		display_top_tabs($tab_array);
+	}
+}

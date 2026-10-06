@@ -28,8 +28,9 @@
 ##|+PRIV
 ##|*IDENT=page-system-restapi-keys
 ##|*NAME=System: REST API access
-##|*DESCR=Allow the user to use the REST API and to create and revoke their own API keys. The API still only allows what the user's other privileges allow.
+##|*DESCR=Allow the user to use the REST API, to create and revoke their own API keys and to open the API Explorer. The API still only allows what the user's other privileges allow.
 ##|*MATCH=system_restapi_keys.php*
+##|*MATCH=system_restapi_explorer.php*
 ##|-PRIV
 
 require_once("guiconfig.inc");
@@ -66,12 +67,7 @@ $pgtitle = array(gettext('System'), gettext('REST API'), gettext('My API Keys'))
 $pglinks = array('', isAllowedPage('system_restapi.php') ? 'system_restapi.php' : '', '@self');
 include("head.inc");
 
-if (isAllowedPage('system_restapi.php')) {
-	$tab_array = array();
-	$tab_array[] = array(gettext('Settings & All Keys'), false, 'system_restapi.php');
-	$tab_array[] = array(gettext('My API Keys'), true, 'system_restapi_keys.php');
-	display_top_tabs($tab_array);
-}
+restapi_print_tabs('system_restapi_keys.php');
 
 if ($input_errors) {
 	print_input_errors($input_errors);

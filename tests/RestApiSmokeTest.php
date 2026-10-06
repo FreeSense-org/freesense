@@ -3386,4 +3386,115 @@ $self = file_get_contents("{$root}/src/usr/local/www/system_restapi_keys.php");
 check_api(strpos($self, "\$post['username'] = \$me;") !== false && strpos($self, "restapi_revoke_token((string)(\$_POST['id'] ?? ''), \$me)") !== false,
     'My API Keys only creates and revokes the signed-in user\'s own keys');
 
+
+/* API Explorer (System > REST API > API Explorer) */
+$explorer_page = file_get_contents("{$root}/src/usr/local/www/system_restapi_explorer.php");
+$explorer_inc_src = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/restapi_explorer.inc");
+check_api(strpos($explorer_page, "##|+PRIV\n##|*IDENT=page-system-restapi-explorer\n") !== false &&
+    strpos($explorer_page, "##|*MATCH=system_restapi_explorer.php*\n##|-PRIV") !== false, 'the explorer page has its own privilege');
+check_api(strpos($defs, "\$priv_list['page-system-restapi-explorer'] = array();") !== false &&
+    strpos($defs, "\$priv_list['page-system-restapi-explorer']['match'][] = \"system_restapi_explorer.php*\";") !== false,
+    'the explorer privilege is in priv.defs.inc');
+foreach (array('page-system-restapi' => 'system_restapi.php', 'page-system-restapi-keys' => 'system_restapi_keys.php') as $priv => $page) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/{$page}"), "##|*MATCH=system_restapi_explorer.php*") !== false &&
+	    strpos($defs, "\$priv_list['{$priv}']['match'][] = \"system_restapi_explorer.php*\";") !== false,
+	    "{$priv} also opens the explorer");
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/{$page}"), "restapi_print_tabs('{$page}'") !== false, "{$page} shows the REST API tabs");
+}
+check_api(strpos($explorer_page, "restapi_print_tabs('system_restapi_explorer.php')") !== false &&
+    strpos(file_get_contents("{$root}/src/usr/local/FreeSense/include/www/restapi_keys.inc"), "'system_restapi_explorer.php' => gettext('API Explorer')") !== false,
+    'the API Explorer tab is on every REST API page');
+/* The OpenAPI download: after the GUI's authentication and page privilege check, and checked again before any output. */
+$dl = substr($explorer_page, strpos($explorer_page, "if ((\$_GET['download'] ?? '') === 'openapi')"));
+$dl = substr($dl, 0, strpos($dl, "\n}\n"));
+check_api(strpos($explorer_page, 'require_once("guiconfig.inc");') < strpos($explorer_page, "\$_GET['download']") &&
+    strpos($dl, "if (!isAllowedPage('system_restapi_explorer.php')) {") !== false &&
+    strpos($dl, "isAllowedPage(") < strpos($dl, 'echo $doc;') && strpos($dl, 'restapi_openapi(restapi_routes_v1()') !== false,
+    'the openapi.json download is privilege-checked');
+/* No server-side capability and no key on the server: the page never reads a key, writes config or files. */
+foreach (array('explorer page' => $explorer_page, 'restapi_explorer.inc' => $explorer_inc_src) as $what => $src) {
+	check_api(!preg_match('/(?<![a-z_])(write_config|config_set_path|config_del_path|file_put_contents|fopen|fwrite|touch|unlink|' .
+	    'restapi_create_token|restapi_revoke_token|setcookie|log_error|logger|syslog|mwexec|exec|shell_exec)\(/', $src),
+	    "the {$what} writes nothing on the server");
+	check_api(strpos($src, '$_POST') === false && strpos($src, '$_REQUEST') === false && strpos($src, 'HTTP_AUTHORIZATION') === false &&
+	    strpos($src, '$_COOKIE') === false, "the {$what} never receives an API key");
+}
+check_api(strpos($explorer_page, "credentials: 'omit'") !== false && strpos($explorer_page, "'Authorization': 'Bearer ' + apiKey") !== false &&
+    strpos($explorer_page, "'/api' + path + (qs.toString()") !== false, 'Try it sends the key only as the Authorization header, without the GUI session cookie');
+check_api(substr_count($explorer_page, 'window.sessionStorage.') === 3 && substr_count($explorer_page, 'sessionStorage.setItem(') === 1 && strpos($explorer_page, 'localStorage') === false &&
+    strpos($explorer_page, 'storeSet(remember.checked ? apiKey : \'\')') !== false, 'the key is remembered only in sessionStorage and only on request');
+check_api(strpos($explorer_page, '"Authorization: Bearer $FREESENSE_API_KEY"') !== false && strpos($explorer_page, 'incKey.checked && apiKey') !== false,
+    'copy as curl uses a placeholder unless the user includes the key');
+check_api(strpos($explorer_page, "restapi_explorer_model(restapi_routes_v1(), restapi_areas(),") !== false &&
+    strpos($explorer_page, '<script type="application/json" id="fx-model"><?=restapi_explorer_json($model)?></script>') !== false &&
+    !preg_match('/<\?=\s*\$(ep|group|f)\[\'(summary|path|url|label|reason|page|scope|method)\'\]/', $explorer_page),
+    'the explorer renders the route model (escaped) and embeds it as JSON');
+
+set_include_path(get_include_path() . PATH_SEPARATOR . realpath($root . '/src/usr/local/FreeSense/include/www'));
+require_once('restapi_explorer.inc');
+$fx_seen = array();
+$fx_model = restapi_explorer_model($v1, restapi_areas(), function ($r) { return array('priv:' . $r['page']); },
+    function ($r, $flags) { return $r['write'] ? 'no writes for this viewer' : ''; });
+$fx_n = 0;
+foreach ($fx_model['areas'] as $g) {
+	check_api(($g['label'] !== '') && ($g['id'] === 'meta' || isset(restapi_areas()[$g['id']])), "explorer area {$g['id']} has a label");
+	foreach ($g['endpoints'] as $ep) {
+		$fx_n++;
+		$fx_seen["{$ep['method']} {$ep['path']}"] = $ep;
+		check_api(($ep['area'] === '' ? 'meta' : $ep['area']) === $g['id'], "{$ep['method']} {$ep['path']} is listed under its area");
+	}
+}
+check_api($fx_n === count($v1) && $fx_model['count'] === count($v1) && $fx_model['areas'][0]['id'] === 'meta', 'the explorer lists every route once');
+foreach ($v1 as $r) {
+	$ep = $fx_seen["{$r['method']} {$r['path']}"] ?? null;
+	check_api($ep !== null && $ep['scope'] === $r['scope'] && $ep['page'] === $r['page'] && $ep['url'] === "/api{$r['path']}" &&
+	    $ep['summary'] === $r['summary'] && $ep['params'] === $r['params'] && $ep['produces'] === $r['produces'] &&
+	    count($ep['query']) === count($r['query']) && $ep['privileges'] === array("priv:{$r['page']}"),
+	    "the explorer shows {$r['method']} {$r['path']}");
+	check_api($ep['callable'] === !$r['write'] && ($r['write'] ? $ep['reason'] === 'no writes for this viewer' : $ep['reason'] === ''),
+	    "the explorer marks whether the viewer may call {$r['method']} {$r['path']}");
+	check_api(!$r['write'] || $ep['flags']['kind'] === 'write', "{$r['method']} {$r['path']} is shown as a write");
+	if ($ep['example'] !== null) {
+		$ex = json_decode($ep['example'], true);
+		check_api(is_array($ex) && (!array_key_exists('confirm', $ex) || $ex['confirm'] === false),
+		    "the body example of {$r['method']} {$r['path']} is a JSON object and never pre-confirms");
+	}
+}
+$fx = function ($m, $p) use ($fx_seen) { return $fx_seen["{$m} {$p}"]['flags']; };
+check_api($fx('POST', '/v1/system/reboot') === array('kind' => 'write', 'confirm' => 'always', 'admin' => true, 'apply' => 'direct', 'destructive' => true) &&
+    $fx('POST', '/v1/system/halt')['admin'] && $fx('POST', '/v1/system/firmware/update')['admin'] && $fx('DELETE', '/v1/packages/{name}')['admin'],
+    'reboot, halt, the system update and package removal are flagged confirm + administrator');
+check_api($fx('PUT', '/v1/system/advanced/admin')['confirm'] === 'conditional' && !$fx('PUT', '/v1/system/advanced/admin')['admin'],
+    'admin access changes are flagged as sometimes needing confirm');
+check_api($fx('POST', '/v1/interfaces/assignments')['confirm'] === 'always' && $fx('DELETE', '/v1/diagnostics/states')['confirm'] === 'always' &&
+    $fx('DELETE', '/v1/diagnostics/states')['destructive'] && $fx('POST', '/v1/diagnostics/states/reset')['destructive'] &&
+    $fx('POST', '/v1/config/revisions/{time}/restore')['confirm'] === 'always', 'interface assignments, state kill/reset and restore need confirm');
+check_api($fx('POST', '/v1/firewall/aliases')['apply'] === 'staged' && $fx('POST', '/v1/firewall/aliases/apply')['apply'] === 'applies' &&
+    $fx('GET', '/v1/firewall/aliases') === array('kind' => 'read', 'confirm' => '', 'admin' => false, 'apply' => '', 'destructive' => false) &&
+    !$fx('POST', '/v1/firewall/aliases')['destructive'] && $fx('DELETE', '/v1/firewall/aliases/{name}')['destructive'],
+    'staged writes, apply endpoints, reads and deletes are told apart');
+check_api($fx('POST', '/v1/diagnostics/dns-lookup')['kind'] === 'read' && $fx_seen['POST /v1/diagnostics/dns-lookup']['callable'],
+    'a safe POST lookup is shown as a read');
+check_api($fx('GET', '/v1/me')['kind'] === 'read' && $fx_seen['GET /v1/me']['scope'] === '' && $fx_seen['GET /v1/me']['privileges'] === array('priv:@authenticated'),
+    'the any-key endpoints have no scope');
+$ex = json_decode($fx_seen['POST /v1/firewall/aliases']['example'], true);
+check_api($ex['name'] === '' && $ex['type'] === 'host' && $ex['entries'] === array(array('address' => '', 'detail' => '')) && $ex['update_frequency'] === 0,
+    'the body example follows the schema (first enum value, typed defaults, one array item)');
+check_api(json_decode($fx_seen['POST /v1/system/reboot']['example'], true) === array('confirm' => false, 'type' => 'normal'),
+    'the reboot example must be confirmed by hand');
+check_api(restapi_explorer_example(array('type' => 'object', 'description' => 'form fields')) instanceof stdClass &&
+    restapi_explorer_example(null) === null && restapi_explorer_example(array('type' => 'array', 'items' => array('type' => 'string'))) === array(''),
+    'examples of free-form objects and arrays');
+/* Embedded JSON: valid, and nothing in the route text can close the <script> element or break out of it. */
+$fx_evil = restapi_explorer_model(array(restapi_route('GET', '/v1/evil', 'h', array('page' => 'x.php', 'area' => 'status',
+    'summary' => "</script><script>alert(1)</script> & 'x' \"y\" \xff", 'query' => array('q' => '<b>bold</b>')))), restapi_areas());
+$fx_json = restapi_explorer_json($fx_evil);
+check_api(strpbrk($fx_json, "<>&'") === false && json_decode($fx_json, true)['areas'][0]['endpoints'][0]['query'][0]['description'] === '<b>bold</b>' &&
+    strpos(json_decode($fx_json, true)['areas'][0]['endpoints'][0]['summary'], '</script><script>alert(1)</script>') === 0,
+    'route text is escaped in the embedded JSON and decodes unchanged');
+$fx_full = restapi_explorer_json($fx_model);
+check_api(is_array(json_decode($fx_full, true)) && json_last_error() === JSON_ERROR_NONE && strpbrk($fx_full, '<>') === false,
+    'the embedded explorer JSON is valid');
+$fx_access = restapi_explorer_access_for(null);
+check_api($fx_access($v1[0], array()) !== '', 'a non-local GUI user is told keys are for local users only');
 echo "REST API smoke test passed.\n";
