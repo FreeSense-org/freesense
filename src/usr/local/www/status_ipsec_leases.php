@@ -32,111 +32,118 @@ require_once("ipsec.inc");
 $pgtitle = array(gettext("Status"), gettext("IPsec"), gettext("Leases"));
 $pglinks = array("", "status_ipsec.php", "@self");
 $shortcut_section = "ipsec";
-include("head.inc");
 
 $mobile = ipsec_dump_mobile();
+$pools = (isset($mobile['pool']) && is_array($mobile['pool'])) ? $mobile['pool'] : [];
+
+$online = 0;
+$leases = 0;
+foreach ($pools as $pool) {
+	$online += (int)$pool['online'];
+	$leases += is_array($pool['lease'] ?? null) ? count($pool['lease']) : 0;
+}
+
+if (isAllowedPage('vpn_ipsec_mobile.php')) {
+	fs_page_action(gettext('Mobile clients'), 'vpn_ipsec_mobile.php', 'fa-gear', 'secondary');
+}
+
+include("head.inc");
 
 fs_tabs('status-ipsec', 'status_ipsec_leases.php');
 
-if (isset($mobile['pool']) && is_array($mobile['pool'])) {
+if (!ipsec_enabled()) {
+	print_info_box(sprintf(gettext('IPsec is disabled. %1$sConfigure IPsec%2$s.'), '<a href="vpn_ipsec.php">', '</a>'), 'info', false);
+}
 ?>
-	<div class="table-responsive">
-		<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
+
+<style>
+.fs-ipsec-sub { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+</style>
+
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('Pools'), count($pools));
+fs_tile(gettext('Online'), $online, ($online > 0) ? 'online' : null);
+fs_tile(gettext('Leases'), $leases);
+?>
+</div>
+
+<?php if (!empty($pools)): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Pools'),
+	'search' => false,
+	'noun' => gettext('pools'),
+	'noun_one' => gettext('pool'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
 					<th><?=gettext("Pool")?></th>
 					<th><?=gettext("Base")?></th>
 					<th><?=gettext("Online")?></th>
-					<th><?=gettext("Total Usage")?></th>
-					<th><?=gettext("ID")?></th>
-					<th><?=gettext("Host")?></th>
-					<th><?=gettext("Status")?></th>
+					<th><?=gettext("Total usage")?></th>
 				</tr>
 			</thead>
 			<tbody>
-<?php
-			foreach ($mobile['pool'] as $pool) {
-				// The first row of each pool includes the pool information
-?>
+<?php foreach ($pools as $pool): ?>
 				<tr>
-					<td>
-						<?=$pool['name']?>
-					</td>
-					<td>
-						<?=$pool['base']?>
-					</td>
-					<td>
-						<?=$pool['online']?>
-					</td>
-					<td>
-						<?php if ($pool['size'] > 0): ?>
-						<?=$pool['online'] + $pool['offline']?> / <?=$pool['size']?>
-						<?php endif; ?>
-					</td>
+					<td><?=htmlspecialchars($pool['name'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($pool['base'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($pool['online'])?></td>
+					<td class="fs-mono"><?=($pool['size'] > 0) ? htmlspecialchars(($pool['online'] + $pool['offline']) . ' / ' . $pool['size']) : ''?></td>
+				</tr>
+<?php endforeach; ?>
+			</tbody>
+		</table>
+	</div>
+</div>
+<?php endif; ?>
 
-<?php
-				$leaserow = true;
-				if (is_array($pool['lease']) && (count($pool['lease']) > 0)) {
-					foreach ($pool['lease'] as $lease) {
-						if (!$leaserow) {
-							// On subsequent rows the first three columns are blank
-?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Leases'),
+	'search' => gettext('Search leases…'),
+	'noun' => gettext('leases'),
+	'noun_one' => gettext('lease'),
+	'filters' => ['status' => [gettext('All leases'), 'online' => gettext('Online'), 'offline' => gettext('Offline')]],
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
 				<tr>
-					<td></td>
-					<td></td>
-					<td></td>
-					<td></td>
-<?php
-						}
-						$leaserow = false;
+					<th class="fs-col-status" data-fs-search><?=gettext("Status")?></th>
+					<th data-fs-search><?=gettext("ID")?></th>
+					<th data-fs-search><?=gettext("Host")?></th>
+					<th data-fs-search><?=gettext("Pool")?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($pools as $pool):
+	foreach ((is_array($pool['lease'] ?? null) ? $pool['lease'] : []) as $lease):
+		$is_online = ($lease['status'] == 'online');
 ?>
+				<tr data-fs-filter-status="<?=$is_online ? 'online' : 'offline'?>">
+					<td><?=$is_online ? fs_badge('online') : fs_badge('offline', ucfirst((string)$lease['status']))?></td>
+					<td><?=htmlspecialchars($lease['id'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($lease['host'])?></td>
 					<td>
-						<?=htmlspecialchars($lease['id'])?>
-					</td>
-					<td>
-						<?=htmlspecialchars($lease['host'])?>
-					</td>
-					<td>
-						<?php if ($lease['status'] == 'online'): ?>
-						<span style="color:green; font-weight: bold">
-						<span class="fa-solid fa-check"></span>
-						<?php else: ?>
-						<span>
-						<?php endif; ?>
-						<?=htmlspecialchars($lease['status'])?>
-						</span>
+						<?=htmlspecialchars($pool['name'])?>
+						<span class="fs-ipsec-sub fs-mono"><?=htmlspecialchars($pool['base'])?></span>
 					</td>
 				</tr>
 <?php
-
-					}
-				} else {
-?>
-					<td colspan="3" class="warning"><?=gettext('No leases from this pool yet.')?></td>
-				</tr>
-<?php
-				}
-			}
+	endforeach;
+endforeach;
+if ($leases == 0) {
+	fs_empty_row(4, empty($pools) ? gettext('No IPsec pools.') : gettext('No leases from these pools yet.'));
+}
 ?>
 			</tbody>
 		</table>
 	</div>
-<?php
-} else {
-	print_info_box(gettext('No IPsec pools.'));
-}
-
-if (ipsec_enabled()) {
-?>
-<div class="infoblock">
-<?php
-} else {
-?>
-<div class="infoblock blockopen">
-<?php
-}
-print_info_box(sprintf(gettext('IPsec can be configured %1$shere%2$s.'), '<a href="vpn_ipsec.php">', '</a>'), 'info', false);
-?>
 </div>
+
 <?php
 include("foot.inc");

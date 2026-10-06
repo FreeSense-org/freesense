@@ -201,7 +201,7 @@ if ($is_editor):
 		</div>
 		<dl class="fs-ovpn-facts">
 			<div><dt><?=gettext('Mode')?></dt><dd><?=htmlspecialchars(trim($sum_mode[0] . ($sum_mode[1] ? ' · ' . $sum_mode[1] : '')))?></dd></div>
-			<div><dt><?=gettext('Protocol / port')?></dt><dd class="fs-mono"><?=htmlspecialchars($server_summary['protocol'])?> / <?=htmlspecialchars($server_summary['local_port'])?> · <?=htmlspecialchars(strtoupper($server_summary['dev_mode'] ?: 'tun'))?></dd></div>
+			<div><dt><?=gettext('Protocol / port')?></dt><dd class="fs-mono"><?=htmlspecialchars($server_summary['protocol'] ?: (array_key_first($openvpn_prots) ?? '–'))?> / <?=htmlspecialchars($server_summary['local_port'] ?: '–')?> · <?=htmlspecialchars(strtoupper($server_summary['dev_mode'] ?: 'tun'))?></dd></div>
 			<div><dt><?=gettext('Interface')?></dt><dd><?=htmlspecialchars(convert_openvpn_interface_to_friendly_descr($sum_if) ?: $sum_if)?></dd></div>
 			<div><dt><?=gettext('Tunnel network')?></dt><dd class="fs-mono"><?=empty($sum_tunnel) ? '<span class="fs-muted">' . gettext('None') . '</span>' : htmlspecialchars(implode(', ', $sum_tunnel))?></dd></div>
 		</dl>

@@ -87,7 +87,28 @@ function puts($arg) {
 
 $pgtitle = array(gettext("Diagnostics"), gettext("Command Prompt"));
 include("head.inc");
+
+if ($input_errors) {
+	print_input_errors($input_errors);
+}
 ?>
+<style>
+.fs-cmd-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
+.fs-cmd-card .panel-title > i { color: var(--fs-text-muted); }
+.fs-danger-card.fs-cmd-card .panel-title > i { color: var(--fs-warn); }
+.fs-cmd-body { display: flex; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-cmd-body > p { margin: 0; }
+.fs-cmd-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); }
+.fs-cmd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fs-sp-4); margin-bottom: var(--fs-sp-5); }
+.fs-cmd-grid > .panel { margin-bottom: 0; }
+.fs-cmd-output .panel-title code { margin-left: var(--fs-sp-2); color: var(--fs-text-muted); font-weight: 400; }
+.fs-cmd-errlines { max-height: 9rem; margin: 0 var(--fs-sp-4) var(--fs-sp-3); padding: var(--fs-sp-2) var(--fs-sp-3); overflow: auto; white-space: nowrap;
+	border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); background: var(--fs-surface-raised); font-family: var(--fs-font-mono); font-size: var(--fs-fs-sm); line-height: 1.5; }
+.fs-cmd-errlines .fs-cmd-margin { color: var(--fs-text-muted); }
+.fs-cmd-errlabel { margin: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-2); font-weight: 600; }
+#txtPHPCommand { min-height: 12rem; }
+@media (max-width: 767.98px) { .fs-cmd-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>
 <script type="text/javascript">
 //<![CDATA[
 	// Create recall buffer array (of encoded strings).
@@ -144,9 +165,8 @@ if (isBlank($_POST['txtRecallBuffer'])) {
 	// Recalls command buffer going either up or down.
 	function btnRecall_onClick( form, n ) {
 
-		// If nothing in recall buffer, then error.
+		// If nothing in recall buffer, then do nothing.
 		if (!arrRecallBuffer.length) {
-			alert('<?=gettext("Nothing to recall"); ?>!');
 			form.txtCommand.focus();
 			return;
 		}
@@ -176,6 +196,27 @@ if (isBlank($_POST['txtRecallBuffer'])) {
 
 		return true;
 	}
+
+	events.push(function() {
+		var form = document.forms.frmExecPlus;
+
+		form.addEventListener('submit', function () {
+			frmExecPlus_onSubmit(form);
+		});
+		document.getElementById('btnRecallPrev').addEventListener('click', function () {
+			btnRecall_onClick(form, -1);
+		});
+		document.getElementById('btnRecallNext').addEventListener('click', function () {
+			btnRecall_onClick(form, 1);
+		});
+		document.getElementById('btnCmdClear').addEventListener('click', function () {
+			Reset_onClick(form);
+		});
+		if (!arrRecallBuffer.length) {
+			document.getElementById('btnRecallPrev').disabled = true;
+			document.getElementById('btnRecallNext').disabled = true;
+		}
+	});
 //]]>
 </script>
 <?php
@@ -185,10 +226,13 @@ if (isBlank($_POST['txtCommand']) && isBlank($_POST['txtPHPCommand']) && isBlank
 }
 
 if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
-	<div class="panel panel-success responsive">
-		<div class="panel-heading"><h2 class="panel-title"><?=sprintf(gettext('Shell Output - %s'), htmlspecialchars($_POST['txtCommand']))?></h2></div>
-		<div class="panel-body">
-			<div class="content">
+	<div class="panel panel-default fs-cmd-output">
+		<div class="panel-heading">
+			<h2 class="panel-title"><?=gettext('Shell output')?><code><?=htmlspecialchars($_POST['txtCommand'])?></code></h2>
+			<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#cmd-output">
+				<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+			</button>
+		</div>
 <?php
 	putenv("PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin");
 	putenv("SCRIPT_FILENAME=" . strtok($_POST['txtCommand'], " "));
@@ -196,51 +240,32 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 	exec($_POST['txtCommand'] . ' 2>&1', $output);
 
 	$output = implode("\n", $output);
-	print("<pre>" . htmlspecialchars($output) . "</pre>");
+	print('<pre class="fs-console" id="cmd-output">' . htmlspecialchars($output) . "</pre>");
 ?>
-			</div>
-		</div>
 	</div>
 <?php endif; ?>
 
-<form action="diag_command.php" method="post" enctype="multipart/form-data" name="frmExecPlus" onsubmit="return frmExecPlus_onSubmit( this );">
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Execute Shell Command')?></h2></div>
-		<div class="panel-body">
-			<div class="content">
-				<input id="txtCommand" name="txtCommand" placeholder="Command" type="text" class="col-sm-7"	 value="<?=htmlspecialchars($_POST['txtCommand'])?>" />
-				<br /><br />
-				<input type="hidden" name="txtRecallBuffer" value="<?=htmlspecialchars($_POST['txtRecallBuffer']) ?>" />
-
-				<div class="btn-group">
-					<button type="button" class="btn btn-success btn-sm" name="btnRecallPrev" onclick="btnRecall_onClick( this.form, -1 );" title="<?=gettext("Recall Previous Command")?>">
-						<i class="fa-solid fa-angles-left"></i>
-					</button>
-					<button name="submit" type="submit" class="btn btn-warning btn-sm" value="EXEC" title="<?=gettext("Execute the entered command")?>">
-						<i class="fa-solid fa-bolt"></i>
-						<?=gettext("Execute"); ?>
-					</button>
-					<button type="button" class="btn btn-success btn-sm" name="btnRecallNext" onclick="btnRecall_onClick( this.form,  1 );" title="<?=gettext("Recall Next Command")?>">
-						<i class="fa-solid fa-angles-right"></i>
-					</button>
-					<button style="margin-left: 10px;" type="button" class="btn btn-secondary btn-sm" onclick="return Reset_onClick( this.form );" title="<?=gettext("Clear command entry")?>">
-						<i class="fa-solid fa-arrow-rotate-left"></i>
-						<?=gettext("Clear"); ?>
-					</button>
-				</div>
+<form action="diag_command.php" method="post" enctype="multipart/form-data" name="frmExecPlus">
+	<div class="panel panel-default fs-danger-card fs-cmd-card">
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Execute shell command')?></h2></div>
+		<div class="fs-cmd-body">
+			<p class="fs-muted small"><?=gettext('Runs as root. Commands that wait for input or never finish will hang this page.')?></p>
+			<div class="input-group">
+				<button type="button" class="btn btn-outline-secondary" id="btnRecallPrev" name="btnRecallPrev" title="<?=gettext("Recall Previous Command")?>" aria-label="<?=gettext("Recall Previous Command")?>">
+					<i class="fa-solid fa-angles-left" aria-hidden="true"></i>
+				</button>
+				<input id="txtCommand" name="txtCommand" placeholder="<?=gettext('Command')?>" type="text" class="form-control fs-mono" aria-label="<?=gettext('Command')?>" value="<?=htmlspecialchars($_POST['txtCommand'])?>" />
+				<button type="button" class="btn btn-outline-secondary" id="btnRecallNext" name="btnRecallNext" title="<?=gettext("Recall Next Command")?>" aria-label="<?=gettext("Recall Next Command")?>">
+					<i class="fa-solid fa-angles-right" aria-hidden="true"></i>
+				</button>
 			</div>
-		</div>
-	</div>
-
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Download File')?></h2></div>
-		<div class="panel-body">
-			<div class="content">
-				<input name="dlPath" type="text" id="dlPath" placeholder="File to download" class="col-sm-4" value="<?=htmlspecialchars($_REQUEST['dlPath']);?>"/>
-				<br /><br />
-				<button name="submit" type="submit" class="btn btn-primary btn-sm" id="download" value="DOWNLOAD">
-					<i class="fa-solid fa-download icon-embed-btn"></i>
-					<?=gettext("Download")?>
+			<input type="hidden" name="txtRecallBuffer" value="<?=htmlspecialchars($_POST['txtRecallBuffer']) ?>" />
+			<div class="fs-cmd-actions">
+				<button name="submit" type="submit" class="btn btn-warning" value="EXEC" title="<?=gettext("Execute the entered command")?>" data-fs-busy="true">
+					<i class="fa-solid fa-bolt icon-embed-btn" aria-hidden="true"></i><?=gettext("Execute"); ?>
+				</button>
+				<button type="button" class="btn btn-outline-secondary" id="btnCmdClear" title="<?=gettext("Clear command entry")?>">
+					<i class="fa-solid fa-arrow-rotate-left icon-embed-btn" aria-hidden="true"></i><?=gettext("Clear"); ?>
 				</button>
 			</div>
 		</div>
@@ -251,16 +276,36 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 		print_info_box($ulmsg, 'success', false);
 	}
 ?>
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Upload File')?></h2></div>
-		<div class="panel-body">
-			<div class="content">
-				<input name="ulfile" type="file" class="btn btn-secondary btn-sm btn-file" id="ulfile" />
-				<br />
-				<button name="submit" type="submit" class="btn btn-primary btn-sm" id="upload" value="UPLOAD">
-					<i class="fa-solid fa-upload icon-embed-btn"></i>
-					<?=gettext("Upload")?>
-				</button>
+	<div class="fs-cmd-grid">
+		<div class="panel panel-default fs-cmd-card">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-download" aria-hidden="true"></i><?=gettext('Download file')?></h2></div>
+			<div class="fs-cmd-body">
+				<div>
+					<label class="form-label" for="dlPath"><?=gettext('File path')?></label>
+					<input name="dlPath" type="text" id="dlPath" placeholder="<?=gettext('File to download')?>" class="form-control fs-mono" value="<?=htmlspecialchars($_REQUEST['dlPath']);?>"/>
+					<div class="form-text"><?=htmlspecialchars(sprintf(gettext('Only regular files in %s can be downloaded.'), ($diag_tmp !== false) ? $diag_tmp : g_get('tmp_path')))?></div>
+				</div>
+				<div class="fs-cmd-actions">
+					<button name="submit" type="submit" class="btn btn-outline-secondary" id="download" value="DOWNLOAD">
+						<i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext("Download")?>
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="panel panel-default fs-cmd-card">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-upload" aria-hidden="true"></i><?=gettext('Upload file')?></h2></div>
+			<div class="fs-cmd-body">
+				<div>
+					<label class="form-label" for="ulfile"><?=gettext('File')?></label>
+					<input name="ulfile" type="file" class="form-control" id="ulfile" />
+					<div class="form-text"><?=htmlspecialchars(sprintf(gettext('Saved to %s, up to 32 MiB.'), ($diag_tmp !== false) ? $diag_tmp : g_get('tmp_path')))?></div>
+				</div>
+				<div class="fs-cmd-actions">
+					<button name="submit" type="submit" class="btn btn-outline-secondary" id="upload" value="UPLOAD">
+						<i class="fa-solid fa-upload icon-embed-btn" aria-hidden="true"></i><?=gettext("Upload")?>
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -290,7 +335,8 @@ END_FILE;
 		$retval = 0;
 		exec("/usr/local/bin/php -d zend.exception_ignore_args=0 -d log_errors=off {$tmpfile}", $output, $retval);
 
-		puts('<div class="panel panel-success responsive"><div class="panel-heading"><h2 class="panel-title">PHP Response</h2></div>');
+		puts('<div class="panel panel-default fs-cmd-output"><div class="panel-heading"><h2 class="panel-title">' . gettext('PHP response') . '</h2>'
+		    . '<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#php-output"><i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i>' . gettext('Copy') . '</button></div>');
 
 		// Help user to find bad code line, if it gave an error
 		$errmsg_found = preg_match("`(error|warning).*:.* (?:in|File:) {$tmpfile}(?:\(| on line |, Line: )(\d+)(?:, Message:|\).* eval\(\)'d code|$)`i", implode(",", $output), $matches);
@@ -314,16 +360,16 @@ END_FILE;
 			$margin_layout = '%3s %' . strlen(count($syntax_output)) . 'd:';
 			for ($lineno = 1; $lineno < (count($syntax_output) + 1); $lineno++) {
 				$margin = str_replace(' ', '&nbsp;', sprintf($margin_layout, ($lineno == $errline ? '&gt;&gt;&gt;' : ''), $lineno));
-				$html .= "<span style='color:black;backgroundcolor:lightgrey'><tt>{$margin}</tt></span>&nbsp;&nbsp;{$syntax_output[$lineno - 1]}<br/>\n";
+				$html .= "<span class='fs-cmd-margin'>{$margin}</span>&nbsp;&nbsp;{$syntax_output[$lineno - 1]}<br/>\n";
 			}
 			print_info_box($errtext, 'danger');
-			print "<div style='margin:20px'><b>" . gettext("Error locator:") . "</b>\n";
-			print "<div id='errdiv' style='height:7em; width:60%; overflow:auto; white-space: nowrap; border:darkgrey solid 1px; margin-top: 20px'>\n";
-			print $html . "\n</div></div>\n";
+			print "<p class='fs-cmd-errlabel'>" . gettext("Error locator:") . "</p>\n";
+			print "<div id='errdiv' class='fs-cmd-errlines'>\n";
+			print $html . "\n</div>\n";
 		}
 
 		$output = implode("\n", $output);
-		print("<pre>" . htmlspecialchars($output) . "</pre>");
+		print('<pre class="fs-console" id="php-output">' . htmlspecialchars($output) . "</pre>");
 
 //		echo eval($_POST['txtPHPCommand']);
 
@@ -345,17 +391,16 @@ END_FILE;
 <?php
 }
 ?>
-	<div class="panel panel-default responsive">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Execute PHP Commands')?></h2></div>
-		<div class="panel-body">
-			<div class="content">
-				<textarea id="txtPHPCommand" placeholder="Command" name="txtPHPCommand" rows="9" cols="80"><?=htmlspecialchars($_POST['txtPHPCommand'])?></textarea>
-				<br />
-				<button name="submit" type="submit" class="btn btn-warning btn-sm" value="EXECPHP" title="<?=gettext("Execute this PHP Code")?>">
-					<i class="fa-solid fa-bolt"></i>
-					<?=gettext("Execute")?>
+	<div class="panel panel-default fs-danger-card fs-cmd-card">
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Execute PHP commands')?></h2></div>
+		<div class="fs-cmd-body">
+			<label class="visually-hidden" for="txtPHPCommand"><?=gettext('PHP code')?></label>
+			<textarea id="txtPHPCommand" placeholder="<?=gettext('Command')?>" name="txtPHPCommand" rows="9" cols="80" class="form-control fs-mono" spellcheck="false"><?=htmlspecialchars($_POST['txtPHPCommand'])?></textarea>
+			<div class="fs-cmd-actions">
+				<button name="submit" type="submit" class="btn btn-warning" value="EXECPHP" title="<?=gettext("Execute this PHP Code")?>" data-fs-busy="true">
+					<i class="fa-solid fa-bolt icon-embed-btn" aria-hidden="true"></i><?=gettext("Execute")?>
 				</button>
-				<?=gettext("Example"); ?>: <code>print("Hello World!");</code>
+				<span class="fs-muted small"><?=gettext("Example"); ?>: <code>print("Hello World!");</code></span>
 			</div>
 		</div>
 	</div>

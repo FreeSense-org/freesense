@@ -42,6 +42,10 @@ if (dhcp_is_backend('kea')) {
 	$shortcut_section = 'kea-dhcp6';
 }
 
+/* ?all=1 also lists expired and released leases (server-side filter, as before) */
+$show_all = (intval($_REQUEST['all'] ?? 0) == 1);
+$all_param = $show_all ? 1 : 0;
+
 if (dhcp_is_backend('isc')):
 $leasesfile = "{$g['dhcpd_chroot_path']}/var/db/dhcpd6.leases";
 
@@ -77,7 +81,7 @@ if (($_POST['deleteip']) && (is_ipaddr($_POST['deleteip']))) {
 
 	/* Restart DHCP Service */
 	services_dhcpd_configure();
-	header("Location: status_dhcpv6_leases.php?all={$_REQUEST['all']}");
+	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 
 if ($_POST['cleardhcpleases']) {
@@ -86,31 +90,31 @@ if ($_POST['cleardhcpleases']) {
 	unlink_if_exists("{$g['dhcpd_chroot_path']}/var/db/dhcpd6.leases*");
 
 	services_dhcpd_configure();
-	header("Location: status_dhcpv6_leases.php?all={$_REQUEST['all']}");
+	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 endif; /* dhcp_is_backend('isc') */
 
 if (dhcp_is_backend('kea')):
 if ($_POST['deleteip'] && is_ipaddrv6($_POST['deleteip'])) {
 	system_del_kea6lease($_POST['deleteip']);
-	header("Location: status_dhcpv6_leases.php?all={$_REQUEST['all']}");
+	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 
 if ($_POST['deletepd']) {
 	system_del_kea6lease($_POST['deletepd'], 'IA_PD');
-	header("Location: status_dhcpv6_leases.php?all={$_REQUEST['all']}");
+	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 
 if ($_POST['cleardhcpleases']) {
 	system_clear_all_kea6leases();
-	header("Location: status_dhcpv6_leases.php?all={$_REQUEST['all']}");
+	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 endif; /* dhcp_is_backend('kea') */
 
+$view = fs_view_param(['leases', 'prefixes', 'pools'], 'leases');
+
 // Load MAC-Manufacturer table
 $mac_man = load_mac_manufacturer_table();
-
-include("head.inc");
 
 function leasecmp($a, $b) {
 	return strcmp($a[$_REQUEST['order']], $b[$_REQUEST['order']]);
@@ -141,7 +145,7 @@ function adjust_gmt($dt) {
 	return $dt;
 }
 
-if (is_file($leasesfile)) {
+if (isset($leasesfile) && is_file($leasesfile)) {
 	$leases_content = file_get_contents ($leasesfile);
 	$leasesfile_found = true;
 } else {
@@ -165,181 +169,93 @@ $released_string = gettext("released");
 $dynamic_string = gettext("dynamic");
 $static_string = gettext("static");
 
-if (dhcp_is_backend('isc')):
-$lang_pack = [ 'online' =>  $online_string, 'offline' => $offline_string,
-               'active' =>  $active_string, 'expired' => $expired_string,
-               'reserved' => $reserved_string, 'released' => $released_string,
-               'dynamic' => $dynamic_string, 'static' =>  $static_string];
-// Handle the content of the lease file - parser_dhcpv6_leases.inc
-gui_parse_leases ($pools, $leases, $prefixes, $mappings, $leases_content,
-		  $ndpdata, $lang_pack);
+if (dhcp_is_backend('isc')) {
+	$lang_pack = [ 'online' =>  $online_string, 'offline' => $offline_string,
+	               'active' =>  $active_string, 'expired' => $expired_string,
+	               'reserved' => $reserved_string, 'released' => $released_string,
+	               'dynamic' => $dynamic_string, 'static' =>  $static_string];
+	// Handle the content of the lease file - parser_dhcpv6_leases.inc
+	gui_parse_leases ($pools, $leases, $prefixes, $mappings, $leases_content,
+			  $ndpdata, $lang_pack);
 
-if (count($leases) > 0) {
-	$leases = array_remove_duplicate($leases, "ip");
-}
-
-if (count($prefixes) > 0) {
-	$prefixes = array_remove_duplicate($prefixes, "prefix");
-}
-
-if (count($pools) > 0) {
-	$pools = array_remove_duplicate($pools, "name");
-	asort($pools);
-}
-
-foreach (config_get_path('interfaces', []) as $ifname => $ifarr) {
-	foreach (config_get_path("dhcpdv6/{$ifname}/staticmap", []) as $static) {
-		$slease = array();
-		$slease['ip'] = merge_ipv6_delegated_prefix(get_interface_ipv6($ifname), $static['ipaddrv6'], get_interface_subnetv6($ifname));
-		$slease['type'] = "static";
-		$slease['duid'] = $static['duid'];
-		$slease['start'] = "";
-		$slease['end'] = "";
-		$slease['hostname'] = $static['hostname'];
-		$slease['act'] = $static_string;
-		if (in_array($slease['ip'], array_keys($ndpdata))) {
-			$slease['online'] = $online_string;
-		} else {
-			$slease['online'] = $offline_string;
-		}
-
-		$leases[] = $slease;
+	if (count($leases) > 0) {
+		$leases = array_remove_duplicate($leases, "ip");
 	}
+
+	if (count($prefixes) > 0) {
+		$prefixes = array_remove_duplicate($prefixes, "prefix");
+	}
+
+	if (count($pools) > 0) {
+		$pools = array_remove_duplicate($pools, "name");
+		asort($pools);
+	}
+
+	foreach (config_get_path('interfaces', []) as $ifname => $ifarr) {
+		foreach (config_get_path("dhcpdv6/{$ifname}/staticmap", []) as $static) {
+			$slease = array();
+			$slease['ip'] = merge_ipv6_delegated_prefix(get_interface_ipv6($ifname), $static['ipaddrv6'], get_interface_subnetv6($ifname));
+			$slease['type'] = "static";
+			$slease['duid'] = $static['duid'];
+			$slease['start'] = "";
+			$slease['end'] = "";
+			$slease['hostname'] = $static['hostname'];
+			$slease['act'] = $static_string;
+			if (in_array($slease['ip'], array_keys($ndpdata))) {
+				$slease['online'] = $online_string;
+			} else {
+				$slease['online'] = $offline_string;
+			}
+
+			$leases[] = $slease;
+		}
+	}
+} else {
+	$kea6leases = system_get_kea6leases();
+	$leases = $kea6leases['lease'];
+	$prefixes = system_get_kea6prefixes();
+}
+if (!is_array($leases)) {
+	$leases = [];
+}
+if (!is_array($prefixes)) {
+	$prefixes = [];
 }
 
 if ($_REQUEST['order']) {
 	usort($leases, "leasecmp");
 }
 
-/* only print pool status when we have one */
-if (count($pools) > 0) {
-?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Pool Status')?></h2></div>
-	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-		<thead>
-			<tr>
-				<th><?=gettext("Failover Group")?></a></th>
-				<th><?=gettext("My State")?></a></th>
-				<th><?=gettext("Since")?></a></th>
-				<th><?=gettext("Peer State")?></a></th>
-				<th><?=gettext("Since")?></a></th>
-			</tr>
-		</thead>
-		<tbody>
-<?php foreach ($pools as $data):?>
-			<tr>
-				<td><?=$data['name']?></td>
-				<td><?=$data['mystate']?></td>
-				<td><?=adjust_gmt($data['mydate'])?></td>
-				<td><?=$data['peerstate']?></td>
-				<td><?=adjust_gmt($data['peerdate'])?></td>
-			</tr>
-<?php endforeach; ?>
-		</tbody>
-		</table>
-	</div>
-</div>
-<?php
-/* only print pool status when we have one */
-}
+$lease_state = function ($data) use ($active_string, $expired_string, $static_string) {
+	if ($data['act'] == $active_string) {
+		return 'active';
+	} elseif ($data['act'] == $expired_string) {
+		return 'expired';
+	} elseif ($data['act'] == $static_string) {
+		return 'static';
+	}
+	return 'other';
+};
+$state_badge = function ($state, $data) {
+	return match ($state) {
+		'active' => fs_badge('active'),
+		'expired' => fs_badge('expired'),
+		'static' => fs_badge('info', gettext('Static')),
+		default => fs_badge('neutral', ucfirst((string)$data['act'])),
+	};
+};
 
-if (!$leasesfile_found) {
-	print_info_box(gettext("No leases file found. Is the DHCPv6 server active?"), 'warning', false);
-}
-endif; /* dhcp_is_backend('isc') */
-
-display_isc_warning();
-
-if (dhcp_is_backend('kea')):
-$kea6leases = system_get_kea6leases();
-$leases = $kea6leases['lease'];
-endif; /* dhcp_is_backend('kea') */
-
-?>
-<div class="panel panel-default" id="search-panel">
-	<div class="panel-heading">
-		<h2 class="panel-title">
-			<?=gettext('Search')?>
-			<span class="widget-heading-icon float-end">
-				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-circle-plus"></i>
-				</a>
-			</span>
-		</h2>
-	</div>
-	<div id="search-panel_panel-body" class="panel-body collapse show">
-		<div class="form-group">
-			<label class="col-sm-2 control-label">
-				<?=gettext('Search Term')?>
-			</label>
-			<div class="col-sm-5"><input class="form-control" name="searchstr" id="searchstr" type="text"/></div>
-			<div class="col-sm-2">
-				<select id="where" class="form-control">
-					<option value="1" selected><?=gettext('All')?></option>
-					<option value="2"><?=gettext('Lease Type')?></option>
-					<option value="3"><?=gettext('Client Status')?></option>
-					<option value="4"><?=gettext('IPv6 Address')?></option>
-					<option value="5"><?=gettext('DHCP Unique Identifier (DUID)')?></option>
-					<option value="6"><?=gettext('Identity Association Identifier (IAID)')?></option>
-					<option value="7"><?=gettext('MAC Address')?></option>
-					<option value="8"><?=gettext('Hostname')?></option>
-					<option value="9"><?=gettext('Description')?></option>
-					<option value="10"><?=gettext('Start')?></option>
-					<option value="11"><?=gettext('End')?></option>
-
-				</select>
-			</div>
-			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext('Search')?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext('Clear')?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
-			</div>
-			<div class="col-sm-10 col-sm-offset-2">
-				<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to filter entries.')?></span>
-			</div>
-		</div>
-	</div>
-</div>
-
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Address Leases')?></h2></div>
-	<div class="panel-body table-responsive">
-		<table class="table statusdhcpv6leases table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-			<thead>
-				<tr>
-					<th data-sortable="false"><!-- status icons --></th>
-					<th><?=gettext('IPv6 Address')?></th>
-					<th><?=gettext('DHCP Unique Identifier (DUID)')?></th>
-					<th><?=gettext('Hostname')?></th>
-					<th><?=gettext('Description')?></th>
-					<th><?=gettext('Start')?></th>
-					<th><?=gettext('End')?></th>
-					<th data-sortable="false"><?=gettext('Actions')?></th>
-				</tr>
-			</thead>
-			<tbody id="leaselist">
-<?php
+/* collect first: tiles, the lease list and the pool utilization share one pass */
+$counts = ['active' => 0, 'expired' => 0, 'static' => 0, 'total' => 0];
+$rows = [];
 $dhcp_leases_subnet_counter = array(); //array to sum up # of leases / subnet
 $iflist = get_configured_interface_with_descr(); //get interface descr for # of leases
-$no_leases_displayed = true;
 
-foreach ($leases as $data):
-	if ($data['act'] != $active_string && $data['act'] != $static_string && $_REQUEST['all'] != 1) {
-		continue;
-	}
-
-	$no_leases_displayed = false;
-
-	if ($data['act'] == $active_string) {
-		/* Active DHCP Lease */
-		$icon = 'fa-regular fa-circle-check';
-	} elseif ($data['act'] == $expired_string) {
-		/* Expired DHCP Lease */
-		$icon = 'fa-solid fa-ban';
-	} else {
-		/* Static Mapping */
-		$icon = 'fa-solid fa-user';
+foreach ($leases as $data) {
+	$state = $lease_state($data);
+	$counts['total']++;
+	if (isset($counts[$state])) {
+		$counts[$state]++;
 	}
 
 	if ($data['act'] !== $static_string) {
@@ -354,410 +270,434 @@ foreach ($leases as $data):
 
 			$data['if'] = convert_real_interface_to_friendly_interface_name(guess_interface_from_ip($data['ip']));
 
+			$range = null;
 			if (!empty($data['if']) && is_inrange_v6($data['ip'], $dhcpifconf['range']['from'], $dhcpifconf['range']['to'])) {
-				$dlskey = $data['if'] . '-' . $dhcpifconf['range']['from'];
-				$dhcp_leases_subnet_counter[$dlskey]['dhcpif'] = $data['if'];
-				$dhcp_leases_subnet_counter[$dlskey]['from'] = $dhcpifconf['range']['from'];
-				$dhcp_leases_subnet_counter[$dlskey]['to'] = $dhcpifconf['range']['to'];
-				$dhcp_leases_subnet_counter[$dlskey]['count'] += 1;
-				break;
-			}
-
-			if (is_array($dhcpifconf['pool'])) {
+				$range = $dhcpifconf['range'];
+			} elseif (is_array($dhcpifconf['pool'])) {
 				foreach ($dhcpifconf['pool'] as $dhcppool) {
-					if (is_array($dhcppool['range'])) {
-						if (!empty($data['if']) && is_inrange_v6($data['ip'], $dhcppool['range']['from'], $dhcppool['range']['to'])) {
-							$dlskey = $data['if'] . '-' . $dhcpifconf['range']['from'];
-							$dhcp_leases_subnet_counter[$dlskey]['dhcpif'] = $data['if'];
-							$dhcp_leases_subnet_counter[$dlskey]['from'] = $dhcppool['from'];
-							$dhcp_leases_subnet_counter[$dlskey]['to'] = $dhcppool['to'];
-							$dhcp_leases_subnet_counter[$dlskey]['count'] += 1;
-							break 2;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	$mac = trim($ndpdata[$data['ip']]['mac']);
-	$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
-?>
-				<tr>
-					<td>
-						<i class="<?=$icon?> act" title="<?=htmlspecialchars($data['act'])?>"></i>
-<?php if ($data['online'] === $online_string): ?>
-						<i class="fa-solid fa-arrow-up text-success online" title="<?=htmlspecialchars($data['online'])?>"></i>
-<?php else: ?>
-						<i class="fa-solid fa-arrow-down online" title="<?=htmlspecialchars($data['online'])?>"></i>
-<?php endif; ?>
-					</td>
-					<td><?=$data['ip']?></td>
-					<td style="cursor: context-menu;" data-bs-toggle="popover" data-bs-container="body" data-bs-trigger="hover focus" data-bs-content="<?=gettext('DUID')?>: <span class=&quot;duid&quot;><?=htmlspecialchars($data['duid'])?></span><?php if ($data['iaid']): ?><br /><?=gettext('IAID')?>: <span class=&quot;iaid&quot;><?=htmlspecialchars($data['iaid'])?></span><?php endif; if ($mac): ?><br /><?=gettext('MAC Address')?>: <span class=&quot;mac&quot;><?=htmlspecialchars($mac)?><?php if (isset($mac_man[$mac_hi])):?><br /><small>(<?=$mac_man[$mac_hi]?>)</small><?php endif; ?></span><?php endif; ?>" data-bs-html="true" data-bs-title="<?=gettext('DHCPv6 Client Information')?>"><?=htmlspecialchars($data['duid'])?></td>
-					<td>
-<?php if ($data['hostname'] && $data['dnsreg']): ?>
-						<i class="fa-solid fa-globe" title="<?=gettext('Registered with the DNS Resolver')?>"></i>
-<?php endif; ?>
-						<?=htmlentities(explode('.', $data['hostname'])[0])?></td>
-					<td><?=htmlspecialchars($data['descr'])?></td>
-<?php if (dhcp_is_backend('isc') && ($data['type'] != $static_string)):?>
-					<td><?=adjust_gmt($data['start'])?></td>
-					<td><?=adjust_gmt($data['end'])?></td>
-<?php elseif (dhcp_is_backend('kea') && ($data['type'] != $static_string)): ?>
-					<td><?=$data['starts']?></td>
-					<td><?=$data['ends']?></td>
-<?php else: ?>
-					<td><?=gettext('n/a')?></td>
-					<td><?=gettext('n/a')?></td>
-<?php endif; ?>
-					<td>
-<?php if ($data['type'] == $dynamic_string): ?>
-						<a class="fa-regular fa-square-plus" title="<?=gettext('Add static mapping')?>" href="services_dhcpv6_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;duid=<?=htmlspecialchars(urlencode($data['duid']))?>&amp;hostname=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
-<?php endif; ?>
-<?php if ($mac): /* we can only add a WOL mapping if MAC address is known */ ?>
-						<a class="fa-solid fa-square-plus" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($mac))?>&amp;descr=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
-<?php endif; ?>
-<?php if ($data['type'] == $static_string): ?>
-						<a class="fa-solid fa-pencil" title="<?=gettext('Edit static mapping')?>" href="services_dhcpv6_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;id=<?=htmlspecialchars(urlencode($data['staticmap_array_index']))?>"></a>
-<?php endif; ?>
-<?php if ($data['type'] == $dynamic_string && $data['online'] != $online_string):?>
-						<a class="fa-solid fa-trash-can" title="<?=gettext('Delete lease')?>" href="status_dhcpv6_leases.php?deleteip=<?=htmlspecialchars(urlencode($data['ip']))?>&amp;all=<?=intval($_REQUEST['all'])?>" usepost></a>
-<?php endif; ?>
-					</td>
-				</tr>
-<?php endforeach; ?>
-
-<?php if ($no_leases_displayed): ?>
-				<tr>
-					<td><!-- icon --></td>
-					<td colspan="8"><?=gettext('No address leases to display')?></td>
-				</tr>
-<?php
-endif;
-?>
-			</tbody>
-		</table>
-	</div>
-</div>
-
-<?php $prefix_col = 6; ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Prefix Delegation Leases')?></h2></div>
-	<div class="panel-body table-responsive">
-		<table class="table statusdhcpv6prefixes table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-		<thead>
-			<tr>
-				<th data-sortable="false"><!-- status icons --></th>
-				<th><?=gettext("IPv6 Prefix")?></th>
-				<th><?=gettext('DHCP Unique Identifier (DUID)')?></th>
-				<th><?=gettext("Routed To")?></th>
-<?php if (dhcp_is_backend('kea')): $prefix_col++;?>
-				<th><?=gettext('Description')?></th>
-<?php endif; ?>
-				<th><?=gettext("Start")?></th>
-				<th><?=gettext("End")?></th>
-<?php if (dhcp_is_backend('kea')): $prefix_col++;?>
-				<th data-sortable="false"><?=gettext('Actions')?></th>
-<?php endif; ?>
-			</tr>
-		</thead>
-		<tbody>
-<?php
-$no_prefixes_displayed = true;
-if (dhcp_is_backend('isc')):
-foreach ($prefixes as $data):
-	if ($data['act'] != $active_string && $data['act'] != $static_string && $_REQUEST['all'] != 1) {
-		continue;
-	}
-
-	$no_prefixes_displayed = false;
-
-	if ($data['act'] == $active_string) {
-		$icon = 'fa-regular fa-circle-check';
-	} elseif ($data['act'] == $expired_string) {
-		$icon = 'fa-solid fa-ban';
-	} else {
-		$icon = 'fa-regular fa-circle-xmark';
-	}
-
-	if ($data['act'] == $static_string) {
-		foreach (config_get_path('dhcpdv6', []) as $dhcpif => $dhcpifconf) {
-			if (empty($dhcpifconf)) {
-				continue;
-			}
-			if (is_array($dhcpifconf['staticmap'])) {
-				foreach ($dhcpifconf['staticmap'] as $staticent) {
-					if ($data['ip'] == $staticent['ipaddrv6']) {
-						$data['if'] = $dhcpif;
+					if (is_array($dhcppool['range']) && !empty($data['if']) &&
+					    is_inrange_v6($data['ip'], $dhcppool['range']['from'], $dhcppool['range']['to'])) {
+						$range = $dhcppool['range'];
 						break;
 					}
 				}
 			}
-			/* exit as soon as we have an interface */
-			if ($data['if'] != "") {
+			if ($range !== null) {
+				/* utilization counts the leases in use (active) per range */
+				$dlskey = $data['if'] . '-' . $range['from'];
+				if (!isset($dhcp_leases_subnet_counter[$dlskey])) {
+					$dhcp_leases_subnet_counter[$dlskey] = ['dhcpif' => $data['if'], 'from' => $range['from'], 'to' => $range['to'], 'count' => 0];
+				}
+				if ($state === 'active') {
+					$dhcp_leases_subnet_counter[$dlskey]['count']++;
+				}
 				break;
 			}
 		}
-	} else {
-		$data['if'] = convert_real_interface_to_friendly_interface_name(guess_interface_from_ip($data['ip']));
 	}
-?>
-			<tr>
-				<td><i class="<?=$icon?> act" title="<?=htmlspecialchars($data['act'])?>"></i></td>
-				<td><?=htmlspecialchars($data['prefix'])?></td>
-				<td><?=htmlspecialchars($data['duid'])?></td>
-				<td><?php foreach ($mappings[$data['duid']] as $iaid => $iproute):?><?=htmlspecialchars($iproute)?><br />IAID: <?=htmlspecialchars($iaid)?><br /><?php endforeach; ?></td>
-<?php if ($data['type'] != $static_string):?>
-				<td><?=adjust_gmt($data['start'])?></td>
-				<td><?=adjust_gmt($data['end'])?></td>
-<?php else: ?>
-				<td><?=gettext('n/a')?></td>
-				<td><?=gettext('n/a')?></td>
-<?php endif; ?>
-			</tr>
-<?php
-endforeach;
-else:
-$prefixes = system_get_kea6prefixes();
-foreach ($prefixes as $data):
-	if ($data['act'] != $active_string && $data['act'] != $static_string && $_REQUEST['all'] != 1) {
+
+	if ($data['act'] != $active_string && $data['act'] != $static_string && !$show_all) {
 		continue;
 	}
 
-	$no_prefixes_displayed = false;
+	$data['state'] = $state;
+	$rows[] = $data;
+}
+ksort($dhcp_leases_subnet_counter);
 
-	if ($data['act'] == $active_string) {
-		$icon = 'fa-regular fa-circle-check';
-	} elseif ($data['act'] == $expired_string) {
-		$icon = 'fa-solid fa-ban';
-	} else {
-		$icon = 'fa-solid fa-user';
+/* prefix delegation leases */
+$prefix_rows = [];
+foreach ($prefixes as $data) {
+	if ($data['act'] != $active_string && $data['act'] != $static_string && !$show_all) {
+		continue;
 	}
+	if (dhcp_is_backend('isc')) {
+		if ($data['act'] == $static_string) {
+			foreach (config_get_path('dhcpdv6', []) as $dhcpif => $dhcpifconf) {
+				if (empty($dhcpifconf)) {
+					continue;
+				}
+				if (is_array($dhcpifconf['staticmap'])) {
+					foreach ($dhcpifconf['staticmap'] as $staticent) {
+						if ($data['ip'] == $staticent['ipaddrv6']) {
+							$data['if'] = $dhcpif;
+							break;
+						}
+					}
+				}
+				/* exit as soon as we have an interface */
+				if ($data['if'] != "") {
+					break;
+				}
+			}
+		} else {
+			$data['if'] = convert_real_interface_to_friendly_interface_name(guess_interface_from_ip($data['ip']));
+		}
+	}
+	$data['state'] = $lease_state($data);
+	$prefix_rows[] = $data;
+}
 
-	$mac = trim($ndpdata[$data['routed-to']]['mac']);
-	$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
+$ha_servers = [];
+if (dhcp_is_backend('kea')) {
+	$status = system_get_kea6status();
+	if (is_array($status) && is_array($status['arguments'] ?? null) && array_key_exists('high-availability', $status['arguments'])) {
+		foreach ($status['arguments']['high-availability'] as $ha_status) {
+			foreach ($ha_status['ha-servers'] as $where => $ha_server) {
+				$ha_servers[] = [$where, $ha_server];
+			}
+		}
+	}
+}
+
+fs_page_action(gettext('Clear all leases'), 'status_dhcpv6_leases.php?cleardhcpleases=true&all=' . $all_param, 'fa-trash-can', 'danger', [
+	'usepost' => true,
+	'data-fs-confirm' => gettext('Clear all DHCPv6 leases?'),
+	'data-fs-confirm-detail' => gettext('Every address and prefix lease is removed. Clients ask for a new lease when they renew.'),
+	'data-fs-confirm-action' => gettext('Clear leases'),
+]);
+
+include("head.inc");
+
+if (dhcp_is_backend('isc') && !$leasesfile_found) {
+	print_info_box(gettext("No leases file found. Is the DHCPv6 server active?"), 'warning', false);
+}
+
+display_isc_warning();
+
+$toggle = $show_all
+    ? ['status_dhcpv6_leases.php?view=' . $view . '&all=0', 'fa-eye-slash', gettext('Hide expired')]
+    : ['status_dhcpv6_leases.php?view=' . $view . '&all=1', 'fa-eye', gettext('Show expired')];
+$toggle_html = '<a class="btn btn-sm btn-outline-secondary fs-dhcp-toggle" href="' . fs_h($toggle[0]) . '">'
+    . '<i class="fa-solid ' . $toggle[1] . ' icon-embed-btn" aria-hidden="true"></i>' . fs_h($toggle[2]) . '</a>';
+$state_filter = [gettext('All leases'), 'active' => gettext('Active'), 'static' => gettext('Static')] +
+    ($show_all ? ['expired' => gettext('Expired'), 'other' => gettext('Other')] : []);
+$client_filter = [gettext('Online and offline'), 'online' => gettext('Online'), 'offline' => gettext('Offline')];
+$time_cell = function ($data, $start_key, $end_key) use ($static_string) {
+	if ($data['type'] == $static_string) {
+		return '<td class="fs-muted">' . fs_h(gettext('n/a')) . '</td><td class="fs-muted">' . fs_h(gettext('n/a')) . '</td>';
+	}
+	return '<td class="fs-mono fs-dhcp-time">' . fs_h(adjust_gmt($data[$start_key] ?? '')) . '</td>'
+	    . '<td class="fs-mono fs-dhcp-time">' . fs_h(adjust_gmt($data[$end_key] ?? '')) . '</td>';
+};
+$start_key = dhcp_is_backend('kea') ? 'starts' : 'start';
+$end_key = dhcp_is_backend('kea') ? 'ends' : 'end';
 ?>
-			<tr>
-				<td>
-					<i class="<?=$icon?> act" title="<?=htmlspecialchars($data['act'])?>"></i>
-<?php if ($data['online'] === $online_string): ?>
-					<i class="fa-solid fa-arrow-up text-success online" title="<?=htmlspecialchars($data['online'])?>"></i>
-<?php else: ?>
-					<i class="fa-solid fa-arrow-down online" title="<?=htmlspecialchars($data['online'])?>"></i>
-<?php endif; ?>
-				</td>
-				<td><?=$data['ip']?></td>
-				<td style="cursor: context-menu;" data-bs-toggle="popover" data-bs-container="body" data-bs-trigger="hover focus" data-bs-content="<?=gettext('DUID')?>: <span class=&quot;duid&quot;><?=htmlspecialchars($data['duid'])?></span><?php if ($data['iaid']): ?><br /><?=gettext('IAID')?>: <span class=&quot;iaid&quot;><?=htmlspecialchars($data['iaid'])?></span><?php endif; if ($mac): ?><br /><?=gettext('MAC Address')?>: <span class=&quot;mac&quot;><?=htmlspecialchars($mac)?><?php if (isset($mac_man[$mac_hi])):?><br /><small>(<?=$mac_man[$mac_hi]?>)</small><?php endif; ?></span><?php endif; ?>" data-bs-html="true" data-bs-title="<?=gettext('DHCPv6 Client Information')?>"><?=htmlspecialchars($data['duid'])?></td>
-				<td><?=htmlspecialchars($data['routed-to'])?></td>
-				<td><?=htmlspecialchars($data['descr'])?></td>
-<?php if ($data['type'] != $static_string):?>
-				<td><?=adjust_gmt($data['starts'])?></td>
-				<td><?=adjust_gmt($data['ends'])?></td>
-<?php else: ?>
-				<td><?=gettext('n/a')?></td>
-				<td><?=gettext('n/a')?></td>
-<?php endif; ?>
-				<td>
-<?php if ($data['type'] == $dynamic_string): ?>
-					<a class="fa-regular fa-square-plus" title="<?=gettext('Add static mapping')?>" href="services_dhcpv6_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;duid=<?=htmlspecialchars(urlencode($data['duid']))?>&amp;hostname=<?=htmlspecialchars(urlencode($data['hostname']))?>"></a>
-<?php endif; ?>
-<?php if ($data['type'] == $static_string): ?>
-					<a class="fa-solid fa-pencil" title="<?=gettext('Edit static mapping')?>" href="services_dhcpv6_edit.php?if=<?=htmlspecialchars(urlencode($data['if']))?>&amp;id=<?=htmlspecialchars(urlencode($data['staticmap_array_index']))?>"></a>
-<?php endif; ?>
-<?php if ($data['type'] == $dynamic_string && $data['online'] != $online_string):?>
-					<a class="fa-solid fa-trash-can" title="<?=gettext('Delete lease')?>" href="status_dhcpv6_leases.php?deletepd=<?=htmlspecialchars(urlencode($data['ip']))?>&amp;all=<?=intval($_REQUEST['all'])?>" usepost></a>
-<?php endif; ?>
-				</td>
-			</tr>
+
+<style>
+.fs-dhcp-state { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.fs-dhcp-sub { display: block; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-dhcp-dns { color: var(--fs-info); margin-right: .25rem; }
+.fs-dhcp-time { white-space: nowrap; font-size: var(--fs-fs-sm); }
+.fs-dhcp-toggle { white-space: nowrap; }
+.fs-dhcp-duid { display: inline-block; max-width: 20rem; overflow-wrap: anywhere; font-size: var(--fs-fs-sm); }
+</style>
+
+<?php fs_view_switch(['leases' => gettext('Address leases'), 'prefixes' => gettext('Prefix delegation'), 'pools' => gettext('Pools')], $view); ?>
+
+<div class="fs-tiles">
 <?php
-endforeach;
-endif;
-if ($no_prefixes_displayed):
+fs_tile(gettext('Active'), $counts['active'], ($counts['active'] > 0) ? 'active' : null);
+fs_tile(gettext('Static'), $counts['static']);
+fs_tile(gettext('Expired'), $counts['expired'], null, ($counts['expired'] && !$show_all) ? gettext('Not listed') : null);
+fs_tile(gettext('Prefixes'), count($prefix_rows), null, gettext('Delegated'));
 ?>
-			<tr>
-				<td><!-- icon --></td>
-				<td colspan="<?=$prefix_col;?>"><?=gettext('No prefix delegation leases to display')?></td>
-			</tr>
-<?php endif; ?>
-		</tbody>
-		</table>
-	</div>
 </div>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Address Lease Utilization')?></h2></div>
+<?php if ($view === 'leases'):
+	$if_choices = [];
+	foreach ($rows as $data) {
+		if (!empty($data['if'])) {
+			$if_choices[$data['if']] = $iflist[$data['if']] ?? strtoupper($data['if']);
+		}
+	}
+	$filters = ['state' => $state_filter, 'client' => $client_filter];
+	if (count($if_choices) > 1) {
+		$filters['if'] = [gettext('All interfaces')] + $if_choices;
+	}
+?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Address leases'),
+	'search' => gettext('Search address, DUID, hostname…'),
+	'noun' => gettext('leases'),
+	'noun_one' => gettext('lease'),
+	'filters' => $filters,
+	'actions' => $toggle_html,
+]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?=gettext('Interface')?></th>
-					<th><?=gettext('Pool Start')?></th>
-					<th><?=gettext('Pool End')?></th>
-					<th><?=gettext('Used')?></th>
+					<th class="fs-col-status" data-fs-search><?=gettext('Status')?></th>
+					<th data-fs-search><?=gettext('IPv6 address')?></th>
+					<th data-fs-search><?=gettext('Client (DUID)')?></th>
+					<th data-fs-search><?=gettext('Hostname')?></th>
+					<th data-fs-search><?=gettext('Description')?></th>
+					<th data-fs-search><?=gettext('Start')?></th>
+					<th data-fs-search><?=gettext('End')?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
 				</tr>
 			</thead>
 			<tbody>
-<?php
-if (count($dhcp_leases_subnet_counter)):
-	ksort($dhcp_leases_subnet_counter);
-	foreach ($dhcp_leases_subnet_counter as $listcounters):
-		$now = $listcounters['count'];
+<?php foreach ($rows as $data):
+	$mac = trim($ndpdata[$data['ip']]['mac'] ?? '');
+	$mac_hi = (strlen($mac) >= 8) ? strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]) : '';
+	$online = ($data['online'] === $online_string);
+	$name = explode('.', (string)$data['hostname'])[0];
+	$label = ($name !== '') ? $name : $data['ip'];
+	$if_q = 'if=' . urlencode($data['if'] ?? '');
+
+	$actions = [];
+	if ($data['type'] == $static_string) {
+		$actions[] = ['edit', "services_dhcpv6_edit.php?{$if_q}&id=" . urlencode($data['staticmap_array_index'] ?? ''), $label,
+		    ['attrs' => ['title' => gettext('Edit static mapping'), 'aria-label' => sprintf(gettext('Edit static mapping %s'), $label)]]];
+	}
+	if ($data['type'] == $dynamic_string) {
+		$actions[] = ['custom', "services_dhcpv6_edit.php?{$if_q}&duid=" . urlencode($data['duid']) . '&hostname=' . urlencode($data['hostname']), $label,
+		    ['icon' => 'fa-thumbtack', 'label' => sprintf(gettext('Add static mapping for %s'), $label)]];
+	}
+	if ($mac) { /* we can only add a WOL mapping if MAC address is known */
+		$actions[] = ['custom', "services_wol_edit.php?{$if_q}&mac=" . urlencode($mac) . '&descr=' . urlencode($data['hostname']), $label,
+		    ['icon' => 'fa-bookmark', 'label' => sprintf(gettext('Add Wake-on-LAN mapping for %s'), $label)]];
+	}
+	if ($data['type'] == $dynamic_string && !$online) {
+		$actions[] = ['delete', 'status_dhcpv6_leases.php?deleteip=' . urlencode($data['ip']) . '&all=' . $all_param, $data['ip'],
+		    ['thing' => gettext('lease'), 'detail' => gettext('The client asks for a new lease the next time it connects.')]];
+	}
 ?>
-				<tr>
-					<td><?=$iflist[$listcounters['dhcpif']]?></td>
-					<td><?=$listcounters['from']?></td>
-					<td><?=$listcounters['to']?></td>
-					<td><?=$now?></td>
-				</tr>
-<?php
-	endforeach;
-else:
-?>
-				<tr>
-					<td colspan="4"><?=gettext('No leases are in use')?></td>
-				</tr>
+				<tr data-fs-filter-state="<?=$data['state']?>" data-fs-filter-client="<?=$online ? 'online' : 'offline'?>" data-fs-filter-if="<?=htmlspecialchars($data['if'] ?? '')?>">
+					<td><span class="fs-dhcp-state"><?=$state_badge($data['state'], $data)?><?=$online ? fs_badge('online') : fs_badge('offline')?></span></td>
+					<td>
+						<span class="fs-mono"><?=htmlspecialchars($data['ip'])?></span>
+<?php if (!empty($data['if'])): ?>
+						<span class="fs-dhcp-sub"><?=htmlspecialchars($iflist[$data['if']] ?? strtoupper($data['if']))?></span>
 <?php endif; ?>
+					</td>
+					<td>
+						<span class="fs-mono fs-dhcp-duid"><?=htmlspecialchars($data['duid'])?></span>
+<?php if (!empty($data['iaid'])): ?>
+						<span class="fs-dhcp-sub"><?=gettext('IAID')?>: <span class="fs-mono"><?=htmlspecialchars($data['iaid'])?></span></span>
+<?php endif; ?>
+<?php if ($mac): ?>
+						<span class="fs-dhcp-sub"><span class="fs-mono"><?=htmlspecialchars($mac)?></span><?=isset($mac_man[$mac_hi]) ? ' · ' . htmlspecialchars($mac_man[$mac_hi]) : ''?></span>
+<?php endif; ?>
+					</td>
+					<td>
+<?php if ($data['hostname'] && $data['dnsreg']): ?>
+						<i class="fa-solid fa-globe fs-dhcp-dns" title="<?=gettext('Registered with the DNS Resolver')?>" aria-hidden="true"></i><span class="visually-hidden"><?=gettext('Registered with the DNS Resolver')?></span>
+<?php endif; ?>
+						<?=htmlspecialchars($name)?>
+					</td>
+					<td><?=htmlspecialchars($data['descr'] ?? '')?></td>
+					<?=$time_cell($data, $start_key, $end_key)?>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($rows)) {
+	fs_empty_row(8, $show_all ? gettext('No address leases to display.') : gettext('No active or static address leases.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+	<div class="panel-footer small fs-muted">
+		<i class="fa-solid fa-globe" aria-hidden="true"></i> <?=gettext('Hostname registered with the DNS Resolver.')?>
+		<?=gettext('Offline clients have no entry in the NDP table.')?>
+	</div>
+</div>
+
+<?php elseif ($view === 'prefixes'): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Prefix delegation leases'),
+	'search' => gettext('Search prefix, DUID…'),
+	'noun' => gettext('prefixes'),
+	'noun_one' => gettext('prefix'),
+	'filters' => ['state' => $state_filter],
+	'actions' => $toggle_html,
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th class="fs-col-status" data-fs-search><?=gettext('Status')?></th>
+					<th data-fs-search><?=gettext('IPv6 prefix')?></th>
+					<th data-fs-search><?=gettext('Client (DUID)')?></th>
+					<th data-fs-search><?=gettext('Routed to')?></th>
+<?php if (dhcp_is_backend('kea')): ?>
+					<th data-fs-search><?=gettext('Description')?></th>
+<?php endif; ?>
+					<th data-fs-search><?=gettext('Start')?></th>
+					<th data-fs-search><?=gettext('End')?></th>
+<?php if (dhcp_is_backend('kea')): ?>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+<?php endif; ?>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($prefix_rows as $data):
+	$online = (($data['online'] ?? '') === $online_string);
+?>
+				<tr data-fs-filter-state="<?=$data['state']?>">
+					<td><span class="fs-dhcp-state"><?=$state_badge($data['state'], $data)?><?=dhcp_is_backend('kea') ? ($online ? fs_badge('online') : fs_badge('offline')) : ''?></span></td>
+<?php if (dhcp_is_backend('isc')): ?>
+					<td class="fs-mono"><?=htmlspecialchars($data['prefix'])?></td>
+					<td><span class="fs-mono fs-dhcp-duid"><?=htmlspecialchars($data['duid'])?></span></td>
+					<td>
+<?php foreach (($mappings[$data['duid']] ?? []) as $iaid => $iproute): ?>
+						<span class="fs-mono"><?=htmlspecialchars($iproute)?></span>
+						<span class="fs-dhcp-sub"><?=gettext('IAID')?>: <span class="fs-mono"><?=htmlspecialchars($iaid)?></span></span>
+<?php endforeach; ?>
+					</td>
+					<?=$time_cell($data, 'start', 'end')?>
+<?php else:
+	$mac = trim($ndpdata[$data['routed-to'] ?? '']['mac'] ?? '');
+	$mac_hi = (strlen($mac) >= 8) ? strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]) : '';
+	$label = $data['ip'];
+	$if_q = 'if=' . urlencode($data['if'] ?? '');
+	$actions = [];
+	if ($data['type'] == $static_string) {
+		$actions[] = ['edit', "services_dhcpv6_edit.php?{$if_q}&id=" . urlencode($data['staticmap_array_index'] ?? ''), $label,
+		    ['attrs' => ['title' => gettext('Edit static mapping'), 'aria-label' => sprintf(gettext('Edit static mapping %s'), $label)]]];
+	}
+	if ($data['type'] == $dynamic_string) {
+		$actions[] = ['custom', "services_dhcpv6_edit.php?{$if_q}&duid=" . urlencode($data['duid']) . '&hostname=' . urlencode($data['hostname'] ?? ''), $label,
+		    ['icon' => 'fa-thumbtack', 'label' => sprintf(gettext('Add static mapping for %s'), $label)]];
+	}
+	if ($data['type'] == $dynamic_string && !$online) {
+		$actions[] = ['delete', 'status_dhcpv6_leases.php?deletepd=' . urlencode($data['ip']) . '&all=' . $all_param . '&view=prefixes', $data['ip'],
+		    ['thing' => gettext('prefix lease'), 'detail' => gettext('The router asks for a new prefix the next time it connects.')]];
+	}
+?>
+					<td class="fs-mono"><?=htmlspecialchars($data['ip'])?></td>
+					<td>
+						<span class="fs-mono fs-dhcp-duid"><?=htmlspecialchars($data['duid'])?></span>
+<?php if (!empty($data['iaid'])): ?>
+						<span class="fs-dhcp-sub"><?=gettext('IAID')?>: <span class="fs-mono"><?=htmlspecialchars($data['iaid'])?></span></span>
+<?php endif; ?>
+<?php if ($mac): ?>
+						<span class="fs-dhcp-sub"><span class="fs-mono"><?=htmlspecialchars($mac)?></span><?=isset($mac_man[$mac_hi]) ? ' · ' . htmlspecialchars($mac_man[$mac_hi]) : ''?></span>
+<?php endif; ?>
+					</td>
+					<td class="fs-mono"><?=htmlspecialchars($data['routed-to'] ?? '')?></td>
+					<td><?=htmlspecialchars($data['descr'] ?? '')?></td>
+					<?=$time_cell($data, 'starts', 'ends')?>
+					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+<?php endif; ?>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($prefix_rows)) {
+	fs_empty_row(dhcp_is_backend('kea') ? 8 : 6, gettext('No prefix delegation leases to display.'));
+} ?>
 			</tbody>
 		</table>
 	</div>
 </div>
 
-<nav class="action-buttons">
-<?php if ($_REQUEST['all']): ?>
-	<a class="btn btn-info" href="status_dhcpv6_leases.php?all=0"><i class="fa-solid fa-circle-minus icon-embed-btn"></i><?=gettext('Show Active and Static Leases Only')?></a>
-<?php else: ?>
-	<a class="btn btn-info" href="status_dhcpv6_leases.php?all=1"><i class="fa-solid fa-circle-plus icon-embed-btn"></i><?=gettext('Show all Configured Leases')?></a>
-<?php endif; ?>
-	<a class="btn btn-danger no-confirm" id="cleardhcp"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext('Clear all DHCPv6 Leases')?></a>
-</nav>
-
-<?php
-if (dhcp_is_backend('kea')):
-	$status = system_get_kea6status();
-	if (is_array($status) && array_key_exists('high-availability', $status['arguments'])):
-?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('High Availability Status')?></h2></div>
+<?php else: /* pools */ ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar(['title' => gettext('Address lease utilization'), 'search' => false, 'noun' => gettext('ranges'), 'noun_one' => gettext('range')]); ?>
 	<div class="panel-body table-responsive">
-		<table class="table table-striped table-hover table-sm">
-		<thead>
-			<tr>
-				<th><?=gettext('Node Name')?></th>
-				<th><?=gettext('Node Type')?></th>
-				<th><?=gettext('Node Role')?></th>
-				<th><?=gettext('Latest Heartbeat')?></th>
-				<th><?=gettext('Node State')?></th>
-			</tr>
-		</thead>
-		<tbody>
-<?php
-		foreach ($status['arguments']['high-availability'] as $ha_status):
-			foreach ($ha_status['ha-servers'] as $where => $ha_server):
-?>
-			<tr>
-				<td><?=dhcp_ha_status_icon($where, $ha_server)?> <?=htmlspecialchars($ha_server['server-name'])?></td>
-				<td><?=htmlspecialchars($where)?></td>
-				<td><?=htmlspecialchars($ha_server['role'])?></td>
-				<td><?=htmlspecialchars(kea_format_age($ha_server['age']))?></td>
-				<td><?=htmlspecialchars($ha_server['state'] ?? $ha_server['last-state'])?></td>
-			</tr>
-<?php
-			endforeach;
-		endforeach;
-?>
-		</tbody>
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th><?=gettext('Interface')?></th>
+					<th><?=gettext('Pool start')?></th>
+					<th><?=gettext('Pool end')?></th>
+					<th><?=gettext('Used')?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($dhcp_leases_subnet_counter as $listcounters): ?>
+				<tr>
+					<td><?=htmlspecialchars($iflist[$listcounters['dhcpif']] ?? $listcounters['dhcpif'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($listcounters['from'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($listcounters['to'])?></td>
+					<td class="fs-mono"><?=(int)$listcounters['count']?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($dhcp_leases_subnet_counter)) {
+	fs_empty_row(4, gettext('No leases are in use.'));
+} ?>
+			</tbody>
 		</table>
 	</div>
 </div>
-<?php
-	endif;
-endif; /* dhcp_is_backend('kea') */
+
+<?php if (count($pools) > 0): ?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar(['title' => gettext('Failover pools'), 'search' => false, 'noun' => gettext('groups'), 'noun_one' => gettext('group')]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead>
+				<tr>
+					<th><?=gettext('Failover group')?></th>
+					<th><?=gettext('My state')?></th>
+					<th><?=gettext('Since')?></th>
+					<th><?=gettext('Peer state')?></th>
+					<th><?=gettext('Since')?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($pools as $data): ?>
+				<tr>
+					<td><?=htmlspecialchars($data['name'])?></td>
+					<td><?=fs_badge(($data['mystate'] == 'normal') ? 'up' : 'warn', $data['mystate'])?></td>
+					<td class="fs-mono fs-dhcp-time"><?=htmlspecialchars(adjust_gmt($data['mydate']))?></td>
+					<td><?=fs_badge(($data['peerstate'] == 'normal') ? 'up' : 'warn', $data['peerstate'])?></td>
+					<td class="fs-mono fs-dhcp-time"><?=htmlspecialchars(adjust_gmt($data['peerdate']))?></td>
+				</tr>
+<?php endforeach; ?>
+			</tbody>
+		</table>
+	</div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($ha_servers)):
+	$heartbeatdelay = ((int)config_get_path('kea/ha/heartbeatdelay', kea_defaults('heartbeatdelay'))) / 1000 + 2;
 ?>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	// Make these controls plain buttons
-	$("#btnsearch").prop('type', 'button');
-	$("#btnclear").prop('type', 'button');
-
-	// Search for a term in the entry name and/or dn
-	$("#btnsearch").click(function() {
-		var searchstr = $('#searchstr').val().toLowerCase();
-		var table = $("#leaselist");
-		var where = $('#where').val();
-
-		// Trim on values where a space doesn't make sense
-		if ((where >= 2) && (where <= 8)) {
-			searchstr = searchstr.trim();
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar(['title' => gettext('High availability'), 'search' => false, 'noun' => gettext('nodes'), 'noun_one' => gettext('node')]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead>
+				<tr>
+					<th class="fs-col-status"><?=gettext('Status')?></th>
+					<th><?=gettext('Node name')?></th>
+					<th><?=gettext('Node type')?></th>
+					<th><?=gettext('Node role')?></th>
+					<th><?=gettext('Latest heartbeat')?></th>
+					<th><?=gettext('Node state')?></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($ha_servers as list($where, $ha_server)):
+	/* same rules as dhcp_ha_status_icon(): the local node is always online */
+	$ha_badge = fs_badge('online');
+	if ($where === 'remote') {
+		if (!$ha_server['in-touch'] || $ha_server['communication-interrupted']) {
+			$ha_badge = fs_badge('offline');
+		} elseif ($ha_server['age'] >= $heartbeatdelay) {
+			$ha_badge = fs_badge('degraded', gettext('Interrupted'));
 		}
-
-		table.find('tr').each(function (i) {
-			var $tds	= $(this).find('td');
-			var $popover	= $($.parseHTML($tds.eq(2).attr('data-content')));
-
-			var lease	= $tds.eq(0).find('.act').attr('title').trim().toLowerCase();
-			var online	= $tds.eq(0).find('.online').attr('title').trim().toLowerCase();
-			var ipaddr	= $tds.eq(1).text().trim().toLowerCase();
-			var duid	= $tds.eq(2).text().trim().toLowerCase();
-			var iaid	= $popover.closest('.iaid').text().trim().toLowerCase();
-			var mac		= $popover.closest('.mac').text().trim().toLowerCase();
-			var hostname	= $tds.eq(3).text().trim().toLowerCase();
-			var descr	= $tds.eq(4).text().trim().toLowerCase();
-			var start	= $tds.eq(5).text().trim().toLowerCase();
-			var end		= $tds.eq(6).text().trim().toLowerCase();
-
-			regexp = new RegExp(searchstr);
-			if (searchstr.length > 0) {
-				if (!(regexp.test(lease)    && ((where == 2)  || (where == 1))) &&
-				    !(regexp.test(online)   && ((where == 3)  || (where == 1))) &&
-				    !(regexp.test(ipaddr)   && ((where == 4)  || (where == 1))) &&
-				    !(regexp.test(duid)     && ((where == 5)  || (where == 1))) &&
-				    !(regexp.test(iaid)     && ((where == 6)  || (where == 1))) &&
-				    !(regexp.test(mac)      && ((where == 7)  || (where == 1))) &&
-				    !(regexp.test(hostname) && ((where == 8)  || (where == 1))) &&
-				    !(regexp.test(descr)    && ((where == 9)  || (where == 1))) &&
-				    !(regexp.test(start)    && ((where == 10) || (where == 1))) &&
-				    !(regexp.test(end)      && ((where == 11) || (where == 1)))
-				    ) {
-					$(this).hide();
-				} else {
-					$(this).show();
-				}
-			} else {
-				$(this).show();	// A blank search string shows all
-			}
-		});
-	});
-
-	// Clear the search term and unhide all rows (that were hidden during a previous search)
-	$("#btnclear").click(function() {
-		var table = $("#leaselist");
-
-		$('#searchstr').val("");
-
-		$('#where option[value="1"]').prop('selected', true);
-
-		table.find('tr').each(function (i) {
-			$(this).show();
-		});
-	});
-
-	// Hitting the enter key will do the same as clicking the search button
-	$("#searchstr").on("keyup", function (event) {
-		if (event.keyCode == 13) {
-			$("#btnsearch").get(0).click();
-		}
-	});
-
-	$('#cleardhcp').click(function() {
-		if (confirm("Are you sure you wish to clear all DHCPv6 leases?")) {
-			postSubmit({cleardhcpleases: 'true'}, 'status_dhcpv6_leases.php');
-		}
-	});
-});
-//]]>
-</script>
+	}
+?>
+				<tr>
+					<td><?=$ha_badge?></td>
+					<td><?=htmlspecialchars($ha_server['server-name'])?></td>
+					<td><?=htmlspecialchars($where)?></td>
+					<td><?=htmlspecialchars($ha_server['role'])?></td>
+					<td><?=htmlspecialchars(kea_format_age($ha_server['age']))?></td>
+					<td><?=htmlspecialchars($ha_server['state'] ?? $ha_server['last-state'])?></td>
+				</tr>
+<?php endforeach; ?>
+			</tbody>
+		</table>
+	</div>
+</div>
+<?php endif; ?>
+<?php endif; /* view */ ?>
 
 <?php
 include('foot.inc');

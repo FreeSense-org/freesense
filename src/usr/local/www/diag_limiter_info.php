@@ -51,41 +51,88 @@ if ($_REQUEST['getactivity']) {
 	exit;
 }
 
+$sections = array(
+	'pipes' => array(gettext('Limiters'), (string)shell_exec('/sbin/dnctl pipe show'), '/^\d{5}:/m', gettext('No limiters were found on this system.')),
+	'scheds' => array(gettext('Schedulers'), (string)shell_exec('/sbin/dnctl sched show'), '/^\d{5}:/m', gettext('No schedulers are active.')),
+	'queues' => array(gettext('Queues'), (string)shell_exec('/sbin/dnctl queue show'), '/^q\d+/m', gettext('No queues are active.')),
+);
+
 include("head.inc");
 
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
-
 ?>
-<script type="text/javascript">
-//<![CDATA[
-	function getlimiteractivity() {
-		$.ajax(
-			'/diag_limiter_info.php',
-			{
-				type: 'post',
-				data: {
-					getactivity: 'yes'
-				},
-				success: function (data) {
-					$('#xhrOutput').html(data);
-				},
-		});
-	}
 
-	events.push(function() {
-		setInterval('getlimiteractivity()', 2500);
-		getlimiteractivity();
-	});
-//]]>
-</script>
+<style>
+.fs-limiter-bar { display: flex; justify-content: flex-end; margin-bottom: var(--fs-sp-3); }
+.fs-limiter-empty { margin: 0; padding: var(--fs-sp-4); color: var(--fs-text-muted); }
+</style>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("Limiter Information")?></h2></div>
-	<div class="panel-body">
-		<pre id="xhrOutput"><?=gettext("Gathering Limiter information, please wait...")?></pre>
+<div class="fs-tiles" id="limiter-tiles" data-fs-live>
+<?php foreach ($sections as $key => $s): ?>
+<?php fs_tile($s[0], preg_match_all($s[2], $s[1])); ?>
+<?php endforeach; ?>
+</div>
+
+<div class="fs-limiter-bar">
+	<div class="form-check form-switch mb-0">
+		<input class="form-check-input" type="checkbox" role="switch" id="refresh" checked>
+		<label class="form-check-label" for="refresh"><?=gettext('Refresh automatically')?></label>
 	</div>
 </div>
+
+<?php foreach ($sections as $key => $s): ?>
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<h2 class="panel-title"><?=htmlspecialchars($s[0])?></h2>
+		<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#limiter-<?=$key?>">
+			<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+		</button>
+	</div>
+<?php if (trim($s[1]) === ''): ?>
+	<p class="fs-limiter-empty" id="limiter-<?=$key?>" data-fs-live><?=htmlspecialchars($s[3])?></p>
+<?php else: ?>
+	<pre class="fs-console" id="limiter-<?=$key?>" data-fs-live><?=htmlspecialchars($s[1])?></pre>
+<?php endif; ?>
+</div>
+<?php endforeach; ?>
+
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	// Refresh the live parts in place (text only for the outputs, nodes for the tiles).
+	function refresh() {
+		if (!document.getElementById('refresh').checked || document.hidden) {
+			return;
+		}
+		fetch(window.location.href, {credentials: 'same-origin'}).then(function (r) {
+			return r.ok ? r.text() : null;
+		}).then(function (text) {
+			if (!text) {
+				return;
+			}
+			var doc = new DOMParser().parseFromString(text, 'text/html');
+			document.querySelectorAll('[data-fs-live][id]').forEach(function (el) {
+				var fresh = doc.getElementById(el.id);
+				if (!fresh) {
+					return;
+				}
+				if (el.tagName === 'PRE' || el.tagName === 'P') {
+					el.textContent = fresh.textContent;
+					return;
+				}
+				var nodes = Array.prototype.map.call(fresh.childNodes, function (n) {
+					return document.importNode(n, true);
+				});
+				el.replaceChildren.apply(el, nodes);
+			});
+		}).catch(function () {});
+	}
+
+	setInterval(refresh, 2500);
+});
+//]]>
+</script>
 
 <?php include("foot.inc");

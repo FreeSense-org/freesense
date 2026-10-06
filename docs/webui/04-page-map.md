@@ -90,8 +90,8 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | vpn_ipsec_keys / _edit | List / Editor | standard | B / D | |
 | vpn_openvpn_server, _client, _csc | List + Editor (`act=edit`) | list view standard (badges, row actions); editor sections | B / D | M |
 | vpn_openvpn_server | List + Editor | **done** (Phase E): tiles, mode/state filters, mode badge, crypto chips; editor header card, cards General → Endpoint → Crypto → Tunnel → Clients, collapsible certificate checks / DNS-NetBIOS / ping / advanced; form parity checked in 28 states | E | |
-| vpn_l2tp | Settings | standard | D | |
-| vpn_l2tp_users / _edit | List / Editor | standard | B / D | |
+| vpn_l2tp | Settings | standard | D | **done** (Phase E): summary card, cards in fill-in order, RADIUS/Advanced collapsible |
+| vpn_l2tp_users / _edit | List / Editor | standard | B / D | **done** (Phase E): tiles, filter, add/edit modal posting to _edit; editor rebuilt with summary card |
 
 ## W6 — System
 
@@ -127,9 +127,10 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | status_gateway_groups | Status | standard. **done**: one card per group, tier + status badges, member tiles | E | |
 | status_services | Status | Start/Stop/Restart as row actions; badges. **done**: tiles, search + state filter, stop (and restart of network-critical services) confirm | E | M |
 | status_interfaces | Status | one card per interface; mono addresses; badges up/down. **done**: 2-column card grid, traffic tiles, DHCP release modal | E | |
-| status_dhcp_leases, status_dhcpv6_leases | Status | the existing search becomes the toolbar (server-side kept); badges online/offline/static | E | |
-| status_carp, status_ntpd, status_unbound, status_upnp, status_wireless, status_queues, status_openvpn | Status | standard; row actions where they exist (disconnect, kill) | E | |
-| status_ipsec, _leases, _sad, _spd | Status | registry group `status-ipsec`; badges connected/connecting/down | E | M |
+| status_dhcp_leases, status_dhcpv6_leases | Status | **done**: tiles (active / static / expired / total or prefixes), searchable lease list with state + online badges and state / client / interface filters, `?all=` kept as the Show / Hide expired toolbar button, row actions (static mapping, WoL mapping, send WoL, confirmed delete), confirmed Clear all leases header action; Leases / (Prefix delegation) / Pools views | E | |
+| status_carp, status_ntpd | Status | standard; row actions where they exist (disconnect, kill) | E | |
+| status_ipsec, _leases, _sad, _spd | Status | **done**: registry group `status-ipsec`; Overview tiles + tunnel list (connected / connecting / disconnected / waiting badges, state filter), expandable child SAs kept across the 5 s refresh, connect / disconnect as row actions (disconnect confirmed, same AJAX handler); leases, SADs (confirmed delete) and SPDs as searchable lists | E | M |
+| status_openvpn, status_unbound, status_upnp, status_wireless, status_queues | Status | **done** (status-b): OpenVPN one card per server (service badge + controls, client list with confirmed Disconnect / Halt, collapsible routing table) and instance lists; Unbound speed / stats views; UPnP confirmed Delete all; Wireless Rescan header action; Queues tree with live stats and collapse toggles | E | |
 | status_captiveportal, _vouchers, _voucher_rolls, _expire, _test | Status / Tool | registry group with zone param | E | |
 | status_graph | Status | chart card + controls row (themed nvd3) | E | |
 | status_restapi | Status | already near-standard; align with tokens | E | |
@@ -142,16 +143,16 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | diag_ping | Tool | **pilot** | A | |
-| diag_traceroute, _dns, _testport, _authentication, _smart, _pf_info, _pftop, _system_activity, _limiter_info, _packet_capture | Tool | same as the pilot | E | |
-| diag_routes, _sockets, _states_summary, _gmirror | Status | table styling | E | |
-| diag_arp, diag_ndp | Status | hand-rolled search becomes `data-fs-table`; delete entry as a row action | E | |
+| diag_traceroute, _dns, _testport, _authentication, _smart, _pf_info, _pftop, _system_activity, _limiter_info, _packet_capture | Tool | same as the pilot. **done** (traceroute, dns, testport, authentication, smart): two-column tool layout, compact options card + result card (mono output, Copy); smart uses a view switch Information / Logs / Self-tests. **done** (pf_info): tiles + view switch Counters / Interfaces (IPv4/IPv6 filter) / Limits and timeouts, live refresh in place. **done** (limiter_info): tiles + output cards, live refresh | E | |
+| diag_routes, _sockets, _states_summary, _gmirror | Status | table styling. **done** (routes, sockets, states_summary): tiles, searchable lists, IPv4/IPv6 view switch (routes, sockets), view switch per summary (states_summary) | E | |
+| diag_arp, diag_ndp | Status | **done**: tiles, toolbar search + interface/state filters, status badges, mono IP/MAC, Wake-on-LAN + delete row actions (confirmed), clear table as a confirmed header action | E | |
 | diag_dump_states, _dump_states_sources, diag_resetstate | Status / Tool | registry group `states`; filter toolbar (server-side); kill state as a row action | E | M |
-| diag_tables | Status | table selector becomes a toolbar select; entries list with search; per-row delete | E | |
+| diag_tables | Status | **done**: table picker in the toolbar (GET `type`), tiles (entries, type, last update), searchable entries with confirmed per-row remove, Update now / Empty table as header actions | E | |
 | diag_backup | Tool | registry group `backup`: Backup & Restore · Remote · History | E | M |
 | diag_backup_remote / _edit | List + **R1** / Editor | **done**: view switch Targets / Settings; targets list (status badge, last success, run / browse / test / edit / toggle / delete); browse results are a list with download / restore | C | M |
 | diag_confbak | List + **R1** | **done**: history list with search, Old/New compare radios and Compare in the toolbar, current config marked; restore / download / delete with confirmations; retention in a header "Settings" modal; readable diff. Fixed: backup sizes showed 0 B (backup_config() cached the size before writing the file) | C | |
-| diag_command, diag_edit | Tool | danger styling; no structure change | E | M |
-| diag_reboot, diag_halt, diag_defaults | Tool | **danger confirm card** pattern | E | M |
+| diag_command, diag_edit | Tool | **done**: danger cards with warning headers, input groups, no inline handlers; command output keeps the first `<pre>` | E | M |
+| diag_reboot, diag_halt, diag_defaults | Tool | **done**: danger confirm card (consequences, red action naming the verb, Cancel to the dashboard); reboot methods as radio cards | E | M |
 
 ## Not pages (don't touch)
 
