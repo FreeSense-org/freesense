@@ -112,7 +112,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system_routes / _edit | List / Editor | standard; copy exists | B / D | |
 | system_hasync | Settings | standard | D | |
 | system_update_settings | Settings | standard | D | |
-| system_boot_environments | List | row actions (activate, delete) with confirm; badge "Active" | B | M |
+| system_boot_environments | List + **R8** | **reference for R8**: one Environments list; Create snapshot / Edit (rename + description) / Clone in modals; labelled row actions with confirmations; Settings tab kept | B | M |
 | system_restapi, _restapi_keys, _restapi_explorer | Settings / List / Special | already share one tab bar (`restapi_print_tabs()`); no change needed | — | |
 | pkg_mgr, pkg_mgr_installed | List | search becomes `data-fs-table`; badges (installed, update available). Moved to Phase E: the tables load over AJAX, so the enhancer needs a re-init hook | E | |
 | pkg_mgr_install | Tool | progress console | E | |

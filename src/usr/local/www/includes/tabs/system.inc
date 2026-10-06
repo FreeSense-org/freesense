@@ -52,6 +52,5 @@ $fs_tab_groups['system-advanced'] = [
 
 $fs_tab_groups['system-bootenv'] = [
 	[gettext('Environments'), 'system_boot_environments.php?view=environments'],
-	[gettext('Create & Clone'), 'system_boot_environments.php?view=create'],
 	[gettext('Settings'), 'system_boot_environments.php?view=settings'],
 ];

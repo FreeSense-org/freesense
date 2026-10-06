@@ -217,6 +217,30 @@ so package pages improve without edits. Submit buttons with `data-fs-confirm` us
 For the states and colors, see `01-tokens.md`. It is used for rule actions, gateway/service/tunnel status,
 enabled/disabled, lease state and log action. Don't use bare colored icons anymore.
 
+## Modal form (rule R8)
+
+Small create / edit forms (up to ~3 fields) open in a modal from a header or row action instead of
+sitting under the list:
+
+```php
+fs_page_action(gettext('Create snapshot'), '#', 'fa-camera', 'primary', ['data-fs-modal' => '#be-create']);
+
+fs_modal_form_begin('be-edit', gettext('Edit boot environment'));   // after the list
+?>
+	<input type="hidden" name="name" value="">
+	<div class="mb-3">
+		<label class="form-label" for="be-edit-target"><?=gettext('Name')?></label>
+		<input class="form-control" id="be-edit-target" name="target" required>
+	</div>
+<?php
+fs_modal_form_end(gettext('Save'), 'action', 'edit', 'fa-floppy-disk');
+```
+
+A row trigger (a `<button type="button" class="fs-action">` or a `custom` row action) carries
+`data-fs-modal="#be-edit"`, `data-fs-modal-title="Edit “x”"` and `data-fs-fill` (JSON of field name → value).
+The form is reset before filling, the first field gets focus, and the form posts to the page itself, so the
+existing POST handler stays the source of truth. Use the Editor page for anything bigger.
+
 ## Empty state
 
 `fs_empty_row(int $colspan, string $message, ?string $add_href = null, ?string $add_label = null)` renders a centered
