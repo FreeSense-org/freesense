@@ -195,7 +195,7 @@ if ($urltable && !empty($tmp['freq'])) {
 ?>
 </div>
 
-<div class="panel panel-default fs-table" id="table-entries">
+<div class="panel panel-default fs-table" id="table-entries" data-table="<?=htmlspecialchars($tablename)?>">
 <?php fs_table_toolbar([
 	'search' => $large ? false : gettext('Search entries…'),
 	'noun' => gettext('entries'),
@@ -273,7 +273,7 @@ events.push(function() {
 			{
 				type: 'post',
 				data: {
-					type: <?=json_encode($tablename)?>,
+					type: $('#table-entries').data('table'),
 					delete: el.data('entry')
 				},
 				success: function() {

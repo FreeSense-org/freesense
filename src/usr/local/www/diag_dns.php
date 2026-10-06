@@ -91,7 +91,7 @@ if ($couldnotcreatealias) {
 	if ($alias_exists) {
 		print_info_box(sprintf(gettext("Alias already exists for %s"), htmlspecialchars($host)), 'warning', false);
 	} else {
-		print_info_box(sprintf(gettext("Could not create alias for %s"), htmlspecialchars($host)), 'warning', false);
+		print_info_box(htmlspecialchars(str_replace('%s', $host, gettext("Could not create alias for %s"))), 'warning', false);
 	}
 }
 
@@ -150,7 +150,7 @@ $show_results = (!$input_errors && $type);
 <?php if ($resolved): ?>
 		<div class="panel panel-default fs-table">
 			<div class="panel-heading">
-				<h2 class="panel-title"><?=gettext('Results')?> <span class="fs-count"><?=count((array)$resolved)?></span></h2>
+				<h2 class="panel-title"><?=gettext('Results')?> <span class="fs-count"><?=(int)count((array)$resolved)?></span></h2>
 			</div>
 			<div class="panel-body table-responsive">
 				<table class="table table-hover">
@@ -164,7 +164,7 @@ $show_results = (!$input_errors && $type);
 <?php foreach ((array)$resolved as $hostitem): ?>
 						<tr>
 							<td class="fs-mono"><?=htmlspecialchars($hostitem['data'])?></td>
-							<td><?=fs_badge('info', $hostitem['type'])?></td>
+							<td><?=fs_badge('info', htmlspecialchars($hostitem['type']))?></td>
 						</tr>
 <?php endforeach; ?>
 					</tbody>

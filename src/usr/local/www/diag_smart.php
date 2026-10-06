@@ -72,19 +72,8 @@ $view = in_array($action, ['info', 'logs'], true) ? $action : (in_array($action,
 
 include("head.inc");
 
-// Escapes smartctl output and highlights the words "PASSED", "FAILED", and "WARNING".
-function add_colors($string) {
-	// To add words keep arrays matched by numbers
-	$patterns[0] = '/PASSED/';
-	$patterns[1] = '/FAILED/';
-	$patterns[2] = '/Warning/';
-	$replacements[0] = '<span class="fs-smart-pass">' . gettext("PASSED") . '</span>';
-	$replacements[1] = '<span class="fs-smart-fail">' . gettext("FAILED") . '</span>';
-	$replacements[2] = '<span class="fs-smart-warn">' . gettext("Warning") . '</span>';
-	ksort($patterns);
-	ksort($replacements);
-	return preg_replace($patterns, $replacements, htmlspecialchars((string)$string));
-}
+/* words highlighted in smartctl output */
+$smart_marks = array('PASSED' => 'fs-smart-pass', 'FAILED' => 'fs-smart-fail', 'Warning' => 'fs-smart-warn');
 
 $targetdev = basename($_POST['device']);
 
@@ -113,7 +102,7 @@ switch ($action) {
 			$error = gettext("Invalid test type, bailing.");
 			break;
 		}
-		$output = add_colors(shell_exec($smartctl . " -t " . escapeshellarg($test) . " /dev/" . escapeshellarg($targetdev)));
+		$output = (string)shell_exec($smartctl . " -t " . escapeshellarg($test) . " /dev/" . escapeshellarg($targetdev));
 		$result_title = sprintf(gettext('%1$s on %2$s'), $test_types[$test], $targetdev);
 		break;
 
@@ -124,7 +113,7 @@ switch ($action) {
 			$error = gettext("Invalid info type, bailing.");
 			break;
 		}
-		$output = add_colors(shell_exec($smartctl . " -" . escapeshellarg($type) . " /dev/" . escapeshellarg($targetdev)));
+		$output = (string)shell_exec($smartctl . " -" . escapeshellarg($type) . " /dev/" . escapeshellarg($targetdev));
 		$result_title = sprintf(gettext('%1$s of %2$s'), $info_types[$type], $targetdev);
 		break;
 
@@ -135,13 +124,13 @@ switch ($action) {
 			$error = gettext("Invalid log type, bailing.");
 			break;
 		}
-		$output = add_colors(shell_exec($smartctl . " -l " . escapeshellarg($type) . " /dev/" . escapeshellarg($targetdev)));
+		$output = (string)shell_exec($smartctl . " -l " . escapeshellarg($type) . " /dev/" . escapeshellarg($targetdev));
 		$result_title = sprintf(gettext('%1$s of %2$s'), $log_types[$type], $targetdev);
 		break;
 
 	// Abort tests
 	case 'abort':
-		$output = add_colors(shell_exec($smartctl . " -X /dev/" . escapeshellarg($targetdev)));
+		$output = (string)shell_exec($smartctl . " -X /dev/" . escapeshellarg($targetdev));
 		$result_title = sprintf(gettext('Abort tests on %s'), $targetdev);
 		break;
 }
@@ -189,7 +178,7 @@ fs_view_switch($views, $view);
 					</select>
 				</div>
 				<div>
-					<label class="form-label" for="type"><?=$type_labels[$view]?></label>
+					<label class="form-label" for="type"><?=htmlspecialchars($type_labels[$view])?></label>
 					<select class="form-select" id="type" name="type">
 <?php foreach ($type_lists[$view] as $k => $v): ?>
 						<option value="<?=htmlspecialchars($k)?>"<?=($posted_type === (string)$k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
@@ -233,7 +222,7 @@ fs_view_switch($views, $view);
 			<?=fs_badge('error', $error)?>
 		</div>
 <?php elseif ($output !== null): ?>
-		<pre class="fs-console" id="smart-output"><?=$output?></pre>
+		<pre class="fs-console" id="smart-output"><?php foreach (preg_split('/(PASSED|FAILED|Warning)/', $output, -1, PREG_SPLIT_DELIM_CAPTURE) as $part): ?><?php if (isset($smart_marks[$part])): ?><span class="<?=htmlspecialchars($smart_marks[$part])?>"><?=htmlspecialchars($part)?></span><?php else: ?><?=htmlspecialchars($part)?><?php endif; ?><?php endforeach; ?></pre>
 <?php else: ?>
 		<div class="fs-tool-empty">
 			<i class="fa-solid fa-hard-drive" aria-hidden="true"></i>
