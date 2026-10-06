@@ -38,6 +38,8 @@ require_once("restapi_log.inc");
 require_once("restapi_listener.inc");
 
 define('RESTAPI_REQLOG_PAGE', 100);
+/* Log entries hold client-controlled text (paths, user agents): no markup characters in the JSON this page sends. */
+define('RESTAPI_STATUS_JSON', JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 define('RESTAPI_REQLOG_PRUNED', '/var/run/restapi_log.pruned');
 
 $can_manage = isAllowedPage('system_restapi.php');
@@ -75,7 +77,7 @@ if (($_GET['json'] ?? '') === 'log') {
 	header('Content-Type: application/json; charset=utf-8');
 	header('Cache-Control: no-store');
 	echo json_encode(array('total' => count($matches), 'offset' => $offset,
-	    'entries' => array_slice($matches, $offset, RESTAPI_REQLOG_PAGE)), JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+	    'entries' => array_slice($matches, $offset, RESTAPI_REQLOG_PAGE)), RESTAPI_STATUS_JSON);
 	exit;
 }
 
@@ -86,7 +88,7 @@ if (($_GET['download'] ?? '') === 'log') {
 	header('Content-Disposition: attachment; filename="restapi-log-' . date('Ymd-His') . '.jsonl"');
 	header('Cache-Control: no-store');
 	foreach ($matches as $e) {
-		echo json_encode($e, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) . "\n";
+		echo json_encode($e, RESTAPI_STATUS_JSON) . "\n";
 	}
 	exit;
 }
