@@ -30,98 +30,97 @@
 ##|*MATCH=status_ipsec_spd.php*
 ##|-PRIV
 
-define('RIGHTARROW', '&#x25ba;');
-define('LEFTARROW',  '&#x25c4;');
-
 require_once("guiconfig.inc");
 require_once("ipsec.inc");
 
 $pgtitle = array(gettext("Status"), gettext("IPsec"), gettext("SPDs"));
 $pglinks = array("", "status_ipsec.php", "@self");
 $shortcut_section = "ipsec";
-include("head.inc");
 
 $spd = ipsec_dump_spd();
+if (!is_array($spd)) {
+	$spd = [];
+}
+
+$counts = ['in' => 0, 'out' => 0];
+foreach ($spd as $sp) {
+	$counts[($sp['dir'] == 'in') ? 'in' : 'out']++;
+}
+
+include("head.inc");
 
 fs_tabs('status-ipsec', 'status_ipsec_spd.php');
 
-if (count($spd)) {
+if (!ipsec_enabled()) {
+	print_info_box(sprintf(gettext('IPsec is disabled. %1$sConfigure IPsec%2$s.'), '<a href="vpn_ipsec.php">', '</a>'), 'info', false);
+}
 ?>
-	<div class="table-responsive">
-		<table class="table table-striped table-sm table-hover sortable-theme-bootstrap" data-sortable>
+
+<style>
+.fs-ipsec-dir { white-space: nowrap; }
+.fs-ipsec-dir i { color: var(--fs-text-muted); margin-right: .3rem; }
+.fs-ipsec-ends { white-space: nowrap; }
+.fs-ipsec-ends i { color: var(--fs-text-muted); margin: 0 .35rem; }
+</style>
+
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Security policies'),
+	'search' => gettext('Search networks, endpoints…'),
+	'noun' => gettext('policies'),
+	'noun_one' => gettext('policy'),
+	'filters' => ['dir' => [gettext('Both directions'),
+	    'in' => sprintf(gettext('Inbound (%d)'), $counts['in']), 'out' => sprintf(gettext('Outbound (%d)'), $counts['out'])]],
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
 			<thead>
 				<tr>
-					<th><?= gettext("Mode"); ?></th>
-					<th><?= gettext("Source"); ?></th>
-					<th><?= gettext("Destination"); ?></th>
-					<th><?= gettext("Direction"); ?></th>
-					<th><?= gettext("Protocol"); ?></th>
-					<th><?= gettext("Tunnel endpoints"); ?></th>
+					<th data-fs-search><?=gettext("Mode")?></th>
+					<th data-fs-search><?=gettext("Source")?></th>
+					<th data-fs-search><?=gettext("Destination")?></th>
+					<th data-fs-search><?=gettext("Direction")?></th>
+					<th data-fs-search><?=gettext("Protocol")?></th>
+					<th data-fs-search><?=gettext("Tunnel endpoints")?></th>
 				</tr>
 			</thead>
-
 			<tbody>
-<?php
-		foreach ($spd as $sp) {
-			if ($sp['dir'] == 'in') {
-				$dirstr = LEFTARROW . gettext(' Inbound');
-			} else {
-				$dirstr = RIGHTARROW . gettext(' Outbound');
-			}
+<?php foreach ($spd as $sp):
+	$in = ($sp['dir'] == 'in');
 ?>
-				<tr>
+				<tr data-fs-filter-dir="<?=$in ? 'in' : 'out'?>">
 					<td>
-					<? if ($sp['scope'] == 'ifnet'): ?>
+<?php if ($sp['scope'] == 'ifnet'): ?>
 						<?=htmlspecialchars(gettext("VTI"))?>
-						<? if (!empty($sp['ifname'])): ?>
-							<?=htmlspecialchars($sp['ifname'])?>
-						<? endif; ?>
-					<? else: ?>
+<?php if (!empty($sp['ifname'])): ?>
+						<span class="fs-mono"><?=htmlspecialchars($sp['ifname'])?></span>
+<?php endif; ?>
+<?php else: ?>
 						<?=htmlspecialchars(gettext("Tunnel"))?>
-					<? endif; ?>
+<?php endif; ?>
 					</td>
-					<td>
-						<?=htmlspecialchars($sp['srcid'])?>
+					<td class="fs-mono"><?=htmlspecialchars($sp['srcid'])?></td>
+					<td class="fs-mono"><?=htmlspecialchars($sp['dstid'])?></td>
+					<td class="fs-ipsec-dir">
+						<i class="fa-solid <?=$in ? 'fa-arrow-left' : 'fa-arrow-right'?>" aria-hidden="true"></i><?=$in ? gettext('Inbound') : gettext('Outbound')?>
 					</td>
-					<td>
-						<?=htmlspecialchars($sp['dstid'])?>
-					</td>
-					<td>
-						<?=$dirstr ?>
-					</td>
-					<td>
-						<?=htmlspecialchars(strtoupper($sp['proto']))?>
-					</td>
-					<td>
-					<? if ($sp['dir'] == 'in'): ?>
-						<?=htmlspecialchars($sp['dst'])?> <?= LEFTARROW ?> <?=htmlspecialchars($sp['src'])?>
-					<? else: ?>
-						<?=htmlspecialchars($sp['src'])?> <?= RIGHTARROW ?> <?=htmlspecialchars($sp['dst'])?>
-					<? endif; ?>
+					<td><?=htmlspecialchars(strtoupper($sp['proto']))?></td>
+					<td class="fs-mono fs-ipsec-ends">
+<?php if ($in): ?>
+						<?=htmlspecialchars($sp['dst'])?><i class="fa-solid fa-arrow-left" aria-hidden="true"></i><?=htmlspecialchars($sp['src'])?>
+<?php else: ?>
+						<?=htmlspecialchars($sp['src'])?><i class="fa-solid fa-arrow-right" aria-hidden="true"></i><?=htmlspecialchars($sp['dst'])?>
+<?php endif; ?>
 					</td>
 				</tr>
-<?php
-		}
-?>
+<?php endforeach; ?>
+<?php if (empty($spd)) {
+	fs_empty_row(6, gettext('No IPsec security policies configured.'));
+} ?>
 			</tbody>
 		</table>
 	</div>
-<?php
-} else {
-	print_info_box(gettext('No IPsec security policies configured.'));
-}
-
-if (ipsec_enabled()) {
-?>
-<div class="infoblock">
-<?php
-} else {
-?>
-<div class="infoblock blockopen">
-<?php
-}
-print_info_box(sprintf(gettext('IPsec can be configured %1$shere%2$s.'), '<a href="vpn_ipsec.php">', '</a>'), 'info', false);
-?>
 </div>
+
 <?php
 include("foot.inc");
