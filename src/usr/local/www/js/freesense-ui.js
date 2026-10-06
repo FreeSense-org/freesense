@@ -167,6 +167,63 @@
 		});
 	});
 
+	/*
+	 * Modal forms (fs_modal_form_begin/end): a trigger with data-fs-modal="#id"
+	 * opens the modal, pre-fills fields from data-fs-fill (JSON, by field name)
+	 * and can set the title with data-fs-modal-title. Fields not named in
+	 * data-fs-fill are reset, so a modal never shows the previous row's values.
+	 */
+	document.addEventListener('click', function (e) {
+		var trigger = e.target.closest ? e.target.closest('[data-fs-modal]') : null;
+		if (!trigger || !window.bootstrap || !window.bootstrap.Modal) {
+			return;
+		}
+		var modal = document.querySelector(trigger.getAttribute('data-fs-modal'));
+		if (!modal) {
+			return;
+		}
+		e.preventDefault();
+
+		var form = modal.querySelector('form');
+		var fill = {};
+		try {
+			fill = JSON.parse(trigger.getAttribute('data-fs-fill') || '{}');
+		} catch (err) {
+			fill = {};
+		}
+		if (form) {
+			form.reset();
+			Object.keys(fill).forEach(function (name) {
+				var field = form.elements[name];
+				if (field) {
+					field.value = fill[name];
+				}
+			});
+		}
+		var title = trigger.getAttribute('data-fs-modal-title');
+		var titleEl = modal.querySelector('.modal-title');
+		if (title && titleEl) {
+			if (!titleEl.hasAttribute('data-fs-default-title')) {
+				titleEl.setAttribute('data-fs-default-title', titleEl.textContent);
+			}
+			titleEl.textContent = title;
+		} else if (titleEl && titleEl.hasAttribute('data-fs-default-title')) {
+			titleEl.textContent = titleEl.getAttribute('data-fs-default-title');
+		}
+
+		modal.addEventListener('shown.bs.modal', function onShown() {
+			modal.removeEventListener('shown.bs.modal', onShown);
+			var first = modal.querySelector('.modal-body input:not([type=hidden]):not([readonly]), .modal-body select, .modal-body textarea');
+			if (first) {
+				first.focus();
+				if (first.select && first.type === 'text') {
+					first.select();
+				}
+			}
+		});
+		window.bootstrap.Modal.getOrCreateInstance(modal).show();
+	});
+
 	/* --------------------------------------------------------------------- tabs */
 
 	function layoutTabs(nav) {

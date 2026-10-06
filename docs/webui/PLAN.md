@@ -70,6 +70,13 @@ Special cases keep their own structure and only get the visual layer: firewall r
 - **R5. Every delete confirms in a modal that names the object.** Bulk delete only where the POST handler already accepts arrays. Adding array support to a handler is a logic change, so it gets its own small PR with a smoke test.
 - **R6. Tabs come from the registry.** At most about 7 visible, the rest go under "More ▾", and there is no select fallback. Dynamic tab groups (per interface, per CP zone) stay page-local but render through the same function.
 - **R7. URLs are an API.** No page is renamed or deleted. Menus, widgets, `shortcuts/`, `help.php` mapping, packages, docs and bookmarks must still land.
+- **R8. No forms parked under lists.** A create or edit form that sits under (or above) the list it acts on is folded into the list:
+  - *create* becomes the page's header action (or a toolbar control when it needs one choice, e.g. "CA → Add CRL");
+  - *row edits* become row actions;
+  - a form of up to ~3 fields opens in a **modal** (`fs_modal_form_begin/end`, prefilled from the row via `data-fs-fill`); anything bigger opens the Editor page;
+  - separate "Create" / "Clone" tabs or pages for the same objects merge into the list page; real settings keep their own tab.
+  - Reference: **Boot Environments** (one Environments list with Create snapshot / Edit / Clone modals, Settings tab kept).
+  - Candidates (Phase C unless noted): Wake-on-LAN (wake form + device list), captive portal vouchers (create-rolls form under the rolls), system tunables (edit form under the list), DNS Resolver access lists (inline "New Access List" editor), CRL editor (revoke form + revoked list), remote backup (settings under targets), config history (settings above history), NTP access restrictions, diag tables (table picker above entries), user and group editors (certificate / privilege sub-lists with add forms, Phase D), packet capture (start form + capture list, Phase E), log viewers ("Manage log" / filter panels, Phase E).
 
 ### Shared building blocks (built once, in Phase A)
 

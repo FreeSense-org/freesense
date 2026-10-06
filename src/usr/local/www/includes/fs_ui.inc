@@ -448,6 +448,41 @@ function fs_form_cancel($form, $href, $label = 'Cancel') {
 	return $btn;
 }
 
+/* ---------------------------------------------------------------- modal forms */
+
+/*
+ * Small create / edit forms (up to ~3 fields) open in a modal from a header or
+ * row action instead of sitting under the list (docs/webui/PLAN.md, rule R8).
+ *
+ *   fs_modal_form_begin('be-clone', gettext('Clone boot environment'));
+ *   ... fields: <div class="mb-3"><label class="form-label" for="x">…</label><input id="x" name="…" class="form-control">
+ *               <div class="form-text">help</div></div>
+ *   fs_modal_form_end(gettext('Clone'), 'action', 'clone', 'fa-regular fa-clone');
+ *
+ * A trigger names the modal and pre-fills fields by name (js/freesense-ui.js):
+ *   data-fs-modal="#be-clone" data-fs-fill='{"target":"default"}' data-fs-modal-title="Clone “default”"
+ */
+function fs_modal_form_begin($id, $title, $action = '', array $hidden = []) {
+	echo '<div class="modal fade fs-modal-form" id="' . fs_h($id) . '" tabindex="-1" aria-labelledby="' . fs_h($id) . '-title" aria-hidden="true">'
+	    . '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">'
+	    . '<form method="post"' . (($action !== '') ? ' action="' . fs_h($action) . '"' : '') . '>'
+	    . '<div class="modal-header"><h2 class="modal-title" id="' . fs_h($id) . '-title">' . fs_h($title) . '</h2>'
+	    . '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="' . fs_h(gettext('Close')) . '"></button></div>'
+	    . '<div class="modal-body">';
+	foreach ($hidden as $name => $value) {
+		echo '<input type="hidden" name="' . fs_h($name) . '" value="' . fs_h($value) . '">';
+	}
+}
+
+function fs_modal_form_end($submit_label, $submit_name = '', $submit_value = '', $icon = null) {
+	$icon_html = $icon ? '<i class="' . fs_h(fs_icon_class($icon)) . ' icon-embed-btn" aria-hidden="true"></i>' : '';
+	echo '</div><div class="modal-footer">'
+	    . '<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">' . fs_h(gettext('Cancel')) . '</button>'
+	    . '<button type="submit" class="btn btn-primary"' . (($submit_name !== '') ? ' name="' . fs_h($submit_name) . '" value="' . fs_h($submit_value) . '"' : '')
+	    . '>' . $icon_html . fs_h($submit_label) . '</button>'
+	    . '</div></form></div></div></div>';
+}
+
 /* ----------------------------------------------------------------- empty state */
 
 function fs_empty_row($colspan, $message, $add_href = null, $add_label = null) {

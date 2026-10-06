@@ -560,3 +560,12 @@ form > .fs-actionbar .fs-actionbar-cancel { margin-left: var(--fs-sp-2); }
 
 /* row actions rendered as submit buttons (forms per row, e.g. boot environments) */
 button.fs-action { padding: 0; border: 0; background: none; line-height: 1; }
+
+/* action bar for hand-built forms (no Form-class label column to line up with) */
+form > .fs-actionbar.fs-actionbar--plain { padding-left: var(--fs-sp-4); }
+
+/* the row of the item in use (e.g. the running boot environment) */
+tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); }
+
+/* modal forms */
+.fs-modal-form .modal-body > p:first-child { margin-top: 0; }
