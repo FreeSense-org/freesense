@@ -33,15 +33,12 @@ $shortcut_section = "l2tps";
 require_once("guiconfig.inc");
 require_once("freesense-utils.inc");
 require_once("vpn.inc");
+require_once("vpn_l2tp.inc");
 
 $pconfig = $_POST;
 
 if ($_POST['act'] == "del") {
-	if (config_get_path("l2tp/user/{$_POST['id']}")) {
-		config_del_path("l2tp/user/{$_POST['id']}");
-		l2tp_users_sort();
-		write_config(gettext("Deleted a L2TP VPN user."));
-		vpn_l2tp_updatesecret();
+	if (l2tp_user_delete($_POST['id'])) {
 		FreeSenseHeader("vpn_l2tp_users.php");
 		exit;
 	}

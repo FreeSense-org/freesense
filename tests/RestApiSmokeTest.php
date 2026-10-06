@@ -1194,6 +1194,144 @@ check_api(preg_match("/header\('Location: \/services_dhcpv6.php\?if='\.\\\$if\);
 check_api(preg_match('/\$rv\[\'missing_pool\'\]\) \{\n\t\theader\("Location: services_dhcpv6.php"\);\n\t\texit;/', $dhcp6_page) === 1,
     'saving a missing DHCPv6 pool goes back to the start');
 
+/* VPN: L2TP server and users, IPsec pre-shared keys, tunnel list actions, apply and status */
+check_api(isset(restapi_areas()['vpn.ipsec']) && isset(restapi_areas()['vpn.l2tp']), 'the VPN permission areas exist');
+$e1_routes = array(
+	'GET /v1/vpn/l2tp' => array('restapi_h_l2tp_get', 'vpn_l2tp.php', 'vpn.l2tp', false),
+	'PUT /v1/vpn/l2tp' => array('restapi_h_l2tp_set', 'vpn_l2tp.php', 'vpn.l2tp', false),
+	'GET /v1/vpn/l2tp/users' => array('restapi_h_l2tp_user_list', 'vpn_l2tp_users.php', 'vpn.l2tp', false),
+	'GET /v1/vpn/l2tp/users/{id}' => array('restapi_h_l2tp_user_get', 'vpn_l2tp_users.php', 'vpn.l2tp', false),
+	'POST /v1/vpn/l2tp/users' => array('restapi_h_l2tp_user_create', 'vpn_l2tp_users_edit.php', 'vpn.l2tp', false),
+	'PUT /v1/vpn/l2tp/users/{id}' => array('restapi_h_l2tp_user_update', 'vpn_l2tp_users_edit.php', 'vpn.l2tp', false),
+	'DELETE /v1/vpn/l2tp/users/{id}' => array('restapi_h_l2tp_user_delete', 'vpn_l2tp_users.php', 'vpn.l2tp', false),
+	'POST /v1/vpn/ipsec/apply' => array('restapi_h_ipsec_apply', 'vpn_ipsec.php', 'vpn.ipsec', false),
+	'GET /v1/vpn/ipsec/status' => array('restapi_h_ipsec_status', 'status_ipsec.php', 'vpn.ipsec', false),
+	'GET /v1/vpn/ipsec/pre-shared-keys' => array('restapi_h_ipsec_psk_list', 'vpn_ipsec_keys.php', 'vpn.ipsec', false),
+	'GET /v1/vpn/ipsec/pre-shared-keys/{id}' => array('restapi_h_ipsec_psk_get', 'vpn_ipsec_keys.php', 'vpn.ipsec', false),
+	'POST /v1/vpn/ipsec/pre-shared-keys' => array('restapi_h_ipsec_psk_create', 'vpn_ipsec_keys_edit.php', 'vpn.ipsec', true),
+	'PUT /v1/vpn/ipsec/pre-shared-keys/{id}' => array('restapi_h_ipsec_psk_update', 'vpn_ipsec_keys_edit.php', 'vpn.ipsec', true),
+	'DELETE /v1/vpn/ipsec/pre-shared-keys/{id}' => array('restapi_h_ipsec_psk_delete', 'vpn_ipsec_keys.php', 'vpn.ipsec', true),
+	'GET /v1/vpn/ipsec/tunnels' => array('restapi_h_ipsec_tunnel_list', 'vpn_ipsec.php', 'vpn.ipsec', false),
+	'GET /v1/vpn/ipsec/tunnels/{ikeid}' => array('restapi_h_ipsec_tunnel_get', 'vpn_ipsec.php', 'vpn.ipsec', false),
+	'POST /v1/vpn/ipsec/tunnels/{ikeid}/toggle' => array('restapi_h_ipsec_tunnel_toggle', 'vpn_ipsec.php', 'vpn.ipsec', true),
+	'DELETE /v1/vpn/ipsec/tunnels/{ikeid}' => array('restapi_h_ipsec_tunnel_delete', 'vpn_ipsec.php', 'vpn.ipsec', true),
+	'GET /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}' => array('restapi_h_ipsec_p2_get', 'vpn_ipsec.php', 'vpn.ipsec', false),
+	'POST /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}/toggle' => array('restapi_h_ipsec_p2_toggle', 'vpn_ipsec.php', 'vpn.ipsec', true),
+	'DELETE /v1/vpn/ipsec/tunnels/{ikeid}/phase2/{uniqid}' => array('restapi_h_ipsec_p2_delete', 'vpn_ipsec.php', 'vpn.ipsec', true),
+);
+foreach ($v1 as $r) {
+	$key = "{$r['method']} {$r['path']}";
+	if (strpos($r['path'], '/v1/vpn/') === 0) {
+		check_api(isset($e1_routes[$key]), "{$key} is a known VPN route");
+		list($handler, $page, $area, $staged) = $e1_routes[$key];
+		check_api($r['handler'] === $handler && $r['page'] === $page && $r['area'] === $area,
+		    "{$key} is handled by {$handler}, guarded by {$page} in area {$area}");
+		check_api(($r['method'] === 'GET') xor $r['write'], "{$key}: only GET is a read");
+		check_api(isset($r['query']['apply']) === $staged, "{$key} " . ($staged ? 'takes ?apply (the GUI stages it)' :
+		    'has no ?apply (applied at once like the page, or nothing to stage)'));
+		unset($e1_routes[$key]);
+	}
+}
+check_api(empty($e1_routes), 'every VPN route exists: ' . implode(', ', array_keys($e1_routes)));
+foreach (array('GET /v1/vpn/l2tp/users/zed' => 'restapi_h_l2tp_user_get', 'GET /v1/vpn/ipsec/status' => 'restapi_h_ipsec_status',
+    'GET /v1/vpn/ipsec/tunnels/901/phase2/6ac45d53a2b50' => 'restapi_h_ipsec_p2_get', 'POST /v1/vpn/ipsec/tunnels/901/toggle' => 'restapi_h_ipsec_tunnel_toggle',
+    'DELETE /v1/vpn/ipsec/pre-shared-keys/e1eap' => 'restapi_h_ipsec_psk_delete') as $key => $handler) {
+	list($m, $p) = explode(' ', $key);
+	check_api(restapi_match($v1, $m, $p)[0]['handler'] === $handler, "{$key} reaches {$handler}");
+}
+$p1_out = restapi_ipsec_entry_out(array('ikeid' => '3', 'pre-shared-key' => 'k', 'pkcs11pin' => '1234', 'disabled' => '', 'descr' => 'd'),
+    restapi_ipsec_p1_secrets());
+check_api($p1_out === array('ikeid' => '3', 'pre-shared-key' => '(set)', 'pkcs11pin' => '(set)', 'disabled' => true, 'descr' => 'd', 'mobile' => false),
+    'a phase 1 entry reads with its secrets as "(set)" and its flags as booleans');
+check_api(restapi_ipsec_entry_out(array('uniqid' => 'u', 'mobile' => '')) === array('uniqid' => 'u', 'mobile' => true, 'disabled' => false),
+    'a phase 2 entry reads with its flags as booleans');
+check_api(restapi_ipsec_entry_out(array('pre-shared-key' => ''), restapi_ipsec_p1_secrets())['pre-shared-key'] === '', 'an empty secret reads as empty');
+check_api(restapi_ipsec_button_post('togglep2', 4) === array('togglep2_4' => 'togglep2_4') && restapi_ipsec_button_post('del', 0) === array('del_0' => 'del_0'),
+    'tunnel actions post the list page\'s row button');
+check_api(restapi_vpn_secret_body(array('psk' => '(set)', 'ident' => 'x'), 'psk') === array('ident' => 'x') &&
+    restapi_vpn_secret_body(array('psk' => 'new'), 'psk') === array('psk' => 'new'), '"(set)" keeps a secret');
+check_api(restapi_vpn_select('', array('chap' => 'CHAP', 'pap' => 'PAP')) === 'chap' && restapi_vpn_select('pap', array('chap' => 'CHAP', 'pap' => 'PAP')) === 'pap' &&
+    restapi_vpn_select('7', array_combine(range(32, 1), range(32, 1))) === '7', 'a select reads as the option the form preselects');
+$l2_cur = array('enable' => true, 'interface' => 'lan', 'localip' => '10.0.0.1', 'remoteip' => '10.0.0.16', 'l2tp_subnet' => '28', 'n_l2tp_units' => '4',
+    'secret' => 'old', 'paporchap' => 'chap', 'l2tp_dns1' => '', 'l2tp_dns2' => '', 'mtu' => '', 'radiusenable' => false, 'radacct_enable' => true,
+    'radiusserver' => '', 'radiussecret' => '', 'radiusissueips' => false);
+$l2_post = restapi_l2tp_post($l2_cur, $l2_cur, array());
+check_api($l2_post['mode'] === 'server' && !array_key_exists('enable', $l2_post) && $l2_post['secret'] === DMYPWD && $l2_post['secret_confirm'] === DMYPWD &&
+    $l2_post['radiussecret'] === '' && $l2_post['radiussecret_confirm'] === '' && $l2_post['radacct_enable'] === 'yes' && $l2_post['radiusenable'] === null,
+    'the L2TP form post: Enable posts mode=server, a stored secret posts the placeholder (kept), confirmations repeat, unticked boxes are null');
+$l2_post = restapi_l2tp_post(array('enable' => false, 'secret' => 'new') + $l2_cur, $l2_cur, array('enable' => false, 'secret' => 'new'));
+check_api($l2_post['mode'] === null && $l2_post['secret'] === 'new' && $l2_post['secret_confirm'] === 'new', 'a new L2TP secret is posted with its confirmation');
+
+$l2tp_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/vpn_l2tp.inc");
+$ipsec_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/vpn_ipsec.inc");
+$routes_vpn = file_get_contents("{$root}/src/etc/inc/restapi/routes_vpn.inc");
+foreach (array($l2tp_inc, $ipsec_inc) as $src) {
+	check_api(strpos($src, '$_POST') === false && strpos($src, '$_REQUEST') === false && strpos($src, 'header(') === false &&
+	    strpos($src, 'exit;') === false, 'the VPN page includes take their form fields as parameters and never redirect');
+}
+foreach (array('vpn_l2tp.php' => array('l2tp_settings_save($_POST)', 'l2tp_settings_form()'), 'vpn_l2tp_users.php' => array('l2tp_user_delete($_POST[\'id\'])'),
+    'vpn_l2tp_users_edit.php' => array('l2tp_user_save($_POST, $id ?? null)', 'l2tp_user_form($id)'),
+    'vpn_ipsec.php' => array('ipsec_apply_changes()', 'ipsec_tunnels_action($_POST)'),
+    'vpn_ipsec_keys.php' => array('ipsec_apply_changes()', 'ipsec_psk_delete($_POST[\'id\'])'),
+    'vpn_ipsec_keys_edit.php' => array('ipsec_psk_save($_POST, $id ?? null)', 'ipsec_psk_form($id)', 'ipsec_psk_ident_type_list()')) as $page => $calls) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
+	foreach ($calls as $call) {
+		check_api(strpos($src, $call) !== false, "{$page} uses {$call}");
+	}
+	check_api(strpos($src, 'write_config(') === false && strpos($src, 'config_set_path(') === false && strpos($src, 'config_del_path(') === false &&
+	    strpos($src, 'mark_subsystem_dirty(') === false && strpos($src, 'filter_configure(') === false, "{$page} changes the configuration only through the shared include");
+}
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/vpn_ipsec_keys_edit.php"), 'function build_ipsecid_list(') === false &&
+    strpos($ipsec_inc, 'function ipsec_psk_ident_type_list(') !== false, 'the key page\'s build_ipsecid_list() is ipsec_psk_ident_type_list()');
+$tun_action = $fn_body($ipsec_inc, 'ipsec_tunnels_action');
+check_api(strpos($tun_action, "config_set_path('ipsec/phase2/' . \$dp2idx . '/disabled', true);") !== false &&
+    substr_count($tun_action, "config_set_path('ipsec/phase2/' . \$togglebtnp2 . '/disabled', true);") === 1,
+    'disabling a phase 1 with a VTI phase 2 disables its phase 2 entries (it used an unset index)');
+check_api(substr_count($tun_action, '/* no such entry */') === 4 && strpos($fn_body($ipsec_inc, 'ipsec_delete_p1_entries'), "is_array(config_get_path('ipsec/phase1/' . \$idx))") !== false,
+    'toggling or deleting a missing entry changes nothing (a toggle added an empty entry)');
+check_api(substr_count($tun_action, 'is_interface_ipsec_vti_assigned(') === 4 && strpos($ipsec_inc, 'delete_p1_and_children($p1list)') !== false,
+    'an assigned VTI phase 2 still blocks deleting and disabling');
+check_api(strpos(file_get_contents("{$root}/src/usr/local/www/vpn_ipsec.php"), 'name="movep2_<?=$ph2index?>" value="movep2_<?=$ph2index?>"') !== false,
+    'the phase 2 move button carries the entry\'s position in ipsec/phase2 (it used the row number within the tunnel)');
+$apply_fn = $fn_body($ipsec_inc, 'ipsec_apply_changes');
+check_api(strpos($apply_fn, 'ipsec_configure()') < strpos($apply_fn, 'ipsec_reload_package_hook()') &&
+    strpos($apply_fn, 'ipsec_reload_package_hook()') < strpos($apply_fn, 'filter_configure()') && strpos($apply_fn, "clear_subsystem_dirty('ipsec')") !== false,
+    'IPsec apply reconfigures IPsec, runs the package hooks and reloads the filter');
+$psk_save = $fn_body($ipsec_inc, 'ipsec_psk_save');
+foreach (array('A valid secret type must be selected.', 'A valid identifier type must be selected.', "A valid mask for 'Virtual Address Pool' must be specified.",
+    "strlen(\$post['dns_address']) > 0", "if (\$existing && ((string)\$idx === (string)\$id)) {") as $needle) {
+	check_api(strpos($psk_save, $needle) !== false, "pre-shared key save checks: {$needle}");
+}
+$l2_save = $fn_body($l2tp_inc, 'l2tp_settings_save');
+foreach (array('A valid interface must be selected.', 'A valid authentication type must be selected.', "(\$post['n_l2tp_units'] < 1)",
+    'The secret cannot contain control characters.', 'The RADIUS secret cannot contain control characters.') as $needle) {
+	check_api(strpos($l2_save, $needle) !== false, "L2TP settings save checks: {$needle}");
+}
+$user_save = $fn_body($l2tp_inc, 'l2tp_user_save');
+check_api(strpos($user_save, 'The password cannot contain control characters.') !== false && strpos($user_save, "if (\$this_secret_config && ((string)\$idx === (string)\$id)) {") !== false,
+    'an L2TP user password has no line breaks; a rename to an existing name is refused');
+$vpn_inc = file_get_contents("{$root}/src/etc/inc/vpn.inc");
+$l2_conf = $fn_body($vpn_inc, 'vpn_l2tp_configure');
+check_api(strpos($l2_conf, "\$radiussecret = str_replace('\"', '\\\"', array_get_path(\$l2tpcfg, 'radius/secret', ''));") !== false,
+    'the RADIUS secret is escaped in mpd.conf like the L2TP secret');
+check_api(strpos($l2_conf, "\t\treturn true;\n") === false, 'stopping a disabled L2TP server reports success (the page showed a failure)');
+check_api(substr_count($routes_vpn, 'write_config(') === 0 && substr_count($routes_vpn, 'config_set_path(') === 0 && substr_count($routes_vpn, 'config_del_path(') === 0,
+    'VPN API writes only through the GUI functions');
+check_api(strpos($fn_body($routes_vpn, 'restapi_ipsec_list_button'), 'ipsec_tunnels_action(restapi_ipsec_button_post($button, $pos))') !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_ipsec_list_button'), "new RestApiError(409, 'in_use'") !== false,
+    'tunnel actions run the list page\'s action function; a refusal is 409');
+check_api(strpos($fn_body($routes_vpn, 'restapi_l2tp_out'), "restapi_svc_mask(\$settings['secret'])") !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_l2tp_out'), "restapi_svc_mask(\$settings['radiussecret'])") !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_l2tp_user_out'), "restapi_svc_mask(\$u['password'] ?? '')") !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_ipsec_psk_out'), "restapi_svc_mask(\$out['psk'])") !== false &&
+    strpos($fn_body($routes_vpn, 'restapi_ipsec_p1_out'), 'restapi_ipsec_p1_secrets()') !== false,
+    'L2TP secrets, user passwords, pre-shared keys and phase 1 secrets read as "(set)"');
+check_api(strpos($fn_body($routes_vpn, 'restapi_h_ipsec_status'), "'pre-shared-key'") === false && strpos($fn_body($routes_vpn, 'restapi_h_ipsec_status'), "\$p1['ikeid']") !== false,
+    'the IPsec status lists connection state only (no phase 1 fields)');
+foreach (array('vpn_l2tp.inc', 'vpn_ipsec.inc') as $inc) {
+	check_api(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('{$inc}');") !== false, "the API front controller loads {$inc}");
+}
+
 /* Static guards */
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check_api(strpos($front, 'guiconfig.inc') === false, 'the API front controller must not load the GUI session/CSRF layer');

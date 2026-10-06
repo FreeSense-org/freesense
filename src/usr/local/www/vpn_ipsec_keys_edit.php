@@ -34,108 +34,25 @@ require_once("functions.inc");
 require_once("guiconfig.inc");
 require_once("ipsec.inc");
 require_once("vpn.inc");
+require_once("vpn_ipsec.inc");
 
 if (is_numericint($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
 }
 
 if (isset($id) && config_get_path('ipsec/mobilekey/' . $id)) {
-	$pconfig['ident'] = config_get_path('ipsec/mobilekey/' . $id . '/ident');
-	$pconfig['type'] = config_get_path('ipsec/mobilekey/' . $id . '/type');
-	$pconfig['psk'] = config_get_path('ipsec/mobilekey/' . $id . '/pre-shared-key');
-	$pconfig['ident_type'] = config_get_path('ipsec/mobilekey/' . $id . '/ident_type');
-	$pconfig['pool_address'] = config_get_path('ipsec/mobilekey/' . $id . '/pool_address');
-	$pconfig['pool_netbits'] = config_get_path('ipsec/mobilekey/' . $id . '/pool_netbits');
-	$pconfig['dns_address'] = config_get_path('ipsec/mobilekey/' . $id . '/dns_address');
+	$pconfig = ipsec_psk_form($id);
 }
 
 if ($_POST['save']) {
-	$userids = array();
-	foreach (config_get_path('system/user', []) as $uid => $user) {
-		$userids[$user['name']] = $uid;
-	}
-
 	unset($input_errors);
 	$pconfig = $_POST;
 
-	/* input validation */
-	$reqdfields = explode(" ", "ident psk");
-	$reqdfieldsn = array(gettext("Identifier"), gettext("Pre-Shared Key"));
-
-	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
-
-	if (preg_match("/[^a-zA-Z0-9@\.\-]/", $_POST['ident'])) {
-		$input_errors[] = gettext("The identifier contains invalid characters.");
-	}
-
-	if (array_key_exists($_POST['ident'], $userids)) {
-		$input_errors[] = gettext("A user with this name already exists. Add the key to the user instead.");
-	}
-	unset($userids);
-
-	if (isset($_POST['psk']) && !preg_match('/^[[:ascii:]]*$/', $_POST['psk'])) {
-		$input_errors[] = gettext("Pre-Shared Key contains invalid characters.");
-	}
-
-	if (isset($_POST['pool_address']) && strlen($_POST['pool_address']) > 1 && !is_ipaddr($_POST['pool_address'])) {
-		$input_errors[] = gettext("A valid IP address for 'Virtual Address Pool' must be specified.");
-	}
-
-	if (isset($_POST['dns_address']) && strlen($_POST['dns_address']) > 1 && !is_ipaddr($_POST['dns_address'])) {
-		$input_errors[] = gettext("A valid IP address for 'DNS Server' must be specified.");
-	}
-
-	if (!$input_errors && !(isset($id) && config_get_path('ipsec/mobilekey/' . $id))) {
-		/* make sure there are no dupes */
-		foreach (config_get_path('ipsec/mobilekey', []) as $secretent) {
-			if ($secretent['ident'] == $_POST['ident']) {
-				$input_errors[] = gettext("Another entry with the same identifier already exists.");
-				break;
-			}
-		}
-	}
-
+	$input_errors = ipsec_psk_save($_POST, $id ?? null);
 	if (!$input_errors) {
-
-		if (isset($id) && config_get_path('ipsec/mobilekey/' . $id)) {
-			$secretent = config_get_path('ipsec/mobilekey/' . $id);
-		}
-
-		$secretent['ident'] = $_POST['ident'];
-		$secretent['type'] = $_POST['type'];
-		$secretent['pre-shared-key'] = $_POST['psk'];
-		$secretent['ident_type'] = $_POST['ident_type'];
-		$secretent['pool_address'] = $_POST['pool_address'];
-		$secretent['pool_netbits'] = $_POST['pool_netbits'];
-		$secretent['dns_address'] = $_POST['dns_address'];
-		$text = "";
-
-		if (isset($id) && config_get_path('ipsec/mobilekey/' . $id)) {
-			config_set_path('ipsec/mobilekey/' . $id, $secretent);
-			$text = gettext("Edited IPsec Pre-Shared Keys");
-		} else {
-			config_set_path('ipsec/mobilekey/', $secretent);
-			$text = gettext("Added IPsec Pre-Shared Keys");
-		}
-
-		write_config($text);
-		mark_subsystem_dirty('ipsec');
-
 		header("Location: vpn_ipsec_keys.php");
 		exit;
 	}
-}
-
-function build_ipsecid_list() {
-	global $ipsec_identifier_list;
-
-	$list = array();
-
-	foreach ($ipsec_identifier_list as $id_type => $id_params) {
-		$list[$id_type] = htmlspecialchars($id_params['desc']);
-	}
-
-	return($list);
 }
 
 $pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Pre-Shared Keys"), gettext("Edit"));
@@ -176,7 +93,7 @@ $section->addInput(new Form_Select(
 	'ident_type',
 	'Identifier type',
 	$pconfig['ident_type'],
-	build_ipsecid_list()
+	ipsec_psk_ident_type_list()
 ))->setWidth(4)->setHelp('Optional: specify identifier type for EAP authentication');
 
 $group = new Form_Group('Virtual Address Pool');

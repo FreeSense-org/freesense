@@ -56,6 +56,9 @@ function restapi_areas() {
 		'services.time' => 'NTP server (settings and access restrictions)',
 		'services.ddns' => 'Dynamic DNS (Dynamic DNS and RFC 2136 clients)',
 		'services.dhcp' => 'DHCP and DHCPv6 servers, static mappings and router advertisements',
+		/* VPNs, one area per kind (OpenVPN follows as vpn.openvpn). */
+		'vpn.ipsec' => 'IPsec (tunnels, pre-shared keys, status)',
+		'vpn.l2tp' => 'L2TP VPN server and users',
 	);
 }
 

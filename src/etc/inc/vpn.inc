@@ -329,7 +329,8 @@ function vpn_l2tp_configure($interface = '') {
 		if (is_platform_booting()) {
 			echo gettext("done") . "\n";
 		}
-		return true;
+		/* Stopped as configured: success (the page reports a non-zero result as a failure). */
+		return 0;
 	}
 
 	$l2tp_listen="";
@@ -433,7 +434,8 @@ EOD;
 
 	if (array_path_enabled($l2tpcfg, 'radius')) {
 		$radiusip = array_get_path($l2tpcfg, 'radius/server', '');
-		$radiussecret = array_get_path($l2tpcfg, 'radius/secret', '');
+		/* Escape double quotes like the L2TP secret above. */
+		$radiussecret = str_replace('"', '\"', array_get_path($l2tpcfg, 'radius/secret', ''));
 		$mpdconf .=<<<EOD
 	set radius server {$radiusip} "{$radiussecret}"
 	set radius retries 3

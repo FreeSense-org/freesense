@@ -69,6 +69,9 @@ require_once('services_ntpd.inc');
 require_once('services_dyndns.inc');
 /* The DHCP and DHCPv6 server pages' shared functions (settings, static mappings). */
 require_once('services_dhcp.inc');
+/* The VPN pages' shared functions (L2TP, IPsec pre-shared keys and tunnel list actions). */
+require_once('vpn_l2tp.inc');
+require_once('vpn_ipsec.inc');
 require_once('restapi.inc');
 require_once('restapi/routes_v1.inc');
 

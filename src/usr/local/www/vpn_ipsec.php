@@ -36,212 +36,15 @@ require_once("filter.inc");
 require_once("shaper.inc");
 require_once("ipsec.inc");
 require_once("vpn.inc");
+require_once("vpn_ipsec.inc");
 
 global $p1_authentication_methods;
 
-$items_deleted = false;
-
 if ($_POST['apply']) {
-	$ipsec_dynamic_hosts = ipsec_configure();
-	ipsec_reload_package_hook();
-	/* reload the filter in the background */
-	$retval = 0;
-	$retval |= filter_configure();
-	if ($ipsec_dynamic_hosts >= 0) {
-		if (is_subsystem_dirty('ipsec')) {
-			clear_subsystem_dirty('ipsec');
-		}
-	}
-} else if (isset($_POST['del'])) {
-	/* delete selected p1 entries */
-	if (is_array($_POST['p1entry']) && count($_POST['p1entry'])) {
-		$delcount = delete_p1_and_children($_POST['p1entry']);
-
-		if ($delcount > 0) {
-			if (write_config(gettext("Deleted selected IPsec Phase 1 and related Phase 2 entries."))) {
-				mark_subsystem_dirty('ipsec');
-			}
-		}
-	}
-} else if (isset($_POST['delp2'])) {
-	/* delete selected p2 entries */
-	if (is_array($_POST['p2entry']) && count($_POST['p2entry'])) {
-		foreach ($_POST['p2entry'] as $p2entrydel) {
-			if (is_interface_ipsec_vti_assigned(config_get_path('ipsec/phase2/' . $p2entrydel)) && (config_get_path('ipsec/phase2/' . $p2entrydel . '/mode') == 'vti')) {
-				$input_errors[] = gettext("Cannot delete a VTI Phase 2 while the interface is assigned. Remove the interface assignment before deleting this P2.");
-			} else {
-				config_del_path('ipsec/phase2/' . $p2entrydel);
-				$items_deleted = true;
-			}
-		}
-		if ($items_deleted) {
-			if (write_config(gettext("Deleted selected IPsec Phase 2 entries."))) {
-				mark_subsystem_dirty('ipsec');
-			}
-		}
-	}
-} else  {
-	/* yuck - IE won't send value attributes for image buttons, while Mozilla does - so we use .x/.y to find move button clicks instead... */
-
-	// TODO: this. is. nasty.
-	unset($delbtn, $delbtnp2, $movebtn, $movebtnp2, $togglebtn, $togglebtnp2);
-	foreach ($_POST as $pn => $pd) {
-		if (preg_match("/del_(\d+)/", $pn, $matches)) {
-			$delbtn = $matches[1];
-		} else if (preg_match("/delp2_(\d+)/", $pn, $matches)) {
-			$delbtnp2 = $matches[1];
-		} else if (preg_match("/move_(\d+)/", $pn, $matches)) {
-			$movebtn = $matches[1];
-		} else if (preg_match("/movep2_(\d+)/", $pn, $matches)) {
-			$movebtnp2 = $matches[1];
-		} else if (preg_match("/toggle_(\d+)/", $pn, $matches)) {
-			$togglebtn = $matches[1];
-		} else if (preg_match("/togglep2_(\d+)/", $pn, $matches)) {
-			$togglebtnp2 = $matches[1];
-		}
-	}
-
-	$save = 1;
-
-	/* move selected p1 entries before this */
-	if (isset($movebtn) && is_array($_POST['p1entry']) && count($_POST['p1entry'])) {
-		$a_phase1_new = array();
-
-		/* copy all p1 entries < $movebtn and not selected */
-		for ($i = 0; $i < $movebtn; $i++) {
-			if (!in_array($i, $_POST['p1entry'])) {
-				$a_phase1_new[] = config_get_path('ipsec/phase1/' . $i);
-			}
-		}
-
-		/* copy all selected p1 entries */
-		for ($i = 0; $i < count(config_get_path('ipsec/phase1', [])); $i++) {
-			if ($i == $movebtn) {
-				continue;
-			}
-			if (in_array($i, $_POST['p1entry'])) {
-				$a_phase1_new[] = config_get_path('ipsec/phase1/' . $i);
-			}
-		}
-
-		/* copy $movebtn p1 entry */
-		if ($movebtn < count(config_get_path('ipsec/phase1', []))) {
-			$a_phase1_new[] = config_get_path('ipsec/phase1/' . $movebtn);
-		}
-
-		/* copy all p1 entries > $movebtn and not selected */
-		for ($i = $movebtn+1; $i < count(config_get_path('ipsec/phase1', [])); $i++) {
-			if (!in_array($i, $_POST['p1entry'])) {
-				$a_phase1_new[] = config_get_path('ipsec/phase1/' . $i);
-			}
-		}
-		if (count($a_phase1_new) > 0) {
-			config_set_path('ipsec/phase1', $a_phase1_new);
-		}
-
-	} else if (isset($movebtnp2) && is_array($_POST['p2entry']) && count($_POST['p2entry'])) {
-		/* move selected p2 entries before this */
-		$a_phase2_new = array();
-
-		/* copy all p2 entries < $movebtnp2 and not selected */
-		for ($i = 0; $i < $movebtnp2; $i++) {
-			if (!in_array($i, $_POST['p2entry'])) {
-				$a_phase2_new[] = config_get_path('ipsec/phase2/' . $i);
-			}
-		}
-
-		/* copy all selected p2 entries */
-		for ($i = 0; $i < count(config_get_path('ipsec/phase2', [])); $i++) {
-			if ($i == $movebtnp2) {
-				continue;
-			}
-			if (in_array($i, $_POST['p2entry'])) {
-				$a_phase2_new[] = config_get_path('ipsec/phase2/' . $i);
-			}
-		}
-
-		/* copy $movebtnp2 p2 entry */
-		if ($movebtnp2 < count(config_get_path('ipsec/phase2', []))) {
-			$a_phase2_new[] = config_get_path('ipsec/phase2/' . $movebtnp2);
-		}
-
-		/* copy all p2 entries > $movebtnp2 and not selected */
-		for ($i = $movebtnp2+1; $i < count(config_get_path('ipsec/phase2', [])); $i++) {
-			if (!in_array($i, $_POST['p2entry'])) {
-				$a_phase2_new[] = config_get_path('ipsec/phase2/' . $i);
-			}
-		}
-		if (count($a_phase2_new) > 0) {
-			config_set_path('ipsec/phase2', $a_phase2_new);
-		}
-
-	} else if (isset($togglebtn)) {
-		if (config_path_enabled('ipsec/phase1/' . $togglebtn, 'disabled')) {
-			config_del_path('ipsec/phase1/' . $togglebtn . '/disabled');
-		} else {
-			if (ipsec_vti(config_get_path('ipsec/phase1/' . $togglebtn), false, false)) {
-				/* disable all phase2 entries that match the ikeid */
-				$ikeid = config_get_path('ipsec/phase1/' . $togglebtn . '/ikeid');
-				$p1_has_vti = false;
-				$disablep2ids = array();
-				foreach (config_get_path('ipsec/phase2', []) as $p2index => $ph2tmp) {
-					if ($ph2tmp['ikeid'] == $ikeid) {
-						if (is_interface_ipsec_vti_assigned($ph2tmp)) {
-							$p1_has_vti = true;
-						} else {
-							$disablep2ids[] = $p2index;
-						}
-					}
-				}
-
-				if ($p1_has_vti) {
-					$input_errors[] = gettext("Cannot disable a Phase 1 which contains an active VTI Phase 2 with an interface assigned. Remove the interface assignment before deleting this P1.");
-				} else {
-					foreach ($disablep2ids as $dp2idx) {
-						config_set_path('ipsec/phase2/' . $togglebtnp2 . '/disabled', true);
-					}
-					config_set_path('ipsec/phase1/' . $togglebtn . '/disabled', true);
-				}
-			} else {
-				config_set_path('ipsec/phase1/' . $togglebtn . '/disabled', true);
-			}
-		}
-	} else if (isset($togglebtnp2)) {
-		if (config_path_enabled('ipsec/phase2/' . $togglebtnp2,  'disabled')) {
-			config_del_path('ipsec/phase2/' . $togglebtnp2 . '/disabled');
-		} else {
-			if (is_interface_ipsec_vti_assigned(config_get_path('ipsec/phase2/' . $togglebtnp2)) && (config_get_path('ipsec/phase2/' . $togglebtnp2 . '/mode') == 'vti')) {
-				$input_errors[] = gettext("Cannot disable a VTI Phase 2 while the interface is assigned. Remove the interface assignment before disabling this P2.");
-			} else {
-				config_set_path('ipsec/phase2/' . $togglebtnp2 . '/disabled', true);
-			}
-		}
-	} else if (isset($delbtn)) {
-		$delcount = delete_p1_and_children([$delbtn]);
-
-		if ($delcount > 0) {
-			/* Use a better description than generic save below */
-			$save = 0;
-			if (write_config(gettext("Deleted selected IPsec Phase 1 and related Phase 2 entries."))) {
-				mark_subsystem_dirty('ipsec');
-			}
-		}
-	} else if (isset($delbtnp2)) {
-		if (is_interface_ipsec_vti_assigned(config_get_path('ipsec/phase2/' . $delbtnp2)) && (config_get_path('ipsec/phase2/' . $delbtnp2 . '/mode') == 'vti')) {
-			$input_errors[] = gettext("Cannot delete a VTI Phase 2 while the interface is assigned. Remove the interface assignment before deleting this P2.");
-		} else {
-			config_del_path('ipsec/phase2/' . $delbtnp2);
-			$items_deleted = true;
-		}
-	} else {
-		$save = 0;
-	}
-
-	if (empty($input_errors) && ($save === 1)) {
-		if (write_config(gettext("Saved configuration changes for IPsec tunnels."))) {
-			mark_subsystem_dirty('ipsec');
-		}
-	}
+	$retval = ipsec_apply_changes();
+} else {
+	/* delete, move or toggle entries (the list's buttons) */
+	$input_errors = ipsec_tunnels_action($_POST);
 }
 
 $pgtitle = array(gettext("VPN"), gettext("IPsec"), gettext("Tunnels"));
@@ -497,7 +300,7 @@ $i = 0; foreach (config_get_path('ipsec/phase1', []) as $ph1ent):
 										<tr id="<?=$fr_prefix . $j?>" ondblclick="document.location='vpn_ipsec_phase2.php?p2index=<?=$ph2ent['uniqid']?>'" class="<?= $entryStatus ?>">
 											<td>
 												<input type="checkbox" id="<?=$fr_c?>" name="p2entry[]" value="<?=$ph2index?>" onclick="fr_bgcolor('<?=$j?>', '<?=$fr_prefix?>')" />
-												<button class="fa-solid fa-anchor button-icon" type="submit" name="movep2_<?=$j?>" value="movep2_<?=$j?>" title="<?=gettext("Move checked P2s here")?>"></button>
+												<button class="fa-solid fa-anchor button-icon" type="submit" name="movep2_<?=$ph2index?>" value="movep2_<?=$ph2index?>" title="<?=gettext("Move checked P2s here")?>"></button>
 											</td>
 											<td>
 												<button value="togglep2_<?=$ph2index?>" name="togglep2_<?=$ph2index?>" title="<?=gettext("click to toggle enabled/disabled status")?>" class="btn btn-sm btn-<?= ($entryStatus == 'disabled'? 'success' : 'warning') ?>" type="submit"><?= ($entryStatus == 'disabled'? 'Enable' : 'Disable') ?></button>
