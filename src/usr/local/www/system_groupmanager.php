@@ -129,6 +129,9 @@ if ($act == "new" || $act == "edit") {
 	$pglinks[] = "@self";
 }
 
+if (!($act == "new" || $act == "edit") && !$read_only) {
+	fs_page_action(gettext('Add group'), '?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -139,27 +142,26 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Users"), false, "system_usermanager.php");
-$tab_array[] = array(gettext("Groups"), true, "system_groupmanager.php");
-$tab_array[] = array(gettext("Settings"), false, "system_usermanager_settings.php");
-$tab_array[] = array(gettext("Change Password"), false, "system_usermanager_passwordmg.php");
-$tab_array[] = array(gettext("Authentication Servers"), false, "system_authservers.php");
-display_top_tabs($tab_array);
+fs_tabs('system-usermanager', 'system_groupmanager.php');
 
 if (!($act == "new" || $act == "edit")) {
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Groups')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Groups'),
+	'search' => gettext('Search groups…'),
+	'noun' => gettext('groups'),
+	'noun_one' => gettext('group'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+			<table class="table table-hover table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
-						<th><?=gettext("Group name")?></th>
-						<th><?=gettext("Description")?></th>
-						<th><?=gettext("Member Count")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search><?=gettext("Group name")?></th>
+						<th data-fs-search><?=gettext("Description")?></th>
+						<th data-fs-search><?=gettext("Member Count")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -183,12 +185,17 @@ if (!($act == "new" || $act == "edit")) {
 						<td>
 							<?=$groupcount?>
 						</td>
-						<td>
-							<a class="fa-solid fa-pencil" title="<?=gettext("Edit group"); ?>" href="?act=edit&amp;groupid=<?=$i?>"></a>
-							<a class="fa-regular fa-clone" title="<?=gettext("Copy group"); ?>" href="?act=dup&amp;groupid=<?=$i?>"></a>
-							<?php if (($group['scope'] != "system") && !$read_only): ?>
-								<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete group")?>" href="?act=delgroup&amp;groupid=<?=$i?>&amp;groupname=<?=$group['name']?>" usepost></a>
-							<?php endif;?>
+						<td class="fs-col-actions">
+<?php
+	$grp_actions = [
+		['edit', "?act=edit&groupid={$i}", $group['name']],
+		['copy', "?act=dup&groupid={$i}", $group['name']],
+	];
+	if (($group['scope'] != "system") && !$read_only) {
+		$grp_actions[] = ['delete', "?act=delgroup&groupid={$i}&groupname=" . rawurlencode($group['name']), $group['name'], ['thing' => gettext('group')]];
+	}
+?>
+							<?=fs_row_actions($grp_actions)?>
 						</td>
 					</tr>
 <?php
@@ -200,14 +207,6 @@ if (!($act == "new" || $act == "edit")) {
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<?php if (!$read_only): ?>
-	<a href="?act=new" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-	<?php endif; ?>
-</nav>
 <?php
 	include('foot.inc');
 	exit;

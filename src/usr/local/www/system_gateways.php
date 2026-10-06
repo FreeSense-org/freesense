@@ -83,6 +83,7 @@ $pgtitle = array(gettext("System"), gettext("Routing"), gettext("Gateways"));
 $pglinks = array("", "@self", "@self");
 $shortcut_section = "gateways";
 
+fs_page_action(gettext('Add gateway'), 'system_gateways_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($input_errors) {
@@ -97,29 +98,30 @@ if (is_subsystem_dirty('staticroutes')) {
 	print_apply_box(gettext("The gateway configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
 
-$tab_array = array();
-$tab_array[0] = array(gettext("Gateways"), true, "system_gateways.php");
-$tab_array[1] = array(gettext("Static Routes"), false, "system_routes.php");
-$tab_array[2] = array(gettext("Gateway Groups"), false, "system_gateway_groups.php");
-display_top_tabs($tab_array);
+fs_tabs('system-routing', 'system_gateways.php');
 
 ?>
 <form method="post">
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Gateways')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Gateways'),
+	'search' => gettext('Search gateways…'),
+	'noun' => gettext('gateways'),
+	'noun_one' => gettext('gateway'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table id="gateways" class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table id="gateways" class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th></th>
-						<th><?=gettext("Name")?></th>
-						<th><?=gettext("Default")?></th>
-						<th><?=gettext("Interface")?></th>
-						<th><?=gettext("Gateway")?></th>
-						<th><?=gettext("Monitor IP")?></th>
-						<th><?=gettext("Description")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search></th>
+						<th data-fs-search><?=gettext("Name")?></th>
+						<th data-fs-search><?=gettext("Default")?></th>
+						<th data-fs-search><?=gettext("Interface")?></th>
+						<th data-fs-search><?=gettext("Gateway")?></th>
+						<th data-fs-search><?=gettext("Monitor IP")?></th>
+						<th data-fs-search><?=gettext("Description")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -144,12 +146,12 @@ foreach ($a_gateways as $i => $gateway):
 	$id = $gateway['attribute'];
 ?>
 					<tr<?=($icon != 'fa-regular fa-circle-check')? ' class="disabled"' : ''?> onClick="fr_toggle(<?=$id;?>)" id="fr<?=$id;?>">
-						<td title="<?=$title?>"><i class="<?=$icon?>"></i></td>
+						<td><?=($icon == 'fa-regular fa-circle-xmark') ? fs_badge('down', gettext('Inactive'), $title) : (($icon == 'fa-solid fa-ban') ? fs_badge('disabled', null, $title) : fs_badge('enabled', null, $title))?></td>
 						<td title="<?=$gtitle?>">
 						<?=htmlspecialchars($gateway['name'])?>
 <?php
 							if (isset($gateway['isdefaultgw'])) {
-								echo ' <i class="fa-solid fa-globe"></i>';
+								echo ' ' . fs_badge('info', gettext('Default'));
 							}
 ?>
 						</td>
@@ -168,37 +170,31 @@ foreach ($a_gateways as $i => $gateway):
 						<td>
 							<?=htmlspecialchars($gateway['descr'])?>
 						</td>
-						<td style="white-space: nowrap;">
-							<a href="system_gateways_edit.php?id=<?=$i?>" class="fa-solid fa-pencil" title="<?=gettext('Edit gateway');?>"></a>
-							<a href="system_gateways_edit.php?dup=<?=$i?>" class="fa-regular fa-clone" title="<?=gettext('Copy gateway')?>"></a>
-
-<?php if (is_numeric($gateway['attribute'])): ?>
-	<?php if (isset($gateway['disabled'])) {
-	?>
-							<a href="?act=toggle&amp;id=<?=$i?>" class="fa-regular fa-square-check" title="<?=gettext('Enable gateway')?>" usepost></a>
-	<?php } else {
-	?>
-							<a href="?act=toggle&amp;id=<?=$i?>" class="fa-solid fa-ban" title="<?=gettext('Disable gateway')?>" usepost></a>
-	<?php }
-	?>
-							<a href="system_gateways.php?act=del&amp;id=<?=$i?>" class="fa-solid fa-trash-can" title="<?=gettext('Delete gateway')?>" usepost></a>
-
-<?php endif; ?>
+						<td class="fs-col-actions">
+<?php
+	$gw_actions = [
+		['edit', "system_gateways_edit.php?id={$i}", $gateway['name']],
+		['copy', "system_gateways_edit.php?dup={$i}", $gateway['name']],
+	];
+	/* dynamic gateways (non-numeric attribute) cannot be toggled or deleted here */
+	if (is_numeric($gateway['attribute'])) {
+		$gw_actions[] = ['toggle', "?act=toggle&id={$i}", $gateway['name'], ['enabled' => !isset($gateway['disabled'])]];
+		$gw_actions[] = ['delete', "system_gateways.php?act=del&id={$i}", $gateway['name'], ['thing' => gettext('gateway')]];
+	}
+?>
+							<?=fs_row_actions($gw_actions)?>
 						</td>
 					</tr>
 <?php endforeach; ?>
+<?php if (empty($a_gateways)) {
+	fs_empty_row(8, gettext('No gateways yet.'), 'system_gateways_edit.php', gettext('Add gateway'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="system_gateways_edit.php" role="button" class="btn btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add");?>
-	</a>
-</nav>
 </form>
 <?php
 

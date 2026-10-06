@@ -88,6 +88,7 @@ $pgtitle = [gettext('System'), gettext('Routing'), gettext('Static Routes')];
 $pglinks = ['', 'system_gateways.php', '@self'];
 $shortcut_section = 'routing';
 
+fs_page_action(gettext('Add route'), 'system_routes_edit.php', 'fa-plus');
 include('head.inc');
 
 if ($input_errors) {
@@ -100,26 +101,27 @@ if (is_subsystem_dirty('staticroutes')) {
 	print_apply_box(gettext('The static route configuration has been changed.') . '<br />' . gettext('The changes must be applied for them to take effect.'));
 }
 
-$tab_array = [];
-$tab_array[0] = [gettext('Gateways'), false, 'system_gateways.php'];
-$tab_array[1] = [gettext('Static Routes'), true, 'system_routes.php'];
-$tab_array[2] = [gettext('Gateway Groups'), false, 'system_gateway_groups.php'];
-display_top_tabs($tab_array);
+fs_tabs('system-routing', 'system_routes.php');
 
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Static Routes')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Static Routes'),
+	'search' => gettext('Search static routes…'),
+	'noun' => gettext('static routes'),
+	'noun_one' => gettext('static route'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+			<table class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th></th>
-						<th><?=gettext('Network')?></th>
-						<th><?=gettext('Gateway')?></th>
-						<th><?=gettext('Interface')?></th>
-						<th><?=gettext('Description')?></th>
-						<th><?=gettext('Actions')?></th>
+						<th data-fs-search></th>
+						<th data-fs-search><?=gettext('Network')?></th>
+						<th data-fs-search><?=gettext('Gateway')?></th>
+						<th data-fs-search><?=gettext('Interface')?></th>
+						<th data-fs-search><?=gettext('Description')?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -137,9 +139,9 @@ foreach (config_get_path('staticroutes/route', []) as $i => $route):
 	}
 ?>
 				<tr<?=($icon != 'fa-regular fa-circle-check')? ' class="disabled"' : ''?>>
-					<td title="<?=$title?>"><i class="<?=$icon?>"></i></td>
+					<td><?=($icon == 'fa-regular fa-circle-xmark') ? fs_badge('down', gettext('Inactive'), $title) : (($icon == 'fa-solid fa-ban') ? fs_badge('disabled', null, $title) : fs_badge('enabled', null, $title))?></td>
 					<td>
-						<?=strtolower($route['network'])?>
+						<?=htmlspecialchars(strtolower($route['network']))?>
 					</td>
 					<td>
 						<?=htmlentities($a_gateways[$route['gateway']]['name']) . " - " . htmlentities($a_gateways[$route['gateway']]['gateway'])?>
@@ -150,35 +152,25 @@ foreach (config_get_path('staticroutes/route', []) as $i => $route):
 					<td>
 						<?=htmlspecialchars($route['descr'])?>
 					</td>
-					<td>
-						<a href="system_routes_edit.php?id=<?=$i?>" class="fa-solid fa-pencil" title="<?=gettext('Edit route')?>"></a>
-
-						<a href="system_routes_edit.php?dup=<?=$i?>" class="fa-regular fa-clone" title="<?=gettext('Copy route')?>"></a>
-
-				<?php if (isset($route['disabled'])) {
-				?>
-						<a href="?act=toggle&amp;id=<?=$i?>" class="fa-regular fa-square-check" title="<?=gettext('Enable route')?>" usepost></a>
-				<?php } else {
-				?>
-						<a href="?act=toggle&amp;id=<?=$i?>" class="fa-solid fa-ban" title="<?=gettext('Disable route')?>" usepost></a>
-				<?php }
-				?>
-						<a href="system_routes.php?act=del&amp;id=<?=$i?>" class="fa-solid fa-trash-can" title="<?=gettext('Delete route')?>" usepost></a>
-
+					<td class="fs-col-actions">
+<?=fs_row_actions([
+							['edit', "system_routes_edit.php?id={$i}", $route['network']],
+							['copy', "system_routes_edit.php?dup={$i}", $route['network']],
+							['toggle', "?act=toggle&id={$i}", $route['network'], ['enabled' => !isset($route['disabled'])]],
+							['delete', "system_routes.php?act=del&id={$i}", $route['network'], ['thing' => gettext('static route')]],
+						])?>
 					</td>
 				</tr>
 <?php endforeach; ?>
+<?php if (empty(config_get_path('staticroutes/route', []))) {
+	fs_empty_row(6, gettext('No static routes yet.'), 'system_routes_edit.php', gettext('Add route'));
+} ?>
+				</tbody>
 			</table>
 		</div>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="system_routes_edit.php" role="button" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 <div class="infoblock">
 <?php
 print_info_box(

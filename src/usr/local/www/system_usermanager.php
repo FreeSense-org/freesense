@@ -175,13 +175,7 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Users"), true, "system_usermanager.php");
-$tab_array[] = array(gettext("Groups"), false, "system_groupmanager.php");
-$tab_array[] = array(gettext("Settings"), false, "system_usermanager_settings.php");
-$tab_array[] = array(gettext("Change Password"), false, "system_usermanager_passwordmg.php");
-$tab_array[] = array(gettext("Authentication Servers"), false, "system_authservers.php");
-display_top_tabs($tab_array);
+fs_tabs('system-usermanager', 'system_usermanager.php');
 
 if (!($act == "new" || $act == "edit" || $input_errors)) {
 ?>

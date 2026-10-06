@@ -119,6 +119,9 @@ if ($act == "new" || $act == "edit" || $input_errors) {
 	$pglinks[] = "@self";
 }
 $shortcut_section = "authentication";
+if (!($act == "new" || $act == "edit" || $input_errors)) {
+	fs_page_action(gettext('Add server'), '?act=new', 'fa-plus');
+}
 include("head.inc");
 
 if ($delete_errors) {
@@ -133,27 +136,26 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Users"), false, "system_usermanager.php");
-$tab_array[] = array(gettext("Groups"), false, "system_groupmanager.php");
-$tab_array[] = array(gettext("Settings"), false, "system_usermanager_settings.php");
-$tab_array[] = array(gettext("Change Password"), false, "system_usermanager_passwordmg.php");
-$tab_array[] = array(gettext("Authentication Servers"), true, "system_authservers.php");
-display_top_tabs($tab_array);
+fs_tabs('system-usermanager', 'system_authservers.php');
 
 if (!($act == "new" || $act == "edit" || $input_errors)) {
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Authentication Servers')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Authentication Servers'),
+	'search' => gettext('Search authentication servers…'),
+	'noun' => gettext('authentication servers'),
+	'noun_one' => gettext('authentication server'),
+]); ?>
 	<div class="panel-body">
 		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+			<table class="table table-hover table-rowdblclickedit" data-sortable>
 				<thead>
 					<tr>
-						<th><?=gettext("Server Name")?></th>
-						<th><?=gettext("Type")?></th>
-						<th><?=gettext("Host Name")?></th>
-						<th><?=gettext("Actions")?></th>
+						<th data-fs-search><?=gettext("Server Name")?></th>
+						<th data-fs-search><?=gettext("Type")?></th>
+						<th data-fs-search><?=gettext("Host Name")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -162,11 +164,13 @@ if (!($act == "new" || $act == "edit" || $input_errors)) {
 						<td><?=htmlspecialchars($server['name'])?></td>
 						<td><?=htmlspecialchars($auth_server_types[$server['type']])?></td>
 						<td><?=htmlspecialchars($server['host'])?></td>
-						<td>
-						<?php if ($i < (count($a_server) - 1)): ?>
-							<a class="fa-solid fa-pencil" title="<?=gettext("Edit server"); ?>" href="system_authservers.php?act=edit&amp;id=<?=$i?>"></a>
-							<a class="fa-regular fa-clone" title="<?=gettext("Copy server"); ?>" href="system_authservers.php?act=dup&amp;id=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"  title="<?=gettext("Delete server")?>" href="system_authservers.php?act=del&amp;id=<?=$i?>" usepost></a>
+						<td class="fs-col-actions">
+<?php if ($i < (count($a_server) - 1)): /* the last entry is the built-in Local Database */ ?>
+							<?=fs_row_actions([
+								['edit', "system_authservers.php?act=edit&id={$i}", $server['name']],
+								['copy', "system_authservers.php?act=dup&id={$i}", $server['name']],
+								['delete', "system_authservers.php?act=del&id={$i}", $server['name'], ['thing' => gettext('authentication server')]],
+							])?>
 						<?php endif?>
 						</td>
 					</tr>
@@ -177,12 +181,6 @@ if (!($act == "new" || $act == "edit" || $input_errors)) {
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="?act=new" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 <?php
 	include("foot.inc");
 	exit;
