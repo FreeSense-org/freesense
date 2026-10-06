@@ -271,3 +271,38 @@ fs_tile(gettext('RTT'), '12 ms', null, 'Average of all gateways');
 ```
 
 Tiles sit in a `.fs-tiles` row: 2–4 per row on desktop, 2 per row on phones.
+
+## Navigation and package menus
+
+`head.inc` renders the top menus through `includes/fs_menu.inc`. System, Services, Status and
+Diagnostics are **grouped panels** with a filter box. The others are single columns. `Ctrl+K` (or the
+navbar Search button) opens a palette that searches every menu. Items never change their top-level menu.
+
+Core items carry their group in `head.inc`:
+
+```php
+$services_menu[] = array(gettext("DNS Resolver"), "/services_unbound.php", 'group' => 'network');
+```
+
+**Packages** declare the group in their `<menu>` block:
+
+```xml
+<menu>
+	<name>BIND DNS Server</name>
+	<section>Services</section>
+	<group>network</group>
+	<url>/pkg_edit.php?xml=bind.xml</url>
+</menu>
+```
+
+| Menu | Group ids (display order) |
+|---|---|
+| System | `general`, `access`, `network`, `other` |
+| Services | `network`, `routing`, `security`, `proxy`, `monitoring`, `other` |
+| Status | `overview`, `network`, `vpn`, `security`, `traffic`, `other` |
+| Diagnostics | `tools`, `tables`, `system`, `power`, `other` |
+
+An entry without `<group>` (or with an unknown id) is placed by `fs_menu_fallback_group()` from its
+name, and otherwise lands in **Other**, so third-party packages always appear. Menus in Interfaces,
+Firewall, VPN and Help ignore `<group>`.
+

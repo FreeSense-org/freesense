@@ -285,7 +285,17 @@ function return_ext_menu($section) {
 		}
 
 		if (isAllowedPage($test_url)) {
-			$extarray[] = array($menu['name'], $description);
+			/*
+			 * <group> in the package <menu> block places the entry in a grouped menu.
+			 * The package XML parser yields a string; once stored in config.xml it reads
+			 * back as a one-element list ('group' is a config list tag).
+			 */
+			$group = $menu['group'] ?? null;
+			if (is_array($group)) {
+				$group = reset($group);
+			}
+			$group = is_string($group) ? strtolower(trim($group)) : null;
+			$extarray[] = array($menu['name'], $description, 'group' => $group);
 		}
 	}
 
@@ -333,41 +343,45 @@ function output_menu($arrayitem, $target = null, $section = "") {
 
 $ext_menu_path_data = read_ext_menu_path_data();
 
+/* top navigation renderer (grouped menus) */
+require_once(__DIR__ . "/includes/fs_menu.inc");
+$fs_current_page = basename($_SERVER['SCRIPT_NAME'] ?? '');
+
 // System
 $system_menu = array();
-$system_menu[] = array(gettext("Advanced"), "/system_advanced_admin.php");
-$system_menu[] = array(gettext("Update"), "/pkg_mgr_install.php?id=firmware");
-$system_menu[] = array(gettext("General Setup"), "/system.php");
-$system_menu[] = array(gettext("Boot Environments"), "/system_boot_environments.php");
-$system_menu[] = array(gettext("High Availability"), "/system_hasync.php");
-$system_menu[] = array(gettext("Package Manager"), "/pkg_mgr_installed.php");
-$system_menu[] = array(gettext("Setup Wizard"), "/wizard.php?xml=setup_wizard.xml");
-$system_menu[] = array(gettext("Routing"), "/system_gateways.php");
+$system_menu[] = array(gettext("Advanced"), "/system_advanced_admin.php", 'group' => 'general');
+$system_menu[] = array(gettext("Update"), "/pkg_mgr_install.php?id=firmware", 'group' => 'general');
+$system_menu[] = array(gettext("General Setup"), "/system.php", 'group' => 'general');
+$system_menu[] = array(gettext("Boot Environments"), "/system_boot_environments.php", 'group' => 'general');
+$system_menu[] = array(gettext("High Availability"), "/system_hasync.php", 'group' => 'network');
+$system_menu[] = array(gettext("Package Manager"), "/pkg_mgr_installed.php", 'group' => 'general');
+$system_menu[] = array(gettext("Setup Wizard"), "/wizard.php?xml=setup_wizard.xml", 'group' => 'general');
+$system_menu[] = array(gettext("Routing"), "/system_gateways.php", 'group' => 'network');
 
 if (isAllowedPage("system_camanager.php")) {
-	$system_menu[] = array(gettext("Certificates"), "/system_camanager.php");
+	$system_menu[] = array(gettext("Certificates"), "/system_camanager.php", 'group' => 'access');
 } elseif (isAllowedPage("system_certmanager.php")) {
-	$system_menu[] = array(gettext("Certificates"), "/system_certmanager.php");
+	$system_menu[] = array(gettext("Certificates"), "/system_certmanager.php", 'group' => 'access');
 } elseif (isAllowedPage("system_crlmanager.php")) {
-	$system_menu[] = array(gettext("Certificates"), "/system_crlmanager.php");
+	$system_menu[] = array(gettext("Certificates"), "/system_crlmanager.php", 'group' => 'access');
 }
 
 if (isAllowedPage("system_usermanager.php")) {
-	$system_menu[] = array(gettext("User Manager"), "/system_usermanager.php");
+	$system_menu[] = array(gettext("User Manager"), "/system_usermanager.php", 'group' => 'access');
 }
 
 if (isAllowedPage("system_restapi.php")) {
-	$system_menu[] = array(gettext("REST API"), "/system_restapi.php");
+	$system_menu[] = array(gettext("REST API"), "/system_restapi.php", 'group' => 'access');
 } elseif (isAllowedPage("system_restapi_keys.php")) {
-	$system_menu[] = array(gettext("REST API"), "/system_restapi_keys.php");
+	$system_menu[] = array(gettext("REST API"), "/system_restapi_keys.php", 'group' => 'access');
 }
 
 if (isAllowedPage("system_usermanager_passwordmg.php")) {
-	$system_menu[] = array(gettext("User Password Manager"), "/system_usermanager_passwordmg.php");
+	$system_menu[] = array(gettext("User Password Manager"), "/system_usermanager_passwordmg.php", 'group' => 'access');
 }
 
 if ($user_settings['customsettings'] && isAllowedPage("system_user_settings.php")) {
-	$system_menu[] = array(gettext("User Settings"), "/system_user_settings.php");
+	$system_menu[] = array(gettext("User Settings"), "/system_user_settings.php", 'group' => 'access');
 }
 
 $system_menu = msort(array_merge($system_menu, return_ext_menu("System")), 0);
@@ -424,33 +438,33 @@ $firewall_menu = msort(array_merge($firewall_menu, return_ext_menu("Firewall")),
 
 // Services
 $services_menu = array();
-$services_menu[] = array(gettext("Captive Portal"), "/services_captiveportal.php");
-$services_menu[] = array(gettext("DNS Forwarder"), "/services_dnsmasq.php");
-$services_menu[] = array(gettext("DNS Resolver"), "/services_unbound.php");
-$services_menu[] = array(gettext("DHCP Relay"), "/services_dhcp_relay.php");
-$services_menu[] = array(gettext("DHCPv6 Relay"), "/services_dhcpv6_relay.php");
+$services_menu[] = array(gettext("Captive Portal"), "/services_captiveportal.php", 'group' => 'security');
+$services_menu[] = array(gettext("DNS Forwarder"), "/services_dnsmasq.php", 'group' => 'network');
+$services_menu[] = array(gettext("DNS Resolver"), "/services_unbound.php", 'group' => 'network');
+$services_menu[] = array(gettext("DHCP Relay"), "/services_dhcp_relay.php", 'group' => 'network');
+$services_menu[] = array(gettext("DHCPv6 Relay"), "/services_dhcpv6_relay.php", 'group' => 'network');
 
 if (g_get('services_dhcp_server_enable')) {
-	$services_menu[] = array(gettext("DHCP Server"), "/services_dhcp_settings.php");
-	$services_menu[] = array(htmlspecialchars(gettext("DHCPv6 Server")), "/services_dhcpv6_settings.php");
+	$services_menu[] = array(gettext("DHCP Server"), "/services_dhcp_settings.php", 'group' => 'network');
+	$services_menu[] = array(htmlspecialchars(gettext("DHCPv6 Server")), "/services_dhcpv6_settings.php", 'group' => 'network');
 }
 
-$services_menu[] = [gettext('Router Advertisement'), '/services_radvd.php'];
+$services_menu[] = [gettext('Router Advertisement'), '/services_radvd.php', 'group' => 'network'];
 
-$services_menu[] = array(gettext("Dynamic DNS"), "/services_dyndns.php");
-$services_menu[] = array(gettext("IGMP Proxy"), "/services_igmpproxy.php");
-$services_menu[] = array(gettext("NTP"), "/services_ntpd.php");
-$services_menu[] = array(gettext("PPPoE Server"), "/services_pppoe.php");
-$services_menu[] = array(gettext("SNMP"), "/services_snmp.php");
+$services_menu[] = array(gettext("Dynamic DNS"), "/services_dyndns.php", 'group' => 'network');
+$services_menu[] = array(gettext("IGMP Proxy"), "/services_igmpproxy.php", 'group' => 'routing');
+$services_menu[] = array(gettext("NTP"), "/services_ntpd.php", 'group' => 'network');
+$services_menu[] = array(gettext("PPPoE Server"), "/services_pppoe.php", 'group' => 'other');
+$services_menu[] = array(gettext("SNMP"), "/services_snmp.php", 'group' => 'monitoring');
 
 if (count(config_get_path('interfaces', [])) > 1) {
 	/* no use for UPnP in single-interface deployments
 	remove to reduce user confusion
 	*/
-	$services_menu[] = array(gettext("UPnP IGD &amp; PCP"), "/pkg_edit.php?xml=miniupnpd.xml");
+	$services_menu[] = array(gettext("UPnP IGD &amp; PCP"), "/pkg_edit.php?xml=miniupnpd.xml", 'group' => 'other');
 }
 
-$services_menu[] = array(gettext("Wake-on-LAN"), "/services_wol.php");
+$services_menu[] = array(gettext("Wake-on-LAN"), "/services_wol.php", 'group' => 'other');
 $services_menu = msort(array_merge($services_menu, return_ext_menu("Services")), 0);
 
 // VPN
@@ -463,26 +477,26 @@ $vpn_menu = msort(array_merge($vpn_menu, return_ext_menu("VPN")), 0);
 
 // Status
 $status_menu = array();
-$status_menu[] = array(gettext("Captive Portal"), "/status_captiveportal.php");
-$status_menu[] = array(gettext("CARP (failover)"), "/status_carp.php");
-$status_menu[] = array(gettext("Dashboard"), "/index.php");
-$status_menu[] = array(gettext("Gateways"), "/status_gateways.php");
-$status_menu[] = array(gettext("DHCP Leases"), "/status_dhcp_leases.php");
-$status_menu[] = array(gettext("DHCPv6 Leases"), "/status_dhcpv6_leases.php");
-$status_menu[] = array(gettext("DNS Resolver"), "/status_unbound.php");
-$status_menu[] = array(gettext("Filter Reload"), "/status_filter_reload.php?user=true");
-$status_menu[] = array(gettext("Interfaces"), "/status_interfaces.php");
-$status_menu[] = array(gettext("IPsec"), "/status_ipsec.php");
-$status_menu[] = array(gettext("NTP"), "/status_ntpd.php");
-$status_menu[] = array(gettext("OpenVPN"), "/status_openvpn.php");
-$status_menu[] = array(gettext("Queues"), "/status_queues.php");
-$status_menu[] = array(gettext("REST API"), "/status_restapi.php");
-$status_menu[] = array(gettext("Services"), "/status_services.php");
-$status_menu[] = array(gettext("System Logs"), "/status_logs.php");
-$status_menu[] = array(gettext("Traffic Graph"), "/status_graph.php");
+$status_menu[] = array(gettext("Captive Portal"), "/status_captiveportal.php", 'group' => 'security');
+$status_menu[] = array(gettext("CARP (failover)"), "/status_carp.php", 'group' => 'network');
+$status_menu[] = array(gettext("Dashboard"), "/index.php", 'group' => 'overview');
+$status_menu[] = array(gettext("Gateways"), "/status_gateways.php", 'group' => 'overview');
+$status_menu[] = array(gettext("DHCP Leases"), "/status_dhcp_leases.php", 'group' => 'network');
+$status_menu[] = array(gettext("DHCPv6 Leases"), "/status_dhcpv6_leases.php", 'group' => 'network');
+$status_menu[] = array(gettext("DNS Resolver"), "/status_unbound.php", 'group' => 'network');
+$status_menu[] = array(gettext("Filter Reload"), "/status_filter_reload.php?user=true", 'group' => 'overview');
+$status_menu[] = array(gettext("Interfaces"), "/status_interfaces.php", 'group' => 'overview');
+$status_menu[] = array(gettext("IPsec"), "/status_ipsec.php", 'group' => 'vpn');
+$status_menu[] = array(gettext("NTP"), "/status_ntpd.php", 'group' => 'network');
+$status_menu[] = array(gettext("OpenVPN"), "/status_openvpn.php", 'group' => 'vpn');
+$status_menu[] = array(gettext("Queues"), "/status_queues.php", 'group' => 'traffic');
+$status_menu[] = array(gettext("REST API"), "/status_restapi.php", 'group' => 'overview');
+$status_menu[] = array(gettext("Services"), "/status_services.php", 'group' => 'overview');
+$status_menu[] = array(gettext("System Logs"), "/status_logs.php", 'group' => 'overview');
+$status_menu[] = array(gettext("Traffic Graph"), "/status_graph.php", 'group' => 'traffic');
 
 if (count(config_get_path('interfaces', [])) > 1) {
-	$status_menu[] = array(gettext("UPnP IGD &amp; PCP"), "/status_upnp.php");
+	$status_menu[] = array(gettext("UPnP IGD &amp; PCP"), "/status_upnp.php", 'group' => 'network');
 }
 
 $wifdescrs = array();
@@ -495,42 +509,42 @@ foreach ($ifentries as $ent => $entdesc) {
 }
 
 if (count($wifdescrs) > 0) {
-	$status_menu[] = array(gettext("Wireless"), "/status_wireless.php");
+	$status_menu[] = array(gettext("Wireless"), "/status_wireless.php", 'group' => 'network');
 }
 
 $status_menu = msort(array_merge($status_menu, return_ext_menu("Status")), 0);
 
 // Diagnostics
 $diagnostics_menu = array();
-$diagnostics_menu[] = array(gettext("ARP Table"), "/diag_arp.php");
-$diagnostics_menu[] = array(gettext("Authentication"), "/diag_authentication.php");
-$diagnostics_menu[] = array(htmlspecialchars(gettext("Backup & Restore")), "/diag_backup.php");
-$diagnostics_menu[] = array(gettext("Command Prompt"), "/diag_command.php");
-$diagnostics_menu[] = array(gettext("DNS Lookup"), "/diag_dns.php");
-$diagnostics_menu[] = array(gettext("Edit File"), "/diag_edit.php");
-$diagnostics_menu[] = array(gettext("Factory Defaults"), "/diag_defaults.php");
+$diagnostics_menu[] = array(gettext("ARP Table"), "/diag_arp.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("Authentication"), "/diag_authentication.php", 'group' => 'system');
+$diagnostics_menu[] = array(htmlspecialchars(gettext("Backup & Restore")), "/diag_backup.php", 'group' => 'system');
+$diagnostics_menu[] = array(gettext("Command Prompt"), "/diag_command.php", 'group' => 'system');
+$diagnostics_menu[] = array(gettext("DNS Lookup"), "/diag_dns.php", 'group' => 'tools');
+$diagnostics_menu[] = array(gettext("Edit File"), "/diag_edit.php", 'group' => 'system');
+$diagnostics_menu[] = array(gettext("Factory Defaults"), "/diag_defaults.php", 'group' => 'power');
 
 if (file_exists("/var/run/gmirror_active")) {
-	$diagnostics_menu[] = array(gettext("GEOM Mirrors"), "/diag_gmirror.php");
+	$diagnostics_menu[] = array(gettext("GEOM Mirrors"), "/diag_gmirror.php", 'group' => 'system');
 }
 
-$diagnostics_menu[] = array(gettext("Halt System"), "/diag_halt.php");
-$diagnostics_menu[] = array(gettext("Limiter Info"), "/diag_limiter_info.php");
-$diagnostics_menu[] = array(gettext("NDP Table"), "/diag_ndp.php");
-$diagnostics_menu[] = array(gettext("Tables"), "/diag_tables.php");
-$diagnostics_menu[] = array(gettext("Ping"), "/diag_ping.php");
-$diagnostics_menu[] = array(gettext("Test Port"), "/diag_testport.php");
-$diagnostics_menu[] = array(gettext("pfInfo"), "/diag_pf_info.php");
-$diagnostics_menu[] = array(gettext("pfTop"), "/diag_pftop.php");
-$diagnostics_menu[] = array(gettext("Reboot"), "/diag_reboot.php");
-$diagnostics_menu[] = array(gettext("Routes"), "/diag_routes.php");
-$diagnostics_menu[] = array(gettext("S.M.A.R.T. Status"), "/diag_smart.php");
-$diagnostics_menu[] = array(gettext("Sockets"), "/diag_sockets.php");
-$diagnostics_menu[] = array(gettext("States"), "/diag_dump_states.php");
-$diagnostics_menu[] = array(gettext("States Summary"), "/diag_states_summary.php");
-$diagnostics_menu[] = array(gettext("System Activity"), "/diag_system_activity.php");
-$diagnostics_menu[] = array(gettext("Traceroute"), "/diag_traceroute.php");
-$diagnostics_menu[] = array(gettext("Packet Capture"), "/diag_packet_capture.php");
+$diagnostics_menu[] = array(gettext("Halt System"), "/diag_halt.php", 'group' => 'power');
+$diagnostics_menu[] = array(gettext("Limiter Info"), "/diag_limiter_info.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("NDP Table"), "/diag_ndp.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("Tables"), "/diag_tables.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("Ping"), "/diag_ping.php", 'group' => 'tools');
+$diagnostics_menu[] = array(gettext("Test Port"), "/diag_testport.php", 'group' => 'tools');
+$diagnostics_menu[] = array(gettext("pfInfo"), "/diag_pf_info.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("pfTop"), "/diag_pftop.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("Reboot"), "/diag_reboot.php", 'group' => 'power');
+$diagnostics_menu[] = array(gettext("Routes"), "/diag_routes.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("S.M.A.R.T. Status"), "/diag_smart.php", 'group' => 'system');
+$diagnostics_menu[] = array(gettext("Sockets"), "/diag_sockets.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("States"), "/diag_dump_states.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("States Summary"), "/diag_states_summary.php", 'group' => 'tables');
+$diagnostics_menu[] = array(gettext("System Activity"), "/diag_system_activity.php", 'group' => 'system');
+$diagnostics_menu[] = array(gettext("Traceroute"), "/diag_traceroute.php", 'group' => 'tools');
+$diagnostics_menu[] = array(gettext("Packet Capture"), "/diag_packet_capture.php", 'group' => 'tools');
 
 $diagnostics_menu = msort(array_merge($diagnostics_menu, return_ext_menu("Diagnostics")), 0);
 
@@ -596,35 +610,35 @@ if (are_notices_pending()) {
                     $help_menu_title = 'Help';
                 }
                 foreach ([
-					['name' => 'System',	     'menu' => $system_menu,	  'href' => null, 'icon' => 'fa-gear'],
-					['name' => 'Interfaces',     'menu' => $interfaces_menu,  'href' => null, 'icon' => 'fa-network-wired'],
-					['name' => 'Firewall',	     'menu' => $firewall_menu,	  'href' => null, 'icon' => 'fa-shield-halved'],
-					['name' => 'Services',	     'menu' => $services_menu,	  'href' => null, 'icon' => 'fa-server'],
-					['name' => 'VPN',		     'menu' => $vpn_menu,		  'href' => null, 'icon' => 'fa-lock'],
-					['name' => 'Status',	     'menu' => $status_menu,	  'href' => null, 'icon' => 'fa-chart-line'],
-					['name' => 'Diagnostics',    'menu' => $diagnostics_menu, 'href' => null, 'icon' => 'fa-stethoscope'],
-                    ['name' => $help_menu_title, 'menu' => $help_menu,		  'href' => '_blank', 'icon' => 'fa-circle-question']
+					['key' => 'System', 'name' => 'System',	     'menu' => $system_menu,	  'href' => null, 'icon' => 'fa-gear'],
+					['key' => 'Interfaces', 'name' => 'Interfaces',     'menu' => $interfaces_menu,  'href' => null, 'icon' => 'fa-network-wired'],
+					['key' => 'Firewall', 'name' => 'Firewall',	     'menu' => $firewall_menu,	  'href' => null, 'icon' => 'fa-shield-halved'],
+					['key' => 'Services', 'name' => 'Services',	     'menu' => $services_menu,	  'href' => null, 'icon' => 'fa-server'],
+					['key' => 'VPN', 'name' => 'VPN',		     'menu' => $vpn_menu,		  'href' => null, 'icon' => 'fa-lock'],
+					['key' => 'Status', 'name' => 'Status',	     'menu' => $status_menu,	  'href' => null, 'icon' => 'fa-chart-line'],
+					['key' => 'Diagnostics', 'name' => 'Diagnostics',    'menu' => $diagnostics_menu, 'href' => null, 'icon' => 'fa-stethoscope'],
+                    ['key' => 'Help', 'name' => $help_menu_title, 'menu' => $help_menu,		  'href' => '_blank', 'icon' => 'fa-circle-question']
 				] as $item):
-					if ($item['name'] == 'Help' && g_get('disablehelpmenu')) {
+					if ($item['key'] == 'Help' && g_get('disablehelpmenu')) {
 						continue;
 					}
 
-					$menu_output = output_menu($item['menu'], $item['href'], $item['name']);
-
-					if (strlen($menu_output) > 0):
-?>
-				<li class="nav-item dropdown">
-					<a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">
-						<i class="fa-solid <?=$item['icon']?> fs-menu-icon"></i><?=gettext($item['name'])?>
-					</a>
-					<ul class="dropdown-menu<?=$menuclass_dropdown?>"><?=$menu_output?></ul>
-				</li>
-
-<?php
-					endif;
+					/* grouped panels and single-column menus (includes/fs_menu.inc) */
+					echo fs_render_nav_menu($item['key'],
+					    ($item['key'] == 'Help') ? $item['name'] : gettext($item['name']),
+					    $item['icon'], $item['menu'], $item['href'], $fs_current_page, $menuclass_dropdown);
 			 	endforeach?>
 			</ul>
 			<ul class="navbar-nav">
+				<li class="nav-item">
+					<button type="button" class="nav-link fs-nav-search" data-fs-palette-open
+					    data-fs-palette-empty="<?=gettext('No matching pages.')?>"
+					    aria-label="<?=gettext('Search menus')?>" title="<?=gettext('Search menus')?> (Ctrl+K)">
+						<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+						<span class="fs-nav-search-label"><?=gettext('Search')?></span>
+						<kbd class="fs-nav-search-kbd">Ctrl K</kbd>
+					</button>
+				</li>
 				<?php if ($display_notices):?>
 					<?php $notices = get_notices()?>
 					<li class="nav-item">
