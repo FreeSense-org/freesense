@@ -43,7 +43,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | interfaces_groups, _vlan, _qinq, _vxlan, _gre, _gif, _bridge, _lagg, _ppps, _wireless | List | **identical template**: search, columns name / parent / mono details / descr, row actions edit + delete, header Add. Convert one, then copy it 9× | B | |
 | the matching `*_edit` (10) | Editor | standard; qinq_edit tags become the entry grid | D | |
 | interfaces | Special (Settings) | **done**: MAC / MTU / MSS / Speed and Duplex moved to a collapsible "Link Settings" section (open when any is set or a save failed); field names and save logic unchanged; sticky Save from the Form bar | D | **H** |
-| interfaces_nic_settings | Settings | **done**: link Up/Down badges, "1 capability", Review / Confirm in the standard action bar; the review step stays (it lists the planned changes); FA icons were fixed in #94 | D | |
+| interfaces_nic_settings | List + Settings | **done**: tab in the Interfaces tab bar; Adapters (searchable list, offload chips, per-adapter Configure / Details modals) and Profile (profile cards, ALTQ) views; old `?view=` names redirect. Adapter ids are now valid XML names (`nic_` prefix) | D | |
 
 ## W3 — DNS and DHCP services
 

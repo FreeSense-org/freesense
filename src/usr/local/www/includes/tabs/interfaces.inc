@@ -26,6 +26,7 @@
 
 $fs_tab_groups['interfaces'] = [
 	[gettext('Interface Assignments'), 'interfaces_assign.php'],
+	[gettext('NIC Settings'), 'interfaces_nic_settings.php'],
 	[gettext('Interface Groups'), 'interfaces_groups.php'],
 	[gettext('VLANs'), 'interfaces_vlan.php'],
 	[gettext('Bridges'), 'interfaces_bridge.php'],

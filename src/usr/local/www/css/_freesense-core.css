@@ -700,7 +700,8 @@ a:focus-visible, [tabindex]:focus-visible {
 
 	/* closed control: keep the input look; swap the bg-image chevron for the
 	   styleable picker icon so we never render two arrows */
-	select:where(.form-control, .form-select):not([multiple]):not([size]) {
+	select:where(.form-control, .form-select):not([multiple]):not([size]),
+	select.form-select:not([multiple]):not([size]) {
 		background-image: none;
 		border-radius: var(--bs-border-radius-sm);
 		transition: border-color .12s ease, box-shadow .12s ease;

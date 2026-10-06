@@ -5,7 +5,7 @@ $utils = file_get_contents($root . '/src/etc/inc/freesense-utils.inc');
 $advanced = file_get_contents($root . '/src/usr/local/www/system_advanced_network.php');
 $menu = file_get_contents($root . '/src/usr/local/www/head.inc');
 
-foreach (['overview', 'configure', 'recommendations', 'diagnostics', 'Confirm and apply', 'hn_altq_enable'] as $required) {
+foreach (['adapters', 'profile', 'save_nic', 'save_profile', 'nic_settings_profiles()', 'hardware_offloading_applyflags', 'hn_altq_enable'] as $required) {
 	if (strpos($page, $required) === false) {
 		fwrite(STDERR, "NIC Settings page is missing {$required}.\n");
 		exit(1);
@@ -24,6 +24,13 @@ foreach (['disablechecksumoffloading', 'disablesegmentationoffloading', 'disable
 		fwrite(STDERR, "Advanced Networking still renders the legacy {$removed} control.\n");
 		exit(1);
 	}
+}
+
+/* adapter ids are XML tag names in config.xml: they must start with a letter */
+if (strpos($utils, "return 'nic_' . strtolower(") === false) {
+	fwrite(STDERR, "NIC adapter ids must be valid XML tag names.
+");
+	exit(1);
 }
 
 if (strpos($menu, '/interfaces_nic_settings.php') === false) {
