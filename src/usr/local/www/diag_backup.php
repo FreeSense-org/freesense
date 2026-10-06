@@ -287,7 +287,7 @@ if (!empty($package_restore_preview) && empty($input_errors)):
 				</table>
 				<button type="submit" name="package_restore_apply" value="1"
 				    class="btn btn-danger">
-					<i class="fa-solid fa-undo"></i>
+					<i class="fa-solid fa-arrow-rotate-left"></i>
 					<?=gettext('Apply Sanitized Restore')?>
 				</button>
 			</form>
@@ -433,7 +433,7 @@ $group->add(new Form_Button(
 	'restore',
 	'Review / Restore Configuration',
 	null,
-	'fa-solid fa-undo'
+	'fa-solid fa-arrow-rotate-left'
 ))->setHelp('The firewall will reboot after restoring the configuration.')->addClass('btn-danger restore')->setAttribute('id');
 
 $section->add($group);

@@ -245,7 +245,7 @@ $section = new Form_Section('Network Interfaces');
 
 $section->addInput(new Form_StaticText(
 	'NIC hardware settings',
-	sprintf('<a class="btn btn-info" href="interfaces_nic_settings.php"><i class="fa fa-microchip"></i> %s</a>', gettext('Open NIC Settings'))
+	sprintf('<a class="btn btn-info" href="interfaces_nic_settings.php"><i class="fa-solid fa-microchip"></i> %s</a>', gettext('Open NIC Settings'))
 ))->setHelp('Checksum, segmentation, large receive, VLAN acceleration, and validated driver controls are managed per network card.');
 
 $section->addInput(new Form_Checkbox(

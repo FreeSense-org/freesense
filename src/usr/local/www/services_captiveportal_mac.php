@@ -54,7 +54,7 @@ $pglinks = array("", "services_captiveportal_zones.php", "services_captiveportal
 $shortcut_section = "captiveportal";
 
 $actsmbl = array('pass' => '<i class="fa-solid fa-check text-success"></i>&nbsp;' . gettext("Pass"),
-	'block' => '<i class="fa-solid fa-times text-danger"></i>&nbsp;' . gettext("Block"));
+	'block' => '<i class="fa-solid fa-xmark text-danger"></i>&nbsp;' . gettext("Block"));
 
 if ($_POST['act'] == "del") {
 	if (config_get_path("captiveportal/{$cpzone}/passthrumac/{$_POST['id']}")) {

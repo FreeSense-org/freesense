@@ -795,7 +795,7 @@ if ($pconfig['page']['htmltext']) {
 		'btndownload',
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=delhtmlhtml',
-		'fa-solid fa-undo'
+		'fa-solid fa-arrow-rotate-left'
 	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
 	$section->add($group);
 }
@@ -829,7 +829,7 @@ if ($pconfig['page']['errtext']) {
 		'btndownload',
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=delerrhtml',
-		'fa-solid fa-undo'
+		'fa-solid fa-arrow-rotate-left'
 	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
 	$section->add($group);
 }
@@ -861,7 +861,7 @@ if ($pconfig['page']['logouttext']) {
 		'btndownload',
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=dellogouthtml',
-		'fa-solid fa-undo'
+		'fa-solid fa-arrow-rotate-left'
 	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
 	$section->add($group);
 }

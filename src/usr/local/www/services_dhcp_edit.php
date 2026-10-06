@@ -315,7 +315,7 @@ $btnadv = new Form_Button(
 	'btnadvdns',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');
@@ -389,7 +389,7 @@ $btnadv = new Form_Button(
 	'btnadvntp',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');
@@ -414,7 +414,7 @@ $btnadv = new Form_Button(
 	'btnadvtftp',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');
@@ -438,7 +438,7 @@ $btnadv = new Form_Button(
 	'btnadvldap',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');
@@ -462,7 +462,7 @@ $btnadv = new Form_Button(
 	'btnadvnwkboot',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');
@@ -545,7 +545,7 @@ $btnadv = new Form_Button(
 	'btnadvopts',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');

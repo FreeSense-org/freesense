@@ -110,7 +110,7 @@ if ($_POST['Submit'] == "No") {
 			<br/><br/>
 			<form action="crash_reporter.php" method="post">
 				<button class="btn btn-warning" name="Submit" type="submit" value="No">
-					<i class="fa-solid fa-undo"></i>
+					<i class="fa-solid fa-arrow-rotate-left"></i>
 					<?=gettext("Delete the crash report data and return to the Dashboard")?>
 				</button>
 			<br/><br/>

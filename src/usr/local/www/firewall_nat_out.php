@@ -203,12 +203,12 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 <?php
 				if ($mode == "disabled" || $mode == "automatic"):
 ?>
-							<i class="fa-solid <?= ($iconfn == "pass") ? "fa-check":"fa-times"?>" title="<?=gettext("This rule is being ignored")?>"></i>
+							<i class="fa-solid <?= ($iconfn == "pass") ? "fa-check":"fa-xmark"?>" title="<?=gettext("This rule is being ignored")?>"></i>
 <?php
 				else:
 ?>
 							<a href="?act=toggle&amp;id=<?=$i?>" usepost>
-								<i class="fa-solid <?= ($iconfn == "pass") ? "fa-check":"fa-times"?>" title="<?=gettext("Click to toggle enabled/disabled status")?>"></i>
+								<i class="fa-solid <?= ($iconfn == "pass") ? "fa-check":"fa-xmark"?>" title="<?=gettext("Click to toggle enabled/disabled status")?>"></i>
 							</a>
 
 <?php
@@ -328,7 +328,7 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 <?php						if (isset($natent['staticnatport'])) { ?>
 							<i class="fa-solid fa-check" title="<?=gettext('Keep Source Port Static')?>"></i>
 <?php						} else { ?>
-							<i class="fa-solid fa-random" title="<?=gettext('Randomize Source Port')?>"></i>
+							<i class="fa-solid fa-shuffle" title="<?=gettext('Randomize Source Port')?>"></i>
 <?php						} ?>
 <?php						if (isset($natent['eimnat'])) { ?>
 							<i class="fa-solid fa-arrows-to-circle" title="<?=gettext('Endpoint-Independent Mapping (UDP Only)')?>"></i>
@@ -373,7 +373,7 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 			<?=gettext("Toggle"); ?>
 		</button>
 		<button type="submit" id="order-store" class="btn btn-primary btn-sm" value="Save changes" disabled name="order-store" title="<?=gettext('Save mapping order')?>">
-			<i class="fa-solid fa-save icon-embed-btn"></i>
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
 			<?=gettext("Save")?>
 		</button>
 	</nav>
@@ -471,7 +471,7 @@ if ($mode == "automatic" || $mode == "hybrid"):
 <?php						if (isset($natent['staticnatport'])) { ?>
 							<i class="fa-solid fa-check" title="Keep Source Port Static"></i>
 <?php						} else { ?>
-							<i class="fa-solid fa-random" title="Randomize Source Port"></i>
+							<i class="fa-solid fa-shuffle" title="Randomize Source Port"></i>
 <?php						} ?>
 						</td>
 						<td>

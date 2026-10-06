@@ -293,7 +293,7 @@ function print_ipsec_body() {
 	<div>
 <?php		if ((count($ikesa['child-sas']) + count($p2disconnected)) > 0): ?>
 		<a type="button" id="btnchildsa-<?= htmlspecialchars($child_key) ?>" class="btn btn-sm btn-info">
-		<i class="fa-solid fa-plus-circle icon-embed-btn"></i>
+		<i class="fa-solid fa-circle-plus icon-embed-btn"></i>
 		<?= htmlspecialchars(gettext('Show child SA entries')) ?>
 <?php
 			$p2counts = count($ikesa['child-sas']) . " " . gettext("Connected");

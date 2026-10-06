@@ -103,7 +103,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 	    $ifinfo['status'] == "associated") {
 		$icon = 'fa-solid fa-arrow-up text-success';
 	} elseif ($ifinfo['status'] == "no carrier") {
-		$icon = 'fa-solid fa-times-circle text-danger';
+		$icon = 'fa-solid fa-circle-xmark text-danger';
 	} elseif ($ifinfo['status'] == "down") {
 		$icon = 'fa-solid fa-arrow-down text-danger';
 	} else {
@@ -203,8 +203,8 @@ endif;
 
 	<div class="form-group">
 		<div class="col-sm-offset-3 col-sm-6">
-			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
-			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext('All')?></button>
+			<button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
+			<button id="<?=$widget_showallnone_id?>" type="button" class="btn btn-info"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext('All')?></button>
 		</div>
 	</div>
 </form>

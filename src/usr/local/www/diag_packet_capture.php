@@ -262,12 +262,12 @@ $form_buttons = [
 	'stop_button' => [
 		'class' => 'btn-warning',
 		'value' => 'Stop',
-		'icon' => 'fa-solid fa-stop-circle'
+		'icon' => 'fa-solid fa-circle-stop'
 	],
 	'start_button' => [
 		'class' => 'btn-success',
 		'value' => 'Start',
-		'icon' => 'fa-solid fa-play-circle'
+		'icon' => 'fa-solid fa-circle-play'
 	],
 	'view_button' => [
 		'class' => 'btn-primary',

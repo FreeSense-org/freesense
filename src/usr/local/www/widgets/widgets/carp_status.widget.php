@@ -59,15 +59,15 @@ $carp_enabled = get_carp_status();
 			</td>
 <?php		
 		if ($carp_enabled == false) {
-			$icon = 'fa-solid fa-times-circle';
+			$icon = 'fa-solid fa-circle-xmark';
 			$status = "DISABLED";
 		} else {
 			if ($status == "MASTER") {
-				$icon = 'fa-solid fa-play-circle text-success';
+				$icon = 'fa-solid fa-circle-play text-success';
 			} else if ($status == "BACKUP") {
-				$icon = 'fa-solid fa-pause-circle text-warning';
+				$icon = 'fa-solid fa-circle-pause text-warning';
 			} else if ($status == "INIT") {
-				$icon = 'fa-solid fa-question-circle text-danger';
+				$icon = 'fa-solid fa-circle-question text-danger';
 			}
 		}
 		if ($ipaddress) {

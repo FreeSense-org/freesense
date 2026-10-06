@@ -425,7 +425,7 @@ function toggleListDescriptions() {
 						<td>
 <?php
 							if ($filterent['act'] == "block") {
-								$icon_act = "fa-solid fa-times text-danger";
+								$icon_act = "fa-solid fa-xmark text-danger";
 							} else {
 								$icon_act = "fa-solid fa-check text-success";
 							}

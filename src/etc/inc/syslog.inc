@@ -1514,7 +1514,7 @@ function handle_ajax() {
 				}
 
 				if ($log_row['act'] == "block") {
-					$icon_act = "fa-solid fa-times text-danger";
+					$icon_act = "fa-solid fa-xmark text-danger";
 				} else {
 					$icon_act = "fa-solid fa-check text-success";
 				}
@@ -1562,7 +1562,7 @@ function print_syslog_rule_action($rule) {
 
 	$icon_class = match ($action) {
 		'pass' => 'fa-solid fa-check text-success',
-		'block' => 'fa-solid fa-times text-danger',
+		'block' => 'fa-solid fa-xmark text-danger',
 		'reject' => 'fa-regular fa-hand text-warning',
 		// "match" rules and associated rules which no longer exist
 		default => 'fa-solid fa-filter'

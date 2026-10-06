@@ -204,7 +204,7 @@ $btnsrcadv = new Form_Button(
 	'btnsrcadv',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnsrcadv->setAttribute('type','button')->addClass('btn-info btn-sm');

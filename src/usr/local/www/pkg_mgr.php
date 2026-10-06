@@ -161,7 +161,7 @@ display_top_tabs($tab_array);
 			<?=gettext('Search')?>
 			<span class="widget-heading-icon float-end">
 				<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-					<i class="fa-solid fa-plus-circle"></i>
+					<i class="fa-solid fa-circle-plus"></i>
 				</a>
 			</span>
 		</h2>
@@ -181,8 +181,8 @@ display_top_tabs($tab_array);
 				</select>
 			</div>
 			<div class="col-sm-3">
-				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
-				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
+				<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
+				<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
 			</div>
 			<div class="col-sm-10 offset-sm-2">
 				<span class="help-block"><?=gettext('Search package names, descriptions, and capabilities. Search text is treated literally.')?></span>
@@ -195,7 +195,7 @@ display_top_tabs($tab_array);
 	<div class="card-header"><h2 class="h5 mb-0"><?=gettext('Packages')?></h2></div>
 	<div id="pkgtbl" class="card-body table-responsive">
 		<div id="waitmsg">
-			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-cog fa-spin"></i>'); ?>
+			<?php print_info_box(gettext("Please wait while the list of packages is retrieved and formatted.") . '&nbsp;<i class="fa-solid fa-gear fa-spin"></i>'); ?>
 		</div>
 
 		<div id="errmsg" style="display: none;">
@@ -214,12 +214,12 @@ events.push(function() {
 		var body = $(el).parents('.card').children('.card-body')
 		var isOpen = body.hasClass('show');
 
-		$(el).children('i').toggleClass('fa-plus-circle', !isOpen);
-		$(el).children('i').toggleClass('fa-minus-circle', isOpen);
+		$(el).children('i').toggleClass('fa-circle-plus', !isOpen);
+		$(el).children('i').toggleClass('fa-circle-minus', isOpen);
 
 		body.on('shown.bs.collapse', function() {
-			$(el).children('i').toggleClass('fa-minus-circle', true);
-			$(el).children('i').toggleClass('fa-plus-circle', false);
+			$(el).children('i').toggleClass('fa-circle-minus', true);
+			$(el).children('i').toggleClass('fa-circle-plus', false);
 		});
 	});
 

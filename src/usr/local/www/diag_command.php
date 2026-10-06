@@ -214,17 +214,17 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 
 				<div class="btn-group">
 					<button type="button" class="btn btn-success btn-sm" name="btnRecallPrev" onclick="btnRecall_onClick( this.form, -1 );" title="<?=gettext("Recall Previous Command")?>">
-						<i class="fa-solid fa-angle-double-left"></i>
+						<i class="fa-solid fa-angles-left"></i>
 					</button>
 					<button name="submit" type="submit" class="btn btn-warning btn-sm" value="EXEC" title="<?=gettext("Execute the entered command")?>">
 						<i class="fa-solid fa-bolt"></i>
 						<?=gettext("Execute"); ?>
 					</button>
 					<button type="button" class="btn btn-success btn-sm" name="btnRecallNext" onclick="btnRecall_onClick( this.form,  1 );" title="<?=gettext("Recall Next Command")?>">
-						<i class="fa-solid fa-angle-double-right"></i>
+						<i class="fa-solid fa-angles-right"></i>
 					</button>
 					<button style="margin-left: 10px;" type="button" class="btn btn-secondary btn-sm" onclick="return Reset_onClick( this.form );" title="<?=gettext("Clear command entry")?>">
-						<i class="fa-solid fa-undo"></i>
+						<i class="fa-solid fa-arrow-rotate-left"></i>
 						<?=gettext("Clear"); ?>
 					</button>
 				</div>

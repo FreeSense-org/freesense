@@ -476,7 +476,7 @@ if ($act == "new" || $act == gettext("Save")) {
 					<tr>
 						<td><?=$caname?></td>
 						<td><?=$tmpcrl['descr']; ?></td>
-						<td><i class="<?=($internal) ? "fa-solid fa-check" : "fa-solid fa-times"; ?>"></i></td>
+						<td><i class="<?=($internal) ? "fa-solid fa-check" : "fa-solid fa-xmark"; ?>"></i></td>
 						<td><?=($internal) ? count($tmpcrl['cert']) : "Unknown (imported)"; ?></td>
 						<td>
 						<?php if (is_openvpn_server_crl($tmpcrl['refid'])): ?>

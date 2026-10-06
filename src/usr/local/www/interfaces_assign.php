@@ -234,7 +234,7 @@ foreach ($unused_portlist as $portname => $portinfo):?>
 	</table>
 	</div>
 
-	<button name="Submit" type="submit" class="btn btn-primary" value="<?=gettext('Save')?>"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
+	<button name="Submit" type="submit" class="btn btn-primary" value="<?=gettext('Save')?>"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
 </form>
 <br />
 

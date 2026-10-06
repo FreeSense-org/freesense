@@ -491,17 +491,17 @@ $('.container .panel-heading a[data-bs-toggle="collapse"]').each(function (idx, 
 	var body = $(el).parents('.panel').children('.panel-body')
 	var isOpen = body.hasClass('show');
 
-	$(el).children('i').toggleClass('fa-plus-circle', !isOpen);
-	$(el).children('i').toggleClass('fa-minus-circle', isOpen);
+	$(el).children('i').toggleClass('fa-circle-plus', !isOpen);
+	$(el).children('i').toggleClass('fa-circle-minus', isOpen);
 
 	body.on('shown.bs.collapse', function(){
-		$(el).children('i').toggleClass('fa-minus-circle', true);
-		$(el).children('i').toggleClass('fa-plus-circle', false);
+		$(el).children('i').toggleClass('fa-circle-minus', true);
+		$(el).children('i').toggleClass('fa-circle-plus', false);
 	});
 
 	body.on('hidden.bs.collapse', function(){
-		$(el).children('i').toggleClass('fa-minus-circle', false);
-		$(el).children('i').toggleClass('fa-plus-circle', true);
+		$(el).children('i').toggleClass('fa-circle-minus', false);
+		$(el).children('i').toggleClass('fa-circle-plus', true);
 	});
 });
 
@@ -526,8 +526,8 @@ $("#addsep").click(function() {
 
 	$('#ruletable > tbody:last').append('<tr>' +
 		'<td class="' + gColor + '" colspan="' + sepcols + '"><input id="newsep" placeholder="' + svbtnplaceholder + '" class="col-md-12" type="text" /></td>' +
-		'<td class="' + gColor + '" colspan="2"><button class="btn btn-primary btn-sm" id="btnnewsep"><i class="fa-solid fa-save icon-embed-btn"></i>' + svtxt + '</button>' +
-		'<button class="btn btn-info btn-sm" id="btncncsep"><i class="fa-solid fa-undo icon-embed-btn"></i>' + cncltxt + '</button>' +
+		'<td class="' + gColor + '" colspan="2"><button class="btn btn-primary btn-sm" id="btnnewsep"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i>' + svtxt + '</button>' +
+		'<button class="btn btn-info btn-sm" id="btncncsep"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>' + cncltxt + '</button>' +
 		'&nbsp;&nbsp;&nbsp;&nbsp;' +
 		'&nbsp;&nbsp;<a id="sepclrblue" value="bg-info"><i class="fa-solid fa-circle text-info icon-pointer"></i></a>' +
 		'&nbsp;&nbsp;<a id="sepclrred" value="bg-danger"><i class="fa-solid fa-circle text-danger icon-pointer"></i></a>' +
@@ -618,7 +618,7 @@ $(function(){
 			}
 		}
 		// Change to icon to show it is working
-		$(this).children('i').removeClass().addClass('fa-solid fa-cog fa-spin text-success');
+		$(this).children('i').removeClass().addClass('fa-solid fa-gear fa-spin text-success');
 		this.blur();
 		// POST request to handle the (dis)connect request
 		ajaxRequest = $.ajax(
@@ -771,7 +771,7 @@ $('[id*=restartservice-], [id*=stopservice-], [id*=startservice-]').click(functi
 		name = args.join('-');
 	}
 
-	$(this).children('i').removeClass().addClass('fa-solid fa-cog fa-spin text-success');
+	$(this).children('i').removeClass().addClass('fa-solid fa-gear fa-spin text-success');
 	this.blur();
 
 	ajaxRequest = $.ajax(

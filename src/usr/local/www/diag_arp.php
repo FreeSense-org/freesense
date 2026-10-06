@@ -87,7 +87,7 @@ if ($savemsg) {
 		<?=gettext('Search')?>
 		<span class="widget-heading-icon float-end">
 			<a data-bs-toggle="collapse" href="#search-panel_panel-body">
-				<i class="fa-solid fa-plus-circle"></i>
+				<i class="fa-solid fa-circle-plus"></i>
 			</a>
 		</span>
 	</h2>
@@ -110,8 +110,8 @@ if ($savemsg) {
 			</select>
 		</div>
 		<div class="col-sm-3">
-			<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-search icon-embed-btn"></i><?=gettext("Search")?></a>
-			<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext("Clear")?></a>
+			<a id="btnsearch" title="<?=gettext("Search")?>" class="btn btn-primary btn-sm"><i class="fa-solid fa-magnifying-glass icon-embed-btn"></i><?=gettext("Search")?></a>
+			<a id="btnclear" title="<?=gettext("Clear")?>" class="btn btn-info btn-sm"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext("Clear")?></a>
 		</div>
 		<div class="col-sm-10 col-sm-offset-2">
 			<span class="help-block"><?=gettext('Enter a search string or *nix regular expression to filter entries.')?></span>
@@ -154,7 +154,7 @@ if ($savemsg) {
 					<td><?=htmlspecialchars($entry['type'])?></td>
 					<td>
 <?php if ($entry['assigned']): /* only useful for assigned interfaces */ ?>
-						<a class="fa-solid fa-plus-square" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($entry['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($entry['mac-address']))?>&amp;descr=<?=htmlspecialchars(urlencode($entry['dnsresolve']))?>"></a>
+						<a class="fa-solid fa-square-plus" title="<?=gettext('Add WOL mapping')?>" href="services_wol_edit.php?if=<?=htmlspecialchars(urlencode($entry['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($entry['mac-address']))?>&amp;descr=<?=htmlspecialchars(urlencode($entry['dnsresolve']))?>"></a>
 						<a class="fa-solid fa-power-off" title="<?=gettext('Send WOL packet')?>" href="services_wol.php?if=<?=htmlspecialchars(urlencode($entry['if']))?>&amp;mac=<?=htmlspecialchars(urlencode($entry['mac-address']))?>" usepost></a>
 <?php endif; ?>
 						<a class="fa-solid fa-trash-can" title="<?=gettext('Delete ARP cache entry')?>" href="diag_arp.php?deleteentry=<?=htmlspecialchars(urlencode($entry['ip-address']))?>" usepost></a>

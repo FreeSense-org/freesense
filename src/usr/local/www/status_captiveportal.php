@@ -311,14 +311,14 @@ endif;
 if (!empty($cpzone)):
 	if ($_REQUEST['showact']): ?>
 	<a href="status_captiveportal.php?zone=<?=htmlspecialchars($cpzone)?>&amp;showact=0" role="button" class="btn btn-info" title="<?=gettext("Don't show last activity")?>">
-		<i class="fa-solid fa-minus-circle icon-embed-btn"></i>
+		<i class="fa-solid fa-circle-minus icon-embed-btn"></i>
 		<?=gettext("Hide Last Activity")?>
 	</a>
 <?php
 	else:
 ?>
 	<a href="status_captiveportal.php?zone=<?=htmlspecialchars($cpzone)?>&amp;showact=1" role="button" class="btn btn-info" title="<?=gettext("Show last activity")?>">
-		<i class="fa-solid fa-plus-circle icon-embed-btn"></i>
+		<i class="fa-solid fa-circle-plus icon-embed-btn"></i>
 		<?=gettext("Show Last Activity")?>
 	</a>
 <?php

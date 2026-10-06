@@ -551,7 +551,7 @@ $btnadv = new Form_Button(
 	'btnadvgps',
 	gettext('Display Advanced'),
 	null,
-	'fa-solid fa-cog'
+	'fa-solid fa-gear'
 );
 
 $btnadv->setAttribute('type','button')->addClass('btn-info btn-sm');

@@ -310,7 +310,7 @@ $group->add(new Form_Button(
 	'Select',
 	'Select a container',
 	null,
-	'fa-solid fa-search'
+	'fa-solid fa-magnifying-glass'
 ))->setAttribute('type','button')->addClass('btn-info');
 
 $section->add($group);

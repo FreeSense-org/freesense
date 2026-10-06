@@ -88,7 +88,7 @@ $logincssfile = "#770101";
 							<input type="checkbox" id="bypass" /> I understand this warning and wish to resubmit the form data.
 							<br/>
 							<button class="btn btn-danger btn-sm" type="submit" name="submit" id="submit" value="<?=gettext("Try again")?>" disabled>
-								<i class="fa-solid fa-exclamation-triangle icon-embed-btn"></i>
+								<i class="fa-solid fa-triangle-exclamation icon-embed-btn"></i>
 								<?=gettext("Resubmit Request with New Token")?>
 							</button>
 						</form>

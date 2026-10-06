@@ -123,7 +123,7 @@ display_top_tabs($tab_array);
 						</td>
 						<td>
 							<a href="?act=toggle&amp;id=<?=$i?>" usepost>
-								<i class="fa-solid <?= ($iconfn == "pass") ? "fa-check":"fa-times"?>" title="<?=gettext("click to toggle enabled/disabled status")?>"></i>
+								<i class="fa-solid <?= ($iconfn == "pass") ? "fa-check":"fa-xmark"?>" title="<?=gettext("click to toggle enabled/disabled status")?>"></i>
 							</a>
 						</td>
 						<td>
@@ -198,7 +198,7 @@ endforeach;
 			<?=gettext("Toggle"); ?>
 		</button>
 		<button type="submit" id="order-store" name="order-store" class="btn btn-primary btn-sm" disabled title="<?=gettext('Save mapping order')?>">
-			<i class="fa-solid fa-save icon-embed-btn"></i>
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
 			<?=gettext("Save")?>
 		</button>
 	</nav>

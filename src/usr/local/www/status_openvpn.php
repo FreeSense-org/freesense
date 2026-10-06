@@ -89,9 +89,9 @@ include("head.inc"); ?>
 //<![CDATA[
 	function killClient(mport, remipp, client_id) {
 		if (client_id === '') {
-			$('a[id="i:' + mport + ":" + remipp + '"]').first().children('i').removeClass().addClass('fa-solid fa-cog fa-spin text-danger');
+			$('a[id="i:' + mport + ":" + remipp + '"]').first().children('i').removeClass().addClass('fa-solid fa-gear fa-spin text-danger');
 		} else {
-			$('a[id="i:' + mport + ":" + remipp + '"]').last().children('i').removeClass().addClass('fa-solid fa-cog fa-spin text-danger');
+			$('a[id="i:' + mport + ":" + remipp + '"]').last().children('i').removeClass().addClass('fa-solid fa-gear fa-spin text-danger');
 		}
 
 		$.ajax(
@@ -211,13 +211,13 @@ include("head.inc"); ?>
 							   onclick='killClient(<?=json_encode(htmlspecialchars($server['mgmt']));?>, <?=json_encode(htmlspecialchars($conn['remote_host']));?>, "");' style="cursor:pointer;"
 							   id="<?php echo htmlspecialchars("i:{$server['mgmt']}:{$conn['remote_host']}"); ?>"
 							   title="<?php echo sprintf(gettext("Kill client connection from %s"), htmlspecialchars($conn['remote_host'])); ?>">
-							<i class="fa-solid fa-times"></i>
+							<i class="fa-solid fa-xmark"></i>
 							</a>&nbsp;
 							<a
 							   onclick='killClient(<?=json_encode(htmlspecialchars($server['mgmt']));?>, <?=json_encode(htmlspecialchars($conn['remote_host']));?>, <?=json_encode(htmlspecialchars($conn['client_id']));?>);' style="cursor:pointer;"
 							   id="<?php echo htmlspecialchars("i:{$server['mgmt']}:{$conn['remote_host']}"); ?>"
 							   title="<?php echo sprintf(gettext("Halt client connection from %s"), htmlspecialchars($conn['remote_host'])); ?>">
-							<i class="fa-solid fa-times-circle text-danger"></i>
+							<i class="fa-solid fa-circle-xmark text-danger"></i>
 							</a>
 						</td>
 					</tr>
@@ -244,7 +244,7 @@ include("head.inc"); ?>
 ?>
 <div id="shroutebut-<?= $i ?>">
 	<button type="button" class="btn btn-info" onClick="show_routes('tabroute-<?= $i ?>','shroutebut-<?= $i ?>')" value="<?php echo gettext("Show Routing Table"); ?>">
-		<i class="fa-solid fa-plus-circle icon-embed-btn"></i>
+		<i class="fa-solid fa-circle-plus icon-embed-btn"></i>
 		<?php echo gettext("Show Routing Table"); ?>
 	</button>
 	- <?= gettext("Display OpenVPN's internal routing table for this server.") ?>

@@ -340,7 +340,7 @@ FreeSense_handle_custom_code("/usr/local/pkg/dashboard/pre_dashboard");
 		<h2 class="panel-title"><?=gettext("Available Widgets"); ?>
 			<span class="widget-heading-icon">
 				<a data-bs-toggle="collapse" href="#widget-available_panel-body" id="widgets-available">
-					<i class="fa-solid fa-plus-circle"></i>
+					<i class="fa-solid fa-circle-plus"></i>
 				</a>
 			</span>
 		</h2>
@@ -426,10 +426,10 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 								</a>
 								<a data-bs-toggle="collapse" href="#<?=$widget_panel_body_id?>">
 									<!--  actual icon is determined in css based on state of body -->
-									<i class="fa-solid fa-plus-circle"></i>
+									<i class="fa-solid fa-circle-plus"></i>
 								</a>
 								<a data-toggle="close" href="#widget-<?=$widgetkey?>">
-									<i class="fa-solid fa-times-circle"></i>
+									<i class="fa-solid fa-circle-xmark"></i>
 								</a>
 							</span>
 						</h2>
@@ -547,7 +547,7 @@ function set_all_none_button(checkbox_panel_ref, all_none_button_id) {
 		text = "<?=gettext('All')?>";
 	}
 
-	$("#" + all_none_button_id).html('<i class="fa-solid fa-undo icon-embed-btn"></i>' + text);
+	$("#" + all_none_button_id).html('<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>' + text);
 }
 
 // Setup the necessary events to manage the All/None button and included checkboxes
@@ -624,7 +624,7 @@ events.push(function() {
 		}
 	});
 
-	// Show the fa-save icon in the breadcrumb bar if the user opens or closes a panel (In case he/she wants to save the new state)
+	// Show the fa-floppy-disk icon in the breadcrumb bar if the user opens or closes a panel (In case he/she wants to save the new state)
 	// (Sometimes this will cause us to see the icon when we don't need it, but better that than the other way round)
 	$('.panel').on('hidden.bs.collapse shown.bs.collapse', function (e) {
 	    if (e.currentTarget.id != 'widget-available') {

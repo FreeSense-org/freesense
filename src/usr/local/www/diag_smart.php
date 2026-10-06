@@ -127,11 +127,11 @@ switch ($action) {
 			<input type="hidden" name="action" value="abort" />
 			<nav class="action-buttons">
 				<button type="submit" name="submit" class="btn btn-danger" value="<?=gettext("Abort Tests")?>">
-					<i class="fa-solid fa-times icon-embed-btn"></i>
+					<i class="fa-solid fa-xmark icon-embed-btn"></i>
 					<?=gettext("Abort Test")?>
 				</button>
 				<a href="<?=$_SERVER['PHP_SELF']?>" class="btn btn-info">
-					<i class="fa-solid fa-undo icon-embed-btn"></i>
+					<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
 					<?=gettext("Back")?>
 				</a>
 			</nav>
@@ -162,7 +162,7 @@ switch ($action) {
 
 		<nav class="action-buttons">
 			<a href="<?=$_SERVER['PHP_SELF']?>" class="btn btn-info">
-				<i class="fa-solid fa-undo icon-embed-btn"></i>
+				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
 				<?=gettext("Back")?>
 			</a>
 		</nav>
@@ -190,7 +190,7 @@ switch ($action) {
 
 		<nav class="action-buttons">
 			<a href="<?=$_SERVER['PHP_SELF']?>" class="btn btn-info">
-				<i class="fa-solid fa-undo icon-embed-btn"></i>
+				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>
 				<?=gettext("Back")?>
 			</a>
 		</nav>
@@ -354,7 +354,7 @@ switch ($action) {
 			'submit',
 			'Abort Tests',
 			null,
-			'fa-solid fa-times'
+			'fa-solid fa-xmark'
 		);
 
 		$btnabort->addClass('btn-danger')->setAttribute('id');

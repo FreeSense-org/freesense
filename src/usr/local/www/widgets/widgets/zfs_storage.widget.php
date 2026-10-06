@@ -103,7 +103,7 @@ if (isset($_POST['ajax'])) {
 		<input type="hidden" name="widgetkey" value="<?=htmlspecialchars($widgetkey)?>"><input type="hidden" name="save" value="1">
 		<div class="form-group"><label class="col-sm-5 control-label"><?=gettext('Refresh interval')?></label><div class="col-sm-7"><select class="form-control" name="refreshinterval"><?php foreach([10,30,60,300] as $value): ?><option value="<?=$value?>" <?=$widget_config['refreshinterval']===$value?'selected':''?>><?=$value?> <?=gettext('seconds')?></option><?php endforeach; ?></select></div></div>
 		<div class="checkbox"><label><input type="checkbox" name="compact" <?=$widget_config['compact']?'checked':''?>> <?=gettext('Compact view')?></label></div>
-		<button class="btn btn-primary" type="submit"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
+		<button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
 	</form>
 </div>
 <script>

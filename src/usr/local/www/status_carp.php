@@ -176,7 +176,7 @@ if ($carpcount == 0) {
 			"<br/><br/>" .
 			'<button type="submit" class="btn btn-warning" name="resetdemotion" id="resetdemotion" value="' .
 			gettext("Reset CARP Demotion Status") .
-			'"><i class="fa-solid fa-undo icon-embed-btn"></i>' .
+			'"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i>' .
 			gettext("Reset CARP Demotion Status") .
 			'</button>',
 			'danger'
@@ -215,15 +215,15 @@ if ($carpcount == 0) {
 		$aliases = find_ipalias("_vip{$carp['uniqid']}");
 
 		if ($carp_enabled == false) {
-			$icon = 'fa-solid fa-times-circle';
+			$icon = 'fa-solid fa-circle-xmark';
 			$status = "DISABLED";
 		} else {
 			if ($status == "MASTER") {
-				$icon = 'fa-solid fa-play-circle text-success';
+				$icon = 'fa-solid fa-circle-play text-success';
 			} else if ($status == "BACKUP") {
-				$icon = 'fa-solid fa-pause-circle text-warning';
+				$icon = 'fa-solid fa-circle-pause text-warning';
 			} else if ($status == "INIT") {
-				$icon = 'fa-solid fa-question-circle text-danger';
+				$icon = 'fa-solid fa-circle-question text-danger';
 			}
 		}
 ?>

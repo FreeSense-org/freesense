@@ -162,7 +162,7 @@ $btnclear = new Form_Button(
 	'btnclear',
 	'Clear',
 	null,
-	'fa-solid fa-times'
+	'fa-solid fa-xmark'
 );
 
 $btnclear->setAttribute('type','button')->addClass('btn btn-warning');

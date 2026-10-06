@@ -189,7 +189,7 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 <?php
 	elseif (!empty($natent['associated-rule-id'])):
 ?>
-							<i class="fa-solid fa-random" title="<?=sprintf(gettext("Firewall rule ID %s is managed by this rule"), htmlspecialchars($natent['associated-rule-id']))?>"></i>
+							<i class="fa-solid fa-shuffle" title="<?=sprintf(gettext("Firewall rule ID %s is managed by this rule"), htmlspecialchars($natent['associated-rule-id']))?>"></i>
 <?php
 	endif;
 ?>
@@ -346,7 +346,7 @@ if ($seprows[$nnats]) {
 			<?=gettext("Toggle"); ?>
 		</button>
 		<button type="submit" id="order-store" name="order-store" class="btn btn-primary btn-sm" disabled title="<?=gettext('Save rule order')?>">
-			<i class="fa-solid fa-save icon-embed-btn"></i>
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
 			<?=gettext("Save")?>
 		</button>
 		<button type="submit" id="addsep" name="addsep" class="btn btn-sm btn-warning" title="<?=gettext('Add separator')?>">
@@ -432,7 +432,7 @@ if (count(get_anynat_rules_list('rdr')) > 0) {
 	<dl class="dl-horizontal responsive">
 		<dt><?=gettext('Legend')?></dt>					<dd></dd>
 		<dt><i class="fa-solid fa-play"></i></dt>			<dd><?=gettext('Pass')?></dd>
-		<dt><i class="fa-solid fa-random"></i></dt>		<dd><?=gettext('Linked rule')?></dd>
+		<dt><i class="fa-solid fa-shuffle"></i></dt>		<dd><?=gettext('Linked rule')?></dd>
 	</dl>
 </div>
 

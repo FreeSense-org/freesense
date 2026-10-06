@@ -255,8 +255,8 @@ $tg_displayed_realifsarray = [];
 
 		<div class="form-group">
 			<div class="col-sm-offset-3 col-sm-6">
-				<button type="submit" class="btn btn-primary" name="widget" value="<?=__FILE__?>"><i class="fa-solid fa-save icon-embed-btn"></i><?=gettext('Save')?></button>
-				<button id="showalltgitems" type="button" class="btn btn-info"><i class="fa-solid fa-undo icon-embed-btn"></i><?=gettext('All')?></button>
+				<button type="submit" class="btn btn-primary" name="widget" value="<?=__FILE__?>"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
+				<button id="showalltgitems" type="button" class="btn btn-info"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn"></i><?=gettext('All')?></button>
 			</div>
 		</div>
 	</form>

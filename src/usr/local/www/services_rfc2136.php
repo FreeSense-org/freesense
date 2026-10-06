@@ -99,11 +99,11 @@ foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 		$cached_ip = $cached_ip_s[0];
 
 		if ($ipaddr == $cached_ip) {
-			$icon_class = "fa-solid fa-check-circle";
+			$icon_class = "fa-solid fa-circle-check";
 			$text_class = "text-success";
 			$icon_title = "Updated";
 		} else {
-			$icon_class = "fa-solid fa-times-circle";
+			$icon_class = "fa-solid fa-circle-xmark";
 			$text_class = "text-danger";
 			$icon_title = "Failed";
 		}
@@ -113,11 +113,11 @@ foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 		$cached_ipv6 = $cached_ipv6_s[0];
 
 		if ($ipv6addr == $cached_ipv6) {
-			$icon_class = "fa-solid fa-check-circle";
+			$icon_class = "fa-solid fa-circle-check";
 			$text_class = "text-success";
 			$icon_title = "Updated";
 		} else {
-			$icon_class = "fa-solid fa-times-circle";
+			$icon_class = "fa-solid fa-circle-xmark";
 			$text_class = "text-danger";
 			$icon_title = "Failed";
 		}
@@ -218,7 +218,7 @@ endforeach; ?>
 </nav>
 
 <div>
-	<?=sprintf(gettext('Entries with a %3$s status column icon and IP address appearing in %1$sgreen%2$s are up to date with Dynamic DNS provider. '), '<span class="text-success">', '</span>', '<i class="fa-solid fa-check-circle text-success"></i>')?>
+	<?=sprintf(gettext('Entries with a %3$s status column icon and IP address appearing in %1$sgreen%2$s are up to date with Dynamic DNS provider. '), '<span class="text-success">', '</span>', '<i class="fa-solid fa-circle-check text-success"></i>')?>
 	<?=gettext('An update can be forced on the edit page for an entry.')?>
 </div>
 

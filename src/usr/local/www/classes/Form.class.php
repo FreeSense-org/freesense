@@ -43,7 +43,7 @@ class Form extends Form_Element
 				'save',
 				$submit,
 				null,
-				'fa-solid fa-save'
+				'fa-solid fa-floppy-disk'
 			);
 
 			if (!$enabled) {

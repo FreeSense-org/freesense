@@ -72,11 +72,11 @@ include("head.inc");
 				<p><strong><?=gettext("Are you sure you want to proceed?")?></strong></p>
 				<p>
 					<button name="Submit" type="submit" class="btn btn-sm btn-danger" value=" <?=gettext("Yes")?> " title="<?=gettext("Perform a factory reset")?>">
-						<i class="fa-solid fa-undo"></i>
+						<i class="fa-solid fa-arrow-rotate-left"></i>
 						<?=gettext("Factory Reset")?>
 					</button>
 					<button name="Submit" type="submit" class="btn btn-sm btn-success" value=" <?=gettext("No")?> " title="<?=gettext("Return to the dashboard")?>">
-						<i class="fa-solid fa-save"></i>
+						<i class="fa-solid fa-floppy-disk"></i>
 						<?=gettext("Keep Configuration")?>
 					</button>
 				</p>

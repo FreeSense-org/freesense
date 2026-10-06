@@ -38,7 +38,7 @@ $showAllOption = $showAll ? "" : "?showAll";
 
 ?>
 <button class="btn btn-info btn-sm" type="button" value="<?=$showAllText?>" onclick="window.location.href='diag_sockets.php<?=$showAllOption?>'">
-	<i class="<?= ($showAll) ? 'fa-solid fa-minus-circle' : 'fa-solid fa-plus-circle' ; ?> icon-embed-btn"></i>
+	<i class="<?= ($showAll) ? 'fa-solid fa-circle-minus' : 'fa-solid fa-circle-plus' ; ?> icon-embed-btn"></i>
 	<?=$showAllText?>
 </button>
 <br />

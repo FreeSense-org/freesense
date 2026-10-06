@@ -312,7 +312,7 @@ if ($view === 'environments'):
 
 <?php elseif ($view === 'create'): ?>
 	<div class="bootenv-form-grid">
-		<div class="panel panel-default"><div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-plus-circle me-1"></i> <?=gettext('Create from Current')?></h2></div><div class="panel-body">
+		<div class="panel panel-default"><div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-circle-plus me-1"></i> <?=gettext('Create from Current')?></h2></div><div class="panel-body">
 			<p class="text-muted"><?=gettext('Create a new boot environment as a snapshot of the currently running system.')?></p>
 			<form method="post" action="?view=create" class="bootenv-workflow-form"><div class="form-group"><label><?=gettext('Environment name')?></label><input class="form-control" name="name" required pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}" placeholder="<?=gettext('Example: before-firewall-change')?>"></div><button class="btn btn-primary" name="action" value="create"><i class="fa-solid fa-camera me-1"></i> <?=gettext('Create environment')?></button></form>
 		</div></div>

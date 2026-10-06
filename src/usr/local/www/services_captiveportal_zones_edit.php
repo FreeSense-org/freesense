@@ -101,7 +101,7 @@ $form->addGlobal(new Form_Button(
 	'Submit',
 	'Save & Continue',
 	null,
-	'fa-solid fa-save'
+	'fa-solid fa-floppy-disk'
 ))->addClass('btn-primary');
 
 print($form);

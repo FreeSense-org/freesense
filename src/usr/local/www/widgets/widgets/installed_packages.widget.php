@@ -76,7 +76,7 @@ function get_pkg_stats() {
 			} else if ($version_compare == '<') {
 				// we're running an older version of the package
 				$status = sprintf(gettext('Upgrade available to %s'), $pkg['version']);
-				$statusicon = 'fa-solid fa-plus-circle';
+				$statusicon = 'fa-solid fa-circle-plus';
 				$txtcolor = "text-warning";
 				$upgradeavail = true;
 				$vergetstr = '&amp;from=' . $pkg['installed_version'] .

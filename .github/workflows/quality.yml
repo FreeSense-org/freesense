@@ -81,3 +81,13 @@ jobs:
             echo 'Active Netgate infrastructure reference found' >&2
             exit 1
           fi
+      - name: Reject legacy Font Awesome icon names
+        # docs/webui/01-tokens.md: one canonical name per icon. The aliases
+        # still render (Font Awesome keeps them for packages), but core pages
+        # use the canonical names so the icon vocabulary stays searchable.
+        run: |
+          aliases='fa-(cog|undo|save|times|plus-circle|times-circle|search|check-circle|angle-double-(left|right)|play-circle|random|question-circle|minus-circle|plus-square|tasks|stop-circle|pause-circle|exclamation-triangle|archive|info-circle|refresh|edit|warning|close|remove|external-link|lightbulb-o)'
+          if git grep -IPn "(?<![\w-])${aliases}(?![\w-])|(?<![\w-])fa fa-" -- 'src/usr/local/www' 'src/etc/inc' ':!src/usr/local/www/vendor' ':!*.md'; then
+            echo 'Legacy Font Awesome icon name found; use the canonical name (see docs/webui/01-tokens.md)' >&2
+            exit 1
+          fi
