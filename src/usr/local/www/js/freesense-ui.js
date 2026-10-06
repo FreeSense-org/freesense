@@ -1230,6 +1230,14 @@
 		initNavigation();
 		initEntryGrid();
 		initAdvancedToggles();
+
+		// a field the browser rejects inside a closed section: open the section so it can be shown
+		document.addEventListener('invalid', function (e) {
+			var body = e.target.closest ? e.target.closest('.panel-body.collapse:not(.show)') : null;
+			if (body && window.bootstrap && window.bootstrap.Collapse) {
+				window.bootstrap.Collapse.getOrCreateInstance(body, {toggle: false}).show();
+			}
+		}, true);
 		document.querySelectorAll('select[multiple][data-fs-checklist]').forEach(initChecklist);
 
 		// icon-only header links: give them an accessible name

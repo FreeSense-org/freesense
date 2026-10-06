@@ -632,3 +632,14 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 .btn.fs-disclosure > i { transition: transform .15s ease; color: var(--fs-text-muted); }
 .btn.fs-disclosure.is-open > i { transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .btn.fs-disclosure > i { transition: none; } }
+
+/* collapsible Form_Section: the heading is the toggle */
+.panel-title .fs-section-toggle {
+	display: flex; align-items: center; gap: .55rem; width: 100%; padding: 0; border: 0; background: none;
+	color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.fs-section-toggle > i { font-size: .8em; color: var(--fs-text-muted); transform: rotate(90deg); transition: transform .15s ease; }
+.fs-section-toggle.collapsed > i { transform: none; }
+.fs-section-toggle:hover > i, .fs-section-toggle:focus-visible > i { color: var(--fs-coral); }
+.fs-section-toggle:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: 4px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { .fs-section-toggle > i { transition: none; } }

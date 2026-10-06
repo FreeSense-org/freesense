@@ -29,7 +29,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | firewall_nat_out | List | mode selector becomes a one-row strip above the list (allowed exception); both tables get the list styling | B | M |
 | firewall_nat_edit, _1to1_edit, _npt_edit, _out_edit | Editor | standard editor; advanced collapsed | D | |
 | firewall_rules | Special | badges for pass/block/reject, `fs_row_actions`, toolbar search; **keep** separators, drag, interface tabs, bulk | B | **H** |
-| firewall_rules_edit | Editor | sections ordered by use; advanced collapsed | D | **H** |
+| firewall_rules_edit | Editor | **reviewed**: sections already follow use (action, match, source, destination, log/description); advanced is behind its toggle; no reorder | D | **H** |
 | firewall_virtual_ip / _edit | List / Editor | standard | B / D | |
 | firewall_shaper, _queues, _vinterface, _wizards | Special | tabs via registry; tree styling; fix the corrupted caret glyph (core CSS, Phase A) | E | M |
 | easyrule | Endpoint | — | | |
@@ -85,7 +85,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | vpn_ipsec | Special | badges, `fs_row_actions`, toolbar; keep P1/P2 nesting and the existing bulk. Deferred from Phase B to its own PR (deletes run through hidden submit buttons; needs test tunnels) | B+ | **H** |
-| vpn_ipsec_phase1, _phase2 | Editor | sections; advanced collapsed | D | M |
+| vpn_ipsec_phase1, _phase2 | Editor | **done**: Expiration and Replacement and phase 1 Advanced Options are collapsible sections, closed unless a save failed | D | M |
 | vpn_ipsec_mobile, _settings | Settings | standard | D | |
 | vpn_ipsec_keys / _edit | List / Editor | standard | B / D | |
 | vpn_openvpn_server, _client, _csc | List + Editor (`act=edit`) | list view standard (badges, row actions); editor sections | B / D | M |

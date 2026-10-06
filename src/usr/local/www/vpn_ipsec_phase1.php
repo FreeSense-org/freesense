@@ -102,6 +102,9 @@ $shortcut_section = "ipsec";
 
 include("head.inc");
 
+// lifetimes and advanced options start closed; open after a failed save
+$fs_section_state = COLLAPSIBLE | (!empty($input_errors) ? SEC_OPEN : SEC_CLOSED);
+
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
@@ -348,7 +351,7 @@ $section->addInput($btnaddopt);
 
 $form->add($section);
 
-$section = new Form_Section('Expiration and Replacement');
+$section = new Form_Section('Expiration and Replacement', 'ph1-lifetimes', $fs_section_state);
 
 $section->addInput(new Form_Input(
 	'lifetime',
@@ -398,7 +401,7 @@ $section->addInput(new Form_Input(
 
 $form->add($section);
 
-$section = new Form_Section('Advanced Options');
+$section = new Form_Section('Advanced Options', 'ph1-advanced', $fs_section_state);
 
 if (!isset($pconfig['mobile'])) {
 	$section->addInput(new Form_Select(

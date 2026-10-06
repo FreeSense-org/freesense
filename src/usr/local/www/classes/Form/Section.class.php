@@ -96,22 +96,19 @@ class Form_Section extends Form_Element
 			$title = '';
 
 		$body = implode('', $this->_groups);
-		$hdricon = "";
 		$bodyclass = '<div class="panel-body">';
 		$id = strval($this->_attributes['id']);
 
-		if (intval($this->_collapsible) & COLLAPSIBLE) {
-			$hdricon = '<span class="widget-heading-icon">' .
-				'<a data-bs-toggle="collapse" href="#' . $id . '_panel-body">' .
-					'<i class="fa-solid fa-circle-plus"></i>' .
-				'</a>' .
-			'</span>';
-			$bodyclass = '<div id="' . $id . '_panel-body" class="panel-body collapse ';
-			if (($this->_collapsible & SEC_CLOSED)) {
-				$bodyclass .= '">';
-			} else {
-				$bodyclass .= 'show">';
-			}
+		$collapsible = (bool)(intval($this->_collapsible) & COLLAPSIBLE) && ($title != 'NOTITLE');
+		if ($collapsible) {
+			// the whole heading is the disclosure button (chevron, aria-expanded)
+			$open = !($this->_collapsible & SEC_CLOSED);
+			$bodyid = htmlspecialchars($id . '_panel-body');
+			$title = '<button type="button" class="fs-section-toggle' . ($open ? '' : ' collapsed') . '"' .
+				' data-bs-toggle="collapse" data-bs-target="#' . $bodyid . '"' .
+				' aria-expanded="' . ($open ? 'true' : 'false') . '" aria-controls="' . $bodyid . '">' .
+				'<i class="fa-solid fa-chevron-right" aria-hidden="true"></i>' . $title . '</button>';
+			$bodyclass = '<div id="' . $bodyid . '" class="panel-body collapse' . ($open ? ' show' : '') . '">';
 		}
 
 		if ($title == "NOTITLE") {
@@ -122,11 +119,11 @@ class Form_Section extends Form_Element
 		</div>
 	</div>
 EOT;
-		} else if ($id == "") {
+		} else if ($id == "" || $collapsible) {
 			return <<<EOT2
 	{$element}
 		<div class="panel-heading">
-			<h2 class="panel-title">{$title}{$hdricon}</h2>
+			<h2 class="panel-title">{$title}</h2>
 		</div>
 		{$bodyclass}
 			{$body}
@@ -140,7 +137,7 @@ EOT2;
 			return <<<EOT3
 	{$element}
 		<div class="panel-heading">
-			<h2 class="panel-title"><a name="{$id}">{$title}</a>{$hdricon}</h2>
+			<h2 class="panel-title"><a name="{$id}">{$title}</a></h2>
 		</div>
 		{$bodyclass}
 			{$body}
