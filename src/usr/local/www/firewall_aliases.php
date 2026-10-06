@@ -59,22 +59,39 @@ if ($_POST['act'] == "del") {
 	}
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("IP"),    ($tab == "ip" ? true : ($tab == "host" ? true : ($tab == "network" ? true : false))), "/firewall_aliases.php?tab=ip");
-$tab_array[] = array(gettext("Ports"), ($tab == "port"? true : false), "/firewall_aliases.php?tab=port");
-$tab_array[] = array(gettext("URLs"),  ($tab == "url"? true : false), "/firewall_aliases.php?tab=url");
-$tab_array[] = array(gettext("All"),   ($tab == "all"? true : false), "/firewall_aliases.php?tab=all");
-
-foreach ($tab_array as $dtab) {
-	if ($dtab[1] == true) {
-		$bctab = $dtab[0];
-		break;
-	}
-}
+/* host/network are shown on the IP tab */
+$tab_key = in_array($tab, ['host', 'network'], true) ? 'ip' : $tab;
+$tab_titles = ['ip' => gettext("IP"), 'port' => gettext("Ports"), 'url' => gettext("URLs"), 'all' => gettext("All")];
+$bctab = $tab_titles[$tab_key] ?? '';
 
 $pgtitle = array(gettext("Firewall"), gettext("Aliases"), $bctab);
 $pglinks = array("", "firewall_aliases.php", "@self");
 $shortcut_section = "aliases";
+
+fs_page_action(gettext('Add alias'), 'firewall_aliases_edit.php?tab=' . urlencode($tab), 'fa-plus');
+if (in_array($tab_key, ['ip', 'port', 'all'], true)) {
+	fs_page_action(gettext('Import'), 'firewall_aliases_import.php?tab=' . urlencode($tab), 'fa-upload', 'secondary');
+}
+
+/* first value(s) of an alias for the list: up to 10, then an ellipsis */
+function alias_list_values($alias) {
+	if ($alias["url"]) {
+		return htmlspecialchars($alias["url"]);
+	}
+	$out = [];
+	if (is_array($alias["aliasurl"])) {
+		$out[] = htmlspecialchars(implode(", ", array_slice($alias["aliasurl"], 0, 10))) .
+		    ((count($alias["aliasurl"]) > 10) ? '&hellip;' : '');
+	}
+	if (!empty($alias['address'])) {
+		$tmpaddr = explode(" ", $alias['address']);
+		if ($alias['type'] == 'host') {
+			$tmpaddr = array_map('alias_idn_to_utf8', $tmpaddr);
+		}
+		$out[] = htmlspecialchars(implode(", ", array_slice($tmpaddr, 0, 10))) . ((count($tmpaddr) > 10) ? '&hellip;' : '');
+	}
+	return implode('<br />', $out);
+}
 
 include("head.inc");
 
@@ -89,200 +106,138 @@ if (is_subsystem_dirty('aliases')) {
 	print_apply_box(gettext("The alias list has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
 
-display_top_tabs($tab_array);
+fs_tabs('firewall-aliases', 'firewall_aliases.php?tab=' . $tab_key);
 
-/* Show system aliases. */
-if ($tab == 'all'):
-	?>
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('System Aliases')?></h2></div>
-		<div class="panel-body"><div class="table-responsive">
-			<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-				<thead>
-					<tr>
-						<th><?=gettext("Name")?></th>
-						<th><?=gettext("Type")?></th>
-						<th><?=gettext("Description")?></th>
-						<th><?=gettext("Values")?></th>
-					</tr>
-				</thead>
-				<tbody>
-	<?php
-	$system_aliases = get_reserved_table_names();
-	foreach ($system_aliases as $alias):
-	?>
-					<tr>
-						<td>
-							<?=htmlspecialchars($alias['name'])?>
-						</td>
-						<td>
-							<?=htmlspecialchars($alias_types[$alias['type']])?>
-						</td>
-						<td>
-							<?=htmlspecialchars($alias['descr'])?>&nbsp;
-						</td>
-						<td>
-		<?php
-		if ($alias["url"]) {
-			echo htmlspecialchars($alias["url"]);
-		} elseif (is_array($alias["aliasurl"])) {
-			$aliasurls = implode(", ", array_slice($alias["aliasurl"], 0, 10));
-			echo htmlspecialchars($aliasurls);
-			if (is_array($aliasurls) && (count($aliasurls) > 10)) {
-				echo "&hellip;";
-			}
-		} elseif (!empty($alias['address'])) {
-			$tmpaddr = explode(" ", $alias['address']);
-			if ($alias['type'] == 'host') {
-				$tmpaddr = array_map('alias_idn_to_utf8', $tmpaddr);
-			}
-			echo htmlspecialchars(implode(", ", array_slice($tmpaddr, 0, 10)));
-			if (count($tmpaddr) > 10) {
-				echo '&hellip;';
-			}
-		} else {
-			?>
-							<span style="font-style:italic;"><?=gettext('Values set dynamically.')?>
-			<?php
-		}
-		?>
-						</td>
-					</tr>
-	<?php
-	endforeach;
-	?>
-				</tbody>
-			</table>
-		</div></div>
-	</div>
-	<?php
-endif;
+/* type filter on the All tab */
+$type_filter = [];
+if ($tab_key == 'all') {
+	$type_filter = ['type' => array_merge([gettext('All types')], $alias_types)];
+}
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=sprintf(gettext('Firewall Aliases %s'), $bctab)?></h2></div>
-	<div class="panel-body">
-
-<div class="table-responsive">
-<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
-	<thead>
-		<tr>
-			<th><?=gettext("Name")?></th>
-			<th><?=gettext("Type")?></th>
-			<th><?=gettext("Values")?></th>
-			<th><?=gettext("Description")?></th>
-			<th><?=gettext("Actions")?></th>
-		</tr>
-	</thead>
-	<tbody>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => sprintf(gettext('Firewall Aliases %s'), $bctab),
+	'search' => gettext('Search aliases…'),
+	'noun' => gettext('aliases'),
+	'noun_one' => gettext('alias'),
+	'filters' => $type_filter,
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover table-rowdblclickedit" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("Name")?></th>
+					<th data-fs-search><?=gettext("Type")?></th>
+					<th data-fs-search><?=gettext("Values")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
+				</tr>
+			</thead>
+			<tbody>
 <?php
 	/* Ensure aliases are presented in natural sort order so they are easier to locate.
 	 * and preserve keys so that the IDs match in the config and the list.
 	 * upstream issue 14015 */
 	$aliases = get_sorted_aliases();
+	$shown = 0;
 
 	foreach ($aliases as $i => $alias):
-		unset($show_alias);
-		switch ($tab) {
+		switch ($tab_key) {
 		case "all":
-			$show_alias= true;
+			$show_alias = true;
 			break;
 		case "ip":
-		case "host":
-		case "network":
-			if (preg_match("/(host|network)/", $alias["type"])) {
-				$show_alias= true;
-			}
+			$show_alias = (bool)preg_match("/(host|network)/", $alias["type"]);
 			break;
 		case "url":
-			if (preg_match("/(url)/i", $alias["type"])) {
-				$show_alias= true;
-			}
+			$show_alias = (bool)preg_match("/(url)/i", $alias["type"]);
 			break;
 		case "port":
-			if ($alias["type"] == "port") {
-				$show_alias= true;
-			}
+			$show_alias = ($alias["type"] == "port");
 			break;
+		default:
+			$show_alias = false;
 		}
-		if ($show_alias):
+		if (!$show_alias) {
+			continue;
+		}
+		$shown++;
 ?>
-		<tr>
-			<td ondblclick="document.location='firewall_aliases_edit.php?id=<?=$i;?>';">
-				<?=htmlspecialchars($alias['name'])?>
-			</td>
-			<td nowrap ondblclick="document.location='firewall_aliases_edit.php?id=<?=$i;?>';">
-				<?=htmlspecialchars($alias_types[$alias['type']])?>
-			</td>
-			<td ondblclick="document.location='firewall_aliases_edit.php?id=<?=$i;?>';">
+				<tr data-fs-filter-type="<?=htmlspecialchars($alias['type'])?>">
+					<td><a href="firewall_aliases_edit.php?id=<?=$i?>"><?=htmlspecialchars($alias['name'])?></a></td>
+					<td class="text-nowrap"><?=htmlspecialchars($alias_types[$alias['type']])?></td>
+					<td class="fs-mono"><?=alias_list_values($alias)?></td>
+					<td><?=htmlspecialchars($alias['descr'])?></td>
+					<td class="fs-col-actions">
+						<?=fs_row_actions([
+							['edit', "firewall_aliases_edit.php?id={$i}", $alias['name']],
+							['copy', "firewall_aliases_edit.php?dup={$i}", $alias['name']],
+							['delete', "?act=del&tab=" . htmlspecialchars($tab) . "&id={$i}", $alias['name'], ['thing' => gettext('alias'),
+							    'detail' => gettext('An alias that is still used by rules or other aliases cannot be deleted.')]],
+						])?>
+					</td>
+				</tr>
 <?php
-	if ($alias["url"]) {
-		echo htmlspecialchars($alias["url"]) . "<br />";
-	} else {
-		if (is_array($alias["aliasurl"])) {
-			$aliasurls = implode(", ", array_slice($alias["aliasurl"], 0, 10));
-			echo htmlspecialchars($aliasurls);
-			if (is_array($aliasurls) && (count($aliasurls) > 10)) {
-				echo "&hellip;<br />";
-			}
-			echo "<br />\n";
-		}
-		$tmpaddr = explode(" ", $alias['address']);
-		if ($alias['type'] == 'host') {
-			$tmpaddr = array_map('alias_idn_to_utf8', $tmpaddr);
-		}
-		$addresses = implode(", ", array_slice($tmpaddr, 0, 10));
-		echo htmlspecialchars($addresses);
-		if (count($tmpaddr) > 10) {
-			echo '&hellip;';
-		}
+	endforeach;
+
+	if ($shown == 0) {
+		fs_empty_row(5, gettext('No aliases yet.'), 'firewall_aliases_edit.php?tab=' . $tab, gettext('Add alias'));
 	}
 ?>
-			</td>
-			<td ondblclick="document.location='firewall_aliases_edit.php?id=<?=$i;?>';">
-				<?=htmlspecialchars($alias['descr'])?>&nbsp;
-			</td>
-			<td>
-				<a class="fa-solid fa-pencil" title="<?=gettext("Edit alias"); ?>" href="firewall_aliases_edit.php?id=<?=$i?>"></a>
-				<a class="fa-regular fa-clone" title="<?=gettext('Copy alias')?>" href="firewall_aliases_edit.php?dup=<?=$i;?>" ></a>
-				<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete alias")?>" href="?act=del&amp;tab=<?=$tab?>&amp;id=<?=$i?>" usepost></a>
-			</td>
-		</tr>
-<?php endif?>
-<?php endforeach?>
-	</tbody>
-</table>
-</div>
-
+			</tbody>
+		</table>
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="firewall_aliases_edit.php?tab=<?=$tab?>" role="button" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add");?>
-	</a>
 <?php
-if (($tab == "ip") || ($tab == "port") || ($tab == "all")):
+/* Show system aliases. */
+if ($tab_key == 'all'):
 ?>
-	<a href="firewall_aliases_import.php?tab=<?=$tab?>" role="button" class="btn btn-primary btn-sm">
-		<i class="fa-solid fa-upload icon-embed-btn"></i>
-		<?=gettext("Import");?>
-	</a>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('System Aliases'),
+	'search' => gettext('Search system aliases…'),
+	'noun' => gettext('system aliases'),
+	'noun_one' => gettext('system alias'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover" data-sortable>
+			<thead>
+				<tr>
+					<th data-fs-search><?=gettext("Name")?></th>
+					<th data-fs-search><?=gettext("Type")?></th>
+					<th data-fs-search><?=gettext("Description")?></th>
+					<th data-fs-search><?=gettext("Values")?></th>
+				</tr>
+			</thead>
+			<tbody>
 <?php
-endif
+	foreach (get_reserved_table_names() as $alias):
+		$values = alias_list_values($alias);
 ?>
-</nav>
-
-<!-- Information section. Icon ID must be "showinfo" and the information <div> ID must be "infoblock".
-	 That way jQuery (in pfenseHelpers.js) will automatically take care of the display. -->
-<div>
-	<div class="infoblock">
-		<?php print_info_box(gettext('Aliases act as placeholders for real hosts, networks or ports. They can be used to minimize the number ' .
-			'of changes that have to be made if a host, network or port changes.') . '<br />' .
-			gettext('The name of an alias can be entered instead of the host, network or port where indicated. The alias will be resolved according to the list above.') . '<br />' .
-			gettext('If an alias cannot be resolved (e.g. because it was deleted), the corresponding element (e.g. filter/NAT/shaper rule) will be considered invalid and skipped.'), 'info', false); ?>
+				<tr>
+					<td><?=htmlspecialchars($alias['name'])?></td>
+					<td class="text-nowrap"><?=htmlspecialchars($alias_types[$alias['type']])?></td>
+					<td><?=htmlspecialchars($alias['descr'])?></td>
+					<td class="fs-mono"><?=($values !== '') ? $values : '<span class="fs-muted">' . gettext('Values set dynamically.') . '</span>'?></td>
+				</tr>
+<?php
+	endforeach;
+?>
+			</tbody>
+		</table>
 	</div>
+</div>
+<?php
+endif;
+?>
+
+<div class="infoblock">
+	<?php print_info_box(gettext('Aliases act as placeholders for real hosts, networks or ports. They can be used to minimize the number ' .
+		'of changes that have to be made if a host, network or port changes.') . '<br />' .
+		gettext('The name of an alias can be entered instead of the host, network or port where indicated. The alias will be resolved according to the list above.') . '<br />' .
+		gettext('If an alias cannot be resolved (e.g. because it was deleted), the corresponding element (e.g. filter/NAT/shaper rule) will be considered invalid and skipped.'), 'info', false); ?>
 </div>
 
 <?php

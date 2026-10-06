@@ -163,15 +163,7 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Configuration"), false, "services_captiveportal.php?zone={$cpzone}");
-$tab_array[] = array(gettext("MACs"), false, "services_captiveportal_mac.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Allowed IP Addresses"), false, "services_captiveportal_ip.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Allowed Hostnames"), false, "services_captiveportal_hostname.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Vouchers"), false, "services_captiveportal_vouchers.php?zone={$cpzone}");
-$tab_array[] = array(gettext("High Availability"), true, "services_captiveportal_hasync.php?zone={$cpzone}");
-$tab_array[] = array(gettext("File Manager"), false, "services_captiveportal_filemanager.php?zone={$cpzone}");
-display_top_tabs($tab_array, true);
+fs_tabs('services-captiveportal', 'services_captiveportal_hasync.php', ['zone' => $cpzone]);
 
 $form = new Form();
 

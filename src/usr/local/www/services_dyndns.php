@@ -45,33 +45,35 @@ if ($_POST['act'] == "del") {
 
 $pgtitle = array(gettext("Services"), gettext("Dynamic DNS"), gettext("Dynamic DNS Clients"));
 $pglinks = array("", "@self", "@self");
+fs_page_action(gettext('Add client'), 'services_dyndns_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Dynamic DNS Clients"), true, "services_dyndns.php");
-$tab_array[] = array(gettext("RFC 2136 Clients"), false, "services_rfc2136.php");
-$tab_array[] = array(gettext("Check IP Services"), false, "services_checkip.php");
-display_top_tabs($tab_array);
+fs_tabs('services-dyndns', 'services_dyndns.php');
 ?>
 <form action="services_dyndns.php" method="post" name="iform" id="iform">
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Dynamic DNS Clients')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Dynamic DNS Clients'),
+	'search' => gettext('Search Dynamic DNS clients…'),
+	'noun' => gettext('Dynamic DNS clients'),
+	'noun_one' => gettext('Dynamic DNS client'),
+]); ?>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+				<table class="table table-hover table-rowdblclickedit">
 					<thead>
 						<tr>
-							<th><?=gettext("Status")?></th>
-							<th><?=gettext("Interface")?></th>
-							<th><?=gettext("Service")?></th>
-							<th><?=gettext("Hostname")?></th>
-							<th><?=gettext("Cached IP")?></th>
-							<th><?=gettext("Description")?></th>
-							<th><?=gettext("Actions")?></th>
+							<th data-fs-search><?=gettext("Status")?></th>
+							<th data-fs-search><?=gettext("Interface")?></th>
+							<th data-fs-search><?=gettext("Service")?></th>
+							<th data-fs-search><?=gettext("Hostname")?></th>
+							<th data-fs-search><?=gettext("Cached IP")?></th>
+							<th data-fs-search><?=gettext("Description")?></th>
+							<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -124,7 +126,9 @@ foreach (config_get_path("dyndnses/dyndns", []) as $dyndns):
 ?>
 						<tr<?=!isset($dyndns['enable'])?' class="disabled"':''?>>
 							<td>
-							<i class="<?=$icon_class?> <?=$text_class?>" title="<?=$icon_title?>"></i>
+							<?=(file_exists($filename) || file_exists($filename_v6))
+							    ? (($icon_title == 'Updated') ? fs_badge('pass', gettext('Updated')) : fs_badge('block', gettext('Failed')))
+							    : fs_badge('neutral', gettext('Not updated yet'))?>
 							</td>
 							<td>
 <?php
@@ -183,24 +187,22 @@ foreach (config_get_path("dyndnses/dyndns", []) as $dyndns):
 	print(htmlspecialchars($dyndns['descr']));
 ?>
 							</td>
-							<td>
-								<a class="fa-solid fa-pencil" title="<?=gettext('Edit service')?>" href="services_dyndns_edit.php?id=<?=$i?>"></a>
-<?php if (isset($dyndns['enable'])) {
-?>
-								<a class="fa-solid fa-ban" title="<?=gettext('Disable service')?>" href="?act=toggle&amp;id=<?=$i?>" usepost></a>
-<?php } else {
-?>
-								<a class="fa-regular fa-square-check" title="<?=gettext('Enable service')?>" href="?act=toggle&amp;id=<?=$i?>" usepost></a>
-<?php }
-?>
-								<a class="fa-regular fa-clone" title="<?=gettext('Copy service')?>"	href="services_dyndns_edit.php?dup=<?=$i?>"></a>
-								<a class="fa-solid fa-trash-can" title="<?=gettext('Delete service')?>"	href="services_dyndns.php?act=del&amp;id=<?=$i?>" usepost></a>
+							<td class="fs-col-actions">
+<?=fs_row_actions([
+								['edit', "services_dyndns_edit.php?id={$i}", $hostname ?: $dyndns['descr']],
+								['copy', "services_dyndns_edit.php?dup={$i}", $hostname ?: $dyndns['descr']],
+								['toggle', "?act=toggle&id={$i}", $hostname ?: $dyndns['descr'], ['enabled' => isset($dyndns['enable'])]],
+								['delete', "services_dyndns.php?act=del&id={$i}", $hostname ?: $dyndns['descr'], ['thing' => gettext('client')]],
+							])?>
 							</td>
 						</tr>
 <?php
 	$i++;
 	endforeach;
 ?>
+<?php if ($i == 0) {
+	fs_empty_row(7, gettext('No Dynamic DNS clients yet.'), 'services_dyndns_edit.php', gettext('Add client'));
+} ?>
 					</tbody>
 			  </table>
 			</div>
@@ -208,17 +210,8 @@ foreach (config_get_path("dyndnses/dyndns", []) as $dyndns):
 	</div>
 </form>
 
-<nav class="action-buttons">
-	<a href="services_dyndns_edit.php" class="btn btn-sm btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
-<div>
-	<?=sprintf(gettext('Entries with a %3$s status column icon and IP address appearing in %1$sgreen%2$s are up to date with Dynamic DNS provider. '), '<span class="text-success">', '</span>', '<i class="fa-solid fa-circle-check text-success"></i>')?>
-	<?=gettext('An update can be forced on the edit page for an entry.')?>
-</div>
+<p class="help-block"><?=gettext('An update can be forced on the edit page for an entry.')?></p>
 
 <?php
 include("foot.inc");

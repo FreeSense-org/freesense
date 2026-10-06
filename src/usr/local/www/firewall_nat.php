@@ -64,6 +64,10 @@ if (array_key_exists('order-store', $_REQUEST) && have_natpfruleint_access($nate
 // Construct the page =============================================================================
 $pgtitle = array(gettext("Firewall"), gettext("NAT"), gettext("Port Forward"));
 $pglinks = array("", "@self", "@self");
+if (isAllowedPage('firewall_nat_edit.php')) {
+	fs_page_action(gettext('Add rule'), 'firewall_nat_edit.php', 'fa-plus');
+	fs_page_action(gettext('Add rule to the top'), 'firewall_nat_edit.php?after=-1', 'fa-turn-up', 'secondary');
+}
 include("head.inc");
 
 if ($_POST['apply']) {
@@ -75,12 +79,7 @@ if (is_subsystem_dirty('natconf') && have_natpfruleint_access($natent['interface
 					gettext('The changes must be applied for them to take effect.'));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Port Forward"), true, "firewall_nat.php");
-$tab_array[] = array(gettext("1:1"), false, "firewall_nat_1to1.php");
-$tab_array[] = array(gettext("Outbound"), false, "firewall_nat_out.php");
-$tab_array[] = array(gettext("NPt"), false, "firewall_nat_npt.php");
-display_top_tabs($tab_array);
+fs_tabs('firewall-nat', 'firewall_nat.php');
 
 $columns_in_table = 13;
 ?>
@@ -94,10 +93,35 @@ $columns_in_table = 13;
 </style>
 
 <form action="firewall_nat.php" method="post" name="iform">
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Rules')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php ob_start(); ?>
+<?php if (isAllowedPage('firewall_nat_edit.php')): ?>
+		<button id="del_x" name="del_x" data-fs-confirm="<?=gettext('Delete the selected rules?')?>" data-fs-confirm-action="<?=gettext('Delete')?>" type="submit" class="btn btn-sm btn-outline-danger" disabled title="<?=gettext('Delete selected rules')?>">
+			<i class="fa-solid fa-trash-can icon-embed-btn"></i>
+			<?=gettext("Delete"); ?>
+		</button>
+		<button id="toggle_x" name="toggle_x" type="submit" class="btn btn-sm btn-outline-secondary" disabled value="<?=gettext("Toggle selected rules"); ?>" title="<?=gettext('Toggle selected rules')?>">
+			<i class="fa-solid fa-ban icon-embed-btn"></i>
+			<?=gettext("Toggle"); ?>
+		</button>
+		<button type="submit" id="order-store" name="order-store" class="btn btn-sm btn-outline-secondary" disabled title="<?=gettext('Save rule order')?>">
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
+			<?=gettext("Save")?>
+		</button>
+		<button type="submit" id="addsep" name="addsep" class="btn btn-sm btn-outline-secondary" title="<?=gettext('Add separator')?>">
+			<i class="fa-solid fa-plus icon-embed-btn"></i>
+			<?=gettext("Separator")?>
+		</button>
+	<?php endif; ?>
+<?php fs_table_toolbar([
+	'title' => gettext('Rules'),
+	'search' => gettext('Search rules…'),
+	'noun' => gettext('rules'),
+	'noun_one' => gettext('rule'),
+	'actions' => ob_get_clean(),
+]); ?>
 		<div class="panel-body table-responsive">
-			<table id="ruletable" class="table table-striped table-hover table-sm">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
 						<th style="padding-left:10px;">  <input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -165,7 +189,7 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 
 ?>
 
-					<tr id="fr<?=$nnats;?>" <?=$trclass?> onClick="fr_toggle(<?=$nnats;?>)" ondblclick="document.location='firewall_nat_edit.php?id=<?=$i;?>';">
+					<tr id="fr<?=$nnats;?>" <?=$trclass?> onClick="fr_toggle(<?=$nnats;?>)">
 						<td >
 <?php	if (have_natpfruleint_access($natent['interface'])): ?>
 							<input type="checkbox" id="frc<?=$nnats;?>" onClick="fr_toggle(<?=$nnats;?>)" name="rule[]" value="<?=$i;?>"/>
@@ -303,9 +327,11 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 						</td>
 						<td>
 <?php	if (have_natpfruleint_access($natent['interface'])): ?>
-							<a class="fa-solid fa-pencil" title="<?=gettext("Edit rule"); ?>" href="firewall_nat_edit.php?id=<?=$i?>"></a>
-							<a class="fa-regular fa-clone"	  title="<?=gettext("Add a new NAT based on this one")?>" href="firewall_nat_edit.php?dup=<?=$i?>"></a>
-							<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete rule")?>" href="firewall_nat.php?act=del&amp;id=<?=$i?>" usepost></a>
+							<?=fs_row_actions([
+								['edit', "firewall_nat_edit.php?id={$i}", $natent['descr'] ?: sprintf(gettext('rule %d'), $i + 1)],
+								['copy', "firewall_nat_edit.php?dup={$i}", $natent['descr'] ?: sprintf(gettext('rule %d'), $i + 1)],
+								['delete', "firewall_nat.php?act=del&id={$i}", $natent['descr'] ?: sprintf(gettext('rule %d'), $i + 1), ['thing' => gettext('rule')]],
+							])?>
 <?php	else: ?>
 							-
 <?php	endif; ?>
@@ -322,39 +348,14 @@ if ($seprows[$nnats]) {
 	display_separator($separators, $nnats, $columns_in_table);
 }
 ?>
+<?php if ($nnats == 0) {
+	fs_empty_row(13, gettext('No port forward rules yet.'), isAllowedPage('firewall_nat_edit.php') ? 'firewall_nat_edit.php' : null, gettext('Add rule'));
+} ?>
 				</tbody>
 			</table>
 		</div>
 	</div>
 
-<?php	if (have_natpfruleint_access($natent['interface'])): ?>
-	<nav class="action-buttons">
-		<a href="firewall_nat_edit.php?after=-1" class="btn btn-sm btn-success" title="<?=gettext('Add rule to the top of the list')?>">
-			<i class="fa-solid fa-turn-up icon-embed-btn"></i>
-			<?=gettext('Add')?>
-		</a>
-		<a href="firewall_nat_edit.php" class="btn btn-sm btn-success" title="<?=gettext('Add rule to the end of the list')?>">
-			<i class="fa-solid fa-turn-down icon-embed-btn"></i>
-			<?=gettext('Add')?>
-		</a>
-		<button id="del_x" name="del_x" type="submit" class="btn btn-danger btn-sm" disabled title="<?=gettext('Delete selected rules')?>">
-			<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-			<?=gettext("Delete"); ?>
-		</button>
-		<button id="toggle_x" name="toggle_x" type="submit" class="btn btn-primary btn-sm" disabled value="<?=gettext("Toggle selected rules"); ?>" title="<?=gettext('Toggle selected rules')?>">
-			<i class="fa-solid fa-ban icon-embed-btn"></i>
-			<?=gettext("Toggle"); ?>
-		</button>
-		<button type="submit" id="order-store" name="order-store" class="btn btn-primary btn-sm" disabled title="<?=gettext('Save rule order')?>">
-			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
-			<?=gettext("Save")?>
-		</button>
-		<button type="submit" id="addsep" name="addsep" class="btn btn-sm btn-warning" title="<?=gettext('Add separator')?>">
-			<i class="fa-solid fa-plus icon-embed-btn"></i>
-			<?=gettext("Separator")?>
-		</button>
-	</nav>
-<?php	endif; ?>
 </form>
 
 <script type="text/javascript">

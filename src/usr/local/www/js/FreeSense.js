@@ -280,11 +280,17 @@ $(function() {
 	});
 
 	$('.table-rowdblclickedit>tbody>tr').dblclick(function () {
-		$(this).find(".fa-pencil")[0].click();
+		// fs_row_actions() edit link (icon inside the anchor) or a legacy pencil anchor;
+		// rows without one (empty state, separators) do nothing
+		var edit = $(this).find('a.fa-pencil, a:has(> .fa-pencil)').first();
+		if (edit.length) {
+			edit[0].click();
+		}
 	});
 
 	// Focus first input
-	$(':input:enabled:visible:first').focus();
+	// (page content only: the navbar holds the menu search button)
+	$('.fs-main :input:enabled:visible:first').focus();
 
 	$(".resizable").each(function() {
 		$(this).css('height', 80).resizable({minHeight: 80, minWidth: 200}).parent().css('padding-bottom', 0);

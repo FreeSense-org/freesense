@@ -252,6 +252,11 @@ $pgtitle = array(gettext("Firewall"), gettext("Rules"), $bctab);
 $pglinks = array("", "firewall_rules.php", "@self");
 $shortcut_section = "firewall";
 
+if (!empty($if) && isAllowedPage('firewall_rules_edit.php')) {
+	fs_page_action(gettext('Add rule'), 'firewall_rules_edit.php?if=' . urlencode($if), 'fa-plus');
+	fs_page_action(gettext('Add rule to the top'), 'firewall_rules_edit.php?if=' . urlencode($if) . '&after=-1', 'fa-turn-up', 'secondary');
+}
+
 include("head.inc");
 $nrules = 0;
 
@@ -322,10 +327,39 @@ if (isset($if)):
 	<input name="if" id="if" type="hidden" value="<?=htmlspecialchars((string)$if)?>" />
 	<input name="dstif" id="dstif" type="hidden" value="" />
 	<input name="convertif" id="convertif" type="hidden" value="" />
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=$rules_header_text?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php ob_start(); ?>
+		<button id="del_x" name="del_x" type="submit" class="btn btn-sm btn-outline-danger" data-fs-confirm="<?=gettext('Delete the selected rules?')?>" data-fs-confirm-action="<?=gettext('Delete')?>" value="<?=gettext("Delete selected rules"); ?>" disabled title="<?=gettext('Delete selected rules')?>">
+			<i class="fa-solid fa-trash-can icon-embed-btn"></i>
+			<?=gettext("Delete"); ?>
+		</button>
+		<button id="toggle_x" name="toggle_x" type="submit" class="btn btn-sm btn-outline-secondary" value="<?=gettext("Toggle selected rules"); ?>" disabled title="<?=gettext('Toggle selected rules')?>">
+			<i class="fa-solid fa-ban icon-embed-btn"></i>
+			<?=gettext("Toggle"); ?>
+		</button>
+		<?php if ($if !== 'FloatingRules'):?>
+		<button id="copy_x" name="copy_x" type="button" class="btn btn-sm btn-outline-secondary" value="<?=gettext("Copy selected rules"); ?>" disabled title="<?=gettext('Copy selected rules')?>" data-bs-toggle="modal" data-bs-target="#rulescopy">
+			<i class="fa-regular fa-clone icon-embed-btn"></i>
+			<?=gettext("Copy"); ?>
+		</button>
+		<?php endif;?>
+		<button type="submit" id="order-store" name="order-store" class="btn btn-sm btn-outline-secondary" value="store changes" disabled title="<?=gettext('Save rule order')?>">
+			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
+			<?=gettext("Save")?>
+		</button>
+		<button type="submit" id="addsep" name="addsep" class="btn btn-sm btn-outline-secondary" title="<?=gettext('Add separator')?>">
+			<i class="fa-solid fa-plus icon-embed-btn"></i>
+			<?=gettext("Separator")?>
+		</button>
+<?php fs_table_toolbar([
+	'title' => $rules_header_text,
+	'search' => gettext('Search rules…'),
+	'noun' => gettext('rules'),
+	'noun_one' => gettext('rule'),
+	'actions' => ob_get_clean(),
+]); ?>
 		<div id="mainarea" class="table-responsive panel-body">
-			<table id="ruletable" class="table table-hover table-striped table-sm" style="overflow-x: 'visible'">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -439,7 +473,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 			display_separator($separators, $nrules, $columns_in_table);
 		}
 ?>
-					<tr id="fr<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" ondblclick="document.location='firewall_rules_edit.php?id=<?=$filteri;?>';" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
+					<tr id="fr<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
 						<td>
 							<input type="checkbox" id="frc<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" name="rule[]" value="<?=$filteri;?>"/>
 						</td>
@@ -850,24 +884,27 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 						<td>
 							<?=htmlspecialchars($filterent['descr']);?>
 						</td>
-						<td class="action-icons">
+						<td class="action-icons fs-col-actions">
 						<!-- <?=(isset($filterent['disabled']) ? 'enable' : 'disable')?> -->
 							<a	class="fa-solid fa-anchor icon-pointer" id="Xmove_<?=$filteri?>" title="<?=$XmoveTitle?>"></a>
-							<a href="firewall_rules_edit.php?id=<?=$filteri;?>" class="fa-solid fa-pencil" title="<?=gettext('Edit')?>"></a>
-							<a href="firewall_rules_edit.php?dup=<?=$filteri;?>" class="fa-regular fa-clone" title="<?=gettext('Copy')?>"></a>
-<?php if (isset($filterent['disabled'])) {
+<?php
+	$rule_label = $filterent['descr'] ?: sprintf(gettext('rule %d'), $nrules + 1);
+	/* request-derived URL parts pass htmlspecialchars() so the code scanner can see they are sanitized */
+	$rule_actions = [
+		['edit', "firewall_rules_edit.php?id={$filteri}", $rule_label],
+		['copy', "firewall_rules_edit.php?dup={$filteri}", $rule_label],
+		['toggle', '?act=toggle&if=' . htmlspecialchars(urlencode($if)) . "&id={$filteri}", $rule_label, ['enabled' => !isset($filterent['disabled'])]],
+	];
+	if (($filterent['type'] == 'pass') && !empty($filterent['tracker'])) {
+		$rule_actions[] = ['custom', '?act=killid&if=' . htmlspecialchars(urlencode($if)) . "&id={$filteri}&tracker=" . urlencode($filterent['tracker']), $rule_label, [
+			'icon' => 'fa-solid fa-xmark', 'post' => true,
+			'label' => gettext('Kill states on this interface created by this rule'),
+			'confirm' => sprintf(gettext('Kill the states on this interface created by rule “%s”?'), $rule_label),
+			'confirm_action' => gettext('Kill states')]];
+	}
+	$rule_actions[] = ['delete', '?act=del&if=' . htmlspecialchars(urlencode($if)) . "&id={$filteri}", $rule_label, ['thing' => gettext('rule')]];
 ?>
-							<a href="?act=toggle&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>" class="fa-regular fa-square-check" title="<?=gettext('Enable')?>" usepost></a>
-<?php } else {
-?>
-							<a href="?act=toggle&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>" class="fa-solid fa-ban" title="<?=gettext('Disable')?>" usepost></a>
-<?php }
-?>
-							<a href="?act=del&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>" class="fa-solid fa-trash-can" title="<?=gettext('Delete this rule')?>" usepost></a>
-<?php if (($filterent['type'] == 'pass') &&
-	    !empty($filterent['tracker'])): ?>
-							<a href="?act=killid&amp;if=<?=htmlspecialchars($if);?>&amp;id=<?=$filteri;?>&amp;tracker=<?=$filterent['tracker']?>" class="fa-solid fa-xmark do-confirm" title="<?=gettext('Kill states on this interface created by this rule')?>" usepost></a>
-<?php endif; ?>
+							<?=fs_row_actions($rule_actions)?>
 						</td>
 					</tr>
 <?php
@@ -901,38 +938,6 @@ foreach ($seprows as $idx => $sep) {
 	</div>
 <?php endif;?>
 
-	<nav class="action-buttons">
-		<a href="firewall_rules_edit.php?if=<?=htmlspecialchars($if);?>&amp;after=-1" role="button" class="btn btn-sm btn-success" title="<?=gettext('Add rule to the top of the list')?>">
-			<i class="fa-solid fa-turn-up icon-embed-btn"></i>
-			<?=gettext("Add");?>
-		</a>
-		<a href="firewall_rules_edit.php?if=<?=htmlspecialchars($if);?>" role="button" class="btn btn-sm btn-success" title="<?=gettext('Add rule to the end of the list')?>">
-			<i class="fa-solid fa-turn-down icon-embed-btn"></i>
-			<?=gettext("Add");?>
-		</a>
-		<button id="del_x" name="del_x" type="submit" class="btn btn-danger btn-sm" value="<?=gettext("Delete selected rules"); ?>" disabled title="<?=gettext('Delete selected rules')?>">
-			<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-			<?=gettext("Delete"); ?>
-		</button>
-		<button id="toggle_x" name="toggle_x" type="submit" class="btn btn-primary btn-sm" value="<?=gettext("Toggle selected rules"); ?>" disabled title="<?=gettext('Toggle selected rules')?>">
-			<i class="fa-solid fa-ban icon-embed-btn"></i>
-			<?=gettext("Toggle"); ?>
-		</button>
-		<?php if ($if !== 'FloatingRules'):?>
-		<button id="copy_x" name="copy_x" type="button" class="btn btn-primary btn-sm" value="<?=gettext("Copy selected rules"); ?>" disabled title="<?=gettext('Copy selected rules')?>" data-bs-toggle="modal" data-bs-target="#rulescopy">
-			<i class="fa-regular fa-clone icon-embed-btn"></i>
-			<?=gettext("Copy"); ?>
-		</button>
-		<?php endif;?>
-		<button type="submit" id="order-store" name="order-store" class="btn btn-sm btn-primary" value="store changes" disabled title="<?=gettext('Save rule order')?>">
-			<i class="fa-solid fa-floppy-disk icon-embed-btn"></i>
-			<?=gettext("Save")?>
-		</button>
-		<button type="submit" id="addsep" name="addsep" class="btn btn-sm btn-warning" title="<?=gettext('Add separator')?>">
-			<i class="fa-solid fa-plus icon-embed-btn"></i>
-			<?=gettext("Separator")?>
-		</button>
-	</nav>
 </form>
 <?php
 // Create a Modal object to display Rules Copy window

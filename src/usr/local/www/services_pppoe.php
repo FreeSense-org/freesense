@@ -69,6 +69,7 @@ if ($_POST['act'] == "del") {
 
 $pgtitle = array(gettext("Services"), gettext("PPPoE Server"));
 $shortcut_section = "pppoes";
+fs_page_action(gettext('Add PPPoE server'), 'services_pppoe_edit.php', 'fa-plus');
 include("head.inc");
 
 if ($_POST['apply']) {
@@ -80,19 +81,24 @@ if (is_subsystem_dirty('vpnpppoe')) {
 }
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('PPPoE Server')?></h2></div>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('PPPoE Server'),
+	'search' => gettext('Search PPPoE servers…'),
+	'noun' => gettext('PPPoE servers'),
+	'noun_one' => gettext('PPPoE server'),
+]); ?>
 	<div class="panel-body">
 
 	<div class="table-responsive">
-	<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+	<table class="table table-hover table-rowdblclickedit">
 		<thead>
 			<tr>
-				<th><?=gettext("Interface")?></th>
-				<th><?=gettext("Local IP")?></th>
-				<th><?=gettext("Number of users")?></th>
-				<th><?=gettext("Description")?></th>
-				<th><?=gettext("Actions")?></th>
+				<th data-fs-search><?=gettext("Interface")?></th>
+				<th data-fs-search><?=gettext("Local IP")?></th>
+				<th data-fs-search><?=gettext("Number of users")?></th>
+				<th data-fs-search><?=gettext("Description")?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -113,15 +119,20 @@ foreach (config_get_path('pppoes/pppoe', []) as $pppoe):
 				<td>
 					<?=htmlspecialchars($pppoe['descr'])?>
 				</td>
-				<td>
-					<a class="fa-solid fa-pencil"	title="<?=gettext('Edit PPPoE instance')?>"	href="services_pppoe_edit.php?id=<?=$i?>"></a>
-					<a class="fa-solid fa-trash-can" title="<?=gettext('Delete PPPoE instance')?>" href="services_pppoe.php?act=del&amp;id=<?=$i?>" usepost></a>
+				<td class="fs-col-actions">
+<?=fs_row_actions([
+						['edit', "services_pppoe_edit.php?id={$i}", $pppoe['descr'] ?: convert_friendly_interface_to_friendly_descr($pppoe['interface'])],
+						['delete', "services_pppoe.php?act=del&id={$i}", $pppoe['descr'] ?: convert_friendly_interface_to_friendly_descr($pppoe['interface']), ['thing' => gettext('PPPoE server')]],
+					])?>
 				</td>
 			</tr>
 <?php
 	$i++;
 endforeach;
 ?>
+<?php if ($i == 0) {
+	fs_empty_row(5, gettext('No PPPoE servers yet.'), 'services_pppoe_edit.php', gettext('Add PPPoE server'));
+} ?>
 		</tbody>
 	</table>
 </div>
@@ -129,12 +140,6 @@ endforeach;
 	</div>
 </div>
 
-<nav class="action-buttons">
-	<a href="services_pppoe_edit.php" class="btn btn-success">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <?php
 include("foot.inc");

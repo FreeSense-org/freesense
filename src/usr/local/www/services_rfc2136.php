@@ -42,13 +42,10 @@ if ($_POST['act'] == "del") {
 
 $pgtitle = array(gettext("Services"), gettext("Dynamic DNS"), gettext("RFC 2136 Clients"));
 $pglinks = array("", "services_dyndns.php", "@self");
+fs_page_action(gettext('Add client'), 'services_rfc2136_edit.php', 'fa-plus');
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("Dynamic DNS Clients"), false, "services_dyndns.php");
-$tab_array[] = array(gettext("RFC 2136 Clients"), true, "services_rfc2136.php");
-$tab_array[] = array(gettext("Check IP Services"), false, "services_checkip.php");
-display_top_tabs($tab_array);
+fs_tabs('services-dyndns', 'services_rfc2136.php');
 
 if ($input_errors) {
 	print_input_errors($input_errors);
@@ -56,20 +53,25 @@ if ($input_errors) {
 ?>
 
 <form action="services_rfc2136.php" method="post" name="iform" id="iform">
-	<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('RFC2136 Clients')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('RFC2136 Clients'),
+	'search' => gettext('Search RFC 2136 clients…'),
+	'noun' => gettext('RFC 2136 clients'),
+	'noun_one' => gettext('RFC 2136 client'),
+]); ?>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-sm table-rowdblclickedit">
+				<table class="table table-hover table-rowdblclickedit">
 					<thead>
 						<tr>
-							<th><?=gettext("Status")?></th>
-							<th><?=gettext("Interface")?></th>
-							<th><?=gettext("Server")?></th>
-							<th><?=gettext("Hostname")?></th>
-							<th><?=gettext("Cached IP")?></th>
-							<th><?=gettext("Description")?></th>
-							<th><?=gettext("Actions")?></th>
+							<th data-fs-search><?=gettext("Status")?></th>
+							<th data-fs-search><?=gettext("Interface")?></th>
+							<th data-fs-search><?=gettext("Server")?></th>
+							<th data-fs-search><?=gettext("Hostname")?></th>
+							<th data-fs-search><?=gettext("Cached IP")?></th>
+							<th data-fs-search><?=gettext("Description")?></th>
+							<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -125,7 +127,9 @@ foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 ?>
 						<tr<?=(isset($rfc2136['enable']) ? '' : ' class="disabled"')?>>
 							<td>
-							<i class="<?=$icon_class?> <?=$text_class?>" title="<?=$icon_title?>"></i>
+							<?=(file_exists($filename) || file_exists($filename_v6))
+							    ? (($icon_title == 'Updated') ? fs_badge('pass', gettext('Updated')) : fs_badge('block', gettext('Failed')))
+							    : fs_badge('neutral', gettext('Not updated yet'))?>
 							</td>
 							<td>
 <?php
@@ -185,24 +189,22 @@ foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 					<td>
 						<?=htmlspecialchars($rfc2136['descr'])?>
 					</td>
-					<td>
-						<a class="fa-solid fa-pencil" title="<?=gettext('Edit client')?>" href="services_rfc2136_edit.php?id=<?=$i?>"></a>
-					<?php if (isset($rfc2136['enable'])) {
-					?>
-						<a	class="fa-solid fa-ban" title="<?=gettext('Disable client')?>" href="?act=toggle&amp;id=<?=$i?>" usepost></a>
-					<?php } else {
-					?>
-						<a class="fa-regular fa-square-check" title="<?=gettext('Enable client')?>" href="?act=toggle&amp;id=<?=$i?>" usepost></a>
-					<?php }
-					?>
-						<a class="fa-regular fa-clone" title="<?=gettext('Copy client')?>" href="services_rfc2136_edit.php?dup=<?=$i?>"></a>
-						<a class="fa-solid fa-trash-can" title="<?=gettext('Delete client')?>" href="services_rfc2136.php?act=del&amp;id=<?=$i?>" usepost></a>
+					<td class="fs-col-actions">
+<?=fs_row_actions([
+							['edit', "services_rfc2136_edit.php?id={$i}", $rfc2136['host'] ?: $rfc2136['descr']],
+							['copy', "services_rfc2136_edit.php?dup={$i}", $rfc2136['host'] ?: $rfc2136['descr']],
+							['toggle', "?act=toggle&id={$i}", $rfc2136['host'] ?: $rfc2136['descr'], ['enabled' => isset($rfc2136['enable'])]],
+							['delete', "services_rfc2136.php?act=del&id={$i}", $rfc2136['host'] ?: $rfc2136['descr'], ['thing' => gettext('client')]],
+						])?>
 					</td>
 					</tr>
 <?php
 	$i++;
 endforeach; ?>
 
+<?php if ($i == 0) {
+	fs_empty_row(7, gettext('No RFC 2136 clients yet.'), 'services_rfc2136_edit.php', gettext('Add client'));
+} ?>
 					</tbody>
 				</table>
 			</div>
@@ -210,17 +212,8 @@ endforeach; ?>
 	</div>
 </form>
 
-<nav class="action-buttons">
-	<a href="services_rfc2136_edit.php" class="btn btn-sm btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext('Add')?>
-	</a>
-</nav>
 
-<div>
-	<?=sprintf(gettext('Entries with a %3$s status column icon and IP address appearing in %1$sgreen%2$s are up to date with Dynamic DNS provider. '), '<span class="text-success">', '</span>', '<i class="fa-solid fa-circle-check text-success"></i>')?>
-	<?=gettext('An update can be forced on the edit page for an entry.')?>
-</div>
+<p class="help-block"><?=gettext('An update can be forced on the edit page for an entry.')?></p>
 
 <?php
 include("foot.inc");

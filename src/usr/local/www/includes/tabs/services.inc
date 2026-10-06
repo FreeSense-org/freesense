@@ -21,6 +21,23 @@
 
 /* Tab groups for the Services menu (loaded by fs_tab_groups(); labels are plain text). */
 
+$fs_tab_groups['services-dyndns'] = [
+	[gettext('Dynamic DNS Clients'), 'services_dyndns.php'],
+	[gettext('RFC 2136 Clients'), 'services_rfc2136.php'],
+	[gettext('Check IP Services'), 'services_checkip.php'],
+];
+
+/* per zone: pages pass ['zone' => $cpzone] */
+$fs_tab_groups['services-captiveportal'] = [
+	[gettext('Configuration'), 'services_captiveportal.php'],
+	[gettext('MACs'), 'services_captiveportal_mac.php'],
+	[gettext('Allowed IP Addresses'), 'services_captiveportal_ip.php'],
+	[gettext('Allowed Hostnames'), 'services_captiveportal_hostname.php'],
+	[gettext('Vouchers'), 'services_captiveportal_vouchers.php'],
+	[gettext('High Availability'), 'services_captiveportal_hasync.php'],
+	[gettext('File Manager'), 'services_captiveportal_filemanager.php'],
+];
+
 /* DNS Resolver: the overrides are views of services_unbound.php (rule R1) */
 $fs_tab_groups['services-dnsresolver'] = [
 	[gettext('General Settings'), 'services_unbound.php'],

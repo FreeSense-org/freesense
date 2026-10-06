@@ -51,47 +51,38 @@ if ($_POST['act'] == "del") {
 
 $pgtitle = array(gettext("Interfaces"), gettext("VLANs"));
 $shortcut_section = "interfaces";
+fs_page_action(gettext('Add VLAN'), 'interfaces_vlan_edit.php', 'fa-plus');
 include('head.inc');
 
 if ($input_errors) print_input_errors($input_errors);
 
-$tab_array = array();
-$tab_array[] = array(gettext("Interface Assignments"), false, "interfaces_assign.php");
-$tab_array[] = array(gettext("Interface Groups"), false, "interfaces_groups.php");
-$tab_array[] = array(gettext("Wireless"), false, "interfaces_wireless.php");
-$tab_array[] = array(gettext("VLANs"), true, "interfaces_vlan.php");
-$tab_array[] = array(gettext("QinQs"), false, "interfaces_qinq.php");
-$tab_array[] = array(gettext("PPPs"), false, "interfaces_ppps.php");
-$tab_array[] = array(gettext("GREs"), false, "interfaces_gre.php");
-$tab_array[] = array(gettext("GIFs"), false, "interfaces_gif.php");
-$tab_array[] = array(gettext("VXLANs"), false, "interfaces_vxlan.php");
-$tab_array[] = array(gettext("Bridges"), false, "interfaces_bridge.php");
-$tab_array[] = array(gettext("LAGGs"), false, "interfaces_lagg.php");
-display_top_tabs($tab_array);
+fs_tabs('interfaces', 'interfaces_vlan.php');
 
 ?>
 <form action="interfaces_vlan.php" method="post">
-	<input id="act" type="hidden" name="act" value="" />
-	<input id="id" type="hidden" name="id" value=""/>
 
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('VLAN Interfaces')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('VLAN Interfaces'),
+	'search' => gettext('Search VLANs…'),
+	'noun' => gettext('VLANs'),
+	'noun_one' => gettext('VLAN'),
+]); ?>
 		<div class="panel-body">
 			<div class="table-responsive">
-				<table class="table table-striped table-hover table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+				<table class="table table-hover table-rowdblclickedit" data-sortable>
 					<thead>
 						<tr>
-							<th><?=gettext('Interface');?></th>
-							<th><?=gettext('VLAN tag');?></th>
-							<th><?=gettext('Priority');?></th>
-							<th><?=gettext('Description');?></th>
-							<th><?=gettext('Actions');?></th>
+							<th data-fs-search><?=gettext('Interface');?></th>
+							<th data-fs-search><?=gettext('VLAN tag');?></th>
+							<th data-fs-search><?=gettext('Priority');?></th>
+							<th data-fs-search><?=gettext('Description');?></th>
+							<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 						</tr>
 					</thead>
 					<tbody>
 <?php
 	$i = 0;
-	$gettext_array = array('edit'=>gettext('Edit VLAN'),'del'=>gettext('Delete VLAN'));
 	$ifaces = convert_real_interface_to_friendly_interface_name_fast();
 	foreach (config_get_path('vlans/vlan', []) as $vlan) {
 ?>
@@ -106,27 +97,26 @@ display_top_tabs($tab_array);
 							<td><?=htmlspecialchars($vlan['tag']);?></td>
 							<td><?=htmlspecialchars($vlan['pcp']);?></td>
 							<td><?=htmlspecialchars($vlan['descr']);?></td>
-							<td>
-								<a class="fa-solid fa-pencil"	title="<?=$gettext_array['edit']?>"	role="button" href="interfaces_vlan_edit.php?id=<?=$i?>" ></a>
-								<a class="fa-solid fa-trash-can no-confirm"	title="<?=$gettext_array['del']?>"	role="button" id="del-<?=$i?>"></a>
+							<td class="fs-col-actions">
+								<?=fs_row_actions([
+									['edit', "interfaces_vlan_edit.php?id={$i}", $vlan['vlanif'] ?: $vlan['descr']],
+									['delete', "interfaces_vlan.php?act=del&id={$i}", $vlan['vlanif'] ?: $vlan['descr'], ['thing' => gettext('VLAN')]],
+								])?>
 							</td>
 						</tr>
 <?php
 			$i++;
 	}
 ?>
+<?php if (empty(config_get_path('vlans/vlan', []))) {
+	fs_empty_row(5, gettext('No VLANs yet.'), 'interfaces_vlan_edit.php', gettext('Add VLAN'));
+} ?>
 					</tbody>
 				</table>
 			</div>
 		</div>
 	</div>
 
-	<nav class="action-buttons">
-		<a class="btn btn-success btn-sm" role="button" href="interfaces_vlan_edit.php">
-			<i class="fa-solid fa-plus icon-embed-btn"></i>
-			<?=gettext('Add'); ?>
-		</a>
-	</nav>
 
 </form>
 
@@ -137,24 +127,5 @@ display_top_tabs($tab_array);
 		'%2$s handbook for information on supported cards.'), '<br />', g_get('product_label')), 'info', false); ?>
 </div>
 
-<?php
-	$delmsg = gettext("Are you sure you want to delete this VLAN?");
-?>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-	// Select 'delete button' clicks, extract the id, set the hidden input values and submit
-	$('[id^=del-]').click(function(event) {
-		if (confirm("<?=$delmsg?>")) {
-			$('#act').val('del');
-			$('#id').val(this.id.replace("del-", ""));
-			$(this).parents('form').submit();
-		}
-	});
-
-});
-//]]>
-</script>
 <?php
 include("foot.inc");

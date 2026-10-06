@@ -68,25 +68,25 @@ if ($_POST['act'] == "del" && !empty($cpzone)) {
 	}
 }
 
+fs_page_action(gettext('Add hostname'), 'services_captiveportal_hostname_edit.php?zone=' . urlencode($cpzone) . '&act=add', 'fa-plus');
 include("head.inc");
 
-$tab_array = array();
-$tab_array[] = array(gettext("Configuration"), false, "services_captiveportal.php?zone={$cpzone}");
-$tab_array[] = array(gettext("MACs"), false, "services_captiveportal_mac.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Allowed IP Addresses"), false, "services_captiveportal_ip.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Allowed Hostnames"), true, "services_captiveportal_hostname.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Vouchers"), false, "services_captiveportal_vouchers.php?zone={$cpzone}");
-$tab_array[] = array(gettext("High Availability"), false, "services_captiveportal_hasync.php?zone={$cpzone}");
-$tab_array[] = array(gettext("File Manager"), false, "services_captiveportal_filemanager.php?zone={$cpzone}");
-display_top_tabs($tab_array, true);
+fs_tabs('services-captiveportal', 'services_captiveportal_hostname.php', ['zone' => $cpzone]);
 ?>
-<div class="table-responsive">
-	<table class="table table-hover table-striped table-sm table-rowdblclickedit sortable-theme-bootstrap" data-sortable>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Allowed Hostnames'),
+	'search' => gettext('Search hostnames…'),
+	'noun' => gettext('hostnames'),
+	'noun_one' => gettext('hostname'),
+]); ?>
+<div class="panel-body table-responsive">
+	<table class="table table-hover table-rowdblclickedit" data-sortable>
 		<thead>
 			<tr>
-				<th><?=gettext("Hostname"); ?></th>
-				<th><?=gettext("Description"); ?></th>
-				<th data-sortable="false"><?=gettext("Actions"); ?></th>
+				<th data-fs-search><?=gettext("Hostname"); ?></th>
+				<th data-fs-search><?=gettext("Description"); ?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -95,32 +95,34 @@ $i = 0;
 foreach (config_get_path("captiveportal/{$cpzone}/allowedhostname", []) as $ip): ?>
 			<tr>
 				<td>
-					<?=$directionicons[$ip['dir']]?>&nbsp;<?=strtolower((is_string($ip['hostname']) && (strlen($ip['hostname']) > 0)) ? idn_to_utf8($ip['hostname']) : '')?>
+					<?=$directionicons[$ip['dir']]?>&nbsp;<?=htmlspecialchars(strtolower((is_string($ip['hostname']) && (strlen($ip['hostname']) > 0)) ? idn_to_utf8($ip['hostname']) : ''))?>
 				</td>
 				<td >
 					<?=htmlspecialchars($ip['descr'])?>
 				</td>
-				<td>
-					<a class="fa-solid fa-pencil"	title="<?=gettext("Edit hostname"); ?>" href="services_captiveportal_hostname_edit.php?zone=<?=$cpzone?>&amp;id=<?=$i?>"></a>
-					<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete hostname")?>" href="services_captiveportal_hostname.php?zone=<?=$cpzone?>&amp;act=del&amp;id=<?=$i?>" usepost></a>
+				<td class="fs-col-actions">
+<?=fs_row_actions([
+					['edit', "services_captiveportal_hostname_edit.php?zone=" . urlencode($cpzone) . "&id={$i}", $ip['hostname']],
+					['delete', "services_captiveportal_hostname.php?zone=" . urlencode($cpzone) . "&act=del&id={$i}", $ip['hostname'], ['thing' => gettext('allowed hostname')]],
+				])?>
 				</td>
 			</tr>
 <?php
 $i++;
 endforeach; ?>
-		<tbody>
+<?php if ($i == 0) {
+	fs_empty_row(3, gettext('No allowed hostnames yet.'), 'services_captiveportal_hostname_edit.php?zone=' . urlencode($cpzone) . '&act=add', gettext('Add hostname'));
+} ?>
+		</tbody>
 	</table>
+</div>
+<div class="panel-footer small">
 	<?=$directionicons['to'] . ' = ' . sprintf(gettext('All connections %1$sto%2$s the hostname are allowed'), '<u>', '</u>') . ', '?>
 	<?=$directionicons['from'] . ' = ' . sprintf(gettext('All connections %1$sfrom%2$s the hostname are allowed'), '<u>', '</u>') . ', '?>
 	<?=$directionicons['both'] . ' = ' . sprintf(gettext('All connections %1$sto or from%2$s are allowed'), '<u>', '</u>')?>
 </div>
+</div>
 
-<nav class="action-buttons">
-	<a href="services_captiveportal_hostname_edit.php?zone=<?=$cpzone?>&amp;act=add" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box($notestr, 'info', false); ?>

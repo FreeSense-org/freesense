@@ -66,6 +66,7 @@ if ($_POST['act'] == "del") {
 	}
 }
 
+fs_page_action(gettext('Add MAC address'), 'services_captiveportal_mac_edit.php?zone=' . urlencode($cpzone) . '&act=add', 'fa-plus');
 include("head.inc");
 
 if ($_POST['apply']) {
@@ -76,24 +77,23 @@ if (is_subsystem_dirty('passthrumac')) {
 	print_apply_box(gettext("The Captive Portal MAC address configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Configuration"), false, "services_captiveportal.php?zone={$cpzone}");
-$tab_array[] = array(gettext("MACs"), true, "services_captiveportal_mac.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Allowed IP Addresses"), false, "services_captiveportal_ip.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Allowed Hostnames"), false, "services_captiveportal_hostname.php?zone={$cpzone}");
-$tab_array[] = array(gettext("Vouchers"), false, "services_captiveportal_vouchers.php?zone={$cpzone}");
-$tab_array[] = array(gettext("High Availability"), false, "services_captiveportal_hasync.php?zone={$cpzone}");
-$tab_array[] = array(gettext("File Manager"), false, "services_captiveportal_filemanager.php?zone={$cpzone}");
-display_top_tabs($tab_array, true);
+fs_tabs('services-captiveportal', 'services_captiveportal_mac.php', ['zone' => $cpzone]);
 ?>
-<div class="table-responsive">
-	<table class="table table-hover table-striped table-sm sortable-theme-bootstrap table-rowdblclickedit" data-sortable>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('MAC addresses'),
+	'search' => gettext('Search MAC addresses…'),
+	'noun' => gettext('MAC addresses'),
+	'noun_one' => gettext('MAC address'),
+]); ?>
+<div class="panel-body table-responsive">
+	<table class="table table-hover table-rowdblclickedit" data-sortable>
 		<thead>
 			<tr>
-				<th><?=gettext('Action')?></th>
-				<th><?=gettext("MAC address")?></th>
-				<th><?=gettext("Description")?></th>
-				<th><?=gettext("Actions")?></th>
+				<th data-fs-search><?=gettext('Action')?></th>
+				<th data-fs-search><?=gettext("MAC address")?></th>
+				<th data-fs-search><?=gettext("Description")?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions")?></span></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -105,29 +105,29 @@ foreach (config_get_path("captiveportal/{$cpzone}/passthrumac", []) as $mac): ?>
 					<?=$actsmbl[$mac['action']]?>
 				</td>
 				<td>
-					<?=$mac['mac']?>
+					<?=htmlspecialchars($mac['mac'])?>
 				</td>
 				<td >
 					<?=htmlspecialchars($mac['descr'])?>
 				</td>
-				<td>
-					<a class="fa-solid fa-pencil"	title="<?=gettext("Edit MAC address"); ?>" href="services_captiveportal_mac_edit.php?zone=<?=$cpzone?>&amp;id=<?=$i?>"></a>
-					<a class="fa-solid fa-trash-can"	title="<?=gettext("Delete MAC address")?>" href="services_captiveportal_mac.php?zone=<?=$cpzone?>&amp;act=del&amp;id=<?=$i?>"usepost></a>
+				<td class="fs-col-actions">
+<?=fs_row_actions([
+					['edit', "services_captiveportal_mac_edit.php?zone=" . urlencode($cpzone) . "&id={$i}", $mac['mac']],
+					['delete', "services_captiveportal_mac.php?zone=" . urlencode($cpzone) . "&act=del&id={$i}", $mac['mac'], ['thing' => gettext('MAC address')]],
+				])?>
 				</td>
 			</tr>
 <?php
 $i++;
 endforeach; ?>
+<?php if ($i == 0) {
+	fs_empty_row(4, gettext('No MAC addresses yet.'), 'services_captiveportal_mac_edit.php?zone=' . urlencode($cpzone) . '&act=add', gettext('Add MAC address'));
+} ?>
 		</tbody>
 	</table>
 </div>
+</div>
 
-<nav class="action-buttons">
-	<a href="services_captiveportal_mac_edit.php?zone=<?=$cpzone?>&amp;act=add" class="btn btn-success btn-sm">
-		<i class="fa-solid fa-plus icon-embed-btn"></i>
-		<?=gettext("Add")?>
-	</a>
-</nav>
 
 <div class="infoblock">
 	<?php print_info_box(gettext('Adding MAC addresses as "pass" MACs allows them access through the captive portal automatically without being taken to the portal page.'), 'info', false); ?>
