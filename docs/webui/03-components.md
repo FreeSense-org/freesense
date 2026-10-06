@@ -225,8 +225,75 @@ A single modal lives in `foot.inc`. `interceptGET()` opens it instead of `window
 so package pages improve without edits. Submit buttons with `data-fs-confirm` use it too.
 
 - The title names the object; the body states the consequence; buttons are **Cancel** (focused by default) and **{Verb}** (danger).
-- Esc and a backdrop click cancel. Focus returns to the trigger.
+- Esc and a backdrop click cancel. Focus returns to the trigger. Esc works from the moment the dialog opens (also
+  during the fade-in) and is not passed on, so an underlying modal form or list search stays as it was.
 - Danger tools (reboot, halt, defaults) use the inline **danger confirm card** instead, because those pages are already a confirmation step.
+
+## Danger confirm card
+
+For pages that are themselves the confirmation step (reboot, halt, factory defaults) and for the warning cards of
+the command prompt and file editor. A red-edged card with a reading width of 48rem.
+
+```html
+<div class="panel panel-default fs-danger-card">
+	<div class="panel-heading">
+		<h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>Reboot the system</h2>
+	</div>
+	<div class="panel-body fs-danger-body">
+		<p>What happens:</p>
+		<ul class="fs-danger-list"><li>…</li></ul>
+	</div>
+	<div class="panel-footer">
+		<button class="btn btn-danger" …>Reboot now</button>
+		<a class="btn btn-outline-secondary" href="/">Cancel</a>
+	</div>
+</div>
+```
+
+| Class | Use |
+|---|---|
+| `.fs-danger-card` | red edge, title icon in red, footer as a wrapping button row, max-width 48rem |
+| `.fs-danger-card--wide` | full width (command prompt, edit file) |
+| `.fs-danger-body` | padded body; `.fs-danger-list` for the consequences (no bottom margin when last) |
+| `.fs-danger-wait` | centered "Rebooting…" state after the action (icon, `h2`, muted `p`); the icon is coral, override per page |
+
+The action button names the verb ("Reboot now", "Halt", "Reset"), never "Yes". Page-specific parts (reboot
+method radio cards, the defaults hint) stay in the page's `<style>`.
+
+## Tool layout
+
+Tool pages (ping, traceroute, DNS lookup, test port, authentication, S.M.A.R.T.) use two columns: an options card
+on the left (22rem) and the results card on the right. Below 992px they stack.
+
+```html
+<div class="fs-tool">
+	<form method="post" action="diag_ping.php" class="fs-tool-form">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title">Options</h2></div>
+			<div class="panel-body">
+				<div><label class="form-label" for="host">…</label><input class="form-control fs-mono" id="host" …></div>
+				<div class="fs-tool-row"><div>…</div><div>…</div></div>   <!-- two short fields side by side -->
+			</div>
+			<div class="panel-footer"><button type="submit" class="btn btn-primary" data-fs-busy="true">…</button></div>
+		</div>
+	</form>
+	<div class="panel panel-default">
+		<div class="panel-heading"><h2 class="panel-title">Results</h2><!-- Copy button once there is output --></div>
+		<pre class="fs-console" id="…">…</pre>
+		<!-- or, before the first run: -->
+		<div class="fs-tool-empty"><i class="fa-solid fa-…" aria-hidden="true"></i><span>Enter a host and run …</span></div>
+	</div>
+</div>
+```
+
+| Class | Use |
+|---|---|
+| `.fs-tool` | the two-column grid; cards inside lose their bottom margin |
+| `.fs-tool-form` | the options form: stacked fields, labels, help text, footer button row |
+| `.fs-tool-row` | two fields side by side inside the options card |
+| `.fs-tool-stack` | several result cards stacked in the right column (DNS lookup) |
+| `.fs-tool-empty` | empty state of the results card before the first run (icon + one sentence) |
+| `.fs-tool-verdict` | a badge/summary line above the output (test port, authentication); a following `.fs-console` gets a top border |
 
 ## Badge
 
@@ -357,6 +424,10 @@ fs_form_cancel($form, 'firewall_schedule.php');   // before print($form)
 `print_info_box()`, `print_callout()` and `print_apply_box()` keep their signatures and are restyled centrally
 (icon, message, optional action button). Use `'success'`, `'info'`, `'warning'` and `'danger'` only. Don't build
 your own `.alert` markup.
+
+`print_callout($msg, $class = 'info', $heading = '')` renders a themed alert card
+(`.alert.alert-{info|warning|danger|secondary}.fs-callout`, `role="note"`) with a leading icon, an optional
+heading (plain text, escaped) and the message (HTML from the caller). `'default'` maps to the neutral style.
 
 ## Console output
 

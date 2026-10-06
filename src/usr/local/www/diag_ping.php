@@ -41,6 +41,8 @@ $do_ping = false;
 $host = $host_utf8 = '';
 $count = DIAG_PING_DEFAULT_COUNT;
 $wait = DIAG_PING_DEFAULT_WAIT;
+$ipproto = 'ipv4';
+$sourceip = '';
 
 if ($_POST || $_REQUEST['host']) {
 	unset($input_errors);
@@ -80,69 +82,82 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$form = new Form(false);
-
-$section = new Form_Section('Ping');
-
-$section->addInput(new Form_Input(
-	'host',
-	'*Hostname',
-	'text',
-	$host_utf8,
-	['placeholder' => 'Hostname to ping']
-));
-
-$section->addInput(new Form_Select(
-	'ipproto',
-	'*IP Protocol',
-	$ipproto,
-	['ipv4' => 'IPv4', 'ipv6' => 'IPv6']
-));
-
-$section->addInput(new Form_Select(
-	'sourceip',
-	'*Source address',
-	$sourceip,
-	array('' => gettext('Automatically selected (default)')) + get_possible_traffic_source_addresses(true)
-))->setHelp('Select source address for the ping.');
-
-$section->addInput(new Form_Select(
-	'count',
-	'Maximum number of pings',
-	$count,
-	array_combine(range(1, DIAG_PING_MAX_COUNT), range(1, DIAG_PING_MAX_COUNT))
-))->setHelp('Select the maximum number of pings.');
-
-$section->addInput(new Form_Select(
-	'wait',
-	'Seconds between pings',
-	$wait,
-	array_combine(range(1, DIAG_PING_MAX_WAIT), range(1, DIAG_PING_MAX_WAIT))
-))->setHelp('Select the number of seconds to wait between pings.');
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Ping',
-	null,
-	'fa-solid fa-play'
-))->addClass('btn-primary')->setAttribute('data-fs-busy', 'true');
-
-print $form;
-
-if ($do_ping && !empty($result) && !$input_errors) {
+$sources = array('' => gettext('Automatically selected (default)')) + get_possible_traffic_source_addresses(true);
+$has_result = (!empty($do_ping) && !empty($result) && !$input_errors);
 ?>
+
+<div class="fs-tool">
+	<form method="post" action="diag_ping.php" class="fs-tool-form">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Options')?></h2></div>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="host"><?=gettext('Hostname or IP address')?></label>
+					<input class="form-control fs-mono" type="text" id="host" name="host" value="<?=htmlspecialchars($host_utf8)?>" placeholder="<?=gettext('Hostname to ping')?>" required autofocus>
+				</div>
+				<div>
+					<label class="form-label" for="ipproto"><?=gettext('IP protocol')?></label>
+					<select class="form-select" id="ipproto" name="ipproto">
+<?php foreach (['ipv4' => 'IPv4', 'ipv6' => 'IPv6'] as $k => $v): ?>
+						<option value="<?=$k?>"<?=($ipproto == $k) ? ' selected' : ''?>><?=$v?></option>
+<?php endforeach; ?>
+					</select>
+				</div>
+				<div>
+					<label class="form-label" for="sourceip"><?=gettext('Source address')?></label>
+					<select class="form-select" id="sourceip" name="sourceip">
+<?php foreach ($sources as $k => $v): ?>
+						<option value="<?=htmlspecialchars($k)?>"<?=($sourceip == $k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+					</select>
+					<div class="form-text"><?=gettext('The address the pings are sent from.')?></div>
+				</div>
+				<div class="fs-tool-row">
+					<div>
+						<label class="form-label" for="count"><?=gettext('Number of pings')?></label>
+						<select class="form-select" id="count" name="count">
+<?php foreach (range(1, DIAG_PING_MAX_COUNT) as $n): ?>
+							<option value="<?=$n?>"<?=($count == $n) ? ' selected' : ''?>><?=$n?></option>
+<?php endforeach; ?>
+						</select>
+					</div>
+					<div>
+						<label class="form-label" for="wait"><?=gettext('Interval (seconds)')?></label>
+						<select class="form-select" id="wait" name="wait">
+<?php foreach (range(1, DIAG_PING_MAX_WAIT) as $n): ?>
+							<option value="<?=$n?>"<?=($wait == $n) ? ' selected' : ''?>><?=$n?></option>
+<?php endforeach; ?>
+						</select>
+					</div>
+				</div>
+			</div>
+			<div class="panel-footer">
+				<button type="submit" class="btn btn-primary" name="Submit" value="Ping" data-fs-busy="true">
+					<i class="fa-solid fa-play icon-embed-btn" aria-hidden="true"></i><?=gettext('Ping')?>
+				</button>
+			</div>
+		</div>
+	</form>
+
 	<div class="panel panel-default">
 		<div class="panel-heading">
 			<h2 class="panel-title"><?=gettext('Results')?></h2>
+<?php if ($has_result): ?>
 			<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#ping-output">
 				<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
 			</button>
+<?php endif; ?>
 		</div>
-		<pre class="fs-console" id="ping-output"><?= htmlspecialchars($result) ?></pre>
+<?php if ($has_result): ?>
+		<pre class="fs-console" id="ping-output"><?=htmlspecialchars($result)?></pre>
+<?php else: ?>
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-satellite-dish" aria-hidden="true"></i>
+			<span><?=gettext('Enter a host and run a ping to see the replies and round-trip times here.')?></span>
+		</div>
+<?php endif; ?>
 	</div>
-<?php
-}
+</div>
 
+<?php
 include('foot.inc');

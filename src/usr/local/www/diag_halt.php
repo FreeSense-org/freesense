@@ -45,18 +45,7 @@ include('head.inc');
 ?>
 
 <style>
-.fs-danger-card { max-width: 48rem; }
-.fs-danger-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
-.fs-danger-card .panel-title > i { color: var(--fs-block); }
-.fs-danger-body { padding: var(--fs-sp-4); }
-.fs-danger-body > p { margin-bottom: var(--fs-sp-3); }
-.fs-danger-list { margin: 0; padding-left: 1.25rem; }
-.fs-danger-list li + li { margin-top: var(--fs-sp-1); }
-.fs-danger-card .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
-.fs-halt-wait { display: flex; flex-direction: column; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; }
-.fs-halt-wait > i { color: var(--fs-block); font-size: var(--fs-fs-xl); }
-.fs-halt-wait h2 { margin: 0; font-size: var(--fs-fs-lg); }
-.fs-halt-wait p { margin: 0; color: var(--fs-text-muted); }
+.fs-halt-wait > i { color: var(--fs-block); }
 </style>
 
 <?php
@@ -64,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 ?>
 	<meta http-equiv="refresh" content="70;url=/">
 	<div class="panel panel-default">
-		<div class="fs-halt-wait" aria-live="polite">
+		<div class="fs-danger-wait fs-halt-wait" aria-live="polite">
 			<i class="fa-solid fa-power-off" aria-hidden="true"></i>
 			<h2><?=gettext('The system is halting')?></h2>
 			<p><?=gettext("The system is halting now. This may take one minute or so.")?></p>

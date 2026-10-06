@@ -422,10 +422,70 @@ form > .fs-actionbar .fs-actionbar-cancel { margin-left: var(--fs-sp-2); }
 #fs-confirm .fs-confirm-detail { color: var(--fs-text-muted); }
 
 /* ============================ Danger confirm card ====================== */
+/* reboot, halt, factory defaults: the page is the confirmation step.
+   .fs-danger-card--wide drops the reading width (command prompt, edit file). */
 .fs-danger-card {
+	max-width: 48rem;
 	border-color: color-mix(in srgb, var(--fs-block) 45%, var(--fs-border));
 	box-shadow: inset 3px 0 0 var(--fs-block);
 }
+.fs-danger-card--wide { max-width: none; }
+.fs-danger-card .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); }
+.fs-danger-card .panel-title > i { color: var(--fs-block); }
+.fs-danger-body { padding: var(--fs-sp-4); }
+.fs-danger-body > p { margin-bottom: var(--fs-sp-3); }
+.fs-danger-list { margin: 0 0 var(--fs-sp-3); padding-left: 1.25rem; }
+.fs-danger-list:last-child { margin-bottom: 0; }
+.fs-danger-list li + li { margin-top: var(--fs-sp-1); }
+.fs-danger-card .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+/* "Rebooting…" / "Halting…" state shown after the action was confirmed */
+.fs-danger-wait { display: flex; flex-direction: column; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; }
+.fs-danger-wait > i { color: var(--fs-coral); font-size: var(--fs-fs-xl); }
+.fs-danger-wait h2 { margin: 0; font-size: var(--fs-fs-lg); }
+.fs-danger-wait p { margin: 0; color: var(--fs-text-muted); }
+
+/* ============================ Tool layout ============================== */
+/* Tool pages (ping, traceroute, DNS lookup, test port, …): options card on
+   the left, results card on the right; one column below 992px. */
+.fs-tool {
+	display: grid;
+	grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+	gap: var(--fs-sp-4);
+	align-items: start;
+	margin-bottom: var(--fs-sp-5);
+}
+.fs-tool .panel { margin-bottom: 0; }
+.fs-tool-stack { display: flex; flex-direction: column; gap: var(--fs-sp-4); min-width: 0; }
+.fs-tool-form .panel-body { display: flex; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-tool-form .form-label { margin-bottom: var(--fs-sp-1); font-weight: 500; }
+.fs-tool-form .form-text { margin-top: var(--fs-sp-1); }
+.fs-tool-form .panel-footer { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); padding: var(--fs-sp-3) var(--fs-sp-4); }
+.fs-tool-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fs-sp-3); }
+.fs-tool-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--fs-sp-2);
+	min-height: 16rem;
+	padding: var(--fs-sp-5);
+	color: var(--fs-text-muted);
+	text-align: center;
+}
+.fs-tool-empty > i { font-size: var(--fs-fs-xl); opacity: .6; }
+.fs-tool-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
+.fs-tool-verdict + .fs-console { border-top: 1px solid var(--fs-border); }
+@media (max-width: 991.98px) {
+	.fs-tool { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ============================ Callout (print_callout) ================== */
+.fs-callout { display: flex; align-items: flex-start; gap: var(--fs-sp-3); }
+.fs-callout > i { flex: 0 0 auto; margin-top: .2rem; font-size: 1.05rem; }
+.fs-callout-body { flex: 1 1 auto; min-width: 0; }
+.fs-callout-title { margin: 0 0 var(--fs-sp-1); color: inherit; font-size: var(--fs-fs-md); font-weight: 600; }
+.fs-callout-body > :last-child { margin-bottom: 0; }
+.fs-callout-body p { margin-bottom: var(--fs-sp-2); }
 
 /* ============================ Small screens ============================ */
 @media (max-width: 767px) {
