@@ -280,6 +280,7 @@ $form->add($section);
 if ($id !== null) {
 	$form->addGlobal(new Form_Input('id', null, 'hidden', $id));
 }
+fs_form_cancel($form, 'diag_backup_remote.php');
 print($form);
 ?>
 

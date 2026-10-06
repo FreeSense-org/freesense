@@ -186,7 +186,9 @@
 			form.reset();
 			Object.keys(fill).forEach(function (name) {
 				var field = form.elements[name];
-				if (field) {
+				if (field && field.type === 'checkbox') {
+					field.checked = !!fill[name];
+				} else if (field) {
 					field.value = fill[name];
 				}
 			});
