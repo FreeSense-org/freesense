@@ -103,14 +103,7 @@ if (is_subsystem_dirty('sysctl') && ($act != "edit" )) {
 	print_apply_box(gettext("The firewall tunables have changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Admin Access"), false, "system_advanced_admin.php");
-$tab_array[] = array(htmlspecialchars(gettext("Firewall & NAT")), false, "system_advanced_firewall.php");
-$tab_array[] = array(gettext("Networking"), false, "system_advanced_network.php");
-$tab_array[] = array(gettext("Miscellaneous"), false, "system_advanced_misc.php");
-$tab_array[] = array(gettext("System Tunables"), true, "system_advanced_sysctl.php");
-$tab_array[] = array(gettext("Notifications"), false, "system_advanced_notifications.php");
-display_top_tabs($tab_array);
+fs_tabs('system-advanced', 'system_advanced_sysctl.php');
 
 if ($act != "edit"): ?>
 <div class="panel panel-default">

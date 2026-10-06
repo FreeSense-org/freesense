@@ -102,7 +102,9 @@ CsrfMagic.end = function() {
     forms = document.getElementsByTagName('form');
     for (var i = 0; i < forms.length; i++) {
         form = forms[i];
-        if (form.getAttribute('method').toUpperCase() !== 'POST') continue;
+        // a <form> without a method attribute is a GET form; skip it instead
+        // of throwing and leaving every later form without a token
+        if ((form.getAttribute('method') || 'GET').toUpperCase() !== 'POST') continue;
         if (form.elements[csrfMagicName]) continue;
         var input = document.createElement('input');
         input.setAttribute('name',  csrfMagicName);

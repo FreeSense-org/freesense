@@ -192,26 +192,30 @@ $(function() {
 	// Use element title in the confirmation message, or if not available
 	// the element value
 	$('.btn-danger, .fa-trash-can').on('click', function(e){
-		if (!($(this).hasClass('no-confirm')) && !($(this).hasClass('icon-embed-btn'))) {
-			// Anchors using the automatic get2post system (FreeSenseHelpers.js) perform the confirmation dialog
-			// in those functions
-			var attr = $(this).attr('usepost');
-			if (typeof attr === typeof undefined || attr === false) {
-				var msg = (this.textContent || '').trim().toLowerCase();
+		if (($(this).hasClass('no-confirm')) || ($(this).hasClass('icon-embed-btn'))) {
+			return;
+		}
 
-				if (!msg)
-					var msg = (this.value || '').trim().toLowerCase();
+		// Anchors using the automatic get2post system (FreeSenseHelpers.js) perform the confirmation dialog
+		// in those functions, including icons nested inside such an anchor. Elements with
+		// data-fs-confirm use the shared confirmation modal (freesense-ui.js).
+		if ($(this).closest('[usepost], [data-fs-confirm]').length) {
+			return;
+		}
 
-				var q = 'Are you sure you wish to '+ msg +'?';
+		var msg = (this.textContent || '').trim().toLowerCase();
 
-				if ($(this).attr('title') != undefined)
-					q = 'Are you sure you wish to '+ $(this).attr('title').toLowerCase() + '?';
+		if (!msg)
+			var msg = (this.value || '').trim().toLowerCase();
 
-				if (!confirm(q)) {
-					e.preventDefault();
-					e.stopPropagation();	// Don't leave ancestor(s) selected.
-				}
-			}
+		var q = 'Are you sure you wish to '+ msg +'?';
+
+		if ($(this).attr('title') != undefined)
+			q = 'Are you sure you wish to '+ $(this).attr('title').toLowerCase() + '?';
+
+		if (!confirm(q)) {
+			e.preventDefault();
+			e.stopPropagation();	// Don't leave ancestor(s) selected.
 		}
 	});
 

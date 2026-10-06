@@ -1,0 +1,99 @@
+/*
+ * _freesense-tokens.css
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * Design tokens for the WebUI (docs/webui/01-tokens.md). Components and pages
+ * reference these, never raw colors or pixel values. The surface palette still
+ * comes from the theme files (FreeSense.css / FreeSense-dark.css set --bs-*);
+ * the tokens below alias it and add the status, accent-text, type, spacing
+ * and motion scales. Status colors are contrast-checked (>= 4.5:1) on the
+ * surface, the page and their own 12% badge tint in both themes.
+ *
+ * Partial (leading underscore) -> excluded from the theme picker. Linked by
+ * head.inc before _freesense-core.css.
+ */
+
+:root {
+	/* surfaces (aliases of the theme palette) */
+	--fs-surface:        var(--bs-body-bg);
+	--fs-surface-raised: var(--bs-secondary-bg);
+	--fs-border:         var(--bs-border-color);
+	--fs-text:           var(--bs-body-color);
+	--fs-text-strong:    var(--bs-emphasis-color);
+	--fs-text-muted:     var(--bs-secondary-color);
+
+	/* accent: --fs-coral is for non-text marks only (3.7:1 on white) */
+	--fs-coral-text:     #b8371f;
+	--fs-accent-tint:    rgba(234, 79, 45, 0.10);
+
+	/* status (light) */
+	--fs-pass:    #156b2e;
+	--fs-block:   #c62828;
+	--fs-reject:  #a1400a;
+	--fs-warn:    #8a5a00;
+	--fs-info:    #0b63c4;
+	--fs-neutral: #5b6573;
+
+	/* typography */
+	--fs-font-ui:   'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--fs-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+	--fs-fs-xs:   .75rem;     /* 12px */
+	--fs-fs-sm:   .8125rem;   /* 13px */
+	--fs-fs-base: .875rem;    /* 14px */
+	--fs-fs-md:   1rem;       /* 16px */
+	--fs-fs-lg:   1.25rem;    /* 20px */
+	--fs-fs-xl:   1.5rem;     /* 24px */
+
+	/* spacing */
+	--fs-sp-1: .25rem;
+	--fs-sp-2: .5rem;
+	--fs-sp-3: .75rem;
+	--fs-sp-4: 1rem;
+	--fs-sp-5: 1.5rem;
+	--fs-sp-6: 2rem;
+
+	/* sizes */
+	--fs-page-max:    1680px;
+	--fs-row-h:       2.25rem;   /* 36px table rows */
+	--fs-control-h:   2.25rem;
+	--fs-hit:         2rem;      /* icon action hit area */
+	--fs-navbar-h:    3.5rem;
+
+	/* radius */
+	--fs-r-sm: 6px;
+	--fs-r-md: 8px;
+	--fs-r-lg: 12px;
+
+	/* elevation: overlays and sticky bars only */
+	--fs-shadow-overlay: 0 8px 24px rgba(10, 14, 20, 0.18), 0 2px 6px rgba(10, 14, 20, 0.10);
+	--fs-shadow-sticky:  0 -6px 16px rgba(10, 14, 20, 0.10);
+
+	/* motion */
+	--fs-t-fast: 120ms;
+	--fs-t:      180ms;
+	--fs-ease:   cubic-bezier(.2, .7, .2, 1);
+}
+
+[data-bs-theme="dark"] {
+	--fs-coral-text:     #ff6b4a;
+	--fs-accent-tint:    rgba(255, 107, 74, 0.12);
+
+	--fs-pass:    #4ade80;
+	--fs-block:   #f87171;
+	--fs-reject:  #fb923c;
+	--fs-warn:    #facc15;
+	--fs-info:    #60a5fa;
+	--fs-neutral: #9aa4b2;
+
+	--fs-shadow-overlay: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+	--fs-shadow-sticky:  0 -8px 20px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--fs-t-fast: 0ms;
+		--fs-t:      0ms;
+	}
+}

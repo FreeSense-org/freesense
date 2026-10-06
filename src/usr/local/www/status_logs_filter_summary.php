@@ -200,6 +200,11 @@ function stat_block($summary, $stat, $num) {
 // Todo: Be good to investigate building this with json_encode and friends some time
 function pie_block($summary, $stat, $num, $chartnum) {
 	global $fields, $segcolors, $gotlines, $numcolors;
+
+	// d3pie throws on an empty data set (no log entries to summarize)
+	if (empty($summary[$stat]) && ($gotlines <= 0)) {
+		return;
+	}
 ?>
 <script type="text/javascript">
 //<![CDATA[

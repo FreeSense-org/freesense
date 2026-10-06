@@ -51,126 +51,124 @@ $shortcut_section = "gateways";
 include("head.inc");
 
 /* active tabs */
-$tab_array = array();
-$tab_array[] = array(gettext("Gateways"), true, "status_gateways.php");
-$tab_array[] = array(gettext("Gateway Groups"), false, "status_gateway_groups.php");
-display_top_tabs($tab_array);
+fs_tabs('status-gateways', 'status_gateways.php');
+/* collect first, so the summary tiles can sit above the table */
+$rows = [];
+$counts = ['online' => 0, 'degraded' => 0, 'down' => 0, 'pending' => 0];
+foreach (get_gateways() as $gateway) {
+	list($gateway_status, $gateway_details) = get_gateway_status($gateway);
+	$status_text = get_gateway_status_text($gateway_status);
+	$state = match ($status_text['level']) {
+		GW_STATUS_LEVEL_SUCCESS => 'online',
+		GW_STATUS_LEVEL_WARNING => 'degraded',
+		GW_STATUS_LEVEL_FAILURE => 'down',
+		default => 'pending',
+	};
+	$counts[$state]++;
+	$rows[] = [$gateway_status, $gateway_details, $status_text['reason'], $state];
+}
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Gateways')?></h2></div>
-	<div class="panel-body">
+<div class="fs-tiles">
+<?php
+fs_tile(gettext('Online'), $counts['online'], ($counts['online'] > 0) ? 'online' : null);
+fs_tile(gettext('Degraded'), $counts['degraded'], ($counts['degraded'] > 0) ? 'degraded' : null);
+fs_tile(gettext('Down'), $counts['down'], ($counts['down'] > 0) ? 'down' : null);
+if ($counts['pending'] > 0) {
+	fs_tile(gettext('Pending'), $counts['pending'], 'pending');
+}
+?>
+</div>
 
-<div class="table-responsive">
-	<table class="table table-striped table-hover table-sm sortable-theme-bootstrap" data-sortable>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Gateways'),
+	'search' => gettext('Search gateways…'),
+	'noun' => gettext('gateways'),
+	'noun_one' => gettext('gateway'),
+	'filters' => ['state' => [gettext('All states'), 'online' => gettext('Online'), 'degraded' => gettext('Degraded'),
+	    'down' => gettext('Down'), 'pending' => gettext('Pending')]],
+]); ?>
+	<div class="panel-body table-responsive">
+	<table class="table table-hover" data-sortable>
 		<thead>
 			<tr>
-				<th><?=gettext("Name"); ?></th>
-				<th><?=gettext("Gateway"); ?></th>
-				<th><?=gettext("Monitor"); ?></th>
+				<th data-fs-search><?=gettext("Name"); ?></th>
+				<th data-fs-search><?=gettext("Gateway"); ?></th>
+				<th data-fs-search><?=gettext("Monitor"); ?></th>
 				<th><?=gettext("RTT"); ?></th>
 				<th><?=gettext("RTTsd"); ?></th>
 				<th><?=gettext("Loss"); ?></th>
-				<th><?=gettext("Status"); ?></th>
-				<th><?=gettext("Description"); ?></th>
-				<th><?=gettext("Action"); ?></th>
+				<th data-fs-search><?=gettext("Status"); ?></th>
+				<th data-fs-search><?=gettext("Description"); ?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext("Actions"); ?></span></th>
 			</tr>
 		</thead>
 		<tbody>
-<?php		foreach (get_gateways() as $gateway) {
-			list($gateway_status, $gateway_details) = get_gateway_status($gateway);
-			$gwip = array_get_path($gateway_details, 'config/gateway');
+<?php	foreach ($rows as list($gateway_status, $gateway_details, $status_reason, $state)):
+		$gwname = array_get_path($gateway_details, 'config/name', '');
+		$gwip = array_get_path($gateway_details, 'config/gateway');
+		$monitored = ($gateway_status != GW_STATUS_UNKNOWN) &&
+		    ($gateway_status != GW_STATUS_ONLINE_FORCED) && ($gateway_status != GW_STATUS_OFFLINE_FORCED);
+		$metric = function ($path) use ($gateway_status, $gateway_details, $monitored) {
+			if ($gateway_status == GW_STATUS_UNKNOWN) {
+				return gettext("Pending");
+			}
+			return $monitored ? htmlspecialchars(array_get_path($gateway_details, $path, '')) : '';
+		};
+
+		$actions = [['custom', '?act=killgw&gwname=' . urlencode($gwname), $gwname, [
+			'icon' => 'fa-solid fa-circle-xmark', 'post' => true,
+			'label' => sprintf(gettext('Kill states routed via %s'), $gwname),
+			'confirm' => sprintf(gettext('Kill all firewall states created by policy routing rules using gateway “%s”?'), $gwname),
+			'confirm_action' => gettext('Kill states')]]];
+		if (!empty($gwip) && is_ipaddr($gwip)) {
+			$actions[] = ['custom', '?act=killgw&gwip=' . urlencode($gwip), $gwip, [
+			    'icon' => 'fa-regular fa-circle-xmark', 'post' => true,
+			    'label' => sprintf(gettext('Kill states using gateway IP %s'), $gwip),
+			    'confirm' => sprintf(gettext('Kill all firewall states using gateway IP %s via policy routing and reply-to?'), $gwip),
+			    'confirm_action' => gettext('Kill states')]];
+		}
+		if (!is_null(array_get_path($gateway_details, 'config/isdefaultgw'))) {
+			$v6 = (array_get_path($gateway_details, 'config/ipprotocol') == 'inet6');
+			$actions[] = ['custom', $v6 ? '?act=killgw&gwdef6=true' : '?act=killgw&gwdef4=true', '', [
+			    'icon' => 'fa-solid fa-xmark', 'post' => true,
+			    'label' => $v6 ? gettext('Kill default IPv6 gateway states') : gettext('Kill default IPv4 gateway states'),
+			    'confirm' => $v6
+			        ? gettext('Kill all firewall states which use the default IPv6 gateway (::) and not policy routing or reply-to rules?')
+			        : gettext('Kill all firewall states which use the default IPv4 gateway (0.0.0.0) and not policy routing or reply-to rules?'),
+			    'confirm_action' => gettext('Kill states')]];
+		}
 ?>
-			<tr>
+			<tr data-fs-filter-state="<?=$state?>">
 				<td>
-					<?=htmlspecialchars(array_get_path($gateway_details, 'config/name', ''));?>
-<?php		
-					if (!is_null(array_get_path($gateway_details, 'config/isdefaultgw'))) {
-						echo " <strong>(default)</strong>";
-					}
-?>			
+					<?=htmlspecialchars($gwname)?>
+<?php				if (!is_null(array_get_path($gateway_details, 'config/isdefaultgw'))): ?>
+					<?=fs_badge('info', gettext('Default'))?>
+<?php				endif; ?>
 				</td>
-				<td>
-					<?=$gwip;?>
-				</td>
-				<td>
+				<td class="fs-mono"><?=htmlspecialchars($gwip ?? '')?></td>
+				<td class="fs-mono">
 <?php
-					if ($gateway_status != GW_STATUS_UNKNOWN) {
-						if (($gateway_status == GW_STATUS_ONLINE_FORCED) || ($gateway_status == GW_STATUS_OFFLINE_FORCED)) {
-							echo "(unmonitored)";
-						} else {
-							echo array_get_path($gateway_details, 'status/monitorip');
-						}
-					}
+				if ($gateway_status != GW_STATUS_UNKNOWN) {
+					echo $monitored ? htmlspecialchars(array_get_path($gateway_details, 'status/monitorip', '')) : gettext("(unmonitored)");
+				}
 ?>
 				</td>
-				<td>
-<?php
-					if ($gateway_status != GW_STATUS_UNKNOWN) {
-						if (($gateway_status != GW_STATUS_ONLINE_FORCED) && ($gateway_status != GW_STATUS_OFFLINE_FORCED)) {
-							echo array_get_path($gateway_details, 'status/delay');
-						}
-					} else {
-						echo gettext("Pending");
-					}
-?>
-				</td>
-				<td>
-<?php
-					if ($gateway_status != GW_STATUS_UNKNOWN) {
-						if (($gateway_status != GW_STATUS_ONLINE_FORCED) && ($gateway_status != GW_STATUS_OFFLINE_FORCED)) {
-							echo array_get_path($gateway_details, 'status/stddev');
-						}
-					} else {
-						echo gettext("Pending");
-					}
-?>
-				</td>
-				<td>
-<?php
-					if ($gateway_status != GW_STATUS_UNKNOWN) {
-						if (($gateway_status != GW_STATUS_ONLINE_FORCED) && ($gateway_status != GW_STATUS_OFFLINE_FORCED)) {
-							echo array_get_path($gateway_details, 'status/loss');
-						}
-					} else {
-						echo gettext("Pending");
-					}
-?>
-				</td>
-<?php
-					$gatewy_status_text = get_gateway_status_text($gateway_status);
-					$status_text = $gatewy_status_text['reason'];
-					$bgcolor = match ($gatewy_status_text['level']) {
-						GW_STATUS_LEVEL_SUCCESS => 'bg-success',
-						GW_STATUS_LEVEL_WARNING => 'bg-warning',
-						GW_STATUS_LEVEL_FAILURE => 'bg-danger',
-						default => 'bg-info',
-					};
-?>
-				<td class="<?=$bgcolor?>">
-					<strong><?=$status_text?></strong>
-				</td>
-				<td>
-					<?=htmlspecialchars(array_get_path($gateway_details, 'config/descr', '')); ?>
-				</td>
-				<td>
-					<a href="?act=killgw&amp;gwname=<?=urlencode(array_get_path($gateway_details, 'config/name', ''));?>" class="fa-solid fa-circle-xmark do-confirm" title="<?=gettext('Kill all firewall states created by policy routing rules using this specific gateway by name.')?>" usepost></a>
-<?php if (!empty($gwip) && is_ipaddr($gwip)): ?>
-					<a href="?act=killgw&amp;gwip=<?=urlencode($gwip);?>" class="fa-regular fa-circle-xmark do-confirm" title="<?=gettext('Kill all firewall states using this gateway IP address via policy routing and reply-to.')?>" usepost></a>
-<?php endif; ?>
-<?php if (!is_null(array_get_path($gateway_details, 'config/isdefaultgw'))): ?>
-	<?php if (array_get_path($gateway_details, 'config/ipprotocol') != 'inet6'): ?>
-					<a href="?act=killgw&amp;gwdef4=true" class="fa-solid fa-xmark do-confirm" title="<?=gettext('Kill all firewall states which use the default IPv4 gateway (0.0.0.0) and not policy routing or reply-to rules.')?>" usepost></a>
-	<?php else: ?>
-					<a href="?act=killgw&amp;gwdef6=true" class="fa-solid fa-xmark do-confirm" title="<?=gettext('Kill all firewall states which use the default IPv6 gateway (::) and not policy routing or reply-to rules.')?>" usepost></a>
-	<?php endif; ?>
-<?php endif; ?>
-				</td>
+				<td><?=$metric('status/delay')?></td>
+				<td><?=$metric('status/stddev')?></td>
+				<td><?=$metric('status/loss')?></td>
+				<td><?=fs_badge($state, $status_reason)?></td>
+				<td><?=htmlspecialchars(array_get_path($gateway_details, 'config/descr', '')); ?></td>
+				<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
 			</tr>
-<?php	} ?>	<!-- End-of-foreach -->
+<?php	endforeach;
+
+	if (empty($rows)) {
+		fs_empty_row(9, gettext('No gateways are configured.'));
+	}
+?>
 		</tbody>
 	</table>
-</div>
-
 	</div>
 </div>
 

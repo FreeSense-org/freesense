@@ -68,6 +68,9 @@ require_once("functions.inc");
 /* Include the autoloader for all the GUI display classes */
 require_once("classes/autoload.inc.php");
 
+/* WebUI component helpers (docs/webui/03-components.md) */
+require_once(__DIR__ . "/includes/fs_ui.inc");
+
 /* used by progress bar */
 $lastseen = "-1";
 
@@ -742,86 +745,34 @@ function echo_array($array, $return_me = false) {
  *	 null
  ******/
 function display_top_tabs(& $tab_array, $no_drop_down = false, $type = 'pills', $usepost = "") {
-	global $tab_array_indent;
-	global $tab_array_space;
-	global $tab_array_char_limit;
-
 	/*	does the user have access to this tab?
 	 *	master user has access to everything.
 	 *	if the user does not have access, simply
 	 *	unset the tab item.
 	 */
-
-	/* empty string code */
-	if ($tab_array_indent == '') {
-		$tab_array_indent = 0;
-	}
-
-	if ($tab_array_space == '') {
-		$tab_array_space = 1;
-	}
-
-	if ($tab_array_char_limit == '') {
-		$tab_array_char_limit = 256;
-	}
-
 	foreach ($tab_array as $tab_id => $ta) {
 		if (!isAllowedPage($ta[2])) {
 			unset ($tab_array[$tab_id]);
 		}
 	}
 
-	$tabcharcount = 0;
+	/*
+	 * Underline tab bar (docs/webui/03-components.md). Tabs that do not fit
+	 * move into a "More" menu (js/freesense-ui.js); without JS the bar
+	 * scrolls horizontally. $no_drop_down is kept for API compatibility: the
+	 * old <select> fallback for long tab sets is gone. Labels and URLs are
+	 * emitted as given, as before, since callers pass ready markup.
+	 */
+	echo '<nav class="fs-tabs" aria-label="' . htmlspecialchars(gettext('Section')) . '"'
+	    . ' data-fs-more-label="' . htmlspecialchars(gettext('More')) . '">';
+	echo '<ul class="nav nav-' . htmlspecialchars($type) . '">';
+
 	foreach ($tab_array as $ta) {
-		$tabcharcount = $tabcharcount + strlen($ta[0]);
+		echo '<li role="presentation"' . ($ta[1] ? ' class="active"' : '') . '>';
+		echo '<a href="' . $ta[2] . '"' . ($ta[1] ? ' aria-current="page"' : '') . ' ' . $usepost . '>' . $ta[0] . '</a></li>';
 	}
 
-	if ($no_drop_down == true) {
-		$tabcharcount = 0;
-		unset($tab_array_char_limit);
-	}
-
-	// If the character count of the tab names is > 670
-	// then show a select item dropdown menubox.
-	if ($tabcharcount > $tab_array_char_limit) {
-		echo gettext("Currently viewing: ");
-		echo "<select name=\"TabSelect\" onchange=\"tabs_will_go(this)\">\n";
-
-		foreach ($tab_array as $ta) {
-			if ($ta[1] == "true") {
-				$selected = " selected";
-			} else {
-				$selected = "";
-			}
-			// Onclick in option will not work in some browser
-			// echo "<option onclick=\"document.location='{$ta[2]}';\"{$selected}>{$ta['0']}</option>\n";
-			echo "<option value=\"{$ta[2]}\"{$selected}>{$ta['0']}</option>\n";
-		}
-
-		echo "</select>\n<p>&nbsp;</p>";
-		echo "<script type=\"text/javascript\">";
-		echo "\n//<![CDATA[\n";
-		if ($usepost == 'usepost') {
-			echo " function tabs_will_go(obj){ var target = obj.value.split(\"?\"); postSubmit(get2post(target[1]),target[0]); }\n";
-		} else {
-			echo " function tabs_will_go(obj){ document.location = obj.value; }\n";
-		}
-		echo "//]]>\n";
-		echo "</script>";
-	} else {
-		echo '<ul class="nav nav-' . $type . '">';
-
-		foreach ($tab_array as $ta) {
-			echo '<li role="presentation"';
-			if ($ta[1]) {
-				echo ' class="active"';
-			}
-
-			echo '><a href="' . $ta[2] . '" ' . $usepost . '>' . $ta[0] . '</a></li>';
-		}
-
-		echo '</ul>';
-	}
+	echo '</ul></nav>';
 }
 
 function add_package_tabs($tabgroup, &$tab_array) {

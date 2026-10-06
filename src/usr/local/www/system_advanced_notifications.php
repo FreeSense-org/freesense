@@ -57,14 +57,7 @@ if ($test_result) {
 	print_info_box($test_result, $test_class);
 }
 
-$tab_array = array();
-$tab_array[] = array(gettext("Admin Access"), false, "system_advanced_admin.php");
-$tab_array[] = array(htmlspecialchars(gettext("Firewall & NAT")), false, "system_advanced_firewall.php");
-$tab_array[] = array(gettext("Networking"), false, "system_advanced_network.php");
-$tab_array[] = array(gettext("Miscellaneous"), false, "system_advanced_misc.php");
-$tab_array[] = array(gettext("System Tunables"), false, "system_advanced_sysctl.php");
-$tab_array[] = array(gettext("Notifications"), true, "system_advanced_notifications.php");
-display_top_tabs($tab_array);
+fs_tabs('system-advanced', 'system_advanced_notifications.php');
 
 $form = new Form;
 
