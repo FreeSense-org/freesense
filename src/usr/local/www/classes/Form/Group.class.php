@@ -102,7 +102,7 @@ class Form_Group extends Form_Element
 
 		return <<<EOT
 	{$group}
-		<span class="help-block">
+		<span class="form-text help-block">
 			{$help}
 		</span>
 	</div>

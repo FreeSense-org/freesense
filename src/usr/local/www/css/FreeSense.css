@@ -44,6 +44,24 @@
 	--bs-link-color-rgb:   184, 55, 31;
 }
 
+/* Bootstrap's info cyan (#0dcaf0) is 1.7:1 on white; text and outline
+   buttons use the FreeSense info blue instead (>= 4.5:1). Backgrounds
+   (.bg-info, .text-bg-info, alerts) keep the Bootstrap tints. */
+.text-info { color: var(--fs-info) !important; }
+.link-info { color: var(--fs-info) !important; text-decoration-color: var(--fs-info) !important; }
+.btn-outline-info {
+	--bs-btn-color: var(--fs-info);
+	--bs-btn-border-color: var(--fs-info);
+	--bs-btn-hover-color: #fff;
+	--bs-btn-hover-bg: var(--fs-info);
+	--bs-btn-hover-border-color: var(--fs-info);
+	--bs-btn-active-color: #fff;
+	--bs-btn-active-bg: var(--fs-info);
+	--bs-btn-active-border-color: var(--fs-info);
+	--bs-btn-disabled-color: var(--fs-info);
+	--bs-btn-disabled-border-color: var(--fs-info);
+}
+
 /* infoblock toggle — duplicated from _freesense-core.css into the theme file
    (the one URL every browser demonstrably re-fetches) after a cache-staleness
    goose chase; element-level specificity + !important beats any UA default. */

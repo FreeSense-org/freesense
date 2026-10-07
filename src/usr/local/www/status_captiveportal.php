@@ -80,7 +80,7 @@ if (isset($cpzone) && !empty($cpzone) && config_path_enabled("captiveportal/{$cp
 }
 
 if ($_POST['act'] == "del" && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id'])) {
-	captiveportal_disconnect_client($_POST['id'], 6, "DISCONNECT - KIKED OUT BY ADMINISTRATOR");
+	captiveportal_disconnect_client($_POST['id'], 6, "DISCONNECT - KICKED OUT BY ADMINISTRATOR");
 	/* keep displaying last activity times */
 	if ($_POST['showact']) {
 		header("Location: status_captiveportal.php?zone={$cpzone}&showact=1");
