@@ -60,8 +60,18 @@ if ($me_user === null) {
 	list($savemsg, $input_errors) = $action;
 }
 
+/* A new key's secret is in this response only: never cache it. */
+if ($new_token !== null) {
+	header('Cache-Control: no-store');
+}
+
 $pgtitle = array(gettext('System'), gettext('REST API'), gettext('My API Keys'));
 $pglinks = array('', isAllowedPage('system_restapi.php') ? 'system_restapi.php' : '', '@self');
+if ($me_user !== null) {
+	fs_page_action(gettext('Create key'), '#', 'fa-plus', 'primary', array('data-bs-toggle' => 'modal', 'data-bs-target' => '#restapi-create-modal',
+	    'role' => 'button'));
+}
+fs_page_action(gettext('API Explorer'), 'system_restapi_explorer.php', 'fa-compass', 'secondary');
 include("head.inc");
 
 restapi_print_tabs('system_restapi_keys.php');
@@ -86,9 +96,10 @@ if ($me_user !== null) {
 	}));
 	restapi_print_key_table($mine, false, 'system_restapi_keys.php');
 	restapi_print_create_form(array(), $create, $me, $create_errors);
-
-	print_info_box(gettext('A key can do exactly what your account can do in the GUI, and nothing more. ' .
-	    'Use a read-only key and an expiry date where you can, and revoke keys you no longer use.'), 'info', false);
+?>
+<p class="restapi-note"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i><?=gettext('A key can do exactly what your account can do in the GUI, and nothing more. ' .
+    'Use a read-only key and an expiry date where you can, and revoke keys you no longer use.')?></p>
+<?php
 }
 
 include("foot.inc");
