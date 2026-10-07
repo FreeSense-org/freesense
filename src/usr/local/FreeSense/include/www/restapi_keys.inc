@@ -746,6 +746,7 @@ function restapi_print_shared_styles() {
 	.restapi-empty .fs-tool-empty > .btn { margin-top: var(--fs-sp-2); }
 	.restapi-newkey { border-color: color-mix(in srgb, var(--fs-pass) 55%, var(--fs-border)); }
 	.restapi-newkey .panel-body { padding: var(--fs-sp-4); }
+	.restapi-newkey .panel-body > p { padding-left: 0; padding-right: 0; }
 	.restapi-newkey .panel-title > i { color: var(--fs-pass); margin-right: .5rem; }
 	.restapi-newkey-warn { display: flex; gap: .5rem; align-items: baseline; }
 	.restapi-newkey-warn > i { color: var(--fs-warn); }
