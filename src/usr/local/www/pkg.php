@@ -350,20 +350,23 @@ if ($list_title === '' && $pkg['title'] != '') {
 	$list_title = gettext(trim(end($parts)));
 }
 
+$req_filter_type = (string)$_REQUEST['pkg_filter_type'];
+$req_filter_html = htmlspecialchars((string)$_REQUEST['pkg_filter'], ENT_QUOTES);
+
 ob_start();
 if ($sorting) {
 	if ($sorting['sortablefields']) {
 		echo '<select name="pkg_filter_type" class="form-select form-select-sm" aria-label="' . fs_h(gettext('Filter field')) . '">';
 		foreach ($sorting['sortablefields']['item'] as $si) {
-			echo '<option value="' . fs_h($si['name']) . '"' . (($si['name'] == $_REQUEST['pkg_filter_type']) ? ' selected' : '') . '>' . fs_h($si['name']) . '</option>';
+			echo '<option value="' . fs_h($si['name']) . '"' . (($si['name'] == $req_filter_type) ? ' selected' : '') . '>' . fs_h($si['name']) . '</option>';
 		}
 		echo '</select>';
 	}
 	if (isset($sorting['include_filtering_inputbox'])) {
-		echo '<input id="pkg_filter" name="pkg_filter" class="form-control form-control-sm fs-pkg-filter" value="' . fs_h($_REQUEST['pkg_filter']) . '" placeholder="' . fs_h(gettext('Filter text')) . '" aria-label="' . fs_h(gettext('Filter text')) . '">';
+		echo '<input id="pkg_filter" name="pkg_filter" class="form-control form-control-sm fs-pkg-filter" value="' . $req_filter_html . '" placeholder="' . fs_h(gettext('Filter text')) . '" aria-label="' . fs_h(gettext('Filter text')) . '">';
 		echo '<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-filter icon-embed-btn" aria-hidden="true"></i>' . gettext("Filter") . '</button>';
 	} else {
-		echo '<input type="hidden" id="pkg_filter" name="pkg_filter" value="' . fs_h($_REQUEST['pkg_filter']) . '">';
+		echo '<input type="hidden" id="pkg_filter" name="pkg_filter" value="' . $req_filter_html . '">';
 	}
 }
 if ($display_maximum_rows) {
