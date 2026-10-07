@@ -150,6 +150,35 @@ function fr_toggle(id, prefix) {
 	fr_bgcolor(id, prefix);
 }
 
+// Row selection for rule tables marked <table data-fs-rowselect>: a click on a
+// rule row (tr id="frN" holding checkbox id="frcN") toggles its checkbox exactly
+// once. One delegated listener instead of inline onclick="fr_toggle(N)", so rows
+// keep working after drag reordering re-numbers them (reindex_rules). It runs in
+// the capture phase so the pages' own row click handlers (buttonsmode) already
+// see the new state. Links, buttons, form fields and the "move here" anchors
+// (Xmove_*) do their own thing and do not toggle the row.
+document.addEventListener('click', function (e) {
+	if (!e.target.closest) {
+		return;
+	}
+	var row = e.target.closest('table[data-fs-rowselect] > tbody > tr[id^="fr"]');
+	if (!row) {
+		return;
+	}
+	var id = row.id.slice(2);
+	var checkbox = document.getElementById('frc' + id);
+	if (!checkbox || !row.contains(checkbox)) {
+		return;
+	}
+	if (e.target !== checkbox) {
+		if (e.target.closest('a[href], button, input, select, textarea, label, [id^="Xmove_"]')) {
+			return;
+		}
+		checkbox.checked = !checkbox.checked;
+	}
+	fr_bgcolor(id);
+}, true);
+
 // Change background color of selected row based on state of checkbox
 function fr_bgcolor(id, prefix) {
 	if (!prefix)
@@ -679,10 +708,16 @@ function reindex_rules(section) {
 	section.find('tr').each(function() {
 		if (this.id) {
 			$(this).attr("id", "fr" + row);
-			$(this).attr("onclick", "fr_toggle(" + row + ")")
+			// rows of a data-fs-rowselect table use the delegated handler below;
+			// only legacy rows with an inline onclick get it re-numbered
+			if (this.hasAttribute('onclick')) {
+				$(this).attr("onclick", "fr_toggle(" + row + ")");
+			}
 			$(this).find('input:checkbox:first').each(function() {
 				$(this).attr("id", "frc" + row);
-				$(this).attr("onclick", "fr_toggle(" + row + ")");
+				if (this.hasAttribute('onclick')) {
+					$(this).attr("onclick", "fr_toggle(" + row + ")");
+				}
 			});
 
 			row++;

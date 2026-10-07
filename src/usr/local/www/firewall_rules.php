@@ -363,7 +363,7 @@ if (isset($if)):
 	'actions' => ob_get_clean(),
 ]); ?>
 		<div id="mainarea" class="table-responsive panel-body">
-			<table id="ruletable" class="table table-hover table-rowdblclickedit">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit" data-fs-rowselect>
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -495,9 +495,9 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 			display_separator($separators, $nrules, $columns_in_table);
 		}
 ?>
-					<tr id="fr<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
+					<tr id="fr<?=$nrules;?>" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
 						<td>
-							<input type="checkbox" id="frc<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" name="rule[]" value="<?=$filteri;?>"/>
+							<input type="checkbox" id="frc<?=$nrules;?>" name="rule[]" value="<?=$filteri;?>"/>
 						</td>
 
 	<?php
@@ -694,7 +694,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 	<?php
 		if ($if === 'FloatingRules') {
 	?>
-			<td onclick="fr_toggle(<?=$nrules;?>)" id="frd<?=$nrules;?>" ondblclick="document.location='firewall_rules_edit.php?id=<?=$i;?>';">
+			<td id="frd<?=$nrules;?>" ondblclick="document.location='firewall_rules_edit.php?id=<?=$i;?>';">
 	<?php
 			if (isset($filterent['interface'])) {
 				$selected_interfaces = explode(',', $filterent['interface']);

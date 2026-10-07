@@ -123,7 +123,7 @@ $columns_in_table = 13;
 	'actions' => ob_get_clean(),
 ]); ?>
 		<div id="mainarea" class="panel-body table-responsive">
-			<table id="ruletable" class="table table-hover table-rowdblclickedit">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit" data-fs-rowselect>
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -196,10 +196,10 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 
 ?>
 
-					<tr id="fr<?=$nnats;?>" <?=$trclass?> onClick="fr_toggle(<?=$nnats;?>)">
+					<tr id="fr<?=$nnats;?>" <?=$trclass?>>
 						<td >
 <?php	if (have_natpfruleint_access($natent['interface'])): ?>
-							<input type="checkbox" id="frc<?=$nnats;?>" onClick="fr_toggle(<?=$nnats;?>)" name="rule[]" value="<?=$i;?>"/>
+							<input type="checkbox" id="frc<?=$nnats;?>" name="rule[]" value="<?=$i;?>"/>
 <?php	endif; ?>
 						</td>
 						<td>
