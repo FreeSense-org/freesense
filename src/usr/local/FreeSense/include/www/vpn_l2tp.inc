@@ -259,7 +259,8 @@ function l2tp_user_form($id) {
 	if ($this_secret_config) {
 		$pconfig['usernamefld'] = $this_secret_config['name'];
 		$pconfig['ip'] = $this_secret_config['ip'];
-		$pconfig['passwordfld'] = $this_secret_config['passwordfld'];
+		/* stored as 'password'; the form's addPassword() shows it only as the DMYPWD placeholder */
+		$pconfig['passwordfld'] = $this_secret_config['password'];
 	}
 	return $pconfig;
 }
