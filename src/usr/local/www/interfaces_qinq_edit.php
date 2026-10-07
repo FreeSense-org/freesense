@@ -161,7 +161,8 @@ foreach ($item as $ww) {
 		null,
 		'text',
 		$ww
-	))->setWidth(6); // Width must be <= 8 to make room for the duplication buttons
+	))->setWidth(6) // Width must be <= 8 to make room for the duplication buttons
+	  ->setHelp(($counter == count($item) - 1) ? 'Tag or range' : null);
 
 	$group->add(new Form_Button(
 		'deleterow' . $counter,
@@ -175,7 +176,8 @@ foreach ($item as $ww) {
 	$section->add($group);
 }
 
-$form->addGlobal(new Form_Button(
+/* below the tag rows (entry grid), not in the Save bar */
+$section->addInput(new Form_Button(
 	'addrow',
 	'Add Tag',
 	null,
