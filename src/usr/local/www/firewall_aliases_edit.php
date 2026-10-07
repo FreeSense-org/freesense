@@ -344,7 +344,7 @@ while ($counter < count($addresses)) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning');
+	))->addClass('btn-outline-secondary');
 
 	$section->add($group);
 	$counter++;
@@ -364,7 +364,7 @@ $form->addGlobal(new Form_Button(
 	$btn_str[$tab],
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success addbtn');
+))->addClass('btn-outline-secondary addbtn');
 
 $form->add($section);
 
@@ -400,8 +400,8 @@ events.push(function() {
 		$('.panel-title:last').text(sectionstr[tab]);
 
 		var buttonstr = <?=json_encode($btn_str);?>;
-		$('.btn-success').prop('value', buttonstr[tab]);
-		$('.btn-success').html('<i class="fa-solid fa-plus icon-embed-btn"></i>' + buttonstr[tab]);
+		$('.addbtn').prop('value', buttonstr[tab]);
+		$('.addbtn').html('<i class="fa-solid fa-plus icon-embed-btn"></i>' + buttonstr[tab]);
 
 		// Set the input field label by tab
 		var labelstr = <?=json_encode($label_str);?>;

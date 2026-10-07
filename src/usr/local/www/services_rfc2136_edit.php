@@ -211,7 +211,7 @@ if ($this_rfc2136_config) {
 		'Save & Force Update',
 		null,
 		'fa-solid fa-arrows-rotate'
-	))->addClass('btn-info');
+	))->addClass('btn-outline-secondary');
 }
 
 $form->add($section);

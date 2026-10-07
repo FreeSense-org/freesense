@@ -260,7 +260,7 @@ $group->add(new Form_Button(
 	gettext('Fetch host key'),
 	null,
 	'fa-solid fa-key'
-))->addClass('btn-info btn-sm');
+))->addClass('btn-outline-secondary btn-sm');
 $section->add($group);
 
 if (!empty($existing['sftp_pubkey'])) {

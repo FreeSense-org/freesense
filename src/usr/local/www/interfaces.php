@@ -2164,7 +2164,7 @@ $group->add(new Form_Button(
 	'Add a new gateway',
 	null,
 	'fa-solid fa-plus'
-))->setAttribute('type','button')->addClass('btn-success')->setAttribute('data-bs-target', '#newgateway4')->setAttribute('data-bs-toggle', 'modal');
+))->setAttribute('type','button')->addClass('btn-outline-secondary')->setAttribute('data-bs-target', '#newgateway4')->setAttribute('data-bs-toggle', 'modal');
 
 $group->setHelp('If this interface is an Internet connection, select an existing Gateway from the list or add a new one using the "Add" button.%1$s' .
 				'On local area network interfaces the upstream gateway should be "none".%1$s' .
@@ -2463,7 +2463,7 @@ $section->addInput(new Form_Button(
 	'Advanced PPP',
 	array_path_enabled($pconfig, '', 'pppid') ? 'interfaces_ppps_edit.php?id=' . htmlspecialchars(array_get_path($pconfig, 'pppid')) : 'interfaces_ppps_edit.php',
 	'fa-solid fa-gear'
-))->setAttribute('type','button')->addClass('btn-info')->setAttribute('id')->setHelp('Create a new PPP configuration.');
+))->setAttribute('type','button')->removeClass('btn-secondary')->addClass('btn-outline-secondary')->setAttribute('id')->setHelp('Create a new PPP configuration.');
 
 $form->add($section);
 
@@ -2596,7 +2596,7 @@ $section->addInput(new Form_Button(
 	'Advanced and MLPPP',
 	array_path_enabled($pconfig, '', 'pppid') ? 'interfaces_ppps_edit.php?id=' . htmlspecialchars(array_get_path($pconfig, 'pppid')) : 'interfaces_ppps_edit.php',
 	'fa-solid fa-gear'
-))->setAttribute('type','button')->addClass('btn-info')->setAttribute('id')->setHelp('Click for additional PPPoE configuration options. Save first if changes have been made.');
+))->setAttribute('type','button')->removeClass('btn-secondary')->addClass('btn-outline-secondary')->setAttribute('id')->setHelp('Click for additional PPPoE configuration options. Save first if changes have been made.');
 
 $form->add($section);
 
@@ -2677,7 +2677,7 @@ $section->addInput(new Form_Button(
 	'Advanced and MLPPP',
 	array_path_enabled($pconfig, '', 'pppid') ? 'interfaces_ppps_edit.php?id=' . htmlspecialchars(array_get_path($pconfig, 'pppid')) : 'interfaces_ppps_edit.php',
 	'fa-solid fa-gear'
-))->setAttribute('type','button')->addClass('btn-info')->setAttribute('id')->setHelp('%sClick for additional PPTP and L2TP configuration options. Save first if changes have been made.', $mlppp_text);
+))->setAttribute('type','button')->removeClass('btn-secondary')->addClass('btn-outline-secondary')->setAttribute('id')->setHelp('%sClick for additional PPTP and L2TP configuration options. Save first if changes have been made.', $mlppp_text);
 
 $form->add($section);
 
@@ -2712,7 +2712,7 @@ $group->add(new Form_Button(
 	'Add a new gateway',
 	null,
 	'fa-solid fa-plus'
-))->setAttribute('type','button')->addClass('btn-success')->setAttribute('data-bs-target', '#newgateway6')->setAttribute('data-bs-toggle', 'modal');
+))->setAttribute('type','button')->addClass('btn-outline-secondary')->setAttribute('data-bs-target', '#newgateway6')->setAttribute('data-bs-toggle', 'modal');
 
 $group->setHelp('If this interface is an Internet connection, select an existing Gateway from the list or add a new one using the "Add" button.%s' .
 				'On local LANs the upstream gateway should be "none". ', '<br />');
@@ -2758,7 +2758,7 @@ $btnaddgw6 = new Form_Button(
 	'fa-solid fa-plus'
 );
 
-$btnaddgw6->setAttribute('type','button')->addClass('btn-success');
+$btnaddgw6->setAttribute('type','button')->addClass('btn-primary');
 
 $btncnxgw6 = new Form_Button(
 	'cnx6',
@@ -2767,7 +2767,7 @@ $btncnxgw6 = new Form_Button(
 	'fa-solid fa-arrow-rotate-left'
 );
 
-$btncnxgw6->setAttribute('type','button')->addClass('btn-warning');
+$btncnxgw6->setAttribute('type','button')->addClass('btn-outline-secondary');
 
 $modal->addInput(new Form_StaticText(
 	null,
@@ -3667,7 +3667,7 @@ $btnaddgw4 = new Form_Button(
 	'fa-solid fa-plus'
 );
 
-$btnaddgw4->setAttribute('type','button')->addClass('btn-success');
+$btnaddgw4->setAttribute('type','button')->addClass('btn-primary');
 
 $btncnxgw4 = new Form_Button(
 	'cnx4',
@@ -3676,7 +3676,7 @@ $btncnxgw4 = new Form_Button(
 	'fa-solid fa-arrow-rotate-left'
 );
 
-$btncnxgw4->setAttribute('type','button')->addClass('btn-warning');
+$btncnxgw4->setAttribute('type','button')->addClass('btn-outline-secondary');
 
 $modal->addInput(new Form_StaticText(
 	null,

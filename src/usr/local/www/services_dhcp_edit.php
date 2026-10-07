@@ -127,7 +127,7 @@ $btnmymac = new Form_Button(
 	'fa-regular fa-clone'
 	);
 
-$btnmymac->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-success btn-sm');
+$btnmymac->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 
 $group = new Form_Group(gettext('MAC Address'));
 $group->add($macaddress);
@@ -612,7 +612,7 @@ foreach ($pconfig['numberoptions']['item'] as $item) {
 		gettext('Delete'),
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-sm btn-warning');
+	))->addClass('btn-sm btn-outline-secondary');
 
 	$section->add($group);
 
@@ -625,7 +625,7 @@ $group->add(new Form_Button(
 	gettext('Add Custom Option'),
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success')
+))->addClass('btn-outline-secondary')
   ->setHelp(gettext('Enter the DHCP option number, type and the value for each item to include in the DHCP lease information.'));
 $section->add($group);
 endif;

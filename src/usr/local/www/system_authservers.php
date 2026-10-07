@@ -309,7 +309,7 @@ $group->add(new Form_Button(
 	'Select a container',
 	null,
 	'fa-solid fa-magnifying-glass'
-))->setAttribute('type','button')->addClass('btn-info');
+))->setAttribute('type','button')->addClass('btn-outline-secondary');
 
 $section->add($group);
 

@@ -556,7 +556,7 @@ if ($usernames != "") {
 			'Delete',
 			null,
 			'fa-solid fa-trash-can'
-		))->addClass('btn-warning');
+		))->addClass('btn-outline-secondary');
 
 		$section->add($group);
 
@@ -571,7 +571,7 @@ $btnaddrow = new Form_Button(
 	'fa-solid fa-plus'
 );
 
-$btnaddrow->addClass('btn-success');
+$btnaddrow->addClass('btn-outline-secondary');
 
 $section->addInput(new Form_StaticText(
 	null,

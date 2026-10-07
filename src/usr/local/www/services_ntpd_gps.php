@@ -583,7 +583,7 @@ $btncalc = new Form_Button(
 	'fa-solid fa-calculator'
 );
 
-$btncalc->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-success btn-sm');
+$btncalc->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 
 $group->add($btncalc);
 

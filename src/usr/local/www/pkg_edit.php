@@ -1462,7 +1462,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 						'Delete',
 						null,
 						'fa-solid fa-trash-can'
-					))->removeClass('btn-primary')->addClass('btn-warning btn-sm');
+					))->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 
 					$rowcounter++;
 					$section->add($group);
@@ -1474,7 +1474,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 				'Add',
 				null,
 				'fa-solid fa-plus'
-			))->addClass('btn-success');
+			))->addClass('btn-outline-secondary');
 
 			break;
 

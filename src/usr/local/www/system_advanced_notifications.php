@@ -189,7 +189,7 @@ $section->addInput(new Form_Button(
 	'Test SMTP Settings',
 	null,
 	'fa-solid fa-envelope'
-))->addClass('btn-info')->setHelp('A test notification will be sent even if the service is '.
+))->addClass('btn-outline-secondary')->setHelp('A test notification will be sent even if the service is '.
 	'marked as disabled.  The last SAVED values will be used, not necessarily the values entered here.');
 
 $form->add($section);
@@ -247,7 +247,7 @@ $section->addInput(new Form_Button(
 	'Test Telegram Settings',
 	null,
 	'fa-solid fa-paper-plane'
-))->addClass('btn-info')->setHelp('A test notification will be sent even if the service is '.
+))->addClass('btn-outline-secondary')->setHelp('A test notification will be sent even if the service is '.
 	'not enabled.  The last SAVED values will be used, not necessarily the values displayed here.');
 
 	$form->add($section);
@@ -317,7 +317,7 @@ $section->addInput(new Form_Button(
 		'Test Pushover Settings',
 		null,
 		'fa-solid fa-paper-plane'
-	))->addClass('btn-info')->setHelp('A test notification will be sent even if the service is '.
+	))->addClass('btn-outline-secondary')->setHelp('A test notification will be sent even if the service is '.
 		'not enabled.  The last SAVED values will be used, not necessarily the values displayed here.');
 
 $form->add($section);
@@ -351,7 +351,7 @@ $section->addInput(new Form_Button(
 	'Test Slack Settings',
 	null,
 	'fa-solid fa-paper-plane'
-))->addClass('btn-info')->setHelp('A test notification will be sent even if the service is '.
+))->addClass('btn-outline-secondary')->setHelp('A test notification will be sent even if the service is '.
 	'not enabled.  The last SAVED values will be used, not necessarily the values displayed here.');
 
 $form->add($section);

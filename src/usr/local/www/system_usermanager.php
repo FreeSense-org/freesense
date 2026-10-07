@@ -437,14 +437,14 @@ if ($act == "new" || $act == "edit" || $input_errors):
 		'Move to "Member of" list',
 		null,
 		'fa-solid fa-angles-right'
-	))->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-info btn-sm');
+	))->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 
 	$group->add(new Form_Button(
 		'movetodisabled',
 		'Move to "Not member of" list',
 		null,
 		'fa-solid fa-angles-left'
-	))->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-info btn-sm');
+	))->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 
 	$group->setHelp('Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');
 	$section->add($group);
