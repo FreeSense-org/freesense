@@ -50,7 +50,7 @@ function restapi_print_new_token($token) {
 				<i class="fa-solid fa-copy icon-embed-btn" aria-hidden="true"></i><span><?=gettext('Copy')?></span></button>
 		</div>
 		<p class="fs-muted small mt-3 mb-1"><?=gettext('Use it as a bearer token, for example:')?></p>
-		<pre class="fs-console restapi-newkey-example">export FREESENSE_API_KEY='…'
+		<pre class="fs-console restapi-newkey-example">export FREESENSE_API_KEY='fsk_...'
 curl -H "Authorization: Bearer $FREESENSE_API_KEY" https://<?=$host?>/api/v1/me</pre>
 	</div>
 	<div class="panel-footer">
@@ -745,6 +745,7 @@ function restapi_print_shared_styles() {
 	.restapi-empty .fs-tool-empty { min-height: 12rem; text-align: center; }
 	.restapi-empty .fs-tool-empty > .btn { margin-top: var(--fs-sp-2); }
 	.restapi-newkey { border-color: color-mix(in srgb, var(--fs-pass) 55%, var(--fs-border)); }
+	.restapi-newkey .panel-body { padding: var(--fs-sp-4); }
 	.restapi-newkey .panel-title > i { color: var(--fs-pass); margin-right: .5rem; }
 	.restapi-newkey-warn { display: flex; gap: .5rem; align-items: baseline; }
 	.restapi-newkey-warn > i { color: var(--fs-warn); }

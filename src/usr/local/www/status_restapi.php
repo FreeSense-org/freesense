@@ -206,6 +206,7 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 	.rs-log td { font-size: var(--fs-fs-sm); }
 	.rs-log .rs-path { font-family: var(--fs-font-mono); font-size: var(--fs-fs-xs); overflow-wrap: anywhere; color: var(--fs-text-strong); }
 	.rs-log .rs-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+	.rs-log td:nth-child(3) { min-width: 15rem; }
 	.rs-log .rs-m { justify-content: center; min-width: 4.6em; font-family: var(--fs-font-mono); margin-right: .5rem; }
 	.rs-log tr.rs-row { cursor: pointer; }
 	.rs-log tr.rs-row.rs-failed > td:first-child { box-shadow: inset 3px 0 0 var(--rs-failed); }
@@ -482,7 +483,7 @@ events.push(function() {
 		tr.appendChild(req);
 		var who = el('td');
 		if (e.k) {
-			who.appendChild(el('code', '', T.prefix + '_' + e.k));
+			who.appendChild(el('span', 'fs-mono', T.prefix + '_' + e.k));
 			if (e.u) { who.appendChild(el('div', 'small fs-muted', e.u)); }
 		} else {
 			who.appendChild(el('span', 'fs-muted', '—'));
