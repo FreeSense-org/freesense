@@ -105,7 +105,7 @@ if (!restapi_enabled()) {
 	.fx-method { justify-content: center; min-width: 4.6em; font-family: var(--fs-font-mono); letter-spacing: .02em; }
 
 	/* The key card. */
-	.fx-keycard .panel-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--fs-sp-4) var(--fs-sp-5); align-items: start; }
+	.fx-keycard .panel-body { padding: var(--fs-sp-4); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--fs-sp-4) var(--fs-sp-5); align-items: start; }
 	.fx-keycard .input-group { max-width: 40rem; }
 	.fx-keystat { text-align: right; min-width: 12rem; }
 	.fx-keystat-value { font-size: var(--fs-fs-xl); font-weight: 600; color: var(--fs-text-strong); font-variant-numeric: tabular-nums; line-height: 1.2; }
@@ -118,9 +118,11 @@ if (!restapi_enabled()) {
 	.fx-layout { display: grid; grid-template-columns: minmax(20rem, 27rem) minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; }
 	.fx-layout > .panel { margin-bottom: 0; }
 	.fx-list-panel { position: sticky; top: calc(var(--fs-navbar-h, 3.5rem) + 1rem); }
-	.fx-list-panel .fs-toolbar-default { flex-wrap: wrap; }
-	.fx-list-panel .fs-search { flex: 1 1 100%; }
-	.fx-list-panel .form-select { flex: 1 1 0; min-width: 0; }
+	.fx-list-panel .fs-toolbar-default { flex-wrap: wrap; gap: .5rem; }
+	.fx-list-panel .fs-search { flex: 1 1 100%; max-width: none; }
+	.fx-list-panel .fs-toolbar-default > .form-select { flex: 1 1 6.5rem; width: auto; min-width: 6.5rem; max-width: none; }
+	.fx-list-panel .fs-toolbar-spacer { display: none; }
+	.fx-list-panel .fs-toolbar-count { flex: 1 1 100%; }
 	.fx-list { max-height: calc(100vh - var(--fs-navbar-h, 3.5rem) - 13rem); min-height: 16rem; overflow-y: auto; }
 	.fx-group-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: .5rem; width: 100%; padding: .45rem var(--fs-sp-4);
 	    border: 0; border-bottom: 1px solid var(--fs-border); background: var(--fs-surface-raised); color: var(--fs-text-muted);
@@ -144,7 +146,7 @@ if (!restapi_enabled()) {
 
 	/* The selected endpoint. */
 	.fx-detail-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: var(--fs-sp-4); border-bottom: 1px solid var(--fs-border); }
-	.fx-detail-head .fx-path { font-family: var(--fs-font-mono); font-size: var(--fs-fs-md, 1rem); color: var(--fs-text-strong); overflow-wrap: anywhere; flex: 1 1 16rem; margin: 0; }
+	.fx-detail-head .fx-path { font-family: var(--fs-font-mono); font-size: var(--fs-fs-md, 1rem); font-weight: 500; color: var(--fs-text-strong); overflow-wrap: anywhere; flex: 1 1 16rem; margin: 0; }
 	.fx-detail-sum { padding: var(--fs-sp-3) var(--fs-sp-4) 0; margin: 0; }
 	.fx-detail-chips { padding: var(--fs-sp-3) var(--fs-sp-4) 0; }
 	.fx-detail-body { padding: var(--fs-sp-4); display: grid; gap: var(--fs-sp-4); }

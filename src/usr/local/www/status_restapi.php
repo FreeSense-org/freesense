@@ -36,6 +36,7 @@ require_once("guiconfig.inc");
 require_once("restapi.inc");
 require_once("restapi_log.inc");
 require_once("restapi_listener.inc");
+require_once("restapi_listeners.inc");
 
 define('RESTAPI_REQLOG_PAGE', 100);
 /* Log entries hold client-controlled text (paths, user agents): no markup characters in the JSON this page sends. */
@@ -116,6 +117,15 @@ $log_labels = array('off' => gettext('Logging is off'), 'failures' => gettext('L
 
 $pgtitle = array(gettext('Status'), gettext('REST API'));
 $pglinks = array('', '@self');
+fs_page_action(gettext('Download'), 'status_restapi.php?download=log', 'fa-download', 'secondary',
+    array('id' => 'rs-download', 'title' => gettext('Download the matching entries (JSON lines)')));
+if ($can_manage) {
+	fs_page_action(gettext('Clear log'), 'status_restapi.php?act=clear', 'fa-trash-can', 'danger', array('usepost' => true,
+	    'data-fs-confirm' => gettext('Clear the REST API request log?'),
+	    'data-fs-confirm-detail' => gettext('Every entry is removed. Failed authentications stay in the authentication log.'),
+	    'data-fs-confirm-action' => gettext('Clear')));
+	fs_page_action(gettext('Log settings'), 'system_restapi.php', 'fa-sliders', 'secondary');
+}
 include("head.inc");
 
 if ($input_errors) {
@@ -170,65 +180,55 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 };
 ?>
 <style>
-	.rs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: .75rem; margin-bottom: 1rem; }
-	.rs-tile { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius);
-	    padding: .85rem 1rem; box-shadow: 0 1px 3px rgba(0, 0, 0, .07); }
-	.rs-tile .rs-label { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--bs-secondary-color); font-weight: 600; }
-	.rs-tile .rs-value { font-size: 1.65rem; font-weight: 700; line-height: 1.15; color: var(--bs-emphasis-color); font-variant-numeric: tabular-nums; }
-	.rs-tile .rs-sub { font-size: .8rem; color: var(--bs-secondary-color); }
-	.rs-tile .rs-bad { color: var(--bs-danger-text-emphasis); }
-	.rs-pad { padding: 1rem; }
-	:root { --rs-ok: #2a78d6; --rs-failed: #d03b3b; }
-	html[data-bs-theme="dark"] { --rs-ok: #3987e5; }
+	:root { --rs-ok: var(--fs-series-1); --rs-failed: var(--fs-block); }
+	.rs-pad { padding: var(--fs-sp-4); }
 	.rs-chart { width: 100%; height: auto; display: block; }
-	.rs-chart .rs-grid { stroke: var(--bs-border-color); stroke-width: 1; }
-	.rs-chart .rs-axis { fill: var(--bs-secondary-color); font-size: 11px; font-family: var(--bs-body-font-family); }
+	.rs-chart .rs-grid { stroke: var(--fs-border); stroke-width: 1; }
+	.rs-chart .rs-axis { fill: var(--fs-text-muted); font-size: 11px; font-family: var(--fs-font-ui); }
 	.rs-chart .rs-ok { fill: var(--rs-ok); }
 	.rs-chart .rs-failed { fill: var(--rs-failed); }
 	.rs-chart .rs-hit { fill: transparent; cursor: default; }
-	.rs-chart .rs-col.rs-hover .rs-hit { fill: var(--bs-tertiary-bg); }
-	.rs-legend { display: flex; gap: 1rem; font-size: .85rem; color: var(--bs-secondary-color); }
+	.rs-chart .rs-col.rs-hover .rs-hit { fill: var(--fs-accent-tint); }
+	.rs-legend { display: flex; gap: 1rem; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
 	.rs-legend i { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; margin-right: .35rem; vertical-align: -1px; }
-	.rs-tip { position: absolute; pointer-events: none; z-index: 5; background: var(--bs-body-bg); color: var(--bs-body-color);
-	    border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm); box-shadow: 0 .5rem 1.25rem rgba(0, 0, 0, .25);
-	    padding: .45rem .6rem; font-size: .8rem; white-space: nowrap; display: none; }
-	.rs-tip b { color: var(--bs-emphasis-color); }
+	.rs-tip { position: absolute; pointer-events: none; z-index: 5; background: var(--fs-surface-raised); color: var(--fs-text);
+	    border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); box-shadow: var(--fs-shadow-overlay);
+	    padding: .45rem .6rem; font-size: var(--fs-fs-xs); white-space: nowrap; display: none; }
+	.rs-tip b { color: var(--fs-text-strong); }
+	.rs-top-title { padding: var(--fs-sp-3) var(--fs-sp-4) .25rem; font-size: var(--fs-fs-xs); font-weight: 600; text-transform: uppercase;
+	    letter-spacing: .04em; color: var(--fs-text-muted); }
+	.rs-top-none { padding: 0 var(--fs-sp-4) var(--fs-sp-2); font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
 	.rs-top { list-style: none; margin: 0; padding: 0; }
-	.rs-top li { display: flex; justify-content: space-between; gap: .75rem; padding: .35rem 1rem; border-top: 1px solid var(--bs-border-color); font-size: .875rem; }
+	.rs-top li { display: flex; justify-content: space-between; gap: .75rem; padding: .35rem var(--fs-sp-4); border-top: 1px solid var(--fs-border); font-size: var(--fs-fs-sm); }
 	.rs-top li:first-child { border-top: 0; }
-	.rs-top .rs-n { font-variant-numeric: tabular-nums; color: var(--bs-secondary-color); }
-	.rs-toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
-	.rs-toolbar .form-select, .rs-toolbar .form-control { width: auto; }
-	.rs-toolbar .rs-search { flex: 1 1 16rem; min-width: 12rem; }
-	.rs-log td { font-size: .85rem; }
-	.rs-log .rs-path { font-family: var(--bs-font-monospace); font-size: .82rem; overflow-wrap: anywhere; color: var(--bs-emphasis-color); }
+	.rs-top .rs-n { font-variant-numeric: tabular-nums; color: var(--fs-text-muted); }
+	.rs-filters .form-select { width: auto; flex: 0 1 auto; }
+	.rs-log td { font-size: var(--fs-fs-sm); }
+	.rs-log .rs-path { font-family: var(--fs-font-mono); font-size: var(--fs-fs-xs); overflow-wrap: anywhere; color: var(--fs-text-strong); }
 	.rs-log .rs-time { font-variant-numeric: tabular-nums; white-space: nowrap; }
-	.rs-log .rs-m { display: inline-block; min-width: 4em; text-align: center; font-family: var(--bs-font-monospace); }
+	.rs-log .rs-m { justify-content: center; min-width: 4.6em; font-family: var(--fs-font-mono); margin-right: .5rem; }
 	.rs-log tr.rs-row { cursor: pointer; }
 	.rs-log tr.rs-row.rs-failed > td:first-child { box-shadow: inset 3px 0 0 var(--rs-failed); }
-	.rs-log tr.rs-detail > td { background: var(--bs-tertiary-bg) !important; font-size: .82rem; }
-	.rs-log tr.rs-detail dl { margin: 0; }
-	.rs-live-dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: var(--bs-success); margin-right: .35rem; }
+	.rs-log tr.rs-detail > td { background: var(--fs-surface-raised) !important; font-size: var(--fs-fs-xs); }
+	.rs-log tr.rs-detail dl { display: grid; grid-template-columns: minmax(7rem, 10rem) minmax(0, 1fr); gap: .2rem 1rem; margin: 0; }
+	.rs-log tr.rs-detail dt { color: var(--fs-text-muted); }
+	.rs-log tr.rs-detail dd { margin: 0; overflow-wrap: anywhere; }
+	.rs-live-dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; background: var(--fs-text-muted); margin-right: .4rem; }
+	.rs-live-on .rs-live-dot { background: var(--fs-pass); }
 	@media (prefers-reduced-motion: no-preference) { .rs-live-on .rs-live-dot { animation: rs-pulse 1.6s ease-in-out infinite; } }
 	@keyframes rs-pulse { 50% { opacity: .3; } }
 </style>
 
-<div class="rs-tiles" role="list">
-	<div class="rs-tile" role="listitem"><div class="rs-label"><?=gettext('Requests (24 h)')?></div>
-		<div class="rs-value"><?=number_format($stats['total'])?></div>
-		<div class="rs-sub"><?=htmlspecialchars($log_labels[$settings['log_level']])?></div></div>
-	<div class="rs-tile" role="listitem"><div class="rs-label"><?=gettext('Failed (24 h)')?></div>
-		<div class="rs-value<?=$stats['failed'] ? ' rs-bad' : ''?>"><?=number_format($stats['failed'])?></div>
-		<div class="rs-sub"><?=$stats['total'] ? htmlspecialchars(sprintf(gettext('%s%% of requests'), $fail_pct)) : gettext('no requests')?></div></div>
-	<div class="rs-tile" role="listitem"><div class="rs-label"><?=gettext('Clients (24 h)')?></div>
-		<div class="rs-value"><?=number_format($stats['clients'])?></div>
-		<div class="rs-sub"><?=gettext('distinct addresses')?></div></div>
-	<div class="rs-tile" role="listitem"><div class="rs-label"><?=gettext('Avg. response')?></div>
-		<div class="rs-value"><?=number_format($stats['avg_ms'])?><span class="fs-6 fw-normal text-muted"> ms</span></div>
-		<div class="rs-sub"><?=gettext('server time per request')?></div></div>
-	<div class="rs-tile" role="listitem"><div class="rs-label"><?=gettext('Listeners')?></div>
-		<div class="rs-value"><?=$running?><span class="fs-6 fw-normal text-muted"> / <?=count($listeners)?></span></div>
-		<div class="rs-sub"><?=$settings['guiapi'] ? gettext('running, plus the WebGUI port') : gettext('running (not on the WebGUI port)')?></div></div>
+<div class="fs-tiles">
+<?php
+	fs_tile(gettext('Requests (24 h)'), number_format($stats['total']), null, $log_labels[$settings['log_level']] ?? '');
+	fs_tile(gettext('Failed (24 h)'), number_format($stats['failed']), null,
+	    $stats['total'] ? sprintf(gettext('%s%% of requests'), $fail_pct) : gettext('No requests'));
+	fs_tile(gettext('Clients (24 h)'), number_format($stats['clients']), null, gettext('Distinct addresses'));
+	fs_tile(gettext('Avg. response'), number_format($stats['avg_ms']) . ' ms', null, gettext('Server time per request'));
+	fs_tile(gettext('Listeners'), empty($listeners) ? gettext('None') : sprintf(gettext('%1$d of %2$d'), $running, count($listeners)), null,
+	    $settings['guiapi'] ? gettext('Running, plus the WebGUI port') : gettext('Running (not on the WebGUI port)'));
+?>
 </div>
 
 <div class="row g-3 mb-3">
@@ -270,12 +270,12 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 	<div class="col-xl-4">
 		<div class="panel panel-default h-100 mb-0">
 			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Last 24 hours')?></h2></div>
-			<div class="panel-body">
+			<div class="panel-body pb-2">
 <?php
 	$top = function ($title, array $items, $fmt) {
-		echo '<div class="small fw-semibold text-muted px-3 pt-3 pb-1 text-uppercase">' . htmlspecialchars($title) . '</div>';
+		echo '<div class="rs-top-title">' . htmlspecialchars($title) . '</div>';
 		if (empty($items)) {
-			echo '<div class="small text-muted px-3 pb-2">' . gettext('none') . '</div>';
+			echo '<div class="rs-top-none">' . gettext('None') . '</div>';
 			return;
 		}
 		echo '<ul class="rs-top">';
@@ -286,13 +286,13 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 	};
 	$top(gettext('Busiest keys'), $stats['top_keys'], function ($k) {
 		list($id, $user) = array_pad(explode("\t", $k, 2), 2, '');
-		return '<code>' . htmlspecialchars(RESTAPI_TOKEN_PREFIX . '_' . $id) . '</code> <span class="text-muted">' . htmlspecialchars($user) . '</span>';
+		return '<span class="fs-mono">' . htmlspecialchars(RESTAPI_TOKEN_PREFIX . '_' . $id) . '</span> <span class="fs-muted">' . htmlspecialchars($user) . '</span>';
 	});
 	$top(gettext('Busiest clients'), $stats['top_ips'], function ($ip) {
-		return '<span class="font-monospace">' . htmlspecialchars($ip) . '</span>';
+		return '<span class="fs-mono">' . htmlspecialchars($ip) . '</span>';
 	});
 	$top(gettext('Most failures'), $stats['top_failing'], function ($ip) {
-		return '<span class="font-monospace text-danger-emphasis">' . htmlspecialchars($ip) . '</span>';
+		return '<span class="fs-mono">' . htmlspecialchars($ip) . '</span>';
 	});
 ?>
 			</div>
@@ -301,61 +301,47 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 </div>
 
 <?php if (!empty($listeners)): ?>
-<div class="panel panel-default">
+<div class="panel panel-default fs-table">
 	<div class="panel-heading d-flex justify-content-between align-items-center">
 		<h2 class="panel-title mb-0"><?=gettext('Listeners')?></h2>
 <?php	if ($can_manage): ?>
-		<a class="btn btn-sm btn-outline-secondary" href="system_restapi.php?view=listeners"><i class="fa-solid fa-gear icon-embed-btn"></i><?=gettext('Manage')?></a>
+		<a class="btn btn-sm btn-outline-secondary" href="system_restapi.php?view=listeners"><i class="fa-solid fa-gear icon-embed-btn" aria-hidden="true"></i><?=gettext('Manage')?></a>
 <?php	endif; ?>
 	</div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-sm table-striped align-middle mb-0">
-				<tbody>
+	<div class="panel-body table-responsive">
+		<table class="table">
+			<thead><tr>
+				<th class="fs-col-status"><?=gettext('State')?></th><th><?=gettext('Listener')?></th><th><?=gettext('Listens on')?></th><th><?=gettext('Access')?></th>
+			</tr></thead>
+			<tbody>
 <?php	foreach ($listeners as $l):
 		$s = $listener_states[$l['id']] ?? array();
-		$state = $l['enable'] ? (string)($s['state'] ?? '') : 'disabled';
-		$badge = array('running' => array('text-bg-success', gettext('Running')), 'no_address' => array('text-bg-warning', gettext('Waiting for address')),
-		    'error' => array('text-bg-danger', gettext('Error')), 'stopped' => array('text-bg-danger', gettext('Stopped')),
-		    'no_certificate' => array('text-bg-danger', gettext('No certificate')), 'disabled' => array('text-bg-secondary', gettext('Disabled')),
-		    'api_disabled' => array('text-bg-secondary', gettext('API disabled')))[$state] ?? array('text-bg-secondary', gettext('Not started'));
+		list($badge, $badge_label) = restapi_listener_state_badge($l['enable'] ? (string)($s['state'] ?? '') : 'disabled');
 ?>
-					<tr>
-						<td style="width: 11rem"><span class="badge <?=$badge[0]?>"><?=$badge[1]?></span></td>
-						<td><?=htmlspecialchars($listener_names[$l['id']])?></td>
-						<td class="font-monospace small"><?=htmlspecialchars(empty($s['addresses']) ? '—' : implode(', ', array_map(function ($a) use ($l) {
-							return (is_ipaddrv6($a) ? "[{$a}]" : $a) . ':' . $l['port'];
-						}, $s['addresses'])))?></td>
-						<td class="small text-muted"><?=$l['readonly'] ? gettext('read-only') : gettext('read/write')?><?=!empty($s['error']) ?
-						    ' · <span class="text-danger">' . htmlspecialchars($s['error']) . '</span>' : ''?></td>
-					</tr>
+				<tr class="<?=$l['enable'] ? '' : 'fs-row-disabled'?>">
+					<td><?=fs_badge($badge, $badge_label, empty($s['error']) ? null : $s['error'])?></td>
+					<td><?=htmlspecialchars($listener_names[$l['id']])?><?=!empty($s['error']) ?
+					    '<div class="small fs-muted">' . htmlspecialchars($s['error']) . '</div>' : ''?></td>
+					<td class="fs-mono"><?=htmlspecialchars(empty($s['addresses']) ? '—' : implode(', ', array_map(function ($a) use ($l) {
+						return (is_ipaddrv6($a) ? "[{$a}]" : $a) . ':' . $l['port'];
+					}, $s['addresses'])))?></td>
+					<td><span class="fs-chip fs-chip--strong<?=$l['readonly'] ? '' : ' is-warn'?>"><?=$l['readonly'] ? gettext('Read-only') : gettext('Read/write')?></span></td>
+				</tr>
 <?php	endforeach; ?>
-				</tbody>
-			</table>
-		</div>
+			</tbody>
+		</table>
 	</div>
 </div>
 <?php endif; ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading d-flex flex-wrap justify-content-between align-items-center gap-2">
-		<h2 class="panel-title mb-0"><?=gettext('Request Log')?> <span class="badge text-bg-secondary ms-1" id="rs-total">…</span></h2>
-		<div class="d-flex flex-wrap gap-2">
-			<button type="button" class="btn btn-sm btn-outline-secondary" id="rs-live" aria-pressed="false" title="<?=gettext('Refresh the log every 10 seconds')?>">
-				<span class="rs-live-dot" aria-hidden="true"></span><?=gettext('Live')?></button>
-			<a class="btn btn-sm btn-outline-secondary" id="rs-download" href="status_restapi.php?download=log"><i class="fa-solid fa-download icon-embed-btn"></i><?=gettext('Download')?></a>
-<?php	if ($can_manage): ?>
-			<a class="btn btn-sm btn-outline-danger do-confirm" href="status_restapi.php?act=clear" usepost title="<?=gettext('Clear the REST API request log')?>">
-				<i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext('Clear')?></a>
-			<a class="btn btn-sm btn-outline-secondary" href="system_restapi.php"><i class="fa-solid fa-sliders icon-embed-btn"></i><?=gettext('Log settings')?></a>
-<?php	endif; ?>
-		</div>
-	</div>
-	<div class="panel-body rs-pad pb-2">
-		<div class="rs-toolbar" id="rs-filters">
-			<div class="input-group input-group-sm rs-search">
-				<span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-				<input type="search" class="form-control" name="q" placeholder="<?=gettext('Search path, key, user, address or error')?>" aria-label="<?=gettext('Search the log')?>" />
+<div class="panel panel-default fs-table" id="rs-log-card">
+	<div class="fs-toolbar">
+		<div class="fs-toolbar-default rs-filters" id="rs-filters">
+			<h2 class="fs-toolbar-title"><?=gettext('Request log')?></h2>
+			<div class="fs-search" role="search">
+				<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+				<input type="search" class="form-control" name="q" autocomplete="off" placeholder="<?=gettext('Search path, key, user, address or error…')?>"
+				    aria-label="<?=gettext('Search the log')?>" />
 			</div>
 			<select class="form-select form-select-sm" name="status" aria-label="<?=gettext('Status')?>">
 				<option value=""><?=gettext('Any status')?></option>
@@ -390,10 +376,14 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 				<option value="7d"><?=gettext('Last 7 days')?></option>
 				<option value="all"><?=gettext('Everything kept')?></option>
 			</select>
+			<span class="fs-toolbar-spacer"></span>
+			<span class="fs-toolbar-count" id="rs-total" aria-live="polite">…</span>
+			<button type="button" class="btn btn-sm btn-outline-secondary" id="rs-live" aria-pressed="false" title="<?=gettext('Refresh the log every 10 seconds')?>">
+				<span class="rs-live-dot" aria-hidden="true"></span><?=gettext('Live')?></button>
 		</div>
 	</div>
-	<div class="table-responsive">
-		<table class="table table-sm table-hover align-middle mb-0 rs-log">
+	<div class="panel-body table-responsive">
+		<table class="table table-hover rs-log">
 			<thead><tr>
 				<th><?=gettext('Time')?></th><th><?=gettext('Status')?></th><th><?=gettext('Request')?></th>
 				<th><?=gettext('Key / user')?></th><th><?=gettext('Client')?></th><th><?=gettext('Via')?></th><th class="text-end"><?=gettext('Time taken')?></th>
@@ -402,14 +392,15 @@ $seg = function ($x, $y0, $y1, $round) use ($barw) {
 		</table>
 	</div>
 	<div class="panel-footer d-flex flex-wrap align-items-center gap-2">
-		<span class="small text-muted me-auto" id="rs-shown"></span>
-		<span class="small text-muted"><?=htmlspecialchars(sprintf(gettext('%1$s · kept %2$d days, up to %3$d MB'), format_bytes($log_size), $settings['log_days'], $settings['log_mb']))?></span>
+		<span class="small fs-muted me-auto" id="rs-shown"></span>
+		<span class="small fs-muted"><?=htmlspecialchars(sprintf(gettext('%1$s · kept %2$d days, up to %3$d MB'), format_bytes($log_size), $settings['log_days'], $settings['log_mb']))?></span>
 		<button type="button" class="btn btn-sm btn-outline-secondary d-none" id="rs-more"><?=gettext('Show older')?></button>
 	</div>
 </div>
 
 <script type="application/json" id="rs-i18n"><?=json_encode(array(
 	'none' => gettext('No request matches the filters.'),
+	'entries' => gettext('%d entries'),
 	'shown' => gettext('Showing %1$d of %2$d'),
 	'requests' => gettext('requests'),
 	'failed' => gettext('failed'),
@@ -476,39 +467,39 @@ events.push(function() {
 		filters.querySelectorAll('[name]').forEach(function(f) { if (f.value !== '') { p.set(f.name, f.value); } });
 		return p;
 	}
-	var mclass = {GET: 'text-bg-info', POST: 'text-bg-success', PUT: 'text-bg-warning', PATCH: 'text-bg-secondary', DELETE: 'text-bg-danger'};
+	var mclass = {GET: 'info', POST: 'pass', PUT: 'warn', PATCH: 'warn', DELETE: 'block'};
 	function row(e) {
 		var bad = e.s >= 400;
 		var tr = el('tr', 'rs-row' + (bad ? ' rs-failed' : ''));
 		tr.tabIndex = 0;
 		tr.appendChild(el('td', 'rs-time', when(e.t)));
 		var st = el('td');
-		st.appendChild(el('span', 'badge ' + (e.s >= 500 ? 'text-bg-danger' : (bad ? 'text-bg-warning' : 'text-bg-success')), String(e.s)));
+		st.appendChild(el('span', 'fs-badge fs-badge--' + (e.s >= 500 ? 'block' : (bad ? 'warn' : 'pass')), String(e.s)));
 		tr.appendChild(st);
 		var req = el('td');
-		req.appendChild(el('span', 'badge rs-m me-2 ' + (mclass[e.m] || 'text-bg-secondary'), e.m));
+		req.appendChild(el('span', 'fs-badge rs-m fs-badge--' + (mclass[e.m] || 'neutral'), e.m));
 		req.appendChild(el('span', 'rs-path', e.p));
 		tr.appendChild(req);
 		var who = el('td');
 		if (e.k) {
 			who.appendChild(el('code', '', T.prefix + '_' + e.k));
-			if (e.u) { who.appendChild(el('div', 'small text-muted', e.u)); }
+			if (e.u) { who.appendChild(el('div', 'small fs-muted', e.u)); }
 		} else {
-			who.appendChild(el('span', 'text-muted', '—'));
+			who.appendChild(el('span', 'fs-muted', '—'));
 		}
 		tr.appendChild(who);
-		tr.appendChild(el('td', 'font-monospace small', e.ip));
-		tr.appendChild(el('td', 'small text-muted', T.listeners[e.l || 'gui'] || e.l));
-		tr.appendChild(el('td', 'text-end small text-muted', e.ms + ' ms'));
+		tr.appendChild(el('td', 'fs-mono', e.ip));
+		tr.appendChild(el('td', 'fs-muted', T.listeners[e.l || 'gui'] || e.l));
+		tr.appendChild(el('td', 'text-end fs-muted text-nowrap', e.ms + ' ms'));
 		function toggle() {
 			var next = tr.nextElementSibling;
 			if (next && next.classList.contains('rs-detail')) { next.remove(); return; }
 			var d = el('tr', 'rs-detail'), td = el('td');
 			td.colSpan = 7;
-			var dl = el('dl', 'row');
+			var dl = el('dl');
 			[[T.code, e.c || '—'], [T.kind, e.w ? T.write : T.read], [T.ua, e.ua || '—']].forEach(function(p) {
-				dl.appendChild(el('dt', 'col-sm-2', p[0]));
-				dl.appendChild(el('dd', 'col-sm-10 mb-1', p[1]));
+				dl.appendChild(el('dt', '', p[0]));
+				dl.appendChild(el('dd', '', p[1]));
 			});
 			td.appendChild(dl);
 			d.appendChild(td);
@@ -533,12 +524,13 @@ events.push(function() {
 			data.entries.forEach(function(e) { rows.appendChild(row(e)); });
 			loaded += data.entries.length;
 			if (data.total === 0) {
-				var tr = el('tr'), td = el('td', 'text-center text-muted py-4', T.none);
+				var tr = el('tr', 'fs-empty'), td = el('td', '', '');
+				td.appendChild(el('span', 'fs-empty-message', T.none));
 				td.colSpan = 7;
 				tr.appendChild(td);
 				rows.appendChild(tr);
 			}
-			total.textContent = data.total;
+			total.textContent = T.entries.replace('%d', data.total);
 			shown.textContent = T.shown.replace('%1$d', loaded).replace('%2$d', data.total);
 			more.classList.toggle('d-none', loaded >= data.total);
 		})
@@ -553,8 +545,6 @@ events.push(function() {
 		var on = liveBtn.getAttribute('aria-pressed') !== 'true';
 		liveBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
 		liveBtn.classList.toggle('rs-live-on', on);
-		liveBtn.classList.toggle('btn-outline-success', on);
-		liveBtn.classList.toggle('btn-outline-secondary', !on);
 		clearInterval(live);
 		live = on ? setInterval(function() { load(false); }, 10000) : null;
 	});
