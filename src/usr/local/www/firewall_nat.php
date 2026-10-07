@@ -83,12 +83,14 @@ fs_tabs('firewall-nat', 'firewall_nat.php');
 
 $columns_in_table = 13;
 ?>
-<!-- Allow table to scroll when dragging outside of the display window -->
 <style>
-.table-responsive {
-    clear: both;
-    overflow-x: visible;
-    margin-bottom: 0px;
+/* Phones and narrow windows scroll the rule table inside its card. From 992 px
+ * the table may overflow as before, so dragging a rule past the bottom of the
+ * window scrolls the page (the sortable start hook below does the same for
+ * narrow windows). */
+#mainarea.table-responsive { clear: both; margin-bottom: 0; }
+@media (min-width: 992px) {
+	#mainarea.table-responsive { overflow-x: visible; }
 }
 </style>
 
@@ -120,11 +122,11 @@ $columns_in_table = 13;
 	'noun_one' => gettext('rule'),
 	'actions' => ob_get_clean(),
 ]); ?>
-		<div class="panel-body table-responsive">
+		<div id="mainarea" class="panel-body table-responsive">
 			<table id="ruletable" class="table table-hover table-rowdblclickedit">
 				<thead>
 					<tr>
-						<th style="padding-left:10px;">  <input type="checkbox" id="selectAll" name="selectAll" /></th>
+						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
 						<th><!-- Icon --></th>
 						<th><!-- Rule type --></th>
 						<th><?=gettext("Interface")?></th>
@@ -139,6 +141,11 @@ $columns_in_table = 13;
 						<th><?=gettext("Actions")?></th>
 					</tr>
 				</thead>
+<?php if (count(get_anynat_rules_list('rdr')) == 0): ?>
+				<tbody class="fs-rules-empty">
+<?php	fs_empty_row($columns_in_table, gettext('No port forward rules yet.'), isAllowedPage('firewall_nat_edit.php') ? 'firewall_nat_edit.php' : null, gettext('Add rule')); ?>
+				</tbody>
+<?php endif; ?>
 				<tbody class='user-entries'>
 <?php
 
@@ -348,9 +355,6 @@ if ($seprows[$nnats]) {
 	display_separator($separators, $nnats, $columns_in_table);
 }
 ?>
-<?php if ($nnats == 0) {
-	fs_empty_row(13, gettext('No port forward rules yet.'), isAllowedPage('firewall_nat_edit.php') ? 'firewall_nat_edit.php' : null, gettext('Add rule'));
-} ?>
 				</tbody>
 			</table>
 		</div>
@@ -374,6 +378,10 @@ events.push(function() {
 	// Make rules sortable
 	$('table tbody.user-entries').sortable({
 		cursor: 'grabbing',
+		start: function(event, ui) {
+			// Below 992 px the table scrolls inside its card; scroll the page while dragging
+			$(this).sortable('instance').scrollParent = $(document);
+		},
 		update: function(event, ui) {
 			$('#order-store').removeAttr('disabled');
 			dirty = true;
@@ -428,14 +436,10 @@ events.push(function() {
 
 if (count(get_anynat_rules_list('rdr')) > 0) {
 ?>
-<!-- Legend -->
-<div>
-	<dl class="dl-horizontal responsive">
-		<dt><?=gettext('Legend')?></dt>					<dd></dd>
-		<dt><i class="fa-solid fa-play"></i></dt>			<dd><?=gettext('Pass')?></dd>
-		<dt><i class="fa-solid fa-shuffle"></i></dt>		<dd><?=gettext('Linked rule')?></dd>
-	</dl>
-</div>
+<p class="fs-muted small">
+	<i class="fa-solid fa-play" aria-hidden="true"></i> <?=gettext('Pass')?>
+	&nbsp;&nbsp;<i class="fa-solid fa-shuffle" aria-hidden="true"></i> <?=gettext('Linked rule')?>
+</p>
 
 <?php
 }

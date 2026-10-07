@@ -341,7 +341,7 @@ foreach ($pconfig['bypassrules']['rule'] as $rule) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning');
+	))->addClass('btn-outline-secondary');
 
 	$section->add($group);
 
@@ -353,7 +353,7 @@ $section->addInput(new Form_Button(
 	'Add',
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success');
+))->addClass('btn-outline-secondary');
 
 $form->add($section);
 

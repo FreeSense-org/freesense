@@ -72,7 +72,7 @@ fs_tabs('status-captiveportal', 'status_captiveportal_expire.php', ['zone' => $c
 				</div>
 			</div>
 			<div class="panel-footer">
-				<button type="submit" class="btn btn-warning" name="Submit" value="Expire"
+				<button type="submit" class="btn btn-danger" name="Submit" value="Expire"
 					data-fs-confirm="<?=gettext('Expire these vouchers?')?>"
 					data-fs-confirm-detail="<?=gettext('Valid vouchers are marked as used. Users logged in with them are disconnected and the vouchers cannot be used again.')?>"
 					data-fs-confirm-action="<?=gettext('Expire')?>">

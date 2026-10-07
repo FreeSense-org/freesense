@@ -329,7 +329,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		$confirm_button_icon = 'arrows-rotate';
 		$confirm_button_label = ($pkgmode === 'reinstallall') ? gettext('Reinstall all packages') : gettext('Reinstall package');
 	} else {
-		$confirm_button_class = 'btn-success';
+		$confirm_button_class = 'btn-primary';
 		$confirm_button_icon = 'download';
 		$confirm_button_label = gettext('Install package');
 	}
@@ -383,7 +383,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 						</span>
 					</div>
 				</div>
-				<button type="submit" class="btn btn-success" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>" style="display: none"><i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext("Install update")?></button>
+				<button type="submit" class="btn btn-primary" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>" style="display: none"><i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext("Install update")?></button>
 			</div>
 
 			<div class="d-flex justify-content-end mb-3" id="release_info">

@@ -275,7 +275,7 @@ $form->addGlobal(new Form_Button(
 	'Save & Test',
 	null,
 	'fa-solid fa-wrench'
-))->addClass('btn-info');
+))->addClass('btn-outline-secondary');
 
 $form->add($section);
 

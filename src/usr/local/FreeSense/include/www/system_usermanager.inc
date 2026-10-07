@@ -833,7 +833,7 @@ function usermgr_user_priv_table($id, $read_only) {
 
 	$privhtml .= '<nav class="action-buttons">';
 	if (!$read_only) {
-		$privhtml .=	'<a href="system_usermanager_addprivs.php?userid=' . $id . '" class="btn btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>' . gettext("Add") . '</a>';
+		$privhtml .=	'<a href="system_usermanager_addprivs.php?userid=' . $id . '" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' . gettext("Add privilege") . '</a>';
 	}
 	$privhtml .= '</nav>';
 
@@ -881,7 +881,7 @@ function usermgr_user_cert_table($id, $read_only) {
 
 	$certhtml .= '<nav class="action-buttons">';
 	if (!$read_only && is_numericint($id)) {
-		$certhtml .=	'<a href="system_certmanager.php?act=new&amp;userid=' . $id . '" class="btn btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>' . gettext("Add") . '</a>';
+		$certhtml .=	'<a href="system_certmanager.php?act=new&amp;userid=' . $id . '" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' . gettext("Add certificate") . '</a>';
 	}
 	$certhtml .= '</nav>';
 
@@ -1295,7 +1295,7 @@ function usermgr_group_priv_table($id, $read_only, $dup) {
 
 	$privhtml .= '<nav class="action-buttons">';
 	if (!$read_only && ($dup === null)) {
-		$privhtml .=	'<a href="system_groupmanager_addprivs.php?groupid=' . $id . '" class="btn btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>' . gettext("Add") . '</a>';
+		$privhtml .=	'<a href="system_groupmanager_addprivs.php?groupid=' . $id . '" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' . gettext("Add privilege") . '</a>';
 	}
 	$privhtml .= '</nav>';
 

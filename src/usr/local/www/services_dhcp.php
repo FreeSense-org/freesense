@@ -463,7 +463,7 @@ if (!is_numeric($pool) && !($act == "newpool")) {
 		'services_dhcp.php?if=' . $if . '&act=newpool',
 		'fa-solid fa-plus'
 	);
-	$btnaddpool->addClass('btn-success');
+	$btnaddpool->removeClass('btn-secondary')->addClass('btn-outline-secondary');
 
 	$section->addInput(new Form_StaticText(
 		(!$has_pools ? gettext('Additional Pools') : null),
@@ -1093,7 +1093,7 @@ foreach ($pconfig['numberoptions']['item'] as $item) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-sm btn-warning');
+	))->addClass('btn-sm btn-outline-secondary');
 
 	$section->add($group);
 
@@ -1106,7 +1106,7 @@ $group->add(new Form_Button(
 	gettext('Add Custom Option'),
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success')
+))->addClass('btn-outline-secondary')
   ->setHelp(gettext('Enter the DHCP option number, type and the value for each item to include in the DHCP lease information.'));
 $section->add($group);
 endif; /* dhcp_is_backend(isc') */

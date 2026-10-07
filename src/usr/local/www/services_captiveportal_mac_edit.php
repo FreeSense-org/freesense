@@ -221,7 +221,7 @@ $btnmymac = new Form_Button(
 	'fa-regular fa-clone'
 	);
 
-$btnmymac->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-success btn-sm');
+$btnmymac->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 
 $group = new Form_Group('*MAC Address');
 $group->add($macaddress);

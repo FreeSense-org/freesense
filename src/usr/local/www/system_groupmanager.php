@@ -335,7 +335,7 @@ if ($pconfig['gid'] != 1998) {
 		null,
 		'fa-solid fa-angles-right'
 	))->setAttribute('type','button')->removeClass('btn-primary')->addClass(
-	    'btn-info btn-sm');
+	    'btn-outline-secondary btn-sm');
 
 	$group->add(new Form_Button(
 		'movetodisabled',
@@ -343,7 +343,7 @@ if ($pconfig['gid'] != 1998) {
 		null,
 		'fa-solid fa-angles-left'
 	))->setAttribute('type','button')->removeClass('btn-primary')->addClass(
-	    'btn-info btn-sm');
+	    'btn-outline-secondary btn-sm');
 
 	$group->setHelp(
 	    'Hold down CTRL (PC)/COMMAND (Mac) key to select multiple items.');

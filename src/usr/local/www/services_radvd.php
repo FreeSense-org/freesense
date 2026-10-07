@@ -288,7 +288,7 @@ foreach ($pconfig['subnets'] as $subnet) {
 		gettext('Delete'),
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-sm btn-warning');
+	))->addClass('btn-sm btn-outline-secondary');
 
 	$section->add($group);
 	$counter++;
@@ -301,7 +301,7 @@ $input = new Form_Button(
 	null,
 	'fa-solid fa-plus'
 );
-$input->addClass('btn-success');
+$input->addClass('btn-outline-secondary');
 $group->add($input);
 
 $section->add($group);

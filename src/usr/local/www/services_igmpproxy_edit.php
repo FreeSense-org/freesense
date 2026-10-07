@@ -178,7 +178,7 @@ foreach ($item as $ww) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->removeClass('btn-primary')->addClass('btn-warning');
+	))->removeClass('btn-primary')->addClass('btn-outline-secondary');
 
 	$counter++;
 	$section->add($group);
@@ -189,7 +189,7 @@ $section->addInput(new Form_Button(
 	'Add network',
 	null,
 	'fa-solid fa-plus'
-))->removeClass('btn-primary')->addClass('btn-success addbtn');
+))->removeClass('btn-primary')->addClass('btn-outline-secondary addbtn');
 
 $form->add($section);
 

@@ -578,7 +578,7 @@ if ($savemsg) {
 	#Show custom description to add button if defined
 	$add_msg=($pkg['adddeleteeditpagefields']['addtext']?$pkg['adddeleteeditpagefields']['addtext']:gettext("Add a new item"));
 ?>
-								<td><a href="pkg_edit.php?xml=<?=$xml?>&amp;id=<?=$i?>" class="btn btn-sm btn-success" title="<?=$add_msg?>"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('Add')?></a></td>
+								<td><a href="pkg_edit.php?xml=<?=$xml?>&amp;id=<?=$i?>" class="btn btn-sm btn-primary" title="<?=$add_msg?>"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('Add')?></a></td>
 <?php
 	#Show description button and info if defined
 	if ($pkg['adddeleteeditpagefields']['description']) {
