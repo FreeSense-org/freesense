@@ -54,10 +54,26 @@ function nic_ui_inventory() {
 			'assignment' => $assignments[$device] ?? gettext('Unassigned'),
 			'effective' => $effective,
 			'id' => $effective['id'],
+			'media' => $info['media'] ?? nic_ui_media($device),
 		]);
 	}
 	ksort($result, SORT_NATURAL);
 	return $result;
+}
+
+/* link speed and duplex from ifconfig, parsed the way get_interface_info() does for the dashboard widget */
+function nic_ui_media($device) {
+	$lines = [];
+	exec('/sbin/ifconfig ' . escapeshellarg($device) . ' 2>/dev/null', $lines);
+	foreach ($lines as $line) {
+		$line = ltrim($line);
+		if (preg_match('/^media: .*? \((.*?)\)/', $line, $m) ||
+		    preg_match('/^media: Ethernet (.*)/', $line, $m) ||
+		    preg_match('/^media: IEEE 802.11 Wireless Ethernet (.*)/', $line, $m)) {
+			return trim($m[1]);
+		}
+	}
+	return null;
 }
 
 /* hardware capability behind each setting; a setting the adapter lacks only offers "inherit" */
@@ -302,7 +318,7 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 					</td>
 					<td>
 						<?=fs_badge($nic['up'] ? 'up' : 'down')?>
-						<div class="fs-muted small"><?=htmlspecialchars($nic['media'] ?? gettext('Unknown'))?></div>
+						<div class="fs-muted small"><?=htmlspecialchars(isset($nic['media']) ? trim(preg_replace('/[<>\s]+/', ' ', $nic['media'])) : gettext('Virtual'))?></div>
 					</td>
 					<td class="fs-mono">
 						<?=htmlspecialchars((string)($nic['mtu'] ?? '-'))?>
