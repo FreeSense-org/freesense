@@ -136,7 +136,7 @@ foreach (explode(',', $pconfig['server']) as $server) {
 		gettext('Delete'),
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-sm btn-warning');
+	))->addClass('btn-sm btn-outline-secondary');
 
 	$section->add($group);
 	$counter++;
@@ -148,7 +148,7 @@ $group->add(new Form_Button(
 	gettext('Add Upstream Server'),
 	null,
 	'fa-solid fa-plus',
-))->addClass('btn-success addbtn')
+))->addClass('btn-outline-secondary addbtn')
   ->setHelp(gettext('The IPv6 addresses of the servers to which DHCPv6 requests are relayed.'));
 $section->add($group);
 

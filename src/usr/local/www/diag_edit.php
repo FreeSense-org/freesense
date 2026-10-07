@@ -142,7 +142,7 @@ print_callout(gettext("The capabilities offered here can be dangerous. No suppor
 				<i class="fa-solid fa-folder-open icon-embed-btn" aria-hidden="true"></i><?=gettext('Browse')?>
 			</button>
 		</div>
-		<button type="button" class="btn btn-warning" id="fbSave" value="<?=gettext('Save')?>">
+		<button type="button" class="btn btn-primary" id="fbSave" value="<?=gettext('Save')?>">
 			<i class="fa-solid fa-floppy-disk icon-embed-btn" aria-hidden="true"></i><?=gettext('Save')?>
 		</button>
 		<div class="input-group input-group-sm fs-edit-goto">

@@ -470,7 +470,7 @@ events.push(function() {
 	// Set initial state
 	setShowHide($('#enable').is(":checked"));
 
-	var generateButton = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new keys");?></a>');
+	var generateButton = $('<a class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Generate new keys");?></a>');
 	generateButton.on('click', function() {
 		$.ajax({
 			type: 'post',

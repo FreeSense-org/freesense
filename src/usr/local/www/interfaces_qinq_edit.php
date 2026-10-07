@@ -168,7 +168,7 @@ foreach ($item as $ww) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning');
+	))->addClass('btn-outline-secondary');
 
 	$counter++;
 
@@ -180,7 +180,7 @@ $form->addGlobal(new Form_Button(
 	'Add Tag',
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success addbtn');
+))->addClass('btn-outline-secondary addbtn');
 
 $form->add($section);
 

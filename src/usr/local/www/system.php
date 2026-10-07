@@ -185,7 +185,7 @@ foreach ($pconfig['dnsserver'] as $dnsserver) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->setWidth(2)->addClass('btn-warning');
+	))->setWidth(2)->addClass('btn-outline-secondary');
 
 	$section->add($group);
 	$dnsserver_num++;
@@ -196,7 +196,7 @@ $section->addInput(new Form_Button(
 	'Add DNS Server',
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success addbtn');
+))->addClass('btn-outline-secondary addbtn');
 
 $section->addInput(new Form_Checkbox(
 	'dnsallowoverride',
