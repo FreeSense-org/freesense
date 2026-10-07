@@ -559,8 +559,8 @@ if ($show_form) {
 		);
 		$delete->removeClass('btn-secondary')->addClass('btn-outline-danger', 'nowarn');
 		$delete->setAttribute('data-fs-confirm', $is_root_delete
-		    ? sprintf(gettext('Remove the shaper from %s?'), $ifdescr)
-		    : sprintf(gettext('Delete queue “%s”?'), $queue->GetQname()));
+		    ? gettext('Remove the shaper from this interface?')
+		    : gettext('Delete this queue?'));
 		$delete->setAttribute('data-fs-confirm-detail', $is_root_delete
 		    ? gettext('All queues on this interface are deleted.')
 		    : gettext('Its child queues are deleted too. Firewall rules that use it lose their queue assignment.'));

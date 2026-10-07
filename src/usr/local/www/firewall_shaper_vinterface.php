@@ -567,8 +567,8 @@ if ($show_form) {
 			);
 			$delete->removeClass('btn-secondary')->addClass('btn-outline-danger', 'nowarn');
 			$delete->setAttribute('data-fs-confirm', $is_queue
-			    ? sprintf(gettext('Delete queue “%s”?'), $qname)
-			    : sprintf(gettext('Delete limiter “%s”?'), $pipe));
+			    ? gettext('Delete this queue?')
+			    : gettext('Delete this limiter?'));
 			$delete->setAttribute('data-fs-confirm-detail', $is_queue
 			    ? gettext('Firewall rules that use it lose their limiter assignment.')
 			    : gettext('Its queues are deleted too. Firewall rules that use them lose their limiter assignment.'));
