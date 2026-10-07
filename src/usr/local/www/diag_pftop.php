@@ -69,152 +69,175 @@ if ($_REQUEST['getactivity']) {
 
 include("head.inc");
 
-if ($_REQUEST['sorttype'] && in_array($_REQUEST['sorttype'], $sorttypes) &&
-    $_REQUEST['viewtype'] && in_array($_REQUEST['viewtype'], $viewtypes) &&
-    $_REQUEST['states'] && in_array($_REQUEST['states'], $numstates)) {
-	$viewtype = escapeshellarg($_REQUEST['viewtype']);
-	if (in_array($_REQUEST['viewtype'], $viewall)) {
-		$sorttype = "";
-		$numstate = "-a";
-	} else {
-		$sorttype = "-o " . escapeshellarg($_REQUEST['sorttype']);
-		$numstate = ($_REQUEST['states'] == "all" ? "-a" : escapeshellarg($_REQUEST['states']));
-	}
-} else {
-	$sorttype = "bytes";
-	$viewtype = "default";
-	$numstate = "100";
-}
-if ($_REQUEST['filter'] != "") {
-	$filter = "-f " . escapeshellarg($_REQUEST['filter']);
-} else {
-	$filter = "";
-}
+/* The current choices (validated; the defaults of pftop otherwise) */
+$cur_view = in_array($_REQUEST['viewtype'] ?? '', $viewtypes) ? $_REQUEST['viewtype'] : 'default';
+$cur_sort = in_array($_REQUEST['sorttype'] ?? '', $sorttypes) ? $_REQUEST['sorttype'] : 'bytes';
+$cur_states = in_array($_REQUEST['states'] ?? '', $numstates) ? $_REQUEST['states'] : '100';
+$cur_filter = (string)($_REQUEST['filter'] ?? '');
 
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-$form = new Form(false);
-$form->addGlobal(new Form_Input(
-	'getactivity',
-	null,
-	'hidden',
-	'yes'
-));
-$section = new Form_Section('pfTop Configuration');
-
 $validViews = array(
-	'default' => gettext('default'),
-	'label' => gettext('label'),
-	'long' => gettext('long'),
-	'queue' => gettext('queue'),
-	'rules' => gettext('rules'),
-	'size' => gettext('size'),
-	'speed' => gettext('speed'),
-	'state' => gettext('state'),
-	'time' => gettext('time'),
+	'default' => gettext('Default'),
+	'label' => gettext('Label'),
+	'long' => gettext('Long'),
+	'queue' => gettext('Queue'),
+	'rules' => gettext('Rules'),
+	'size' => gettext('Size'),
+	'speed' => gettext('Speed'),
+	'state' => gettext('State'),
+	'time' => gettext('Time'),
 );
-$section->addInput(new Form_Select(
-	'viewtype',
-	'View',
-	$viewtype,
-	$validViews
-));
-
-$section->addInput(new Form_Input(
-	'filter',
-	'Filter expression',
-	'text',
-	$_REQUEST['filter'],
-	['placeholder' => 'e.g. tcp, ip6 or dst net 208.123.73.0/24']
-))->setHelp('<em>click for filter help</em>%1$s' .
-	'<code>[proto &lt;ip|ip6|ah|carp|esp|icmp|ipv6-icmp|pfsync|tcp|udp&gt;]</code><br />' .
-	'<code>[src|dst|gw] [host|net|port] &lt;host/network/port&gt;</code><br />' .
-	'<code>[in|out]</code><br /><br />' .
-	'These are the most common selectors. Some expressions can be combined using "and" / "or". ' .
-	'See %2$s for more detailed expression syntax.%3$s',
-	'<span class="infoblock"><br />',
-	'<a target="_blank" href="https://www.freebsd.org/cgi/man.cgi?query=pftop#STATE_FILTERING">pftop(8)</a>',
-	'</span></p>'
+$validSorts = array(
+	'none' => gettext('None'),
+	'age' => gettext('Age'),
+	'bytes' => gettext('Bytes'),
+	'dest' => gettext('Destination address'),
+	'dport' => gettext('Destination port'),
+	'exp' => gettext('Expiry'),
+	'pkt' => gettext('Packets'),
+	'sport' => gettext('Source port'),
+	'src' => gettext('Source address'),
 );
-
-$section->addInput(new Form_Select(
-	'sorttype',
-	'Sort by',
-	$sorttype,
-	array(
-		'none' => gettext('None'),
-		'age' => gettext('Age'),
-		'bytes' => gettext('Bytes'),
-		'dest' => gettext('Destination Address'),
-		'dport' => gettext('Destination Port'),
-		'exp' => gettext('Expiry'),
-		'pkt' => gettext('Packet'),
-		'sport' => gettext('Source Port'),
-		'src' => gettext('Source Address'),
-	)
-));
-
 $validStates = array(50, 100, 200, 500, 1000, 'all');
-$section->addInput(new Form_Select(
-	'states',
-	'Maximum # of States',
-	$numstate,
-	array_combine($validStates, $validStates)
-));
-
-$form->add($section);
-print $form;
 ?>
 
-<script type="text/javascript">
-//<![CDATA[
-	function getpftopactivity() {
-		$.ajax(
-			'/diag_pftop.php',
-			{
-				method: 'post',
-				data: $(document.forms[0]).serialize(),
-				dataType: "html",
-				success: function (data) {
-					$('#xhrOutput').html(data);
-				},
-			}
-		);
-	}
+<style>
+.fs-pftop-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-3); }
+.fs-pftop-head .form-switch { margin: 0; font-size: var(--fs-fs-sm); }
+#xhrOutput { white-space: pre; word-break: normal; }
+.fs-pftop-syntax code { font-size: var(--fs-fs-xs); }
+.fs-pftop-syntax summary { cursor: pointer; }
+</style>
 
-	events.push(function() {
-		setInterval('getpftopactivity()', 2500);
-		getpftopactivity();
-	});
-//]]>
-</script>
+<div class="fs-tool">
+	<form method="post" action="diag_pftop.php" class="fs-tool-form" id="pftop-form">
+		<input type="hidden" name="getactivity" value="yes">
+		<div class="panel panel-default">
+			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Options')?></h2></div>
+			<div class="panel-body">
+				<div>
+					<label class="form-label" for="viewtype"><?=gettext('View')?></label>
+					<select class="form-select" id="viewtype" name="viewtype">
+<?php foreach ($validViews as $k => $v): ?>
+						<option value="<?=$k?>"<?=($cur_view == $k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+					</select>
+					<div class="form-text"><?=gettext('Queue, label and rules views always show every entry.')?></div>
+				</div>
+				<div data-pftop-states-only>
+					<label class="form-label" for="filter"><?=gettext('Filter expression')?></label>
+					<input class="form-control fs-mono" type="text" id="filter" name="filter" value="<?=htmlspecialchars($cur_filter)?>" placeholder="<?=gettext('e.g. tcp, ip6 or dst net 192.0.2.0/24')?>" autocomplete="off">
+					<details class="form-text fs-pftop-syntax">
+						<summary><?=gettext('Filter syntax')?></summary>
+						<code>[proto &lt;ip|ip6|ah|carp|esp|icmp|ipv6-icmp|pfsync|tcp|udp&gt;]</code><br>
+						<code>[src|dst|gw] [host|net|port] &lt;host/network/port&gt;</code><br>
+						<code>[in|out]</code><br>
+						<?=sprintf(gettext('Combine expressions with "and" / "or". See %s for the full syntax.'), '<a target="_blank" rel="noopener" href="https://www.freebsd.org/cgi/man.cgi?query=pftop#STATE_FILTERING">pftop(8)</a>')?>
+					</details>
+				</div>
+				<div class="fs-tool-row" data-pftop-states-only>
+					<div>
+						<label class="form-label" for="sorttype"><?=gettext('Sort by')?></label>
+						<select class="form-select" id="sorttype" name="sorttype">
+<?php foreach ($validSorts as $k => $v): ?>
+							<option value="<?=$k?>"<?=($cur_sort == $k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+						</select>
+					</div>
+					<div>
+						<label class="form-label" for="states"><?=gettext('Maximum states')?></label>
+						<select class="form-select" id="states" name="states">
+<?php foreach ($validStates as $n): ?>
+							<option value="<?=$n?>"<?=($cur_states == $n) ? ' selected' : ''?>><?=($n === 'all') ? gettext('All') : $n?></option>
+<?php endforeach; ?>
+						</select>
+					</div>
+				</div>
+			</div>
+			<div class="panel-footer small fs-muted">
+				<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+				<?=gettext('The output refreshes every 2.5 seconds and follows these options right away.')?>
+			</div>
+		</div>
+	</form>
 
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Output')?></h2></div>
-	<div class="panel panel-body">
-		<pre id="xhrOutput"><?=gettext("Gathering pfTOP activity, please wait...")?></pre>
+	<div class="panel panel-default">
+		<div class="panel-heading">
+			<h2 class="panel-title"><?=gettext('Output')?></h2>
+			<div class="fs-pftop-head">
+				<div class="form-check form-switch">
+					<input class="form-check-input" type="checkbox" role="switch" id="refresh" checked>
+					<label class="form-check-label" for="refresh"><?=gettext('Refresh automatically')?></label>
+				</div>
+				<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#xhrOutput">
+					<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+				</button>
+			</div>
+		</div>
+		<pre class="fs-console" id="xhrOutput" aria-live="off"><?=gettext("Gathering pfTOP activity, please wait...")?></pre>
 	</div>
 </div>
 
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-	$('#viewtype').on('change', function() {
-		if (['queue', 'label', 'rules'].indexOf($(this).val()) > -1) {
-			$("#filter, #sorttype, #sorttypediv, #statesdiv, #states").parents('.form-group').hide();
-		} else {
-			$("#filter, #sorttype, #sorttypediv, #statesdiv, #states").parents('.form-group').show();
+	var busy = false;
+	var form = document.getElementById('pftop-form');
+
+	// The page returns the pftop text HTML-escaped; show it as plain text.
+	function show(data) {
+		var entities = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#039;': "'"};
+		document.getElementById('xhrOutput').textContent = String(data).replace(/&(amp|lt|gt|quot|#039);/g, function (m) {
+			return entities[m];
+		});
+	}
+
+	function getpftopactivity(force) {
+		if (busy || (!force && (document.hidden || !document.getElementById('refresh').checked))) {
+			return;
 		}
+		busy = true;
+		$.ajax('/diag_pftop.php', {
+			method: 'post',
+			data: $(form).serialize(),
+			dataType: 'text'
+		}).done(show).always(function () {
+			busy = false;
+		});
+	}
+
+	// Sort, filter and state limit do not apply to the queue, label and rules views
+	function toggleOptions() {
+		var all = ['queue', 'label', 'rules'].indexOf($('#viewtype').val()) > -1;
+		$('[data-pftop-states-only]').prop('hidden', all);
+	}
+
+	$('#viewtype').on('change', toggleOptions);
+	$('#viewtype, #sorttype, #states').on('change', function () {
+		getpftopactivity(true);
 	});
-	$('#filter').on('keypress keyup', function(event) {
-		var keyPressed = event.keyCode || event.which;
-		if (keyPressed === 13) {
+	$('#filter').on('keydown', function (event) {
+		if (event.key === 'Enter') {
 			event.preventDefault();
-			return false;
+			getpftopactivity(true);
 		}
 	});
+	$(form).on('submit', function (event) {
+		event.preventDefault();
+		getpftopactivity(true);
+	});
+	$('#refresh').on('change', function () {
+		if (this.checked) {
+			getpftopactivity(true);
+		}
+	});
+
+	toggleOptions();
+	getpftopactivity(true);
+	setInterval(getpftopactivity, 2500);
 });
 //]]>
 </script>

@@ -50,68 +50,90 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-$statetablehelp = sprintf(gettext('Resetting the state tables will remove all entries from the corresponding tables. This means that all open connections ' .
-					'will be broken and will have to be re-established. This may be necessary after making substantial changes to the ' .
-					'firewall and/or NAT rules, especially if there are IP protocol mappings (e.g. for PPTP or IPv6) with open connections.%1$s' .
-					'The firewall will normally leave the state tables intact when changing rules.%2$s' .
-					'%3$sNOTE:%4$s Resetting the firewall state table may cause the browser session to appear hung after clicking &quot;Reset&quot;. ' .
-					'Simply refresh the page to continue.'), "<br /><br />", "<br /><br />", "<strong>", "</strong>");
-
-$sourcetablehelp = sprintf(gettext('Resetting the source tracking table will remove all source/destination associations. ' .
-					'This means that the "sticky" source/destination association ' .
-					'will be cleared for all clients.%s' .
-					'This does not clear active connection states, only source tracking.'), "<br /><br />");
-
 fs_tabs('diagnostics-states', 'diag_resetstate.php');
 
-$form = new Form(false);
-
-$section = new Form_Section('State reset options');
-
-$section->addInput(new Form_Checkbox(
-	'statetable',
-	'State Table',
-	'Reset the firewall state table',
-	false
-))->setHelp($statetablehelp);
-
-if (diag_resetstate_sourcetracking_available()) {
-	$section->addInput(new Form_Checkbox(
-		'sourcetracking',
-		'Source Tracking',
-		'Reset firewall source tracking',
-		false
-	))->setHelp($sourcetablehelp);
-}
-
-$form->add($section);
-
-$form->addGlobal(new Form_Button(
-	'Submit',
-	'Reset',
-	null,
-	'fa-solid fa-trash-can'
-))->addClass('btn-warning');
-
-print $form;
-
-$nonechecked = gettext("Please select at least one reset option");
-$cfmmsg = gettext("Do you really want to reset the selected states?");
+$has_sourcetracking = diag_resetstate_sourcetracking_available();
 ?>
+
+<style>
+.fs-reset-options { display: grid; gap: var(--fs-sp-3); margin-top: var(--fs-sp-3); }
+.fs-reset-option { display: flex; gap: var(--fs-sp-3); padding: var(--fs-sp-3) var(--fs-sp-4); border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); cursor: pointer; }
+.fs-reset-option:has(input:checked) { border-color: var(--fs-block); }
+.fs-reset-option .form-check-input { flex: none; margin-top: .2rem; }
+.fs-reset-option strong { display: block; }
+.fs-reset-option span { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-reset-none { margin-top: var(--fs-sp-2); color: var(--fs-block); font-size: var(--fs-fs-sm); }
+</style>
+
+<form method="post" action="diag_resetstate.php" id="resetstate-form" novalidate>
+	<div class="panel panel-default fs-danger-card">
+		<div class="panel-heading">
+			<h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Reset firewall states')?></h2>
+		</div>
+		<div class="panel-body fs-danger-body">
+			<p><?=gettext('The firewall normally keeps its state tables when rules change. A reset is only needed after larger rule or NAT changes, for example when connections with protocol mappings (PPTP, IPv6) are still open.')?></p>
+			<div class="fs-reset-options" role="group" aria-label="<?=gettext('What to reset')?>">
+				<label class="fs-reset-option" for="statetable">
+					<input class="form-check-input" type="checkbox" name="statetable" id="statetable" value="yes">
+					<div>
+						<strong><?=gettext('Firewall state table')?></strong>
+						<span><?=gettext('Removes every state: all open connections break and must be set up again. The browser may seem to hang after the reset; reload the page to continue.')?></span>
+					</div>
+				</label>
+<?php if ($has_sourcetracking): ?>
+				<label class="fs-reset-option" for="sourcetracking">
+					<input class="form-check-input" type="checkbox" name="sourcetracking" id="sourcetracking" value="yes">
+					<div>
+						<strong><?=gettext('Source tracking table')?></strong>
+						<span><?=gettext('Clears every sticky source/destination association. Active connection states stay as they are.')?></span>
+					</div>
+				</label>
+<?php endif; ?>
+			</div>
+			<p class="fs-reset-none" id="reset-none" hidden role="alert"><?=gettext("Please select at least one reset option")?></p>
+		</div>
+		<div class="panel-footer">
+			<button type="submit" class="btn btn-danger no-confirm" name="Submit" value="Reset" id="Submit">
+				<i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i><?=gettext('Reset')?>
+			</button>
+			<a class="btn btn-outline-secondary" href="diag_dump_states.php"><?=gettext('Cancel')?></a>
+		</div>
+	</div>
+</form>
 
 <script type="text/javascript">
 //<![CDATA[
-	events.push(function(){
+events.push(function() {
+	var form = document.getElementById('resetstate-form');
+	var confirmed = false;
 
-		$('form').submit(function(event){
-			if ( !($('#statetable').prop("checked") == true) && !($('#sourcetracking').prop("checked") == true)) {
-				alert("<?=$nonechecked?>");
-				event.preventDefault();
-			} else if (!confirm("<?=$cfmmsg?>")) {
-				event.preventDefault();
+	$(form).on('change', 'input[type=checkbox]', function () {
+		$('#reset-none').prop('hidden', true);
+	});
+
+	form.addEventListener('submit', function (event) {
+		if (confirmed) {
+			return;
+		}
+		event.preventDefault();
+		if (!$(form).find('input[type=checkbox]:checked').length) {
+			$('#reset-none').prop('hidden', false);
+			return;
+		}
+		var btn = event.submitter || document.getElementById('Submit');
+		window.fsConfirm({
+			title: <?=json_encode(gettext("Do you really want to reset the selected states?"))?>,
+			detail: <?=json_encode(gettext('Open connections that use the reset entries are interrupted.'))?>,
+			action: <?=json_encode(gettext('Reset'))?>,
+			returnFocus: btn
+		}).then(function (yes) {
+			if (yes) {
+				confirmed = true;
+				form.requestSubmit(btn);
 			}
 		});
 	});
+});
 //]]>
 </script>
 

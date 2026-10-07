@@ -54,8 +54,13 @@ if (!empty($_POST['Download'])) {
 	}
 }
 
-$pgtitle = array(gettext("Diagnostics"), gettext("Crash Reporter"));
-include('head.inc');
+if ($_POST['Submit'] == "No") {
+	unlink_if_exists("/var/crash/*");
+	// Erase the contents of the PHP error log
+	fclose(fopen("/tmp/PHP_errors.log", 'w'));
+	header("Location: /");
+	exit;
+}
 
 $crash_report_header = "Crash report begins.  Anonymous machine information:\n\n";
 $crash_report_header .= php_uname("m") . "\n";
@@ -63,83 +68,119 @@ $crash_report_header .= php_uname("r") . "\n";
 $crash_report_header .= php_uname("v") . "\n";
 $crash_report_header .= "\nCrash report details:\n";
 
-if ($_POST['Submit'] == "No") {
-	unlink_if_exists("/var/crash/*");
-	// Erase the contents of the PHP error log
-	fclose(fopen("/tmp/PHP_errors.log", 'w'));
-	header("Location: /");
-	exit;
+/* The report text (plain text, escaped once when it is printed) and the files it is built from */
+$crash_reports = $crash_report_header;
+$report_files = [];
+$has_php_errors = system_has_php_errors();
+if ($has_php_errors) {
+	$php_size = (int)filesize("/tmp/PHP_errors.log");
+	$report_files[] = ['type' => 'php', 'name' => 'PHP_errors.log', 'download' => 'PHP', 'size' => $php_size,
+	    'mtime' => filemtime("/tmp/PHP_errors.log"), 'included' => ($php_size < FILE_SIZE)];
+	if ($php_size < FILE_SIZE) {
+		$crash_reports .= "\nPHP Errors:\n";
+		$crash_reports .= file_get_contents("/tmp/PHP_errors.log") . "\n\n";
+	} else {
+		$crash_reports .= "\n/tmp/PHP_errors.log file is too large to display.\n";
+	}
 } else {
-	$crash_reports = $crash_report_header;
-	if (system_has_php_errors()) {
-		if (filesize("/tmp/PHP_errors.log") < FILE_SIZE) {
-			$php_errors = file_get_contents("/tmp/PHP_errors.log");
-			$crash_reports .= "\nPHP Errors:\n";
-			$crash_reports .= htmlspecialchars($php_errors) . "\n\n";
-		} else {
-			$crash_reports .= "\n/tmp/PHP_errors.log file is too large to display.\n";
-		}
-	} else {
-		$crash_reports .= "\nNo PHP errors found.\n";
-	}
+	$crash_reports .= "\nNo PHP errors found.\n";
+}
 
-	$crash_files = cleanup_crash_file_list();
-	if (count($crash_files) > 0) {
-		foreach ($crash_files as $cf) {
-			if (filesize($cf) < FILE_SIZE) {
-				$crash_reports .= "\nFilename: {$cf}\n";
-				$crash_reports .= file_get_contents($cf);
-			}
+$crash_files = cleanup_crash_file_list();
+if (count($crash_files) > 0) {
+	foreach ($crash_files as $cf) {
+		$size = (int)filesize($cf);
+		$report_files[] = ['type' => 'crash', 'name' => basename($cf), 'download' => basename($cf), 'size' => $size,
+		    'mtime' => filemtime($cf), 'included' => ($size < FILE_SIZE)];
+		if ($size < FILE_SIZE) {
+			$crash_reports .= "\nFilename: {$cf}\n";
+			$crash_reports .= file_get_contents($cf);
 		}
-	} else {
-		$crash_reports .= "\nNo FreeBSD crash data found.\n";
 	}
+} else {
+	$crash_reports .= "\nNo FreeBSD crash data found.\n";
+}
+$has_data = !empty($report_files);
+
+$pgtitle = array(gettext("Diagnostics"), gettext("Crash Reporter"));
+if ($has_data) {
+	fs_page_action(gettext('Delete crash data'), 'crash_reporter.php?Submit=No', 'fa-trash-can', 'danger', [
+		'usepost' => true,
+		'data-fs-confirm' => gettext('Delete the crash report data?'),
+		'data-fs-confirm-detail' => gettext('The crash files are removed, the PHP error log is emptied and you return to the dashboard.'),
+		'data-fs-confirm-action' => gettext('Delete'),
+	]);
+}
+include('head.inc');
+
+if (!$has_data):
 ?>
 <div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext("The firewall has encountered an error")?></h2></div>
-	<div class="panel-body">
-		<div class="content">
-			<p>
-				<?=sprintf(gettext("Debugging output can be collected to share with %s developers or others providing support or assistance."), g_get('product_label'))?>
-				<br/><br/>
-				<i><?=gettext("Inspect the contents to ensure this information is acceptable to disclose before distributing these files.")?></i>
-			</p>
-			<textarea readonly style="width: 100%; height: 350px;">
-<?=$crash_reports?>
-			</textarea>
-			<br/><br/>
-			<form action="crash_reporter.php" method="post">
-				<button class="btn btn-warning" name="Submit" type="submit" value="No">
-					<i class="fa-solid fa-arrow-rotate-left"></i>
-					<?=gettext("Delete the crash report data and return to the Dashboard")?>
-				</button>
-			<br/><br/>
-
-<?php	if ((count($crash_files) > 0) || system_has_php_errors()): ?>
-			Click a button below to download an individual debugging data file:
-			<br/><br/>
-	<?php	if (system_has_php_errors()): ?>
-				<button class="btn btn-info" name="Download" type="submit" value="PHP">
-					<i class="fa-solid fa-download"></i>
-					<?=gettext("Download PHP Error Log")?>
-				</button>
-				<br/><br/>
-	<?php	endif;
-		foreach ($crash_files as $cf):
-				$tfn = htmlspecialchars(basename($cf)); ?>
-				<button class="btn btn-info" name="Download" type="submit" value="<?= $tfn ?>">
-					<i class="fa-solid fa-download"></i>
-					<?=gettext("Download")?> <?= $tfn ?>
-				</button>
-				<br/><br/>
-	<?php	endforeach;
-	endif;
-?>
-			</form>
-		</div>
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+		<span><?=gettext('No crash data. The firewall has not recorded any PHP errors or kernel crash dumps.')?></span>
+		<a class="btn btn-primary btn-sm" href="/"><i class="fa-solid fa-gauge icon-embed-btn" aria-hidden="true"></i><?=gettext('Back to the dashboard')?></a>
 	</div>
+</div>
 <?php
-}
+else:
+	print_callout(sprintf(gettext("Debugging output can be collected to share with %s developers or others providing support or assistance."), htmlspecialchars(g_get('product_label'))) . ' ' .
+	    gettext("Inspect the contents to ensure this information is acceptable to disclose before distributing these files."),
+	    'warning', gettext("The firewall has encountered an error"));
+?>
+
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Debugging files'),
+	'search' => false,
+	'noun' => gettext('files'),
+	'noun_one' => gettext('file'),
+]); ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead>
+				<tr>
+					<th class="fs-col-status"><?=gettext('Type')?></th>
+					<th><?=gettext('File')?></th>
+					<th><?=gettext('Size')?></th>
+					<th><?=gettext('Modified')?></th>
+					<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+				</tr>
+			</thead>
+			<tbody>
+<?php foreach ($report_files as $f): ?>
+				<tr>
+					<td><?=($f['type'] === 'php') ? fs_badge('warn', gettext('PHP errors')) : fs_badge('error', gettext('Crash dump'))?></td>
+					<td>
+						<span class="fs-mono"><?=htmlspecialchars($f['name'])?></span>
+<?php if (!$f['included']): ?>
+						<div class="fs-muted small"><?=gettext('Too large to show in the report; download it instead.')?></div>
+<?php endif; ?>
+					</td>
+					<td class="fs-mono text-nowrap"><?=htmlspecialchars(format_bytes($f['size']))?></td>
+					<td class="text-nowrap"><?=htmlspecialchars(date('Y-m-d H:i:s', (int)$f['mtime']))?></td>
+					<td class="fs-col-actions"><?=fs_row_actions([
+						['custom', 'crash_reporter.php?Download=' . rawurlencode($f['download']), $f['name'],
+						    ['icon' => 'fa-download', 'label' => sprintf(gettext('Download %s'), $f['name']), 'post' => true]],
+					])?></td>
+				</tr>
+<?php endforeach; ?>
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<h2 class="panel-title"><?=gettext('Crash report')?></h2>
+		<button type="button" class="btn btn-sm btn-outline-secondary" data-fs-copy="#crash-report">
+			<i class="fa-regular fa-copy icon-embed-btn" aria-hidden="true"></i><?=gettext('Copy')?>
+		</button>
+	</div>
+	<pre class="fs-console" id="crash-report"><?=htmlspecialchars($crash_reports)?></pre>
+</div>
+<?php
+endif;
 ?>
 
 <?php include("foot.inc")?>
