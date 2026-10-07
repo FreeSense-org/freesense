@@ -52,6 +52,13 @@ $act = $_REQUEST['act'];
 
 $cacert_list = array();
 
+/* act=new needs a CA. Without one (an old bookmark, a typed URL) show the list,
+ * whose toolbar has the CA picker, instead of an "Invalid CA" error. */
+if (($act == 'new') && empty($_POST) && empty($_REQUEST['caref'])) {
+	header("Location: system_crlmanager.php");
+	exit;
+}
+
 if (!empty($id)) {
 	$crl_item_config = lookup_crl($id);
 	$thiscrl = &$crl_item_config['item'];
@@ -401,7 +408,7 @@ if ($act == "new" || $act == gettext("Save")) {
 		'Add',
 		null,
 		'fa-solid fa-plus'
-		))->addClass('btn-success btn-sm');
+		))->addClass('btn-primary');
 
 	$form->addGlobal(new Form_Input(
 		'id',
