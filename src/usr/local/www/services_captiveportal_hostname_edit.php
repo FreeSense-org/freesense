@@ -51,12 +51,12 @@ $cpzone = $_REQUEST['zone'];
 
 $cpzone = strtolower(htmlspecialchars($cpzone));
 
-$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");
-
 if (empty($cpzone) || empty(config_get_path("captiveportal/{$cpzone}"))) {
 	header("Location: services_captiveportal_zones.php");
 	exit;
 }
+
+$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");
 
 $pgtitle = array(gettext("Services"), gettext("Captive Portal"), htmlspecialchars($cpzone), gettext("Allowed Hostnames"), gettext("Edit"));
 $pglinks = array("", "services_captiveportal_zones.php", "services_captiveportal.php?zone=" . $cpzone, "services_captiveportal_hostname.php?zone=" . $cpzone, "@self");

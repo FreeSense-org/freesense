@@ -63,7 +63,12 @@ if (!$if || !isset($iflist[$if])) {
 
 $act = $_REQUEST['act'];
 
-if (!empty(config_get_path("dhcpdv6/{$if}"))) {
+/* No interface can run the server (none has a static or tracked IPv6
+ * address): skip the per-interface lookups, which would only log invalid
+ * config paths, and show the empty state below. */
+$no_v6_if = empty($if);
+
+if (!$no_v6_if && !empty(config_get_path("dhcpdv6/{$if}"))) {
 	$pool = $_REQUEST['pool'];
 	if (is_numeric($_POST['pool'])) {
 		$pool = $_POST['pool'];
@@ -79,7 +84,7 @@ if (!empty(config_get_path("dhcpdv6/{$if}"))) {
 
 $pconfig = dhcp6_server_form($dhcpdconf ?? null, (is_numeric($pool ?? null) || ($act === 'newpool')));
 
-$prefix = dhcp6_server_prefix((string)$if);
+$prefix = $no_v6_if ? ['ip' => null, 'sn' => null, 'trackifname' => null] : dhcp6_server_prefix((string)$if);
 $ifcfgip = $prefix['ip'];
 $ifcfgsn = $prefix['sn'];
 $trackifname = $prefix['trackifname'];
@@ -174,10 +179,11 @@ if (is_subsystem_dirty('dhcpd6')) {
 	);
 }
 
-$is_stateless_dhcp = in_array(config_get_path('dhcpdv6/'.$if.'/ramode', 'disabled'), ['stateless_dhcp']);
+$ramode = $no_v6_if ? 'disabled' : config_get_path('dhcpdv6/'.$if.'/ramode', 'disabled');
+$is_stateless_dhcp = in_array($ramode, ['stateless_dhcp']);
 
-$valid_ra = in_array(config_get_path('dhcpdv6/'.$if.'/ramode', 'disabled'), ['managed', 'assist', 'stateless_dhcp']);
-if (config_path_enabled('dhcpdv6/'.$if) && !$valid_ra) {
+$valid_ra = in_array($ramode, ['managed', 'assist', 'stateless_dhcp']);
+if (!$no_v6_if && config_path_enabled('dhcpdv6/'.$if) && !$valid_ra) {
 	print_info_box(sprintf(gettext('DHCPv6 is enabled but not being advertised to clients on %1$s. Router Advertisement must be enabled and Router Mode set to "Managed", "Assisted" or "Stateless DHCP."'), $iflist[$if]), 'danger', false);
 }
 
@@ -213,7 +219,23 @@ foreach ($iflist as $ifent => $ifname) {
 }
 
 if ($tabscounter == 0) {
-	print_info_box(gettext("The DHCPv6 Server can only be enabled on interfaces configured with a static IPv6 address. This system has none."), 'danger');
+	$first_if = isset($iflist['lan']) ? 'lan' : array_key_first($iflist);
+?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
+		<span><?=gettext('No interface can run the DHCPv6 server yet. It needs an interface with a static IPv6 address or one that tracks another interface.')?></span>
+		<div class="d-flex flex-wrap justify-content-center gap-2">
+<?php	if (($first_if !== null) && isAllowedPage('interfaces.php')): ?>
+			<a class="btn btn-sm btn-primary" href="interfaces.php?if=<?=htmlspecialchars(urlencode($first_if))?>"><i class="fa-solid fa-gear icon-embed-btn" aria-hidden="true"></i><?=sprintf(gettext('Configure %s'), htmlspecialchars($iflist[$first_if]))?></a>
+<?php	endif; ?>
+<?php	if (dhcp_is_backend('kea') && isAllowedPage('services_dhcpv6_settings.php')): ?>
+			<a class="btn btn-sm btn-outline-secondary" href="services_dhcpv6_settings.php"><i class="fa-solid fa-sliders icon-embed-btn" aria-hidden="true"></i><?=gettext('DHCPv6 settings')?></a>
+<?php	endif; ?>
+		</div>
+	</div>
+</div>
+<?php
 	include("foot.inc");
 	exit;
 }

@@ -182,10 +182,22 @@ if ($savemsg) {
 // otherwise display error box and quit
 
 if ($carpcount == 0) {
-	print_info_box(gettext('No CARP interfaces have been defined.') . '<br />' .
-				   '<a href="system_hasync.php" class="alert-link">' .
-				   gettext("High availability sync settings can be configured here.") .
-				   '</a>');
+?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-server" aria-hidden="true"></i>
+		<span><?=gettext('No CARP virtual IPs yet. Add one to share an address between two firewalls.')?></span>
+		<div class="d-flex flex-wrap justify-content-center gap-2">
+<?php	if (isAllowedPage('firewall_virtual_ip_edit.php')): ?>
+			<a class="btn btn-sm btn-primary" href="firewall_virtual_ip_edit.php"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add virtual IP')?></a>
+<?php	endif; ?>
+<?php	if (isAllowedPage('system_hasync.php')): ?>
+			<a class="btn btn-sm btn-outline-secondary" href="system_hasync.php"><i class="fa-solid fa-arrows-rotate icon-embed-btn" aria-hidden="true"></i><?=gettext('High availability sync')?></a>
+<?php	endif; ?>
+		</div>
+	</div>
+</div>
+<?php
 } else {
 	$vips = [];
 	$counts = ['master' => 0, 'backup' => 0, 'init' => 0];
@@ -217,7 +229,7 @@ if ($carpcount == 0) {
 			gettext("Check the link status on all interfaces configured with CARP VIPs and ") .
 			sprintf(gettext('search the %1$sSystem Log%2$s for CARP demotion-related events.'), "<a href=\"/status_logs.php?filtertext=carp%3A+demoted+by\">", "</a>") .
 			'<form action="status_carp.php" method="post" class="mt-2">' .
-			'<button type="submit" class="btn btn-sm btn-warning" name="resetdemotion" id="resetdemotion" value="' .
+			'<button type="submit" class="btn btn-sm btn-outline-secondary" name="resetdemotion" id="resetdemotion" value="' .
 			gettext("Reset CARP Demotion Status") .
 			'"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn" aria-hidden="true"></i>' .
 			gettext("Reset CARP Demotion Status") .

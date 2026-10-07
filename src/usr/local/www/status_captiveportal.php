@@ -355,7 +355,17 @@ if (!empty($cpzone)):
 </div>
 <?php
 elseif (empty($zones)):
-	print_info_box(sprintf(gettext('No Captive Portal zones have been configured. New zones may be added here: %1$sServices > Captive Portal%2$s.'), '<a href="services_captiveportal_zones.php">', '</a>'), 'warning', false);
+?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-wifi" aria-hidden="true"></i>
+		<span><?=gettext('No captive portal zones yet. Add a zone to require users to log in before they get network access.')?></span>
+<?php	if (isAllowedPage('services_captiveportal_zones_edit.php')): ?>
+		<a class="btn btn-sm btn-primary" href="services_captiveportal_zones_edit.php"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add zone')?></a>
+<?php	endif; ?>
+	</div>
+</div>
+<?php
 else:
 ?>
 <div class="panel panel-default">

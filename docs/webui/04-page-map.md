@@ -21,14 +21,14 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | Page | Type | Do | Ph | Risk |
 |---|---|---|---|---|
 | firewall_schedule | List | **pilot**: toolbar + search, badge "Active", row actions (edit, delete), header Add | A | |
-| firewall_schedule_edit | Editor | **pilot**; time-range builder keeps its custom widget, restyled | A | |
+| firewall_schedule_edit | Editor | **done** (f-firewall): summary card when editing; "Add time range" card with a button calendar (weekday headers = weekly, days = dates, aria-pressed, one delegated script, no inline handlers/styles) and time selects; configured ranges as an fs-table with remove; posts the same fields | A | |
 | firewall_aliases | List | tabs IP/Ports/URLs/All via registry; search over name/values/descr; type filter; header actions Add + Import; copy | B | |
 | firewall_aliases_edit | Editor | **done**: entry grid; a filter appears above it when the alias has > 20 entries (any page's grid gets it) | D | M |
 | firewall_aliases_import | Tool | compact form, consistent with the Tool type | E | |
-| firewall_nat, _1to1, _npt | List | toolbar + search + existing bulk bar (`del_x`, `toggle_x`); keep drag order; Save order in the toolbar | B | M |
-| firewall_nat_out | List | mode selector becomes a one-row strip above the list (allowed exception); both tables get the list styling | B | M |
+| firewall_nat, _1to1, _npt | List | toolbar + search + existing bulk bar (`del_x`, `toggle_x`); keep drag order; Save order in the toolbar. **F** (f-firewall): port forward table scrolls inside its card below 992 px, empty state in its own tbody (separator rows stay correct) | B | M |
+| firewall_nat_out | List | mode selector becomes a one-row strip above the list (allowed exception); both tables get the list styling. **F** (f-firewall): Automatic rules are a read-only fs-table card (search, count, escaped values, static-port badges) | B | M |
 | firewall_nat_edit, _1to1_edit, _npt_edit, _out_edit | Editor | standard editor; advanced collapsed | D | |
-| firewall_rules | Special | badges for pass/block/reject, `fs_row_actions`, toolbar search; **keep** separators, drag, interface tabs, bulk | B | **H** |
+| firewall_rules | Special | badges for pass/block/reject, `fs_row_actions`, toolbar search; **keep** separators, drag, interface tabs, bulk. **F** (f-firewall): table scrolls inside its card below 992 px (sortable scrolls the page while dragging), empty-state row with Add rule, no inline styles on rule flags, copy modal buttons primary/outline | B | **H** |
 | firewall_rules_edit | Editor | **reviewed**: sections already follow use (action, match, source, destination, log/description); advanced is behind its toggle; no reorder | D | **H** |
 | firewall_virtual_ip / _edit | List / Editor | standard | B / D | |
 | firewall_shaper, _queues, _vinterface, _wizards | Special | tabs via registry; tree styling; fix the corrupted caret glyph (core CSS, Phase A) | E | M |
@@ -55,7 +55,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | services_unbound_advanced | Settings | standard | D | |
 | services_dnsmasq | Settings + **R1** | **done**: General / Host overrides / Domain overrides tabs (`?view=`), searchable lists, header Add | C | M |
 | services_dnsmasq_edit, _domainoverride_edit | Editor | **done**: save and Cancel return to the view | D | |
-| services_dhcp, services_dhcpv6 | Settings + **R1** | **done (mappings)**: interface tabs stay; view switch Settings / Static Mappings (n); mappings are a searchable List with header Add, editors return to it. Address pools stay in Settings (still a sub-list there) | C | **H** |
+| services_dhcp, services_dhcpv6 | Settings + **R1** | **done (mappings)**: interface tabs stay; view switch Settings / Static Mappings (n); mappings are a searchable List with header Add, editors return to it. Address pools stay in Settings (still a sub-list there). **F** (f-firewall): DHCPv6 "no eligible interface" empty state; no per-interface config lookups (log flood) when there is none | C | **H** |
 | services_dhcp_edit, _dhcpv6_edit | Editor | standard | D | |
 | services_dhcp_settings, _dhcpv6_settings, _dhcp_relay, _dhcpv6_relay | Settings | relay server lists become the entry grid | D | |
 | services_radvd | Settings | DNS lists become the entry grid | D | |
@@ -66,7 +66,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 |---|---|---|---|---|
 | services_captiveportal_zones / _edit | List / Editor | standard | B / D | |
 | services_captiveportal | Settings | 7-tab registry group with `['zone' => $cpzone]`; sections | D | M |
-| services_captiveportal_ip, _mac, _hostname (+ `_edit`) | List / Editor | standard list template | B / D | |
+| services_captiveportal_ip, _mac, _hostname (+ `_edit`) | List / Editor | standard list template. **F** (f-firewall): hostname_edit validates the zone before reading its zoneid (no log warning); status_captiveportal "no zones" empty state with Add zone | B / D | |
 | services_captiveportal_vouchers | List + **R1** | **done**: view switch Rolls (n) / Settings; rolls list with CSV export / edit / delete; header Add roll when vouchers are on (otherwise a hint links to Settings) | C | M |
 | services_captiveportal_vouchers_edit | Editor | standard | D | |
 | services_captiveportal_filemanager | List | header action "Upload file" opens the upload card; list standard | B | |
@@ -128,9 +128,9 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | status_services | Status | Start/Stop/Restart as row actions; badges. **done**: tiles, search + state filter, stop (and restart of network-critical services) confirm | E | M |
 | status_interfaces | Status | one card per interface; mono addresses; badges up/down. **done**: 2-column card grid, traffic tiles, DHCP release modal | E | |
 | status_dhcp_leases, status_dhcpv6_leases | Status | **done**: tiles (active / static / expired / total or prefixes), searchable lease list with state + online badges and state / client / interface filters, `?all=` kept as the Show / Hide expired toolbar button, row actions (static mapping, WoL mapping, send WoL, confirmed delete), confirmed Clear all leases header action; Leases / (Prefix delegation) / Pools views | E | |
-| status_carp, status_ntpd | Status | standard; row actions where they exist (disconnect, kill) | E | |
+| status_carp, status_ntpd | Status | standard; row actions where they exist (disconnect, kill). **F** (f-firewall): CARP empty state (Add virtual IP / High availability sync), outline Reset demotion button | E | |
 | status_ipsec, _leases, _sad, _spd | Status | **done**: registry group `status-ipsec`; Overview tiles + tunnel list (connected / connecting / disconnected / waiting badges, state filter), expandable child SAs kept across the 5 s refresh, connect / disconnect as row actions (disconnect confirmed, same AJAX handler); leases, SADs (confirmed delete) and SPDs as searchable lists | E | M |
-| status_openvpn, status_unbound, status_upnp, status_wireless, status_queues | Status | **done** (status-b): OpenVPN one card per server (service badge + controls, client list with confirmed Disconnect / Halt, collapsible routing table) and instance lists; Unbound speed / stats views; UPnP confirmed Delete all; Wireless Rescan header action; Queues tree with live stats and collapse toggles | E | |
+| status_openvpn, status_unbound, status_upnp, status_wireless, status_queues | Status | **done** (status-b): OpenVPN one card per server (service badge + controls, client list with confirmed Disconnect / Halt, collapsible routing table) and instance lists; Unbound speed / stats views; UPnP confirmed Delete all; Wireless Rescan header action; Queues tree with live stats and collapse toggles. **F** (f-firewall): UPnP "turned off" empty state with Configure UPnP | E | |
 | status_captiveportal, _vouchers, _voucher_rolls, _expire, _test | Status / Tool | registry group with zone param | E | **done** (F): zone picker, tiles, users list with confirmed disconnect, voucher/roll lists with badges and usage meter, test/expire as tool cards |
 | status_graph | Status | chart card + controls row (themed nvd3) | E | **done** (F): controls row + more options, top hosts fs-table; traffic-graphs.js uses --fs-series-*. status_graph_cpu rebuilt as native token-themed SVG chart with tiles |
 | status_restapi | Status | already near-standard; align with tokens | E | |
