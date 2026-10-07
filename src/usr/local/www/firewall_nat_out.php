@@ -173,7 +173,7 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 	'actions' => ob_get_clean(),
 ]); ?>
 		<div class="panel-body table-responsive">
-			<table id="ruletable" class="table table-hover table-rowdblclickedit">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit" data-fs-rowselect>
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -214,9 +214,9 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 				);
 ?>
 
-					<tr id="fr<?=$i;?>" <?=$trclass?> onClick="fr_toggle(<?=$i;?>)">
+					<tr id="fr<?=$i;?>" <?=$trclass?>>
 						<td >
-							<input type="checkbox" id="frc<?=$i;?>" onClick="fr_toggle(<?=$i;?>)" name="rule[]" value="<?=$i;?>"/>
+							<input type="checkbox" id="frc<?=$i;?>" name="rule[]" value="<?=$i;?>"/>
 						</td>
 
 						<td>

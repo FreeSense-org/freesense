@@ -853,7 +853,7 @@ class altq_root_queue {
 		$cflink['qlimit'] = $this->GetQlimit();
 		$cflink['tbrconfig'] = $this->GetTbrConfig();
 		$cflink['enabled'] = $this->GetEnabled();
-		if (is_array($this->queues)) {
+		if (is_array($this->queues) && count($this->queues)) {
 			$cflink['queue'] = array();
 			foreach ($this->queues as $q) {
 				$cflink['queue'][$q->GetQname()] = array();
@@ -866,7 +866,7 @@ class altq_root_queue {
 		$qlist = array();
 
 		//$qlist[$this->GetQname()] = & $this;
-		if (is_array($this->queues)) {
+		if (is_array($this->queues) && count($this->queues)) {
 			foreach ($this->queues as $queue) {
 				$queue->get_queue_list($qlist);
 			}
@@ -951,7 +951,7 @@ class altq_root_queue {
 
 		$tree = " <li><a href=\"firewall_shaper.php?interface=".$this->GetInterface()."&amp;queue=". $this->GetInterface()."&amp;action=show";
 		$tree .= "\">" . $shaperIFlist[$this->GetInterface()] . "</a>";
-		if (is_array($this->queues)) {
+		if (is_array($this->queues) && count($this->queues)) {
 			$tree .= "<ul>";
 			foreach ($this->queues as $q) {
 				$tree .= $q->build_tree();
@@ -1130,7 +1130,7 @@ class altq_root_queue {
 
 		$sform->setAction("firewall_shaper.php");
 
-		$section = new Form_Section(null);
+		$section = new Form_Section('NOTITLE');
 
 		$section->addInput(new Form_Checkbox(
 			'enabled',
@@ -1506,7 +1506,7 @@ class priq_queue {
 		$cflink['rio'] = $this->GetRio();
 		$cflink['ecn'] = $this->GetEcn();
 
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			$cflinkp['queue'] = array();
 			foreach ($this->subqueues as $q) {
 				$cflink['queue'][$q->GetQname()] = array();
@@ -1517,7 +1517,7 @@ class priq_queue {
 
 	function clean_queue($sched) {
 		clean_child_queues($sched, $this->GetLink());
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			foreach ($this->subqueues as $q) {
 				$q->clean_queue($sched);
 			}
@@ -1527,7 +1527,7 @@ class priq_queue {
 	function &get_queue_list(&$qlist) {
 
 		$qlist[$this->GetQname()] = & $this;
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			foreach ($this->subqueues as $queue) {
 				$queue->get_queue_list($qlist);
 			}
@@ -1782,7 +1782,7 @@ class priq_queue {
 
 		$sform->setAction("firewall_shaper.php");
 
-		$section = new Form_Section("");
+		$section = new Form_Section('NOTITLE');
 
 		$section->addInput(new Form_Checkbox(
 			'enabled',
@@ -2232,7 +2232,7 @@ class hfsc_queue extends priq_queue {
 			}
 		}
 
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			$cflinkp['queue'] = array();
 			foreach ($this->subqueues as $q) {
 				$cflink['queue'][$q->GetQname()] = array();
@@ -2452,7 +2452,7 @@ class hfsc_queue extends priq_queue {
 			$tree .= " class=\"navlnk\"";
 		}
 		$tree .= " >" . htmlspecialchars($this->GetQname()) . "</a>";
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			$tree .= "<ul>";
 			foreach ($this->subqueues as $q) {
 				$tree .= $q->build_tree();
@@ -2974,7 +2974,7 @@ class cbq_queue extends priq_queue {
 		if (empty($cflink['borrow'])) {
 			unset($cflink['borrow']);
 		}
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			$cflinkp['queue'] = array();
 			foreach ($this->subqueues as $q) {
 				$cflink['queue'][$q->GetQname()] = array();
@@ -3054,7 +3054,7 @@ class cbq_queue extends priq_queue {
 			$tree .= " class=\"navlnk\"";
 		}
 		$tree .= " >" . htmlspecialchars($this->GetQname()) . "</a>";
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			$tree .= "<ul>";
 			foreach ($this->subqueues as $q) {
 				$tree .= $q->build_tree();
@@ -3418,7 +3418,7 @@ class fairq_queue extends priq_queue {
 	function build_form() {
 		$form = parent::build_form();
 
-		$section = new Form_Section('');
+		$section = new Form_Section('NOTITLE');
 
 		$group = new Form_Group('Bandwidth');
 
@@ -3864,7 +3864,7 @@ class dnpipe_class extends dummynet_class {
 		$qlist = array();
 
 		$qlist[$this->GetQname()] = $this->GetNumber();
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			foreach ($this->subqueues as $queue) {
 				$queue->get_queue_list($qlist);
 			}
@@ -4075,7 +4075,7 @@ class dnpipe_class extends dummynet_class {
 	function build_tree() {
 		$tree = " <li><a href=\"firewall_shaper_vinterface.php?pipe=" . htmlspecialchars($this->GetQname()) ."&amp;queue=".htmlspecialchars($this->GetQname()) ."&amp;action=show\">";
 		$tree .= htmlspecialchars($this->GetQname()) . "</a>";
-		if (is_array($this->subqueues)) {
+		if (is_array($this->subqueues) && count($this->subqueues)) {
 			$tree .= "<ul>";
 			foreach ($this->subqueues as $q) {
 				$tree .= $q->build_tree();
@@ -4259,7 +4259,7 @@ var addBwRowTo = (function() {
 	cell1.innerHTML = "<input type='hidden' value='" + totalrows +"' name='bandwidth_row-" + totalrows + "' /><input type='text' class='form-control' name='bandwidth" + totalrows + "' id='bandwidth" + totalrows + "' />";
 	cell2.innerHTML = "<input type='hidden' value='" + totalrows +"' name='bwtype_row-" + totalrows + "' /><select class='form-control' name='bwtype" + totalrows + "'>{$bwopt}</select>";
 	cell3.innerHTML = "<input type='hidden' value='" + totalrows +"' name='bwsched_row-" + totalrows + "' /><select class='form-control' name='bwsched" + totalrows + "'>{$schedules}</select>";
-	cell4.innerHTML = '<a class="btn btn-warning" onclick="removeBwRow(this); return false;" href="#"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>';
+	cell4.innerHTML = '<a class="btn btn-sm btn-outline-danger" onclick="removeBwRow(this); return false;" href="#"><i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i>Delete</a>';
 
 	});
 })();
@@ -4349,14 +4349,14 @@ EOD;
 				$form .= "</select>";
 				$form .= "</td>";
 				$form .= '<td>';
-				$form .= '<a class="btn btn-warning" onclick="removeBwRow(this); return false;"><i class="fa-solid fa-trash-can icon-embed-btn"></i>' . gettext('Delete') . '</a>';
+				$form .= '<a class="btn btn-sm btn-outline-danger" onclick="removeBwRow(this); return false;" href="#"><i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i>' . gettext('Delete') . '</a>';
 				$form .= "</td></tr>";
 			}
 		}
 		$form .= "</tbody></table></div><br />";
 
-		$form .= '<a class="btn btn-sm btn-success" onclick="javascript:addBwRowTo(\'maintable\'); return false;" >';
-		$form .= '<i class="fa-solid fa-plus icon-embed-btn"></i>';
+		$form .= '<a class="btn btn-sm btn-outline-secondary" href="#" onclick="javascript:addBwRowTo(\'maintable\'); return false;" >';
+		$form .= '<i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>';
 		$form .= gettext("Add Schedule") . "</a>";
 
 		return($form);
@@ -5520,7 +5520,7 @@ function build_iface_without_this_queue($iface, $qname) {
 	$form .= 'Clone';
 	$form .= '	</dt>';
 	$form .= '	<dd>';
-	$form .= '<a class="btn btn-info btn-sm" href="firewall_shaper_queues.php?interface=';
+	$form .= '<a class="btn btn-outline-secondary btn-sm" href="firewall_shaper_queues.php?interface=';
 	$form .= $iface . '&amp;queue=';
 	$form .= $qname . '&amp;action=add">';
 	$form .= '<i class="fa-regular fa-clone icon-embed-btn"></i>';

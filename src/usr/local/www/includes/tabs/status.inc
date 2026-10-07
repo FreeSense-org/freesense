@@ -26,6 +26,11 @@ $fs_tab_groups['status-gateways'] = [
 	[gettext('Gateway Groups'), 'status_gateway_groups.php'],
 ];
 
+$fs_tab_groups['status-graphs'] = [
+	[gettext('Traffic'), 'status_graph.php'],
+	[gettext('CPU Load'), 'status_graph_cpu.php'],
+];
+
 $fs_tab_groups['status-ipsec'] = [
 	[gettext('Overview'), 'status_ipsec.php'],
 	[gettext('Leases'), 'status_ipsec_leases.php'],

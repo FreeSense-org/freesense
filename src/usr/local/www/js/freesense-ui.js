@@ -961,7 +961,7 @@
 					last.parentNode.insertBefore(addGroup, last.nextSibling);
 				}
 			}
-			/* restyled in CSS: pages find the button by .btn-success / .addbtn */
+			/* restyled in CSS (.fs-entrygrid-add [id$=addrow]); found by its addrow id, never by colour class */
 			addGroup.classList.add('fs-entrygrid-add');
 			anchor = addGroup;
 		}

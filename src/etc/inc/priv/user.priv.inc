@@ -24,7 +24,6 @@ $priv_list['page-dashboard-all']['match'] = array();
 $priv_list['page-dashboard-all']['match'][] = "index.php*";
 $priv_list['page-dashboard-all']['match'][] = "widgets/widgets/*.widget.php*";
 $priv_list['page-dashboard-all']['match'][] = "graph.php*";
-$priv_list['page-dashboard-all']['match'][] = "graph_cpu.php*";
 $priv_list['page-dashboard-all']['match'][] = "getstats.php*";
 $priv_list['page-dashboard-all']['match'][] = "ifstats.php*";
 $priv_list['page-dashboard-all']['match'][] = "status_logs_filter_dynamic.php*";

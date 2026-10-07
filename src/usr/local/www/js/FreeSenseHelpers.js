@@ -132,12 +132,10 @@ function setHelpText(id, text) {
 	$('#' + id).parent().parent('div').find('span:nth-child(2)').html(text);
 }
 
-// Toggle table row checkboxes and background colors on the pages that use sortable tables:
-//	/usr/local/www/firewall_nat.php
-//	/usr/local/www/firewall_nat_1to1.php
-//	/usr/local/www/firewall_nat_out.php
-//	/usr/local/www/firewall_rules.php
-//	/usr/local/www/vpn_ipsec.php
+// Toggle table row checkboxes and background colors on the pages that use sortable tables
+// (firewall_rules.php, firewall_nat*.php). Row clicks go through the delegated
+// data-fs-rowselect handler below; fr_toggle() is kept for scripted toggles
+// (firewall_rules.php multi-select move).
 // Striping of the tables is handled here, NOT with the Bootstrap table-striped class because it would
 // get confused when rows are sorted or deleted.
 
@@ -707,18 +705,10 @@ function reindex_rules(section) {
 
 	section.find('tr').each(function() {
 		if (this.id) {
+			// row clicks use the delegated data-fs-rowselect handler, which reads
+			// the ids, so renumbering the row and its checkbox is all it takes
 			$(this).attr("id", "fr" + row);
-			// rows of a data-fs-rowselect table use the delegated handler below;
-			// only legacy rows with an inline onclick get it re-numbered
-			if (this.hasAttribute('onclick')) {
-				$(this).attr("onclick", "fr_toggle(" + row + ")");
-			}
-			$(this).find('input:checkbox:first').each(function() {
-				$(this).attr("id", "frc" + row);
-				if (this.hasAttribute('onclick')) {
-					$(this).attr("onclick", "fr_toggle(" + row + ")");
-				}
-			});
+			$(this).find('input:checkbox:first').attr("id", "frc" + row);
 
 			row++;
 		}

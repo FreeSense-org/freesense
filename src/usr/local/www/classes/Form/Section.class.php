@@ -76,6 +76,9 @@ class Form_Section extends Form_Element
 		$input->setAttribute('autocomplete', 'new-password');
 		$group->add($input);
 		if ($confirmfield) {
+			// the confirm box always carries help ("Confirm"); top-align the pair so
+			// a password box without help does not sit lower than its twin
+			$group->addClass('fs-password-pair');
 			$confirm = clone $input;
 			$confirm->setName($confirm->getName() . "_confirm");
 			$confirm->setHelp("Confirm");

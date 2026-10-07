@@ -145,7 +145,7 @@ foreach ($a_gateways as $i => $gateway):
 
 	$id = $gateway['attribute'];
 ?>
-					<tr<?=($icon != 'fa-regular fa-circle-check')? ' class="disabled"' : ''?> onClick="fr_toggle(<?=$id;?>)" id="fr<?=$id;?>">
+					<tr<?=($icon != 'fa-regular fa-circle-check')? ' class="disabled"' : ''?> id="fr<?=$id;?>">
 						<td><?=($icon == 'fa-regular fa-circle-xmark') ? fs_badge('down', gettext('Inactive'), $title) : (($icon == 'fa-solid fa-ban') ? fs_badge('disabled', null, $title) : fs_badge('enabled', null, $title))?></td>
 						<td title="<?=$gtitle?>">
 						<?=htmlspecialchars($gateway['name'])?>

@@ -289,7 +289,7 @@ if ($this_dyndns_config) {
 		'Save & Force Update',
 		null,
 		'fa-solid fa-arrows-rotate'
-	))->removeClass('btn-primary')->addClass('btn-info');
+	))->addClass('btn-outline-secondary');
 }
 
 $form->add($section);

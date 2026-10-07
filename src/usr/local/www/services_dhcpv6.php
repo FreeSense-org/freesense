@@ -444,7 +444,7 @@ if (!is_numeric($pool) && !($act === 'newpool')) {
 		'services_dhcpv6.php?if=' . $if . '&act=newpool',
 		'fa-solid fa-plus'
 	);
-	$btnaddpool->addClass('btn-success');
+	$btnaddpool->removeClass('btn-secondary')->addClass('btn-outline-secondary');
 
 	$section->addInput(new Form_StaticText(
 		(!$has_pools ? gettext('Additional Pools') : null),
@@ -889,7 +889,7 @@ foreach ($pconfig['numberoptions']['item'] as $item) {
 		'fa-solid fa-trash-can'
 	);
 
-	$btn->addClass('btn-warning');
+	$btn->addClass('btn-outline-secondary');
 	$group->add($btn);
 	$section->add($group);
 	$counter++;
@@ -903,7 +903,7 @@ $btnaddopt = new Form_Button(
 	'fa-solid fa-plus'
 );
 
-$btnaddopt->removeClass('btn-primary')->addClass('btn-success btn-sm');
+$btnaddopt->addClass('btn-outline-secondary addbtn');
 
 $section->addInput($btnaddopt);
 endif; /* dhcp_is_backend('isc') */

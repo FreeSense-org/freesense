@@ -369,7 +369,6 @@ $priv_list['page-diagnostics-cpuutilization'] = array();
 $priv_list['page-diagnostics-cpuutilization']['name'] = gettext("WebCfg - Diagnostics: CPU Utilization");
 $priv_list['page-diagnostics-cpuutilization']['descr'] = gettext("Allow access to the 'Diagnostics: CPU Utilization' page.");
 $priv_list['page-diagnostics-cpuutilization']['match'] = array();
-$priv_list['page-diagnostics-cpuutilization']['match'][] = "graph_cpu.php*";
 $priv_list['page-diagnostics-cpuutilization']['match'][] = "stats.php*";
 
 $priv_list['page-xmlrpcinterfacestats'] = array();
@@ -920,6 +919,7 @@ $priv_list['page-status-cpuload']['name'] = gettext("WebCfg - Status: CPU load")
 $priv_list['page-status-cpuload']['descr'] = gettext("Allow access to the 'Status: CPU load' page.");
 $priv_list['page-status-cpuload']['match'] = array();
 $priv_list['page-status-cpuload']['match'][] = "status_graph_cpu.php*";
+$priv_list['page-status-cpuload']['match'][] = "stats.php*";
 
 $priv_list['page-status-interfaces'] = array();
 $priv_list['page-status-interfaces']['name'] = gettext("WebCfg - Status: Interfaces");

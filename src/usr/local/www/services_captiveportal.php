@@ -748,7 +748,7 @@ $section->addInput(new Form_Input(
 			'&nbsp;&nbsp;&nbsp;&lt;input name=&quot;redirurl&quot; type=&quot;hidden&quot; value=&quot;$PORTAL_REDIRURL$&quot;&gt;%1$s' .
 			'&nbsp;&nbsp;&nbsp;&lt;input name=&quot;zone&quot; type=&quot;hidden&quot; value=&quot;$PORTAL_ZONE$&quot;&gt;%1$s' .
 			'&nbsp;&nbsp;&nbsp;&lt;input name=&quot;accept&quot; type=&quot;submit&quot; value=&quot;Continue&quot;&gt;%1$s' .
-			'&lt;/form&gt;', '<br />')->addClass('btn btn-info btn-sm');
+			'&lt;/form&gt;', '<br />');
 
 list($host) = explode(":", $_SERVER['HTTP_HOST']);
 $zoneid = $pconfig['zoneid'] ? $pconfig['zoneid'] : 8000;
@@ -767,14 +767,14 @@ if ($pconfig['page']['htmltext']) {
 		'Live View',
 		$href,
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
+	))->removeClass('btn-secondary')->addClass('btn-outline-secondary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btnview',
 		'View Page Contents',
 		'?zone=' . $cpzone . '&act=viewhtmlhtml',
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
+	))->removeClass('btn-secondary')->addClass('btn-outline-secondary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
@@ -799,7 +799,7 @@ $section->addInput(new Form_Input(
 	$pconfig['errfile']
 ))->setHelp('The contents of the HTML/PHP file that is uploaded here are displayed when an authentication error occurs. ' .
 			'It may include "$PORTAL_MESSAGE$", which will be replaced by the error or reply messages from the RADIUS ' .
-			'server, if any.')->addClass('btn btn-info btn-sm');
+			'server, if any.');
 
 if ($pconfig['page']['errtext']) {
 	$group = new Form_Group('Current Auth Error Page');
@@ -808,7 +808,7 @@ if ($pconfig['page']['errtext']) {
 		'View Page Contents',
 		'?zone=' . $cpzone . '&act=viewerrhtml',
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
+	))->removeClass('btn-secondary')->addClass('btn-outline-secondary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
@@ -831,7 +831,7 @@ $section->addInput(new Form_Input(
 	'Logout page contents',
 	'file',
 	$pconfig['logoutfile']
-))->setHelp('The contents of the HTML/PHP file that is uploaded here are displayed on authentication success when the logout popup is enabled.')->addClass('btn btn-info btn-sm');
+))->setHelp('The contents of the HTML/PHP file that is uploaded here are displayed on authentication success when the logout popup is enabled.');
 
 if ($pconfig['page']['logouttext']) {
 	$group = new Form_Group('Current Logout Page');
@@ -840,7 +840,7 @@ if ($pconfig['page']['logouttext']) {
 		'View Page Contents',
 		'?zone=' . $cpzone . '&act=viewlogouthtml',
 		'fa-regular fa-file-lines'
-	))->addClass('btn btn-info btn-sm')->setAttribute("target", "_blank");
+	))->removeClass('btn-secondary')->addClass('btn-outline-secondary btn-sm')->setAttribute("target", "_blank");
 
 	$group->add(new Form_Button(
 		'btndownload',
@@ -881,7 +881,7 @@ $section->addInput(new Form_Input(
 	'Logo Image',
 	'file',
 	''
-))->setHelp('Add a logo for use in the default portal login screen. File will be renamed captiveportal-logo.* The image will be resized to fit within the given area, It can be of any image type: .png, .jpg, .svg <strong>This image will not be stored in the config</strong>. The default logo will be used if no custom image is present.')->addClass("btn btn-info btn-sm");
+))->setHelp('Add a logo for use in the default portal login screen. File will be renamed captiveportal-logo.* The image will be resized to fit within the given area, It can be of any image type: .png, .jpg, .svg <strong>This image will not be stored in the config</strong>. The default logo will be used if no custom image is present.');
 
 $section->addInput(new Form_Checkbox(
 	'custombg',
@@ -895,7 +895,7 @@ $section->addInput(new Form_Input(
 	'Background Image',
 	'file',
 	''
-))->setHelp('Add a background image for use in the default portal login screen. File will be renamed captiveportal-background.* The background image will fill the screen. <strong>This image will not be stored in the config</strong>. The default background image will be used if no custom background is present.')->addClass("btn btn-info btn-sm");
+))->setHelp('Add a background image for use in the default portal login screen. File will be renamed captiveportal-background.* The background image will fill the screen. <strong>This image will not be stored in the config</strong>. The default background image will be used if no custom background is present.');
 
 $section->addInput(new Form_Textarea(
 	'termsconditions',

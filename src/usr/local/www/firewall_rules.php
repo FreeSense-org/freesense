@@ -393,7 +393,7 @@ if (isset($if)):
 		if ($showantilockout):
 			$alports = implode('<br />', filter_get_antilockout_ports(true));
 ?>
-					<tr id="antilockout">
+					<tr id="antilockout" data-fs-static>
 						<td></td>
 						<td title="<?=gettext("traffic is passed")?>"><i class="fa-solid fa-check text-success"></i></td>
 						<td><?php print_states(intval(ANTILOCKOUT_TRACKER_START), intval(ANTILOCKOUT_TRACKER_END)); ?></td>
@@ -412,7 +412,7 @@ if (isset($if)):
 					</tr>
 <?php 	endif;?>
 <?php 	if ($showprivate): ?>
-					<tr id="private">
+					<tr id="private" data-fs-static>
 						<td></td>
 						<td title="<?=gettext("traffic is blocked")?>"><i class="fa-solid fa-xmark text-danger"></i></td>
 						<td><?php print_states(intval(RFC1918_TRACKER_START), intval(RFC1918_TRACKER_END)); ?></td>
@@ -431,7 +431,7 @@ if (isset($if)):
 					</tr>
 <?php 	endif;?>
 <?php 	if ($showblockbogons): ?>
-					<tr id="bogons">
+					<tr id="bogons" data-fs-static>
 						<td></td>
 						<td title="<?=gettext("traffic is blocked")?>"><i class="fa-solid fa-xmark text-danger"></i></td>
 						<td><?php print_states(intval(BOGONS_TRACKER_START), intval(BOGONS_TRACKER_END)); ?></td>
