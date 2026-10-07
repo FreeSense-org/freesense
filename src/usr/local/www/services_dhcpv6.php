@@ -219,7 +219,7 @@ foreach ($iflist as $ifent => $ifname) {
 }
 
 if ($tabscounter == 0) {
-	$first_if = array_key_first($iflist);
+	$first_if = isset($iflist['lan']) ? 'lan' : array_key_first($iflist);
 ?>
 <div class="panel panel-default">
 	<div class="fs-tool-empty">
