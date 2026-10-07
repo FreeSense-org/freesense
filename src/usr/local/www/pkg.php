@@ -223,6 +223,106 @@ if (!empty($pkg['tabs'])) {
 	$shortcut_section = $pkg['shortcut_section'];
 }
 
+/* ------------------------------------------------------------------ list model */
+
+$pagefields = is_array($pkg['adddeleteeditpagefields']) ? $pkg['adddeleteeditpagefields'] : [];
+$columns = is_array($pagefields['columnitem']) ? $pagefields['columnitem'] : [];
+$movable = !empty($pagefields['movable']);
+if (!is_array($evaledvar)) {
+	$evaledvar = [];
+}
+$xml_url = str_replace('%2F', '/', rawurlencode($xml));
+$add_href = 'pkg_edit.php?xml=' . $xml_url . '&id=' . count($evaledvar);
+$add_msg = $pagefields['addtext'] ? $pagefields['addtext'] : gettext("Add a new item");
+$edit_msg = $pagefields['edittext'] ? $pagefields['edittext'] : '';
+$delete_msg = $pagefields['deletetext'] ? $pagefields['deletetext'] : '';
+
+/*
+ * One list cell, formatted as before (checkbox Yes/No, interface description,
+ * base64, listmodeon/off, prefix/suffix). Returns [text, is_html]; HTML only
+ * when the package XML sets allow_html on the column.
+ */
+$pkg_cell = function ($column, $ip) use ($iflist) {
+	$value = $ip[xml_safe_fieldname($column['fieldname'])];
+	if (is_array($value)) {
+		$value = implode(', ', $value);
+	}
+	if ($column['type'] == "checkbox") {
+		return [($value == "") ? gettext("No") : gettext("Yes"), false];
+	}
+	if ($column['type'] == "interface") {
+		return [$column['prefix'] . $iflist[$value] . $column['suffix'], false];
+	}
+	if ($column['encoding'] == "base64") {
+		$text = $column['prefix'] . base64_decode($value) . $column['suffix'];
+	} else if ($column['listmodeon'] && $value != "") {
+		$text = $column['prefix'] . gettext($column['listmodeon']) . $column['suffix'];
+	} else if ($column['listmodeoff'] && $value == "") {
+		$text = $column['prefix'] . gettext($column['listmodeoff']) . $column['suffix'];
+	} else {
+		$text = $column['prefix'] . $value . " " . $column['suffix'];
+	}
+	return [trim($text), isset($column['allow_html'])];
+};
+
+/* Package "sorting" field: server-side filter (field + text, A-Z) and paging */
+$sorting = null;
+foreach ((is_array($pkg['fields']['field']) ? $pkg['fields']['field'] : []) as $field) {
+	if ($field['type'] == "sorting") {
+		$sorting = $field;
+		if ($display_maximum_rows < 1 && $field['display_maximum_rows']) {
+			$display_maximum_rows = $field['display_maximum_rows'];
+		}
+	}
+}
+
+/* Rows to show: the same paging and filter rules as before */
+$rows = [];
+$i = 0;
+$filter_regex = null;
+$filter_fieldname = null;
+if ($_REQUEST['pkg_filter'] && $sorting && is_array($sorting['sortablefields']['item'])) {
+	foreach ($sorting['sortablefields']['item'] as $sf) {
+		if ($sf['name'] == $_REQUEST['pkg_filter_type']) {
+			$filter_fieldname = $sf['fieldname'];
+			# Use a default regex on sortable fields when none is declared
+			$pkg_filter = cleanup_regex_pattern(htmlspecialchars(strip_tags($_REQUEST['pkg_filter'])));
+			if ($sf['regex']) {
+				$filter_regex = str_replace("%FILTERTEXT%", $pkg_filter, trim($sf['regex']));
+			} else {
+				$filter_regex = "/{$pkg_filter}/i";
+			}
+		}
+	}
+}
+foreach ($evaledvar as $idx => $ip) {
+	if ($startdisplayingat && ($i < $startdisplayingat)) {
+		$i++;
+		continue;
+	}
+	if ($_REQUEST['pkg_filter']) {
+		$filter_matches = null;
+		foreach ($columns as $column) {
+			if ($filter_regex && ($column['fieldname'] == $filter_fieldname)) {
+				preg_match($filter_regex, $ip[xml_safe_fieldname($column['fieldname'])], $filter_matches);
+				break;
+			}
+		}
+		if (!$filter_matches) {
+			$i++;
+			continue;
+		}
+	}
+	$rows[$i] = $ip;
+	$i++;
+	if ($display_maximum_rows && (count($rows) >= $display_maximum_rows)) {
+		break;
+	}
+}
+$last_shown = $i;
+
+fs_page_action(gettext('Add'), $add_href, 'fa-plus', 'primary', ['title' => $add_msg]);
+
 include("head.inc");
 if (isset($tab_array)) {
 	foreach ($tab_array as $tab) {
@@ -230,63 +330,6 @@ if (isset($tab_array)) {
 	}
 }
 
-?>
-
-<script type="text/javascript">
-//<![CDATA[
-events.push(function() {
-
-	function setFilter(filtertext) {
-		$('#pkg_filter').val(filtertext);
-		document.pkgform.submit();
-	}
-
-<?php
-	if ($pkg['adddeleteeditpagefields']['movable']) {
-?>
-		$('#mainarea table tbody').sortable({
-		items: 'tr.sortable',
-			cursor: 'move',
-			distance: 10,
-			opacity: 0.8,
-			helper: function(e, ui) {
-				ui.children().each(function() {
-					$(this).width($(this).width());
-				});
-			return ui;
-			},
-		});
-<?php
-	}
-?>
-});
-
-function save_changes_to_xml(xml) {
-	var ids = $('#mainarea table tbody').sortable('serialize', {key:"ids[]"});
-	var strloading="<?=gettext('Saving changes...')?>";
-	if (confirm("<?=gettext("Confirmation Required to save changes.")?>")) {
-		$.ajax({
-			type: 'post',
-			cache: false,
-			url: "<?=$_SERVER['SCRIPT_NAME']?>",
-			data: {xml:'<?=$xml?>', act:'update', ids: ids},
-			beforeSend: function() {
-				$('#savemsg').empty().html(strloading);
-			},
-			error: function(data) {
-				$('#savemsg').empty().html('Error:' + data);
-			},
-			success: function(data) {
-				$('#savemsg').empty().html(data);
-			}
-		});
-	}
-}
-
-//]]>
-</script>
-
-<?php
 if ($_REQUEST['savemsg'] != "") {
 	$savemsg = htmlspecialchars($_REQUEST['savemsg']);
 }
@@ -294,310 +337,246 @@ if ($_REQUEST['savemsg'] != "") {
 if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
+
+/* toolbar title: the active tab, else the last part of the package title */
+$list_title = '';
+foreach ((is_array($pkg['tabs']['tab']) ? $pkg['tabs']['tab'] : []) as $tab) {
+	if (isset($tab['active'])) {
+		$list_title = $tab['text'];
+	}
+}
+if ($list_title === '' && $pkg['title'] != '') {
+	$parts = explode('/', $pkg['title']);
+	$list_title = gettext(trim(end($parts)));
+}
+
+ob_start();
+if ($sorting) {
+	if ($sorting['sortablefields']) {
+		echo '<select name="pkg_filter_type" class="form-select form-select-sm" aria-label="' . fs_h(gettext('Filter field')) . '">';
+		foreach ($sorting['sortablefields']['item'] as $si) {
+			echo '<option value="' . fs_h($si['name']) . '"' . (($si['name'] == $_REQUEST['pkg_filter_type']) ? ' selected' : '') . '>' . fs_h($si['name']) . '</option>';
+		}
+		echo '</select>';
+	}
+	if (isset($sorting['include_filtering_inputbox'])) {
+		echo '<input id="pkg_filter" name="pkg_filter" class="form-control form-control-sm fs-pkg-filter" value="' . fs_h($_REQUEST['pkg_filter']) . '" placeholder="' . fs_h(gettext('Filter text')) . '" aria-label="' . fs_h(gettext('Filter text')) . '">';
+		echo '<button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-filter icon-embed-btn" aria-hidden="true"></i>' . gettext("Filter") . '</button>';
+	} else {
+		echo '<input type="hidden" id="pkg_filter" name="pkg_filter" value="' . fs_h($_REQUEST['pkg_filter']) . '">';
+	}
+}
+if ($display_maximum_rows) {
+	echo '<select name="display_maximum_rows" class="form-select form-select-sm" data-pkg-autosubmit aria-label="' . fs_h(gettext('Rows per page')) . '">';
+	for ($x = 0; $x < 250; $x += 5) {
+		echo '<option value="' . $x . '"' . (($x == $display_maximum_rows) ? ' selected' : '') . '>' . sprintf(gettext('%s per page'), $x) . '</option>';
+	}
+	echo '</select>';
+}
+$toolbar_custom = ob_get_clean();
+
+ob_start();
+if ($movable): ?>
+	<span id="savemsg" class="fs-muted small" aria-live="polite"></span>
+	<button type="button" id="pkg-save-order" class="btn btn-sm btn-outline-secondary" disabled
+		data-fs-confirm="<?=gettext('Save the new order?')?>" data-fs-confirm-action="<?=gettext('Save order')?>">
+		<i class="fa-solid fa-floppy-disk icon-embed-btn" aria-hidden="true"></i><?=gettext('Save order')?>
+	</button>
+<?php endif;
+$toolbar_actions = ob_get_clean();
 ?>
 
 <form action="pkg.php" name="pkgform" method="get">
-	<input type='hidden' name='xml' value='<?=$_REQUEST['xml']?>' />
-		<div id="mainarea" class="panel panel-default">
-			<table id="mainarea" class="table table-striped table-hover table-sm">
+	<input type="hidden" name="xml" value="<?=fs_h($_REQUEST['xml'])?>" />
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => $list_title,
+	'noun' => gettext('entries'),
+	'noun_one' => gettext('entry'),
+	'custom' => $toolbar_custom,
+	'actions' => $toolbar_actions,
+]); ?>
+<?php if ($sorting): ?>
+		<nav class="fs-pkg-letters" aria-label="<?=gettext('Filter by first letter')?>">
+<?php for ($char = 65; $char < 91; $char++): ?>
+			<a href="#" data-pkg-filter="<?=chr($char)?>"<?=($_REQUEST['pkg_filter'] === chr($char)) ? ' aria-current="true"' : ''?>><?=chr($char)?></a>
+<?php endfor; ?>
+		</nav>
+<?php endif; ?>
+		<div id="mainarea" class="panel-body table-responsive">
+			<table class="table table-hover table-rowdblclickedit"<?=$movable ? '' : ' data-sortable'?>>
 				<thead>
-<?php
-	/* Handle filtering bar A-Z */
-	$include_filtering_inputbox = false;
-	$colspan = 0;
-	if ($pkg['adddeleteeditpagefields']['columnitem'] != "") {
-		foreach ($pkg['adddeleteeditpagefields']['columnitem'] as $column) {
-			$colspan++;
-		}
-	}
-	if ($pkg['fields']['field']) {
-		// First find the sorting type field if it exists
-		foreach ($pkg['fields']['field'] as $field) {
-			if ($field['type'] == "sorting") {
-				if (isset($field['include_filtering_inputbox'])) {
-					$include_filtering_inputbox = true;
-				}
-				if ($display_maximum_rows < 1) {
-					if ($field['display_maximum_rows']) {
-						$display_maximum_rows = $field['display_maximum_rows'];
-					}
-				}
-				echo "<tr><td colspan='$colspan' class='text-center'>";
-				echo gettext("Filter by: ");
-				$isfirst = true;
-				for ($char = 65; $char < 91; $char++) {
-					if (!$isfirst) {
-						echo " | ";
-					}
-					echo "<a href=\"#\" onclick=\"setFilter('" . chr($char) . "');\">" . chr($char) . "</a>";
-					$isfirst = false;
-				}
-				echo "</td></tr>";
-				echo "<tr><td colspan='$colspan' class='text-center'>";
-				if ($field['sortablefields']) {
-					echo gettext("Filter field: ") . "<select name='pkg_filter_type'>";
-					foreach ($field['sortablefields']['item'] as $si) {
-						if ($si['name'] == $_REQUEST['pkg_filter_type']) {
-							$SELECTED = "selected";
-						} else {
-							$SELECTED = "";
-						}
-						echo "<option value='{$si['name']}' {$SELECTED}>{$si['name']}</option>";
-					}
-					echo "</select>";
-				}
-				if ($include_filtering_inputbox) {
-					echo '&nbsp;&nbsp;' . gettext("Filter text: ") . '<input id="pkg_filter" name="pkg_filter" value="' . htmlspecialchars($_REQUEST['pkg_filter']) . '" />';
-					echo '&nbsp;<button type="submit" value="Filter" class="btn btn-primary btn-sm">';
-					echo '<i class="fa-solid fa-filter icon-embed-btn"></i>';
-					echo gettext("Filter");
-					echo "</button>";
-				}
-				echo "</td></tr><tr><td><font size='-3'>&nbsp;</font></td></tr>";
-			}
-		}
-	}
-?>
-				<tr>
-
-<?php
-	if ($display_maximum_rows) {
-		$totalpages = ceil(round((count($evaledvar) / $display_maximum_rows), 9));
-		$page = 1;
-		$tmpcount = 0;
-		$tmppp = 0;
-		if (is_array($evaledvar)) {
-			foreach ($evaledvar as $ipa) {
-				if ($tmpcount == $display_maximum_rows) {
-					$page++;
-					$tmpcount = 0;
-				}
-				if ($tmppp == $startdisplayingat) {
-					break;
-				}
-				$tmpcount++;
-				$tmppp++;
-			}
-		}
-		echo "<tr><th colspan='" . count($pkg['adddeleteeditpagefields']['columnitem']) . "'>";
-		echo "<table width='100%' summary=''>";
-		echo "<tr>";
-		echo "<td class='text-start'>" . sprintf(gettext('Displaying page %1$s of %2$s'), $page, $totalpages) . "</b></td>";
-		echo "<td class='text-end'>" . gettext("Rows per page: ") . "<select onchange='document.pkgform.submit();' name='display_maximum_rows'>";
-		for ($x = 0; $x < 250; $x++) {
-			if ($x == $display_maximum_rows) {
-				$SELECTED = "selected";
-			} else {
-				$SELECTED = "";
-			}
-			echo "<option value='$x' $SELECTED>$x</option>\n";
-			$x = $x + 4;
-		}
-		echo "</select></td></tr>";
-		echo "</table>";
-		echo "</th></tr>";
-	}
-
-	$cols = 0;
-	if ($pkg['adddeleteeditpagefields']['columnitem'] != "") {
-		foreach ($pkg['adddeleteeditpagefields']['columnitem'] as $column) {
-			echo "<th class=\"listhdrr\">" . $column['fielddescr'] . "</th>";
-			$cols++;
-		}
-	}
-?>
-				</tr>
+					<tr>
+<?php if ($movable): ?>
+						<th class="fs-col-icon"><span class="visually-hidden"><?=gettext('Order')?></span></th>
+<?php endif; ?>
+<?php foreach ($columns as $column): ?>
+						<th data-fs-search><?=fs_h($column['fielddescr'])?></th>
+<?php endforeach; ?>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+					</tr>
 				</thead>
 				<tbody>
 <?php
-	$i = 0;
-	$pagination_counter = 0;
-	if ($evaledvar && is_array($evaledvar)) {
-		foreach ($evaledvar as $ip) {
-			if ($startdisplayingat) {
-				if ($i < $startdisplayingat) {
-					$i++;
-					continue;
-				}
-			}
-			if ($_REQUEST['pkg_filter']) {
-				// Handle filtered items
-				if ($pkg['fields']['field'] && !$filter_regex) {
-					// First find the sorting type field if it exists
-					foreach ($pkg['fields']['field'] as $field) {
-						if ($field['type'] == "sorting") {
-							if ($field['sortablefields']['item']) {
-								foreach ($field['sortablefields']['item'] as $sf) {
-									if ($sf['name'] == $_REQUEST['pkg_filter_type']) {
-										$filter_fieldname = $sf['fieldname'];
-										#Use a default regex on sortable fields when none is declared
-										$pkg_filter = cleanup_regex_pattern(htmlspecialchars(strip_tags($_REQUEST['pkg_filter'])));
-										if ($sf['regex']) {
-											$filter_regex = str_replace("%FILTERTEXT%", $pkg_filter, trim($sf['regex']));
-										} else {
-											$filter_regex = "/{$pkg_filter}/i";
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-				// Do we have something to filter on?
-				unset($filter_matches);
-				if ($pkg['adddeleteeditpagefields']['columnitem'] != "") {
-					foreach ($pkg['adddeleteeditpagefields']['columnitem'] as $column) {
-						$fieldname = $ip[xml_safe_fieldname($column['fieldname'])];
-						if ($column['fieldname'] == $filter_fieldname) {
-							if ($filter_regex) {
-								preg_match($filter_regex, $fieldname, $filter_matches);
-								break;
-							}
-						}
-					}
-				}
-				if (!$filter_matches) {
-					$i++;
-					continue;
-				}
-			}
-			if ($pkg['adddeleteeditpagefields']['movable']) {
-				echo "<tr style=\"vertical-align: top\" class=\"sortable\" id=\"id_{$i}\">\n";
-			} else {
-				echo "<tr style=\"vertical-align: top\">\n";
-			}
-			if ($pkg['adddeleteeditpagefields']['columnitem'] != "") {
-				foreach ($pkg['adddeleteeditpagefields']['columnitem'] as $column) {
-					if ($column['fieldname'] == "description") {
-						$class = "listbg";
-					} else {
-						$class = "listlr";
-					}
+foreach ($rows as $i => $ip):
+	$cells = [];
+	$name = '';
+	foreach ($columns as $column) {
+		$cell = $pkg_cell($column, $ip);
+		$cells[] = [$column, $cell[0], $cell[1]];
+		if ($name === '' && $column['type'] != 'checkbox') {
+			$name = trim(strip_tags($cell[0]));
+		}
+	}
+	if ($name === '') {
+		$name = sprintf(gettext('entry %s'), $i + 1);
+	}
+	$actions = [
+		['edit', 'pkg_edit.php?xml=' . $xml_url . '&act=edit&id=' . $i, $name,
+		    $edit_msg ? ['attrs' => ['title' => $edit_msg]] : []],
+		['delete', 'pkg.php?xml=' . $xml_url . '&act=del&id=' . $i, $name,
+		    $delete_msg ? ['attrs' => ['title' => $delete_msg]] : []],
+	];
 ?>
-					<td class="<?=$class?>" ondblclick="document.location='pkg_edit.php?xml=<?=$xml?>&amp;act=edit&amp;id=<?=$i?>';">
-<?php
-					$fieldname = $ip[xml_safe_fieldname($column['fieldname'])];
-					#Check if columnitem has a type field declared
-					if ($column['type'] == "checkbox") {
-						if ($fieldname == "") {
-							echo gettext("No");
-						} else {
-							echo gettext("Yes");
-						}
-					} else if ($column['type'] == "interface") {
-						echo $column['prefix'] . $iflist[$fieldname] . $column['suffix'];
-					} else {
-						$display_text = "";
-						#Check if columnitem has an encoding field declared
-						if ($column['encoding'] == "base64") {
-							$display_text = $column['prefix'] . base64_decode($fieldname) . $column['suffix'];
-						#Check if there is a custom info to show when $fieldname is not empty
-						} else if ($column['listmodeon'] && $fieldname != "") {
-							$display_text = $column['prefix'] . gettext($column['listmodeon']). $column['suffix'];
-						#Check if there is a custom info to show when $fieldname is empty
-						} else if ($column['listmodeoff'] && $fieldname == "") {
-							$display_text = $column['prefix'] .gettext($column['listmodeoff']). $column['suffix'];
-						} else {
-							$display_text = $column['prefix'] . $fieldname ." ". $column['suffix'];
-						}
-						if (!isset($column['allow_html'])) {
-							$display_text = htmlspecialchars($display_text);
-						}
-						echo $display_text;
-					}
-?>
-					</td>
-<?php
-				} // foreach columnitem
-			} // if columnitem
-?>
-					<td style="vertical-align: middle" class="list text-nowrap">
-						<table border="0" cellspacing="0" cellpadding="1" summary="icons">
-							<tr>
-<?php
-			#Show custom description to edit button if defined
-			$edit_msg=($pkg['adddeleteeditpagefields']['edittext']?$pkg['adddeleteeditpagefields']['edittext']:gettext("Edit this item"));
-?>
-								<td><a class="fa-solid fa-pencil" href="pkg_edit.php?xml=<?=$xml?>&amp;act=edit&amp;id=<?=$i?>" title="<?=$edit_msg?>"></a></td>
-<?php
-			#Show custom description to delete button if defined
-			$delete_msg=($pkg['adddeleteeditpagefields']['deletetext']?$pkg['adddeleteeditpagefields']['deletetext']:gettext("Delete this item"));
-?>
-								<td>&nbsp;<a class="fa-solid fa-trash-can" href="pkg.php?xml=<?=$xml?>&amp;act=del&amp;id=<?=$i?>" title="<?=$delete_msg?>"></a></td>
-							</tr>
-						</tbody>
-					</table>
-				</td>
-<?php
-			echo "</tr>\n"; // Pairs with an echo tr some way above
-			// Handle pagination and display_maximum_rows
-			if ($display_maximum_rows) {
-				if ($pagination_counter == ($display_maximum_rows-1) or
-					$i == (count($evaledvar)-1)) {
-					$colcount = count($pkg['adddeleteeditpagefields']['columnitem']);
-					$final_footer = "";
-					$final_footer .= "<tr><td colspan='$colcount'>";
-					$final_footer .= "<table width='100%' summary=''><tr>";
-					$final_footer .= "<td class='text-start'>";
-					$startingat = $startdisplayingat - $display_maximum_rows;
-					if ($startingat > -1) {
-						$final_footer .= "<a href='pkg.php?xml=" . $_REQUEST['xml'] . "&amp;startdisplayingat={$startingat}&amp;display_maximum_rows={$display_maximum_rows}'>";
-					} else if ($startdisplayingat > 1) {
-						$final_footer .= "<a href='pkg.php?xml=" . $_REQUEST['xml'] . "&amp;startdisplayingat=0&amp;display_maximum_rows={$display_maximum_rows}'>";
-					}
-					$final_footer .= "<font size='2'><< " . gettext("Previous page") . "</font></a>";
-					if ($tmppp + $display_maximum_rows > count($evaledvar)) {
-						$endingrecord = count($evaledvar);
-					} else {
-						$endingrecord = $tmppp + $display_maximum_rows;
-					}
-					$final_footer .= "</td><td class='text-center'>";
-					$tmppp++;
-					$final_footer .= "<font size='2'>Displaying {$tmppp} - {$endingrecord} / " . count($evaledvar) . " records";
-					$final_footer .= "</font></td><td class='text-end'>&nbsp;";
-					if (($i+1) < count($evaledvar)) {
-						$final_footer .= "<a href='pkg.php?xml=" . $_REQUEST['xml'] . "&amp;startdisplayingat=" . ($startdisplayingat + $display_maximum_rows) . "&amp;display_maximum_rows={$display_maximum_rows}'>";
-					}
-					$final_footer .= "<font size='2'>" . gettext("Next page") . " >></font></a>";
-					$final_footer .= "</td></tr></table></td></tr>";
-					$i = count($evaledvar);
-					break;
-				}
-			}
-			$i++;
-			$pagination_counter++;
-		} // foreach evaledvar
-	} // if evaledvar
-?>
-				<tr>
-					<td colspan="<?=$cols?>"></td>
-					<td>
-						<table border="0" cellspacing="0" cellpadding="1" summary="icons">
-							<tr>
-<?php
-	#Show custom description to add button if defined
-	$add_msg=($pkg['adddeleteeditpagefields']['addtext']?$pkg['adddeleteeditpagefields']['addtext']:gettext("Add a new item"));
-?>
-								<td><a href="pkg_edit.php?xml=<?=$xml?>&amp;id=<?=$i?>" class="btn btn-sm btn-primary" title="<?=$add_msg?>"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('Add')?></a></td>
-<?php
-	#Show description button and info if defined
-	if ($pkg['adddeleteeditpagefields']['description']) {
-?>
-								<td>
-									<i class="fa-solid fa-circle-info"><?=$pkg['adddeleteeditpagefields']['description']?></i>
-								</td>
-<?php
+					<tr<?=$movable ? ' class="sortable" id="id_' . (int)$i . '"' : ''?>>
+<?php if ($movable): ?>
+						<td class="fs-col-icon fs-pkg-grip" title="<?=gettext('Drag to reorder')?>"><i class="fa-solid fa-grip-vertical" aria-hidden="true"></i></td>
+<?php endif; ?>
+<?php foreach ($cells as $n => list($column, $text, $is_html)):
+	$class = [];
+	if ($column['type'] == 'checkbox' && $text === gettext('No')) {
+		$class[] = 'fs-muted';
+	} elseif (!$is_html && preg_match('/^[0-9a-f.:\/]+$/i', $text) && preg_match('/[0-9]/', $text) && preg_match('/[.:\/]/', $text)) {
+		$class[] = 'fs-mono';
+	}
+	if ($n === 0) {
+		$class[] = 'fs-pkg-first';
 	}
 ?>
-							</tr>
-						</table>
-					</td>
-				</tr>
-				<?=$final_footer?>
-			</table>
-			</div>
-		<button class="btn btn-primary" type="button" value="Save" name="Submit" onclick="save_changes_to_xml('<?=$xml?>')"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext("Save")?></button>
-
-</form>
+						<td<?=$class ? ' class="' . implode(' ', $class) . '"' : ''?>><?=$is_html ? $text : fs_h($text)?></td>
+<?php endforeach; ?>
+						<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
+					</tr>
 <?php
-include("foot.inc"); ?>
+endforeach;
+
+if (empty($rows)) {
+	if (!empty($evaledvar) && $_REQUEST['pkg_filter']) {
+		fs_empty_row(count($columns) + ($movable ? 2 : 1), gettext('No entries match the filter.'));
+	} else {
+		fs_empty_row(count($columns) + ($movable ? 2 : 1), gettext('No entries yet.'),
+		    $add_href, gettext('Add'));
+	}
+}
+?>
+				</tbody>
+			</table>
+		</div>
+<?php
+if ($display_maximum_rows && count($evaledvar) > 0):
+	$first_shown = empty($rows) ? 0 : array_key_first($rows) + 1;
+	$prev = $startdisplayingat - $display_maximum_rows;
+?>
+		<div class="panel-footer fs-pkg-pager small">
+<?php if ($startdisplayingat > 0): ?>
+			<a href="pkg.php?xml=<?=fs_h($xml_url)?>&amp;startdisplayingat=<?=max(0, (int)$prev)?>&amp;display_maximum_rows=<?=(int)$display_maximum_rows?>"><i class="fa-solid fa-chevron-left icon-embed-btn" aria-hidden="true"></i><?=gettext("Previous page")?></a>
+<?php else: ?>
+			<span></span>
+<?php endif; ?>
+			<span class="fs-muted"><?=sprintf(gettext('Showing %1$s–%2$s of %3$s'), $first_shown, empty($rows) ? 0 : array_key_last($rows) + 1, count($evaledvar))?></span>
+<?php if ($last_shown < count($evaledvar)): ?>
+			<a href="pkg.php?xml=<?=fs_h($xml_url)?>&amp;startdisplayingat=<?=(int)($startdisplayingat + $display_maximum_rows)?>&amp;display_maximum_rows=<?=(int)$display_maximum_rows?>"><?=gettext("Next page")?><i class="fa-solid fa-chevron-right icon-embed-btn fs-pkg-next" aria-hidden="true"></i></a>
+<?php else: ?>
+			<span></span>
+<?php endif; ?>
+		</div>
+<?php endif; ?>
+<?php if ($pagefields['description']): ?>
+		<div class="panel-footer small fs-muted">
+			<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+			<?=$pagefields['description']?>
+		</div>
+<?php endif; ?>
+<?php if ($movable): ?>
+		<div class="panel-footer small fs-muted">
+			<i class="fa-solid fa-grip-vertical" aria-hidden="true"></i>
+			<?=gettext('Drag rows to change their order, then save the order.')?>
+		</div>
+<?php endif; ?>
+	</div>
+</form>
+
+<style>
+.fs-pkg-letters { display: flex; flex-wrap: wrap; gap: 2px 6px; padding: .4rem 1rem; border-bottom: 1px solid var(--fs-border-color); font-size: var(--fs-fs-sm); }
+.fs-pkg-letters a { min-width: 1.1rem; text-align: center; text-decoration: none; }
+.fs-pkg-letters a[aria-current] { font-weight: 600; color: var(--fs-text-strong); }
+.fs-pkg-filter { width: auto; max-width: 12rem; }
+.fs-pkg-pager { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.fs-pkg-next { margin: 0 0 0 .35rem; }
+.fs-pkg-grip { cursor: grab; }
+td.fs-pkg-first { font-weight: 600; color: var(--fs-text-strong); }
+tr.ui-sortable-helper { background: var(--fs-surface-raised); }
+</style>
+
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	// A-Z filter of the package "sorting" field
+	$('[data-pkg-filter]').on('click', function(e) {
+		e.preventDefault();
+		$('#pkg_filter').val($(this).attr('data-pkg-filter'));
+		document.pkgform.submit();
+	});
+	$('[data-pkg-autosubmit]').on('change', function() {
+		document.pkgform.submit();
+	});
+
+<?php if ($movable): ?>
+	$('#mainarea table tbody').sortable({
+		items: 'tr.sortable',
+		cursor: 'grabbing',
+		distance: 10,
+		opacity: 0.8,
+		helper: function(e, ui) {
+			ui.children().each(function() {
+				$(this).width($(this).width());
+			});
+			return ui;
+		},
+		update: function() {
+			$('#pkg-save-order').prop('disabled', false);
+			$('#savemsg').text('');
+		}
+	});
+
+	// runs after the data-fs-confirm question (js/freesense-ui.js)
+	$('#pkg-save-order').on('click', function() {
+		save_changes_to_xml();
+	});
+<?php endif; ?>
+});
+
+function save_changes_to_xml(xml) {
+	var ids = $('#mainarea table tbody').sortable('serialize', {key:"ids[]"});
+	$.ajax({
+		type: 'post',
+		cache: false,
+		url: <?=json_encode($_SERVER['SCRIPT_NAME'])?>,
+		data: {xml: <?=json_encode((string)$xml)?>, act: 'update', ids: ids},
+		beforeSend: function() {
+			$('#savemsg').text(<?=json_encode(gettext('Saving changes...'))?>);
+		},
+		error: function() {
+			$('#savemsg').text(<?=json_encode(gettext('The order could not be saved.'))?>);
+		},
+		success: function() {
+			$('#savemsg').text(<?=json_encode(gettext('Order saved.'))?>);
+			$('#pkg-save-order').prop('disabled', true);
+		}
+	});
+}
+//]]>
+</script>
+
+<?php
+include("foot.inc");
