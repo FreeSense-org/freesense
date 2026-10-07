@@ -47,15 +47,34 @@ if ($_REQUEST['savemsg']) {
 	$savemsg = $_REQUEST['savemsg'];
 }
 
-if (array_key_exists('order-store', $_REQUEST) && have_natpfruleint_access($natent['interface'])) {
+// Interface access: look up the rule(s) an action targets first, then require
+// edit access to the interface of every one of them. Actions without a rule
+// (apply) check the page-level access as before (empty interface).
+$nat_target_ids = [];
+if (is_array($_POST['rule'])) {
+	$nat_target_ids = $_POST['rule'];
+} elseif (is_numericint($_POST['id'])) {
+	$nat_target_ids = [$_POST['id']];
+}
+$nat_access = empty($nat_target_ids) ? have_natpfruleint_access('') : true;
+foreach ($nat_target_ids as $nat_target_id) {
+	$natent = is_numericint($nat_target_id) ? config_get_path("nat/rule/{$nat_target_id}") : null;
+	if (!is_array($natent) || !have_natpfruleint_access($natent['interface'])) {
+		$nat_access = false;
+		break;
+	}
+}
+unset($natent);
+
+if (array_key_exists('order-store', $_REQUEST) && $nat_access) {
 	reorderNATrules($_POST);
-} else if ($_POST['apply'] && have_natpfruleint_access($natent['interface'])) {
+} else if ($_POST['apply'] && $nat_access) {
 	$retval = applyNATrules();
-} else if (($_POST['act'] == "del" || isset($_POST['del_x'])) && have_natpfruleint_access($natent['interface'])) {
+} else if (($_POST['act'] == "del" || isset($_POST['del_x'])) && $nat_access) {
 	if ((is_numericint($_POST['id']) && config_get_path("nat/rule/{$_POST['id']}")) || (is_array($_POST['rule']) && count($_POST['rule']))) {
 		deleteNATrule($_POST);
 	}
-} elseif (($_POST['act'] == "toggle" || isset($_POST['toggle_x'])) && have_natpfruleint_access($natent['interface'])) {
+} elseif (($_POST['act'] == "toggle" || isset($_POST['toggle_x'])) && $nat_access) {
 	if ((is_numericint($_POST['id']) && config_get_path("nat/rule/{$_POST['id']}")) || (is_array($_POST['rule']) && count($_POST['rule']))) {
 		toggleNATrule($_POST);
 	}
@@ -74,7 +93,7 @@ if ($_POST['apply']) {
 	print_apply_result_box($retval);
 }
 
-if (is_subsystem_dirty('natconf') && have_natpfruleint_access($natent['interface'])) {
+if (is_subsystem_dirty('natconf') && have_natpfruleint_access('')) {
 	print_apply_box(gettext('The NAT configuration has been changed.') . '<br />' .
 					gettext('The changes must be applied for them to take effect.'));
 }
