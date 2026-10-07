@@ -329,17 +329,43 @@ if ($queue) {
 	}
 }
 
-include("head.inc");
-
-$tree = '<ul class="tree" >';
-if (is_array($altq_list_queues)) {
-	foreach ($altq_list_queues as $tmpaltq) {
-		$tree .= $tmpaltq->build_tree();
+/* Shaped interfaces (left tree) and interfaces that can still get a shaper */
+$shaped = is_array($altq_list_queues) ? array_filter($altq_list_queues) : [];
+$available = [];
+foreach ($shaperIFlist as $shif => $shdescr) {
+	if (!empty($shaped[$shif]) || !is_altq_capable(get_real_interface($shif))) {
+		continue;
 	}
-	$tree .= get_interface_list_to_show();
+	$available[$shif] = $shdescr;
 }
 
-$tree .= "</ul>";
+$shaper_units = ['b' => gettext('bit/s'), 'Kb' => gettext('Kbit/s'), 'Mb' => gettext('Mbit/s'), 'Gb' => gettext('Gbit/s'), '%' => '%'];
+$shaper_bw = function ($bw, $type) use ($shaper_units) {
+	$bw = trim((string)$bw);
+	if ($bw === '') {
+		return '';
+	}
+	return ($type === '%') ? $bw . '%' : $bw . ' ' . ($shaper_units[$type] ?? $type);
+};
+$shaper_children = function ($q) {
+	if ($q instanceof altq_root_queue) {
+		return is_array($q->queues) ? $q->queues : [];
+	}
+	return (isset($q->subqueues) && is_array($q->subqueues)) ? $q->subqueues : [];
+};
+$shaper_count = function ($q) use (&$shaper_count, $shaper_children) {
+	$n = 0;
+	foreach ($shaper_children($q) as $child) {
+		$n += 1 + $shaper_count($child);
+	}
+	return $n;
+};
+
+if (isAllowedPage('status_queues.php')) {
+	fs_page_action(gettext('Queue status'), 'status_queues.php', 'fa-chart-line', 'secondary');
+}
+
+include("head.inc");
 
 if ($queue) {
 	print($queue->build_javascript());
@@ -365,31 +391,139 @@ if (is_subsystem_dirty('shaper')) {
 
 fs_tabs('firewall-shaper', 'firewall_shaper.php');
 
+$show_form = (!$dfltmsg && $sform);
+$ifdescr = $shaperIFlist[$interface] ?? $interface;
 ?>
 
-<div class="table-responsive">
-	<table class="table">
-		<tbody>
-			<tr class="tabcont">
-				<td class="col-md-1">
-<?php
-// Display the shaper tree
-print($tree);
+<style>
+.fs-shaper-nav .panel-body { padding: var(--fs-sp-3); }
+.fs-shaper-nav .panel-footer { padding: var(--fs-sp-3); }
+.fs-shaper-subhead { margin: var(--fs-sp-3) 0 var(--fs-sp-1); padding: 0 var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.fs-shaper-subhead:first-child { margin-top: 0; }
+.fs-shaper-none { margin: 0; padding: var(--fs-sp-1) var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-shaper-add { margin: 0; padding: 0; list-style: none; }
+.fs-shaper-add a { display: flex; align-items: center; gap: var(--fs-sp-2); padding: .3rem .5rem; border-radius: var(--fs-r-sm); color: var(--fs-text); font-size: .9rem; text-decoration: none; }
+.fs-shaper-add a:hover, .fs-shaper-add a.is-active { background: var(--fs-accent-tint); color: var(--fs-text-strong); }
+.fs-shaper-add i { width: 1rem; color: var(--fs-coral-text); font-size: var(--fs-fs-xs); text-align: center; }
+.fs-shaper-empty .fs-tool-empty { text-align: center; }
+.fs-shaper-empty .fs-tool-empty p { max-width: 32rem; margin: 0; }
+.fs-shaper-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
+</style>
 
-if (count($altq_list_queues) > 0) {
-?>
-					<a href="firewall_shaper.php?action=resetall" class="btn btn-sm btn-danger">
-						<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-						<?=gettext('Remove Shaper')?>
-					</a>
+<div class="fs-tool fs-shaper">
+	<div class="panel panel-default fs-shaper-nav">
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Interfaces')?></h2></div>
+		<div class="panel-body">
+			<h3 class="fs-shaper-subhead"><?=gettext('Shaped')?></h3>
+<?php if ($shaped): ?>
+			<ul class="tree">
 <?php
-}
+	foreach ($shaped as $tmpaltq) {
+		print($tmpaltq->build_tree());
+	}
 ?>
-				</td>
-				<td>
-<?php
+			</ul>
+<?php else: ?>
+			<p class="fs-shaper-none"><?=gettext('No interface is shaped yet.')?></p>
+<?php endif; ?>
+<?php if ($available): ?>
+			<h3 class="fs-shaper-subhead"><?=gettext('Add a shaper')?></h3>
+			<ul class="fs-shaper-add">
+<?php foreach ($available as $shif => $shdescr): ?>
+				<li><a href="firewall_shaper.php?interface=<?=fs_h($shif)?>&amp;action=add"<?=($newqueue && $addnewaltq && $interface === $shif) ? ' class="is-active" aria-current="page"' : ''?>><i class="fa-solid fa-plus" aria-hidden="true"></i><?=fs_h($shdescr)?></a></li>
+<?php endforeach; ?>
+			</ul>
+<?php endif; ?>
+		</div>
+<?php if (count($altq_list_queues) > 0): ?>
+		<div class="panel-footer">
+			<a href="firewall_shaper.php?action=resetall" class="btn btn-sm btn-outline-danger"
+			   data-fs-confirm="<?=fs_h(gettext('Remove the traffic shaper?'))?>"
+			   data-fs-confirm-detail="<?=fs_h(gettext('All queues on every interface are deleted, together with the firewall rules a shaper wizard created. The firewall rules are reloaded right away.'))?>"
+			   data-fs-confirm-action="<?=fs_h(gettext('Remove shaper'))?>">
+				<i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i><?=gettext('Remove shaper')?>
+			</a>
+		</div>
+<?php endif; ?>
+	</div>
 
-if (!$dfltmsg && $sform)  {
+	<div class="fs-tool-stack">
+<?php
+if ($show_form) {
+	/* What is being edited: a saved root/child queue, or a new one */
+	$subject = null;
+	if (!$newqueue && !($_POST && ($addnewaltq || $parentqueue) && $input_errors)) {
+		if ($queue) {
+			$subject = $queue;
+		} elseif ($_POST && $parentqueue && isset($tmp) && is_object($tmp)) {
+			$subject = $tmp;
+		} elseif ($_POST && $addnewaltq && is_object($altq)) {
+			$subject = $altq;
+		}
+	}
+	$root = ($altq && is_object($altq)) ? $altq : null;
+	$scheduler = $root ? $root->GetScheduler() : '';
+
+	if ($subject instanceof altq_root_queue) {
+		$queues = [];
+		foreach ($shaper_children($subject) as $child) {
+			$queues[] = $child->GetQname();
+		}
+		fs_summary_card([
+			'icon' => 'fa-sliders',
+			'title' => $shaperIFlist[$subject->GetInterface()] ?? $subject->GetInterface(),
+			'subtitle' => gettext('Interface shaper'),
+			'badges' => [fs_badge($subject->GetEnabled() ? 'enabled' : 'disabled')],
+			'meta' => $subject->GetScheduler(),
+			'label' => gettext('Shaper summary'),
+			'facts' => [
+				[gettext('Scheduler'), $subject->GetScheduler()],
+				[gettext('Bandwidth'), $shaper_bw($subject->GetBandwidth(), $subject->bandwidthtype), 'mono' => true, 'empty' => gettext('Interface speed')],
+				[gettext('Queues'), '', 'chips' => $queues, 'empty' => gettext('None yet')],
+				[gettext('Queue limit'), (string)$subject->GetQlimit(), 'mono' => true, 'empty' => gettext('Default')],
+			],
+		]);
+	} elseif ($subject) {
+		$parent = $subject->GetParent();
+		$badges = [fs_badge($subject->GetEnabled() ? 'enabled' : 'disabled')];
+		if ($subject->GetDefault() != '') {
+			$badges[] = fs_badge('info', gettext('Default queue'));
+		}
+		$facts = [
+			[gettext('Interface'), $shaperIFlist[$subject->GetInterface()] ?? $subject->GetInterface(),
+			    'href' => 'firewall_shaper.php?interface=' . $subject->GetInterface() . '&queue=' . $subject->GetInterface() . '&action=show', 'note' => $scheduler],
+			[gettext('Bandwidth'), $shaper_bw($subject->GetBandwidth(), $subject->qbandwidthtype), 'mono' => true, 'empty' => gettext('Not set')],
+			[gettext('Priority'), (string)$subject->GetQpriority(), 'mono' => true],
+		];
+		if (is_object($parent) && !($parent instanceof altq_root_queue)) {
+			array_splice($facts, 1, 0, [[gettext('Parent queue'), $parent->GetQname(),
+			    'href' => 'firewall_shaper.php?interface=' . $subject->GetInterface() . '&queue=' . $parent->GetQname() . '&action=show']]);
+		}
+		if ($subject->CanHaveChildren()) {
+			$facts[] = [gettext('Child queues'), (string)$shaper_count($subject)];
+		}
+		fs_summary_card([
+			'icon' => 'fa-layer-group',
+			'title' => $subject->GetQname(),
+			'subtitle' => (string)$subject->GetDescription(),
+			'badges' => $badges,
+			'label' => gettext('Queue summary'),
+			'facts' => $facts,
+		]);
+	} else {
+		$adding_root = ($addnewaltq || !$root);
+		fs_summary_card([
+			'icon' => $adding_root ? 'fa-sliders' : 'fa-layer-group',
+			'title' => $adding_root ? $ifdescr : '',
+			'placeholder' => gettext('New queue'),
+			'subtitle' => $adding_root ? gettext('New interface shaper: choose the scheduler and the bandwidth of the link.')
+			    : sprintf(gettext('New queue under %1$s on %2$s'), (($qname != '' && $qname !== $interface) ? $qname : gettext('the root queue')), $ifdescr),
+			'badges' => [fs_badge('info', gettext('New'))],
+			'meta' => $adding_root ? '' : $scheduler,
+			'label' => gettext('Queue summary'),
+		]);
+	}
+
 	// Add global buttons
 	if (!$dontshow || $newqueue) {
 		if ($can_add || $addnewaltq) {
@@ -401,10 +535,10 @@ if (!$dfltmsg && $sform)  {
 
 			$sform->addGlobal(new Form_Button(
 				'add',
-				'Add new Queue',
+				gettext('Add child queue'),
 				$url,
 				'fa-solid fa-plus'
-			))->addClass('btn-success');
+			))->removeClass('btn-secondary')->addClass('btn-outline-secondary');
 
 		}
 
@@ -414,40 +548,118 @@ if (!$dfltmsg && $sform)  {
 			$url = 'firewall_shaper.php?interface='. $interface . '&action=delete';
 		}
 
-		$sform->addGlobal(new Form_Button(
+		$is_root_delete = (!$queue || ($queue instanceof altq_root_queue));
+		$delete = new Form_Button(
 			'delete',
-			$queue ? 'Delete this queue':'Disable shaper on interface',
+			$is_root_delete ? gettext('Remove shaper from interface') : gettext('Delete queue'),
 			$url,
 			'fa-solid fa-trash-can'
-		))->addClass('btn-danger nowarn');
-
+		);
+		$delete->removeClass('btn-secondary')->addClass('btn-outline-danger', 'nowarn');
+		$delete->setAttribute('data-fs-confirm', $is_root_delete
+		    ? sprintf(gettext('Remove the shaper from %s?'), $ifdescr)
+		    : sprintf(gettext('Delete queue “%s”?'), $queue->GetQname()));
+		$delete->setAttribute('data-fs-confirm-detail', $is_root_delete
+		    ? gettext('All queues on this interface are deleted.')
+		    : gettext('Its child queues are deleted too. Firewall rules that use it lose their queue assignment.'));
+		$delete->setAttribute('data-fs-confirm-action', $is_root_delete ? gettext('Remove') : gettext('Delete'));
+		$sform->addGlobal($delete);
 	}
 
+	fs_form_cancel($sform, 'firewall_shaper.php');
 	print($sform);
+} elseif ($shaped) {
+	/* Overview of the shaped interfaces */
+?>
+		<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Shaped interfaces'),
+	'search' => false,
+	'noun' => gettext('interfaces'),
+	'noun_one' => gettext('interface'),
+]); ?>
+			<div class="panel-body table-responsive">
+				<table class="table table-hover">
+					<thead>
+						<tr>
+							<th><?=gettext('Interface')?></th>
+							<th><?=gettext('Scheduler')?></th>
+							<th><?=gettext('Bandwidth')?></th>
+							<th><?=gettext('Queues')?></th>
+							<th><?=gettext('Status')?></th>
+							<th class="text-end"><?=gettext('Actions')?></th>
+						</tr>
+					</thead>
+					<tbody>
+<?php foreach ($shaped as $shif => $tmpaltq):
+	$name = $shaperIFlist[$shif] ?? $shif;
+	$show = 'firewall_shaper.php?interface=' . $shif . '&queue=' . $shif . '&action=show';
+	$actions = [['edit', $show, $name]];
+	if ($tmpaltq->GetEnabled() && $tmpaltq->CanHaveChildren()) {
+		$actions[] = ['custom', 'firewall_shaper.php?interface=' . $shif . '&queue=' . $shif . '&action=add', $name,
+		    ['icon' => 'fa-plus', 'label' => sprintf(gettext('Add a queue on %s'), $name)]];
+	}
+?>
+						<tr>
+							<td><a href="<?=fs_h($show)?>"><strong><?=fs_h($name)?></strong></a></td>
+							<td><span class="fs-chip fs-chip--strong"><?=fs_h($tmpaltq->GetScheduler())?></span></td>
+							<td class="fs-mono"><?=fs_h($shaper_bw($tmpaltq->GetBandwidth(), $tmpaltq->bandwidthtype)) ?: '<span class="fs-muted">' . gettext('Interface speed') . '</span>'?></td>
+							<td>
+								<span class="fs-chips">
+<?php	foreach ($shaper_children($tmpaltq) as $child): ?>
+									<a class="fs-chip fs-chip--mono<?=$child->GetEnabled() ? '' : ' is-off'?>" href="<?=fs_h('firewall_shaper.php?interface=' . $shif . '&queue=' . $child->GetQname() . '&action=show')?>"<?=$child->GetDefault() != '' ? ' title="' . fs_h(gettext('Default queue')) . '"' : ''?>><?=fs_h($child->GetQname())?><?=$child->GetDefault() != '' ? ' <i class="fa-solid fa-star" aria-hidden="true"></i>' : ''?></a>
+<?php	endforeach; ?>
+								</span>
+<?php	if (!$shaper_children($tmpaltq)): ?>
+								<span class="fs-muted"><?=gettext('None yet')?></span>
+<?php	else: ?>
+								<span class="fs-muted small"><?=sprintf(gettext('%d in total'), $shaper_count($tmpaltq))?></span>
+<?php	endif; ?>
+							</td>
+							<td><?=fs_badge($tmpaltq->GetEnabled() ? 'enabled' : 'disabled')?></td>
+							<td class="text-end"><?=fs_row_actions($actions)?></td>
+						</tr>
+<?php endforeach; ?>
+					</tbody>
+				</table>
+			</div>
+			<div class="panel-footer small fs-muted">
+				<?=gettext('Pick an interface or a queue in the tree to edit it. A star marks the default queue of an interface.')?>
+			</div>
+		</div>
+<?php
+} elseif ($available) {
+	$first = array_key_first($available);
+?>
+		<div class="panel panel-default fs-shaper-empty">
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-sliders" aria-hidden="true"></i>
+				<strong><?=gettext('No traffic shaper is configured.')?></strong>
+				<p><?=gettext('Run a wizard to create a ready-made set of queues, or add a shaper to an interface and build the queues by hand.')?></p>
+				<div class="fs-shaper-empty-actions">
+					<a class="btn btn-primary" href="firewall_shaper_wizards.php"><i class="fa-solid fa-wand-magic-sparkles icon-embed-btn" aria-hidden="true"></i><?=gettext('Run a wizard')?></a>
+					<a class="btn btn-outline-secondary" href="firewall_shaper.php?interface=<?=fs_h($first)?>&amp;action=add"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=fs_h(sprintf(gettext('Add a shaper on %s'), $available[$first]))?></a>
+				</div>
+			</div>
+		</div>
+<?php
+} else {
+?>
+		<div class="panel panel-default fs-shaper-empty">
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-sliders" aria-hidden="true"></i>
+				<strong><?=gettext('No interface can use ALTQ traffic shaping.')?></strong>
+				<p><?=gettext('None of the assigned interfaces has a driver that supports ALTQ queues. Limiters work on every interface.')?></p>
+				<div class="fs-shaper-empty-actions">
+					<a class="btn btn-primary" href="firewall_shaper_vinterface.php"><i class="fa-solid fa-gauge-high icon-embed-btn" aria-hidden="true"></i><?=gettext('Use limiters')?></a>
+				</div>
+			</div>
+		</div>
+<?php
 }
 ?>
-				</td>
-			</tr>
-		</tbody>
-	</table>
-</div>
-
-<?php if (empty(get_interface_list_to_show()) && (!is_array($altq_list_queues) || (count($altq_list_queues) == 0))): ?>
-<div>
-	<div class="infoblock blockopen">
-		<?php print_info_box(gettext("This firewall does not have any interfaces assigned that are capable of using ALTQ traffic shaping."), 'danger', false); ?>
 	</div>
 </div>
-<?php endif; ?>
 
 <?php
-if ($dfltmsg) {
-?>
-<div>
-	<div class="infoblock">
-		<?php print_info_box($default_shaper_msg, 'info', false); ?>
-	</div>
-</div>
-<?php
-}
 include("foot.inc");
