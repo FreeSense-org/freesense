@@ -374,10 +374,25 @@ Use it when each row has ≤ 3 simple fields and no per-row options. Otherwise, 
 
 ## Advanced toggle
 
-"Display Advanced" / "Hide Advanced" buttons (a `Form_Button` with the `fa-solid fa-gear` icon and `btn-info`,
+"Display Advanced" / "Hide Advanced" buttons (a `Form_Button` with the `fa-solid fa-gear` icon,
 whose text the page flips while it shows / hides its own fields) are restyled by `js/freesense-ui.js`
-(`initAdvancedToggles`) as quiet disclosure buttons with a chevron and `aria-expanded`. Keep that convention
-for new toggles; the open state is read from the translated "Hide Advanced" / "Hide Advanced Options" text.
+(`initAdvancedToggles`) as quiet disclosure buttons with a chevron and `aria-expanded`. The button is found by
+the gear icon plus one of: `btn-info` (legacy), a `data-fs-advanced` attribute, or an id starting with `btn`
+that contains `adv` or `toggle` (`btnadvopts`, `btnsrctoggle`, `btnsrcadv` …). New toggles should use a
+neutral class (`btn-outline-secondary`) with such an id or `data-fs-advanced`; the open state is read from the
+translated "Hide Advanced" / "Hide Advanced Options" text.
+
+## Form markup and focus (shared)
+
+- Help text is emitted as `<span class="form-text help-block">` and the IP/mask separator as
+  `input-group-text input-group-addon`; the legacy classes stay for page and package scripts that select them.
+- `print_info_box()` and the notices modal use `.btn-close`; `print_apply_box()` uses a primary button.
+- Form columns (`.form-group > [class*=col-]`) have `min-width: 0`, so a `.table-responsive` inside a form row
+  scrolls inside the card on phones instead of widening the page.
+- The first text field of a form page is focused on load on desktop only; on touch / coarse-pointer devices
+  nothing is focused (and an `autofocus` field is blurred) so phones do not pop up the keyboard.
+- Light theme: `.text-info`, `.link-info` and `.btn-outline-info` use `--fs-info` (Bootstrap's cyan is 1.7:1
+  on white). Core pages should still prefer `.fs-muted` / `btn-outline-secondary`.
 
 ## Collapsible section
 

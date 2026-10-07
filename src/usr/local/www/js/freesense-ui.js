@@ -1080,8 +1080,9 @@
 	/* ------------------------------------------------------------ advanced toggles */
 
 	/*
-	 * The pages' "Display Advanced" / "Hide Advanced" buttons (btn-info with a gear
-	 * icon; each page shows / hides its own fields and flips the text) become quiet
+	 * The pages' "Display Advanced" / "Hide Advanced" buttons (a gear icon in a
+	 * btn-info or data-fs-advanced button, or a btn*adv* / btn*toggle* id; each
+	 * page shows / hides its own fields and flips the text) become quiet
 	 * disclosure buttons with a chevron and aria-expanded. Open = the page has set
 	 * a translated "Hide Advanced (Options)" text.
 	 */
@@ -1089,12 +1090,15 @@
 		var hide = [].concat(I18N.hideAdvanced || ['Hide Advanced', 'Hide Advanced Options']).map(function (t) {
 			return String(t).trim();
 		});
-		document.querySelectorAll('.fs-main button.btn-info').forEach(function (btn) {
+		// legacy pattern (btn-info + gear) or a neutral button marked by id / data-fs-advanced
+		var sel = '.fs-main button.btn-info, .fs-main button[data-fs-advanced], ' +
+			'.fs-main button[id^="btn"][id*="adv"], .fs-main button[id^="btn"][id*="toggle"]';
+		document.querySelectorAll(sel).forEach(function (btn) {
 			var icon = btn.querySelector('i.fa-gear');
-			if (!icon) {
+			if (!icon || btn.classList.contains('fs-disclosure')) {
 				return;
 			}
-			btn.classList.remove('btn-info');
+			btn.classList.remove('btn-info', 'btn-outline-secondary', 'btn-secondary');
 			btn.classList.add('fs-disclosure');
 			icon.classList.remove('fa-gear');
 			icon.classList.add('fa-chevron-right');

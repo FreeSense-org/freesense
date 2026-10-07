@@ -720,7 +720,7 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 			'Delete',
 			null,
 			'fa-solid fa-trash-can'
-		))->addClass('btn-warning');
+		))->addClass('btn-outline-secondary');
 
 		$group->addClass('repeatable');
 
@@ -739,7 +739,7 @@ if (in_array($act, array('new', 'edit')) || (($_POST['save'] == gettext("Save"))
 		'Add SAN Row',
 		null,
 		'fa-solid fa-plus'
-	))->addClass('btn-success');
+	))->addClass('btn-outline-secondary');
 
 	$form->add($section);
 

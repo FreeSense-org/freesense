@@ -261,7 +261,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 			</div>
 			<input type="hidden" name="txtRecallBuffer" value="<?=htmlspecialchars($_POST['txtRecallBuffer']) ?>" />
 			<div class="fs-cmd-actions">
-				<button name="submit" type="submit" class="btn btn-warning" value="EXEC" title="<?=gettext("Execute the entered command")?>" data-fs-busy="true">
+				<button name="submit" type="submit" class="btn btn-primary" value="EXEC" title="<?=gettext("Execute the entered command")?>" data-fs-busy="true">
 					<i class="fa-solid fa-bolt icon-embed-btn" aria-hidden="true"></i><?=gettext("Execute"); ?>
 				</button>
 				<button type="button" class="btn btn-outline-secondary" id="btnCmdClear" title="<?=gettext("Clear command entry")?>">
@@ -397,7 +397,7 @@ END_FILE;
 			<label class="visually-hidden" for="txtPHPCommand"><?=gettext('PHP code')?></label>
 			<textarea id="txtPHPCommand" placeholder="<?=gettext('Command')?>" name="txtPHPCommand" rows="9" cols="80" class="form-control fs-mono" spellcheck="false"><?=htmlspecialchars($_POST['txtPHPCommand'])?></textarea>
 			<div class="fs-cmd-actions">
-				<button name="submit" type="submit" class="btn btn-warning" value="EXECPHP" title="<?=gettext("Execute this PHP Code")?>" data-fs-busy="true">
+				<button name="submit" type="submit" class="btn btn-primary" value="EXECPHP" title="<?=gettext("Execute this PHP Code")?>" data-fs-busy="true">
 					<i class="fa-solid fa-bolt icon-embed-btn" aria-hidden="true"></i><?=gettext("Execute")?>
 				</button>
 				<span class="fs-muted small"><?=gettext("Example"); ?>: <code>print("Hello World!");</code></span>

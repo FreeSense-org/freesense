@@ -314,13 +314,17 @@ if ($if === 'FloatingRules') {
 if (isset($if)):
 
 ?>
-<!-- Allow table to scroll when dragging outside of the display window -->
 <style>
-.table-responsive {
-    clear: both;
-    overflow-x: visible;
-    margin-bottom: 0px;
+/* Phones and narrow windows scroll the rule table inside its card. From 992 px
+ * the table may overflow as before, so dragging a rule past the bottom of the
+ * window scrolls the page (the sortable start hook below does the same for
+ * narrow windows). */
+#mainarea.table-responsive { clear: both; margin-bottom: 0; }
+@media (min-width: 992px) {
+	#mainarea.table-responsive { overflow-x: visible; }
 }
+.fs-rule-flag { cursor: help; }
+.fs-rule-icmp { max-width: 180px; max-height: 2.5em; padding: 1px; overflow-x: hidden; overflow-y: auto; line-height: 1.1em; cursor: help; }
 </style>
 
 <form id="mainform" method="post">
@@ -359,7 +363,7 @@ if (isset($if)):
 	'actions' => ob_get_clean(),
 ]); ?>
 		<div id="mainarea" class="table-responsive panel-body">
-			<table id="ruletable" class="table table-hover table-rowdblclickedit">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit" data-fs-rowselect>
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -447,6 +451,24 @@ if (isset($if)):
 <?php 	endif;?>
 			</tbody>
 <?php endif;?>
+<?php
+$tab_rules = 0;
+foreach (get_filter_rules_list() as $filterent) {
+	if (($filterent['interface'] == $if && !isset($filterent['floating'])) ||
+	    (isset($filterent['floating']) && $if === 'FloatingRules')) {
+		$tab_rules++;
+	}
+}
+if ($tab_rules == 0):
+?>
+			<tbody class="fs-rules-empty">
+<?php
+	fs_empty_row($columns_in_table, ($if === 'FloatingRules') ? gettext('No floating rules yet.') :
+	    gettext('No rules on this interface yet. Incoming connections on this interface are blocked until a pass rule is added.'),
+	    isAllowedPage('firewall_rules_edit.php') ? 'firewall_rules_edit.php?if=' . urlencode($if) : null, gettext('Add rule'));
+?>
+			</tbody>
+<?php endif; ?>
 			<tbody class="user-entries">
 <?php
 $nrules = 0;
@@ -473,9 +495,9 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 			display_separator($separators, $nrules, $columns_in_table);
 		}
 ?>
-					<tr id="fr<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
+					<tr id="fr<?=$nrules;?>" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
 						<td>
-							<input type="checkbox" id="frc<?=$nrules;?>" onClick="fr_toggle(<?=$nrules;?>)" name="rule[]" value="<?=$filteri;?>"/>
+							<input type="checkbox" id="frc<?=$nrules;?>" name="rule[]" value="<?=$filteri;?>"/>
 						</td>
 
 	<?php
@@ -499,24 +521,24 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							</a>
 	<?php
 		if ($filterent['quick'] == 'yes') {
-			print '<i class="fa-solid fa-forward text-success" title="'. gettext("&quot;Quick&quot; rule. Applied immediately on match.") .'" style="cursor: pointer;"></i>';
+			print '<i class="fa-solid fa-forward text-success fs-rule-flag" title="'. gettext("&quot;Quick&quot; rule. Applied immediately on match.") .'"></i>';
 		}
 
 		$isadvset = firewall_check_for_advanced_options($filterent);
 		if ($isadvset) {
-			print '<i class="fa-solid fa-gear" title="'. gettext("advanced setting") .': '. $isadvset .'" style="cursor: pointer;"></i>';
+			print '<i class="fa-solid fa-gear fs-rule-flag" title="'. gettext("advanced setting") .': '. $isadvset .'"></i>';
 		}
 
 		if (isset($filterent['log'])) {
-			print '<i class="fa-solid fa-list-check" title="'. gettext("traffic is logged") .'" style="cursor: pointer;"></i>';
+			print '<i class="fa-solid fa-list-check fs-rule-flag" title="'. gettext("traffic is logged") .'"></i>';
 		}
 
 		if (isset($filterent['direction']) &&
 		    ($if == "FloatingRules")) {
 			if ($filterent['direction'] == 'in') {
-				print '<i class="fa-regular fa-circle-left" title="'. gettext("direction is in") .'" style="cursor: pointer;"></i>';
+				print '<i class="fa-regular fa-circle-left fs-rule-flag" title="'. gettext("direction is in") .'"></i>';
 			} elseif ($filterent['direction'] == 'out') {
-				print '<i class="fa-regular fa-circle-right" title="'. gettext("direction is out") .'" style="cursor: pointer;"></i>';
+				print '<i class="fa-regular fa-circle-right fs-rule-flag" title="'. gettext("direction is out") .'"></i>';
 			}
 		}
 	?>
@@ -672,7 +694,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 	<?php
 		if ($if === 'FloatingRules') {
 	?>
-			<td onclick="fr_toggle(<?=$nrules;?>)" id="frd<?=$nrules;?>" ondblclick="document.location='firewall_rules_edit.php?id=<?=$i;?>';">
+			<td id="frd<?=$nrules;?>" ondblclick="document.location='firewall_rules_edit.php?id=<?=$i;?>';">
 	<?php
 			if (isset($filterent['interface'])) {
 				$selected_interfaces = explode(',', $filterent['interface']);
@@ -766,7 +788,7 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							explode(',', $filterent['icmptype'])
 						)
 					);
-				echo sprintf('<br /><div style="cursor:help;padding:1px;line-height:1.1em;max-height:2.5em;max-width:180px;overflow-y:auto;overflow-x:hidden" title="%s:%s%s"><small><u>%s</u></small></div>', gettext('ICMP subtypes'), chr(13), $t, str_replace(',', '</u>, <u>',$filterent['icmptype']));
+				echo sprintf('<br /><div class="fs-rule-icmp" title="%s:%s%s"><small><u>%s</u></small></div>', gettext('ICMP subtypes'), chr(13), $t, str_replace(',', '</u>, <u>',$filterent['icmptype']));
 			}
 		} else {
 			echo " *";
@@ -924,20 +946,6 @@ foreach ($seprows as $idx => $sep) {
 		</div>
 	</div>
 
-<?php if ($nrules == 0): ?>
-	<div class="alert alert-warning" role="alert">
-		<p>
-		<?php if ($if === 'FloatingRules'): ?>
-			<?=gettext('No floating rules are currently defined.');?>
-		<?php else: ?>
-			<?=gettext("No rules are currently defined for this interface");?><br />
-			<?=gettext("All incoming connections on this interface will be blocked until pass rules are added.");?>
-		<?php endif;?>
-			<?=gettext("Click the button to add a new rule.");?>
-		</p>
-	</div>
-<?php endif;?>
-
 </form>
 <?php
 // Create a Modal object to display Rules Copy window
@@ -963,14 +971,14 @@ $btncopyrules = new Form_Button(
 	null,
 	'fa-regular fa-clone'
 );
-$btncopyrules->setAttribute('type','button')->addClass('btn-success');
+$btncopyrules->setAttribute('type','button')->addClass('btn-primary');
 $btncancelcopyrules = new Form_Button(
 	'cancel_copyr',
 	'Cancel',
 	null,
 	'fa-solid fa-arrow-rotate-left'
 );
-$btncancelcopyrules->setAttribute('type','button')->addClass('btn-warning');
+$btncancelcopyrules->setAttribute('type','button')->addClass('btn-outline-secondary');
 $modal->addInput(new Form_StaticText(
 	null,
 	$btncopyrules . $btncancelcopyrules
@@ -979,18 +987,13 @@ $form->add($modal);
 print($form);
 
 else: ?>
-	<div class="alert alert-warning" role="alert">
-		<p>
-			<?= gettext("Select an interface to view firewall rules.") ?>
-			<br />
-			<?php
-				echo sprintf(gettext("See %sSystem > General Setup%s, %sRequire Firewall Interface%s."),
-				'<a href="/system.php">',
-				'</a>',
-				'<strong>',
-				'</strong>');
-			?>
-		</p>
+	<div class="panel panel-default">
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+			<span><?=gettext('Select an interface above to see its rules.')?></span>
+			<span class="fs-muted small"><?=gettext('No interface opens by default because Require Firewall Interface is set under System > General Setup.')?></span>
+			<a class="btn btn-sm btn-outline-secondary" href="/system.php"><i class="fa-solid fa-gear icon-embed-btn" aria-hidden="true"></i><?=gettext('General setup')?></a>
+		</div>
 	</div>
 
 <?php endif; ?>
@@ -1120,6 +1123,10 @@ events.push(function() {
 		scroll: true,
 		overflow: 'scroll',
 		scrollSensitivity: 100,
+		start: function(event, ui) {
+			// Below 992 px the table scrolls inside its card; scroll the page while dragging
+			$(this).sortable('instance').scrollParent = $(document);
+		},
 		update: function(event, ui) {
 			$('#order-store').removeAttr('disabled');
 			reindex_rules(ui.item.parent('tbody'));

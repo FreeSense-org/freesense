@@ -2090,34 +2090,32 @@ function dhcp_server_save(string $if, $pool, $act, array $post): array {
 
 /* The additional pools of interface $if as an HTML table for a Form_StaticText element. */
 function dhcp_build_pooltable(string $if): string {
-	$pooltbl =	'<div class="contains-table table-responsive">';
-	$pooltbl .=		'<table class="table table-striped table-hover table-sm">';
+	/* compact list in the "Additional Pools" form row: mono ranges, row actions (edit, confirmed delete) */
+	$pooltbl =	'<div class="table-responsive fs-pool-list">';
+	$pooltbl .=		'<table class="table table-hover table-sm table-rowdblclickedit mb-0">';
 	$pooltbl .=			'<thead>';
 	$pooltbl .=				'<tr>';
 	$pooltbl .=					'<th>' . gettext("Pool Start") . '</th>';
 	$pooltbl .=					'<th>' . gettext("Pool End") . '</th>';
 	$pooltbl .=					'<th>' . gettext("Description") . '</th>';
-	$pooltbl .=					'<th>' . gettext("Actions") . '</th>';
+	$pooltbl .=					'<th class="text-end"><span class="visually-hidden">' . gettext("Actions") . '</span></th>';
 	$pooltbl .=				'</tr>';
 	$pooltbl .=			'</thead>';
 	$pooltbl .=			'<tbody>';
 
 	$i = 0;
+	$base = 'services_dhcp.php?if=' . urlencode($if);
 	foreach (config_get_path("dhcpd/{$if}/pool", []) as $poolent) {
 		if (!empty($poolent['range']['from']) && !empty($poolent['range']['to'])) {
+			$name = $poolent['range']['from'] . ' - ' . $poolent['range']['to'];
 			$pooltbl .= '<tr>';
-			$pooltbl .= '<td ondblclick="document.location=\'services_dhcp.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '\';">' .
-						htmlspecialchars($poolent['range']['from']) . '</td>';
-
-			$pooltbl .= '<td ondblclick="document.location=\'services_dhcp.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '\';">' .
-						htmlspecialchars($poolent['range']['to']) . '</td>';
-
-			$pooltbl .= '<td ondblclick="document.location=\'services_dhcp.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '\';">' .
-						htmlspecialchars($poolent['descr']) . '</td>';
-
-			$pooltbl .= '<td><a class="fa-solid fa-pencil" title="'. gettext("Edit pool") . '" href="services_dhcp.php?if=' . htmlspecialchars($if) . '&pool=' . $i . '"></a>';
-
-			$pooltbl .= ' <a class="fa-solid fa-trash-can text-danger" title="'. gettext("Delete pool") . '" href="services_dhcp.php?if=' . htmlspecialchars($if) . '&act=delpool&id=' . $i . '" usepost></a></td>';
+			$pooltbl .= '<td class="fs-mono text-nowrap">' . htmlspecialchars($poolent['range']['from']) . '</td>';
+			$pooltbl .= '<td class="fs-mono text-nowrap">' . htmlspecialchars($poolent['range']['to']) . '</td>';
+			$pooltbl .= '<td>' . htmlspecialchars($poolent['descr'] ?? '') . '</td>';
+			$pooltbl .= '<td class="text-end">' . fs_row_actions([
+				['edit', $base . '&pool=' . $i, $name],
+				['delete', $base . '&act=delpool&id=' . $i, $name, ['thing' => gettext('address pool')]],
+			]) . '</td>';
 			$pooltbl .= '</tr>';
 		}
 		$i++;

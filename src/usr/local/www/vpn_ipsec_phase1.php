@@ -429,7 +429,7 @@ foreach($eitems as $key => $p1enc) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning')->setWidth(2);
+	))->addClass('btn-outline-secondary')->setWidth(2);
 
 	$group->add(new Form_StaticText(
 		null,
@@ -454,7 +454,7 @@ $btnaddopt = new Form_Button(
 	null,
 	'fa-solid fa-plus'
 );
-$btnaddopt->removeClass('btn-primary')->addClass('btn-success btn-sm');
+$btnaddopt->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 $section->addInput($btnaddopt);
 
 $section->addInput(new Form_Checkbox(

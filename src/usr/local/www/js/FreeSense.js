@@ -66,8 +66,8 @@ $(function() {
 	{
 		var groups = $('div.form-group.user-duplication-horiz');
 		var controlsContainer = $('<div class="col-sm-2"></div>');
-		var plus = $('<a class="btn btn-sm btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>Add</a>');
-		var minus = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>');
+		var plus = $('<a class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-plus icon-embed-btn"></i>Add</a>');
+		var minus = $('<a class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>');
 
 		minus.on('click', function(){
 			$(this).parents('div.form-group').remove();
@@ -95,8 +95,8 @@ $(function() {
 	{
 		var groups = $('div.form-group.user-duplication');
 		var controlsContainer = $('<div class="col-sm-10 col-sm-offset-2 controls"></div>');
-		var plus = $('<a class="btn btn-sm btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>Add</a>');
-		var minus = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>');
+		var plus = $('<a class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-plus icon-embed-btn"></i>Add</a>');
+		var minus = $('<a class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>');
 
 		minus.on('click', function(){
 			$(this).parents('div.form-group').remove();
@@ -125,8 +125,8 @@ $(function() {
 		var groups = $('div.form-listitem.user-duplication');
 		var fg = $('<div class="form-group"></div>');
 		var controlsContainer = $('<div class="col-sm-10 col-sm-offset-2 controls"></div>');
-		var plus = $('<a class="btn btn-sm btn-success"><i class="fa-solid fa-plus icon-embed-btn"></i>Add</a>');
-		var minus = $('<a class="btn btn-sm btn-warning"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>');
+		var plus = $('<a class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-plus icon-embed-btn"></i>Add</a>');
+		var minus = $('<a class="btn btn-sm btn-outline-danger"><i class="fa-solid fa-trash-can icon-embed-btn"></i>Delete</a>');
 
 		minus.on('click', function(){
 			var groups = $('div.form-listitem.user-duplication');
@@ -221,7 +221,7 @@ $(function() {
 
 	// Add toggle-all when there are multiple checkboxes
 	$('.control-label + .checkbox.multi').each(function() {
-		var a = $('<a name="btntoggleall" class="btn btn-sm btn-info"><i class="fa-regular fa-square-check icon-embed-btn"></i>Toggle All</a>');
+		var a = $('<a name="btntoggleall" class="btn btn-sm btn-outline-secondary"><i class="fa-regular fa-square-check icon-embed-btn"></i>Toggle All</a>');
 
 		a.on('click', function() {
 			var wrap = $(this).parents('.form-group').find('.checkbox.multi'),
@@ -290,10 +290,19 @@ $(function() {
 
 	// Focus the first text field of a form page
 	// (page content only: not buttons, selects, checkboxes or list search boxes,
-	// which would show a focus ring on load; "/" focuses list search)
-	$('.fs-main').find('input:enabled:visible, textarea:enabled:visible')
-		.not('[type=button], [type=submit], [type=reset], [type=checkbox], [type=radio], [type=search], [type=file], [readonly]')
-		.first().trigger('focus');
+	// which would show a focus ring on load; "/" focuses list search).
+	// Not on touch / coarse-pointer devices: focusing pops up the on-screen
+	// keyboard and scrolls the page on phones and tablets.
+	var coarsePointer = window.matchMedia &&
+		(window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches);
+	if (!coarsePointer) {
+		$('.fs-main').find('input:enabled:visible, textarea:enabled:visible')
+			.not('[type=button], [type=submit], [type=reset], [type=checkbox], [type=radio], [type=search], [type=file], [readonly]')
+			.first().trigger('focus');
+	} else if (document.activeElement && document.activeElement.matches('.fs-main [autofocus]')) {
+		// same for fields that carry the autofocus attribute (diagnostic tools)
+		document.activeElement.blur();
+	}
 
 	$(".resizable").each(function() {
 		$(this).css('height', 80).resizable({minHeight: 80, minWidth: 200}).parent().css('padding-bottom', 0);

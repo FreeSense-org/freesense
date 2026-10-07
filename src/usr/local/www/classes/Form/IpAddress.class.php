@@ -106,7 +106,7 @@ class Form_IpAddress extends Form_Input
 		return <<<EOT
 		<div class="input-group">
 			$input
-			<span class="input-group-addon input-group-inbetween$pfipmask">/</span>
+			<span class="input-group-text input-group-addon input-group-inbetween$pfipmask">/</span>
 			{$this->_mask}
 		</div>
 EOT;

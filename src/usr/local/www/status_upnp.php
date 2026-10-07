@@ -37,7 +37,17 @@ $enabled = (config_get_path('installedpackages/miniupnpd/config/0/enable') == 'o
 
 if (!$enabled) {
 	include("head.inc");
-	print_info_box(sprintf(gettext('Service is currently disabled. It can be enabled here: %1$s%2$s%3$s.'), '<a href="pkg_edit.php?xml=miniupnpd.xml">', gettext('Services &gt; UPnP IGD &amp; PCP'), '</a>'), 'danger');
+?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
+		<span><?=gettext('UPnP IGD and PCP is turned off, so no port maps are active.')?></span>
+<?php	if (isAllowedPage('pkg_edit.php?xml=miniupnpd.xml')): ?>
+		<a class="btn btn-sm btn-primary" href="pkg_edit.php?xml=miniupnpd.xml"><i class="fa-solid fa-gear icon-embed-btn" aria-hidden="true"></i><?=gettext('Configure UPnP')?></a>
+<?php	endif; ?>
+	</div>
+</div>
+<?php
 	include("foot.inc");
 	exit;
 }

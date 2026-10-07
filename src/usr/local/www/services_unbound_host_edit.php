@@ -157,7 +157,7 @@ foreach ($items as $item) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning')->addClass('nowarn');
+	))->addClass('btn-outline-secondary')->addClass('nowarn');
 
 	$section->add($group);
 	$counter++;
@@ -168,7 +168,7 @@ $form->addGlobal(new Form_Button(
 	'Add Host Name',
 	null,
 	'fa-solid fa-plus'
-))->removeClass('btn-primary')->addClass('btn-success addbtn');
+))->removeClass('btn-primary')->addClass('btn-outline-secondary addbtn');
 
 $section->addInput(new Form_StaticText(
 	'',

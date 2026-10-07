@@ -327,7 +327,7 @@ while ($counter < $numaddrs) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning btn-sm');
+	))->addClass('btn-outline-secondary btn-sm');
 
 	if ($counter == ($numaddrs - 1)) {
 		$group->setHelp(gettext(sprintf("%sAddresses added to the pass list will bypass login protection.%s", 
@@ -343,7 +343,7 @@ $section->addInput(new Form_Button(
 	'Add address',
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success addbtn');
+))->addClass('btn-outline-secondary addbtn');
 
 $form->add($section);
 $section = new Form_Section('Serial Communications');

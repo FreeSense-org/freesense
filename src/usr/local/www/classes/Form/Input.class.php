@@ -274,7 +274,7 @@ class Form_Input extends Form_Element
 
 		if (!empty($this->_help))
 		{
-			$help = '<span class="help-block">'. $this->_help .'</span>';
+			$help = '<span class="form-text help-block">'. $this->_help .'</span>';
 		}
 
 		return <<<EOT

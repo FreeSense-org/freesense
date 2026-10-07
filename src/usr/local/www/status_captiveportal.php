@@ -80,7 +80,7 @@ if (isset($cpzone) && !empty($cpzone) && config_path_enabled("captiveportal/{$cp
 }
 
 if ($_POST['act'] == "del" && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id'])) {
-	captiveportal_disconnect_client($_POST['id'], 6, "DISCONNECT - KIKED OUT BY ADMINISTRATOR");
+	captiveportal_disconnect_client($_POST['id'], 6, "DISCONNECT - KICKED OUT BY ADMINISTRATOR");
 	/* keep displaying last activity times */
 	if ($_POST['showact']) {
 		header("Location: status_captiveportal.php?zone={$cpzone}&showact=1");
@@ -355,7 +355,17 @@ if (!empty($cpzone)):
 </div>
 <?php
 elseif (empty($zones)):
-	print_info_box(sprintf(gettext('No Captive Portal zones have been configured. New zones may be added here: %1$sServices > Captive Portal%2$s.'), '<a href="services_captiveportal_zones.php">', '</a>'), 'warning', false);
+?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-wifi" aria-hidden="true"></i>
+		<span><?=gettext('No captive portal zones yet. Add a zone to require users to log in before they get network access.')?></span>
+<?php	if (isAllowedPage('services_captiveportal_zones_edit.php')): ?>
+		<a class="btn btn-sm btn-primary" href="services_captiveportal_zones_edit.php"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add zone')?></a>
+<?php	endif; ?>
+	</div>
+</div>
+<?php
 else:
 ?>
 <div class="panel panel-default">
