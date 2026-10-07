@@ -50,7 +50,7 @@ function restapi_print_new_token($token) {
 				<i class="fa-solid fa-copy icon-embed-btn" aria-hidden="true"></i><span><?=gettext('Copy')?></span></button>
 		</div>
 		<p class="fs-muted small mt-3 mb-1"><?=gettext('Use it as a bearer token, for example:')?></p>
-		<pre class="fs-console restapi-newkey-example">export FREESENSE_API_KEY='fsk_...'
+		<pre class="fs-console restapi-newkey-example">export FREESENSE_API_KEY='&lt;paste the key&gt;'
 curl -H "Authorization: Bearer $FREESENSE_API_KEY" https://<?=$host?>/api/v1/me</pre>
 	</div>
 	<div class="panel-footer">
