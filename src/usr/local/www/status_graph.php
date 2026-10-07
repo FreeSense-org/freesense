@@ -149,6 +149,8 @@ $pgtitle = array(gettext("Status"), gettext("Traffic Graph"));
 
 include("head.inc");
 
+fs_tabs('status-graphs', 'status_graph.php');
+
 $realif = get_real_interface($curif);
 
 /* the controls post back to this page (and feed bandwidth_by_ip.php) */

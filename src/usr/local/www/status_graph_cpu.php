@@ -28,6 +28,7 @@
 ##|*NAME=Status: CPU load
 ##|*DESCR=Allow access to the 'Status: CPU load' page.
 ##|*MATCH=status_graph_cpu.php*
+##|*MATCH=stats.php*
 ##|-PRIV
 
 $pgtitle = array(gettext("Status"), gettext("CPU Load Graph"));
@@ -37,6 +38,7 @@ $ncpu = intval(get_single_sysctl('hw.ncpu'));
 
 include("head.inc");
 
+fs_tabs('status-graphs', 'status_graph_cpu.php');
 ?>
 <style>
 .fs-cpu-chart { position: relative; padding: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-4); }
