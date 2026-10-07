@@ -84,30 +84,36 @@ foreach ($statedisp as $dstate) {
 }
 
 /* server-side filter controls in the list toolbar */
-$filterform = '<form method="post" action="diag_dump_states.php" class="fs-states-filter" id="states-filter">'
-    . '<label class="visually-hidden" for="interface">' . fs_h(gettext('Interface')) . '</label>'
-    . '<select class="form-select form-select-sm" id="interface" name="interface">';
-foreach ($iflist as $k => $v) {
-	$filterform .= '<option value="' . fs_h($k) . '"' . (($ifselect == $k) ? ' selected' : '') . '>'
-	    . fs_h(($k === 'all') ? gettext('All interfaces') : $v) . '</option>';
-}
-$filterform .= '</select>'
-    . '<div class="fs-search"><i class="fa-solid fa-filter" aria-hidden="true"></i>'
-    . '<input type="text" class="form-control fs-mono" id="filter" name="filter" value="' . fs_h($cur_filter) . '"'
-    . ' placeholder="' . fs_h(gettext('Filter: 192.168, v6, icmp, ESTABLISHED…')) . '" aria-label="' . fs_h(gettext('Filter expression')) . '" autocomplete="off"></div>'
-    . '<input type="text" class="form-control form-control-sm fs-mono fs-states-ruleid" id="ruleid" name="ruleid" value="' . fs_h($cur_ruleid) . '"'
-    . ' placeholder="' . fs_h(gettext('Rule IDs')) . '" aria-label="' . fs_h(gettext('Rule ID (comma separated list of integer rule IDs)')) . '"'
-    . ' title="' . fs_h(gettext('Comma separated list of integer rule IDs')) . '" autocomplete="off">'
-    . '<button type="submit" class="btn btn-sm btn-primary" name="filterbtn" id="filterbtn" value="Filter">'
-    . '<i class="fa-solid fa-filter icon-embed-btn" aria-hidden="true"></i>' . fs_h(gettext('Filter')) . '</button>';
-if ($can_kill) {
-	$filterform .= '<button type="submit" class="btn btn-sm btn-danger" name="killfilter" id="killfilter" value="Kill States"'
-	    . ' data-fs-confirm="' . fs_h(sprintf(gettext('Kill all states to and from %s?'), $cur_filter)) . '"'
-	    . ' data-fs-confirm-detail="' . fs_h(gettext('Open connections of this address or network break and must be set up again.')) . '"'
-	    . ' data-fs-confirm-action="' . fs_h(gettext('Kill states')) . '">'
-	    . '<i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i>' . fs_h(gettext('Kill states')) . '</button>';
-}
-$filterform .= '</form>';
+ob_start();
+?>
+<form method="post" action="diag_dump_states.php" class="fs-states-filter" id="states-filter">
+	<label class="visually-hidden" for="interface"><?=gettext('Interface')?></label>
+	<select class="form-select form-select-sm" id="interface" name="interface">
+<?php foreach ($iflist as $k => $v): ?>
+		<option value="<?=htmlspecialchars($k)?>"<?=($ifselect == $k) ? ' selected' : ''?>><?=htmlspecialchars(($k === 'all') ? gettext('All interfaces') : $v)?></option>
+<?php endforeach; ?>
+	</select>
+	<div class="fs-search"><i class="fa-solid fa-filter" aria-hidden="true"></i>
+		<input type="text" class="form-control fs-mono" id="filter" name="filter" value="<?=htmlspecialchars($cur_filter)?>"
+		    placeholder="<?=gettext('Filter: 192.168, v6, icmp, ESTABLISHED…')?>" aria-label="<?=gettext('Filter expression')?>" autocomplete="off">
+	</div>
+	<input type="text" class="form-control form-control-sm fs-mono fs-states-ruleid" id="ruleid" name="ruleid" value="<?=htmlspecialchars($cur_ruleid)?>"
+	    placeholder="<?=gettext('Rule IDs')?>" aria-label="<?=gettext('Rule ID (comma separated list of integer rule IDs)')?>"
+	    title="<?=gettext('Comma separated list of integer rule IDs')?>" autocomplete="off">
+	<button type="submit" class="btn btn-sm btn-primary" name="filterbtn" id="filterbtn" value="Filter">
+		<i class="fa-solid fa-filter icon-embed-btn" aria-hidden="true"></i><?=gettext('Filter')?>
+	</button>
+<?php if ($can_kill): ?>
+	<button type="submit" class="btn btn-sm btn-danger" name="killfilter" id="killfilter" value="Kill States"
+	    data-fs-confirm="<?=htmlspecialchars(sprintf(gettext('Kill all states to and from %s?'), $cur_filter))?>"
+	    data-fs-confirm-detail="<?=gettext('Open connections of this address or network break and must be set up again.')?>"
+	    data-fs-confirm-action="<?=gettext('Kill states')?>">
+		<i class="fa-solid fa-trash-can icon-embed-btn" aria-hidden="true"></i><?=gettext('Kill states')?>
+	</button>
+<?php endif; ?>
+</form>
+<?php
+$filterform = ob_get_clean();
 ?>
 
 <style>

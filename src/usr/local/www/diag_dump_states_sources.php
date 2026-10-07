@@ -82,14 +82,20 @@ foreach ($sources as $line) {
 $sticky = config_path_enabled('system', 'lb_use_sticky');
 $cur_filter = (string)($_POST['filter'] ?? '');
 
-$filterform = '<form method="post" action="diag_dump_states_sources.php" class="fs-sources-filter" id="sources-filter">'
-    . '<div class="fs-search"><i class="fa-solid fa-filter" aria-hidden="true"></i>'
-    . '<input type="text" class="form-control fs-mono" id="filter" name="filter" value="' . fs_h($cur_filter) . '"'
-    . ' placeholder="' . fs_h(gettext('Regular expression, e.g. ^192\.168\.')) . '" aria-label="' . fs_h(gettext('Filter expression')) . '"'
-    . ' title="' . fs_h(gettext('Use a regular expression to filter the source tracking table. Invalid or potentially dangerous patterns will be ignored.')) . '" autocomplete="off"></div>'
-    . '<button type="submit" class="btn btn-sm btn-primary" name="Submit" id="Submit" value="Filter">'
-    . '<i class="fa-solid fa-filter icon-embed-btn" aria-hidden="true"></i>' . fs_h(gettext('Filter')) . '</button>'
-    . '</form>';
+ob_start();
+?>
+<form method="post" action="diag_dump_states_sources.php" class="fs-sources-filter" id="sources-filter">
+	<div class="fs-search"><i class="fa-solid fa-filter" aria-hidden="true"></i>
+		<input type="text" class="form-control fs-mono" id="filter" name="filter" value="<?=htmlspecialchars($cur_filter)?>"
+		    placeholder="<?=gettext('Regular expression, e.g. ^192\.168\.')?>" aria-label="<?=gettext('Filter expression')?>"
+		    title="<?=gettext('Use a regular expression to filter the source tracking table. Invalid or potentially dangerous patterns will be ignored.')?>" autocomplete="off">
+	</div>
+	<button type="submit" class="btn btn-sm btn-primary" name="Submit" id="Submit" value="Filter">
+		<i class="fa-solid fa-filter icon-embed-btn" aria-hidden="true"></i><?=gettext('Filter')?>
+	</button>
+</form>
+<?php
+$filterform = ob_get_clean();
 ?>
 
 <style>

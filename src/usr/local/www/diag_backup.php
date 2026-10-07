@@ -312,7 +312,7 @@ if (!empty($package_restore_preview) && empty($input_errors)):
 							    <?=$available ? 'checked' : 'disabled'?> />
 						</td>
 						<td><?=htmlspecialchars($package['name'])?></td>
-						<td><?=fs_badge($bstate, $blabel, $package['status'])?></td>
+						<td><?=fs_badge($bstate, $blabel)?></td>
 						<td>
 							<div class="fs-chips">
 <?php foreach ($package['setting_roots'] as $root): ?>
