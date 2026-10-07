@@ -405,7 +405,6 @@ $ifdescr = $shaperIFlist[$interface] ?? $interface;
 .fs-shaper-add a { display: flex; align-items: center; gap: var(--fs-sp-2); padding: .3rem .5rem; border-radius: var(--fs-r-sm); color: var(--fs-text); font-size: .9rem; text-decoration: none; }
 .fs-shaper-add a:hover, .fs-shaper-add a.is-active { background: var(--fs-accent-tint); color: var(--fs-text-strong); }
 .fs-shaper-add i { width: 1rem; color: var(--fs-coral-text); font-size: var(--fs-fs-xs); text-align: center; }
-.fs-shaper form .panel-heading:has(> .panel-title:empty) { display: none; }
 .fs-shaper-empty .fs-tool-empty { text-align: center; }
 .fs-shaper-empty .fs-tool-empty p { max-width: 32rem; margin: 0; }
 .fs-shaper-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
@@ -421,7 +420,7 @@ $ifdescr = $shaperIFlist[$interface] ?? $interface;
 <?php
 	foreach ($shaped as $tmpaltq) {
 		/* leaf queues come with an empty child list; drop it so they get no caret */
-		print(str_replace('<ul></ul>', '', $tmpaltq->build_tree()));
+		print($tmpaltq->build_tree());
 	}
 ?>
 			</ul>
