@@ -15,6 +15,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - name: Install checks
         run: sudo apt-get update -q && sudo apt-get install -yq shellcheck
+      - name: Resolve matching system-ports branch
+        id: sysports
+        env:
+          CANDIDATE_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/FreeSense-org/freesense-system-ports.git "${CANDIDATE_REF}" >/dev/null; then
+            echo "ref=${CANDIDATE_REF}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "ref=main" >> "${GITHUB_OUTPUT}"
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          repository: FreeSense-org/freesense-system-ports
+          path: system-ports
+          ref: ${{ steps.sysports.outputs.ref }}
+      - name: FreeSense-system pkg-plist lists every shipped file
+        # Files under src/ are packaged only if security/FreeSense-system/pkg-plist in
+        # freesense-system-ports names them; a removed file left in the plist fails the
+        # package build. Add or remove files with a same-named branch in that repo.
+        run: python3 system-ports/tools/system_plist_audit.py --source . --plist system-ports/security/FreeSense-system/pkg-plist
       - name: PHP 8.5 syntax and deprecations
         # Lint with the PHP release the System image ships. Any compile-time
         # deprecation fails the job.
