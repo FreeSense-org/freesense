@@ -89,7 +89,7 @@ if (is_subsystem_dirty('shaper')) {
 ?>
 
 <style>
-.fs-wizards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); gap: var(--fs-sp-4); margin-bottom: var(--fs-sp-4); }
+.fs-wizards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--fs-sp-4); margin-bottom: var(--fs-sp-4); }
 .fs-wizard { display: flex; flex-direction: column; margin: 0; }
 .fs-wizard-body { display: flex; flex: 1; flex-direction: column; gap: var(--fs-sp-3); padding: var(--fs-sp-4); }
 .fs-wizard-head { display: flex; align-items: center; gap: var(--fs-sp-3); }

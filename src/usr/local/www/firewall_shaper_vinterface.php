@@ -445,6 +445,11 @@ $show_form = (!$dfltmsg && $sform);
 .fs-shaper-nav .panel-footer { padding: var(--fs-sp-3); }
 .fs-shaper-none { margin: 0; padding: var(--fs-sp-1) var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
 .fs-shaper form .panel-heading:has(> .panel-title:empty) { display: none; }
+/* bandwidth schedule table built by shaper.inc: room for the row button, outline button colours */
+.fs-shaper #maintable td.col-4 { width: 30%; }
+.fs-shaper #maintable td:last-child { width: 1%; white-space: nowrap; }
+.fs-shaper #maintable .btn-warning { --bs-btn-color: var(--fs-block); --bs-btn-bg: transparent; --bs-btn-border-color: var(--fs-block); --bs-btn-hover-color: #fff; --bs-btn-hover-bg: var(--fs-block); --bs-btn-hover-border-color: var(--fs-block); --bs-btn-active-bg: var(--fs-block); --bs-btn-active-color: #fff; }
+.fs-shaper a.btn-success[onclick*="addBwRowTo"] { --bs-btn-color: var(--fs-text); --bs-btn-bg: transparent; --bs-btn-border-color: var(--fs-border); --bs-btn-hover-color: var(--fs-text-strong); --bs-btn-hover-bg: var(--fs-surface-raised); --bs-btn-hover-border-color: var(--fs-border); --bs-btn-active-bg: var(--fs-surface-raised); --bs-btn-active-color: var(--fs-text-strong); }
 .fs-shaper-empty .fs-tool-empty { text-align: center; }
 .fs-shaper-empty .fs-tool-empty p { max-width: 32rem; margin: 0; }
 .fs-shaper-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
