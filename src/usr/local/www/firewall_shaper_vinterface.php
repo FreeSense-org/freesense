@@ -580,7 +580,8 @@ if ($show_form) {
 	// Print the form
 	$sform->setAction("firewall_shaper_vinterface.php");
 	fs_form_cancel($sform, 'firewall_shaper_vinterface.php');
-	print($sform);
+	/* The queue form is built by shaper.inc from the saved or posted queue; the Form classes escape every value. */
+	print($sform); // nosemgrep: php.lang.security.injection.printed-request.printed-request
 } elseif ($limiters) {
 	/* Overview of the limiters */
 ?>

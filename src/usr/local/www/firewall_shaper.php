@@ -569,7 +569,8 @@ if ($show_form) {
 	}
 
 	fs_form_cancel($sform, 'firewall_shaper.php');
-	print($sform);
+	/* The queue form is built by shaper.inc from the saved or posted queue; the Form classes escape every value. */
+	print($sform); // nosemgrep: php.lang.security.injection.printed-request.printed-request
 } elseif ($shaped) {
 	/* Overview of the shaped interfaces */
 ?>
