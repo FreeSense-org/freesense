@@ -117,7 +117,7 @@ $system_alias_specialnet = get_specialnet('', [SPECIALNET_IFNET, SPECIALNET_GROU
 	'actions' => ob_get_clean(),
 ]); ?>
 		<div id="mainarea" class="table-responsive panel-body">
-			<table id="ruletable" class="table table-hover table-rowdblclickedit">
+			<table id="ruletable" class="table table-hover table-rowdblclickedit" data-fs-rowselect>
 				<thead>
 					<tr>
 						<th><input type="checkbox" id="selectAll" name="selectAll" /></th>
@@ -148,9 +148,9 @@ $system_alias_specialnet = get_specialnet('', [SPECIALNET_IFNET, SPECIALNET_GROU
 				$natent['external']
 			);
 ?>
-					<tr id="fr<?=$i;?>" onClick="fr_toggle(<?=$i;?>)" <?=(isset($natent['disabled']) ? ' class="disabled"' : '')?>>
+					<tr id="fr<?=$i;?>" <?=(isset($natent['disabled']) ? ' class="disabled"' : '')?>>
 						<td >
-							<input type="checkbox" id="frc<?=$i;?>" onClick="fr_toggle(<?=$i;?>)" name="rule[]" value="<?=$i;?>"/>
+							<input type="checkbox" id="frc<?=$i;?>" name="rule[]" value="<?=$i;?>"/>
 						</td>
 
 						<td>
