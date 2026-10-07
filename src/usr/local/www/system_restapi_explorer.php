@@ -67,8 +67,10 @@ $can_keys = isAllowedPage('system_restapi_keys.php');
 
 $pgtitle = array(gettext('System'), gettext('REST API'), ($view === 'guide') ? gettext('Guide') : gettext('API Explorer'));
 $pglinks = array('', $can_settings ? 'system_restapi.php' : '', '@self');
-fs_page_action(gettext('Download openapi.json'), 'system_restapi_explorer.php?download=openapi', 'fa-download', 'secondary',
-    array('title' => gettext('The same document as GET /api/v1/openapi.json, without needing a key.')));
+if ($view !== 'guide') {
+	fs_page_action(gettext('Download openapi.json'), 'system_restapi_explorer.php?download=openapi', 'fa-download', 'secondary',
+	    array('title' => gettext('The same document as GET /api/v1/openapi.json, without needing a key.')));
+}
 include("head.inc");
 
 restapi_print_tabs('system_restapi_explorer.php', false, $view);
@@ -281,7 +283,7 @@ if ($view === 'guide'):
 					<thead><tr><th style="width: 7em"><?=gettext('Status')?></th><th><?=gettext('Meaning')?></th></tr></thead>
 					<tbody>
 <?php	foreach ($errors as $code => $meaning): ?>
-						<tr><td><?=fs_badge(($code === '401' || $code === '403') ? 'block' : 'warn', (string)$code)?></td>
+						<tr><td><?=fs_badge(in_array((int)$code, array(401, 403), true) ? 'block' : 'warn', (string)$code)?></td>
 							<td><?=htmlspecialchars($meaning)?></td></tr>
 <?php	endforeach; ?>
 					</tbody>

@@ -782,7 +782,7 @@ function g_guard() : void
 		if (function_exists('log_error')) {
 			log_error($msg);
 		} else {
-			error_log($msg);
+			syslog(LOG_WARNING, $msg);
 		}
 	}
 }

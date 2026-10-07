@@ -10,7 +10,6 @@
  */
 
 set_include_path(get_include_path() . PATH_SEPARATOR . realpath(__DIR__ . '/../src/etc/inc'));
-ini_set('error_log', '/dev/null');
 require_once('globals.inc');
 
 function check_g($condition, $message) {
