@@ -163,208 +163,259 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 if ($_REQUEST["error"] && ($_REQUEST["error"] != 0)) {
-	print_info_box(gettext("There was an error performing the chosen mirror operation. Check the System Log for details."));
+	print_info_box(gettext("There was an error performing the chosen mirror operation. Check the System Log for details."), 'danger');
 }
 
+/* What each action does, shown on the confirmation step */
+$action_detail = array(
+	"forget" => gettext("The mirror forgets every consumer that is no longer connected. Do this before inserting a replacement disk."),
+	"clear" => gettext("The GEOM mirror metadata is erased from the consumer. It can no longer be reactivated on its old mirror."),
+	"insert" => gettext("The consumer is added to the mirror and is overwritten by a full rebuild from the other disks."),
+	"remove" => gettext("The consumer is removed from the mirror and its metadata is cleared. The mirror runs with fewer copies."),
+	"activate" => gettext("The consumer rejoins its former mirror and is synchronized again."),
+	"deactivate" => gettext("The consumer is detached from the mirror but keeps its metadata, so it can be reactivated later."),
+	"rebuild" => gettext("The consumer is rebuilt from the other disks of the mirror. Disk activity is high until it finishes."),
+);
+
+function diag_gmirror_badge($status) {
+	switch (strtoupper($status)) {
+		case 'COMPLETE':
+			return fs_badge('pass', gettext('Complete'));
+		case 'DEGRADED':
+			return fs_badge('degraded');
+		case 'ACTIVE':
+			return fs_badge('active');
+		case 'SYNCHRONIZING':
+			return fs_badge('pending', gettext('Synchronizing'));
+		default:
+			return fs_badge('neutral', $status);
+	}
+}
+
+function diag_gmirror_action_url($action, $mirror = '', $consumer = '') {
+	$q = ['action' => $action];
+	if ($consumer !== '') {
+		$q['consumer'] = $consumer;
+	}
+	if ($mirror !== '') {
+		$q['mirror'] = $mirror;
+	}
+	return 'diag_gmirror.php?' . http_build_query($q);
+}
 ?>
+
+<style>
+.fs-gmirror-component { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); }
+.fs-gmirror-size { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-gmirror-facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--fs-sp-1) var(--fs-sp-4); margin: 0 0 var(--fs-sp-3); }
+.fs-gmirror-facts dt { color: var(--fs-text-muted); font-weight: 400; }
+.fs-gmirror-facts dd { margin: 0; }
+</style>
+
 <form action="diag_gmirror.php" method="POST" id="gmirror_form" name="gmirror_form">
-
-<!-- Confirmation screen -->
 <?php
-if ($_REQUEST["action"]):  ?>
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Confirm Action')?></h2></div>
-		<div class="panel-body">
-			<strong><?=gettext('Please confirm the selected action: '); ?></strong>
-			<span style="color:green"><?=$action_list[$_REQUEST["action"]]; ?></span>
-			<input type="hidden" name="action" value="<?=htmlspecialchars($_REQUEST['action']); ?>" />
-<?php
-	if (!empty($_REQUEST["mirror"])): ?>
-			<br /><strong><?=gettext("Mirror: "); ?></strong>
-			<?=htmlspecialchars($_REQUEST['mirror']); ?>
-			<input type="hidden" name="mirror" value="<?=htmlspecialchars($_REQUEST['mirror']); ?>" />
-<?php
-	endif; ?>
-
-<?php
-	if (!empty($_REQUEST["consumer"])): ?>
-			<br /><strong><?=gettext("Consumer"); ?>:</strong>
-			<?=htmlspecialchars($_REQUEST["consumer"]); ?>
-			<input type="hidden" name="consumer" value="<?=htmlspecialchars($_REQUEST["consumer"]); ?>" />
-<?php
-	endif; ?>
-			<br />
-			<br />
-			<button type="submit" name="confirm" class="btn btn-sm btn-success" value="<?=gettext("Confirm")?>">
-				<i class="fa-solid fa-check icon-embed-btn"></i>
-				<?=gettext("Confirm")?>
+if ($_REQUEST["action"]):
+	$act = $_REQUEST["action"];
+?>
+	<div class="panel panel-default fs-danger-card">
+		<div class="panel-heading">
+			<h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=htmlspecialchars($action_list[$act])?></h2>
+		</div>
+		<div class="panel-body fs-danger-body">
+			<p><?=gettext('Please confirm the selected action.')?> <?=htmlspecialchars($action_detail[$act])?></p>
+			<input type="hidden" name="action" value="<?=htmlspecialchars($act)?>" />
+			<dl class="fs-gmirror-facts">
+<?php if (!empty($_REQUEST["mirror"])): ?>
+				<dt><?=gettext("Mirror")?></dt>
+				<dd class="fs-mono"><?=htmlspecialchars($_REQUEST['mirror'])?></dd>
+<?php endif; ?>
+<?php if (!empty($_REQUEST["consumer"])): ?>
+				<dt><?=gettext("Consumer")?></dt>
+				<dd class="fs-mono"><?=htmlspecialchars($_REQUEST["consumer"])?></dd>
+<?php endif; ?>
+			</dl>
+<?php if (!empty($_REQUEST["mirror"])): ?>
+			<input type="hidden" name="mirror" value="<?=htmlspecialchars($_REQUEST['mirror'])?>" />
+<?php endif; ?>
+<?php if (!empty($_REQUEST["consumer"])): ?>
+			<input type="hidden" name="consumer" value="<?=htmlspecialchars($_REQUEST["consumer"])?>" />
+<?php endif; ?>
+		</div>
+		<div class="panel-footer">
+			<button type="submit" name="confirm" class="btn btn-danger no-confirm" value="<?=gettext("Confirm")?>" data-fs-busy="true">
+				<i class="fa-solid fa-check icon-embed-btn" aria-hidden="true"></i><?=gettext("Confirm")?>
 			</button>
+			<a class="btn btn-outline-secondary" href="diag_gmirror.php"><?=gettext('Cancel')?></a>
 		</div>
 	</div>
 <?php
 else:
-	// Status/display page
-	print_info_box(gettext("The options on this page are intended for use by advanced users only. This page is for managing existing mirrors, not creating new mirrors."));
+	$degraded = 0;
+	$components = 0;
+	foreach ($mirror_status as $m) {
+		$degraded += (strtoupper($m['status']) == 'DEGRADED') ? 1 : 0;
+		$components += count($m['components']);
+	}
 ?>
+	<div class="fs-tiles">
+<?php
+	fs_tile(gettext('Mirrors'), count($mirror_status));
+	fs_tile(gettext('Degraded'), $degraded, $degraded ? 'degraded' : null);
+	fs_tile(gettext('Consumers in mirrors'), $components);
+	fs_tile(gettext('Unused consumers'), count($unused_consumers));
+?>
+	</div>
 
 	<!-- GEOM mirror table -->
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('GEOM Mirror Information - Mirror Status')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Mirrors'),
+	'search' => false,
+	'noun' => gettext('consumers'),
+	'noun_one' => gettext('consumer'),
+]); ?>
 		<div class="panel-body table-responsive">
-
-<?php
-	if (count($mirror_status) > 0): ?>
-
-			<table class="table table-striped table-hover table-sm">
+			<table class="table table-hover">
 				<thead>
 					<tr>
-						<th><?=gettext("Name"); ?></th>
-						<th><?=gettext("Status"); ?></th>
-						<th><?=gettext("Component"); ?></th>
+						<th class="fs-col-status"><?=gettext("Status")?></th>
+						<th><?=gettext("Mirror")?></th>
+						<th><?=gettext("Component")?></th>
+						<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
 					</tr>
 				</thead>
 				<tbody>
 <?php
-		foreach ($mirror_status as $name):
-								$components = count($name["components"]); ?>
+	foreach ($mirror_status as $name):
+		$mname = $name['name'];
+		$can_manage = (strtoupper($name['status']) == "COMPLETE") && (count($name["components"]) > 1);
+		foreach ($name['components'] as $idx => $component):
+			list($cname, $cstatus) = array_pad(explode(" ", $component, 2), 2, '');
+			$cstatus = trim($cstatus, " ()");
+			$actions = [];
+			if ($can_manage) {
+				$actions[] = ['custom', diag_gmirror_action_url('rebuild', $mname, $cname), $cname,
+				    ['icon' => 'fa-arrows-rotate', 'label' => sprintf(gettext('Rebuild %s'), $cname)]];
+				$actions[] = ['custom', diag_gmirror_action_url('deactivate', $mname, $cname), $cname,
+				    ['icon' => 'fa-link-slash', 'label' => sprintf(gettext('Deactivate %s'), $cname)]];
+				$actions[] = ['custom', diag_gmirror_action_url('remove', $mname, $cname), $cname,
+				    ['icon' => 'fa-circle-minus', 'label' => sprintf(gettext('Remove %s from the mirror'), $cname), 'attrs' => ['class' => 'fs-action fs-action--delete']]];
+			}
+?>
 					<tr>
-						<td rowspan="<?=$components; ?>">
-							<?=htmlspecialchars($name['name']); ?><br />Size: <?=gmirror_get_mirror_size($name['name']); ?>
-						</td>
-						<td rowspan="<?=$components; ?>">
-							<?=htmlspecialchars($name['status']); ?>
-<?php
-			if (strtoupper($name['status']) == "DEGRADED"): ?>
-							<br />
-							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=forget&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Forget Disconnected Disks"); ?></a>
-<?php
-			endif; ?>
+						<td><?=diag_gmirror_badge($name['status'])?></td>
+						<td>
+							<span class="fs-mono"><?=htmlspecialchars($mname)?></span>
+							<div class="fs-gmirror-size"><?=htmlspecialchars(sprintf(gettext('Size: %s'), gmirror_get_mirror_size($mname)))?></div>
+<?php if (($idx === 0) && (strtoupper($name['status']) == "DEGRADED")): ?>
+							<a class="btn btn-sm btn-outline-danger mt-1" href="<?=htmlspecialchars(diag_gmirror_action_url('forget', $mname))?>"><i class="fa-solid fa-broom icon-embed-btn" aria-hidden="true"></i><?=gettext("Forget disconnected disks")?></a>
+<?php endif; ?>
 						</td>
 						<td>
-							<?=$name['components'][0]; ?>
-							<?php list($cname, $cstatus) = explode(" ", $name['components'][0], 2); ?><br />
-<?php
-			if ((strtoupper($name['status']) == "COMPLETE") && (count($name["components"]) > 1)): ?>
-							<a class="btn btn-sm btn-info" href="diag_gmirror.php?action=rebuild&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Rebuild"); ?></a>
-							<a class="btn btn-sm btn-warning" href="diag_gmirror.php?action=deactivate&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-link-slash icon-embed-btn"></i><?=gettext("Deactivate"); ?></a>
-							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=remove&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Remove"); ?></a>
-<?php
-			endif; ?>
+							<div class="fs-gmirror-component">
+								<span class="fs-mono"><?=htmlspecialchars($cname)?></span>
+<?php if ($cstatus !== ''): ?>
+								<span class="fs-chip fs-chip--mono"><?=htmlspecialchars($cstatus)?></span>
+<?php endif; ?>
+							</div>
 						</td>
+						<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
 					</tr>
 <?php
-			if (count($name["components"]) > 1):
-				$morecomponents = array_slice($name["components"], 1); ?>
-<?php
-				foreach ($morecomponents as $component): ?>
-					<tr>
-						<td>
-							<?=$component; ?>
-							<?php list($cname, $cstatus) = explode(" ", $component, 2); ?><br />
-<?php
-					if ((strtoupper($name['status']) == "COMPLETE") && (count($name["components"]) > 1)): ?>
-							<a class="btn btn-sm btn-info" href="diag_gmirror.php?action=rebuild&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-arrows-rotate icon-embed-btn"></i><?=gettext("Rebuild"); ?></a>
-							<a class="btn btn-sm btn-warning" href="diag_gmirror.php?action=deactivate&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-link-slash icon-embed-btn"></i><?=gettext("Deactivate"); ?></a>
-							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=remove&amp;consumer=<?=htmlspecialchars($cname); ?>&amp;mirror=<?=htmlspecialchars($name['name']); ?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext("Remove"); ?></a>
-<?php
-					endif; ?>
-						</td>
-					</tr>
-<?php
-				endforeach; ?>
-<?php
-			endif; ?>
-<?php
-		endforeach; ?>
+		endforeach;
+	endforeach;
+	if (count($mirror_status) == 0) {
+		fs_empty_row(4, gettext("No Mirrors Found"));
+	}
+?>
 				</tbody>
 			</table>
-<?php
-	else: ?>
-		<?=gettext("No Mirrors Found"); ?>
-
-<?php
-	endif; ?>
-
+		</div>
+		<div class="panel-footer small fs-muted">
+			<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+			<?=gettext("Some disk operations may only be performed when there are multiple consumers present in a mirror.")?>
 		</div>
 	</div>
-
-<?php print_info_box(gettext("Some disk operations may only be performed when there are multiple consumers present in a mirror."), 'default'); ?>
 
 	<!-- Consumer information table -->
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Consumer Information - Available Consumers')?></h2></div>
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Available consumers'),
+	'search' => false,
+	'noun' => gettext('consumers'),
+	'noun_one' => gettext('consumer'),
+]); ?>
 		<div class="panel-body table-responsive">
-<?php
-	if (count($unused_consumers) > 0): ?>
-			<table class="table table-striped table-hover table-sm">
+			<table class="table table-hover">
 				<thead>
 					<tr>
-						<th><?=gettext("Name"); ?></th>
-						<th><?=gettext("Size"); ?></th>
-						<th><?=gettext("Add to Mirror"); ?></th>
+						<th><?=gettext("Name")?></th>
+						<th><?=gettext("Size")?></th>
+						<th><?=gettext("Add to mirror")?></th>
 					</tr>
 				</thead>
-
 				<tbody>
 <?php
-		foreach ($unused_consumers as $consumer): ?>
+	foreach ($unused_consumers as $consumer):
+		$oldmirror = gmirror_get_consumer_metadata_mirror($consumer['name']);
+?>
 					<tr>
+						<td class="fs-mono"><?=htmlspecialchars($consumer['name'])?></td>
 						<td>
-							<?=htmlspecialchars($consumer['name']); ?>
+							<?=htmlspecialchars(trim($consumer['humansize'], ' ()'))?>
+							<div class="fs-mono fs-muted small"><?=htmlspecialchars($consumer['size'])?></div>
 						</td>
 						<td>
-							<?=htmlspecialchars($consumer['size']); ?>
-							<?=htmlspecialchars($consumer['humansize']); ?>
-						</td>
-						<td>
+							<div class="fs-gmirror-component">
+<?php if ($oldmirror): ?>
+								<a class="btn btn-sm btn-outline-secondary" href="<?=htmlspecialchars(diag_gmirror_action_url('activate', $oldmirror, $consumer['name']))?>">
+									<i class="fa-solid fa-link icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars(sprintf(gettext("Reactivate on %s"), $oldmirror))?>
+								</a>
+								<a class="btn btn-sm btn-outline-danger" href="<?=htmlspecialchars(diag_gmirror_action_url('clear', '', $consumer['name']))?>">
+									<i class="fa-solid fa-eraser icon-embed-btn" aria-hidden="true"></i><?=gettext("Clear metadata")?>
+								</a>
 <?php
-			$oldmirror = gmirror_get_consumer_metadata_mirror($consumer['name']);
-
-			if ($oldmirror): ?>
-							<a class="btn btn-sm btn-success" href="diag_gmirror.php?action=activate&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>&amp;mirror=<?=htmlspecialchars($oldmirror); ?>">
-								<i class="fa-solid fa-link icon-embed-btn"></i>
-								<?=sprintf(gettext("Reactivate on %s"), htmlspecialchars($oldmirror)); ?>
-							</a>
-
-							<a class="btn btn-sm btn-danger" href="diag_gmirror.php?action=clear&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>">
-								<i class="fa-solid fa-trash-can icon-embed-btn"></i>
-								<?=gettext("Clear Metadata"); ?>
-							</a>
+		else:
+			$offered = 0;
+			foreach ($mirror_list as $mirror):
+				$mirror_size = gmirror_get_mirror_size($mirror);
+				$consumer_size = gmirror_get_unused_consumer_size($consumer['name']);
+				if ($consumer_size > $mirror_size):
+					$offered++;
+?>
+								<a class="btn btn-sm btn-outline-secondary" href="<?=htmlspecialchars(diag_gmirror_action_url('insert', $mirror, $consumer['name']))?>">
+									<i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars(sprintf(gettext('Insert into %s'), $mirror))?>
+								</a>
 <?php
-			else: ?>
+				endif;
+			endforeach;
+			if (!$offered):
+?>
+								<span class="fs-muted small"><?=empty($mirror_list) ? gettext('No mirror to add it to') : gettext('Too small for every mirror')?></span>
 <?php
-				foreach ($mirror_list as $mirror):
-					$mirror_size = gmirror_get_mirror_size($mirror);
-					$consumer_size = gmirror_get_unused_consumer_size($consumer['name']);
-
-					if ($consumer_size > $mirror_size): ?>
-							<a class="btn btn-sm btn-success" href="diag_gmirror.php?action=insert&amp;consumer=<?=htmlspecialchars($consumer['name']); ?>&amp;mirror=<?=htmlspecialchars($mirror); ?>">
-								<i class="fa-solid fa-plus icon-embed-btn"></i>
-								<?=htmlspecialchars($mirror); ?>
-							</a>
-<?php
-					endif; ?>
-<?php
-				endforeach; ?>
-
-<?php
-			endif; ?>
+			endif;
+		endif;
+?>
+							</div>
 						</td>
 					</tr>
 <?php
-		endforeach; ?>
+	endforeach;
+	if (count($unused_consumers) == 0) {
+		fs_empty_row(3, gettext("No unused consumers found"));
+	}
+?>
 				</tbody>
 			</table>
-<?php
-	else: ?>
-		<?=gettext("No unused consumers found"); ?>
-<?php
-	endif; ?>
+		</div>
+		<div class="panel-footer small fs-muted">
+			<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+			<?=gettext("Consumers may only be added to a mirror if they are larger than the size of the mirror.")?>
+			<?=gettext("To repair a failed mirror, first perform a 'Forget' command on the mirror, followed by an 'insert' action on the new consumer.")?>
 		</div>
 	</div>
 <?php
-	print_info_box(gettext("Consumers may only be added to a mirror if they are larger than the size of the mirror.") . '<br />' .
-				   gettext("To repair a failed mirror, first perform a 'Forget' command on the mirror, followed by an 'insert' action on the new consumer."), 'default');
+	print_callout(gettext("The options on this page are intended for use by advanced users only. This page is for managing existing mirrors, not creating new mirrors."), 'info');
 endif; ?>
 </form>
 

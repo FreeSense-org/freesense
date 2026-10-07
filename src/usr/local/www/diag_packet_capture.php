@@ -377,50 +377,50 @@ $form_filter_sections = array(
 		'name' => 'untagged',
 		'sectionlabel' => gettext('Untagged Filter'),
 		'sectiondescription' => gettext('Filter options for packets without any VLAN tags.'),
-		'matchdescription' => gettext('UNTAGGED PACKETS')
+		'matchdescription' => gettext('Untagged packets')
 	),
 	1 => array(
 		'name' => 'tagged',
 		'sectionlabel' => gettext('Tagged Filter'),
 		'sectiondescription' => gettext('Filter options for packets that have a VLAN tag set. ' .
 		    'Specify a tag level to match stacked VLAN packets (such as QinQ).'),
-		'matchdescription' => gettext('TAGGED PACKETS')
+		'matchdescription' => gettext('Tagged packets')
 	)
 );
 $form_filter_section_attributes_properties = array(
 	'tag' => array(
-		'placeholder' => gettext('EXAMPLE: 100 200'),
-		'description' => gettext('VLAN TAG'),
+		'placeholder' => gettext('e.g. 100 200'),
+		'description' => gettext('VLAN tag'),
 		'width' => 3
 	),
 	'taglevel' => array(
 		'placeholder' => 1,
-		'description' => gettext('LEVEL'),
+		'description' => gettext('Level'),
 		'width' => 1
 	),
 	'ipaddress' => array(
-		'placeholder' => gettext('EXAMPLE: 10.1.1.0/24 192.168.1.1'),
-		'description' => gettext('HOST IP ADDRESS OR SUBNET'),
+		'placeholder' => gettext('e.g. 10.1.1.0/24 192.168.1.1'),
+		'description' => gettext('Host IP address or subnet'),
 		'width' => 6
 	),
 	'macaddress' => array(
-		'placeholder' => gettext('EXAMPLE: 00:02 11:22:33:44:55:66'),
-		'description' => gettext('HOST MAC ADDRESS'),
+		'placeholder' => gettext('e.g. 00:02 11:22:33:44:55:66'),
+		'description' => gettext('Host MAC address'),
 		'width' => 4
 	),
 	'protocol' => array(
-		'placeholder' => gettext('EXAMPLE: 17 tcp'),
-		'description' => gettext('PROTOCOL'),
+		'placeholder' => gettext('e.g. 17 tcp'),
+		'description' => gettext('Protocol'),
 		'width' => 3
 	),
 	'port' => array(
-		'placeholder' => gettext('EXAMPLE: 80 443'),
-		'description' => gettext('PORT NUMBER'),
+		'placeholder' => gettext('e.g. 80 443'),
+		'description' => gettext('Port number'),
 		'width' => 3
 	),
 	'ethertype' => array(
-		'placeholder' => gettext('EXAMPLE: arp 8100 0x8200'),
-		'description' => gettext('ETHERTYPE'),
+		'placeholder' => gettext('e.g. arp 8100 0x8200'),
+		'description' => gettext('Ethertype'),
 		'width' => 4
 	)
 );
@@ -496,14 +496,13 @@ $section->addInput(new Form_Checkbox(
 $form->add($section);
 
 // Hidden panel
-$section = new Form_Section('Custom Filter Options');
+$section = new Form_Section('Custom filter options');
 $section->addClass('custom-options');
 $section->addInput(new Form_StaticText(
 	'Hint',
-	sprintf('All input is %1$sspace-separated%2$s. When selecting a match ' .
-	        'that specifies "%1$sOR%2$s", at least two Types should be ' .
-	        'specified (such as Ethertype and Port). This will capture packets ' .
-	        'that match either Type instead of exclusively both.',
+	sprintf('Separate several values with %1$sspaces%2$s. With "%1$sinclude any of%2$s", fill in ' .
+	        'at least two types (for example ethertype and port): packets that match either type ' .
+	        'are captured, not only those that match both.',
 			'<b>', '</b>')
 ));
 // Add each Section
