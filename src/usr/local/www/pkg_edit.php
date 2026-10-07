@@ -272,6 +272,7 @@ function bootstrapTable($text) {
 	if ($t && $c && (($c - $t) < 200)) {
 		return(substr_replace($text, ' class="table table-striped table-hover table-sm"', $t, ($c - $t)));
 	}
+	return $text;
 }
 
 /*
@@ -352,7 +353,6 @@ function display_row($trc, $value, $fieldname, $type, $rowhelper, $description, 
 			if (isset($rowhelper['multiple'])) {
 				$multiple = "multiple";
 			}
-			echo "<select style='height:22px;' id='{$fieldname}{$trc}' name='{$fieldname}{$trc}' {$size} {$multiple}>\n";
 			$ifaces = get_configured_interface_with_descr();
 			$additional_ifaces = $rowhelper['add_to_interfaces_selection'];
 			if (!empty($additional_ifaces)) {
@@ -385,7 +385,6 @@ function display_row($trc, $value, $fieldname, $type, $rowhelper, $description, 
 				$multiple
 			))->setHelp($description);
 
-			//echo "</select>\n";
 			break;
 		case "select_source":
 			$options = array();
@@ -514,6 +513,95 @@ function parse_package_templates() {
 	}
 }
 
+/*
+ * Header summary card (docs/webui/03-components.md): for a list entry its list
+ * columns (name, description, state, key facts); for a settings page with a
+ * leading enable checkbox, the package name and its state. Read from the saved
+ * configuration, purely informative.
+ */
+$pkg_list_title = '';
+foreach ((is_array($pkg['tabs']['tab']) ? $pkg['tabs']['tab'] : []) as $tab) {
+	if (isset($tab['active'])) {
+		$pkg_list_title = $tab['text'];
+	}
+}
+if ($pkg_list_title === '' && $pkg['title'] != '') {
+	$pkg_title_parts = explode('/', $pkg['title']);
+	$pkg_list_title = gettext(trim(end($pkg_title_parts)));
+}
+
+$pkg_summary = null;
+$pkg_saved = config_get_path("{$pkg_config_path}/{$id}");
+if (!$only_edit) {
+	$pkg_iflist = get_configured_interface_with_descr(true);
+	$pkg_cell = function ($column, $ip) use ($pkg_iflist) {
+		$value = $ip[xml_safe_fieldname($column['fieldname'])];
+		if (is_array($value)) {
+			$value = implode(', ', $value);
+		}
+		if ($column['type'] == "checkbox") {
+			return ($value == "") ? gettext("No") : gettext("Yes");
+		}
+		if ($column['type'] == "interface") {
+			return trim($column['prefix'] . $pkg_iflist[$value] . $column['suffix']);
+		}
+		if ($column['encoding'] == "base64") {
+			$text = $column['prefix'] . base64_decode($value) . $column['suffix'];
+		} else if ($column['listmodeon'] && $value != "") {
+			$text = $column['prefix'] . gettext($column['listmodeon']) . $column['suffix'];
+		} else if ($column['listmodeoff'] && $value == "") {
+			$text = $column['prefix'] . gettext($column['listmodeoff']) . $column['suffix'];
+		} else {
+			$text = $column['prefix'] . $value . " " . $column['suffix'];
+		}
+		return trim(strip_tags($text));
+	};
+	$pkg_summary = [
+		'icon' => 'fa-puzzle-piece',
+		'title' => '',
+		'placeholder' => gettext('New entry'),
+		'subtitle' => $pkg_list_title,
+		'label' => gettext('Entry summary'),
+		'badges' => [],
+		'facts' => [],
+	];
+	if (is_array($pkg_saved) && !empty($pkg_saved)) {
+		foreach ((is_array($pkg['adddeleteeditpagefields']['columnitem']) ? $pkg['adddeleteeditpagefields']['columnitem'] : []) as $column) {
+			$fname = $column['fieldname'];
+			$text = $pkg_cell($column, $pkg_saved);
+			if (preg_match('/^(disabled?|shutdown)$/', $fname)) {
+				$pkg_summary['badges'][] = ($pkg_saved[$fname] == '')
+				    ? fs_badge('enabled')
+				    : fs_badge('disabled', ($fname == 'shutdown') ? gettext('Shut down') : null);
+			} elseif ($pkg_summary['title'] === '' && $column['type'] != 'checkbox') {
+				$pkg_summary['title'] = $text;
+			} elseif (preg_match('/^descr(iption)?$/', $fname)) {
+				if ($text !== '') {
+					$pkg_summary['subtitle'] = $text;
+				}
+			} elseif (count($pkg_summary['facts']) < 4) {
+				$pkg_summary['facts'][] = [strip_tags($column['fielddescr']), $text,
+				    'mono' => (bool)(preg_match('/^[0-9a-f.:\/]+$/i', $text) && preg_match('/[0-9]/', $text) && preg_match('/[.:\/]/', $text))];
+			}
+		}
+	}
+} else {
+	foreach ((is_array($pkg['fields']['field']) ? $pkg['fields']['field'] : []) as $pkg_first) {
+		if (in_array($pkg_first['type'], ['listtopic', 'info', 'sorting'])) {
+			continue;
+		}
+		if ($pkg_first['type'] == 'checkbox' && preg_match('/enab/', $pkg_first['fieldname']) && $pkg_list_title !== '') {
+			$pkg_summary = [
+				'icon' => 'fa-puzzle-piece',
+				'title' => $pkg_list_title,
+				'label' => gettext('Package summary'),
+				'badges' => [(is_array($pkg_saved) && ($pkg_saved[$pkg_first['fieldname']] == 'on')) ? fs_badge('enabled') : fs_badge('disabled')],
+			];
+		}
+		break;
+	}
+}
+
 //breadcrumb
 if ($pkg['title'] != "") {
 	if (!$only_edit) {
@@ -608,6 +696,10 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
+if ($pkg_summary) {
+	fs_summary_card($pkg_summary);
+}
+
 $cols = 0;
 $savevalue = gettext("Save");
 if ($pkg['savetext'] != "") {
@@ -644,6 +736,7 @@ if ($savehelp) {
 }
 
 $form = new Form($savebutton);
+$form->addClass('fs-pkg-form');
 
 $form->addGlobal(new Form_Input(
 	'xml',
@@ -660,7 +753,7 @@ $form->addGlobal(new Form_Input(
 
 if ($pkg['advanced_options'] == "enabled") {
 	$advfield_count = 0;
-	$advanced = new Form_Section("Advanced Features");
+	$advanced = new Form_Section("Advanced features", 'pkg_advanced', COLLAPSIBLE | (empty($input_errors) ? SEC_CLOSED : SEC_OPEN));
 	$advanced->addClass('advancedoptions');
 }
 
@@ -715,6 +808,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 	if ($pkga['combinefields'] == "begin") {
 		$group = new Form_Group(strip_tags($pkga['fielddescr']));
 		$grouping = true;
+		$group_advanced = isset($pkga['advancedfield']) && isset($advfield_count);
 	}
 
 	$size = "";
@@ -825,7 +919,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 			// If the info contains a table we should detect and Bootstrap it
 
 			if (strpos($pkga['description'], '<table') !== FALSE) {
-				$info = bootstrapTable($pkga['description']);
+				$info = '<div class="table-responsive">' . bootstrapTable($pkga['description']) . '</div>';
 			} else {
 				$info = $pkga['description'];
 			}
@@ -868,12 +962,6 @@ foreach ($pkg['fields']['field'] as $pkga) {
 				if (in_array($opt['value'], $items)) {
 					array_push($selectedlist, $opt['value']);
 				}
-			}
-
-			if (isset($pkga['advancedfield']) && isset($advfield_count)) {
-				$function = $grouping ? $advanced->add:$advanced->addInput;
-			} else {
-				$function = ($grouping) ? $section->add:$section->addInput;
 			}
 
 			$grp = new Form_Select(
@@ -1085,9 +1173,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 
 			if ($pkga['wrap'] == "off") {
 				$grp->setAttribute("wrap", "off");
-				$grp->setAttribute("style", "white-space:nowrap; width: auto;");
-			} else {
-				$grp->setAttribute("style", "width: auto;");
+				$grp->addClass('fs-mono', 'fs-pkg-nowrap');
 			}
 
 			if ($grouping) {
@@ -1113,23 +1199,10 @@ foreach ($pkg['fields']['field'] as $pkga) {
 			$aliasesaddr = "";
 
 			if (isset($a_aliases)) {
-				if (!empty($pkga['typealiases'])) {
-					foreach ($a_aliases as $alias) {
-						if ($alias['type'] == $pkga['typealiases']) {
-							if ($addrisfirst == 1) {
-								$aliasesaddr .= ",";
-							}
-							$aliasesaddr .= "'" . $alias['name'] . "'";
-							$addrisfirst = 1;
-						}
-					}
-				} else {
-					foreach ($a_aliases as $alias) {
-						if ($addrisfirst == 1) {
-							$aliasesaddr .= ",";
-						}
-						$aliasesaddr .= "'" . $alias['name'] . "'";
-						$addrisfirst = 1;
+				$aliasesaddr = [];
+				foreach ($a_aliases as $alias) {
+					if (empty($pkga['typealiases']) || ($alias['type'] == $pkga['typealiases'])) {
+						$aliasesaddr[] = (string)$alias['name'];
 					}
 				}
 			}
@@ -1160,8 +1233,8 @@ foreach ($pkg['fields']['field'] as $pkga) {
 			$script = "<script type='text/javascript'>\n";
 			$script .= "//<![CDATA[\n";
 			$script .= "events.push(function(){\n";
-			$script .= "	var aliasarray = new Array({$aliasesaddr})\n";
-			$script .= "	$('#' + '{$fieldname}').autocomplete({\n";
+			$script .= "	var aliasarray = " . json_encode(is_array($aliasesaddr) ? $aliasesaddr : []) . ";\n";
+			$script .= "	$('#' + " . json_encode((string)$fieldname) . ").autocomplete({\n";
 			$script .= "		source: aliasarray\n";
 			$script .= "	})\n";
 			$script .= "});\n";
@@ -1313,7 +1386,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 			if ($pkga['buttonicon'] != "") {
 				$newbtnicon = $pkga['buttonicon'];
 			}
-			$newbtnclass = "btn-primary";
+			$newbtnclass = "btn-outline-primary";
 			if ($pkga['buttonclass'] != "") {
 				$newbtnclass = $pkga['buttonclass'];
 			}
@@ -1329,18 +1402,18 @@ foreach ($pkg['fields']['field'] as $pkga) {
 			if ($grouping) {
 				$group->add(new Form_StaticText(
 					null,
-					$newbtn . '<br />' . '<div class="help-block">' . fixup_string($pkga['description']) . '</div>'
+					$newbtn . '<div class="help-block">' . fixup_string($pkga['description']) . '</div>'
 				));
 			} else {
 				if (isset($pkga['advancedfield']) && isset($advfield_count)) {
 					$advanced->addInput(new Form_StaticText(
 						null,
-						$newbtn . '<br />' . '<div class="help-block">' . fixup_string($pkga['description']) . '</div>'
+						$newbtn . '<div class="help-block">' . fixup_string($pkga['description']) . '</div>'
 					));
 				} else {
 					$section->addInput(new Form_StaticText(
 						null,
-						$newbtn . '<br />' . '<div class="help-block">' . fixup_string($pkga['description']) . '</div>'
+						$newbtn . '<div class="help-block">' . fixup_string($pkga['description']) . '</div>'
 					));
 				}
 			}
@@ -1471,7 +1544,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 			// Add row button
 			$section->addInput(new Form_Button(
 				'addrow',
-				'Add',
+				'Add row',
 				null,
 				'fa-solid fa-plus'
 			))->addClass('btn-outline-secondary');
@@ -1486,7 +1559,7 @@ foreach ($pkg['fields']['field'] as $pkga) {
 				null
 			));
 
-			if ($advanced) {
+			if ($group_advanced) {
 				$advanced->add($group);
 			} else {
 				$section->add($group);
@@ -1510,58 +1583,45 @@ $form->addGlobal(new Form_Input(
 	$id
 ));
 
-// If we created an advanced section, add it (and a button) to the form here
+// If we created an advanced section, add it here (collapsed unless a save failed)
 if (!empty($advanced)) {
-	$form->addGlobal(new Form_Button(
-		'showadv',
-		'Show Advanced Options',
-		null,
-		'fa-solid fa-gear'
-	))->setAttribute('type','button')->addClass('btn-info');
-
 	$form->add($advanced);
+}
+
+if (!$only_edit) {
+	fs_form_cancel($form, 'pkg.php?xml=' . str_replace('%2F', '/', rawurlencode($xml)), gettext('Cancel'));
 }
 
 print($form);
 
 if ($pkg['note'] != "") {
-	print_info_box($pkg['note'], 'info');
+?>
+<div class="panel panel-default">
+	<div class="panel-footer small fs-muted"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><?=$pkg['note']?></div>
+</div>
+<?php
 }
+?>
+<style>
+/* wide inputs and tables scroll inside their column on phones */
+.fs-pkg-form .form-group > [class*="col-"] { min-width: 0; }
+.fs-pkg-form textarea.fs-pkg-nowrap { white-space: pre; }
+.fs-pkg-form .help-block .table-responsive, .fs-pkg-form .form-control-plaintext .table-responsive { margin: .25rem 0; }
+</style>
+<?php
 
 if ($pkg['custom_php_after_form_command']) {
 	eval($pkg['custom_php_after_form_command']);
 }
 
 
-$hidemsg = gettext("Show Advanced Options");
-$showmsg = gettext("Hide Advanced Options");
-
 if ($pkg['fields']['field'] != "") { ?>
 <script type="text/javascript">
 //<![CDATA[
 	events.push(function() {
 
-	// Hide the advanced section
-	var advanced_visible = false;
-
-	// Hide on page load
-	$('.advancedoptions').hide();
-
 	// Suppress "Delete row" button if there are fewer than two rows
 	checkLastRow();
-
-	// Show advanced section if you click the showadv button
-	$("#showadv").click(function() {
-		advanced_visible = !advanced_visible;
-
-		if (advanced_visible) {
-			$('.advancedoptions').show();
-			$("#showadv").html('<i class="fa-solid fa-gear icon-embed-btn"></i>' + "<?=$showmsg?>");
-		} else {
-			$('.advancedoptions').hide();
-			$("#showadv").html('<i class="fa-solid fa-gear icon-embed-btn"></i>' + "<?=$hidemsg?>");
-		}
-	});
 
 	// Call enablechange function
 	enablechange();
