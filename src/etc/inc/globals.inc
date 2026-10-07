@@ -748,7 +748,43 @@ $lagg_hash_list = [
 function g_has(string $key, bool $isset = false) : bool
 {
 	global $g;
+	g_guard();
 	return (array_key_exists($key, $g) && (!$isset || isset($g[$key])));
+}
+
+/**
+ * Keep the global $g registry an array
+ *
+ * WebGUI pages run in the global scope, so a page variable that happens to be
+ * called $g (a loop variable, for example) replaces the registry. The footer
+ * and the shutdown handler then failed with "array_key_exists(): Argument #2
+ * must be of type array". Put the last known registry back instead and log
+ * the script once, so the page can be fixed.
+ *
+ * @return void
+ */
+function g_guard() : void
+{
+	global $g;
+	static $last = [];
+	static $logged = false;
+
+	if (is_array($g)) {
+		$last = $g;
+		return;
+	}
+
+	$msg = sprintf('The global $g registry was replaced by a %s value in %s; restored it.',
+	    get_debug_type($g), (string) ($_SERVER['SCRIPT_NAME'] ?? PHP_SAPI));
+	$g = $last;
+	if (!$logged) {
+		$logged = true;
+		if (function_exists('log_error')) {
+			log_error($msg);
+		} else {
+			error_log($msg);
+		}
+	}
 }
 
 /**
@@ -914,3 +950,6 @@ if (can_include('globals.plus.inc')) {
 }
 
 add_default_system_package(['name' => 'FreeSense-pkg-System_Patches']);
+
+// remember the complete registry (see g_guard())
+g_guard();
