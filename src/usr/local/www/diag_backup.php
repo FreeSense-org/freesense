@@ -302,7 +302,14 @@ if (!empty($package_restore_preview) && empty($input_errors)):
 				<tbody>
 <?php foreach ($package_restore_preview['packages'] as $package):
 	$available = ($package['status'] !== 'missing');
-	list($bstate, $blabel) = $package_states[$package['status']] ?? ['neutral', $package['status']];
+	/* badge from the fixed status list only */
+	$bstate = 'neutral';
+	$blabel = gettext('Unknown');
+	foreach ($package_states as $pkey => $pstate) {
+		if ($package['status'] === $pkey) {
+			list($bstate, $blabel) = $pstate;
+		}
+	}
 ?>
 					<tr<?=$available ? '' : ' class="fs-row-disabled"'?>>
 						<td>
