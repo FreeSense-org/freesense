@@ -358,7 +358,12 @@ if ($sorting) {
 	if ($sorting['sortablefields']) {
 		echo '<select name="pkg_filter_type" class="form-select form-select-sm" aria-label="' . fs_h(gettext('Filter field')) . '">';
 		foreach ($sorting['sortablefields']['item'] as $si) {
-			echo '<option value="' . fs_h($si['name']) . '"' . (($si['name'] == $req_filter_type) ? ' selected' : '') . '>' . fs_h($si['name']) . '</option>';
+			$opt_selected = ($si['name'] == $req_filter_type);
+			echo '<option value="' . htmlspecialchars($si['name']) . '"';
+			if ($opt_selected) {
+				echo ' selected';
+			}
+			echo '>' . htmlspecialchars($si['name']) . '</option>';
 		}
 		echo '</select>';
 	}
