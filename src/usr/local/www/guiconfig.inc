@@ -263,7 +263,7 @@ function sprint_info_box($msg, $class="alert-warning", $btnname = "close", $btnt
 	$msg = '<div class="float-start">' . $msg . '</div>';
 
 	if ($btnname === "close") {
-		$msg = '<button type="button" class="close" data-bs-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>' . $msg;
+		$msg = '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="' . htmlspecialchars(gettext('Close')) . '"></button>' . $msg;
 	} else if ($btnname != "") {
 		if (empty($btntext)) {
 			$btntext = $btnname;
@@ -290,7 +290,7 @@ function print_info_box($msg, $class="alert-warning", $btnname = "close", $btnte
 }
 
 function print_apply_box($msg) {
-	print_info_box($msg, "warning", "apply", gettext("Apply Changes"), 'fa-solid fa-check', 'success');
+	print_info_box($msg, "warning", "apply", gettext("Apply Changes"), 'fa-solid fa-check', 'primary');
 }
 
 // Format and print a box reporting that changes have been applied

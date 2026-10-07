@@ -907,11 +907,8 @@ if ($display_notices):
 	<div class="modal-dialog">
 		<div class="modal-content">
 			<div class="modal-header">
-				<button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-					<span aria-hidden="true">&times;</span>
-				</button>
-
 				<h3 class="modal-title" id="myModalLabel"><?=gettext("Notices")?></h3>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?=htmlspecialchars(gettext("Close"))?>"></button>
 			</div>
 
 			<div class="modal-body">
@@ -950,7 +947,7 @@ if ($display_notices):
 			</div>
 
 			<div class="modal-footer">
-				<button type="button" class="btn btn-info" data-bs-dismiss="modal"><i class="fa-solid fa-xmark icon-embed-btn"></i><?=gettext("Close")?></button>
+				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-xmark icon-embed-btn"></i><?=gettext("Close")?></button>
 <?php if ($allow_clear_notices && isAllowedPage("/index.php")):?>
 				<button type="button" id="clearallnotices" class="btn btn-primary"><i class="fa-regular fa-trash-can icon-embed-btn"></i><?=gettext("Mark All as Read")?></button>
 <?php endif;?>

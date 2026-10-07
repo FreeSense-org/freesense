@@ -39,7 +39,8 @@ if (isset($_REQUEST['userid']) && is_numericint($_REQUEST['userid'])) {
 $pgtitle = array(gettext("System"), gettext("User Manager"), gettext("Users"), gettext("Edit"), gettext("Add Privileges"));
 $pglinks = array("", "system_usermanager.php", "system_usermanager.php", "system_usermanager.php?act=edit&userid=" . $userid, "@self");
 
-$a_user = config_get_path("system/user/{$userid}");
+/* No or invalid user id: back to the list without touching "system/user/" (logs a config warning). */
+$a_user = isset($userid) ? config_get_path("system/user/{$userid}") : null;
 
 if (empty($a_user) || !is_array($a_user)) {
 	FreeSenseHeader("system_usermanager.php");

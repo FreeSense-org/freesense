@@ -52,9 +52,9 @@ foreach (array('server', 'client') as $mode) {
 		if (isset($setting['disable'])) {
 			continue;
 		}
+		/* plain text: every output below escapes it (escaping here showed &amp;amp; in the picker) */
 		$ifdescrs['ovpn' . substr($mode, 0, 1) . $setting['vpnid']] =
-		    gettext("OpenVPN") . " " . $mode . ": " .
-		    htmlspecialchars($setting['description']);
+		    gettext("OpenVPN") . " " . $mode . ": " . $setting['description'];
 	}
 }
 

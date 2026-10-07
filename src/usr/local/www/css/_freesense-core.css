@@ -301,6 +301,11 @@ ul.context-links li a { color: var(--fs-coral); }
 .input-group-btn { display: flex; }
 .input-group-btn > .btn { height: 100%; }
 .form-group::after { display: block; clear: both; content: ""; }
+/* Form columns are flex/grid children: without min-width:0 a wide child (a
+   .table-responsive pool table, a long input group) pushes the page wider
+   than a phone instead of scrolling inside its wrapper. */
+.form-group > [class*="col-"],
+.form-group > .input-group { min-width: 0; }
 
 /* FreeSense list/definition/close components (used across Status + Diagnostics
  * pages). Layered on BS5; formerly in the BS3 compat shim. */
@@ -634,6 +639,7 @@ select[multiple] option:checked {
 	border-radius: var(--bs-border-radius);
 }
 .alert .btn-close, .alert .close { float: right; }
+.alert > .btn-close { margin: 0 0 0 .5rem; font-size: .8rem; padding: .3rem; }
 
 /* ---- Badges / legacy labels --------------------------------------------- */
 .badge, .label { font-weight: 600; letter-spacing: .02em; }

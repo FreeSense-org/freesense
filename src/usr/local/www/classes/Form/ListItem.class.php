@@ -106,7 +106,7 @@ class Form_ListItem extends Form_Group
 
 		return <<<EOT
 	{$group}
-		<span class="help-block">
+		<span class="form-text help-block">
 			{$help}
 		</span>
 	</div>
