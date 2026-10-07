@@ -399,7 +399,7 @@ ob_start();
 				<div class="fs-sched-selected" id="fs-sched-selected" aria-live="polite"></div>
 				<div class="fs-sched-msg text-danger" id="fs-sched-msg" role="alert"></div>
 				<div class="fs-sched-buttons">
-					<button type="button" class="btn btn-sm btn-outline-primary" id="btnaddtime" name="btnaddtime"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add time')?></button>
+					<button type="button" class="btn btn-sm btn-outline-secondary" id="btnaddtime" name="btnaddtime"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add time')?></button>
 					<button type="button" class="btn btn-sm btn-outline-secondary" id="btnclrsel" name="btnclrsel"><i class="fa-solid fa-arrow-rotate-left icon-embed-btn" aria-hidden="true"></i><?=gettext('Clear selection')?></button>
 				</div>
 			</div>
@@ -475,6 +475,7 @@ print($form);
 ?>
 
 <style>
+.fs-sched-builder > .panel-body { padding: var(--fs-sp-4); }
 .fs-sched-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--fs-sp-5); }
 .fs-sched-step { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); margin-bottom: var(--fs-sp-3); font-weight: 600; }
 .fs-sched-step label { margin: 0; }
@@ -509,7 +510,8 @@ print($form);
 .fs-sched-buttons { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); margin-top: var(--fs-sp-3); }
 #fs-sched-ranges tr.fs-empty { display: none; }
 #fs-sched-ranges tbody tr.fs-empty:only-child { display: table-row; }
-#fs-sched-ranges td .form-control { min-width: 10rem; }
+#fs-sched-ranges td .form-control { min-width: 8rem; }
+#fs-sched-ranges td.fs-mono { white-space: nowrap; }
 @media (max-width: 991.98px) {
 	.fs-sched-grid { grid-template-columns: minmax(0, 1fr); }
 }
