@@ -26,38 +26,63 @@
 
 require_once('restapi.inc');
 
-/* The one-time display of a newly created key. */
+/*
+ * The one-time display of a newly created key. The secret exists only in
+ * this response: it is not stored, logged or cached (the page sends
+ * Cache-Control: no-store), the browser forgets the POST so a reload does
+ * not create another key, and "Done" removes it from the page.
+ */
 function restapi_print_new_token($token) {
 	$host = htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'firewall');
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('New API Key')?></h2></div>
+<div class="panel panel-default restapi-newkey" id="restapi-newkey" role="region" aria-labelledby="restapi-newkey-title">
+	<div class="panel-heading">
+		<h2 class="panel-title" id="restapi-newkey-title"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><?=gettext('API key created')?></h2>
+	</div>
 	<div class="panel-body">
-		<p><strong><?=gettext('Copy this key now. It is shown only once and cannot be recovered.')?></strong></p>
+		<p class="restapi-newkey-warn"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+			<strong><?=gettext('Copy this key now. It is shown only once and cannot be recovered.')?></strong></p>
+		<label class="form-label" for="newtoken"><?=gettext('API key')?></label>
 		<div class="input-group">
-			<input type="text" class="form-control" id="newtoken" readonly value="<?=htmlspecialchars($token)?>" />
+			<input type="text" class="form-control fs-mono" id="newtoken" readonly autocomplete="off" spellcheck="false"
+			    data-lpignore="true" value="<?=htmlspecialchars($token)?>" />
 			<button type="button" class="btn btn-primary" id="copytoken">
-				<i class="fa-solid fa-copy"></i> <?=gettext('Copy')?>
-			</button>
+				<i class="fa-solid fa-copy icon-embed-btn" aria-hidden="true"></i><span><?=gettext('Copy')?></span></button>
 		</div>
-		<p class="mt-2 mb-0 text-muted"><?=gettext('Example:')?>
-			<code>curl -H "Authorization: Bearer <?=htmlspecialchars($token)?>" https://<?=$host?>/api/v1/me</code>
-		</p>
+		<p class="fs-muted small mt-3 mb-1"><?=gettext('Use it as a bearer token, for example:')?></p>
+		<pre class="fs-console restapi-newkey-example">export FREESENSE_API_KEY='…'
+curl -H "Authorization: Bearer $FREESENSE_API_KEY" https://<?=$host?>/api/v1/me</pre>
+	</div>
+	<div class="panel-footer">
+		<button type="button" class="btn btn-sm btn-outline-secondary" id="restapi-newkey-done">
+			<i class="fa-solid fa-check icon-embed-btn" aria-hidden="true"></i><?=gettext('Done, I have copied it')?></button>
 	</div>
 </div>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-	$('#copytoken').on('click', function() {
-		var field = document.getElementById('newtoken');
+	var field = document.getElementById('newtoken');
+	var copy = document.getElementById('copytoken');
+	/* Reloading must not post the create form again (that would make another key). */
+	if (window.history.replaceState) {
+		window.history.replaceState(null, '', window.location.href);
+	}
+	field.addEventListener('focus', function() { field.select(); });
+	copy.addEventListener('click', function() {
 		field.select();
-		if (navigator.clipboard) {
+		if (navigator.clipboard && window.isSecureContext) {
 			navigator.clipboard.writeText(field.value);
 		} else {
 			document.execCommand('copy');
 		}
-		$(this).html('<i class="fa-solid fa-check"></i> ' + <?=json_encode(gettext('Copied'))?>);
+		copy.querySelector('i').className = 'fa-solid fa-check icon-embed-btn';
+		copy.querySelector('span').textContent = <?=json_encode(gettext('Copied'), JSON_HEX_TAG | JSON_HEX_AMP)?>;
 	});
+	document.getElementById('restapi-newkey-done').addEventListener('click', function() {
+		field.value = '';
+		document.getElementById('restapi-newkey').remove();
+	});
+	field.focus();
 });
 //]]>
 </script>
@@ -91,288 +116,194 @@ function restapi_key_action(array $post, $only_user = null) {
 }
 
 /*
- * The key list: a toolbar (filter, Add, Revoke and Delete the selected keys),
- * sortable columns and per-row Revoke and Delete. $page handles the actions
- * (restapi_key_action()); $show_user adds the owner column with an API access
- * check; $can_add enables Add, which opens restapi_print_create_form()'s modal.
+ * A centered empty state inside a card: icon, one sentence and an optional
+ * action (already-escaped HTML, e.g. a button).
+ */
+function restapi_print_empty_card($icon, $text, $action_html = '') {
+?>
+<div class="panel panel-default restapi-empty">
+	<div class="fs-tool-empty">
+		<i class="fa-solid <?=htmlspecialchars($icon)?>" aria-hidden="true"></i>
+		<span><?=htmlspecialchars($text)?></span>
+		<?=$action_html?>
+	</div>
+</div>
+<?php
+}
+
+/* The "Create key" button that opens restapi_print_create_form()'s modal. */
+function restapi_create_button($label = null) {
+	return '<button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#restapi-create-modal">' .
+	    '<i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' . htmlspecialchars($label ?? gettext('Create key')) . '</button>';
+}
+
+/*
+ * The key list: an fs-table card with search, state and access filters,
+ * bulk Revoke / Delete of the selected keys (act=revoke_selected|
+ * delete_selected with ids[]) and per-row Revoke and Delete (act=revoke|
+ * delete with id). $page handles the actions (restapi_key_action());
+ * $show_user adds the owner column with an API access check; $can_add
+ * offers "Create key" in the empty state.
  */
 function restapi_print_key_table(array $tokens, $show_user, $page, $can_add = true) {
+	if (empty($tokens)) {
+		restapi_print_empty_card('fa-key', $can_add ? gettext('No API keys yet. A key is shown only once, right after it is created.') :
+		    gettext('No API keys yet. Keys can be created once a user has the "WebCfg - System: REST API access" privilege.'),
+		    $can_add ? restapi_create_button() : '');
+		return;
+	}
 	$used = restapi_last_used_read();
-	$cols = $show_user ? 8 : 7;
 	$stale_count = 0;
-	$sort_th = function ($key, $label, $numeric = false) {
-		return '<th aria-sort="none"><button type="button" class="restapi-sort" data-sort="' . $key . '"' .
-		    ($numeric ? ' data-numeric="1"' : '') . '>' . $label . '<i class="fa-solid fa-sort ms-1" aria-hidden="true"></i></button></th>';
-	};
-	$i18n = array(
-		'none' => gettext('Select keys to revoke or delete them'),
-		'some' => gettext('%1$d of %2$d keys selected'),
-		'selectKey' => gettext('Select key %s'),
-		'confirmRevoke' => gettext('Revoke %d API key(s)? They stop working immediately and cannot be re-enabled; they stay listed until deleted.'),
-		'confirmDelete' => gettext('Delete %d API key(s)? They stop working immediately and are removed from the list.'),
-	);
-?>
-<form method="post" action="<?=htmlspecialchars($page)?>" id="restapi-keys-form">
-<div class="panel panel-default restapi-keys-panel">
-	<div class="panel-heading restapi-keys-toolbar">
-		<h2 class="panel-title mb-0 me-auto"><?=gettext('API Keys')?>
-			<span class="badge text-bg-secondary ms-1"><?=count($tokens)?></span></h2>
-<?php	if (!empty($tokens)): ?>
-		<div class="input-group input-group-sm restapi-keys-filter">
-			<span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-			<input type="search" class="form-control" id="restapi-keys-filter" autocomplete="off"
-			    placeholder="<?=$show_user ? gettext('Filter by key, user, description or scope') : gettext('Filter by key, description or scope')?>"
-			    aria-label="<?=gettext('Filter the API keys')?>" />
-		</div>
-<?php	endif; ?>
-		<div class="d-flex gap-2">
-			<button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#restapi-create-modal"<?=$can_add ? '' : ' disabled'?>
-			    title="<?=gettext('Create a new API key')?>"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('Add')?></button>
-<?php	if (!empty($tokens)): ?>
-			<button type="submit" class="btn btn-sm btn-outline-warning no-confirm restapi-bulk" name="act" value="revoke_selected" id="restapi-keys-revoke" disabled
-			    title="<?=gettext('Revoke the selected keys: they stop working but stay listed')?>"><i class="fa-solid fa-ban icon-embed-btn"></i><?=gettext('Revoke')?>
-				<span class="badge rounded-pill ms-1 restapi-bulk-n d-none"></span></button>
-			<button type="submit" class="btn btn-sm btn-outline-danger no-confirm restapi-bulk" name="act" value="delete_selected" id="restapi-keys-delete" disabled
-			    title="<?=gettext('Delete the selected keys')?>"><i class="fa-solid fa-trash-can icon-embed-btn"></i><?=gettext('Delete')?>
-				<span class="badge rounded-pill ms-1 restapi-bulk-n d-none"></span></button>
-<?php	endif; ?>
-		</div>
-	</div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm align-middle mb-0 restapi-keys">
-				<thead><tr>
-					<th style="width: 2.5rem"><input type="checkbox" class="form-check-input" id="restapi-keys-all"
-					    aria-label="<?=gettext('Select all shown keys')?>"<?=empty($tokens) ? ' disabled' : ''?> /></th>
-					<?=$sort_th('key', gettext('Key'))?>
-<?php	if ($show_user): ?>
-					<?=$sort_th('user', gettext('User'))?>
-<?php	endif; ?>
-					<?=$sort_th('access', gettext('Access'), true)?>
-					<?=$sort_th('created', gettext('Created'), true)?>
-					<?=$sort_th('expires', gettext('Expires'), true)?>
-					<?=$sort_th('used', gettext('Last used'), true)?>
-					<th class="text-end"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
-				</tr></thead>
-				<tbody>
-<?php	if (empty($tokens)): ?>
-					<tr><td colspan="<?=$cols?>" class="restapi-keys-empty">
-						<i class="fa-solid fa-key" aria-hidden="true"></i>
-						<div class="fw-semibold"><?=gettext('No API keys yet')?></div>
-						<div class="small text-muted"><?=$can_add ? gettext('Use Add to create one. A key is shown only once, right after it is created.') :
-						    gettext('Keys can be created once a user has the "WebCfg - System: REST API access" privilege.')?></div>
-					</td></tr>
-<?php	endif;
-	foreach ($tokens as $token):
+	$rows = array();
+	foreach ($tokens as $token) {
 		$revoked = !empty($token['revoked']);
 		$expired = !empty($token['expires']) && ((int)$token['expires'] < time());
 		$owner = restapi_local_user($token['username']);
 		$problem = '';
 		if ($owner === null) {
-			$problem = gettext('user missing or disabled');
+			$problem = gettext('User missing or disabled');
 		} elseif (!restapi_user_has_access($owner)) {
-			$problem = gettext('user has no REST API access');
+			$problem = gettext('User has no REST API access');
 		}
-		$stale = $revoked || $expired || ($problem !== '');
-		$stale_count += $stale ? 1 : 0;
-		$last = $used[$token['id']] ?? null;
+		if ($revoked) {
+			$state = array('revoked', 'block', gettext('Revoked'), sprintf(gettext('Revoked %s'), date('Y-m-d H:i', (int)$token['revoked'])));
+		} elseif ($expired) {
+			$state = array('expired', 'expired', gettext('Expired'), null);
+		} elseif ($problem !== '') {
+			$state = array('unusable', 'warn', gettext('Unusable'), $problem);
+		} else {
+			$state = array('active', 'active', gettext('Active'), null);
+		}
+		$stale_count += ($state[0] !== 'active') ? 1 : 0;
+		$rows[] = array($token, $state, $problem, $used[$token['id']] ?? null);
+	}
+	$custom = ($stale_count > 0) ? '<button type="button" class="btn btn-sm btn-outline-secondary" id="restapi-keys-stale" ' .
+	    'title="' . htmlspecialchars(gettext('Select the revoked, expired and unusable keys')) . '">' .
+	    '<i class="fa-solid fa-broom icon-embed-btn" aria-hidden="true"></i>' .
+	    htmlspecialchars(sprintf(gettext('Select unusable (%d)'), $stale_count)) . '</button>' : '';
+?>
+<form method="post" action="<?=htmlspecialchars($page)?>" id="restapi-keys-form">
+<div class="panel panel-default fs-table" data-fs-table="restapi-keys">
+<?php
+	fs_table_toolbar(array(
+		'search' => $show_user ? gettext('Search key, user, description or scope…') : gettext('Search key, description or scope…'),
+		'filters' => array(
+			'state' => array(gettext('All states'), 'active' => gettext('Active'), 'revoked' => gettext('Revoked'),
+			    'expired' => gettext('Expired'), 'unusable' => gettext('Unusable')),
+			'access' => array(gettext('Any access'), 'ro' => gettext('Read-only'), 'rw' => gettext('Read/write')),
+		),
+		'custom' => $custom,
+		'noun' => gettext('keys'),
+		'noun_one' => gettext('key'),
+		'bulk' => array(
+			array('name' => 'act', 'value' => 'revoke_selected', 'label' => gettext('Revoke'), 'icon' => 'fa-ban',
+			    'confirm' => gettext('Revoke the selected API keys? They stop working at once and cannot be re-enabled; they stay listed until deleted.')),
+			array('name' => 'act', 'value' => 'delete_selected', 'label' => gettext('Delete'), 'icon' => 'fa-trash-can', 'variant' => 'danger',
+			    'confirm' => gettext('Delete the selected API keys? They stop working at once and are removed from the list.')),
+		),
+	));
+?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover restapi-keys" data-sortable>
+			<thead><tr>
+				<th class="fs-col-select" data-sortable="false"><input type="checkbox" class="form-check-input" data-fs-select-all
+				    aria-label="<?=gettext('Select all shown keys')?>" /></th>
+				<th data-fs-search><?=gettext('Key')?></th>
+<?php	if ($show_user): ?>
+				<th data-fs-search><?=gettext('User')?></th>
+<?php	endif; ?>
+				<th><?=gettext('Status')?></th>
+				<th data-fs-search><?=gettext('Access')?></th>
+				<th><?=gettext('Created')?></th>
+				<th><?=gettext('Expires')?></th>
+				<th><?=gettext('Last used')?></th>
+				<th class="fs-col-actions" data-sortable="false"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+			</tr></thead>
+			<tbody>
+<?php
+	foreach ($rows as $row):
+		list($token, $state, $problem, $last) = $row;
 		$scopes = restapi_token_scopes($token);
 		$key_name = RESTAPI_TOKEN_PREFIX . '_' . $token['id'];
-		$search = strtolower(implode(' ', array($key_name, $show_user ? $token['username'] : '', $token['descr'] ?? '',
-		    implode(' ', $scopes), $revoked ? gettext('revoked') : '', $expired ? gettext('expired') : '')));
-		$href = htmlspecialchars($page) . '?id=' . htmlspecialchars($token['id']) . '&amp;act=';
+		$href = $page . '?id=' . rawurlencode($token['id']) . '&act=';
+		$actions = array();
+		if ($state[0] !== 'revoked') {
+			$actions[] = array('custom', $href . 'revoke', $key_name, array('icon' => 'fa-ban', 'post' => true,
+			    'label' => sprintf(gettext('Revoke %s'), $key_name), 'confirm' => sprintf(gettext('Revoke API key “%s”?'), $key_name),
+			    'detail' => gettext('It stops working at once and cannot be re-enabled. It stays listed until it is deleted.'),
+			    'confirm_action' => gettext('Revoke')));
+		}
+		$actions[] = array('delete', $href . 'delete', $key_name, array('thing' => gettext('API key'),
+		    'detail' => gettext('It stops working at once and is removed from the list.')));
 ?>
-					<tr class="restapi-key<?=$stale ? ' restapi-stale' : ''?>" data-key="<?=htmlspecialchars($token['id'])?>"
-					    data-user="<?=htmlspecialchars($token['username'])?>" data-access="<?=!empty($token['readonly']) ? 0 : 1?>"
-					    data-created="<?=(int)$token['created']?>" data-expires="<?=empty($token['expires']) ? PHP_INT_MAX : (int)$token['expires']?>"
-					    data-used="<?=$last ? (int)$last['time'] : 0?>" data-stale="<?=$stale ? 1 : 0?>" data-search="<?=htmlspecialchars($search)?>">
-						<td><input type="checkbox" class="form-check-input restapi-key-check" name="ids[]" value="<?=htmlspecialchars($token['id'])?>"
-						    aria-label="<?=htmlspecialchars(sprintf($i18n['selectKey'], $key_name))?>" /></td>
-						<td><code class="restapi-key-id"><?=htmlspecialchars($key_name)?></code>
-<?php		if ($revoked): ?>
-							<span class="badge text-bg-danger ms-1" title="<?=htmlspecialchars(sprintf(gettext('Revoked %s'), date('Y-m-d H:i', (int)$token['revoked'])))?>">
-								<i class="fa-solid fa-ban"></i> <?=gettext('revoked')?></span>
-<?php		endif; ?>
+				<tr class="<?=($state[0] !== 'active') ? 'fs-row-disabled' : ''?>" data-fs-filter-state="<?=$state[0]?>"
+				    data-fs-filter-access="<?=!empty($token['readonly']) ? 'ro' : 'rw'?>" data-stale="<?=($state[0] !== 'active') ? 1 : 0?>">
+					<td><input type="checkbox" class="form-check-input" name="ids[]" value="<?=htmlspecialchars($token['id'])?>" data-fs-select
+					    aria-label="<?=htmlspecialchars(sprintf(gettext('Select key %s'), $key_name))?>" /></td>
+					<td><span class="fs-mono restapi-key-id"><?=htmlspecialchars($key_name)?></span>
 <?php		if (($token['descr'] ?? '') !== ''): ?>
-							<div class="small text-muted"><?=htmlspecialchars($token['descr'])?></div>
+						<div class="small fs-muted"><?=htmlspecialchars($token['descr'])?></div>
 <?php		endif; ?>
-						</td>
+					</td>
 <?php		if ($show_user): ?>
-						<td><span class="restapi-user"><i class="fa-solid fa-user" aria-hidden="true"></i><?=htmlspecialchars($token['username'])?></span><?=($problem !== '') ?
-						    '<div class="small text-danger"><i class="fa-solid fa-triangle-exclamation"></i> ' . htmlspecialchars($problem) . '</div>' : ''?></td>
+					<td><?=htmlspecialchars($token['username'])?></td>
 <?php		endif; ?>
-						<td><?=!empty($token['readonly']) ? '<span class="badge text-bg-secondary">' . gettext('Read-only') . '</span>' :
-						    '<span class="badge text-bg-warning">' . gettext('Read/write') . '</span>'?>
-							<div class="small text-muted"><?=empty($scopes) ? gettext('All of the user\'s scopes') :
-							    htmlspecialchars(implode(', ', $scopes))?></div></td>
-						<td class="text-nowrap"><?=htmlspecialchars(date('Y-m-d H:i', (int)$token['created']))?></td>
-						<td class="text-nowrap"><?=empty($token['expires']) ? '<span class="text-muted">' . gettext('Never') . '</span>' :
-						    ($expired ? '<span class="text-danger">' : '') . htmlspecialchars(date('Y-m-d', (int)$token['expires'])) .
-						    ($expired ? ' (' . gettext('expired') . ')</span>' : '')?></td>
-						<td class="text-nowrap"><?php
+					<td data-value="<?=$state[0]?>"><?=fs_badge($state[1], $state[2], $state[3])?>
+<?php		if ($problem !== ''): ?>
+						<div class="small fs-muted"><?=htmlspecialchars($problem)?></div>
+<?php		endif; ?>
+					</td>
+					<td data-value="<?=!empty($token['readonly']) ? 0 : 1?>"><div class="fs-chips">
+						<span class="fs-chip fs-chip--strong<?=!empty($token['readonly']) ? '' : ' is-warn'?>"><?=!empty($token['readonly']) ? gettext('Read-only') : gettext('Read/write')?></span>
+<?php		if (empty($scopes)): ?>
+						<span class="fs-chip fs-chip--muted"><?=gettext('All of the user\'s scopes')?></span>
+<?php		else:
+			foreach ($scopes as $scope): ?>
+						<span class="fs-chip fs-chip--mono"><?=htmlspecialchars($scope)?></span>
+<?php			endforeach;
+		endif; ?>
+					</div></td>
+					<td class="text-nowrap" data-value="<?=(int)$token['created']?>"><?=htmlspecialchars(date('Y-m-d H:i', (int)$token['created']))?></td>
+					<td class="text-nowrap" data-value="<?=empty($token['expires']) ? PHP_INT_MAX : (int)$token['expires']?>"><?=empty($token['expires']) ?
+					    '<span class="fs-muted">' . gettext('Never') . '</span>' : htmlspecialchars(date('Y-m-d', (int)$token['expires']))?></td>
+					<td class="text-nowrap" data-value="<?=$last ? (int)$last['time'] : 0?>"><?php
 		if ($last):
 ?><?=htmlspecialchars(date('Y-m-d H:i', (int)$last['time']))?>
-							<div class="small text-muted"><?=gettext('from')?> <?=htmlspecialchars($last['ip'])?></div><?php
+						<div class="small fs-muted fs-mono"><?=htmlspecialchars($last['ip'])?></div><?php
 		else:
-?><span class="text-muted"><?=gettext('Never')?></span><?php
+?><span class="fs-muted"><?=gettext('Never')?></span><?php
 		endif;
 ?></td>
-						<td class="text-end text-nowrap restapi-row-actions">
-<?php		if (!$revoked): ?>
-							<a class="btn btn-sm btn-outline-warning do-confirm" title="<?=gettext('Revoke this API key')?>" aria-label="<?=gettext('Revoke this API key')?>"
-							    href="<?=$href?>revoke" usepost><i class="fa-solid fa-ban"></i></a>
-<?php		endif; ?>
-							<a class="btn btn-sm btn-outline-danger do-confirm" title="<?=gettext('Delete this API key')?>" aria-label="<?=gettext('Delete this API key')?>"
-							    href="<?=$href?>delete" usepost><i class="fa-solid fa-trash-can"></i></a>
-						</td>
-					</tr>
+					<td><?=fs_row_actions($actions)?></td>
+				</tr>
 <?php	endforeach; ?>
-					<tr class="d-none" id="restapi-keys-nomatch"><td colspan="<?=$cols?>" class="text-muted py-3"><?=gettext('No key matches the filter.')?></td></tr>
-				</tbody>
-			</table>
-		</div>
+			</tbody>
+		</table>
 	</div>
-<?php	if (!empty($tokens)): ?>
-	<div class="panel-footer d-flex flex-wrap align-items-center gap-2">
-		<span class="small text-muted me-auto" id="restapi-keys-count" aria-live="polite"><?=$i18n['none']?></span>
-<?php		if ($stale_count > 0): ?>
-		<button type="button" class="btn btn-sm btn-link text-decoration-none" id="restapi-keys-stale">
-			<i class="fa-solid fa-broom icon-embed-btn"></i><?=sprintf(gettext('Select revoked, expired and unusable (%d)'), $stale_count)?></button>
-<?php		endif; ?>
-	</div>
-<?php	endif; ?>
 </div>
 </form>
-<style>
-	.restapi-keys-filter { width: 20rem; max-width: 100%; }
-	.restapi-sort { all: unset; cursor: pointer; white-space: nowrap; }
-	.restapi-sort:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: 2px; border-radius: 2px; }
-	.restapi-sort .fa-sort { opacity: .35; }
-	th[aria-sort="ascending"] .restapi-sort, th[aria-sort="descending"] .restapi-sort { color: var(--bs-emphasis-color); }
-	th[aria-sort="ascending"] .restapi-sort i, th[aria-sort="descending"] .restapi-sort i { opacity: 1; color: var(--fs-coral); }
-	tr.restapi-key { cursor: pointer; }
-	tr.restapi-key.restapi-selected > td { background-color: rgba(var(--bs-primary-rgb), .10) !important; }
-	tr.restapi-key.restapi-selected > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); }
-	tr.restapi-stale .restapi-key-id { text-decoration: line-through; opacity: .7; }
-	.restapi-user { display: inline-flex; align-items: center; gap: .4rem; }
-	.restapi-user i { font-size: .75em; color: var(--bs-secondary-color); }
-	.restapi-bulk .badge { color: var(--bs-body-bg); background: var(--bs-btn-color); }
-	.restapi-bulk:disabled { opacity: .4; filter: grayscale(.7); }
-</style>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
 	var form = document.getElementById('restapi-keys-form');
-	var tbody = form.querySelector('tbody');
-	var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.restapi-key'));
-	if (rows.length === 0) {
-		return;
-	}
-	var T = <?=json_encode($i18n, JSON_HEX_TAG | JSON_HEX_AMP)?>;
-	var all = document.getElementById('restapi-keys-all');
-	var count = document.getElementById('restapi-keys-count');
-	var bulk = Array.prototype.slice.call(form.querySelectorAll('.restapi-bulk'));
-	var filter = document.getElementById('restapi-keys-filter');
-	var nomatch = document.getElementById('restapi-keys-nomatch');
-	var stale = document.getElementById('restapi-keys-stale');
-	var lastIndex = null;
-	function check(r) { return r.querySelector('.restapi-key-check'); }
-	function visible() { return rows.filter(function(r) { return !r.classList.contains('d-none'); }); }
-	function selected() { return rows.filter(function(r) { return check(r).checked; }).length; }
-
-	/* The selection: count, header checkbox (visible rows), row highlight and the toolbar buttons. */
-	function update() {
-		var n = selected(), shown = visible(), shownChecked = 0;
-		rows.forEach(function(r) { r.classList.toggle('restapi-selected', check(r).checked); });
-		shown.forEach(function(r) { shownChecked += check(r).checked ? 1 : 0; });
-		all.checked = shown.length > 0 && shownChecked === shown.length;
-		all.indeterminate = shownChecked > 0 && shownChecked < shown.length;
-		count.textContent = (n === 0) ? T.none : T.some.replace('%1$d', n).replace('%2$d', rows.length);
-		bulk.forEach(function(b) {
-			b.disabled = (n === 0);
-			var badge = b.querySelector('.restapi-bulk-n');
-			badge.textContent = n;
-			badge.classList.toggle('d-none', n === 0);
-		});
-	}
-	all.addEventListener('change', function() {
-		visible().forEach(function(r) { check(r).checked = all.checked; });
-		update();
-	});
-	/* Click a row to select it; shift-click selects the range from the last click. */
-	rows.forEach(function(r) {
-		r.addEventListener('click', function(e) {
-			if (e.target.closest('a, button')) {
-				return;
-			}
-			var box = check(r);
-			if (e.target !== box) {
-				box.checked = !box.checked;
-			}
-			var order = visible(), at = order.indexOf(r);
-			if (e.shiftKey && lastIndex !== null && order[lastIndex]) {
-				order.slice(Math.min(lastIndex, at), Math.max(lastIndex, at) + 1).forEach(function(x) { check(x).checked = box.checked; });
-				window.getSelection().removeAllRanges();
-			}
-			lastIndex = at;
-			update();
-		});
-	});
-	if (stale) {
-		stale.addEventListener('click', function() {
-			rows.forEach(function(r) { check(r).checked = (r.dataset.stale === '1'); });
-			update();
-		});
-	}
-	/* Revoke and Delete ask first, with the number of keys. */
-	bulk.forEach(function(b) {
-		b.addEventListener('click', function(e) {
-			var msg = (b.value === 'revoke_selected') ? T.confirmRevoke : T.confirmDelete;
-			if (!window.confirm(msg.replace('%d', selected()))) {
-				e.preventDefault();
-			}
-		});
-	});
-
-	/* Enter in the filter must not submit the form (its first button is Revoke). */
-	filter.addEventListener('keydown', function(e) {
+	/* Enter in the search must not submit the form (its first submit button is the bulk Revoke). */
+	form.querySelector('[data-fs-search-input]').addEventListener('keydown', function(e) {
 		if (e.key === 'Enter') {
 			e.preventDefault();
 		}
 	});
-	/* Filter: hides rows that do not match; hidden rows keep their selection. */
-	filter.addEventListener('input', function() {
-		var words = filter.value.toLowerCase().split(/\s+/).filter(function(w) { return w !== ''; });
-		rows.forEach(function(r) {
-			r.classList.toggle('d-none', !words.every(function(w) { return r.dataset.search.indexOf(w) !== -1; }));
+	var stale = document.getElementById('restapi-keys-stale');
+	if (!stale) {
+		return;
+	}
+	/* Select the revoked, expired and unusable keys that are shown, e.g. to delete them together. */
+	stale.addEventListener('click', function() {
+		form.querySelectorAll('tbody tr[data-stale]').forEach(function(tr) {
+			var box = tr.querySelector('[data-fs-select]');
+			box.checked = !tr.hidden && tr.dataset.stale === '1';
 		});
-		nomatch.classList.toggle('d-none', visible().length !== 0);
-		lastIndex = null;
-		update();
+		form.querySelector('[data-fs-select]').dispatchEvent(new Event('change', {bubbles: true}));
 	});
-
-	/* Sort: click a column header; again to reverse. */
-	var sortKey = null, sortDir = 1;
-	form.querySelectorAll('.restapi-sort').forEach(function(b) {
-		b.addEventListener('click', function() {
-			var key = b.dataset.sort, numeric = b.dataset.numeric === '1';
-			sortDir = (sortKey === key) ? -sortDir : (numeric ? -1 : 1);
-			sortKey = key;
-			rows.sort(function(x, y) {
-				var a = x.dataset[key], c = y.dataset[key];
-				var d = numeric ? (Number(a) - Number(c)) : a.localeCompare(c, undefined, {numeric: true, sensitivity: 'base'});
-				return d * sortDir;
-			});
-			rows.forEach(function(r) { tbody.insertBefore(r, nomatch); });
-			form.querySelectorAll('th[aria-sort]').forEach(function(th) {
-				var on = th.contains(b);
-				th.setAttribute('aria-sort', on ? ((sortDir === 1) ? 'ascending' : 'descending') : 'none');
-				th.querySelector('i').className = 'fa-solid ms-1 ' + (on ? ((sortDir === 1) ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
-			});
-			lastIndex = null;
-		});
-	});
-	update();
 });
 //]]>
 </script>
@@ -492,10 +423,10 @@ function restapi_print_create_form(array $users, array $create, $fixed_user = nu
 				<?php print($form); ?>
 			</div>
 			<div class="modal-footer">
-				<span class="small text-muted me-auto"><i class="fa-solid fa-circle-info me-1"></i><?=gettext('The key is shown only once, right after it is created.')?></span>
-				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?=gettext('Cancel')?></button>
-				<button type="submit" class="btn btn-success" form="restapi-create-form" name="create" value="create">
-					<i class="fa-solid fa-key icon-embed-btn"></i><?=gettext('Create key')?></button>
+				<span class="small fs-muted me-auto"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i><?=gettext('The key is shown only once, right after it is created.')?></span>
+				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><?=gettext('Cancel')?></button>
+				<button type="submit" class="btn btn-primary" form="restapi-create-form" name="create" value="create">
+					<i class="fa-solid fa-key icon-embed-btn" aria-hidden="true"></i><?=gettext('Create key')?></button>
 			</div>
 		</div>
 	</div>
@@ -511,11 +442,11 @@ function restapi_print_create_form(array $users, array $create, $fixed_user = nu
 <style>
 	.restapi-combo .dropdown-menu { top: 100%; left: 0; margin-top: .125rem; max-height: min(34rem, 70vh); overflow-y: auto; }
 	.restapi-combo .dropdown-item { cursor: pointer; display: flex; align-items: center; gap: .5rem; padding-top: .3rem; padding-bottom: .3rem; }
-	.restapi-combo .dropdown-item .fa-check { width: 1em; color: var(--fs-coral); }
+	.restapi-combo .dropdown-item .fa-check { width: 1em; color: var(--fs-coral-text); }
 	.restapi-combo .dropdown-item mark { padding: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; }
 	.restapi-combo .dropdown-item.active mark { color: inherit; }
-	#restapi-scope-table { max-height: 26rem; overflow-y: auto; border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm); }
-	#restapi-scope-table thead th { position: sticky; top: 0; background: var(--bs-tertiary-bg); z-index: 1; }
+	#restapi-scope-table { max-height: 26rem; overflow-y: auto; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); }
+	#restapi-scope-table thead th { position: sticky; top: 0; background: var(--fs-surface-raised); z-index: 1; }
 </style>
 <script type="text/javascript">
 //<![CDATA[
@@ -807,22 +738,27 @@ function restapi_print_tabs($active, $always = false, $view = '') {
 	restapi_print_shared_styles();
 }
 
-/* Styles the REST API pages share: list toolbars, row buttons, empty states and the modals. */
+/* Styles the REST API pages share: the new-key card, empty states, key and listener lists and the modals. */
 function restapi_print_shared_styles() {
 ?>
 <style>
-	.restapi-keys-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
-	.restapi-row-actions .btn { --bs-btn-padding-x: .45rem; --bs-btn-padding-y: .2rem; }
-	.restapi-row-actions .btn + .btn { margin-left: .25rem; }
-	.restapi-keys-empty { text-align: center; padding: 2.5rem 1rem !important; }
-	.restapi-keys-empty > i { font-size: 1.75rem; color: var(--fs-coral); opacity: .8; margin-bottom: .5rem; }
-	tr.restapi-stale > td:not(:last-child) { opacity: .75; }
-	.restapi-modal .modal-content { border: 1px solid var(--bs-border-color); box-shadow: 0 1.5rem 3rem rgba(0, 0, 0, .35); }
-	.restapi-modal .modal-header { gap: .85rem; align-items: center; border-bottom-color: var(--bs-border-color); }
-	.restapi-modal .modal-footer { border-top-color: var(--bs-border-color); }
+	.restapi-empty .fs-tool-empty { min-height: 12rem; text-align: center; }
+	.restapi-empty .fs-tool-empty > .btn { margin-top: var(--fs-sp-2); }
+	.restapi-newkey { border-color: color-mix(in srgb, var(--fs-pass) 55%, var(--fs-border)); }
+	.restapi-newkey .panel-title > i { color: var(--fs-pass); margin-right: .5rem; }
+	.restapi-newkey-warn { display: flex; gap: .5rem; align-items: baseline; }
+	.restapi-newkey-warn > i { color: var(--fs-warn); }
+	.restapi-newkey .input-group { max-width: 48rem; }
+	.restapi-newkey-example { max-width: 48rem; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+	.restapi-keys .fs-chips, .restapi-listeners .fs-chips { max-width: 26rem; }
+	.restapi-key-id { color: var(--fs-text-strong); }
+	.fs-row-disabled .restapi-key-id { text-decoration: line-through; color: var(--fs-text-muted); }
+	.restapi-note { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+	.restapi-note p:last-child { margin-bottom: 0; }
+	.restapi-modal .modal-header { gap: .85rem; align-items: center; }
 	.restapi-modal .panel { border: 0; box-shadow: none; margin: 0; background: transparent; }
-	.restapi-modal-icon { width: 2.5rem; height: 2.5rem; flex: none; border-radius: .65rem; display: grid; place-items: center;
-	    background: rgba(var(--bs-primary-rgb), .14); color: var(--fs-coral); font-size: 1.1rem; }
+	.restapi-modal-icon { width: 2.5rem; height: 2.5rem; flex: none; border-radius: var(--fs-r-md); display: grid; place-items: center;
+	    background: var(--fs-accent-tint); color: var(--fs-coral-text); font-size: 1.1rem; }
 </style>
 <?php
 }
