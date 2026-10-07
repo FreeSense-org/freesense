@@ -128,7 +128,7 @@ $btncopyduid = new Form_Button(
 	'fa-regular fa-clone'
 	);
 
-$btncopyduid->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-success btn-sm');
+$btncopyduid->setAttribute('type','button')->removeClass('btn-primary')->addClass('btn-outline-secondary btn-sm');
 $group->add($btncopyduid);
 
 $group->setHelp('You may use the Copy DUID button to copy the system detected DUID shown in the placeholder.');
@@ -238,7 +238,7 @@ $section = new Form_Section('Network Interfaces');
 
 $section->addInput(new Form_StaticText(
 	'NIC hardware settings',
-	sprintf('<a class="btn btn-info" href="interfaces_nic_settings.php"><i class="fa-solid fa-microchip"></i> %s</a>', gettext('Open NIC Settings'))
+	sprintf('<a class="btn btn-outline-secondary" href="interfaces_nic_settings.php"><i class="fa-solid fa-microchip icon-embed-btn" aria-hidden="true"></i>%s</a>', gettext('Open NIC Settings'))
 ))->setHelp('Checksum, segmentation, large receive, VLAN acceleration, and validated driver controls are managed per network card.');
 
 $section->addInput(new Form_Checkbox(

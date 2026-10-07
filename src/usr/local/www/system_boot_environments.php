@@ -173,12 +173,17 @@ $be_name_pattern = '[A-Za-z0-9][A-Za-z0-9._\-]{0,63}';
 .bootenv-cell-lines__secondary { color: var(--fs-text-muted); font-size: .9em; }
 .bootenv-state { display: flex; flex-wrap: wrap; gap: .25rem; }
 .bootenv-actions { margin: 0; }
-.bootenv-settings__toggles { display: grid; gap: .65rem; margin-bottom: 1.25rem; }
 </style>
 <?php
 
 if (!$available || !$compatible): ?>
-	<div class="alert alert-info"><?=gettext('ZFS boot environments are unavailable. This feature requires a compatible ZFS root installation and bectl support.')?></div>
+	<div class="panel panel-default">
+		<div class="fs-tool-empty">
+			<i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+			<span><?=gettext('Boot environments are not available on this system.')?></span>
+			<span class="small"><?=gettext('They need a ZFS root installation with bectl support.')?></span>
+		</div>
+	</div>
 <?php else: ?>
 <?php
 fs_tabs('system-bootenv', 'system_boot_environments.php?view=' . $view);
@@ -313,36 +318,43 @@ fs_modal_form_begin('be-clone', gettext('Clone boot environment'));
 <?php
 fs_modal_form_end(gettext('Clone'), 'action', 'clone', 'fa-regular fa-clone');
 
-elseif ($view === 'settings'): ?>
-<form method="post" action="?view=settings">
-	<div class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i><?=gettext('Upgrade Protection')?></h2></div>
-		<div class="panel-body">
-			<div class="content">
-			<div class="bootenv-settings__toggles">
-				<div class="form-check"><input class="form-check-input" type="checkbox" id="be-enabled" name="enabled" <?=$bootenv_enabled ? 'checked' : ''?>>
-					<label class="form-check-label" for="be-enabled"><?=gettext('Create boot environments automatically during upgrades')?></label></div>
-				<div class="form-check"><input class="form-check-input" type="checkbox" id="be-rollback" name="automatic_rollback" <?=$bootenv_automatic_rollback ? 'checked' : ''?>>
-					<label class="form-check-label" for="be-rollback"><?=gettext('Automatically roll back failed first boots')?></label></div>
-			</div>
-			<div class="row g-3">
-				<div class="col-sm-6">
-					<label class="form-label" for="be-retention"><?=gettext('Automatic environments to retain')?></label>
-					<input class="form-control" type="number" min="1" max="10" id="be-retention" name="retention_auto" value="<?=htmlspecialchars($settings['retention_auto'] ?? 3)?>">
-					<div class="form-text"><?=gettext('Older automatically-created environments are removed after this limit.')?></div>
-				</div>
-				<div class="col-sm-6">
-					<label class="form-label" for="be-timeout"><?=gettext('Health timeout (seconds)')?></label>
-					<input class="form-control" type="number" min="60" max="900" id="be-timeout" name="health_timeout" value="<?=htmlspecialchars($settings['health_timeout'] ?? 300)?>">
-					<div class="form-text"><?=gettext('Maximum time to wait for a successful first-boot health check.')?></div>
-				</div>
-			</div>
-			</div>
-		</div>
-	</div>
-	<div class="fs-actionbar fs-actionbar--plain">
-		<button class="btn btn-primary" name="action" value="settings"><i class="fa-solid fa-floppy-disk icon-embed-btn" aria-hidden="true"></i><?=gettext('Save')?></button>
-	</div>
-</form>
+elseif ($view === 'settings'):
+/* standard Form layout with the sticky Save bar; action=settings selects the settings handler */
+$form = new Form();
+$form->setAction('system_boot_environments.php?view=settings');
+$form->addGlobal(new Form_Input('action', null, 'hidden', 'settings'));
+
+$section = new Form_Section(gettext('Upgrade Protection'));
+$section->addInput(new Form_Checkbox(
+	'enabled',
+	gettext('Snapshots'),
+	gettext('Create boot environments automatically during upgrades'),
+	$bootenv_enabled,
+	'on'
+));
+$section->addInput(new Form_Checkbox(
+	'automatic_rollback',
+	gettext('Rollback'),
+	gettext('Automatically roll back failed first boots'),
+	$bootenv_automatic_rollback,
+	'on'
+));
+$section->addInput(new Form_Input(
+	'retention_auto',
+	gettext('Environments to keep'),
+	'number',
+	$settings['retention_auto'] ?? 3,
+	['min' => 1, 'max' => 10]
+))->setHelp(gettext('Automatically created environments beyond this number are removed, oldest first (1-10).'));
+$section->addInput(new Form_Input(
+	'health_timeout',
+	gettext('Health timeout'),
+	'number',
+	$settings['health_timeout'] ?? 300,
+	['min' => 60, 'max' => 900]
+))->setHelp(gettext('Seconds to wait for a successful first-boot health check (60-900).'));
+$form->add($section);
+print($form);
+?>
 <?php endif; ?>
 <?php endif; include('foot.inc');

@@ -200,8 +200,9 @@ if (is_array($browse)):
 endif;
 
 if ($view === 'settings'):
-$form = new Form(false);
-$section = new Form_Section(gettext('Remote Backup Settings'));
+/* Form's own Save (name="save") renders in the sticky action bar */
+$form = new Form();
+$section = new Form_Section(gettext('Remote Backup'));
 $section->addInput(new Form_Checkbox(
 	'enable',
 	gettext('Enable'),
@@ -216,6 +217,8 @@ $section->addPassword(new Form_Input(
 ))->setHelp(sprintf(gettext('Every backup is encrypted on the firewall before it is uploaded, in the same format as an encrypted download. ' .
     'At least %d characters. %sStore this passphrase somewhere other than the firewall%s: without it the backups cannot be restored. ' .
     'Changing it only affects new backups.'), REMOTE_BACKUP_MIN_PASSPHRASE, '<strong>', '</strong>'));
+$form->add($section);
+$section = new Form_Section(gettext('Schedule'));
 $section->addInput(new Form_Select(
 	'frequency',
 	gettext('Schedule'),
@@ -262,12 +265,6 @@ $section->addInput(new Form_Checkbox(
 	$pconfig['notify_success']
 ))->setHelp(sprintf(gettext('Failures always raise a notice and use the channels configured in %sSystem > Advanced > Notifications%s.'),
     '<a href="system_advanced_notifications.php">', '</a>'));
-$section->addInput(new Form_Button(
-	'save',
-	gettext('Save'),
-	null,
-	'fa-solid fa-floppy-disk'
-))->addClass('btn-primary');
 $form->add($section);
 print($form);
 endif; /* settings */

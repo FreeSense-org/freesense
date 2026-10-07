@@ -33,7 +33,7 @@
 		<p>The wizard may be stopped at any time by clicking the logo image at the top of the screen.</p>
 		<p><strong>FreeSense is a free, community-maintained fork of pfSense® CE.</strong></p>
 		<br />
-		<p><a href="https://github.com/FreeSense-org/freesense" class="btn btn-info" target="_blank">Learn more</a></p>
+		<p><a href="https://github.com/FreeSense-org/freesense" class="btn btn-outline-secondary" target="_blank">Learn more</a></p>
 		]]>
 	</description>
 	<fields>
@@ -63,7 +63,7 @@
 		</ul>
 		</p>
 		<br />
-		<p><a href="https://github.com/FreeSense-org/freesense" class="btn btn-info" target="_blank">Learn more</a></p>
+		<p><a href="https://github.com/FreeSense-org/freesense" class="btn btn-outline-secondary" target="_blank">Learn more</a></p>
     ]]>
   </description>
 	<fields>
@@ -822,7 +822,7 @@
 		<p>
 		We recommend that you check to see if there are any software updates available. Keeping your software up to date is
 		one of the most important things you can do to maintain the security of your network.</p>
-		<input type="button" onclick="window.location.href='$myurlpkg_mgr_install.php?id=firmware'" class="btn btn-xs btn-success" value="Check for updates"/>
+		<input type="button" onclick="window.location.href='$myurlpkg_mgr_install.php?id=firmware'" class="btn btn-sm btn-primary" value="Check for updates"/>
 		</br></br>
 		<p><h4>Remember, we're here to help.</h4></p>
 		<p>Need help? Visit <a target='_blank' href='https://github.com/FreeSense-org/freesense/discussions'>GitHub Discussions</a>.</p>

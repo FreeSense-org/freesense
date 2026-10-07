@@ -152,7 +152,7 @@ foreach ($pconfig['aliases']['item'] as $item) {
 		'Delete',
 		null,
 		'fa-solid fa-trash-can'
-	))->addClass('btn-warning')->addClass('nowarn');
+	))->addClass('btn-outline-secondary')->addClass('nowarn');
 
 	$section->add($group);
 	$counter++;
@@ -163,7 +163,7 @@ $form->addGlobal(new Form_Button(
 	'Add Host Name',
 	null,
 	'fa-solid fa-plus'
-))->addClass('btn-success addbtn');
+))->addClass('btn-outline-secondary addbtn');
 
 $form->add($section);
 fs_form_cancel($form, 'services_dnsmasq.php?view=hosts');

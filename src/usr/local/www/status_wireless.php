@@ -111,9 +111,6 @@ if (count($tab_array) > 1) {
 	display_top_tabs($tab_array);
 }
 
-if ($rwlif === '') {
-	print_info_box(gettext('No wireless interfaces are assigned.'), 'info', false);
-}
 ?>
 
 <style>
@@ -121,6 +118,17 @@ if ($rwlif === '') {
 .fs-wl-legend { display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; }
 </style>
 
+<?php if ($rwlif === ''): ?>
+<div class="panel panel-default">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-wifi" aria-hidden="true"></i>
+		<span><?=gettext('No wireless interfaces are assigned.')?></span>
+<?php if (isAllowedPage('interfaces_wireless.php')): ?>
+		<a class="btn btn-primary" href="interfaces_wireless.php"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('Add a wireless interface')?></a>
+<?php endif; ?>
+	</div>
+</div>
+<?php else: ?>
 <div class="fs-tiles">
 <?php
 fs_tile(gettext('Interface'), $if ? ($wlifs[$if] ?? $if) : '–', null, $rwlif ?: null);
@@ -211,6 +219,7 @@ fs_tile(gettext('Associated peers'), count($stas), count($stas) ? 'online' : nul
 		<span><strong><?=gettext('Capabilities')?>:</strong> <?=gettext('E = ESS (infrastructure mode), I = IBSS (ad-hoc mode), P = privacy (WEP/TKIP/AES), S = Short preamble, s = Short slot time.')?></span>
 	</div>
 </div>
+<?php endif; ?>
 
 <?php
 include("foot.inc");
