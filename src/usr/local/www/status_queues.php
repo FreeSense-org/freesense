@@ -41,7 +41,27 @@ if (isAllowedPage('firewall_shaper.php')) {
 include("head.inc");
 
 if (count(config_get_path('shaper/queue', [])) < 1) {
-	print_info_box(gettext("Traffic shaping is not configured."));
+	$can_shape = isAllowedPage('firewall_shaper.php');
+?>
+<style>
+.fs-queue-empty .fs-tool-empty { text-align: center; }
+.fs-queue-empty .fs-tool-empty p { max-width: 32rem; margin: 0; }
+.fs-queue-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
+</style>
+<div class="panel panel-default fs-queue-empty">
+	<div class="fs-tool-empty">
+		<i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+		<strong><?=gettext("Traffic shaping is not configured.")?></strong>
+		<p><?=gettext('This page shows the live traffic of each shaper queue once queues exist on an interface.')?></p>
+<?php if ($can_shape): ?>
+		<div class="fs-queue-empty-actions">
+			<a class="btn btn-primary" href="firewall_shaper_wizards.php"><i class="fa-solid fa-wand-magic-sparkles icon-embed-btn" aria-hidden="true"></i><?=gettext('Run a wizard')?></a>
+			<a class="btn btn-outline-secondary" href="firewall_shaper.php"><i class="fa-solid fa-sliders icon-embed-btn" aria-hidden="true"></i><?=gettext('Configure the shaper')?></a>
+		</div>
+<?php endif; ?>
+	</div>
+</div>
+<?php
 	include("foot.inc");
 	exit;
 }

@@ -342,16 +342,60 @@ if ($queue) {
 	}
 }
 
-$tree = "<ul class=\"tree\" >";
-if (is_array($dummynet_pipe_list)) {
-	foreach ($dummynet_pipe_list as $tmpdn) {
-		$tree .= $tmpdn->build_tree();
-	}
-}
-$tree .= "</ul>";
+$limiters = is_array($dummynet_pipe_list) ? array_filter($dummynet_pipe_list) : [];
 
-$output = "<table summary=\"output form\">";
-$output .= $output_form;
+$dn_units = ['b' => gettext('bit/s'), 'Kb' => gettext('Kbit/s'), 'Mb' => gettext('Mbit/s'), 'Gb' => gettext('Gbit/s')];
+$dn_bw = function ($pipe) use ($dn_units) {
+	$out = [];
+	foreach ((is_array($pipe->GetBandwidth()) ? $pipe->GetBandwidth() : []) as $bw) {
+		if (!is_array($bw) || trim((string)($bw['bw'] ?? '')) === '') {
+			continue;
+		}
+		$text = trim($bw['bw']) . ' ' . ($dn_units[$bw['bwscale'] ?? ''] ?? ($bw['bwscale'] ?? ''));
+		if (!empty($bw['bwsched']) && $bw['bwsched'] !== 'none') {
+			$text .= ' (' . $bw['bwsched'] . ')';
+		}
+		$out[] = $text;
+	}
+	return implode(', ', $out);
+};
+$dn_mask = function ($q) {
+	$mask = $q->GetMask();
+	switch ($mask['type'] ?? 'none') {
+		case 'srcaddress':
+			$text = gettext('Source addresses');
+			break;
+		case 'dstaddress':
+			$text = gettext('Destination addresses');
+			break;
+		default:
+			return '';
+	}
+	$bits = [];
+	if (($mask['bits'] ?? '') !== '') {
+		$bits[] = '/' . $mask['bits'];
+	}
+	if (($mask['bitsv6'] ?? '') !== '') {
+		$bits[] = '/' . $mask['bitsv6'];
+	}
+	return $bits ? $text . ' ' . implode(' ', $bits) : $text;
+};
+$dn_sched = function ($pipe) {
+	$key = (string)$pipe->GetScheduler();
+	$all = function_exists('getSchedulers') ? getSchedulers() : [];
+	return ($key === '') ? '' : (string)($all[$key]['name'] ?? strtoupper($key));
+};
+$dn_aqm = function ($q) {
+	$key = method_exists($q, 'GetAQM') ? (string)$q->GetAQM() : '';
+	$all = function_exists('getAQMs') ? getAQMs() : [];
+	return ($key === '') ? '' : (string)($all[$key]['name'] ?? $key);
+};
+$dn_children = function ($pipe) {
+	return (isset($pipe->subqueues) && is_array($pipe->subqueues)) ? $pipe->subqueues : [];
+};
+
+fs_page_action(gettext('New limiter'), 'firewall_shaper_vinterface.php?action=add', 'fa-plus');
+
 include("head.inc");
 ?>
 
@@ -392,22 +436,104 @@ if (is_subsystem_dirty('shaper')) {
 }
 
 fs_tabs('firewall-shaper', 'firewall_shaper_vinterface.php');
-?>
-<div class="table-responsive">
-	<table class="table">
-		<tbody>
-			<tr class="tabcont">
-				<td class="col-md-1">
-					<?=$tree?>
-					<a href="firewall_shaper_vinterface.php?action=add" class="btn btn-sm btn-success">
-						<i class="fa-solid fa-plus icon-embed-btn"></i>
-						<?=gettext('New Limiter')?>
-					</a>
-				</td>
-				<td>
-<?php
 
-if (!$dfltmsg && $sform) {
+$show_form = (!$dfltmsg && $sform);
+?>
+
+<style>
+.fs-shaper-nav .panel-body { padding: var(--fs-sp-3); }
+.fs-shaper-nav .panel-footer { padding: var(--fs-sp-3); }
+.fs-shaper-none { margin: 0; padding: var(--fs-sp-1) var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-shaper form .panel-heading:has(> .panel-title:empty) { display: none; }
+/* bandwidth schedule table built by shaper.inc: room for the row button, outline button colours */
+.fs-shaper #maintable td.col-4 { width: 30%; }
+.fs-shaper #maintable td:last-child { width: 1%; white-space: nowrap; }
+.fs-shaper #maintable .btn-warning { --bs-btn-color: var(--fs-block); --bs-btn-bg: transparent; --bs-btn-border-color: var(--fs-block); --bs-btn-hover-color: #fff; --bs-btn-hover-bg: var(--fs-block); --bs-btn-hover-border-color: var(--fs-block); --bs-btn-active-bg: var(--fs-block); --bs-btn-active-color: #fff; }
+.fs-shaper a.btn-success[onclick*="addBwRowTo"] { --bs-btn-color: var(--fs-text); --bs-btn-bg: transparent; --bs-btn-border-color: var(--fs-border); --bs-btn-hover-color: var(--fs-text-strong); --bs-btn-hover-bg: var(--fs-surface-raised); --bs-btn-hover-border-color: var(--fs-border); --bs-btn-active-bg: var(--fs-surface-raised); --bs-btn-active-color: var(--fs-text-strong); }
+.fs-shaper-empty .fs-tool-empty { text-align: center; }
+.fs-shaper-empty .fs-tool-empty p { max-width: 32rem; margin: 0; }
+.fs-shaper-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
+</style>
+
+<div class="fs-tool fs-shaper">
+	<div class="panel panel-default fs-shaper-nav">
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Limiters')?></h2></div>
+		<div class="panel-body">
+<?php if ($limiters): ?>
+			<ul class="tree">
+<?php
+	foreach ($limiters as $tmpdn) {
+		/* limiters without queues come with an empty child list; drop it so they get no caret */
+		print(str_replace('<ul></ul>', '', $tmpdn->build_tree()));
+	}
+?>
+			</ul>
+<?php else: ?>
+			<p class="fs-shaper-none"><?=gettext('No limiters yet.')?></p>
+<?php endif; ?>
+		</div>
+		<div class="panel-footer">
+			<a href="firewall_shaper_vinterface.php?action=add" class="btn btn-sm btn-outline-secondary">
+				<i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('New limiter')?>
+			</a>
+		</div>
+	</div>
+
+	<div class="fs-tool-stack">
+<?php
+if ($show_form) {
+	/* What is being edited: a saved limiter / limiter queue, or a new one */
+	$is_new = ($newqueue || !$queue || ($_POST && ($addnewpipe || $parentqueue) && $input_errors));
+	if (!$is_new && ($queue instanceof dnpipe_class)) {
+		$queues = [];
+		foreach ($dn_children($queue) as $child) {
+			$queues[] = $child->GetQname();
+		}
+		fs_summary_card([
+			'icon' => 'fa-gauge-high',
+			'title' => $queue->GetQname(),
+			'subtitle' => (string)$queue->GetDescription(),
+			'badges' => [fs_badge($queue->GetEnabled() ? 'enabled' : 'disabled')],
+			'meta' => sprintf(gettext('Pipe %s'), $queue->GetNumber()),
+			'label' => gettext('Limiter summary'),
+			'facts' => [
+				[gettext('Bandwidth'), $dn_bw($queue), 'mono' => true, 'empty' => gettext('Not set')],
+				[gettext('Mask'), $dn_mask($queue), 'empty' => gettext('None')],
+				[gettext('Scheduler'), $dn_sched($queue), 'empty' => gettext('Default')],
+				[gettext('Queues'), '', 'chips' => $queues, 'empty' => gettext('None yet')],
+			],
+		]);
+	} elseif (!$is_new) {
+		$parent = $queue->GetParent();
+		$pname = is_object($parent) ? $parent->GetQname() : $pipe;
+		fs_summary_card([
+			'icon' => 'fa-layer-group',
+			'title' => $queue->GetQname(),
+			'subtitle' => (string)$queue->GetDescription(),
+			'badges' => [fs_badge($queue->GetEnabled() ? 'enabled' : 'disabled')],
+			'meta' => sprintf(gettext('Queue %s'), $queue->GetNumber()),
+			'label' => gettext('Queue summary'),
+			'facts' => [
+				[gettext('Limiter'), $pname, 'href' => 'firewall_shaper_vinterface.php?pipe=' . $pname . '&queue=' . $pname . '&action=show',
+				    'note' => is_object($parent) ? $dn_bw($parent) : ''],
+				[gettext('Mask'), $dn_mask($queue), 'empty' => gettext('None')],
+				[gettext('Queue management'), $dn_aqm($queue), 'empty' => gettext('Default')],
+				[gettext('Weight'), (string)($queue->weight ?? ''), 'mono' => true, 'empty' => gettext('Default')],
+			],
+		]);
+	} else {
+		$adding_queue = ($dnpipe && !$addnewpipe);
+		fs_summary_card([
+			'icon' => $adding_queue ? 'fa-layer-group' : 'fa-gauge-high',
+			'title' => '',
+			'placeholder' => $adding_queue ? gettext('New queue') : gettext('New limiter'),
+			'subtitle' => $adding_queue ? sprintf(gettext('Queue under limiter %s'), $pipe)
+			    : gettext('A limiter caps the bandwidth of the traffic that firewall rules send into it.'),
+			'badges' => [fs_badge('info', gettext('New'))],
+			'label' => $adding_queue ? gettext('Queue summary') : gettext('Limiter summary'),
+		]);
+	}
+
 	// Add global buttons
 	if (!$dontshow || $newqueue) {
 		if ($can_add && ($action != "add")) {
@@ -419,10 +545,10 @@ if (!$dfltmsg && $sform) {
 
 			$sform->addGlobal(new Form_Button(
 				'add',
-				'Add new Queue',
+				gettext('Add queue'),
 				$url,
 				'fa-solid fa-plus'
-			))->addClass('btn-success');
+			))->removeClass('btn-secondary')->addClass('btn-outline-secondary');
 		}
 
 		if ($action != "add") {
@@ -432,41 +558,111 @@ if (!$dfltmsg && $sform) {
 				$url = 'firewall_shaper_vinterface.php?pipe='. $pipe . '&action=delete';
 			}
 
-			if ($sform) {
-				$sform->addGlobal(new Form_Button(
-					'delete',
-					($queue && ($qname != $pipe)) ? 'Delete this queue':'Delete Limiter',
-					$url,
-					'fa-solid fa-trash-can'
-				))->addClass('btn-danger nowarn');
-			}
+			$is_queue = ($queue && ($qname != $pipe));
+			$delete = new Form_Button(
+				'delete',
+				$is_queue ? gettext('Delete queue') : gettext('Delete limiter'),
+				$url,
+				'fa-solid fa-trash-can'
+			);
+			$delete->removeClass('btn-secondary')->addClass('btn-outline-danger', 'nowarn');
+			$delete->setAttribute('data-fs-confirm', $is_queue
+			    ? gettext('Delete this queue?')
+			    : gettext('Delete this limiter?'));
+			$delete->setAttribute('data-fs-confirm-detail', $is_queue
+			    ? gettext('Firewall rules that use it lose their limiter assignment.')
+			    : gettext('Its queues are deleted too. Firewall rules that use them lose their limiter assignment.'));
+			$delete->setAttribute('data-fs-confirm-action', gettext('Delete'));
+			$sform->addGlobal($delete);
 		}
 	}
 
 	// Print the form
-	if ($sform) {
-		$sform->setAction("firewall_shaper_vinterface.php");
-		print($sform);
-	}
-
+	$sform->setAction("firewall_shaper_vinterface.php");
+	fs_form_cancel($sform, 'firewall_shaper_vinterface.php');
+	/* The queue form is built by shaper.inc from the saved or posted queue; the Form classes escape every value. */
+	print($sform); // nosemgrep: php.lang.security.injection.printed-request.printed-request
+} elseif ($limiters) {
+	/* Overview of the limiters */
+?>
+		<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Limiters'),
+	'search' => (count($limiters) > 5) ? gettext('Search limiters…') : false,
+	'noun' => gettext('limiters'),
+	'noun_one' => gettext('limiter'),
+]); ?>
+			<div class="panel-body table-responsive">
+				<table class="table table-hover">
+					<thead>
+						<tr>
+							<th data-fs-search><?=gettext('Limiter')?></th>
+							<th><?=gettext('Bandwidth')?></th>
+							<th><?=gettext('Mask')?></th>
+							<th data-fs-search><?=gettext('Queues')?></th>
+							<th><?=gettext('Status')?></th>
+							<th class="text-end"><?=gettext('Actions')?></th>
+						</tr>
+					</thead>
+					<tbody>
+<?php foreach ($limiters as $dnname => $tmpdn):
+	$show = 'firewall_shaper_vinterface.php?pipe=' . $dnname . '&queue=' . $dnname . '&action=show';
+	$actions = [
+		['edit', $show, $dnname],
+		['custom', 'firewall_shaper_vinterface.php?pipe=' . $dnname . '&action=add', $dnname,
+		    ['icon' => 'fa-plus', 'label' => sprintf(gettext('Add a queue to %s'), $dnname)]],
+	];
+?>
+						<tr>
+							<td>
+								<a href="<?=fs_h($show)?>"><strong><?=fs_h($dnname)?></strong></a>
+<?php	if ((string)$tmpdn->GetDescription() !== ''): ?>
+								<div class="fs-muted small"><?=fs_h($tmpdn->GetDescription())?></div>
+<?php	endif; ?>
+							</td>
+							<td class="fs-mono"><?=fs_h($dn_bw($tmpdn)) ?: '<span class="fs-muted">' . gettext('Not set') . '</span>'?></td>
+							<td><?=fs_h($dn_mask($tmpdn)) ?: '<span class="fs-muted">' . gettext('None') . '</span>'?></td>
+							<td>
+<?php	if ($dn_children($tmpdn)): ?>
+								<span class="fs-chips">
+<?php		foreach ($dn_children($tmpdn) as $child): ?>
+									<a class="fs-chip fs-chip--mono<?=$child->GetEnabled() ? '' : ' is-off'?>" href="<?=fs_h('firewall_shaper_vinterface.php?pipe=' . $dnname . '&queue=' . $child->GetQname() . '&action=show')?>"><?=fs_h($child->GetQname())?></a>
+<?php		endforeach; ?>
+								</span>
+<?php	else: ?>
+								<span class="fs-muted"><?=gettext('None')?></span>
+<?php	endif; ?>
+							</td>
+							<td><?=fs_badge($tmpdn->GetEnabled() ? 'enabled' : 'disabled')?></td>
+							<td class="text-end"><?=fs_row_actions($actions)?></td>
+						</tr>
+<?php endforeach; ?>
+					</tbody>
+				</table>
+			</div>
+			<div class="panel-footer small fs-muted">
+				<?=gettext('Assign a limiter or one of its queues to traffic with the In / Out pipe option of a firewall rule.')?>
+			</div>
+		</div>
+<?php
+} else {
+?>
+		<div class="panel panel-default fs-shaper-empty">
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+				<strong><?=gettext('No limiters yet.')?></strong>
+				<p><?=gettext('A limiter caps the bandwidth of the traffic that firewall rules send into it, for example per user with a mask. Limiters work on every interface.')?></p>
+				<div class="fs-shaper-empty-actions">
+					<a class="btn btn-primary" href="firewall_shaper_vinterface.php?action=add"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i><?=gettext('New limiter')?></a>
+				</div>
+			</div>
+		</div>
+<?php
 }
 ?>
-				</td>
-			</tr>
-		</tbody>
-	</table>
-</div>
-<?php
-if ($dfltmsg) {
-?>
-<div>
-	<div class="infoblock">
-		<?php print_info_box($dn_default_shaper_msg, 'info', false); ?>
 	</div>
 </div>
-<?php
-}
-?>
+
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {

@@ -42,17 +42,9 @@ if (!is_array($qlist)) {
 	$qlist = array();
 }
 
-$tree = "<ul class=\"tree\" >";
-foreach ($qlist as $queue => $qkey) {
-	$tree .= "<li><a href=\"firewall_shaper_queues.php?queue={$queue}&amp;action=show\" >";
-	if (isset($shaperIFlist[$queue])) {
-		$tree .= $shaperIFlist[$queue] . "</a></li>";
-	} else {
-		$tree .= $queue . "</a></li>";
-	}
-}
-$tree .= "</ul>";
-$output = "";
+/* Rows of the selected queue, one per interface (action=show) */
+$rows = [];
+$selected = '';
 
 if ($_GET) {
 	if ($_GET['queue']) {
@@ -128,6 +120,7 @@ if ($_GET) {
 			header("Location: firewall_shaper_queues.php?queue=".$qname."&action=show");
 			exit;
 		case "show":
+			$selected = $qname;
 			foreach (config_get_path('interfaces', []) as $if => $ifdesc) {
 				$altq = $altq_list_queues[$if];
 
@@ -135,10 +128,11 @@ if ($_GET) {
 					$qtmp =& $altq->find_queue("", $qname);
 
 					if ($qtmp) {
-						$output .= $qtmp->build_shortform();
+						$rows[] = ['if' => $if, 'altq' => $altq, 'queue' => $qtmp];
 					} else {
-						$output .= build_iface_without_this_queue($if, $qname);
+						$rows[] = ['if' => $if, 'altq' => $altq, 'queue' => null];
 					}
+					unset($qtmp);
 				} else {
 					if (!is_altq_capable($ifdesc['if'])) {
 						continue;
@@ -148,7 +142,7 @@ if ($_GET) {
 						continue;
 					}
 
-					$output .= build_iface_without_this_queue($if, $qname);
+					$rows[] = ['if' => $if, 'altq' => null, 'queue' => null];
 				}
 			}
 		break;
@@ -174,11 +168,31 @@ $pgtitle = array(gettext("Firewall"), gettext("Traffic Shaper"), gettext("By Que
 $pglinks = array("", "firewall_shaper.php", "@self");
 $shortcut_section = "trafficshaper";
 
+$shaper_units = ['b' => gettext('bit/s'), 'Kb' => gettext('Kbit/s'), 'Mb' => gettext('Mbit/s'), 'Gb' => gettext('Gbit/s'), '%' => '%'];
+$shaper_bw = function ($q) use ($shaper_units) {
+	if ($q instanceof altq_root_queue) {
+		$bw = $q->GetBandwidth();
+		$type = $q->bandwidthtype;
+	} else {
+		$bw = $q->GetBandwidth();
+		$type = $q->qbandwidthtype;
+	}
+	$bw = trim((string)$bw);
+	if ($bw === '') {
+		return '';
+	}
+	return ($type === '%') ? $bw . '%' : $bw . ' ' . ($shaper_units[$type] ?? $type);
+};
+
+$nshaped = is_array($altq_list_queues) ? count(array_filter($altq_list_queues)) : 0;
+$present = count(array_filter($rows, function ($r) { return $r['queue'] !== null; }));
+
+if (isAllowedPage('status_queues.php')) {
+	fs_page_action(gettext('Queue status'), 'status_queues.php', 'fa-chart-line', 'secondary');
+}
+
 include("head.inc");
-?>
 
-
-<?php
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
@@ -195,30 +209,162 @@ fs_tabs('firewall-shaper', 'firewall_shaper_queues.php');
 
 ?>
 
+<style>
+.fs-shaper-nav .panel-body { padding: var(--fs-sp-3); }
+.fs-shaper-none { margin: 0; padding: var(--fs-sp-1) var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-shaper-empty .fs-tool-empty { text-align: center; }
+.fs-shaper-empty .fs-tool-empty p { max-width: 32rem; margin: 0; }
+.fs-shaper-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
+tr.fs-shaper-missing > td:not(:last-child) { color: var(--fs-text-muted); }
+</style>
+
 <form action="firewall_shaper_queues.php" method="post" name="iform" id="iform">
-	<div class="panel panel-default">
-		<div class="panel-heading text-center"><h2 class="panel-title"><?=$qname?></h2></div>
+<div class="fs-tool fs-shaper">
+	<div class="panel panel-default fs-shaper-nav">
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Queues')?></h2></div>
 		<div class="panel-body">
-			<div class="form-group">
-				<div class="col-sm-2 ">
-					<?=$tree?>
-				</div>
-				<div class="col-sm-10">
-					<?=$output?>
+<?php if ($qlist): ?>
+			<ul class="tree">
+<?php	foreach ($qlist as $q => $qkey): ?>
+				<li><a href="firewall_shaper_queues.php?queue=<?=fs_h($q)?>&amp;action=show"><?=fs_h($shaperIFlist[$q] ?? $q)?></a></li>
+<?php	endforeach; ?>
+			</ul>
+<?php else: ?>
+			<p class="fs-shaper-none"><?=gettext('No queues yet.')?></p>
+<?php endif; ?>
+		</div>
+	</div>
+
+	<div class="fs-tool-stack">
+<?php
+if ($selected !== '') {
+	$sel_name = $shaperIFlist[$selected] ?? $selected;
+	fs_summary_card([
+		'icon' => 'fa-layer-group',
+		'title' => $sel_name,
+		'subtitle' => sprintf(gettext('On %1$d of %2$d interfaces'), $present, count($rows)),
+		'badges' => [$present ? fs_badge('active', gettext('In use')) : fs_badge('neutral', gettext('Not in use'))],
+		'label' => gettext('Queue summary'),
+	]);
+?>
+		<div class="panel panel-default fs-table">
+<?php	fs_table_toolbar([
+		'title' => gettext('Interfaces'),
+		'search' => false,
+		'noun' => gettext('interfaces'),
+		'noun_one' => gettext('interface'),
+	]); ?>
+			<div class="panel-body table-responsive">
+				<table class="table table-hover">
+					<thead>
+						<tr>
+							<th><?=gettext('Interface')?></th>
+							<th><?=gettext('Scheduler')?></th>
+							<th><?=gettext('Bandwidth')?></th>
+							<th><?=gettext('Priority')?></th>
+							<th><?=gettext('Status')?></th>
+							<th class="text-end"><?=gettext('Actions')?></th>
+						</tr>
+					</thead>
+					<tbody>
+<?php	foreach ($rows as $r):
+		$if = $r['if'];
+		$ifname = $shaperIFlist[$if] ?? $if;
+		$q = $r['queue'];
+		$sched = $r['altq'] ? $r['altq']->GetScheduler() : '';
+		if ($q) {
+			$qif = $q->GetInterface();
+			$edit = 'firewall_shaper.php?interface=' . $qif . '&queue=' . $q->GetQname() . '&action=show';
+			$is_root = ($q instanceof altq_root_queue);
+			$actions = [
+				['edit', $edit, $q->GetQname()],
+				['custom', 'firewall_shaper_queues.php?interface=' . $qif . '&queue=' . $q->GetQname() . '&action=delete', $q->GetQname(), [
+					'icon' => 'fa-trash-can',
+					'label' => $is_root ? sprintf(gettext('Remove the shaper from %s'), $ifname) : sprintf(gettext('Delete the queue from %s'), $ifname),
+					'confirm' => $is_root ? sprintf(gettext('Remove the shaper from %s?'), $ifname) : sprintf(gettext('Delete queue “%1$s” from %2$s?'), $q->GetQname(), $ifname),
+					'detail' => $is_root ? gettext('All queues on this interface are deleted.') : gettext('Its child queues on this interface are deleted too.'),
+					'confirm_action' => $is_root ? gettext('Remove') : gettext('Delete'),
+					'attrs' => ['class' => 'fs-action fs-action--delete'],
+				]],
+			];
+		} else {
+			$edit = $r['altq'] ? 'firewall_shaper.php?interface=' . $if . '&queue=' . $if . '&action=show' : '';
+			$actions = [
+				['custom', 'firewall_shaper_queues.php?interface=' . $if . '&queue=' . $selected . '&action=add', $selected, [
+					'icon' => 'fa-clone',
+					'label' => sprintf(gettext('Clone the queue to %s'), $ifname),
+				]],
+			];
+		}
+?>
+						<tr<?=$q ? '' : ' class="fs-shaper-missing"'?>>
+							<td><?=($edit !== '') ? '<a href="' . fs_h($edit) . '"><strong>' . fs_h($ifname) . '</strong></a>' : '<strong>' . fs_h($ifname) . '</strong>'?></td>
+							<td><?=($sched !== '') ? '<span class="fs-chip fs-chip--strong">' . fs_h($sched) . '</span>' : '<span class="fs-muted">' . gettext('No shaper') . '</span>'?></td>
+							<td class="fs-mono"><?=$q ? (fs_h($shaper_bw($q)) ?: '<span class="fs-muted">' . gettext('Not set') . '</span>') : ''?></td>
+							<td>
+<?php		if ($q && !($q instanceof altq_root_queue)): ?>
+								<span class="fs-mono"><?=fs_h($q->GetQpriority())?></span>
+<?php			if ($q->GetDefault() != ''): ?>
+								<?=fs_badge('info', gettext('Default'))?>
+<?php			endif; ?>
+<?php		endif; ?>
+							</td>
+							<td><?=$q ? fs_badge($q->GetEnabled() ? 'enabled' : 'disabled') : fs_badge('neutral', gettext('Not on this interface'))?></td>
+							<td class="text-end"><?=fs_row_actions($actions)?></td>
+						</tr>
+<?php	endforeach; ?>
+<?php	if (!$rows) {
+		fs_empty_row(6, gettext('No interface can use ALTQ traffic shaping.'));
+	} ?>
+					</tbody>
+				</table>
+			</div>
+			<div class="panel-footer small fs-muted">
+				<?=gettext('Clone copies the queue and its settings to an interface that does not have it yet.')?>
+			</div>
+		</div>
+<?php
+} elseif ($qlist) {
+?>
+		<div class="panel panel-default">
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+				<span><?=gettext('Select a queue to see it on every interface and clone it where it is missing.')?></span>
+			</div>
+		</div>
+<?php
+} elseif (empty(get_interface_list_to_show()) && !$nshaped) {
+?>
+		<div class="panel panel-default fs-shaper-empty">
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-sliders" aria-hidden="true"></i>
+				<strong><?=gettext('No interface can use ALTQ traffic shaping.')?></strong>
+				<p><?=gettext('None of the assigned interfaces has a driver that supports ALTQ queues. Limiters work on every interface.')?></p>
+				<div class="fs-shaper-empty-actions">
+					<a class="btn btn-primary" href="firewall_shaper_vinterface.php"><i class="fa-solid fa-gauge-high icon-embed-btn" aria-hidden="true"></i><?=gettext('Use limiters')?></a>
 				</div>
 			</div>
 		</div>
-	</div>
-</form>
-
-<?php if (empty(get_interface_list_to_show()) && (!is_array($altq_list_queues) || (count($altq_list_queues) == 0))): ?>
-<div>
-	<div class="infoblock blockopen">
-		<?php print_info_box(gettext("This firewall does not have any interfaces assigned that are capable of using ALTQ traffic shaping."), 'danger', false); ?>
+<?php
+} else {
+?>
+		<div class="panel panel-default fs-shaper-empty">
+			<div class="fs-tool-empty">
+				<i class="fa-solid fa-layer-group" aria-hidden="true"></i>
+				<strong><?=gettext('No queues yet.')?></strong>
+				<p><?=gettext('Queues are created on the By Interface tab or by a wizard. This view then lists each queue name across all interfaces.')?></p>
+				<div class="fs-shaper-empty-actions">
+					<a class="btn btn-primary" href="firewall_shaper_wizards.php"><i class="fa-solid fa-wand-magic-sparkles icon-embed-btn" aria-hidden="true"></i><?=gettext('Run a wizard')?></a>
+					<a class="btn btn-outline-secondary" href="firewall_shaper.php"><i class="fa-solid fa-sliders icon-embed-btn" aria-hidden="true"></i><?=gettext('Shape by interface')?></a>
+				</div>
+			</div>
+		</div>
+<?php
+}
+?>
 	</div>
 </div>
-<?php endif; ?>
+</form>
 
 <?php
 include("foot.inc");
-?>
