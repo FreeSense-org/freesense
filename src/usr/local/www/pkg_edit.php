@@ -569,7 +569,7 @@ if (!$only_edit) {
 		foreach ((is_array($pkg['adddeleteeditpagefields']['columnitem']) ? $pkg['adddeleteeditpagefields']['columnitem'] : []) as $column) {
 			$fname = $column['fieldname'];
 			$text = $pkg_cell($column, $pkg_saved);
-			if ($column['type'] == 'checkbox' && preg_match('/^(disabled?|shutdown)$/', $fname)) {
+			if (preg_match('/^(disabled?|shutdown)$/', $fname)) {
 				$pkg_summary['badges'][] = ($pkg_saved[$fname] == '')
 				    ? fs_badge('enabled')
 				    : fs_badge('disabled', ($fname == 'shutdown') ? gettext('Shut down') : null);
