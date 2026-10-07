@@ -306,6 +306,8 @@ ul.context-links li a { color: var(--fs-coral); }
    than a phone instead of scrolling inside its wrapper. */
 .form-group > [class*="col-"],
 .form-group > .input-group { min-width: 0; }
+/* package forms size some fields with cols="50" + style="width:auto" */
+.form-group > [class*="col-"] > .form-control { max-width: 100%; }
 
 /* FreeSense list/definition/close components (used across Status + Diagnostics
  * pages). Layered on BS5; formerly in the BS3 compat shim. */
