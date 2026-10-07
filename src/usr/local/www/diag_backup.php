@@ -239,364 +239,353 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
+/* Status of a package in the restore preview */
+$package_states = [
+	'available' => ['pass', gettext('Available')],
+	'unknown' => ['warn', gettext('Not verified')],
+	'missing' => ['block', gettext('Not available')],
+	'orphan' => ['neutral', gettext('No package')],
+];
+?>
+
+<style>
+.fs-backup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fs-sp-4); align-items: start; margin-bottom: var(--fs-sp-4); }
+.fs-backup-grid .panel { margin-bottom: 0; }
+.fs-backup-grid .panel-title > i, .fs-backup-card-title > i { margin-right: var(--fs-sp-2); color: var(--fs-text-muted); }
+.fs-backup-checks { display: flex; flex-direction: column; gap: var(--fs-sp-2); }
+.fs-backup-checks .form-check { margin: 0; }
+.fs-backup-checks .form-text { margin-top: 0; }
+.fs-backup-extra { margin: var(--fs-sp-1) 0 0; padding-left: 1.1rem; }
+.fs-backup-note { display: flex; gap: var(--fs-sp-2); margin: 0; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-backup-note > i { margin-top: .2rem; }
+.fs-backup-footer-hint { align-self: center; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-backup-packages .panel-body { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--fs-sp-4); }
+.fs-backup-packages .panel-body > div { flex: 1 1 18rem; display: flex; flex-direction: column; align-items: flex-start; gap: var(--fs-sp-1); }
+.fs-backup-pkgs { min-width: 16rem; }
+.fs-backup-intro { padding: var(--fs-sp-3) var(--fs-sp-4) 0; }
+.fs-backup-intro > p:last-child { margin-bottom: 0; }
+@media (max-width: 991.98px) {
+	.fs-backup-grid { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<?php
 if (!empty($package_restore_preview) && empty($input_errors)):
 ?>
-	<section class="card mb-3">
-		<div class="card-header">
-			<h2 class="h5 mb-0"><?=gettext('Review Optional Packages')?></h2>
-		</div>
-		<div class="card-body">
+<form method="post" action="diag_backup.php" id="package-restore-form">
+	<input type="hidden" name="package_restore_token"
+	    value="<?=htmlspecialchars($package_restore_preview['token'])?>" />
+	<input type="hidden" name="restorearea"
+	    value="<?=htmlspecialchars($package_restore_preview['restorearea'])?>" />
+	<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Review Optional Packages'),
+	'search' => false,
+	'noun' => gettext('packages'),
+	'noun_one' => gettext('package'),
+]); ?>
+		<div class="fs-backup-intro">
 			<p><?=gettext('Package menus and services are never restored from the backup. Select the available packages whose settings should be restored after the current package installs successfully.')?></p>
-			<?php if (!$package_restore_preview['catalog_available']): ?>
-				<?php print_info_box(gettext(
-				    'The current package repository could not be reached. Selected packages will remain isolated and pending until repository verification succeeds.'), 'warning'); ?>
-			<?php endif; ?>
-			<form method="post" action="diag_backup.php">
-				<input type="hidden" name="package_restore_token"
-				    value="<?=htmlspecialchars($package_restore_preview['token'])?>" />
-				<input type="hidden" name="restorearea"
-				    value="<?=htmlspecialchars($package_restore_preview['restorearea'])?>" />
-				<table class="table table-striped">
-					<thead><tr>
-						<th><?=gettext('Restore')?></th>
-						<th><?=gettext('Package')?></th>
-						<th><?=gettext('Status')?></th>
-						<th><?=gettext('Settings')?></th>
-					</tr></thead>
-					<tbody>
-					<?php foreach ($package_restore_preview['packages'] as $package):
-						$available = ($package['status'] !== 'missing');
-					?>
-						<tr>
-							<td>
-								<input type="checkbox" name="restore_packages[]"
-								    value="<?=htmlspecialchars($package['target'])?>"
-								    <?=$available ? 'checked' : 'disabled'?> />
-							</td>
-							<td><?=htmlspecialchars($package['name'])?></td>
-							<td><?=htmlspecialchars($package['status'])?></td>
-							<td><?=htmlspecialchars(implode(', ',
-							    $package['setting_roots']))?></td>
-						</tr>
-					<?php endforeach; ?>
-					</tbody>
-				</table>
-				<button type="submit" name="package_restore_apply" value="1"
-				    class="btn btn-danger">
-					<i class="fa-solid fa-arrow-rotate-left"></i>
-					<?=gettext('Apply Sanitized Restore')?>
-				</button>
-			</form>
+<?php if (!$package_restore_preview['catalog_available']): ?>
+			<?php print_info_box(gettext(
+			    'The current package repository could not be reached. Selected packages will remain isolated and pending until repository verification succeeds.'), 'warning'); ?>
+<?php endif; ?>
 		</div>
-	</section>
+		<div class="panel-body table-responsive">
+			<table class="table table-hover">
+				<thead><tr>
+					<th class="fs-col-select"><?=gettext('Restore')?></th>
+					<th><?=gettext('Package')?></th>
+					<th class="fs-col-status"><?=gettext('Status')?></th>
+					<th><?=gettext('Settings')?></th>
+				</tr></thead>
+				<tbody>
+<?php foreach ($package_restore_preview['packages'] as $package):
+	$available = ($package['status'] !== 'missing');
+	/* badge from the fixed status list only */
+	$bstate = 'neutral';
+	$blabel = gettext('Unknown');
+	foreach ($package_states as $pkey => $pstate) {
+		if ($package['status'] === $pkey) {
+			list($bstate, $blabel) = $pstate;
+		}
+	}
+?>
+					<tr<?=$available ? '' : ' class="fs-row-disabled"'?>>
+						<td>
+							<input type="checkbox" class="form-check-input" name="restore_packages[]"
+							    value="<?=htmlspecialchars($package['target'])?>"
+							    aria-label="<?=htmlspecialchars(sprintf(gettext('Restore the settings of %s'), $package['name']))?>"
+							    <?=$available ? 'checked' : 'disabled'?> />
+						</td>
+						<td><?=htmlspecialchars($package['name'])?></td>
+						<td><?=fs_badge($bstate, $blabel)?></td>
+						<td>
+							<div class="fs-chips">
+<?php foreach ($package['setting_roots'] as $root): ?>
+								<span class="fs-chip fs-chip--mono"><?=htmlspecialchars($root)?></span>
+<?php endforeach; ?>
+							</div>
+						</td>
+					</tr>
+<?php endforeach; ?>
+<?php if (empty($package_restore_preview['packages'])) {
+	fs_empty_row(4, gettext('The backup holds no package settings.'));
+} ?>
+				</tbody>
+			</table>
+		</div>
+		<div class="panel-footer d-flex flex-wrap gap-2">
+			<button type="submit" name="package_restore_apply" value="1" class="btn btn-danger"
+			    data-fs-confirm="<?=gettext('Restore this configuration now?')?>"
+			    data-fs-confirm-detail="<?=gettext('The current configuration is replaced and the firewall reboots.')?>"
+			    data-fs-confirm-action="<?=gettext('Restore')?>">
+				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn" aria-hidden="true"></i><?=gettext('Apply Sanitized Restore')?>
+			</button>
+			<a class="btn btn-outline-secondary" href="diag_backup.php"><?=gettext('Cancel')?></a>
+		</div>
+	</div>
+</form>
 <?php
 endif;
 
 if (is_subsystem_dirty('restore')):
 ?>
-	<br/>
 	<form action="diag_reboot.php" method="post">
 		<input name="Submit" type="hidden" value="Yes" />
 		<?php print_info_box(gettext("The firewall configuration has been changed.") . "<br />" . gettext("The firewall is now rebooting.")); ?>
-		<br />
 	</form>
 <?php
 endif;
 
-$form = new Form(false);
-$form->setMultipartEncoding();	// Allow file uploads
-
-$section = new Form_Section('Backup Configuration');
-
-$section->addInput(new Form_Select(
-	'backuparea',
-	'Backup area',
-	'',
-	build_area_list(false)
-));
-
-$section->addInput(new Form_Checkbox(
-	'nopackages',
-	'Skip packages',
-	'Do not backup package information.',
-	false
-));
-
-$section->addInput(new Form_Checkbox(
-	'donotbackuprrd',
-	'Skip RRD data',
-	'Do not backup RRD data (NOTE: RRD Data can consume 4+ megabytes of config.xml space!)',
-	true
-));
-
-$section->addInput(new Form_Checkbox(
-	'backupdata',
-	'Include extra data',
-	'Backup extra data.',
-	false
-))->setHelp('Backup extra data files for some services.%1$s' .
-	    '%2$s%3$sCaptive Portal - Captive Portal DB and UsedMACs DB%4$s' .
-	    '%3$sCaptive Portal Vouchers - Used Vouchers DB%4$s' .
-	    '%3$sDHCP Server - DHCP leases DB%4$s' .
-	    '%3$sDHCPv6 Server - DHCPv6 leases DB%4$s%5$s',
-	    '<div class="infoblock">', '<ul>', '<li>', '</li>', '</ul></div>'
-);
-
-$section->addInput(new Form_Checkbox(
-	'backupssh',
-	'Backup SSH keys',
-	'Backup SSH keys (otherwise clients would fail to recognize the host keys after restore)',
-	true
-));
-
-$section->addInput(new Form_Checkbox(
-	'encrypt',
-	'Encryption',
-	'Encrypt this configuration file.',
-	false
-));
-
-$section->addPassword(new Form_Input(
-	'encrypt_password',
-	'Password',
-	'password',
-	null
-));
-
-$group = new Form_Group('');
-// Note: ID attribute of each element created is to be unique.  Not being used, suppressing it.
-$group->add(new Form_Button(
-	'download',
-	'Download configuration as XML',
-	null,
-	'fa-solid fa-download'
-))->setAttribute('id')->addClass('btn-primary');
-
-$section->add($group);
-$form->add($section);
-
-$section = new Form_Section('Restore Backup');
-
-$section->addInput(new Form_StaticText(
-	null,
-	sprintf(gettext("Open a %s configuration XML file and click the button below to restore the configuration."), g_get('product_label'))
-));
-
-$section->addInput(new Form_StaticText(
-	null,
-	'<div class="infoblock">' .
-	print_info_box(gettext('A full-restore of an OPNsense or pfSense configuration is ' .
-	    'automatically detected and converted to FreeSense. Certificates, users ' .
-	    'and basic networking are kept; OPNsense-specific firewall, NAT and VPN ' .
-	    'settings are not carried and must be reconfigured. Detected packages are ' .
-	    'auto-mapped to FreeSense packages and listed after the restore.'),
-	    'info', false) .
-	'</div>'
-));
-
-$section->addInput(new Form_Select(
-	'restorearea',
-	'Restore area',
-	'',
-	build_area_list(true)
-));
-
-$section->addInput(new Form_Input(
-	'conffile',
-	'Configuration file',
-	'file',
-	null
-));
-
-$section->addInput(new Form_Checkbox(
-	'decrypt',
-	'Encryption',
-	'Configuration file is encrypted.',
-	false
-));
-
-$section->addInput(new Form_Input(
-	'decrypt_password',
-	'Password',
-	'password',
-	null,
-	['placeholder' => 'Password']
-));
-
-$group = new Form_Group('');
-// Note: ID attribute of each element created is to be unique.  Not being used, suppressing it.
-$group->add(new Form_Button(
-	'restore',
-	'Review / Restore Configuration',
-	null,
-	'fa-solid fa-arrow-rotate-left'
-))->setHelp('The firewall will reboot after restoring the configuration.')->addClass('btn-danger restore')->setAttribute('id');
-
-$section->add($group);
-
-$form->add($section);
-
 $has_installed_packages = !empty(config_get_path('installedpackages/package', []));
-
-if ($has_installed_packages || (is_subsystem_dirty("packagelock"))) {
-	$section = new Form_Section('Package Functions');
-
-	if ($has_installed_packages) {
-		$group = new Form_Group('');
-		// Note: ID attribute of each element created is to be unique.  Not being used, suppressing it.
-		$group->add(new Form_Button(
-			'reinstallpackages',
-			'Reinstall Packages',
-			null,
-			'fa-solid fa-retweet'
-		))->setHelp('Click this button to reinstall all system packages.  This may take a while.')->addClass('btn-success')->setAttribute('id');
-
-		$section->add($group);
-	}
-
-	if (is_subsystem_dirty("packagelock")) {
-		$group = new Form_Group('');
-		// Note: ID attribute of each element created is to be unique.  Not being used, suppressing it.
-		$group->add(new Form_Button(
-			'clearpackagelock',
-			'Clear Package Lock',
-			null,
-			'fa-solid fa-wrench'
-		))->setHelp('Click this button to clear the package lock if a package fails to reinstall properly after an upgrade.')->addClass('btn-warning')->setAttribute('id');
-
-		$section->add($group);
-	}
-
-	$form->add($section);
-}
-
-print($form);
-
-$quarantine_records = freesense_package_restore_list_quarantine();
-if (!empty($quarantine_records) || is_readable(
-    freesense_package_restore_pending_path())):
+$package_lock = is_subsystem_dirty("packagelock");
 ?>
-	<section class="card mt-3">
-		<div class="card-header">
-			<h2 class="h5 mb-0"><?=gettext('Restored Package Settings')?></h2>
+
+<form method="post" action="/diag_backup.php" enctype="multipart/form-data" class="fs-tool-form" id="backup-form">
+<div class="fs-backup-grid">
+	<div class="panel panel-default">
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-download" aria-hidden="true"></i><?=gettext('Back up configuration')?></h2></div>
+		<div class="panel-body">
+			<div>
+				<label class="form-label" for="backuparea"><?=gettext('Backup area')?></label>
+				<select class="form-select" id="backuparea" name="backuparea">
+<?php foreach (build_area_list(false) as $k => $v): ?>
+					<option value="<?=htmlspecialchars($k)?>"><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+				</select>
+				<div class="form-text"><?=gettext('All, or a single part of the configuration.')?></div>
+			</div>
+			<div class="fs-backup-checks" role="group" aria-label="<?=gettext('Backup options')?>">
+				<div class="form-check">
+					<input class="form-check-input" type="checkbox" name="nopackages" id="nopackages" value="yes">
+					<label class="form-check-label" for="nopackages"><?=gettext('Skip packages')?></label>
+					<div class="form-text"><?=gettext('Do not backup package information.')?></div>
+				</div>
+				<div class="form-check">
+					<input class="form-check-input" type="checkbox" name="donotbackuprrd" id="donotbackuprrd" value="yes" checked>
+					<label class="form-check-label" for="donotbackuprrd"><?=gettext('Skip RRD data')?></label>
+					<div class="form-text"><?=gettext('RRD graph data can add 4 MB or more to the file.')?></div>
+				</div>
+				<div class="form-check">
+					<input class="form-check-input" type="checkbox" name="backupdata" id="backupdata" value="yes">
+					<label class="form-check-label" for="backupdata"><?=gettext('Include extra data')?></label>
+					<div class="form-text">
+						<?=gettext('Backup extra data files for some services:')?>
+						<ul class="fs-backup-extra">
+							<li><?=gettext('Captive Portal - Captive Portal DB and UsedMACs DB')?></li>
+							<li><?=gettext('Captive Portal Vouchers - Used Vouchers DB')?></li>
+							<li><?=gettext('DHCP Server - DHCP leases DB')?></li>
+							<li><?=gettext('DHCPv6 Server - DHCPv6 leases DB')?></li>
+						</ul>
+					</div>
+				</div>
+				<div class="form-check">
+					<input class="form-check-input" type="checkbox" name="backupssh" id="backupssh" value="yes" checked>
+					<label class="form-check-label" for="backupssh"><?=gettext('Backup SSH keys')?></label>
+					<div class="form-text"><?=gettext('Otherwise SSH clients do not recognize the host keys after a restore.')?></div>
+				</div>
+				<div class="form-check">
+					<input class="form-check-input" type="checkbox" name="encrypt" id="encrypt" value="yes">
+					<label class="form-check-label" for="encrypt"><?=gettext('Encrypt this configuration file.')?></label>
+				</div>
+			</div>
+			<div class="fs-tool-row" id="encrypt-passwords">
+				<div>
+					<label class="form-label" for="encrypt_password"><?=gettext('Password')?></label>
+					<input class="form-control" type="password" id="encrypt_password" name="encrypt_password" autocomplete="new-password">
+				</div>
+				<div>
+					<label class="form-label" for="encrypt_password_confirm"><?=gettext('Confirm')?></label>
+					<input class="form-control" type="password" id="encrypt_password_confirm" name="encrypt_password_confirm" autocomplete="new-password">
+				</div>
+			</div>
 		</div>
-		<div class="card-body">
-			<?php if (is_readable(freesense_package_restore_pending_path())): ?>
-				<?php print_info_box(gettext(
-				    'Some restored package settings remain isolated pending package verification or installation.'), 'warning'); ?>
-				<form method="post" action="diag_backup.php" class="mb-3">
-					<button type="submit" name="package_restore_retry" value="1"
-					    class="btn btn-primary">
-						<i class="fa-solid fa-rotate"></i>
-						<?=gettext('Retry Package Restore')?>
-					</button>
-				</form>
-			<?php endif; ?>
-			<?php if (!empty($quarantine_records)): ?>
-				<table class="table table-striped">
-					<thead><tr>
-						<th><?=gettext('Created')?></th>
-						<th><?=gettext('Source')?></th>
-						<th><?=gettext('Packages')?></th>
-						<th><?=gettext('Actions')?></th>
-					</tr></thead>
-					<tbody>
-					<?php foreach ($quarantine_records as $record): ?>
-						<tr>
-							<td><?=htmlspecialchars($record['created_at'])?></td>
-							<td><?=htmlspecialchars($record['source'])?></td>
-							<td><?=htmlspecialchars(implode(', ', $record['packages']))?></td>
-							<td>
-								<form method="post" action="diag_backup.php"
-								    class="d-inline">
-									<input type="hidden" name="quarantine_id"
-									    value="<?=htmlspecialchars($record['id'])?>" />
-									<button type="submit" name="package_quarantine_download"
-									    value="1" class="btn btn-sm btn-secondary">
-										<?=gettext('Download')?>
-									</button>
-								</form>
-								<form method="post" action="diag_backup.php"
-								    class="d-inline"
-								    onsubmit="return confirm('<?=htmlspecialchars(
-								        gettext('Delete this quarantine record?'),
-								        ENT_QUOTES)?>');">
-									<input type="hidden" name="quarantine_id"
-									    value="<?=htmlspecialchars($record['id'])?>" />
-									<button type="submit" name="package_quarantine_delete"
-									    value="1" class="btn btn-sm btn-danger">
-										<?=gettext('Delete')?>
-									</button>
-								</form>
-							</td>
-						</tr>
-					<?php endforeach; ?>
-					</tbody>
-				</table>
-			<?php endif; ?>
+		<div class="panel-footer">
+			<button type="submit" class="btn btn-primary" name="download" value="<?=gettext('Download configuration as XML')?>">
+				<i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext('Download configuration as XML')?>
+			</button>
 		</div>
-	</section>
+	</div>
+
+	<div class="panel panel-default">
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i><?=gettext('Restore Backup')?></h2></div>
+		<div class="panel-body">
+			<p class="fs-backup-note">
+				<i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+				<span><?=sprintf(gettext("Open a %s configuration XML file and click the button below to restore the configuration."), htmlspecialchars(g_get('product_label')))?>
+				<?=gettext('OPNsense and pfSense configurations are detected and converted: certificates, users and basic networking are kept; firewall, NAT and VPN settings must be set up again. Detected packages are mapped to FreeSense packages.')?></span>
+			</p>
+			<div>
+				<label class="form-label" for="restorearea"><?=gettext('Restore area')?></label>
+				<select class="form-select" id="restorearea" name="restorearea">
+<?php foreach (build_area_list(true) as $k => $v): ?>
+					<option value="<?=htmlspecialchars($k)?>"><?=htmlspecialchars($v)?></option>
+<?php endforeach; ?>
+				</select>
+			</div>
+			<div>
+				<label class="form-label" for="conffile"><?=gettext('Configuration file')?></label>
+				<input class="form-control" type="file" id="conffile" name="conffile">
+			</div>
+			<div class="form-check">
+				<input class="form-check-input" type="checkbox" name="decrypt" id="decrypt" value="yes">
+				<label class="form-check-label" for="decrypt"><?=gettext('Configuration file is encrypted.')?></label>
+			</div>
+			<div id="decrypt-password">
+				<label class="form-label" for="decrypt_password"><?=gettext('Password')?></label>
+				<input class="form-control" type="password" id="decrypt_password" name="decrypt_password" placeholder="<?=gettext('Password')?>">
+			</div>
+		</div>
+		<div class="panel-footer">
+			<button type="submit" class="btn btn-danger restore" name="restore" value="<?=gettext('Review / Restore Configuration')?>" disabled
+			    data-fs-confirm="<?=gettext('Restore the configuration from this file?')?>"
+			    data-fs-confirm-detail="<?=gettext('A restore of one area is applied right away and the firewall reboots. A full restore shows the package review first.')?>"
+			    data-fs-confirm-action="<?=gettext('Restore')?>">
+				<i class="fa-solid fa-arrow-rotate-left icon-embed-btn" aria-hidden="true"></i><?=gettext('Review / Restore Configuration')?>
+			</button>
+			<span class="fs-backup-footer-hint"><?=gettext('The firewall will reboot after restoring the configuration.')?></span>
+		</div>
+	</div>
+</div>
+
+<?php if ($has_installed_packages || $package_lock): ?>
+<div class="panel panel-default fs-backup-packages">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Package Functions')?></h2></div>
+	<div class="panel-body">
+<?php if ($has_installed_packages): ?>
+		<div>
+			<button type="submit" class="btn btn-outline-secondary" name="reinstallpackages" value="<?=gettext('Reinstall Packages')?>">
+				<i class="fa-solid fa-retweet icon-embed-btn" aria-hidden="true"></i><?=gettext('Reinstall Packages')?>
+			</button>
+			<span class="form-text"><?=gettext('Reinstalls all installed packages. This may take a while.')?></span>
+		</div>
+<?php endif; ?>
+<?php if ($package_lock): ?>
+		<div>
+			<button type="submit" class="btn btn-outline-secondary" name="clearpackagelock" value="<?=gettext('Clear Package Lock')?>">
+				<i class="fa-solid fa-wrench icon-embed-btn" aria-hidden="true"></i><?=gettext('Clear Package Lock')?>
+			</button>
+			<span class="form-text"><?=gettext('Clears the package lock if a package failed to reinstall properly after an upgrade.')?></span>
+		</div>
+<?php endif; ?>
+	</div>
+</div>
+<?php endif; ?>
+</form>
+
+<?php
+$quarantine_records = freesense_package_restore_list_quarantine();
+$has_pending = is_readable(freesense_package_restore_pending_path());
+if (!empty($quarantine_records) || $has_pending):
+	$retry = '';
+	if ($has_pending) {
+		$retry = '<form method="post" action="diag_backup.php">'
+		    . '<button type="submit" name="package_restore_retry" value="1" class="btn btn-sm btn-primary">'
+		    . '<i class="fa-solid fa-rotate icon-embed-btn" aria-hidden="true"></i>' . fs_h(gettext('Retry Package Restore')) . '</button></form>';
+	}
+?>
+<div class="panel panel-default fs-table">
+<?php fs_table_toolbar([
+	'title' => gettext('Restored Package Settings'),
+	'search' => false,
+	'noun' => gettext('records'),
+	'noun_one' => gettext('record'),
+	'actions' => $retry,
+]); ?>
+<?php if ($has_pending): ?>
+	<div class="fs-backup-intro">
+		<?php print_info_box(gettext(
+		    'Some restored package settings remain isolated pending package verification or installation.'), 'warning'); ?>
+	</div>
+<?php endif; ?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover">
+			<thead><tr>
+				<th><?=gettext('Created')?></th>
+				<th><?=gettext('Source')?></th>
+				<th><?=gettext('Packages')?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+			</tr></thead>
+			<tbody>
+<?php foreach ($quarantine_records as $record):
+	$ts = strtotime($record['created_at']);
+	$created = ($ts !== false) ? date('Y-m-d H:i', $ts) : $record['created_at'];
+	$qid = rawurlencode($record['id']);
+?>
+				<tr>
+					<td class="fs-mono text-nowrap" title="<?=htmlspecialchars($record['created_at'])?>"><?=htmlspecialchars($created)?></td>
+					<td class="text-nowrap"><?=htmlspecialchars($record['source'])?></td>
+					<td class="fs-backup-pkgs">
+						<div class="fs-chips">
+<?php foreach ($record['packages'] as $pkg): ?>
+							<span class="fs-chip"><?=htmlspecialchars($pkg)?></span>
+<?php endforeach; ?>
+						</div>
+					</td>
+					<td class="fs-col-actions"><?=fs_row_actions([
+						['custom', "diag_backup.php?package_quarantine_download=1&quarantine_id={$qid}", $created,
+						    ['icon' => 'fa-download', 'label' => sprintf(gettext('Download the quarantine record of %s'), $created), 'post' => true]],
+						['delete', "diag_backup.php?package_quarantine_delete=1&quarantine_id={$qid}", $created,
+						    ['thing' => gettext('quarantine record'), 'detail' => gettext('The isolated package settings of this restore are removed for good.')]],
+					])?></td>
+				</tr>
+<?php endforeach; ?>
+<?php if (empty($quarantine_records)) {
+	fs_empty_row(4, gettext('No quarantine records.'));
+} ?>
+			</tbody>
+		</table>
+	</div>
+</div>
 <?php
 endif;
 ?>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-
-	// ------- Show/hide sections based on checkbox settings --------------------------------------
-
-	function hideSections(hide) {
-		hidePasswords();
-	}
-
+	// Password fields only while the matching checkbox is on (hidden fields are still posted, as before)
 	function hidePasswords() {
-
-		encryptHide = !($('input[name="encrypt"]').is(':checked'));
-		decryptHide = !($('input[name="decrypt"]').is(':checked'));
-
-		hideInput('encrypt_password', encryptHide);
-		hideInput('decrypt_password', decryptHide);
+		$('#encrypt-passwords').prop('hidden', !$('#encrypt').is(':checked'));
+		$('#decrypt-password').prop('hidden', !$('#decrypt').is(':checked'));
 	}
 
-	// ---------- Click handlers ------------------------------------------------------------------
+	$('#encrypt, #decrypt').on('change', hidePasswords);
 
-	$('input[name="encrypt"]').on('change', function() {
-		hidePasswords();
+	$('#conffile').on('change', function () {
+		$('.restore').prop('disabled', !this.value);
 	});
 
-	$('input[name="decrypt"]').on('change', function() {
-		hidePasswords();
+	// A single area has no packages, RRD or SSH keys; extra data only for some areas
+	$('#backuparea').on('change', function () {
+		var area = this.value;
+		var all = (area === '');
+		$('#donotbackuprrd, #nopackages, #backupssh').prop('disabled', !all);
+		$('#backupdata').prop('disabled', !all && ['captiveportal', 'dhcpd', 'dhcpdv6', 'voucher'].indexOf(area) === -1);
 	});
 
-	$('#conffile').change(function () {
-		if (document.getElementById("conffile").value) {
-			$('.restore').prop('disabled', false);
-		} else {
-			$('.restore').prop('disabled', true);
-		}
-	});
-
-	$('#backuparea').change(function () {
-		if (document.getElementById("backuparea").value == 0) {
-			disableInput('donotbackuprrd', false);
-			disableInput('nopackages', false);
-			disableInput('backupdata', false);
-			disableInput('backupssh', false);
-		} else {
-			disableInput('donotbackuprrd', true);
-			disableInput('nopackages', true);
-			disableInput('backupdata', true);
-			disableInput('backupssh', true);
-			if (['captiveportal', 'dhcpd', 'dhcpdv6', 'voucher'].includes(document.getElementById("backuparea").value)) {
-				disableInput('backupdata', false);
-			}
-		}
-	});
-
-	// ---------- On initial page load ------------------------------------------------------------
-
-	hideSections();
-	$('.restore').prop('disabled', true);
+	hidePasswords();
+	$('.restore').prop('disabled', !$('#conffile').val());
 });
 //]]>
 </script>
@@ -605,7 +594,7 @@ events.push(function() {
 include("foot.inc");
 
 if (is_subsystem_dirty('restore')) {
-	print('<span style="display: none;">');
+	print('<span hidden>');
 	system_reboot();
 	print('</span>');
 }

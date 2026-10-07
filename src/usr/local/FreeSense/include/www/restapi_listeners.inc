@@ -26,18 +26,18 @@
 
 require_once('restapi_listener.inc');
 
-/* The badge for a listener state: array(class, icon, label). */
+/* The fs_badge() of a listener state: array(state, label). */
 function restapi_listener_state_badge($state) {
 	$states = array(
-		'running' => array('text-bg-success', 'fa-circle-check', gettext('Running')),
-		'no_address' => array('text-bg-warning', 'fa-hourglass-half', gettext('Waiting for address')),
-		'no_certificate' => array('text-bg-danger', 'fa-certificate', gettext('No certificate')),
-		'error' => array('text-bg-danger', 'fa-triangle-exclamation', gettext('Error')),
-		'stopped' => array('text-bg-danger', 'fa-circle-stop', gettext('Stopped')),
-		'disabled' => array('text-bg-secondary', 'fa-circle-pause', gettext('Disabled')),
-		'api_disabled' => array('text-bg-secondary', 'fa-power-off', gettext('API disabled')),
+		'running' => array('up', gettext('Running')),
+		'no_address' => array('pending', gettext('Waiting for address')),
+		'no_certificate' => array('error', gettext('No certificate')),
+		'error' => array('error', gettext('Error')),
+		'stopped' => array('down', gettext('Stopped')),
+		'disabled' => array('disabled', gettext('Disabled')),
+		'api_disabled' => array('disabled', gettext('API disabled')),
 	);
-	return $states[$state] ?? array('text-bg-secondary', 'fa-circle-question', gettext('Not started'));
+	return $states[$state] ?? array('neutral', gettext('Not started'));
 }
 
 /*
@@ -74,6 +74,10 @@ function restapi_listener_action(array $post) {
 	return null;
 }
 
+/*
+ * The listener list (an fs-table card) and its add/edit modal. The page adds
+ * the header actions "Add listener" (#restapi-listener-add) and "Restart".
+ */
 function restapi_print_listeners(array $form_errors = array(), array $form_post = array()) {
 	$listeners = restapi_listeners();
 	$status = restapi_listener_status();
@@ -81,89 +85,92 @@ function restapi_print_listeners(array $form_errors = array(), array $form_post 
 	$certs = restapi_listener_cert_choices();
 	$settings = restapi_settings();
 	$page = 'system_restapi.php';
+
+	if (empty($listeners)) {
+		restapi_print_empty_card('fa-tower-broadcast', gettext('The API is served on the WebGUI port only. Add a listener to serve it on ' .
+		    'its own port and address, e.g. a public IP, without exposing the WebGUI.'),
+		    '<button type="button" class="btn btn-sm btn-primary restapi-listener-new"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' .
+		    htmlspecialchars(gettext('Add listener')) . '</button>');
+	} else {
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading restapi-keys-toolbar">
-		<h2 class="panel-title mb-0 me-auto"><?=gettext('API Listeners')?>
-			<span class="badge text-bg-secondary ms-1"><?=count($listeners)?></span></h2>
-<?php	if (!empty($listeners)): ?>
-		<a class="btn btn-sm btn-outline-secondary" href="<?=$page?>?act=listener_restart" usepost title="<?=gettext('Write the configuration again and restart every listener')?>">
-			<i class="fa-solid fa-rotate icon-embed-btn"></i><?=gettext('Restart')?></a>
-<?php	endif; ?>
-		<button type="button" class="btn btn-sm btn-success" id="restapi-listener-add"><i class="fa-solid fa-plus icon-embed-btn"></i><?=gettext('Add')?></button>
+<div class="panel panel-default fs-table" data-fs-table="restapi-listeners">
+<?php
+		fs_table_toolbar(array(
+			'search' => gettext('Search listeners…'),
+			'filters' => array('access' => array(gettext('Any access'), 'ro' => gettext('Read-only'), 'rw' => gettext('Read/write'))),
+			'noun' => gettext('listeners'),
+			'noun_one' => gettext('listener'),
+		));
+?>
+	<div class="panel-body table-responsive">
+		<table class="table table-hover restapi-listeners">
+			<thead><tr>
+				<th class="fs-col-status"><?=gettext('State')?></th>
+				<th data-fs-search><?=gettext('Listener')?></th>
+				<th data-fs-search><?=gettext('Listens on')?></th>
+				<th data-fs-search><?=gettext('Access')?></th>
+				<th><?=gettext('Protection')?></th>
+				<th class="fs-col-actions"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
+			</tr></thead>
+			<tbody>
+<?php
+		foreach ($listeners as $l):
+			$s = $status[$l['id']] ?? array();
+			$state = $l['enable'] ? (string)($s['state'] ?? '') : 'disabled';
+			list($badge, $label) = restapi_listener_state_badge($state);
+			$addresses = (array)($s['addresses'] ?? array());
+			$own_nets = restapi_parse_networks($l['allowednetworks']);
+			$nets = !empty($own_nets) ? $own_nets : restapi_parse_networks($settings['allowednetworks']);
+			$name = ($l['descr'] !== '') ? $l['descr'] : sprintf(gettext('Listener :%d'), $l['port']);
+			$href = $page . '?id=' . rawurlencode($l['id']) . '&act=';
+?>
+				<tr class="<?=$l['enable'] ? '' : 'fs-row-disabled'?>" data-fs-filter-access="<?=$l['readonly'] ? 'ro' : 'rw'?>"
+				    data-listener="<?=htmlspecialchars(json_encode($l))?>">
+					<td><?=fs_badge($badge, $label, empty($s['error']) ? null : $s['error'])?>
+<?php			if (!empty($s['error'])): ?>
+						<div class="small fs-muted mt-1 restapi-listener-error"><?=htmlspecialchars($s['error'])?></div>
+<?php			endif; ?>
+					</td>
+					<td><div class="fw-semibold"><?=htmlspecialchars($name)?></div>
+						<div class="small fs-muted"><?=htmlspecialchars($certs[$l['certref']] ?? gettext('Certificate missing'))?></div></td>
+					<td><div class="fs-chips"><span class="fs-chip"><?=htmlspecialchars($choices[$l['address']] ?? $l['address'])?></span>
+						<span class="fs-chip fs-chip--mono fs-chip--strong">:<?=(int)$l['port']?></span></div>
+						<div class="small fs-muted fs-mono mt-1"><?=empty($addresses) ? gettext('no address') :
+						    htmlspecialchars(implode(', ', array_map(function ($a) use ($l) {
+							return (is_ipaddrv6($a) ? "[{$a}]" : $a) . ':' . $l['port'];
+						    }, $addresses)))?></div></td>
+					<td><div class="fs-chips"><span class="fs-chip fs-chip--strong<?=$l['readonly'] ? '' : ' is-warn'?>"><?=$l['readonly'] ?
+					    gettext('Read-only') : gettext('Read/write')?></span></div>
+						<div class="small fs-muted mt-1"><?=empty($nets) ? gettext('From any address') :
+						    htmlspecialchars(sprintf(gettext('From %s'), implode(', ', $nets)))?><?=(empty($own_nets) && !empty($nets)) ?
+						    ' (' . gettext('general setting') . ')' : ''?></div></td>
+					<td><div class="fs-chips">
+						<span class="fs-chip<?=($l['ratelimit'] > 0) ? ' is-on' : ' is-off'?>"><?=($l['ratelimit'] > 0) ?
+						    htmlspecialchars(sprintf(gettext('%d req/s per client'), $l['ratelimit'])) : gettext('No rate limit')?></span>
+						<span class="fs-chip<?=$l['firewall'] ? ' is-on' : ' is-off'?>"><?=$l['firewall'] ? gettext('Firewall rule added') :
+						    gettext('Own firewall rule needed')?></span>
+					</div></td>
+					<td><?=fs_row_actions(array(
+						array('custom', '#', $name, array('icon' => 'fa-pencil', 'label' => sprintf(gettext('Edit %s'), $name),
+						    'attrs' => array('class' => 'fs-action restapi-listener-edit', 'role' => 'button'))),
+						array('toggle', $href . ($l['enable'] ? 'listener_disable' : 'listener_enable'), $name, array('enabled' => $l['enable'])),
+						array('delete', $href . 'listener_delete', $name, array('thing' => gettext('listener'),
+						    'detail' => gettext('Clients using it can no longer connect. Its firewall rule is removed.'))),
+					))?></td>
+				</tr>
+<?php		endforeach; ?>
+			</tbody>
+		</table>
 	</div>
-	<div class="panel-body">
-		<div class="table-responsive">
-			<table class="table table-striped table-hover table-sm align-middle mb-0 restapi-listeners">
-				<thead><tr>
-					<th><?=gettext('State')?></th>
-					<th><?=gettext('Listener')?></th>
-					<th><?=gettext('Listens on')?></th>
-					<th><?=gettext('Access')?></th>
-					<th><?=gettext('Protection')?></th>
-					<th class="text-end"><span class="visually-hidden"><?=gettext('Actions')?></span></th>
-				</tr></thead>
-				<tbody>
-<?php	if (empty($listeners)): ?>
-					<tr><td colspan="6" class="restapi-keys-empty">
-						<i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>
-						<div class="fw-semibold"><?=gettext('No API listeners')?></div>
-						<div class="small text-muted"><?=gettext('The API is served on the WebGUI port only. Add a listener to serve it on its own port and address, e.g. a public IP, without exposing the WebGUI.')?></div>
-					</td></tr>
-<?php	endif;
-	foreach ($listeners as $l):
-		$s = $status[$l['id']] ?? array();
-		$state = $l['enable'] ? (string)($s['state'] ?? '') : 'disabled';
-		list($cls, $icon, $label) = restapi_listener_state_badge($state);
-		$addresses = (array)($s['addresses'] ?? array());
-		$own_nets = restapi_parse_networks($l['allowednetworks']);
-		$nets = !empty($own_nets) ? $own_nets : restapi_parse_networks($settings['allowednetworks']);
-		$href = "{$page}?id=" . htmlspecialchars($l['id']) . '&amp;act=';
-?>
-					<tr class="<?=$l['enable'] ? '' : 'restapi-stale'?>" data-listener="<?=htmlspecialchars(json_encode($l))?>">
-						<td><span class="badge <?=$cls?>"<?=!empty($s['error']) ? ' title="' . htmlspecialchars($s['error']) . '"' : ''?>>
-							<i class="fa-solid <?=$icon?>"></i> <?=$label?></span>
-<?php		if (!empty($s['error'])): ?>
-							<div class="small text-danger mt-1 restapi-listener-error"><?=htmlspecialchars($s['error'])?></div>
-<?php		endif; ?>
-						</td>
-						<td><div class="fw-semibold"><?=htmlspecialchars($l['descr'] !== '' ? $l['descr'] : gettext('API listener'))?></div>
-							<div class="small text-muted"><?=htmlspecialchars($certs[$l['certref']] ?? gettext('(certificate missing)'))?></div></td>
-						<td><div><?=htmlspecialchars($choices[$l['address']] ?? $l['address'])?> <span class="badge fx-port">:<?=(int)$l['port']?></span></div>
-							<div class="small text-muted font-monospace"><?=empty($addresses) ? gettext('no address') :
-							    htmlspecialchars(implode(', ', array_map(function ($a) use ($l) {
-								return (is_ipaddrv6($a) ? "[{$a}]" : $a) . ':' . $l['port'];
-							    }, $addresses)))?></div></td>
-						<td><?=$l['readonly'] ? '<span class="badge text-bg-secondary">' . gettext('Read-only') . '</span>' :
-						    '<span class="badge text-bg-warning">' . gettext('Read/write') . '</span>'?>
-							<div class="small text-muted"><?=empty($nets) ? gettext('from any address') :
-							    htmlspecialchars(sprintf(gettext('from %s'), implode(', ', $nets)))?><?=empty($own_nets) && !empty($nets) ?
-							    ' <span class="text-muted">(' . gettext('general') . ')</span>' : ''?></div></td>
-						<td class="small"><div><i class="fa-solid fa-gauge-high fa-fw text-muted"></i> <?=($l['ratelimit'] > 0) ?
-						    htmlspecialchars(sprintf(gettext('%d requests/s per client'), $l['ratelimit'])) : gettext('no rate limit')?></div>
-							<div><i class="fa-solid fa-shield-halved fa-fw text-muted"></i> <?=$l['firewall'] ? gettext('firewall rule added') :
-							    gettext('own firewall rule needed')?></div></td>
-						<td class="text-end text-nowrap restapi-row-actions">
-							<button type="button" class="btn btn-sm btn-outline-secondary restapi-listener-edit" title="<?=gettext('Edit this listener')?>"
-							    aria-label="<?=gettext('Edit this listener')?>"><i class="fa-solid fa-pencil"></i></button>
-							<a class="btn btn-sm btn-outline-secondary" href="<?=$href . ($l['enable'] ? 'listener_disable' : 'listener_enable')?>" usepost
-							    title="<?=$l['enable'] ? gettext('Disable this listener') : gettext('Enable this listener')?>"
-							    aria-label="<?=$l['enable'] ? gettext('Disable this listener') : gettext('Enable this listener')?>"><i class="fa-solid <?=$l['enable'] ? 'fa-ban' : 'fa-circle-check'?>"></i></a>
-							<a class="btn btn-sm btn-outline-danger do-confirm" href="<?=$href?>listener_delete" usepost title="<?=gettext('Delete this listener')?>"
-							    aria-label="<?=gettext('Delete this listener')?>"><i class="fa-solid fa-trash-can"></i></a>
-						</td>
-					</tr>
-<?php	endforeach; ?>
-				</tbody>
-			</table>
-		</div>
+	<div class="panel-footer restapi-note">
+		<?=gettext('A listener serves only /api/ over HTTPS, on the addresses of one interface or virtual IP, in its own web server ' .
+		    'process: the WebGUI is not reachable on it. Before exposing one to the internet, prefer read-only, limit the allowed ' .
+		    'networks, use a trusted certificate (e.g. from the ACME package) and keep a rate limit. Clients that fail to ' .
+		    'authenticate are blocked by login protection, as on the WebGUI.')?>
 	</div>
 </div>
 <?php
-	print_info_box(gettext('A listener serves only /api/ (every other path answers 404), over HTTPS, on the addresses of one interface or ' .
-	    'virtual IP, in its own web server process: the WebGUI is not reachable on it. Before exposing it to the internet, prefer a ' .
-	    'read-only listener, limit the allowed networks, use a trusted certificate (e.g. from the ACME package) and keep a rate limit. ' .
-	    'Clients that fail to authenticate are blocked by login protection, as on the WebGUI.'), 'info', false);
+	}
 	restapi_print_listener_modal($choices, $certs, $form_errors, $form_post, $settings);
 }
 
@@ -216,7 +223,7 @@ function restapi_print_listener_modal(array $choices, array $certs, array $error
 				<div class="me-auto">
 					<h2 class="modal-title h5 mb-0" id="restapi-listener-title"
 					    data-add="<?=gettext('Add API Listener')?>" data-edit="<?=gettext('Edit API Listener')?>"><?=($v['id'] === '') ? gettext('Add API Listener') : gettext('Edit API Listener')?></h2>
-					<div class="small text-muted"><?=gettext('An HTTPS port that serves only the REST API.')?></div>
+					<div class="small fs-muted"><?=gettext('An HTTPS port that serves only the REST API.')?></div>
 				</div>
 				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?=gettext('Close')?>"></button>
 			</div>
@@ -231,17 +238,16 @@ function restapi_print_listener_modal(array $choices, array $certs, array $error
 				<?php print($form); ?>
 			</div>
 			<div class="modal-footer">
-				<span class="small text-muted me-auto"><i class="fa-solid fa-circle-info me-1"></i><?=gettext('Saving applies the listener and the firewall rules at once.')?></span>
-				<button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><?=gettext('Cancel')?></button>
-				<button type="submit" class="btn btn-success" form="restapi-listener-form" name="act" value="listener_save">
-					<i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
+				<span class="small fs-muted me-auto"><i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i><?=gettext('Saving applies the listener and the firewall rules at once.')?></span>
+				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><?=gettext('Cancel')?></button>
+				<button type="submit" class="btn btn-primary" form="restapi-listener-form" name="act" value="listener_save">
+					<i class="fa-solid fa-floppy-disk icon-embed-btn" aria-hidden="true"></i><?=gettext('Save')?></button>
 			</div>
 		</div>
 	</div>
 </div>
 <style>
-	.fx-port { background: var(--bs-tertiary-bg); color: var(--bs-emphasis-color); border: 1px solid var(--bs-border-color); font-family: var(--bs-font-monospace); }
-	.restapi-listener-error { max-width: 22rem; }
+	.restapi-listener-error { max-width: 22rem; overflow-wrap: anywhere; }
 </style>
 <script type="text/javascript">
 //<![CDATA[
@@ -267,9 +273,12 @@ events.push(function() {
 		modal.querySelectorAll('.alert-danger').forEach(function(a) { a.remove(); });
 		bootstrap.Modal.getOrCreateInstance(modal).show();
 	}
-	document.getElementById('restapi-listener-add').addEventListener('click', function() { open(defaults); });
+	/* "Add listener" (header action or empty state) and the rows' Edit action. */
+	document.querySelectorAll('#restapi-listener-add, .restapi-listener-new').forEach(function(b) {
+		b.addEventListener('click', function(e) { e.preventDefault(); open(defaults); });
+	});
 	document.querySelectorAll('.restapi-listener-edit').forEach(function(b) {
-		b.addEventListener('click', function() { open(JSON.parse(b.closest('tr').dataset.listener)); });
+		b.addEventListener('click', function(e) { e.preventDefault(); open(JSON.parse(b.closest('tr').dataset.listener)); });
 	});
 	modal.addEventListener('shown.bs.modal', function() { form.elements.descr.focus(); });
 	if (modal.dataset.open === '1') {

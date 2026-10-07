@@ -78,10 +78,34 @@ if (!isset($pconfig)) {
 }
 $users = restapi_users_with_access();
 $tokens = restapi_tokens();
+$listeners = restapi_listeners();
+
+/* A new key's secret is in this response only: never cache it. */
+if ($new_token !== null) {
+	header('Cache-Control: no-store');
+}
 
 $titles = array('' => gettext('Settings'), 'listeners' => gettext('Listeners'), 'keys' => gettext('All Keys'));
 $pgtitle = array(gettext('System'), gettext('REST API'), $titles[$view]);
 $pglinks = array('', 'system_restapi.php', '@self');
+if ($view === 'keys') {
+	if (!empty($users)) {
+		fs_page_action(gettext('Create key'), '#', 'fa-plus', 'primary', array('data-bs-toggle' => 'modal', 'data-bs-target' => '#restapi-create-modal',
+		    'role' => 'button'));
+	}
+	fs_page_action(gettext('User Manager'), 'system_usermanager.php', 'fa-users', 'secondary');
+} elseif ($view === 'listeners') {
+	fs_page_action(gettext('Add listener'), '#', 'fa-plus', 'primary', array('id' => 'restapi-listener-add', 'role' => 'button'));
+	if (!empty($listeners)) {
+		fs_page_action(gettext('Restart'), 'system_restapi.php?act=listener_restart', 'fa-rotate', 'secondary', array('usepost' => true,
+		    'title' => gettext('Write the configuration again and restart every listener'),
+		    'data-fs-confirm' => gettext('Restart the API listeners?'),
+		    'data-fs-confirm-detail' => gettext('Requests in progress on the listeners are cut off. The WebGUI port is not affected.'),
+		    'data-fs-confirm-action' => gettext('Restart')));
+	}
+} else {
+	fs_page_action(gettext('Request log'), 'status_restapi.php', 'fa-list', 'secondary');
+}
 include("head.inc");
 
 restapi_print_tabs('system_restapi.php', true, $view);
@@ -119,7 +143,35 @@ elseif ($view === 'listeners'):
 	}
 	restapi_print_listeners($listener_errors, $listener_post);
 else:
-	$form = new Form(false);
+	/* At a glance: what the saved settings mean right now. */
+	$saved = restapi_settings();
+	$active_keys = count(array_filter($tokens, function ($t) {
+		return empty($t['revoked']) && (empty($t['expires']) || ((int)$t['expires'] >= time()));
+	}));
+	$listener_states = restapi_listener_status();
+	$running = count(array_filter($listeners, function ($l) use ($listener_states) {
+		return $l['enable'] && (($listener_states[$l['id']]['state'] ?? '') === 'running');
+	}));
+	$log_size = is_file(RESTAPI_REQLOG_FILE) ? (int)@filesize(RESTAPI_REQLOG_FILE) : 0;
+	$log_labels = array('off' => gettext('Off'), 'failures' => gettext('Failed requests'), 'changes' => gettext('Changes and failures'),
+	    'all' => gettext('Every request'));
+	$api_url = (empty($saved['allowhttp']) ? 'https' : 'http(s)') . '://' . ($_SERVER['HTTP_HOST'] ?? 'firewall') . '/api/v1/';
+?>
+<div class="fs-tiles restapi-tiles">
+<?php
+	fs_tile(gettext('REST API'), $saved['guiapi'] ? gettext('WebGUI port') : gettext('Listeners only'),
+	    restapi_enabled() ? 'enabled' : 'disabled', $saved['guiapi'] ? $api_url : gettext('Not served on the WebGUI port'));
+	fs_tile(gettext('Listeners'), empty($listeners) ? gettext('None') : sprintf(gettext('%1$d of %2$d'), $running, count($listeners)), null,
+	    empty($listeners) ? gettext('Only the WebGUI port') : gettext('running'));
+	fs_tile(gettext('Users with access'), count($users), null, empty($users) ? gettext('Grant it in User Manager') :
+	    implode(', ', array_slice(array_keys($users), 0, 4)) . ((count($users) > 4) ? ' …' : ''));
+	fs_tile(gettext('Active keys'), $active_keys, null, sprintf(gettext('%d in total'), count($tokens)));
+	fs_tile(gettext('Request log'), $log_labels[$saved['log_level']] ?? $saved['log_level'], null,
+	    sprintf(gettext('%1$s of %2$d MB, kept %3$d days'), format_bytes($log_size), $saved['log_mb'], $saved['log_days']));
+?>
+</div>
+<?php
+	$form = new Form();
 	$section = new Form_Section(gettext('General'));
 	$section->addInput(new Form_Checkbox(
 		'enable',
@@ -137,6 +189,9 @@ else:
 		!empty($pconfig['guiapi'])
 	))->setHelp(sprintf(gettext('Turn this off to serve the API only on its %1$sListeners%2$s. The API Explorer\'s "Try it" uses the WebGUI port.'),
 	    '<a href="system_restapi.php?view=listeners">', '</a>'));
+	$form->add($section);
+
+	$section = new Form_Section(gettext('Access'));
 	$section->addInput(new Form_Input(
 		'allowednetworks',
 		gettext('Allowed networks'),
@@ -154,7 +209,6 @@ else:
 	    'Listeners always use HTTPS.'));
 	$form->add($section);
 
-	$log_size = is_file(RESTAPI_REQLOG_FILE) ? (int)@filesize(RESTAPI_REQLOG_FILE) : 0;
 	$section = new Form_Section(gettext('Request Log'));
 	$section->addInput(new Form_Select(
 		'log_level',
@@ -187,63 +241,12 @@ else:
 	$group->setHelp(sprintf(gettext('Older entries are removed every night; when the log reaches the size limit, the oldest entries are removed at once. ' .
 	    'Current size: %s.'), format_bytes($log_size)));
 	$section->add($group);
-	$section->addInput(new Form_Button(
-		'save',
-		gettext('Save'),
-		null,
-		'fa-solid fa-floppy-disk'
-	))->addClass('btn-primary');
 	$form->add($section);
 	print($form);
-
-	/* At a glance: what the saved settings mean right now. */
-	$active_keys = count(array_filter($tokens, function ($t) {
-		return empty($t['revoked']) && (empty($t['expires']) || ((int)$t['expires'] >= time()));
-	}));
-	$saved = restapi_settings();
-	$listeners = restapi_listeners();
-	$listener_states = restapi_listener_status();
-	$running = count(array_filter($listeners, function ($l) use ($listener_states) {
-		return $l['enable'] && (($listener_states[$l['id']]['state'] ?? '') === 'running');
-	}));
-	$log_labels = array('off' => gettext('off'), 'failures' => gettext('failed requests'), 'changes' => gettext('changes and failed requests'),
-	    'all' => gettext('every request'));
 ?>
-<div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Overview')?></h2></div>
-	<div class="panel-body p-3">
-		<dl class="row mb-0">
-			<dt class="col-sm-3"><?=gettext('API')?></dt>
-			<dd class="col-sm-9"><?=restapi_enabled() ?
-			    '<span class="badge text-bg-success"><i class="fa-solid fa-circle-check"></i> ' . gettext('Enabled') . '</span>' :
-			    '<span class="badge text-bg-secondary"><i class="fa-solid fa-circle-xmark"></i> ' . gettext('Disabled') . '</span>'?>
-<?php	if ($saved['guiapi']): ?>
-				<code class="ms-2"><?=empty($saved['allowhttp']) ? 'https' : 'http(s)'?>://<?=htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'firewall')?>/api/v1/</code>
-<?php	else: ?>
-				<span class="ms-2 text-muted"><?=gettext('not on the WebGUI port')?></span>
-<?php	endif; ?>
-			</dd>
-			<dt class="col-sm-3"><?=gettext('Listeners')?></dt>
-			<dd class="col-sm-9"><?=empty($listeners) ? '<span class="text-muted">' . gettext('None') . '</span>' :
-			    sprintf(gettext('%1$d of %2$d running'), $running, count($listeners))?>
-				<a class="ms-2 small" href="system_restapi.php?view=listeners"><?=gettext('Manage listeners')?></a></dd>
-			<dt class="col-sm-3"><?=gettext('Users with API access')?></dt>
-			<dd class="col-sm-9"><?=empty($users) ? '<span class="text-muted">' . gettext('None') . '</span>' :
-			    htmlspecialchars(implode(', ', array_keys($users)))?>
-				<a class="ms-2 small" href="system_usermanager.php"><?=gettext('User Manager')?></a></dd>
-			<dt class="col-sm-3"><?=gettext('API keys')?></dt>
-			<dd class="col-sm-9"><?=sprintf(gettext('%1$d active, %2$d in total'), $active_keys, count($tokens))?>
-				<a class="ms-2 small" href="system_restapi.php?view=keys"><?=gettext('Manage keys')?></a></dd>
-			<dt class="col-sm-3"><?=gettext('Request log')?></dt>
-			<dd class="col-sm-9 mb-0"><?=htmlspecialchars(sprintf(gettext('Logging %1$s, kept %2$d days, %3$s of %4$d MB'),
-			    $log_labels[$saved['log_level']], $saved['log_days'], format_bytes($log_size), $saved['log_mb']))?>
-				<a class="ms-2 small" href="status_restapi.php"><?=gettext('Open the log')?></a></dd>
-		</dl>
-	</div>
-	<div class="panel-footer small text-muted"><?=sprintf(gettext('The %1$sGuide%2$s explains keys, scopes and errors; the %3$sAPI Explorer%4$s lists every endpoint. ' .
-	    'Changes made through the API appear in Configuration History with the key ID.'),
-	    '<a href="system_restapi_explorer.php?view=guide">', '</a>', '<a href="system_restapi_explorer.php">', '</a>')?></div>
-</div>
+<p class="restapi-note"><?=sprintf(gettext('The %1$sGuide%2$s explains keys, scopes and errors; the %3$sAPI Explorer%4$s lists every endpoint. ' .
+    'Changes made through the API appear in Configuration History with the key ID.'),
+    '<a href="system_restapi_explorer.php?view=guide">', '</a>', '<a href="system_restapi_explorer.php">', '</a>')?></p>
 <?php
 endif;
 

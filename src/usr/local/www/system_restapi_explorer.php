@@ -67,6 +67,10 @@ $can_keys = isAllowedPage('system_restapi_keys.php');
 
 $pgtitle = array(gettext('System'), gettext('REST API'), ($view === 'guide') ? gettext('Guide') : gettext('API Explorer'));
 $pglinks = array('', $can_settings ? 'system_restapi.php' : '', '@self');
+if ($view !== 'guide') {
+	fs_page_action(gettext('Download openapi.json'), 'system_restapi_explorer.php?download=openapi', 'fa-download', 'secondary',
+	    array('title' => gettext('The same document as GET /api/v1/openapi.json, without needing a key.')));
+}
 include("head.inc");
 
 restapi_print_tabs('system_restapi_explorer.php', false, $view);
@@ -86,56 +90,98 @@ if (!restapi_enabled()) {
 }
 ?>
 <style>
-	.fx-pad { padding: 1rem; }
-	/* The panel already has padding here: drop the core inset of direct paragraphs and lists. */
+	.fx-pad { padding: var(--fs-sp-4); }
 	.panel-body.fx-pad > p, .panel-body.fx-pad > ol, .panel-body.fx-pad > ul { padding-left: 0; padding-right: 0; }
-	.fx-panel-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
 	.fx-guide .panel { height: 100%; margin-bottom: 0; }
 	.fx-guide p:last-child, .fx-guide ul:last-child { margin-bottom: 0; }
+	.fx-guide .panel-title > i { color: var(--fs-coral-text); margin-right: .4rem; }
 	.fx-steps { list-style: none; counter-reset: fx-step; padding: 0; margin: 0 0 1rem; }
 	.fx-steps > li { counter-increment: fx-step; position: relative; padding: 0 0 .9rem 2.6rem; }
 	.fx-steps > li::before { content: counter(fx-step); position: absolute; left: 0; top: -.1rem; width: 1.8rem; height: 1.8rem;
 	    border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .9rem;
-	    background: rgba(var(--bs-primary-rgb), .14); color: var(--fs-coral); }
-	.fx-steps > li strong { display: block; color: var(--bs-emphasis-color); }
-	.fx-code { margin: 0; padding: .6rem .75rem; font-size: .85em; white-space: pre-wrap; word-break: break-all;
-	    background-color: var(--bs-tertiary-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm); }
-	.fx-guide h3 { font-size: .95rem; font-weight: 600; margin: 0 0 .5rem; }
-	.fx-guide .fa-fw { color: var(--fs-coral); }
-	.fx-method { display: inline-block; min-width: 4.4em; text-align: center; font-family: var(--bs-font-monospace); }
-	.fx-path { font-family: var(--bs-font-monospace); font-size: .9em; overflow-wrap: anywhere; color: var(--bs-emphasis-color); }
-	.fx-summary { font-size: .85em; color: var(--bs-secondary-color); }
-	.fx-row { cursor: pointer; }
-	.fx-row > td { padding-top: .55rem !important; padding-bottom: .55rem !important; }
-	.fx-row:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: -2px; }
-	.fx-row.fx-denied .fx-path, .fx-row.fx-denied .fx-summary { opacity: .6; }
-	.fx-row .fx-chev i { transition: transform .15s ease-out; color: var(--bs-secondary-color); }
-	.fx-row[aria-expanded="true"] .fx-chev i { transform: rotate(180deg); }
-	.fx-row[aria-expanded="true"] > td { background-color: var(--bs-tertiary-bg) !important; }
-	.fx-flags { width: 1%; }
-	.fx-flags .badge { margin: .1em 0 .1em .2em; font-weight: 500; }
-	.fx-soft { background: var(--bs-tertiary-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color); }
-	.fx-details > td { background-color: var(--bs-tertiary-bg) !important; padding: 1rem !important; }
-	.fx-details pre, .fx-out pre { max-height: 32em; overflow: auto; background-color: var(--bs-body-bg);
-	    color: var(--bs-body-color); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius-sm); padding: .5em; font-size: .85em; }
-	.fx-details dl { margin-bottom: 0; font-size: .9em; }
-	.fx-details dt { font-weight: 600; color: var(--bs-secondary-color); }
-	.fx-details dd { overflow-wrap: anywhere; }
-	.fx-try { background-color: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); padding: .9rem 1rem; }
-	.fx-try textarea { font-family: var(--bs-font-monospace); font-size: .85em; }
-	.fx-headers td { font-family: var(--bs-font-monospace); font-size: .85em; padding: .1em .5em; }
-	.fx-areas { position: sticky; top: 1rem; }
-	body:has(#topmenu.fixed-top) .fx-areas { top: 4.5rem; }
-	.fx-areas .list-group { max-height: calc(100vh - 9rem); overflow-y: auto; border-bottom-left-radius: inherit; border-bottom-right-radius: inherit; }
-	.fx-areas .list-group-item { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .875rem;
-	    padding: .45rem 1rem; background: transparent; color: var(--bs-body-color); border-color: var(--bs-border-color); }
-	.fx-areas .list-group-item:hover { background: rgba(var(--bs-primary-rgb), .08); }
-	.fx-areas .list-group-item.active { background: rgba(var(--bs-primary-rgb), .14); color: var(--bs-emphasis-color);
-	    box-shadow: inset 3px 0 0 var(--fs-coral); font-weight: 600; }
-	.fx-areas .list-group-item.fx-empty { opacity: .45; }
-	.fx-stat { font-size: 1.6rem; font-weight: 700; line-height: 1.1; color: var(--bs-emphasis-color); }
-	.fx-area .panel-heading code { font-size: .8em; }
-	@media (prefers-reduced-motion: reduce) { .fx-row .fx-chev i { transition: none; } }
+	    background: var(--fs-accent-tint); color: var(--fs-coral-text); }
+	.fx-steps > li strong { display: block; color: var(--fs-text-strong); }
+	.fx-code { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); }
+
+	/* Method badges: fs-badge colors, fixed width, mono. */
+	.fx-method { justify-content: center; min-width: 4.6em; font-family: var(--fs-font-mono); letter-spacing: .02em; }
+
+	/* The key card. */
+	.fx-keycard .panel-body { padding: var(--fs-sp-4); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--fs-sp-4) var(--fs-sp-5); align-items: start; }
+	.fx-keycard .input-group { max-width: 40rem; }
+	.fx-keystat { text-align: right; min-width: 12rem; }
+	.fx-keystat-value { font-size: var(--fs-fs-xl); font-weight: 600; color: var(--fs-text-strong); font-variant-numeric: tabular-nums; line-height: 1.2; }
+	@media (max-width: 767.98px) {
+		.fx-keycard .panel-body { grid-template-columns: minmax(0, 1fr); }
+		.fx-keystat { text-align: left; }
+	}
+
+	/* Two panes: the endpoint list and the selected endpoint. */
+	.fx-layout { display: grid; grid-template-columns: minmax(20rem, 27rem) minmax(0, 1fr); gap: var(--fs-sp-4); align-items: start; }
+	.fx-layout > .panel { margin-bottom: 0; }
+	.fx-list-panel { position: sticky; top: calc(var(--fs-navbar-h, 3.5rem) + 1rem); }
+	.fx-list-panel .fs-toolbar-default { flex-wrap: wrap; gap: .5rem; }
+	.fx-list-panel .fs-search { flex: 1 1 100%; max-width: none; }
+	.fx-list-panel .fs-toolbar-default > .form-select { flex: 1 1 6.5rem; width: auto; min-width: 6.5rem; max-width: none; }
+	.fx-list-panel .fs-toolbar-spacer { display: none; }
+	.fx-list-panel .fs-toolbar-count { flex: 1 1 100%; }
+	.fx-list { max-height: calc(100vh - var(--fs-navbar-h, 3.5rem) - 13rem); min-height: 16rem; overflow-y: auto; }
+	.fx-group-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: .5rem; width: 100%; padding: .45rem var(--fs-sp-4);
+	    border: 0; border-bottom: 1px solid var(--fs-border); background: var(--fs-surface-raised); color: var(--fs-text-muted);
+	    font-size: var(--fs-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; text-align: left; }
+	.fx-group-head .fx-group-id { font-family: var(--fs-font-mono); text-transform: none; letter-spacing: 0; font-weight: 400; }
+	.fx-group-head .fx-group-n { margin-left: auto; font-variant-numeric: tabular-nums; }
+	.fx-group-head > i { transition: transform var(--fs-t-fast, .15s); }
+	.fx-group-head[aria-expanded="false"] > i { transform: rotate(-90deg); }
+	.fx-group ul { list-style: none; margin: 0; padding: 0; }
+	.fx-group[data-collapsed] ul { display: none; }
+	.fx-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .15rem .6rem; align-items: center; padding: .45rem var(--fs-sp-4);
+	    border-bottom: 1px solid var(--fs-border); color: var(--fs-text); text-decoration: none; }
+	.fx-item:hover { background: var(--fs-accent-tint); color: var(--fs-text); }
+	.fx-item:focus-visible { outline: 2px solid var(--fs-coral-text); outline-offset: -2px; }
+	.fx-item[aria-current="true"] { background: var(--fs-accent-tint); box-shadow: inset 3px 0 0 var(--fs-coral-text); }
+	.fx-item .fx-path { font-family: var(--fs-font-mono); font-size: var(--fs-fs-sm); color: var(--fs-text-strong); overflow-wrap: anywhere; }
+	.fx-item .fx-sum { grid-column: 2; font-size: var(--fs-fs-xs); color: var(--fs-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.fx-item.fx-denied .fx-path, .fx-item.fx-denied .fx-sum { opacity: .55; }
+	.fx-item .fx-lock { font-size: .7rem; color: var(--fs-text-muted); margin-left: .3rem; }
+	.fx-noresults { padding: var(--fs-sp-5) var(--fs-sp-4); text-align: center; color: var(--fs-text-muted); }
+
+	/* The selected endpoint. */
+	.fx-detail-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; padding: var(--fs-sp-4); border-bottom: 1px solid var(--fs-border); }
+	.fx-detail-head .fx-path { font-family: var(--fs-font-mono); font-size: var(--fs-fs-md, 1rem); font-weight: 500; color: var(--fs-text-strong); overflow-wrap: anywhere; flex: 1 1 16rem; margin: 0; }
+	.fx-detail-sum { padding: var(--fs-sp-3) var(--fs-sp-4) 0; margin: 0; }
+	.fx-detail-chips { padding: var(--fs-sp-3) var(--fs-sp-4) 0; }
+	.fx-detail-body { padding: var(--fs-sp-4); display: grid; gap: var(--fs-sp-4); }
+	.fx-ref dl { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: .35rem 1rem; margin: 0; font-size: var(--fs-fs-sm); }
+	.fx-ref dt { color: var(--fs-text-muted); font-weight: 600; }
+	.fx-ref dd { margin: 0; overflow-wrap: anywhere; }
+	.fx-ref ul { list-style: none; margin: 0; padding: 0; }
+	@media (max-width: 575.98px) { .fx-ref dl { grid-template-columns: minmax(0, 1fr); } .fx-ref dd { margin-bottom: .4rem; } }
+	.fx-card { border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); background: var(--fs-surface); }
+	.fx-card-head { display: flex; align-items: center; gap: .5rem; padding: .6rem var(--fs-sp-4); border-bottom: 1px solid var(--fs-border);
+	    font-weight: 600; color: var(--fs-text-strong); }
+	.fx-card-head > i { color: var(--fs-text-muted); }
+	.fx-card-head .fx-card-aside { margin-left: auto; font-weight: 400; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+	.fx-card-body { padding: var(--fs-sp-4); }
+	.fx-card .fs-tool-empty { min-height: 8rem; }
+	.fx-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .75rem; margin-bottom: .75rem; }
+	.fx-fields .form-label, .fx-card .form-label { font-size: var(--fs-fs-xs); color: var(--fs-text-muted); font-family: var(--fs-font-mono); margin-bottom: .2rem; }
+	.fx-card textarea { font-family: var(--fs-font-mono); font-size: var(--fs-fs-sm); }
+	.fx-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+	.fx-curl { margin-top: var(--fs-sp-4); }
+	.fx-curl pre, .fx-out pre { max-height: 28rem; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); font-size: var(--fs-fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+	.fx-statusline { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; margin-bottom: .75rem; }
+	.fx-headers { font-family: var(--fs-font-mono); font-size: var(--fs-fs-xs); margin: .5rem 0 .75rem; }
+	.fx-headers td { padding: .1rem .75rem .1rem 0; vertical-align: top; overflow-wrap: anywhere; }
+	.fx-headers td:first-child { color: var(--fs-text-muted); white-space: nowrap; }
+	.fx-out details > summary { cursor: pointer; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+	.fx-detail-empty { min-height: 22rem; }
+	@media (max-width: 991.98px) {
+		.fx-layout { grid-template-columns: minmax(0, 1fr); }
+		.fx-list-panel { position: static; }
+		.fx-list { max-height: 60vh; }
+	}
+	@media (prefers-reduced-motion: reduce) { .fx-group-head > i { transition: none; } }
 </style>
 <?php
 if ($view === 'guide'):
@@ -153,7 +199,7 @@ if ($view === 'guide'):
 <div class="row g-3 mb-3 fx-guide">
 	<div class="col-lg-7">
 		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Quick start')?></h2></div>
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-rocket" aria-hidden="true"></i><?=gettext('Quick start')?></h2></div>
 			<div class="panel-body fx-pad">
 				<ol class="fx-steps">
 					<li><strong><?=gettext('Enable the API and grant access')?></strong>
@@ -168,29 +214,29 @@ if ($view === 'guide'):
 					<li><strong><?=gettext('Send it with every request')?></strong>
 						<?=gettext('As a bearer token in the Authorization header:')?></li>
 				</ol>
-				<pre class="fx-code">curl -H "Authorization: Bearer $FREESENSE_API_KEY" \
+				<pre class="fs-console fx-code">curl -H "Authorization: Bearer $FREESENSE_API_KEY" \
   https://<?=$host?>/api/v1/me</pre>
 			</div>
 		</div>
 	</div>
 	<div class="col-lg-5">
 		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('OpenAPI document')?></h2></div>
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-file-code" aria-hidden="true"></i><?=gettext('OpenAPI document')?></h2></div>
 			<div class="panel-body fx-pad">
 				<p><?=sprintf(gettext('Every endpoint is described in an OpenAPI 3 document at %1$s (it needs an API key). Import it into an API client ' .
 				    'or a code generator. The download below is the same document, without needing a key.'), '<code>/api/v1/openapi.json</code>')?></p>
 				<div class="d-flex flex-wrap gap-2">
 					<a class="btn btn-sm btn-primary" href="system_restapi_explorer.php">
-						<i class="fa-solid fa-compass icon-embed-btn"></i><?=gettext('Open the API Explorer')?></a>
-					<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?download=openapi">
-						<i class="fa-solid fa-download icon-embed-btn"></i><?=gettext('Download openapi.json')?></a>
+						<i class="fa-solid fa-compass icon-embed-btn" aria-hidden="true"></i><?=gettext('Open the API Explorer')?></a>
+					<a class="btn btn-sm btn-outline-secondary" href="system_restapi_explorer.php?download=openapi">
+						<i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext('Download openapi.json')?></a>
 				</div>
 			</div>
 		</div>
 	</div>
 	<div class="col-md-6">
 		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-key fa-fw me-1"></i><?=gettext('Scopes')?></h2></div>
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-key" aria-hidden="true"></i><?=gettext('Scopes')?></h2></div>
 			<div class="panel-body fx-pad">
 				<p><?=htmlspecialchars(gettext('Each endpoint needs a scope such as firewall.aliases:read or firewall.aliases:write; a write scope includes reading.'))?></p>
 				<p><?=htmlspecialchars(gettext('The key\'s user holds a scope with GUI access to the page the endpoint mirrors, or with the "REST API - <area>" privilege. ' .
@@ -200,7 +246,7 @@ if ($view === 'guide'):
 	</div>
 	<div class="col-md-6">
 		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-layer-group fa-fw me-1"></i><?=gettext('Staged changes')?></h2></div>
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-layer-group" aria-hidden="true"></i><?=gettext('Staged changes')?></h2></div>
 			<div class="panel-body fx-pad">
 				<p><?=htmlspecialchars(gettext('Most changes are staged like in the GUI. Apply them with the area\'s POST .../apply endpoint, ' .
 				    'or add ?apply=true to the change to apply it at once.'))?></p>
@@ -210,7 +256,7 @@ if ($view === 'guide'):
 	</div>
 	<div class="col-md-6">
 		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-code-compare fa-fw me-1"></i><?=gettext('Concurrent changes (ETag)')?></h2></div>
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-code-compare" aria-hidden="true"></i><?=gettext('Concurrent changes (ETag)')?></h2></div>
 			<div class="panel-body fx-pad">
 				<p><?=htmlspecialchars(gettext('Responses carry an ETag of the configuration. Send it back as If-Match on a change to have it refused (412) ' .
 				    'when the configuration changed meanwhile.'))?></p>
@@ -220,7 +266,7 @@ if ($view === 'guide'):
 	</div>
 	<div class="col-md-6">
 		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation fa-fw me-1"></i><?=gettext('Disruptive operations')?></h2></div>
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Disruptive operations')?></h2></div>
 			<div class="panel-body fx-pad">
 				<p><?=htmlspecialchars(gettext('Interface assignments, service control, state resets, reboot, halt, packages, the system update and ' .
 				    'configuration restore require {"confirm": true} in the body.'))?></p>
@@ -229,21 +275,19 @@ if ($view === 'guide'):
 		</div>
 	</div>
 	<div class="col-12">
-		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-circle-exclamation fa-fw me-1"></i><?=gettext('Errors')?></h2></div>
-			<div class="panel-body">
-				<p class="fx-pad pb-0"><?=gettext('Errors are JSON:')?> <code>{"error": {"code": "...", "message": "...", "details": {...}}}</code></p>
-				<div class="table-responsive">
-					<table class="table table-sm table-striped mb-0">
-						<thead><tr><th style="width: 6em"><?=gettext('Status')?></th><th><?=gettext('Meaning')?></th></tr></thead>
-						<tbody>
+		<div class="panel panel-default fs-table">
+			<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><?=gettext('Errors')?></h2></div>
+			<p class="fx-pad mb-0"><?=gettext('Errors are JSON:')?> <code>{"error": {"code": "...", "message": "...", "details": {...}}}</code></p>
+			<div class="panel-body table-responsive">
+				<table class="table">
+					<thead><tr><th style="width: 7em"><?=gettext('Status')?></th><th><?=gettext('Meaning')?></th></tr></thead>
+					<tbody>
 <?php	foreach ($errors as $code => $meaning): ?>
-							<tr><td><span class="badge <?=($code === '401' || $code === '403') ? 'text-bg-danger' : 'text-bg-warning'?>"><?=$code?></span></td>
-								<td><?=htmlspecialchars($meaning)?></td></tr>
+						<tr><td><?=fs_badge(in_array((int)$code, array(401, 403), true) ? 'block' : 'warn', (string)$code)?></td>
+							<td><?=htmlspecialchars($meaning)?></td></tr>
 <?php	endforeach; ?>
-						</tbody>
-					</table>
-				</div>
+					</tbody>
+				</table>
 			</div>
 		</div>
 	</div>
@@ -263,8 +307,8 @@ foreach ($model['areas'] as $group) {
 	}
 }
 
-$method_class = array('GET' => 'text-bg-info', 'POST' => 'text-bg-success', 'PUT' => 'text-bg-warning',
-    'PATCH' => 'text-bg-secondary', 'DELETE' => 'text-bg-danger');
+/* fs-badge variant per method. */
+$method_class = array('GET' => 'info', 'POST' => 'pass', 'PUT' => 'warn', 'PATCH' => 'warn', 'DELETE' => 'block');
 $apply_label = array(
 	'staged' => array(gettext('staged'), gettext('Staged like the GUI: apply with the area\'s apply endpoint, or add ?apply=true to apply at once.')),
 	'applies' => array(gettext('applies'), gettext('Applies the pending (staged) changes of this area.')),
@@ -285,6 +329,7 @@ $i18n = array(
 	'send' => gettext('Send'),
 	'copy' => gettext('Copy'),
 	'copied' => gettext('Copied'),
+	'copyLink' => gettext('Copy a link to this endpoint'),
 	'includeKey' => gettext('Include my key (otherwise $FREESENSE_API_KEY)'),
 	'useEtag' => gettext('Use last ETag'),
 	'status' => gettext('Status'),
@@ -304,6 +349,10 @@ $i18n = array(
 	'access' => gettext('Your access'),
 	'youCan' => gettext('You can call this endpoint with a key of your own (unless the key is read-only or limited to other scopes).'),
 	'tryIt' => gettext('Try it'),
+	'request' => gettext('Request'),
+	'response' => gettext('Response'),
+	'reference' => gettext('Reference'),
+	'noResponse' => gettext('Send the request to see the response here.'),
 	'ifMatch' => gettext('If-Match (optional)'),
 	'ifMatchHelp' => gettext('Send the ETag of a previous response to refuse the change (412) when the configuration changed meanwhile.'),
 	'none' => gettext('none'),
@@ -316,167 +365,126 @@ $i18n = array(
 	'hint403' => gettext('The key\'s user lacks the scope, the key is read-only or limited to other scopes, or the request is not allowed from here.'),
 	'hint412' => gettext('The configuration changed since the ETag in If-Match was read. Read it again and retry.'),
 	'hint422' => gettext('The GUI validation refused the input:'),
-	'showing' => gettext('Showing %1$d of %2$d endpoints'),
+	'showing' => gettext('%1$d of %2$d endpoints'),
 	'notCallable' => gettext('Not available to you: %s'),
+	'notForYou' => gettext('Not for you'),
+	'read' => gettext('read'),
+	'write' => gettext('write'),
+	'confirm' => gettext('confirm'),
+	'confirmMaybe' => gettext('confirm?'),
+	'admin' => gettext('admin'),
+	'applyLabels' => array_map(function ($a) { return $a[0]; }, $apply_label),
+	'applyTitles' => array_map(function ($a) { return $a[1]; }, $apply_label),
+	'methodClass' => $method_class,
 );
 ?>
 
-<div class="panel panel-default">
-	<div class="panel-heading fx-panel-heading">
-		<h2 class="panel-title"><?=gettext('API key for "Try it"')?></h2>
-		<div class="d-flex flex-wrap gap-2">
-			<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?view=guide">
-				<i class="fa-solid fa-book-open icon-embed-btn"></i><?=gettext('Guide')?></a>
-			<a class="btn btn-sm btn-secondary" href="system_restapi_explorer.php?download=openapi"
-			    title="<?=gettext('The same document as GET /api/v1/openapi.json, without needing a key.')?>">
-				<i class="fa-solid fa-download icon-embed-btn"></i><?=gettext('Download openapi.json')?></a>
+<div class="panel panel-default fx-keycard">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext('API key for "Try it"')?></h2></div>
+	<div class="panel-body">
+		<div>
+			<label class="form-label visually-hidden" for="fx-key"><?=gettext('API key')?></label>
+			<div class="input-group">
+				<span class="input-group-text"><i class="fa-solid fa-key" aria-hidden="true"></i></span>
+				<input type="password" class="form-control fs-mono" id="fx-key" autocomplete="off" spellcheck="false"
+				    placeholder="fsk_..." data-lpignore="true" aria-describedby="fx-key-help" aria-label="<?=gettext('API key')?>" />
+				<button type="button" class="btn btn-outline-secondary" id="fx-key-show" title="<?=gettext('Show or hide the key')?>"
+				    aria-label="<?=gettext('Show or hide the key')?>"><i class="fa-solid fa-eye" aria-hidden="true"></i></button>
+				<button type="button" class="btn btn-outline-secondary" id="fx-key-clear" title="<?=gettext('Forget the key')?>"
+				    aria-label="<?=gettext('Forget the key')?>"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+			</div>
+			<small id="fx-key-note" class="text-danger d-block mt-1" role="status"></small>
+			<div class="form-check form-switch mt-1">
+				<input class="form-check-input" type="checkbox" role="switch" id="fx-key-remember" />
+				<label class="form-check-label" for="fx-key-remember"><?=gettext('Remember for this browser tab')?>
+					<span class="fs-muted small"><?=gettext('(sessionStorage; forgotten when the tab closes)')?></span></label>
+			</div>
+			<p class="fs-muted small mt-2 mb-0" id="fx-key-help"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i><?=gettext('The key stays in this browser tab. ' .
+			    'It is only sent as the Authorization header of the requests you send to /api/v1 from here, never to this page, never in a URL, ' .
+			    'and it is not stored on the firewall.')?></p>
 		</div>
-	</div>
-	<div class="panel-body fx-pad">
-		<div class="row g-4">
-			<div class="col-lg-7">
-				<label class="form-label" for="fx-key"><?=gettext('API key')?></label>
-				<div class="input-group">
-					<span class="input-group-text"><i class="fa-solid fa-key"></i></span>
-					<input type="password" class="form-control" id="fx-key" autocomplete="off" spellcheck="false"
-					    placeholder="fsk_..." data-lpignore="true" aria-describedby="fx-key-help" />
-					<button type="button" class="btn btn-secondary" id="fx-key-show" title="<?=gettext('Show or hide the key')?>"
-					    aria-label="<?=gettext('Show or hide the key')?>"><i class="fa-solid fa-eye"></i></button>
-					<button type="button" class="btn btn-secondary" id="fx-key-clear" title="<?=gettext('Forget the key')?>"
-					    aria-label="<?=gettext('Forget the key')?>"><i class="fa-solid fa-xmark"></i></button>
-				</div>
-				<small id="fx-key-note" class="text-danger d-block mt-1" role="status"></small>
-				<div class="form-check form-switch mt-2">
-					<input class="form-check-input" type="checkbox" role="switch" id="fx-key-remember" />
-					<label class="form-check-label" for="fx-key-remember"><?=gettext('Remember for this browser tab')?>
-						<span class="text-muted small"><?=gettext('(sessionStorage; forgotten when the tab closes)')?></span></label>
-				</div>
-				<p class="text-muted small mt-2 mb-0" id="fx-key-help"><i class="fa-solid fa-shield-halved me-1"></i><?=gettext('The key stays in this browser tab. ' .
-				    'It is only sent as the Authorization header of the requests you send to /api/v1 from here, never to this page, never in a URL, ' .
-				    'and it is not stored on the firewall.')?></p>
-			</div>
-			<div class="col-lg-5">
+		<div class="fx-keystat">
 <?php	if ($viewer === null): ?>
-				<p class="mb-0 text-muted"><?=htmlspecialchars(gettext('API keys are available to local users only, so no endpoint is marked as available to you.'))?></p>
+			<p class="mb-0 fs-muted"><?=htmlspecialchars(gettext('API keys are available to local users only, so no endpoint is marked as available to you.'))?></p>
 <?php	else: ?>
-				<div class="text-muted small"><?=htmlspecialchars(sprintf(gettext('Signed in as %s'), $me))?></div>
-				<div class="fx-stat"><?=(int)$callable_count?> <span class="text-muted fs-6 fw-normal">/ <?=(int)$model['count']?></span></div>
-				<p class="mb-1"><?=gettext('endpoints you could call with a key of your own')?></p>
-				<p class="text-muted small mb-0"><?=gettext('A read-only key or one limited to scopes allows fewer.')?>
+			<div class="fs-muted small"><?=htmlspecialchars(sprintf(gettext('Signed in as %s'), $me))?></div>
+			<div class="fx-keystat-value"><?=(int)$callable_count?> <span class="fs-muted small fw-normal">/ <?=(int)$model['count']?></span></div>
+			<div class="small"><?=gettext('endpoints you could call')?></div>
 <?php		if ($can_keys): ?>
-					<a href="system_restapi_keys.php"><?=gettext('Create a key')?></a>
+			<a class="btn btn-sm btn-outline-secondary mt-2" href="system_restapi_keys.php"><i class="fa-solid fa-key icon-embed-btn" aria-hidden="true"></i><?=gettext('My API keys')?></a>
 <?php		endif; ?>
-				</p>
 <?php	endif; ?>
-			</div>
 		</div>
 	</div>
 </div>
 
-<div class="row g-3">
-	<div class="col-lg-3 d-none d-lg-block">
-		<nav class="panel panel-default fx-areas" aria-label="<?=gettext('Areas')?>">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Areas')?></h2></div>
-			<div class="list-group list-group-flush" id="fx-area-nav">
-				<button type="button" class="list-group-item list-group-item-action active" data-area="" aria-current="true">
-					<span><?=gettext('All areas')?></span><span class="badge rounded-pill text-bg-secondary" data-count=""><?=(int)$model['count']?></span></button>
-<?php	foreach ($model['areas'] as $group): ?>
-				<button type="button" class="list-group-item list-group-item-action" data-area="<?=htmlspecialchars($group['id'])?>">
-					<span><?=htmlspecialchars($group['label'])?></span><span class="badge rounded-pill text-bg-secondary"
-					    data-count="<?=htmlspecialchars($group['id'])?>"><?=count($group['endpoints'])?></span></button>
-<?php	endforeach; ?>
-			</div>
-		</nav>
-	</div>
-	<div class="col-lg-9" id="fx-endpoints">
-		<div class="panel panel-default">
-			<div class="panel-heading"><h2 class="panel-title"><?=gettext('Endpoints')?></h2></div>
-			<div class="panel-body fx-pad">
-				<div class="row g-2 align-items-center">
-					<div class="col-md">
-						<div class="input-group">
-							<span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-							<input type="search" class="form-control" id="fx-search" autocomplete="off"
-							    placeholder="<?=gettext('Search path, summary, area or scope')?>" aria-label="<?=gettext('Search endpoints')?>" />
-						</div>
-					</div>
-					<div class="col-6 col-md-auto">
-						<select class="form-select" id="fx-method" aria-label="<?=gettext('Method')?>">
-							<option value=""><?=gettext('All methods')?></option>
-<?php	foreach (array_keys($method_class) as $m): ?>
-							<option value="<?=$m?>"><?=$m?></option>
-<?php	endforeach; ?>
-						</select>
-					</div>
-					<div class="col-6 col-md-auto">
-						<select class="form-select" id="fx-access" aria-label="<?=gettext('Access')?>">
-							<option value=""><?=gettext('All endpoints')?></option>
-							<option value="callable"><?=gettext('Available to me')?></option>
-							<option value="read"><?=gettext('Reads')?></option>
-							<option value="write"><?=gettext('Writes')?></option>
-						</select>
-					</div>
-					<div class="col-12 d-lg-none">
-						<select class="form-select" id="fx-area" aria-label="<?=gettext('Area')?>">
-							<option value=""><?=gettext('All areas')?></option>
-<?php	foreach ($model['areas'] as $group): ?>
-							<option value="<?=htmlspecialchars($group['id'])?>"><?=htmlspecialchars($group['label'])?></option>
-<?php	endforeach; ?>
-						</select>
-					</div>
+<div class="fx-layout">
+	<nav class="panel panel-default fx-list-panel" aria-label="<?=gettext('Endpoints')?>">
+		<div class="fs-toolbar">
+			<div class="fs-toolbar-default">
+				<div class="fs-search" role="search">
+					<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+					<input type="search" class="form-control" id="fx-search" autocomplete="off"
+					    placeholder="<?=gettext('Search path, summary, area or scope…')?>" aria-label="<?=gettext('Search endpoints')?>" />
 				</div>
-				<p class="text-muted small mt-2 mb-0" id="fx-count" aria-live="polite"></p>
+				<select class="form-select form-select-sm" id="fx-method" aria-label="<?=gettext('Method')?>">
+					<option value=""><?=gettext('All methods')?></option>
+<?php	foreach (array_keys($method_class) as $m): ?>
+					<option value="<?=$m?>"><?=$m?></option>
+<?php	endforeach; ?>
+				</select>
+				<select class="form-select form-select-sm" id="fx-access" aria-label="<?=gettext('Access')?>">
+					<option value=""><?=gettext('All endpoints')?></option>
+					<option value="callable"><?=gettext('Available to me')?></option>
+					<option value="read"><?=gettext('Reads')?></option>
+					<option value="write"><?=gettext('Writes')?></option>
+				</select>
+				<select class="form-select form-select-sm" id="fx-area" aria-label="<?=gettext('Area')?>">
+					<option value=""><?=gettext('All areas')?></option>
+<?php	foreach ($model['areas'] as $group): ?>
+					<option value="<?=htmlspecialchars($group['id'])?>"><?=htmlspecialchars($group['label'])?></option>
+<?php	endforeach; ?>
+				</select>
+				<span class="fs-toolbar-spacer"></span>
+				<span class="fs-toolbar-count" id="fx-count" aria-live="polite"></span>
 			</div>
 		</div>
-		<div class="alert alert-info d-none" id="fx-none"><?=gettext('No endpoint matches the filters.')?></div>
-
+		<div class="fx-list" id="fx-list">
 <?php foreach ($model['areas'] as $group): ?>
-		<div class="panel panel-default fx-area" data-area="<?=htmlspecialchars($group['id'])?>">
-			<div class="panel-heading"><h2 class="panel-title"><?=htmlspecialchars($group['label'])?>
-				<?php if ($group['id'] !== 'meta'): ?><code class="ms-1 fw-normal"><?=htmlspecialchars($group['id'])?></code><?php endif; ?>
-				<span class="badge text-bg-secondary ms-1"><?=count($group['endpoints'])?></span></h2></div>
-			<div class="panel-body">
-				<div class="table-responsive">
-					<table class="table table-hover table-sm mb-0">
-						<tbody>
+			<section class="fx-group" data-area="<?=htmlspecialchars($group['id'])?>">
+				<button type="button" class="fx-group-head" aria-expanded="true">
+					<i class="fa-solid fa-chevron-down" aria-hidden="true"></i><span><?=htmlspecialchars($group['label'])?></span>
+<?php	if ($group['id'] !== 'meta'): ?>
+					<span class="fx-group-id"><?=htmlspecialchars($group['id'])?></span>
+<?php	endif; ?>
+					<span class="fx-group-n" data-count><?=count($group['endpoints'])?></span>
+				</button>
+				<ul>
 <?php	foreach ($group['endpoints'] as $ep):
-		$f = $ep['flags'];
 		$search = strtolower("{$ep['method']} {$ep['url']} {$ep['summary']} {$group['label']} {$ep['area']} {$ep['scope']} {$ep['page']}");
 ?>
-							<tr class="fx-row<?=$ep['callable'] ? '' : ' fx-denied'?>" id="<?=$ep['id']?>" data-ep="<?=$ep['id']?>"
-							    data-method="<?=htmlspecialchars($ep['method'])?>" data-kind="<?=$f['kind']?>" data-callable="<?=$ep['callable'] ? '1' : '0'?>"
-							    data-search="<?=htmlspecialchars($search)?>" tabindex="0" aria-expanded="false">
-								<td style="width: 5.5em"><span class="badge fx-method <?=$method_class[$ep['method']] ?? 'text-bg-secondary'?>"><?=htmlspecialchars($ep['method'])?></span></td>
-								<td><div class="fx-path"><?=htmlspecialchars($ep['url'])?></div>
-									<div class="fx-summary"><?=htmlspecialchars($ep['summary'])?></div></td>
-								<td class="fx-flags text-end text-nowrap">
-<?php		if ($ep['scope'] !== ''): ?>
-									<span class="badge fx-soft d-none d-xl-inline-block" title="<?=gettext('Required scope')?>"><?=htmlspecialchars($ep['scope'])?></span>
-<?php		endif; ?>
-									<span class="badge <?=($f['kind'] === 'write') ? 'text-bg-warning' : 'text-bg-secondary'?>"><?=($f['kind'] === 'write') ? gettext('write') : gettext('read')?></span>
-<?php		if ($f['apply'] !== ''): ?>
-									<span class="badge fx-soft" title="<?=htmlspecialchars($apply_label[$f['apply']][1])?>"><?=htmlspecialchars($apply_label[$f['apply']][0])?></span>
-<?php		endif;
-		if ($f['confirm'] !== ''): ?>
-									<span class="badge text-bg-danger" title="<?=htmlspecialchars(($f['confirm'] === 'always') ? $i18n['confirmAlways'] : $i18n['confirmConditional'])?>"><?=($f['confirm'] === 'always') ? gettext('confirm') : gettext('confirm?')?></span>
-<?php		endif;
-		if ($f['admin']): ?>
-									<span class="badge text-bg-danger" title="<?=htmlspecialchars($i18n['adminOnly'])?>"><?=gettext('admin')?></span>
-<?php		endif;
-		if (!$ep['callable']): ?>
-									<span class="badge text-bg-dark" title="<?=htmlspecialchars(sprintf($i18n['notCallable'], $ep['reason']))?>"><i class="fa-solid fa-lock"></i> <?=gettext('not for you')?></span>
-<?php		endif; ?>
-								</td>
-								<td class="fx-chev text-end" style="width: 2em"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></td>
-							</tr>
+					<li><a class="fx-item<?=$ep['callable'] ? '' : ' fx-denied'?>" href="#<?=htmlspecialchars($ep['id'])?>" id="<?=htmlspecialchars($ep['id'])?>"
+					    data-ep="<?=htmlspecialchars($ep['id'])?>" data-method="<?=htmlspecialchars($ep['method'])?>" data-kind="<?=htmlspecialchars($ep['flags']['kind'])?>"
+					    data-callable="<?=$ep['callable'] ? '1' : '0'?>" data-search="<?=htmlspecialchars($search)?>">
+						<span class="fs-badge fs-badge--<?=$method_class[$ep['method']] ?? 'neutral'?> fx-method"><?=htmlspecialchars($ep['method'])?></span>
+						<span class="fx-path"><?=htmlspecialchars($ep['url'])?><?php if (!$ep['callable']): ?><i class="fa-solid fa-lock fx-lock"
+						    title="<?=htmlspecialchars(sprintf($i18n['notCallable'], $ep['reason']))?>" aria-label="<?=htmlspecialchars($i18n['notForYou'])?>"></i><?php endif; ?></span>
+						<span class="fx-sum"><?=htmlspecialchars($ep['summary'])?></span>
+					</a></li>
 <?php	endforeach; ?>
-						</tbody>
-					</table>
-				</div>
-			</div>
-		</div>
+				</ul>
+			</section>
 <?php endforeach; ?>
-	</div>
+			<div class="fx-noresults d-none" id="fx-none"><?=gettext('No endpoint matches the filters.')?></div>
+		</div>
+	</nav>
+
+	<section class="panel panel-default fx-detail" id="fx-detail" aria-live="polite" aria-label="<?=gettext('Selected endpoint')?>">
+		<div class="fs-tool-empty fx-detail-empty">
+			<i class="fa-solid fa-compass" aria-hidden="true"></i>
+			<span><?=gettext('Select an endpoint to see its reference and try it.')?></span>
+		</div>
+	</section>
 </div>
 
 <script type="application/json" id="fx-model"><?=restapi_explorer_json($model)?></script>
@@ -509,6 +517,9 @@ events.push(function() {
 		(kids || []).forEach(function(c) { if (c) { n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); } });
 		return n;
 	}
+	function icon(cls) { return el('i', {cls: 'fa-solid ' + cls, 'aria-hidden': 'true'}); }
+	function methodBadge(m) { return el('span', {cls: 'fs-badge fs-badge--' + (T.methodClass[m] || 'neutral') + ' fx-method', text: m}); }
+	function chip(text, cls, title) { var c = el('span', {cls: 'fs-chip ' + (cls || ''), text: text}); if (title) { c.title = title; } return c; }
 
 	/* ---- the key: memory, optionally sessionStorage ---- */
 	var keyField = document.getElementById('fx-key');
@@ -534,161 +545,198 @@ events.push(function() {
 		keyField.type = (keyField.type === 'password') ? 'text' : 'password';
 	});
 
-	/* ---- filtering: search, method, access and the area (side navigation, or a select on small screens) ---- */
-	var rows = Array.prototype.slice.call(document.querySelectorAll('tr.fx-row'));
+	/* ---- the endpoint list: search, method, access and area; collapsible groups ---- */
+	var items = Array.prototype.slice.call(document.querySelectorAll('a.fx-item'));
+	var groups = Array.prototype.slice.call(document.querySelectorAll('.fx-group'));
 	var search = document.getElementById('fx-search'), fMethod = document.getElementById('fx-method'),
 	    fArea = document.getElementById('fx-area'), fAccess = document.getElementById('fx-access');
-	var areaNav = Array.prototype.slice.call(document.querySelectorAll('#fx-area-nav [data-area]'));
-	var area = '';
+	var list = document.getElementById('fx-list');
 	function applyFilter() {
 		var words = search.value.toLowerCase().split(/\s+/).filter(function(w) { return w !== ''; });
-		var shown = 0, perArea = {}, any = 0;
-		rows.forEach(function(r) {
-			var rowArea = r.closest('.fx-area').dataset.area;
-			var match = words.every(function(w) { return r.dataset.search.indexOf(w) !== -1; }) &&
-			    (fMethod.value === '' || r.dataset.method === fMethod.value) &&
-			    (fAccess.value === '' || (fAccess.value === 'callable' ? r.dataset.callable === '1' : r.dataset.kind === fAccess.value));
-			var ok = match && (area === '' || rowArea === area);
-			perArea[rowArea] = (perArea[rowArea] || 0) + (match ? 1 : 0);
-			any += match ? 1 : 0;
-			r.classList.toggle('d-none', !ok);
-			var d = r.nextElementSibling;
-			if (d && d.classList.contains('fx-details')) { d.classList.toggle('d-none', !ok || r.getAttribute('aria-expanded') !== 'true'); }
-			shown += ok ? 1 : 0;
-		});
-		document.querySelectorAll('.fx-area').forEach(function(p) {
-			p.classList.toggle('d-none', p.querySelector('tr.fx-row:not(.d-none)') === null);
-		});
-		/* The side navigation shows how many endpoints of each area match the other filters. */
-		areaNav.forEach(function(b) {
-			var n = (b.dataset.area === '') ? any : (perArea[b.dataset.area] || 0);
-			b.querySelector('[data-count]').textContent = n;
-			b.classList.toggle('fx-empty', n === 0);
-			b.classList.toggle('active', b.dataset.area === area);
-			if (b.dataset.area === area) { b.setAttribute('aria-current', 'true'); } else { b.removeAttribute('aria-current'); }
+		var filtering = words.length > 0 || fMethod.value !== '' || fAccess.value !== '';
+		var shown = 0;
+		groups.forEach(function(g) {
+			var inArea = (fArea.value === '' || g.dataset.area === fArea.value), n = 0;
+			g.querySelectorAll('a.fx-item').forEach(function(a) {
+				var ok = inArea && words.every(function(w) { return a.dataset.search.indexOf(w) !== -1; }) &&
+				    (fMethod.value === '' || a.dataset.method === fMethod.value) &&
+				    (fAccess.value === '' || (fAccess.value === 'callable' ? a.dataset.callable === '1' : a.dataset.kind === fAccess.value));
+				a.parentNode.hidden = !ok;
+				n += ok ? 1 : 0;
+			});
+			g.hidden = (n === 0);
+			g.querySelector('[data-count]').textContent = n;
+			/* While filtering, every group with a match is open. */
+			if (filtering && n > 0) { setGroup(g, true); }
+			shown += n;
 		});
 		document.getElementById('fx-none').classList.toggle('d-none', shown !== 0);
 		document.getElementById('fx-count').textContent = fmt(T.showing, shown, model.count);
 	}
-	function setArea(a) {
-		area = a;
-		fArea.value = a;
-		applyFilter();
+	function setGroup(g, open) {
+		g.querySelector('.fx-group-head').setAttribute('aria-expanded', open ? 'true' : 'false');
+		if (open) { g.removeAttribute('data-collapsed'); } else { g.setAttribute('data-collapsed', ''); }
 	}
+	groups.forEach(function(g) {
+		var head = g.querySelector('.fx-group-head');
+		head.addEventListener('click', function() { setGroup(g, head.getAttribute('aria-expanded') !== 'true'); });
+	});
 	var timer = null;
 	search.addEventListener('input', function() { clearTimeout(timer); timer = setTimeout(applyFilter, 120); });
-	[fMethod, fAccess].forEach(function(s) { s.addEventListener('change', applyFilter); });
-	fArea.addEventListener('change', function() { setArea(fArea.value); });
-	areaNav.forEach(function(b) {
-		b.addEventListener('click', function() {
-			setArea(b.dataset.area);
-			var top = document.getElementById('fx-endpoints').getBoundingClientRect().top;
-			if (top < 0) { document.getElementById('fx-endpoints').scrollIntoView({block: 'start'}); }
-		});
+	search.addEventListener('keydown', function(e) {
+		if (e.key === 'Escape' && search.value !== '') { e.preventDefault(); search.value = ''; applyFilter(); }
+		if (e.key === 'ArrowDown') { e.preventDefault(); var first = visibleItems()[0]; if (first) { first.focus(); } }
+	});
+	[fMethod, fAccess, fArea].forEach(function(s) { s.addEventListener('change', applyFilter); });
+	function visibleItems() { return items.filter(function(a) { return !a.parentNode.hidden && !a.closest('.fx-group').hidden && !a.closest('[data-collapsed]'); }); }
+	/* Up and down move through the shown endpoints. */
+	list.addEventListener('keydown', function(e) {
+		if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !e.target.classList.contains('fx-item')) { return; }
+		e.preventDefault();
+		var vis = visibleItems(), at = vis.indexOf(e.target);
+		var next = vis[at + ((e.key === 'ArrowDown') ? 1 : -1)];
+		if (next) { next.focus(); } else if (e.key === 'ArrowUp') { search.focus(); }
 	});
 	applyFilter();
 
-	/* ---- details and "Try it" ---- */
+	/* ---- the selected endpoint: reference, request ("Try it") and response ---- */
 	function shq(s) { return "'" + String(s).replace(/'/g, "'\''") + "'"; }
-	function dl(pairs) {
-		var d = el('dl', {cls: 'row'});
-		pairs.forEach(function(p) {
-			d.appendChild(el('dt', {cls: 'col-sm-4', text: p[0]}));
-			var dd = el('dd', {cls: 'col-sm-8'});
-			(Array.isArray(p[1]) ? p[1] : [p[1]]).forEach(function(c) { dd.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
-			d.appendChild(dd);
-		});
-		return d;
-	}
-	function codeList(items) {
-		if (items.length === 0) { return T.none; }
-		var ul = el('ul', {cls: 'list-unstyled mb-0'});
-		items.forEach(function(i) { ul.appendChild(el('li', {}, [el('code', {text: i[0]}), i[1] ? ' - ' + i[1] : ''])); });
+	function codeList(entries) {
+		if (entries.length === 0) { return T.none; }
+		var ul = el('ul');
+		entries.forEach(function(i) { ul.appendChild(el('li', {}, [el('code', {text: i[0]}), i[1] ? ' - ' + i[1] : ''])); });
 		return ul;
 	}
+	function card(iconCls, title, aside) {
+		var head = el('div', {cls: 'fx-card-head'}, [icon(iconCls), el('span', {text: title})]);
+		if (aside) { head.appendChild(aside); }
+		var body = el('div', {cls: 'fx-card-body'});
+		return {node: el('div', {cls: 'fx-card'}, [head, body]), head: head, body: body};
+	}
 
-	/* Reference on the left, "Try it" on the right (stacked on narrow screens). */
 	function buildDetails(ep) {
-		var f = ep.flags, box = el('div', {cls: 'row g-3'}), ref = el('div', {cls: 'col-xl-5'});
+		var f = ep.flags, wrap = el('div');
+		var head = el('div', {cls: 'fx-detail-head'}, [methodBadge(ep.method), el('h2', {cls: 'fx-path', text: ep.url})]);
+		var link = el('button', {type: 'button', cls: 'btn btn-sm btn-outline-secondary', title: T.copyLink, 'aria-label': T.copyLink}, [icon('fa-link')]);
+		link.addEventListener('click', function() {
+			var url = window.location.href.split('#')[0] + '#' + ep.id;
+			if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(url); }
+			link.firstChild.className = 'fa-solid fa-check';
+			setTimeout(function() { link.firstChild.className = 'fa-solid fa-link'; }, 1500);
+		});
+		head.appendChild(link);
+		wrap.appendChild(head);
+		if (ep.summary) { wrap.appendChild(el('p', {cls: 'fx-detail-sum', text: ep.summary})); }
+
+		var chips = el('div', {cls: 'fs-chips fx-detail-chips'});
+		if (ep.scope) { chips.appendChild(chip(ep.scope, 'fs-chip--mono', T.scope)); }
+		chips.appendChild(chip(f.kind === 'write' ? T.write : T.read, f.kind === 'write' ? 'is-warn' : ''));
+		if (f.apply) { chips.appendChild(chip(T.applyLabels[f.apply], '', T.applyTitles[f.apply])); }
+		if (f.confirm) { chips.appendChild(chip(f.confirm === 'always' ? T.confirm : T.confirmMaybe, 'is-warn',
+		    f.confirm === 'always' ? T.confirmAlways : T.confirmConditional)); }
+		if (f.admin) { chips.appendChild(chip(T.admin, 'is-warn', T.adminOnly)); }
+		if (!ep.callable) { chips.appendChild(chip(T.notForYou, 'is-na', fmt(T.notCallable, ep.reason))); }
+		wrap.appendChild(chips);
+
+		var body = el('div', {cls: 'fx-detail-body'});
 		if (f.destructive || f.admin || f.confirm !== '') {
-			var warn = el('div', {cls: 'alert alert-danger py-2 mb-2 small'});
 			var parts = [];
 			if (f.destructive) { parts.push(T.confirmDanger); }
 			if (f.confirm === 'always') { parts.push(T.confirmAlways); }
 			if (f.confirm === 'conditional') { parts.push(T.confirmConditional); }
 			if (f.admin) { parts.push(T.adminOnly); }
-			warn.appendChild(el('i', {cls: 'fa-solid fa-triangle-exclamation me-1'}));
-			warn.appendChild(document.createTextNode(parts.join(' ')));
-			ref.appendChild(warn);
+			body.appendChild(el('div', {cls: 'alert alert-warning py-2 mb-0 small', role: 'note'},
+			    [icon('fa-triangle-exclamation me-1'), parts.join(' ')]));
 		}
-		var access = ep.callable ? el('span', {cls: 'text-success', text: T.youCan}) : el('span', {cls: 'text-danger', text: ep.reason});
+		var access = ep.callable ? el('span', {text: T.youCan}) : el('span', {cls: 'text-danger', text: ep.reason});
 		var bodyDoc = null;
 		if (ep.body) {
 			bodyDoc = ep.body.properties ? el('details', {}, [el('summary', {cls: 'small', text: T.showSchema}),
-			    el('pre', {cls: 'mb-0 mt-1', text: JSON.stringify(ep.body, null, 2)})]) :
+			    el('pre', {cls: 'fs-console mt-1', text: JSON.stringify(ep.body, null, 2)})]) :
 			    (ep.body.description || JSON.stringify(ep.body));
 		}
-		var pairs = [[T.summary, ep.summary], [T.scope, ep.scope ? el('code', {text: ep.scope}) : T.none], [T.guiPage, ep.page]];
+		var pairs = [[T.scope, ep.scope ? el('code', {text: ep.scope}) : T.none], [T.guiPage, ep.page]];
 		if (ep.privileges.length) { pairs.push([T.grantedBy, ep.privileges.join(' | ')]); }
 		pairs.push([T.pathParams, codeList(ep.params.map(function(p) { return [p, '']; }))]);
 		pairs.push([T.queryParams, codeList(ep.query.map(function(q) { return [q.name, q.description]; }))]);
 		if (bodyDoc) { pairs.push([T.requestBody, bodyDoc]); }
 		pairs.push([T.responseType, ep.produces], [T.access, access]);
-		ref.appendChild(dl(pairs));
-		box.appendChild(ref);
-		box.appendChild(el('div', {cls: 'col-xl-7'}, [buildTry(ep)]));
-		return box;
+		var ref = card('fa-book', T.reference);
+		ref.node.classList.add('fx-ref');
+		var dlist = el('dl');
+		pairs.forEach(function(p) {
+			dlist.appendChild(el('dt', {text: p[0]}));
+			var dd = el('dd');
+			(Array.isArray(p[1]) ? p[1] : [p[1]]).forEach(function(c) { dd.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+			dlist.appendChild(dd);
+		});
+		ref.body.appendChild(dlist);
+		body.appendChild(ref.node);
+		buildTry(ep).forEach(function(n) { body.appendChild(n); });
+		wrap.appendChild(body);
+		return wrap;
 	}
 
+	/* The request card (fields, Send, curl) and the response card. */
 	function buildTry(ep) {
-		var f = ep.flags, wrap = el('div', {cls: 'fx-try'});
-		wrap.appendChild(el('h3', {cls: 'h6 mb-2', text: T.tryIt}));
+		var f = ep.flags, req = card('fa-paper-plane', T.request + ' · ' + T.tryIt);
+		var wrap = req.body;
 		var inputs = {}, query = {};
-		var grid = el('div', {cls: 'row g-2 mb-2'});
+		var grid = el('div', {cls: 'fx-fields'});
 		ep.params.forEach(function(p) {
 			inputs[p] = el('input', {type: 'text', cls: 'form-control form-control-sm', placeholder: p, 'aria-label': p, autocomplete: 'off'});
-			grid.appendChild(el('div', {cls: 'col-sm-6'}, [el('label', {cls: 'form-label small mb-0', text: '{' + p + '}'}), inputs[p]]));
+			grid.appendChild(el('div', {}, [el('label', {cls: 'form-label', text: '{' + p + '}'}), inputs[p]]));
 		});
 		ep.query.forEach(function(q) {
 			query[q.name] = el('input', {type: 'text', cls: 'form-control form-control-sm', placeholder: q.description, title: q.description,
 			    'aria-label': q.name, autocomplete: 'off'});
-			grid.appendChild(el('div', {cls: 'col-sm-6'}, [el('label', {cls: 'form-label small mb-0', text: '?' + q.name}), query[q.name]]));
+			grid.appendChild(el('div', {}, [el('label', {cls: 'form-label', text: '?' + q.name}), query[q.name]]));
 		});
 		var ifMatch = null;
 		if (f.kind === 'write') {
-			ifMatch = el('input', {type: 'text', cls: 'form-control form-control-sm', title: T.ifMatchHelp, autocomplete: 'off'});
+			ifMatch = el('input', {type: 'text', cls: 'form-control form-control-sm', title: T.ifMatchHelp, 'aria-label': T.ifMatch, autocomplete: 'off'});
 			var useEtag = el('button', {type: 'button', cls: 'btn btn-sm btn-outline-secondary', text: T.useEtag});
 			useEtag.addEventListener('click', function() { ifMatch.value = lastEtag; update(); });
-			grid.appendChild(el('div', {cls: 'col-sm-6'}, [el('label', {cls: 'form-label small mb-0', text: T.ifMatch}),
+			grid.appendChild(el('div', {}, [el('label', {cls: 'form-label', text: T.ifMatch}),
 			    el('div', {cls: 'input-group input-group-sm'}, [ifMatch, useEtag])]));
 		}
 		if (grid.childNodes.length) { wrap.appendChild(grid); }
 		var body = null;
 		if (ep.method !== 'GET' && (ep.body || ep.method === 'POST' || ep.method === 'PUT' || ep.method === 'PATCH')) {
-			body = el('textarea', {cls: 'form-control mb-2', rows: Math.min(14, Math.max(3, (ep.example || '{}').split('\n').length + 1)),
-			    spellcheck: 'false', 'aria-label': T.requestBody});
+			var bodyId = ep.id + '-body';
+			body = el('textarea', {id: bodyId, cls: 'form-control mb-3', rows: Math.min(14, Math.max(3, (ep.example || '{}').split('\n').length + 1)),
+			    spellcheck: 'false'});
 			body.value = ep.example || (ep.body ? '{\n}' : '');
-			wrap.appendChild(el('label', {cls: 'form-label small mb-0', text: T.requestBody + ' (JSON)'}));
+			wrap.appendChild(el('label', {cls: 'form-label', 'for': bodyId, text: T.requestBody + ' (JSON)'}));
 			wrap.appendChild(body);
 		}
 		var send = el('button', {type: 'button', cls: 'btn btn-sm fx-send ' + (f.destructive ? 'btn-danger' : 'btn-primary')},
-		    [el('i', {cls: 'fa-solid fa-paper-plane icon-embed-btn'}), T.send]);
+		    [icon('fa-paper-plane icon-embed-btn'), T.send]);
 		var confirmBox = el('div', {cls: 'alert alert-warning py-2 mt-2 d-none'});
-		var msg = el('div', {cls: 'text-danger small mt-1'});
-		wrap.appendChild(el('div', {}, [send]));
+		var msg = el('div', {cls: 'text-danger small mt-1', role: 'status'});
+		wrap.appendChild(el('div', {cls: 'fx-actions'}, [send]));
 		wrap.appendChild(msg);
 		wrap.appendChild(confirmBox);
 
 		var incKey = el('input', {type: 'checkbox', cls: 'form-check-input'});
-		var curlPre = el('pre', {cls: 'mb-1'});
-		var copy = el('button', {type: 'button', cls: 'btn btn-sm btn-outline-secondary', text: T.copy});
+		var curlPre = el('pre', {cls: 'fs-console mb-2'});
+		var copy = el('button', {type: 'button', cls: 'btn btn-sm btn-outline-secondary'}, [icon('fa-copy icon-embed-btn'), el('span', {text: T.copy})]);
 		var incId = ep.id + '-inckey';
 		incKey.id = incId;
-		wrap.appendChild(el('div', {cls: 'mt-2'}, [el('label', {cls: 'form-label small mb-0', text: T.curl}), curlPre,
-		    el('div', {cls: 'd-flex gap-3 align-items-center'}, [copy,
+		wrap.appendChild(el('div', {cls: 'fx-curl'}, [el('div', {cls: 'form-label', text: T.curl}), curlPre,
+		    el('div', {cls: 'fx-actions'}, [copy,
 		    el('div', {cls: 'form-check mb-0'}, [incKey, el('label', {cls: 'form-check-label small', 'for': incId, text: T.includeKey})])])]));
-		var out = el('div', {cls: 'fx-out mt-2'});
-		wrap.appendChild(out);
+
+		var res = card('fa-reply', T.response);
+		var aside = el('span', {cls: 'fx-card-aside'});
+		res.head.appendChild(aside);
+		var out = el('div', {cls: 'fx-out'});
+		res.body.appendChild(out);
+		function emptyOut() {
+			out.textContent = '';
+			out.appendChild(el('div', {cls: 'fs-tool-empty'}, [icon('fa-reply'), el('span', {text: T.noResponse})]));
+		}
+		emptyOut();
 
 		/* Returns {url, body} or throws a message. */
 		function request() {
@@ -725,23 +773,24 @@ events.push(function() {
 			var t = curlPre.textContent;
 			if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(t); }
 			else { var a = el('textarea'); a.value = t; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }
-			copy.textContent = T.copied;
-			setTimeout(function() { copy.textContent = T.copy; }, 1500);
+			copy.lastChild.textContent = T.copied;
+			setTimeout(function() { copy.lastChild.textContent = T.copy; }, 1500);
 		});
 		update();
 
-		function showResponse(res, text, ms) {
+		function showResponse(r, text, ms) {
 			out.textContent = '';
-			var cls = res.ok ? 'text-bg-success' : (res.status >= 500 ? 'text-bg-danger' : 'text-bg-warning');
-			out.appendChild(el('p', {cls: 'mb-1'}, [T.status + ': ', el('span', {cls: 'badge ' + cls + ' fx-status', text: res.status + ' ' + res.statusText}),
-			    '  ' + T.duration + ': ' + ms + ' ms']));
-			var type = res.headers.get('Content-Type') || '', json = null;
+			var variant = r.ok ? 'pass' : (r.status >= 500 ? 'block' : 'warn');
+			aside.textContent = ms + ' ms';
+			out.appendChild(el('div', {cls: 'fx-statusline'}, [el('span', {cls: 'fs-badge fs-badge--' + variant + ' fx-status', text: r.status + ' ' + r.statusText}),
+			    el('span', {cls: 'small fs-muted', text: T.duration + ': ' + ms + ' ms'})]));
+			var type = r.headers.get('Content-Type') || '', json = null;
 			if (type.indexOf('json') !== -1) { try { json = JSON.parse(text); } catch (e) {} }
-			if (!res.ok && json && json.error) {
+			if (!r.ok && json && json.error) {
 				var err = el('div', {cls: 'alert alert-danger py-2 mb-2 fx-error'});
 				err.appendChild(el('strong', {text: (json.error.code || T.errorTitle) + ': '}));
 				err.appendChild(document.createTextNode(json.error.message || ''));
-				var hint = {401: T.hint401, 403: T.hint403, 412: T.hint412, 422: T.hint422}[res.status];
+				var hint = {401: T.hint401, 403: T.hint403, 412: T.hint412, 422: T.hint422}[r.status];
 				if (hint) { err.appendChild(el('div', {cls: 'small', text: hint})); }
 				var msgs = json.error.details && Array.isArray(json.error.details.messages) ? json.error.details.messages : [];
 				if (msgs.length) {
@@ -751,13 +800,13 @@ events.push(function() {
 				}
 				out.appendChild(err);
 			}
-			var ht = el('table', {cls: 'fx-headers mb-2'});
-			res.headers.forEach(function(v, k) { ht.appendChild(el('tr', {}, [el('td', {text: k}), el('td', {text: v})])); });
-			out.appendChild(el('details', {}, [el('summary', {cls: 'small', text: T.headers + (res.headers.get('ETag') ? ' (ETag ' + res.headers.get('ETag') + ')' : '')}), ht]));
+			var ht = el('table', {cls: 'fx-headers'});
+			r.headers.forEach(function(v, k) { ht.appendChild(el('tr', {}, [el('td', {text: k}), el('td', {text: v})])); });
+			out.appendChild(el('details', {}, [el('summary', {text: T.headers + (r.headers.get('ETag') ? ' (ETag ' + r.headers.get('ETag') + ')' : '')}), ht]));
 			var shown = json !== null ? JSON.stringify(json, null, 2) : text;
 			var limit = 500000;
-			out.appendChild(el('label', {cls: 'form-label small mb-0', text: T.body + (shown.length > limit ? ' ' + T.truncated : '')}));
-			out.appendChild(el('pre', {cls: 'fx-body', text: shown.length > limit ? shown.slice(0, limit) : shown}));
+			out.appendChild(el('div', {cls: 'form-label mt-2', text: T.body + (shown.length > limit ? ' ' + T.truncated : '')}));
+			out.appendChild(el('pre', {cls: 'fs-console fx-body', text: shown.length > limit ? shown.slice(0, limit) : shown}));
 		}
 
 		function run(r) {
@@ -765,15 +814,16 @@ events.push(function() {
 			if (r.body !== '') { headers['Content-Type'] = 'application/json'; }
 			if (ifMatch && ifMatch.value.trim() !== '') { headers['If-Match'] = ifMatch.value.trim(); }
 			out.textContent = T.sending;
+			aside.textContent = '';
 			send.disabled = true;
 			var t0 = performance.now();
 			fetch(r.url, {method: ep.method, headers: headers, body: (r.body !== '') ? r.body : undefined,
 			    credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer'})
-			.then(function(res) {
-				return res.text().then(function(text) {
-					var etag = res.headers.get('ETag');
+			.then(function(resp) {
+				return resp.text().then(function(text) {
+					var etag = resp.headers.get('ETag');
 					if (etag) { lastEtag = etag; }
-					showResponse(res, text, Math.round(performance.now() - t0));
+					showResponse(resp, text, Math.round(performance.now() - t0));
 				});
 			})
 			.catch(function(e) { out.textContent = fmt(T.networkError, e.message); })
@@ -793,31 +843,42 @@ events.push(function() {
 			confirmBox.appendChild(el('p', {cls: 'mb-2', text: fmt(T.confirmWrite, ep.method + ' ' + r.url)}));
 			if (f.destructive) { confirmBox.appendChild(el('p', {cls: 'mb-2 fw-bold', text: T.confirmDanger})); }
 			var yes = el('button', {type: 'button', cls: 'btn btn-sm btn-danger me-2 fx-confirm', text: T.yesSend});
-			var no = el('button', {type: 'button', cls: 'btn btn-sm btn-secondary', text: T.cancel});
+			var no = el('button', {type: 'button', cls: 'btn btn-sm btn-outline-secondary', text: T.cancel});
 			yes.addEventListener('click', function() { confirmBox.classList.add('d-none'); run(r); });
 			no.addEventListener('click', function() { confirmBox.classList.add('d-none'); });
 			confirmBox.appendChild(yes);
 			confirmBox.appendChild(no);
+			yes.focus();
 		});
-		return wrap;
+		return [req.node, res.node];
 	}
 
-	function toggle(row) {
-		var open = row.getAttribute('aria-expanded') === 'true';
-		var next = row.nextElementSibling;
-		if (!next || !next.classList.contains('fx-details')) {
-			next = el('tr', {cls: 'fx-details d-none'}, [el('td', {colspan: '4'}, [buildDetails(endpoints[row.dataset.ep])])]);
-			row.parentNode.insertBefore(next, row.nextSibling);
+	/* One detail view per endpoint, kept so its fields survive switching. */
+	var detail = document.getElementById('fx-detail'), built = {}, current = null;
+	function select(id, scroll) {
+		var ep = endpoints[id];
+		if (!ep) { return; }
+		if (current) { current.removeAttribute('aria-current'); }
+		current = document.getElementById(id);
+		current.setAttribute('aria-current', 'true');
+		if (!built[id]) { built[id] = buildDetails(ep); }
+		detail.textContent = '';
+		detail.appendChild(built[id]);
+		if (window.history.replaceState) { window.history.replaceState(null, '', '#' + id); }
+		/* Stacked layout (narrow screens): bring the details into view. */
+		if (scroll && detail.getBoundingClientRect().top > window.innerHeight * 0.5) {
+			detail.scrollIntoView({block: 'start'});
 		}
-		row.setAttribute('aria-expanded', open ? 'false' : 'true');
-		next.classList.toggle('d-none', open);
 	}
-	rows.forEach(function(r) {
-		r.addEventListener('click', function() { toggle(r); });
-		r.addEventListener('keydown', function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(r); } });
+	items.forEach(function(a) {
+		a.addEventListener('click', function(e) { e.preventDefault(); select(a.dataset.ep, true); });
 	});
-	if (window.location.hash && document.getElementById(window.location.hash.slice(1)) && endpoints[window.location.hash.slice(1)]) {
-		toggle(document.getElementById(window.location.hash.slice(1)));
+	var hash = window.location.hash.slice(1);
+	if (hash && endpoints[hash]) {
+		var g = document.getElementById(hash).closest('.fx-group');
+		setGroup(g, true);
+		select(hash, false);
+		document.getElementById(hash).scrollIntoView({block: 'nearest'});
 	}
 });
 //]]>
