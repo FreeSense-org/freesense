@@ -6,7 +6,10 @@
  * Copyright (c) 2003-2006 Manuel Kasper <mk@neon1.net>
  * Copyright (c) 2005-2006 Bill Marquette <bill.marquette@gmail.com>
  * Copyright (c) 2006 Paul Taylor <paultaylor@winn-dixie.com>
- * Copyright (c) 2004-2026 The FreeSense Project
+ * Copyright (c) 2004-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2025-2026 The FreeSense Project
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -656,15 +659,11 @@ function local_reset_accounts() {
 function validate_password($username, $password) {
 	$errors = [];
 
-	/* Rules for CE and Plus */
 	/* Disallow changing the password to the username. */
 	if ($username == $password) {
 		$errors[] = gettext("The password cannot be identical to the username.");
 	}
-	/* End rules for CE and Plus */
 
-	/* Plus-specific rules */
-	/* End Plus-specific rules */
 	return $errors;
 }
 /*
@@ -676,12 +675,8 @@ function validate_password($username, $password) {
  */
 function get_validate_password_hints($prefix='', $suffix='<br/>') {
 	$hints = [];
-	/* Rules for CE and Plus */
 	$hints[] = gettext('Current NIST guidelines prioritize password length over complexity.');
 	$hints[] = gettext('The password cannot be identical to the username.');
-
-	/* Plus-specific rules */
-	/* End Plus-specific rules */
 
 	/* Add the prefix and suffix to each array entry. */
 	foreach ($hints as &$hint) {

@@ -3,7 +3,10 @@
  * globals.inc
  *
  * part of FreeSense (https://www.freesense.org)
- * Copyright (c) 2004-2026 The FreeSense Project
+ * Copyright (c) 2004-2013 BSD Perimeter
+ * Copyright (c) 2013-2016 Electric Sheep Fencing
+ * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
+ * Copyright (c) 2025-2026 The FreeSense Project
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -881,19 +884,6 @@ function platform_booting(bool $only_on_console = false) : bool
 }
 
 /**
- * Check if a file can be included
- *
- * @param string $filename
- *
- * @return bool
- */
-function can_include(string $filename) : bool
-{
-	// short-circuit on absolute paths before checking relative include paths
-	return (file_exists($filename) || (bool) stream_resolve_include_path($filename));
-}
-
-/**
  * Get a list of known protocols
  *
  * @param string $type Filter the returned list based on the type
@@ -942,11 +932,6 @@ function get_ipprotocols(?string $type = ''):array {
 	}
 
 	return array_diff($ipprotocols, $exclude);
-}
-
-// source FreeSense Plus specific globals last
-if (can_include('globals.plus.inc')) {
-	include_once('globals.plus.inc');
 }
 
 add_default_system_package(['name' => 'FreeSense-pkg-System_Patches']);
