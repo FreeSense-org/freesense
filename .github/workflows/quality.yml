@@ -74,6 +74,7 @@ jobs:
               RestApiBatchSmokeTest \
               StatusMetricsSmokeTest \
               RestApiLogCursorSmokeTest \
+              WebUiPrefsSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest; do
               php -d error_reporting=E_ALL "tests/$t.php"

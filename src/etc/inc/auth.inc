@@ -2289,6 +2289,9 @@ function session_auth() {
 			$_SESSION['last_access'] = time();
 			$_SESSION['protocol'] = webgui_request_protocol();
 			$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];
+			/* Shown in the WebUI's session list (Profile > Sessions). */
+			$_SESSION['login_time'] = time();
+			$_SESSION['user_agent'] = substr(preg_replace('/[\x00-\x1f\x7f]/', '', (string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 200);
 			phpsession_end(true);
 			log_auth_event(LOG_AUTH_EVENT_LOGIN, $_POST['usernamefld'], get_user_remote_address() . get_user_remote_authsource());
 			if (isset($_POST['postafterlogin'])) {

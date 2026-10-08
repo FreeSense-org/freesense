@@ -132,6 +132,8 @@ function restapi_session_authenticate($remote_ip) {
 		'user' => $user,
 		'token' => array('id' => 'session', 'descr' => 'WebUI session', 'readonly' => false, 'scopes' => ''),
 		'session' => true,
+		'session_id' => $id,
+		'login_time' => isset($s['login_time']) ? (int)$s['login_time'] : null,
 		'authsource' => (string)($s['authsource'] ?? 'Local Database'),
 	);
 }
