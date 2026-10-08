@@ -230,6 +230,9 @@ try {
 		'login_time' => $ctx['login_time'] ?? null,
 	);
 
+	/* Lets restapi_validation_error() key messages by the route's resource schema. */
+	restapi_request_context(array('schema' => $route['schema'] ?? null, 'body' => $req['body']));
+
 	/*
 	 * Attribute config changes to the key: write_config() records
 	 * $_SESSION['Username'] and authsource in the revision. Holding the

@@ -50,13 +50,27 @@ class RestApiError extends Exception {
 	}
 }
 
-/* Turn the input_errors list a GUI save function returns into a 422. */
+/*
+ * Turn the input_errors list a GUI save function returns into a 422. When
+ * the route names a resource schema, details.fields maps each message to
+ * the field it is about (schema.inc); details.messages keeps them all.
+ */
 function restapi_validation_error(array $input_errors) {
 	$messages = array_values(array_map(function ($m) {
 		return html_entity_decode(strip_tags((string)$m), ENT_QUOTES);
 	}, $input_errors));
-	return new RestApiError(422, 'validation_failed',
-	    'The request failed validation.', array('messages' => $messages));
+	$details = array('messages' => $messages);
+	if (function_exists('restapi_request_context')) {
+		$ctx = restapi_request_context();
+		$schema = ($ctx['schema'] !== null) ? restapi_schema_get($ctx['schema']) : null;
+		if (is_array($schema)) {
+			$mapped = restapi_errors_to_fields($messages, $schema, is_array($ctx['body']) ? $ctx['body'] : array());
+			if (!empty($mapped['fields'])) {
+				$details['fields'] = $mapped['fields'];
+			}
+		}
+	}
+	return new RestApiError(422, 'validation_failed', 'The request failed validation.', $details);
 }
 
 /* ------------------------------------------------------------------ */
@@ -78,6 +92,7 @@ function restapi_validation_error(array $input_errors) {
  *   body      OpenAPI schema of the JSON body (array), optional
  *   query     array of query parameter name => description, optional
  *   produces  response media type, default application/json
+ *   schema    resource schema whose fields key validation errors (schema.inc)
  */
 function restapi_route($method, $path, $handler, array $opts) {
 	if (empty($opts['page'])) {
@@ -105,6 +120,7 @@ function restapi_route($method, $path, $handler, array $opts) {
 		'body' => $opts['body'] ?? null,
 		'query' => $opts['query'] ?? array(),
 		'produces' => $opts['produces'] ?? 'application/json',
+		'schema' => $opts['schema'] ?? null,
 	);
 }
 

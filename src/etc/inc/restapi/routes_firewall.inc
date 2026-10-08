@@ -86,10 +86,10 @@ function restapi_routes_firewall() {
 		restapi_route('GET', '/v1/firewall/aliases/{name}', 'restapi_h_alias_get', array(
 			'page' => 'firewall_aliases.php', 'area' => 'firewall.aliases', 'summary' => 'Get an alias')),
 		restapi_route('POST', '/v1/firewall/aliases', 'restapi_h_alias_create', array(
-			'page' => 'firewall_aliases_edit.php', 'area' => 'firewall.aliases', 'write' => true,
+			'page' => 'firewall_aliases_edit.php', 'area' => 'firewall.aliases', 'write' => true, 'schema' => 'firewall/aliases',
 			'body' => $alias_body, 'query' => $apply_query, 'summary' => 'Create an alias')),
 		restapi_route('PUT', '/v1/firewall/aliases/{name}', 'restapi_h_alias_update', array(
-			'page' => 'firewall_aliases_edit.php', 'area' => 'firewall.aliases', 'write' => true,
+			'page' => 'firewall_aliases_edit.php', 'area' => 'firewall.aliases', 'write' => true, 'schema' => 'firewall/aliases',
 			'body' => $alias_body, 'query' => $apply_query,
 			'summary' => 'Update an alias (omitted fields keep their value; "name" renames it)')),
 		restapi_route('DELETE', '/v1/firewall/aliases/{name}', 'restapi_h_alias_delete', array(

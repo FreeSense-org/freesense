@@ -50,6 +50,7 @@ require_once('restapi/routes_diagnostics.inc');
 require_once('restapi/routes_operations.inc');
 require_once('restapi/routes_status.inc');
 require_once('restapi/routes_me.inc');
+require_once('restapi/schema.inc');
 
 function restapi_routes_v1() {
 	$routes = array(
@@ -58,6 +59,9 @@ function restapi_routes_v1() {
 		restapi_route('POST', '/v1/batch', 'restapi_h_batch', array(
 			'page' => '@authenticated', 'safe' => true,
 			'summary' => 'Run up to 20 GET requests in one call; each is authorized and answered as if sent alone')),
+		restapi_route('GET', '/v1/schema/{area}/{name}', 'restapi_h_schema', array(
+			'page' => '@authenticated',
+			'summary' => 'Form schema of a resource (fields, labels, options, rules) for the WebUI editors; needs the editor\'s privilege')),
 		restapi_route('GET', '/v1/meta', 'restapi_h_meta', array(
 			'page' => '@authenticated',
 			'summary' => 'API level and capabilities of this firewall (used by the WebUI to check compatibility)')),
