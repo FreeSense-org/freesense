@@ -53,6 +53,9 @@ function restapi_routes_v1() {
 	$routes = array(
 		restapi_route('GET', '/v1/openapi.json', 'restapi_h_openapi', array(
 			'page' => '@authenticated', 'summary' => 'This OpenAPI document')),
+		restapi_route('GET', '/v1/meta', 'restapi_h_meta', array(
+			'page' => '@authenticated',
+			'summary' => 'API level and capabilities of this firewall (used by the WebUI to check compatibility)')),
 		restapi_route('GET', '/v1/me', 'restapi_h_me', array(
 			'page' => '@authenticated',
 			'summary' => 'The user and API key making the request')),
@@ -177,6 +180,22 @@ function restapi_h_me($req) {
 		'endpoints' => $allowed,
 		'admin' => isset($req['user']['uid']) && ((string)$req['user']['uid'] === '0'),
 		'config_readonly' => userHasPrivilege($req['user'], 'user-config-readonly'),
+	));
+}
+
+/*
+ * The WebUI checks RESTAPI_LEVEL against the minimum level it needs. Raise
+ * it whenever routes or response shapes the WebUI relies on are added.
+ */
+function restapi_h_meta($req) {
+	return array('data' => array(
+		'product' => g_get('product_label'),
+		'version' => g_get('product_version'),
+		'api_level' => RESTAPI_LEVEL,
+		'capabilities' => restapi_capabilities(),
+		'auth' => empty($req['session']) ? 'key' : 'session',
+		'user' => $req['user']['name'],
+		'time' => gmdate('c'),
 	));
 }
 

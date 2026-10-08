@@ -44,6 +44,13 @@ require_once('restapi/framework.inc');
 require_once('restapi_log.inc');
 
 define('RESTAPI_LAST_USED', '/var/db/restapi_last_used.json');
+/* API level reported by GET /api/v1/meta (see restapi_h_meta). */
+define('RESTAPI_LEVEL', 1);
+
+/* Optional features reported by GET /api/v1/meta. */
+function restapi_capabilities() {
+	return array('session');
+}
 define('RESTAPI_MAX_TOKENS_PER_USER', 20);
 /*
  * Per-user API access is the privilege of the "My API Keys" page
@@ -382,6 +389,10 @@ function restapi_authenticate($authorization, $remote_ip) {
 
 /* The GUI page patterns a local user may open (no PHP session needed). */
 function restapi_user_allowed_pages($user) {
+	/* A remote (LDAP/RADIUS) user of the WebUI session bridge: pages computed by the GUI at sign-in. */
+	if (isset($user['__pages']) && is_array($user['__pages'])) {
+		return $user['__pages'];
+	}
 	$pages = array();
 	getPrivPages($user, $pages);
 	$groups = local_user_get_groups($user);

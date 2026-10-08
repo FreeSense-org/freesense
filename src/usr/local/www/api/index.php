@@ -104,6 +104,7 @@ require_once('status_services.inc');
 require_once('diag_system.inc');
 require_once('pkg_mgr_install.inc');
 require_once('restapi.inc');
+require_once('restapi_session.inc');
 require_once('restapi_listener.inc');
 require_once('restapi_log.inc');
 require_once('restapi/routes_v1.inc');
@@ -132,6 +133,10 @@ function restapi_log_response($status, $code) {
 		fastcgi_finish_request();
 	}
 	$write = $restapi_log_ctx['w'] ?? !in_array($method, array('GET', 'HEAD', 'OPTIONS'), true);
+	/* WebUI sessions poll constantly: log their changes and failures, not every read. */
+	if (($restapi_log_ctx['k'] === 'session') && !$write && ($status < 400)) {
+		return;
+	}
 	try {
 		restapi_reqlog_request(array('t' => $restapi_log_ctx['t'], 'ip' => $remote_ip, 'm' => $method, 'p' => '/api' . $path,
 		    's' => $status, 'ms' => $ms, 'k' => $restapi_log_ctx['k'], 'u' => $restapi_log_ctx['u'], 'l' => $restapi_log_ctx['l'],
@@ -146,30 +151,42 @@ $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $path = (string)parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH);
 $path = preg_replace('#^/api(?=/)#', '', rtrim($path, '/'));
 
+$authorization = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+/* The WebUI calls the API as the signed-in GUI user (restapi_session.inc). */
+$webui = restapi_session_requested($authorization);
+
 try {
-	if (!restapi_enabled()) {
-		throw new RestApiError(404, 'api_disabled', 'The REST API is disabled (System > REST API).');
-	}
-	$settings = restapi_settings();
-	/* An API listener (System > REST API > Listeners), or the WebGUI port (null). */
-	$listener = restapi_request_listener();
-	if ($listener !== null) {
-		$restapi_log_ctx['l'] = $listener['id'];
-		if (!$listener['enable']) {
-			throw new RestApiError(404, 'listener_disabled', 'This API listener is disabled.');
+	if ($webui) {
+		/* Only on the WebGUI port, with the GUI's own access rules. */
+		if (restapi_request_listener() !== null) {
+			throw new RestApiError(404, 'not_on_listener', 'WebUI sessions are only accepted on the WebGUI port.');
 		}
-	} elseif (!$settings['guiapi']) {
-		throw new RestApiError(404, 'not_on_webgui', 'The REST API is not served on the WebGUI port; use an API listener.');
-	}
-	$local = in_array($remote_ip, array('127.0.0.1', '::1'), true);
-	if (!$settings['allowhttp'] && !$local && (($_SERVER['HTTPS'] ?? '') !== 'on')) {
-		throw new RestApiError(403, 'https_required', 'The REST API only accepts HTTPS requests.');
-	}
-	/* A listener's own allowed networks replace the general ones. */
-	$networks = restapi_parse_networks((($listener !== null) && ($listener['allowednetworks'] !== '')) ?
-	    $listener['allowednetworks'] : $settings['allowednetworks']);
-	if (!restapi_ip_allowed($remote_ip, $networks)) {
-		throw new RestApiError(403, 'source_not_allowed', 'Requests from this address are not allowed.');
+		$listener = null;
+	} else {
+		if (!restapi_enabled()) {
+			throw new RestApiError(404, 'api_disabled', 'The REST API is disabled (System > REST API).');
+		}
+		$settings = restapi_settings();
+		/* An API listener (System > REST API > Listeners), or the WebGUI port (null). */
+		$listener = restapi_request_listener();
+		if ($listener !== null) {
+			$restapi_log_ctx['l'] = $listener['id'];
+			if (!$listener['enable']) {
+				throw new RestApiError(404, 'listener_disabled', 'This API listener is disabled.');
+			}
+		} elseif (!$settings['guiapi']) {
+			throw new RestApiError(404, 'not_on_webgui', 'The REST API is not served on the WebGUI port; use an API listener.');
+		}
+		$local = in_array($remote_ip, array('127.0.0.1', '::1'), true);
+		if (!$settings['allowhttp'] && !$local && (($_SERVER['HTTPS'] ?? '') !== 'on')) {
+			throw new RestApiError(403, 'https_required', 'The REST API only accepts HTTPS requests.');
+		}
+		/* A listener's own allowed networks replace the general ones. */
+		$networks = restapi_parse_networks((($listener !== null) && ($listener['allowednetworks'] !== '')) ?
+		    $listener['allowednetworks'] : $settings['allowednetworks']);
+		if (!restapi_ip_allowed($remote_ip, $networks)) {
+			throw new RestApiError(403, 'source_not_allowed', 'Requests from this address are not allowed.');
+		}
 	}
 
 	list($route, $params) = restapi_match(restapi_routes_v1(), $method, $path);
@@ -177,10 +194,15 @@ try {
 	if (($listener !== null) && $listener['readonly'] && $route['write']) {
 		throw new RestApiError(403, 'listener_read_only', 'This API listener only allows requests that do not change anything.');
 	}
-	/* The key ID (never the secret) for the log, also when authentication fails. */
-	$claimed = restapi_parse_authorization($_SERVER['HTTP_AUTHORIZATION'] ?? '');
-	$restapi_log_ctx['k'] = is_array($claimed) ? $claimed[0] : '';
-	$ctx = restapi_authenticate($_SERVER['HTTP_AUTHORIZATION'] ?? '', $remote_ip);
+	if ($webui) {
+		$restapi_log_ctx['k'] = 'session';
+		$ctx = restapi_session_authenticate($remote_ip);
+	} else {
+		/* The key ID (never the secret) for the log, also when authentication fails. */
+		$claimed = restapi_parse_authorization($authorization);
+		$restapi_log_ctx['k'] = is_array($claimed) ? $claimed[0] : '';
+		$ctx = restapi_authenticate($authorization, $remote_ip);
+	}
 	$restapi_log_ctx['u'] = (string)$ctx['user']['name'];
 	restapi_authorize($ctx, $route);
 
@@ -198,6 +220,7 @@ try {
 		    restapi_decode_body(file_get_contents('php://input')) : array(),
 		'user' => $ctx['user'],
 		'token' => $ctx['token'],
+		'session' => !empty($ctx['session']),
 	);
 
 	/*
@@ -208,7 +231,8 @@ try {
 	 */
 	global $session_opencounter;
 	$session_opencounter = 1;
-	$_SESSION = array('Username' => $ctx['user']['name'], 'authsource' => "API key {$ctx['token']['id']}");
+	$_SESSION = array('Username' => $ctx['user']['name'],
+	    'authsource' => empty($ctx['session']) ? "API key {$ctx['token']['id']}" : "{$ctx['authsource']} (WebUI)");
 	try {
 		$result = call_user_func($route['handler'], $req);
 	} finally {
@@ -222,7 +246,7 @@ try {
 	}
 	restapi_respond($status, array('data' => $result['data'] ?? null), 'application/json', $headers);
 } catch (RestApiError $e) {
-	$headers = ($e->status === 401) ? array('WWW-Authenticate' => 'Bearer realm="FreeSense"') : array();
+	$headers = (($e->status === 401) && !$webui) ? array('WWW-Authenticate' => 'Bearer realm="FreeSense"') : array();
 	restapi_respond($e->status, $e->payload(), 'application/json', $headers);
 } catch (Throwable $e) {
 	logger(LOG_ERR, localize_text('REST API error in %s %s: %s', $method, $path, $e->getMessage()));

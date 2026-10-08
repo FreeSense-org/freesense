@@ -70,6 +70,7 @@ jobs:
               VxlanConfigSmokeTest \
               RemoteBackupSmokeTest \
               RestApiSmokeTest \
+              RestApiSessionSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest; do
               php -d error_reporting=E_ALL "tests/$t.php"
