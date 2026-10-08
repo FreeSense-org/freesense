@@ -53,6 +53,9 @@ function restapi_routes_v1() {
 	$routes = array(
 		restapi_route('GET', '/v1/openapi.json', 'restapi_h_openapi', array(
 			'page' => '@authenticated', 'summary' => 'This OpenAPI document')),
+		restapi_route('POST', '/v1/batch', 'restapi_h_batch', array(
+			'page' => '@authenticated', 'safe' => true,
+			'summary' => 'Run up to 20 GET requests in one call; each is authorized and answered as if sent alone')),
 		restapi_route('GET', '/v1/meta', 'restapi_h_meta', array(
 			'page' => '@authenticated',
 			'summary' => 'API level and capabilities of this firewall (used by the WebUI to check compatibility)')),
@@ -187,6 +190,12 @@ function restapi_h_me($req) {
  * The WebUI checks RESTAPI_LEVEL against the minimum level it needs. Raise
  * it whenever routes or response shapes the WebUI relies on are added.
  */
+function restapi_h_batch($req) {
+	$ctx = array('user' => $req['user'], 'token' => $req['token']);
+	return array('data' => restapi_batch_run($req['body']['requests'] ?? null, restapi_routes_v1(),
+	    function ($route) use ($ctx) { restapi_authorize($ctx, $route); }, $req));
+}
+
 function restapi_h_meta($req) {
 	return array('data' => array(
 		'product' => g_get('product_label'),

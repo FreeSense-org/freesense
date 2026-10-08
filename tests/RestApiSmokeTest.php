@@ -2712,8 +2712,8 @@ foreach ($v1 as $r) {
 		$safe[] = "{$r['method']} {$r['path']}";
 	}
 }
-check_api($safe === array('POST /v1/diagnostics/dns-lookup') && ($f2_routes['POST /v1/diagnostics/dns-lookup']['scope'] === 'diagnostics:read'),
-    'only the DNS lookup is a POST with the read scope ("safe")');
+check_api($safe === array('POST /v1/batch', 'POST /v1/diagnostics/dns-lookup') && ($f2_routes['POST /v1/diagnostics/dns-lookup']['scope'] === 'diagnostics:read'),
+    'only the batch (GET sub-requests) and the DNS lookup are POSTs with the read scope ("safe")');
 check_api(restapi_route('POST', '/v1/x', 'h', array('page' => 'x.php', 'area' => 'status', 'write' => true, 'safe' => true))['safe'] === false,
     'a write route is never "safe"');
 check_api(in_array('confirm', $f2_routes['DELETE /v1/diagnostics/states']['body']['required'], true) &&

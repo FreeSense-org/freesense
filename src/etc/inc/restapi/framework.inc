@@ -150,6 +150,63 @@ function restapi_match(array $routes, $method, $path) {
 	throw new RestApiError(404, 'not_found', 'No such API endpoint.');
 }
 
+/* At most this many sub-requests in one POST /api/v1/batch. */
+define('RESTAPI_BATCH_MAX', 20);
+
+/*
+ * Run the sub-requests of POST /api/v1/batch: up to RESTAPI_BATCH_MAX reads
+ * in one PHP worker, so a WebUI page that polls several sources does not
+ * occupy several php-fpm workers. Each sub-request is matched, authorized
+ * with $authorize($route) and handled exactly as if it were sent alone;
+ * one failing sub-request never fails the others.
+ *
+ *   $requests   [{id, method: 'GET', path: '/api/v1/status/x?if=wan'}]
+ *   $routes     the route table (restapi_routes_v1())
+ *   $authorize  callable($route): throws RestApiError when not allowed
+ *   $base       the request array of the batch call (user, token, session)
+ * Returns [{id, status, body}] where body is the usual {data} / {error}.
+ */
+function restapi_batch_run($requests, array $routes, callable $authorize, array $base) {
+	if (!is_array($requests) || !array_is_list($requests)) {
+		throw new RestApiError(400, 'invalid_batch', 'requests must be a list of {id, method, path}.');
+	}
+	if (count($requests) > RESTAPI_BATCH_MAX) {
+		throw new RestApiError(400, 'batch_too_large', 'A batch may hold at most ' . RESTAPI_BATCH_MAX . ' requests.');
+	}
+	$out = array();
+	foreach ($requests as $i => $r) {
+		$id = (is_array($r) && isset($r['id']) && is_scalar($r['id'])) ? (string)$r['id'] : (string)$i;
+		try {
+			if (!is_array($r) || !is_string($r['path'] ?? null)) {
+				throw new RestApiError(400, 'invalid_batch', 'Each request needs a path.');
+			}
+			if (strtoupper((string)($r['method'] ?? 'GET')) !== 'GET') {
+				throw new RestApiError(400, 'batch_read_only', 'A batch may only contain GET requests.');
+			}
+			$url = parse_url($r['path']);
+			$path = preg_replace('#^/api(?=/)#', '', rtrim((string)($url['path'] ?? ''), '/'));
+			$query = array();
+			parse_str((string)($url['query'] ?? ''), $query);
+			if (($path === '/v1/batch') || (strpos($path, '/v1/') !== 0)) {
+				throw new RestApiError(400, 'invalid_batch', 'Only /api/v1 endpoints (other than batch) can be batched.');
+			}
+			list($route, $params) = restapi_match($routes, 'GET', $path);
+			$authorize($route);
+			$result = call_user_func($route['handler'], array_merge($base, array(
+				'path' => $path, 'params' => $params, 'query' => $query, 'body' => array())));
+			if (isset($result['raw'])) {
+				throw new RestApiError(400, 'not_batchable', 'This endpoint returns raw data and cannot be batched.');
+			}
+			$out[] = array('id' => $id, 'status' => (int)($result['status'] ?? 200), 'body' => array('data' => $result['data'] ?? null));
+		} catch (RestApiError $e) {
+			$out[] = array('id' => $id, 'status' => $e->status, 'body' => $e->payload());
+		} catch (Throwable $e) {
+			$out[] = array('id' => $id, 'status' => 500, 'body' => array('error' => array('code' => 'internal_error', 'message' => 'Internal error; see the system log.')));
+		}
+	}
+	return $out;
+}
+
 /* Decode a JSON request body; an empty body is an empty object. */
 function restapi_decode_body($raw) {
 	if (trim((string)$raw) === '') {
