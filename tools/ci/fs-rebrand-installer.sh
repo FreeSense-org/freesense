@@ -45,4 +45,12 @@ sed -i '' \
   -e 's/EFI_LABEL_NAME=pfSense/EFI_LABEL_NAME=FreeSense/g' \
   -e 's/OSNAME=pfSense/OSNAME=FreeSense/g' \
   "$SBI"
+
+# 3) The helper scripts next to startbsdinstall (fix_fstab's error dialog) carry
+#    the same dialog title.
+for f in "$(dirname "$SBI")"/scripts/*; do
+	[ -f "$f" ] && grep -q 'pfSense Installer' "$f" || continue
+	sed -i '' -e 's/pfSense Installer/FreeSense Installer/g' "$f"
+	echo "fs-rebrand-installer: rebranded $f"
+done
 echo "fs-rebrand-installer: rebranded $SBI"
