@@ -85,8 +85,8 @@ function restapi_routes_system() {
 	    '("(set)" keeps it), lb_use_sticky (boolean), srctrack, hwpstate (boolean), hwpstate_control_level, hwpstate_epp (Speed Shift, ' .
 	    'only on supported hardware), powerd_enable (boolean), powerd_ac_mode, powerd_battery_mode, powerd_normal_mode, ' .
 	    'crypto_hardware, thermal_hardware, pti_disabled (boolean, when the kernel has PTI), mds_disable (when the kernel has MDS ' .
-	    'mitigation), schedule_states, keep_failover_states, skip_rules_gw_down, dpinger_dont_add_static_routes, use_mfs_tmpvar, ' .
-	    'do_not_send_uniqueid (booleans), remove_failover_states_default, gw_down_kill_states, php_memory_limit, use_mfs_tmp_size, ' .
+	    'mitigation), schedule_states, keep_failover_states, skip_rules_gw_down, dpinger_dont_add_static_routes, use_mfs_tmpvar ' .
+	    '(booleans), remove_failover_states_default, gw_down_kill_states, php_memory_limit, use_mfs_tmp_size, ' .
 	    'use_mfs_var_size, rrdbackup, dhcpbackup, logsbackup, captiveportalbackup, harddiskstandby. Omitted fields keep their value. ' .
 	    'Applied at once; reboot_required lists the changes that need a reboot.');
 	$notif_body = array('type' => 'object', 'description' => 'The Notifications form: cert_enable_notify, revoked_cert_ignore_notify, ' .
@@ -508,7 +508,7 @@ function restapi_sysadv_misc_types() {
 		$types[$field] = 'string';
 	}
 	foreach (array('lb_use_sticky', 'powerd_enable', 'schedule_states', 'keep_failover_states', 'skip_rules_gw_down',
-	    'dpinger_dont_add_static_routes', 'use_mfs_tmpvar', 'do_not_send_uniqueid') as $flag) {
+	    'dpinger_dont_add_static_routes', 'use_mfs_tmpvar') as $flag) {
 		$types[$flag] = 'bool';
 	}
 	if (isset($choices['hwpstate_control_level'])) {
@@ -557,7 +557,6 @@ function restapi_sysadv_misc_settings() {
 		'logsbackup' => (string)config_get_path('system/logsbackup', ''),
 		'captiveportalbackup' => (string)config_get_path('system/captiveportalbackup', ''),
 		'harddiskstandby' => restapi_select_choice($p['harddiskstandby'] ?? '', $choices['harddiskstandby']),
-		'do_not_send_uniqueid' => (bool)$p['do_not_send_uniqueid'],
 	);
 	if (isset($types['hwpstate'])) {
 		$out['hwpstate'] = (bool)$p['hwpstate'];

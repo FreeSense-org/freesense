@@ -105,7 +105,6 @@ function getSystemAdvancedMisc($json = false) {
 	$pconfig['use_mfs_tmpvar'] = config_path_enabled('system', 'use_mfs_tmpvar');
 	$pconfig['use_mfs_tmp_size'] = config_get_path('system/use_mfs_tmp_size');
 	$pconfig['use_mfs_var_size'] = config_get_path('system/use_mfs_var_size');
-	$pconfig['do_not_send_uniqueid'] = config_path_enabled('system', 'do_not_send_uniqueid');
 	$pconfig['pti'] = get_single_sysctl('vm.pmap.pti');
 	$pconfig['mds']= get_single_sysctl('hw.mds_disable_state');
 	$pconfig['php_memory_limit'] = config_get_path('system/php_memory_limit');
@@ -330,11 +329,8 @@ function saveSystemAdvancedMisc($post, $json = false) {
 			config_del_path('system/pkg_nochecksig');
 		}
 
-		if ($post['do_not_send_uniqueid'] == "yes") {
-			config_set_path('system/do_not_send_uniqueid', true);
-		} else {
-			config_del_path('system/do_not_send_uniqueid');
-		}
+		/* FreeSense: no device ID is ever sent; drop the old opt-out flag. */
+		config_del_path('system/do_not_send_uniqueid');
 
 		if ($post['powerd_enable'] == "yes") {
 			config_set_path('system/powerd_enable', true);

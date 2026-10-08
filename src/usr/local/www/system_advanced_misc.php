@@ -512,17 +512,6 @@ $section->addInput(new Form_Select(
 
 $form->add($section);
 
-$section = new Form_Section('Installation Feedback');
-
-$section->addInput(new Form_Checkbox(
-	'do_not_send_uniqueid',
-	'Device ID',
-	'Do NOT send Device ID with user agent',
-	$pconfig['do_not_send_uniqueid']
-))->setHelp('Enable this option to not send the Device ID as part of the User-Agent header.');
-
-$form->add($section);
-
 print $form;
 
 $reboot_confirm_prompt = "";

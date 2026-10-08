@@ -6392,12 +6392,8 @@ function filter_get_host_id() {
 	    (strlen($hapfhostid) <= 8)) {
 		$pfhostid = $hapfhostid;
 	} else {
-		/* If the user has not set one manually, use the last 8 characters of the NDI */
-		$pfhostid = substr(system_get_uniqueid(), -8);
-		/* Extra safety belt in case the NDI cannot be determined. */
-		if (!ctype_xdigit($pfhostid) || (strlen($pfhostid) > 8)) {
-			$pfhostid = "";
-		}
+		/* Not set manually: leave it to pf, which picks a random host ID. */
+		$pfhostid = "";
 	}
 	return $pfhostid;
 }
