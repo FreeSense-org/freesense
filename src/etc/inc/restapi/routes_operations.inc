@@ -94,6 +94,12 @@ function restapi_routes_operations() {
 			'body' => array('type' => 'object', 'required' => array('confirm'), 'properties' => $confirm),
 			'summary' => 'Halt and power off the system (like Diagnostics > Halt System); it stays off until powered on locally. ' .
 			    'Answers 202, then halts ' . RESTAPI_OPS_DELAY . ' s later.' . $admin)),
+		restapi_route('GET', '/v1/jobs/{id}', 'restapi_h_job', array(
+			'page' => 'pkg_mgr_install.php', 'area' => 'packages',
+			'query' => array('after' => 'Only log lines after this line number (the cursor from the last response)'),
+			'summary' => 'A long operation as a job for the WebUI: "packages" is the package operation or system update ' .
+			    '(state, percent, current step, numbered log lines). Like GET /v1/packages/operation, the first read after ' .
+			    'an operation the API started has ended does its finished work once.')),
 		restapi_route('GET', '/v1/packages/operation', 'restapi_h_pkgop_status', array(
 			'page' => 'pkg_mgr_install.php', 'area' => 'packages',
 			'query' => array('lines' => 'Number of log lines to return (default ' . RESTAPI_PKGOP_LINES_DEFAULT . ', at most ' .
@@ -526,6 +532,57 @@ function restapi_pkgop_status($lines, $finish) {
 		$out['completed_now'] = $completed_now;
 	}
 	return $out;
+}
+
+/*
+ * The package operation status (restapi_pkgop_status()) as a WebUI job:
+ * array(id, title, state, running, percent, step, log => [{n, text}], ...).
+ * Log lines are numbered from 1 within the returned tail; $after skips the
+ * lines a client already has.
+ */
+function restapi_job_view(array $st, $after = 0) {
+	$titles = array('firmwareupdate' => 'System update', 'installpkg' => 'Install %s', 'reinstallpkg' => 'Reinstall %s',
+	    'delete' => 'Remove %s');
+	$title = ($st['mode'] === null) ? 'No operation' : sprintf($titles[$st['mode']] ?? 'Package operation %s', (string)$st['package']);
+	$lines = array_values((array)($st['log'] ?? array()));
+	$log = array();
+	foreach ($lines as $i => $text) {
+		if ($i + 1 > $after) {
+			$log[] = array('n' => $i + 1, 'text' => (string)$text);
+		}
+	}
+	$step = '';
+	for ($i = count($lines) - 1; $i >= 0; $i--) {
+		if (trim((string)$lines[$i]) !== '') {
+			$step = trim((string)$lines[$i]);
+			break;
+		}
+	}
+	$p = $st['progress'] ?? null;
+	return array(
+		'id' => 'packages',
+		'title' => $title,
+		'state' => $st['state'],
+		'running' => (bool)$st['running'],
+		'percent' => (is_array($p) && ($p['total'] > 0)) ? (int)min(100, round(100 * $p['current'] / $p['total'])) : null,
+		'step' => $step,
+		'reboot_needed' => (bool)$st['reboot_needed'],
+		'notice' => $st['notice'],
+		'started_at' => $st['started_at'] ?? null,
+		'cursor' => count($lines),
+		'log' => $log,
+	);
+}
+
+function restapi_h_job($req) {
+	if ($req['params']['id'] !== 'packages') {
+		throw new RestApiError(404, 'not_found', 'No such job.');
+	}
+	$after = $req['query']['after'] ?? '0';
+	if (!is_string($after) || !ctype_digit($after)) {
+		throw new RestApiError(400, 'invalid_query', 'after must be a line number.');
+	}
+	return array('data' => restapi_job_view(restapi_pkgop_status(RESTAPI_PKGOP_LINES_MAX, true), (int)$after));
 }
 
 function restapi_h_pkgop_status($req) {

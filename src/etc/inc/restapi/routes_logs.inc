@@ -31,18 +31,30 @@
  * lines from dump_log() (the raw view). At most 2000 entries are returned
  * (default 50); a filter is a regular expression checked like the GUI's
  * filter (unsafe patterns are refused).
+ *
+ * Parsed entries carry a stable "id" (a hash of the entry). The WebUI's
+ * live log viewer pages with cursors:
+ *   ?after=<id>   entries newer than <id>, oldest first (live tail)
+ *   ?before=<id>  entries older than <id>, newest first (scrolling back)
+ * "last_id" is the newest entry in the log (the next ?after=), "reset" is
+ * true when the cursor entry was rotated away (the newest entries follow),
+ * "has_more" says older entries may exist (?before=).
  */
 
 require_once('restapi/framework.inc');
 
 define('RESTAPI_LOG_LINES_DEFAULT', 50);
 define('RESTAPI_LOG_LINES_MAX', 2000);
+/* How far back a cursor is searched (log lines). */
+define('RESTAPI_LOG_SCAN_MAX', 20000);
 
 function restapi_routes_logs() {
 	$q = array(
 		'lines' => 'Number of entries, 1-' . RESTAPI_LOG_LINES_MAX . ' (default ' . RESTAPI_LOG_LINES_DEFAULT . ')',
 		'filter' => 'Only entries matching this regular expression (case-insensitive)',
 		'format' => 'parsed (default; fields of the formatted view) or raw (the log lines)',
+		'after' => 'Cursor: only entries newer than this entry id, oldest first (parsed only)',
+		'before' => 'Cursor: only entries older than this entry id, newest first (parsed only)',
 	);
 	$fwq = $q + array(
 		'interface' => 'Only this interface (e.g. wan or its description)',
@@ -163,6 +175,55 @@ function restapi_log_text(array $query, $name) {
 	return $value;
 }
 
+/* Stable id of a parsed entry. */
+function restapi_log_entry_id(array $row) {
+	return substr(hash('sha256', json_encode($row)), 0, 16);
+}
+
+/* The cursor parameters: array('after' => id|null, 'before' => id|null), or a 400. */
+function restapi_log_cursor(array $query) {
+	$out = array('after' => null, 'before' => null);
+	foreach (array('after', 'before') as $k) {
+		$v = $query[$k] ?? '';
+		if (($v === '') || ($v === null)) {
+			continue;
+		}
+		if (!is_string($v) || !preg_match('/^[0-9a-f]{16}$/', $v)) {
+			throw new RestApiError(400, 'invalid_parameter', "\"{$k}\" must be an entry id from a previous response.");
+		}
+		$out[$k] = $v;
+	}
+	if (($out['after'] !== null) && ($out['before'] !== null)) {
+		throw new RestApiError(400, 'invalid_parameter', 'Use either "after" or "before", not both.');
+	}
+	return $out;
+}
+
+/*
+ * Page a list of parsed entries (oldest first, each with an id) by cursor.
+ * $complete says the list reaches the start of the log (nothing older).
+ * Returns array(entries, reset, has_more, found).
+ */
+function restapi_log_page(array $rows, array $cursor, $lines, $complete) {
+	$ids = array_column($rows, 'id');
+	if ($cursor['after'] !== null) {
+		$at = array_search($cursor['after'], array_reverse($ids, true), true);
+		if ($at === false) {
+			return array(array_slice($rows, -$lines), true, !$complete || (count($rows) > $lines), false);
+		}
+		return array(array_slice($rows, $at + 1, $lines), false, true, true);
+	}
+	if ($cursor['before'] !== null) {
+		$at = array_search($cursor['before'], $ids, true);
+		if ($at === false) {
+			return array(array(), true, false, false);
+		}
+		$start = max(0, $at - $lines);
+		return array(array_reverse(array_slice($rows, $start, $at - $start)), false, ($start > 0) || !$complete, true);
+	}
+	return array(array_reverse(array_slice($rows, -$lines)), false, !$complete || (count($rows) > $lines), true);
+}
+
 /* ------------------------------------------------------------------ */
 /* Reading                                                             */
 /* ------------------------------------------------------------------ */
@@ -198,12 +259,37 @@ function restapi_log_newest_first($path) {
  * formatted view) or raw lines (dump_log, the raw view). $match is a filter
  * expression or, for the firewall log, an array of field filters.
  */
-function restapi_log_read($name, array $entry, $format, $lines, $match, $interface = '') {
+function restapi_log_read($name, array $entry, $format, $lines, $match, $interface = '', array $cursor = array()) {
 	$path = restapi_log_path($entry, g_get('varlog_path'));
 	$out = array('name' => $name, 'label' => $entry['label'], 'format' => $format,
 	    'newest_first' => restapi_log_newest_first($path));
+	$cursor += array('after' => null, 'before' => null);
+	$paging = ($cursor['after'] !== null) || ($cursor['before'] !== null);
+	if ($paging && ($format === 'raw')) {
+		throw new RestApiError(400, 'invalid_parameter', 'Cursors ("after", "before") work on parsed entries only.');
+	}
 	if (($entry['file'] !== 'utx.log') && !is_file($path)) {
-		return $out + array('exists' => false, 'count' => 0, 'entries' => array());
+		return $out + array('exists' => false, 'count' => 0, 'entries' => array(), 'last_id' => null);
+	}
+	if ($paging) {
+		/* Search a small window first (live tail usually finds its cursor there), then widen. */
+		foreach (array(($lines * 2) + 200, 2000, RESTAPI_LOG_SCAN_MAX) as $scan) {
+			$rows = array_values(array_filter((array)conv_log_filter($path, $scan, $scan, $match, $interface), 'is_array'));
+			if ($out['newest_first']) {
+				$rows = array_reverse($rows);
+			}
+			foreach ($rows as $i => $row) {
+				$rows[$i] = array('id' => restapi_log_entry_id($row)) + $row;
+			}
+			$complete = count($rows) < $scan;
+			list($page, $reset, $more, $found) = restapi_log_page($rows, $cursor, $lines, $complete);
+			if ($found || $complete || ($scan === RESTAPI_LOG_SCAN_MAX)) {
+				break;
+			}
+		}
+		$last = empty($rows) ? null : $rows[count($rows) - 1]['id'];
+		return $out + array('exists' => true, 'order' => ($cursor['after'] !== null) ? 'oldest_first' : 'newest_first',
+		    'count' => count($page), 'entries' => $page, 'last_id' => $last, 'reset' => $reset, 'has_more' => $more);
 	}
 	if ($format === 'raw') {
 		/* The system and resolver logs hide PPP lines in the GUI's raw view. */
@@ -213,8 +299,15 @@ function restapi_log_read($name, array $entry, $format, $lines, $match, $interfa
 	} else {
 		$rows = conv_log_filter($path, $lines, $lines + 100, $match, $interface);
 		$rows = array_values(array_filter((array)$rows, 'is_array'));
+		foreach ($rows as $i => $row) {
+			$rows[$i] = array('id' => restapi_log_entry_id($row)) + $row;
+		}
 	}
-	return $out + array('exists' => true, 'count' => count($rows), 'entries' => $rows);
+	$last = null;
+	if (($format !== 'raw') && !empty($rows)) {
+		$last = $out['newest_first'] ? $rows[0]['id'] : $rows[count($rows) - 1]['id'];
+	}
+	return $out + array('exists' => true, 'count' => count($rows), 'entries' => $rows, 'last_id' => $last);
 }
 
 function restapi_h_logs_list($req) {
@@ -239,7 +332,7 @@ function restapi_h_logs_get($req) {
 	$entry = restapi_log_entry('system', $name);
 	$format = restapi_log_format($req['query'], $entry);
 	return array('data' => restapi_log_read($name, $entry, $format, restapi_log_lines($req['query']),
-	    restapi_log_filter($req['query'])));
+	    restapi_log_filter($req['query']), '', restapi_log_cursor($req['query'])));
 }
 
 function restapi_h_logs_vpn($req) {
@@ -247,7 +340,7 @@ function restapi_h_logs_vpn($req) {
 	$entry = restapi_log_entry('vpn', $name);
 	$format = restapi_log_format($req['query'], $entry);
 	return array('data' => restapi_log_read("vpn/{$name}", $entry, $format, restapi_log_lines($req['query']),
-	    restapi_log_filter($req['query'])));
+	    restapi_log_filter($req['query']), '', restapi_log_cursor($req['query'])));
 }
 
 function restapi_h_logs_firewall($req) {
@@ -280,6 +373,7 @@ function restapi_h_logs_firewall($req) {
 			$interface = $iflist[$interface];
 		}
 	}
-	$data = restapi_log_read('firewall', $entry, $format, $lines, empty($fields) ? $filter : $fields, $interface);
+	$data = restapi_log_read('firewall', $entry, $format, $lines, empty($fields) ? $filter : $fields, $interface,
+	    restapi_log_cursor($q));
 	return array('data' => $data);
 }

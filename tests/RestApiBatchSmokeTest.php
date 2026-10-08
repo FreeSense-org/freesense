@@ -78,6 +78,6 @@ $routes_src = file_get_contents("{$root}/src/etc/inc/restapi/routes_v1.inc");
 check(strpos($routes_src, "restapi_route('POST', '/v1/batch', 'restapi_h_batch'") !== false &&
     strpos($routes_src, 'function ($route) use ($ctx) { restapi_authorize($ctx, $route); }') !== false,
     'POST /api/v1/batch authorizes sub-requests with the caller\'s user and key');
-check(strpos(file_get_contents("{$root}/src/etc/inc/restapi.inc"), "return array('session', 'batch');") !== false, 'meta reports the batch capability');
+check(strpos(file_get_contents("{$root}/src/etc/inc/restapi.inc"), "return array('session', 'batch',") !== false, 'meta reports the batch capability');
 
 echo "REST API batch smoke test passed.\n";

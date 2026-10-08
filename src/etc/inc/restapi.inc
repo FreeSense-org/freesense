@@ -45,11 +45,11 @@ require_once('restapi_log.inc');
 
 define('RESTAPI_LAST_USED', '/var/db/restapi_last_used.json');
 /* API level reported by GET /api/v1/meta (see restapi_h_meta). */
-define('RESTAPI_LEVEL', 3);
+define('RESTAPI_LEVEL', 4);
 
 /* Optional features reported by GET /api/v1/meta. */
 function restapi_capabilities() {
-	return array('session', 'batch');
+	return array('session', 'batch', 'log-cursors', 'jobs');
 }
 define('RESTAPI_MAX_TOKENS_PER_USER', 20);
 /*
