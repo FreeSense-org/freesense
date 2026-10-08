@@ -659,15 +659,11 @@ function local_reset_accounts() {
 function validate_password($username, $password) {
 	$errors = [];
 
-	/* Rules for CE and Plus */
 	/* Disallow changing the password to the username. */
 	if ($username == $password) {
 		$errors[] = gettext("The password cannot be identical to the username.");
 	}
-	/* End rules for CE and Plus */
 
-	/* Plus-specific rules */
-	/* End Plus-specific rules */
 	return $errors;
 }
 /*
@@ -679,12 +675,8 @@ function validate_password($username, $password) {
  */
 function get_validate_password_hints($prefix='', $suffix='<br/>') {
 	$hints = [];
-	/* Rules for CE and Plus */
 	$hints[] = gettext('Current NIST guidelines prioritize password length over complexity.');
 	$hints[] = gettext('The password cannot be identical to the username.');
-
-	/* Plus-specific rules */
-	/* End Plus-specific rules */
 
 	/* Add the prefix and suffix to each array entry. */
 	foreach ($hints as &$hint) {
