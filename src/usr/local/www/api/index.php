@@ -105,6 +105,9 @@ require_once('diag_system.inc');
 require_once('pkg_mgr_install.inc');
 require_once('restapi.inc');
 require_once('restapi_session.inc');
+/* Live status for the WebUI (routes_status.inc). */
+require_once('status_metrics.inc');
+require_once('notices.inc');
 require_once('restapi_listener.inc');
 require_once('restapi_log.inc');
 require_once('restapi/routes_v1.inc');

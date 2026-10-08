@@ -48,6 +48,7 @@ require_once('restapi/routes_logs.inc');
 require_once('restapi/routes_packages.inc');
 require_once('restapi/routes_diagnostics.inc');
 require_once('restapi/routes_operations.inc');
+require_once('restapi/routes_status.inc');
 
 function restapi_routes_v1() {
 	$routes = array(
@@ -123,7 +124,7 @@ function restapi_routes_v1() {
 	    restapi_routes_interfaces(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
 	    restapi_routes_ddns(), restapi_routes_dhcp(), restapi_routes_vpn(), restapi_routes_openvpn(),
 	    restapi_routes_pki(), restapi_routes_users(), restapi_routes_system(), restapi_routes_logs(), restapi_routes_packages(),
-	    restapi_routes_diagnostics(), restapi_routes_operations());
+	    restapi_routes_diagnostics(), restapi_routes_operations(), restapi_routes_status());
 
 	/* Packages may add resources: return a list of restapi_route() entries. */
 	if (function_exists('pkg_call_plugins')) {
