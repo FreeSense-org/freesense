@@ -85,9 +85,6 @@ function pkg_env($extra_env = array()) {
 	global $g;
 
 	$user_agent = g_get('product_label') . '/' . g_get('product_version');
-	if (!config_path_enabled('system','do_not_send_uniqueid')) {
-		$user_agent .= ':' . system_get_uniqueid();
-	}
 
 	$pkg_env_vars = array(
 		"LANG" => "C",

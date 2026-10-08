@@ -32,21 +32,12 @@
 
 /*
  * This file displays the copyright modal when required. (New version installed or completion of the setup wizard)
- * The copyright text may have been downloaded from the Netgate server, but if not the default text defined here
- * is used
+ * FreeSense: the text is always the built-in notice below; nothing is downloaded.
  */
-
-$copyrightfile = "{$g['cf_conf_path']}/copyright";
-
 ?>
 <div id="usage" class="modal fade" role="dialog">
 	<div class="modal-dialog modal-lg">
 		<div class="modal-content">
-<?php
-			if (file_exists($copyrightfile) && (filesize($copyrightfile) > 0)) {
-				require_once($copyrightfile);
-			} else {
-?>
 			<div id="main1" class="modal-body modal-lg modal-dialog-scrollable" style="background-color:#1e3f75; color:white;">
 				<p style="font-size:16px">
 					<b>Copyright and License Notice</b>
@@ -87,10 +78,6 @@ $copyrightfile = "{$g['cf_conf_path']}/copyright";
 					</span>
 				</button>
 			</div>
-
-<?php
-			}
-?>
 
 		</div>
 	</div>

@@ -3353,22 +3353,13 @@ function system_get_serial() {
 	return "";
 }
 
+/*
+ * FreeSense: there is no device unique ID (the Netgate gnid binary is not
+ * shipped) and none is sent anywhere. Kept as a stub so older Optional
+ * Packages that still call it keep working.
+ */
 function system_get_uniqueid() {
-	global $g;
-
-	$uniqueid_file="{$g['vardb_path']}/uniqueid";
-
-	if (empty(g_get('uniqueid'))) {
-		if (!file_exists($uniqueid_file)) {
-			mwexec("/usr/sbin/gnid > {$g['vardb_path']}/uniqueid " .
-			    "2>/dev/null");
-		}
-		if (file_exists($uniqueid_file)) {
-			$g['uniqueid'] = @file_get_contents($uniqueid_file);
-		}
-	}
-
-	return (g_get('uniqueid') ?: '');
+	return '';
 }
 
 /*

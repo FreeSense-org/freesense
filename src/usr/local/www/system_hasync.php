@@ -102,10 +102,9 @@ $section->addInput(new Form_Input(
 	'pfhostid',
 	gettext('Filter Host ID'),
 	'text',
-	$pconfig['pfhostid'],
-	['placeholder' => substr(system_get_uniqueid(), -8)]
+	$pconfig['pfhostid']
 ))->setHelp(gettext('Custom pf host identifier carried in state data to uniquely identify which host created a firewall state.%1$s' .
-		'Must be a non-zero hexadecimal string 8 characters or less (e.g. 1, 2, ff01, abcdef01).%1$s' .
+		'Must be a non-zero hexadecimal string 8 characters or less (e.g. 1, 2, ff01, abcdef01). If left empty, pf picks a random ID at boot.%1$s' .
 		'Each node participating in state synchronization must have a different ID.'), '<br />');
 
 $section->addInput(new Form_Input(

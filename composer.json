@@ -9,7 +9,6 @@
     },
     "autoload": {
         "psr-4": {
-            "Netgate\\": "//usr/local/FreeSense/include/Netgate/",
             "FreeSense\\": "//usr/local/FreeSense/include/",
 	    "Tools\\Rector\\": "tools/rector/src",
 	    "Tools\\Rector\\Tests\\": "tools/rector/tests"

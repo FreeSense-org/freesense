@@ -9,6 +9,7 @@
 /boot/loader.help
 /boot/logo-FreeSensebw.4th
 /boot/pcibios.4th
+/cf/conf/copyright
 /dist
 /etc/apmd.conf
 /etc/ascii-art/freesense-logo-small.txt
@@ -30,6 +31,7 @@
 /etc/inc/array_intersect_key.inc
 /etc/inc/basic_sasl_client.inc
 /etc/inc/cmd_chain.inc
+/etc/inc/copyget.inc
 /etc/inc/cram_md5_sasl_client.inc
 /etc/inc/digest_sasl_client.inc
 /etc/inc/dot.hushlogin

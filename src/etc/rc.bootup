@@ -134,8 +134,6 @@ if (is_executable($cloud_init_hook)) {
 	}
 }
 
-mwexec("/usr/sbin/gnid > {$g['vardb_path']}/uniqueid 2>/dev/null");
-
 /* Import the Installer network settings. */
 if (file_exists("{$g['conf_path']}/trigger_initial_wizard") &&
     file_exists("{$g['conf_path']}/installer-settings.json")) {
