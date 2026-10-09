@@ -715,7 +715,9 @@ function restapi_rule_display(array $rule) {
 	static $specialnets = null, $ifnames = null;
 	if ($specialnets === null) {
 		$specialnets = function_exists('get_specialnet') ? (array)get_specialnet('', (array)$filter_srcdsttype_flags) : array();
-		$ifnames = (array)get_configured_interface_with_descr();
+		/* The rule tabs' names: interfaces, groups, IPsec, OpenVPN… */
+		$ifnames = function_exists('filter_get_interface_list') ? (array)filter_get_interface_list() : array();
+		$ifnames += (array)get_configured_interface_with_descr();
 	}
 	$addr = function ($a) use ($specialnets) {
 		$a = is_array($a) ? $a : array();
