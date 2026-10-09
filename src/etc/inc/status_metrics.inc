@@ -66,6 +66,14 @@ function status_metrics_rate($prev_value, $prev_time, $value, $time) {
 	return ((float)$value - (float)$prev_value) / $dt;
 }
 
+/* The stored sample to compute a rate against: the latest, or the one before it when the latest is under a second old. */
+function status_metrics_rate_base(array $sample, $now) {
+	if (isset($sample['t']) && (((float)$now - (float)$sample['t']) < 1) && is_array($sample['prev'] ?? null)) {
+		return $sample['prev'];
+	}
+	return $sample;
+}
+
 /* ------------------------------------------------------------ parsers */
 
 /* kern.cp_time "user nice sys intr idle" → busy percent between two samples, or null. */
@@ -282,7 +290,11 @@ function status_metrics_traffic(array $ifnames = array()) {
 		if (!is_array($s)) {
 			continue;
 		}
-		$p = $prev[$if] ?? array();
+		/*
+		 * Rate against the newest sample at least a second old: another request
+		 * (e.g. earlier in the same /v1/batch) may just have stored a fresh one.
+		 */
+		$p = status_metrics_rate_base($prev[$if] ?? array(), $now);
 		$in = status_metrics_rate($p['in'] ?? null, $p['t'] ?? null, $s['inbytes'], $now);
 		$outb = status_metrics_rate($p['out'] ?? null, $p['t'] ?? null, $s['outbytes'], $now);
 		$inp = status_metrics_rate($p['inp'] ?? null, $p['t'] ?? null, $s['inpkts'] ?? 0, $now);
@@ -296,9 +308,12 @@ function status_metrics_traffic(array $ifnames = array()) {
 			'in_bytes' => (int)$s['inbytes'],
 			'out_bytes' => (int)$s['outbytes'],
 		);
-		/* Keep a sample at least one second old so concurrent clients still get a rate. */
-		if (!isset($p['t']) || (($now - (float)$p['t']) >= 1)) {
-			$next[$if] = array('t' => $now, 'in' => $s['inbytes'], 'out' => $s['outbytes'], 'inp' => $s['inpkts'] ?? 0, 'outp' => $s['outpkts'] ?? 0);
+		/* Store a new sample at most once a second, keeping the one before it. */
+		$last = $prev[$if] ?? array();
+		if (!isset($last['t']) || (($now - (float)$last['t']) >= 1)) {
+			unset($last['prev']);
+			$next[$if] = array('t' => $now, 'in' => $s['inbytes'], 'out' => $s['outbytes'], 'inp' => $s['inpkts'] ?? 0, 'outp' => $s['outpkts'] ?? 0,
+			    'prev' => isset($last['t']) ? $last : null);
 		}
 	}
 	status_metrics_sample_write(STATUS_METRICS_IF_SAMPLE, $next);
@@ -373,6 +388,103 @@ function status_metrics_gateway_history(array $names, $range) {
 			$out['t'] = $data['t'];
 		}
 		$out['gateways'][$name] = array('delay' => $data['delay'] ?? array(), 'stddev' => $data['stddev'] ?? array(), 'loss' => $data['loss'] ?? array());
+	}
+	return $out;
+}
+
+/*
+ * `wg show all dump` → peers: array of array(interface, public_key,
+ * endpoint, allowed_ips, handshake (unix time or 0), rx, tx). Interface lines
+ * (5 fields) are skipped; peer lines have 9 tab-separated fields.
+ */
+function status_metrics_parse_wg_dump($text) {
+	$peers = array();
+	foreach (preg_split('/\r?\n/', trim((string)$text)) as $line) {
+		$f = explode("\t", $line);
+		if (count($f) !== 9) {
+			continue;
+		}
+		$peers[] = array('interface' => $f[0], 'public_key' => $f[1], 'endpoint' => ($f[3] === '(none)') ? '' : $f[3],
+		    'allowed_ips' => ($f[4] === '(none)') ? '' : $f[4], 'handshake' => (int)$f[5], 'rx' => (int)$f[6], 'tx' => (int)$f[7]);
+	}
+	return $peers;
+}
+
+/* A WireGuard peer counts as up while its last handshake is recent (WireGuard re-keys every 2 minutes). */
+define('STATUS_METRICS_WG_UP_SECONDS', 180);
+
+/*
+ * VPN tunnels for the dashboard: array of array(type, name, description,
+ * status: up | connecting | idle (a server without clients) | down, peer,
+ * since (seconds connected) or null,
+ * handshake (seconds ago, WireGuard) or null, rx, tx (bytes)).
+ * OpenVPN and IPsec come from core; WireGuard from `wg` when the package
+ * provides it, named after the peers' descriptions in its configuration.
+ */
+function status_metrics_vpn() {
+	$out = array();
+	$now = time();
+
+	if (function_exists('openvpn_get_active_servers')) {
+		foreach (array_merge(openvpn_get_active_servers(), openvpn_get_active_servers('p2p')) as $server) {
+			$conns = is_array($server['conns'] ?? null) ? $server['conns'] : array();
+			$rx = $tx = 0;
+			$since = null;
+			foreach ($conns as $c) {
+				$rx += (int)($c['bytes_recv'] ?? 0);
+				$tx += (int)($c['bytes_sent'] ?? 0);
+				if (!empty($c['connect_time_unix'])) {
+					$since = max((int)$since, $now - (int)$c['connect_time_unix']);
+				}
+			}
+			$n = count(array_filter($conns, function ($c) { return ($c['common_name'] ?? '') !== '[error]'; }));
+			$out[] = array('type' => 'openvpn', 'name' => (string)($server['name'] ?? ''), 'description' => (string)($server['name'] ?? ''),
+			    'status' => ($n > 0) ? 'up' : 'idle', 'peer' => sprintf(ngettext('%d client', '%d clients', $n), $n),
+			    'since' => $since, 'handshake' => null, 'rx' => $rx, 'tx' => $tx, 'vpnid' => (int)($server['vpnid'] ?? 0));
+		}
+		foreach (openvpn_get_active_clients() as $client) {
+			$state = strtolower((string)($client['status'] ?? ''));
+			$out[] = array('type' => 'openvpn', 'name' => (string)($client['name'] ?? ''), 'description' => (string)($client['name'] ?? ''),
+			    'status' => ($state === 'up') ? 'up' : ((strpos($state, 'reconnect') !== false || strpos($state, 'connect') !== false) ? 'connecting' : 'down'),
+			    'peer' => (string)($client['remote_host'] ?? ''), 'since' => null, 'handshake' => null, 'rx' => 0, 'tx' => 0,
+			    'vpnid' => (int)($client['vpnid'] ?? 0));
+		}
+	}
+
+	if (function_exists('ipsec_enabled') && ipsec_enabled() && function_exists('ipsec_list_sa')) {
+		$cmap = function_exists('ipsec_map_config_by_id') ? ipsec_map_config_by_id() : array();
+		foreach ((array)ipsec_list_sa() as $ikesa) {
+			$conid = (string)($ikesa['con-id'] ?? '');
+			$ikeid = function_exists('ipsec_id_by_conid') ? ipsec_id_by_conid($conid)[0] : $conid;
+			$rx = $tx = 0;
+			foreach ((array)($ikesa['child-sas'] ?? array()) as $child) {
+				$rx += (int)($child['bytes-in'] ?? 0);
+				$tx += (int)($child['bytes-out'] ?? 0);
+			}
+			$state = strtoupper((string)($ikesa['state'] ?? ''));
+			$descr = (string)($cmap[$ikeid]['p1']['descr'] ?? '');
+			$out[] = array('type' => 'ipsec', 'name' => $conid, 'description' => ($descr !== '') ? $descr : $conid,
+			    'status' => ($state === 'ESTABLISHED') ? 'up' : (($state === 'CONNECTING') ? 'connecting' : 'down'),
+			    'peer' => (string)($ikesa['remote-host'] ?? ''), 'since' => isset($ikesa['established']) ? (int)$ikesa['established'] : null,
+			    'handshake' => null, 'rx' => $rx, 'tx' => $tx);
+		}
+	}
+
+	$wg = is_executable('/usr/local/bin/wg') ? '/usr/local/bin/wg' : (is_executable('/usr/bin/wg') ? '/usr/bin/wg' : '');
+	if ($wg !== '') {
+		$names = array();
+		foreach ((array)config_get_path('installedpackages/wireguard/peers/item', array()) as $peer) {
+			if (!empty($peer['publickey'])) {
+				$names[$peer['publickey']] = (string)($peer['descr'] ?? '');
+			}
+		}
+		foreach (status_metrics_parse_wg_dump((string)shell_exec(escapeshellarg($wg) . ' show all dump 2>/dev/null')) as $p) {
+			$ago = ($p['handshake'] > 0) ? max(0, $now - $p['handshake']) : null;
+			$descr = $names[$p['public_key']] ?? '';
+			$out[] = array('type' => 'wireguard', 'name' => ($descr !== '') ? $descr : substr($p['public_key'], 0, 8) . '…',
+			    'description' => $descr, 'interface' => $p['interface'], 'status' => (($ago !== null) && ($ago <= STATUS_METRICS_WG_UP_SECONDS)) ? 'up' : 'down',
+			    'peer' => $p['endpoint'], 'since' => null, 'handshake' => $ago, 'rx' => $p['rx'], 'tx' => $p['tx']);
+		}
 	}
 	return $out;
 }

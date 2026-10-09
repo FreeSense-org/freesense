@@ -46,6 +46,9 @@ function restapi_routes_status() {
 			'page' => 'status_gateways.php', 'area' => 'status',
 			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
 			'summary' => 'Latency, jitter (ms) and loss (%) of every gateway over time (quality RRDs)')),
+		restapi_route('GET', '/v1/status/vpn', 'restapi_h_status_vpn', array(
+			'page' => 'index.php', 'area' => 'system',
+			'summary' => 'OpenVPN, IPsec and WireGuard tunnels: status, peer, uptime or last handshake, bytes in and out')),
 		restapi_route('GET', '/v1/status/states', 'restapi_h_status_states', array(
 			'page' => 'diag_states_summary.php', 'area' => 'status',
 			'summary' => 'State table size, limit and search/insert/removal rates')),
@@ -64,6 +67,10 @@ function restapi_h_status_system($req) {
 function restapi_h_status_traffic($req) {
 	$ifs = array_values(array_filter(array_map('trim', explode(',', (string)($req['query']['if'] ?? '')))));
 	return array('data' => status_metrics_traffic($ifs));
+}
+
+function restapi_h_status_vpn($req) {
+	return array('data' => status_metrics_vpn());
 }
 
 function restapi_status_range($req) {

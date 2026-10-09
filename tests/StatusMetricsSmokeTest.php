@@ -149,6 +149,28 @@ $sysh = fn_source($src, 'status_metrics_system_history');
 check(strpos($sysh, 'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN') !== false && strpos($sysh, 'CDEF:mem=a,w,ADDNAN,l,ADDNAN') !== false,
     'CPU = user+nice+system+interrupt, memory = active+wired+laundry');
 
+/* Rates within one batch: a sample under a second old falls back to the one before it */
+eval(fn_source($src, 'status_metrics_rate_base'));
+$old = array('t' => 100.0, 'in' => 1000);
+check(status_metrics_rate_base(array('t' => 104.0, 'in' => 1500, 'prev' => $old), 104.001) === $old, 'a fresh sample uses the previous one');
+check(status_metrics_rate_base(array('t' => 104.0, 'in' => 1500, 'prev' => $old), 106.0)['in'] === 1500, 'a sample a second or more old is used');
+check(status_metrics_rate_base(array('t' => 104.0, 'in' => 1500, 'prev' => null), 104.001)['in'] === 1500, 'without a previous sample the latest is used');
+check(status_metrics_rate_base(array(), 1.0) === array(), 'no sample');
+
+/* WireGuard dump: interface lines skipped, peers parsed, (none) emptied */
+eval(fn_source($src, 'status_metrics_parse_wg_dump'));
+$dump = "tun_wg0\tPRIV\tPUBA\t51820\toff\n" .
+    "tun_wg0\tPEER1=\t(none)\t203.0.113.9:51820\t10.6.0.2/32\t1791516000\t1048576\t524288\t25\n" .
+    "tun_wg0\tPEER2=\t(none)\t(none)\t(none)\t0\t0\t0\toff\n";
+$wg = status_metrics_parse_wg_dump($dump);
+check(count($wg) === 2 && $wg[0]['endpoint'] === '203.0.113.9:51820' && $wg[0]['handshake'] === 1791516000 && $wg[0]['rx'] === 1048576 &&
+    $wg[0]['tx'] === 524288 && $wg[1]['endpoint'] === '' && $wg[1]['allowed_ips'] === '' && $wg[1]['handshake'] === 0,
+    'wg show all dump peers are parsed');
+check(status_metrics_parse_wg_dump('') === array(), 'no WireGuard output, no peers');
+$at = strpos($routes_src, "'/v1/status/vpn'");
+check(($at !== false) && (strpos($routes_src, "'page' => 'index.php'", $at) < (strpos($routes_src, 'restapi_route(', $at + 1) ?: PHP_INT_MAX)),
+    '/v1/status/vpn is guarded by the dashboard privilege');
+
 /* Gateway numbers without units (routes_v1.inc) */
 eval(fn_source($v1, 'restapi_gateway_number'));
 check(restapi_gateway_number('0.753ms') === 0.753 && restapi_gateway_number('0.0%') === 0.0 && restapi_gateway_number('12ms') === 12.0 &&
