@@ -483,7 +483,22 @@ function restapi_natpf_association(array $post, array $body, $current_aid) {
 	return $post;
 }
 
+/*
+ * A port forward is IPv4 or IPv6. The edit page always posts the family;
+ * an API body without one gets the page's default (IPv4) instead of an
+ * empty value that saveNATrule() would store as is.
+ */
+function restapi_natpf_family(array $post) {
+	if ((string)($post['ipprotocol'] ?? '') === '') {
+		$post['ipprotocol'] = 'inet';
+	} elseif (!in_array($post['ipprotocol'], array('inet', 'inet6'), true)) {
+		throw restapi_validation_error(array(gettext('The address family must be IPv4 or IPv6.')));
+	}
+	return $post;
+}
+
 function restapi_natpf_save($post, $id, $req) {
+	$post = restapi_natpf_family($post);
 	$result = saveNATrule($post, $id);
 	if (!empty($result['input_errors'])) {
 		throw restapi_validation_error($result['input_errors']);
