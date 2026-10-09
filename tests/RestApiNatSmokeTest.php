@@ -315,4 +315,15 @@ foreach (array('port-forwards' => array('restapi_h_natpf_order', 'firewall/nat_p
 check(preg_match("/function restapi_capabilities\(\) \{\n\treturn array\([^)]*'nat-v2'/", file_get_contents("{$root}/src/etc/inc/restapi.inc")) === 1,
     'GET /api/v1/meta reports the capability nat-v2');
 
+/* A port forward without an address family is IPv4, like the edit page's default; IPv4+IPv6 is refused. */
+check(restapi_natpf_family(array('proto' => 'tcp'))['ipprotocol'] === 'inet' && restapi_natpf_family(array('ipprotocol' => 'inet6'))['ipprotocol'] === 'inet6',
+    'port forward address family defaults to IPv4');
+$refused = false;
+try {
+	restapi_natpf_family(array('ipprotocol' => 'inet46'));
+} catch (RestApiError $e) {
+	$refused = ($e->status === 422);
+}
+check($refused, 'port forward address family IPv4+IPv6 is refused');
+
 echo "REST API NAT smoke test passed.\n";
