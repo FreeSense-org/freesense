@@ -30,6 +30,7 @@
  * keys them; "errorMatch" adds their other wordings.
  *
  *   network/vlans        a VLAN (interfaces_vlan_edit.php)
+ *   network/vxlans       a VXLAN (interfaces_vxlan_edit.php; messages of vxlan_validate())
  *   network/qinq         a QinQ entry; members are rows {tag} (interfaces_qinq_edit.php)
  *   network/bridges      a bridge; per-interface STP values are ifpriority.<if> / ifpathcost.<if>
  *   network/laggs        a LAGG; members and the failover master take the item's
@@ -89,6 +90,57 @@ function restapi_schema_network_vlans() {
 				array('name' => 'pcp', 'type' => 'number', 'label' => gettext('VLAN priority'), 'min' => 0, 'max' => 7, 'width' => 'half',
 				    'placeholder' => '0', 'help' => gettext('802.1Q VLAN priority (between 0 and 7).')),
 				restapi_schema_net_descr(),
+			)),
+		),
+	);
+}
+
+function restapi_schema_network_vxlans() {
+	$port = defined('VXLAN_DEFAULT_PORT') ? VXLAN_DEFAULT_PORT : 4789;
+	$ttl = defined('VXLAN_DEFAULT_TTL') ? VXLAN_DEFAULT_TTL : 64;
+	$vni_max = defined('VXLAN_VNI_MAX') ? VXLAN_VNI_MAX : 16777215;
+	return array(
+		'title' => gettext('VXLAN'),
+		'summary' => gettext('VXLAN {vni} on {if}[ to {remote-addr}][ group {mcastgroup}]'),
+		'summaryIcon' => 'network-wired',
+		'sections' => array(
+			array('id' => 'vxlan', 'title' => gettext('VXLAN configuration'), 'fields' => array(
+				array('name' => 'if', 'type' => 'select', 'label' => gettext('Parent interface'), 'required' => true, 'width' => 'half',
+				    'options' => restapi_schema_choices(restapi_schema_net_call('interfaces_tunnel_parent_list', 'vxlan')),
+				    'help' => gettext('The tunnel is sent from this interface. Its address of the selected family is used as the local VTEP address.')),
+				array('name' => 'ipproto', 'type' => 'segmented', 'label' => gettext('Address family'), 'required' => true, 'default' => 'inet',
+				    'options' => restapi_schema_choices(array('inet' => gettext('IPv4'), 'inet6' => gettext('IPv6'))),
+				    'help' => gettext('Address family of the outer (encapsulating) traffic.')),
+				array('name' => 'mode', 'type' => 'segmented', 'label' => gettext('Mode'), 'required' => true, 'default' => 'unicast',
+				    'options' => restapi_schema_choices(array('unicast' => gettext('Unicast (one remote VTEP)'), 'multicast' => gettext('Multicast group')))),
+				array('name' => 'vni', 'type' => 'number', 'label' => gettext('VXLAN network identifier'), 'required' => true, 'min' => 0,
+				    'max' => $vni_max, 'width' => 'half', 'help' => sprintf(gettext('The VNI (0-%d) must match on every VTEP of this segment.'), $vni_max),
+				    'errorMatch' => array('vni', 'already uses vni', 'the vni or the port must differ')),
+				array('name' => 'remote-addr', 'type' => 'text', 'label' => gettext('Remote address'), 'required' => true, 'mono' => true,
+				    'width' => 'half', 'visibleWhen' => array('field' => 'mode', 'equals' => 'unicast'),
+				    'help' => gettext('Address of the remote VTEP.'), 'errorMatch' => array('the remote address must')),
+				array('name' => 'mcastgroup', 'type' => 'text', 'label' => gettext('Multicast group'), 'required' => true, 'mono' => true,
+				    'width' => 'half', 'placeholder' => '239.1.1.1', 'visibleWhen' => array('field' => 'mode', 'equals' => 'multicast'),
+				    'help' => gettext('Group joined on the parent interface. IPv4 groups must be 224.0.1.0 or above; IPv6 groups must have site scope or wider (ff05::, ff08::, ff0e::).')),
+				array('name' => 'learn', 'type' => 'switch', 'label' => gettext('MAC learning'), 'default' => true,
+				    'text' => gettext('Learn which remote VTEP each MAC address is behind'),
+				    'help' => gettext('With learning, frames for a known MAC address are sent to the VTEP it was learned from instead of the remote address or group.')),
+				array('name' => 'allowrule', 'type' => 'switch', 'label' => gettext('Firewall rule'),
+				    'text' => gettext('Allow the VXLAN traffic in on the parent interface'),
+				    'help' => gettext('Adds a pass rule for the encapsulated UDP traffic from the remote VTEP (in multicast mode from any sender, plus IGMP or MLD), ' .
+				    'placed before the parent\'s private and bogon network blocks. Traffic inside the tunnel still needs rules on the assigned VXLAN interface.')),
+				restapi_schema_net_descr(),
+			)),
+			array('id' => 'advanced', 'title' => gettext('Ports and TTL'), 'advanced' => true,
+			    'description' => gettext('The defaults suit FreeBSD and most other VTEPs. Linux peers use port 8472 unless configured with "dstport 4789".'),
+			    'fields' => array(
+				array('name' => 'localport', 'type' => 'number', 'label' => gettext('Local port'), 'min' => 1, 'max' => 65535, 'width' => 'third',
+				    'placeholder' => (string)$port, 'help' => sprintf(gettext('UDP port to listen on. Default %d.'), $port),
+				    'errorMatch' => array('need different local ports', 'must use the same local port')),
+				array('name' => 'remoteport', 'type' => 'number', 'label' => gettext('Remote port'), 'min' => 1, 'max' => 65535, 'width' => 'third',
+				    'placeholder' => (string)$port, 'help' => sprintf(gettext('UDP port of the remote VTEP. Default %d.'), $port)),
+				array('name' => 'ttl', 'type' => 'number', 'label' => gettext('TTL'), 'min' => 1, 'max' => 255, 'width' => 'third',
+				    'placeholder' => (string)$ttl, 'help' => sprintf(gettext('TTL of the outer packets. Default %d.'), $ttl)),
 			)),
 		),
 	);

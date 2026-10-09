@@ -52,6 +52,7 @@ function restapi_schemas() {
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
 		'network/assignments' => array('restapi_schema_network_assignments', 'interfaces_assign.php', 'interfaces'),
 		'network/vlans' => array('restapi_schema_network_vlans', 'interfaces_vlan_edit.php', 'interfaces'),
+		'network/vxlans' => array('restapi_schema_network_vxlans', 'interfaces_vxlan_edit.php', 'interfaces'),
 		'network/qinq' => array('restapi_schema_network_qinq', 'interfaces_qinq_edit.php', 'interfaces'),
 		'network/bridges' => array('restapi_schema_network_bridges', 'interfaces_bridge_edit.php', 'interfaces'),
 		'network/laggs' => array('restapi_schema_network_laggs', 'interfaces_lagg_edit.php', 'interfaces'),
