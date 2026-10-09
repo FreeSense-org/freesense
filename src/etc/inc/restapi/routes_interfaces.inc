@@ -38,7 +38,7 @@
  * stored key (vlanif, laggif, ...), the stored fields, "fields" (the edit
  * form, a valid PUT body) and "display" (the list page's columns as text,
  * in_use / in_use_reason when a delete would be refused, assigned_to). The
- * editors are described by the schemas network/{vlans,qinq,bridges,laggs,
+ * editors are described by the schemas network/{vlans,vxlans,qinq,bridges,laggs,
  * gifs,gres,groups,assignments} (schemas/network_interfaces.inc), which key
  * 422 messages to fields.
  *
@@ -64,7 +64,7 @@ function restapi_iftun_types() {
 		),
 		'vxlans' => array(
 			'label' => 'VXLAN', 'config' => 'vxlans/vxlan', 'ifkey' => 'vxlanif',
-			'list' => 'interfaces_vxlan.php', 'edit' => 'interfaces_vxlan_edit.php',
+			'list' => 'interfaces_vxlan.php', 'edit' => 'interfaces_vxlan_edit.php', 'schema' => 'network/vxlans',
 			'fields' => array('if', 'ipproto', 'mode', 'vni', 'remote-addr', 'mcastgroup', 'localport',
 			    'remoteport', 'ttl', 'descr'),
 			'checkboxes' => array('learn', 'allowrule'),
@@ -574,8 +574,19 @@ function restapi_iftun_display($res, $idx, array $entry, array $ctx) {
 		}
 		break;
 	case 'vxlans':
-		$d = array('interface' => $ifname, 'parent' => convert_friendly_interface_to_friendly_descr($parent), 'vni' => (string)($entry['vni'] ?? ''),
-		    'remote' => (string)((($entry['mode'] ?? '') === 'multicast') ? ($entry['mcastgroup'] ?? '') : ($entry['remote-addr'] ?? '')));
+		/* interfaces_vxlan.php: the name as it is, the parent's label, "Remote / Group" */
+		$multicast = (($entry['mode'] ?? '') === 'multicast');
+		$d = array('interface' => $ifname, 'parent' => (string)convert_friendly_interface_to_friendly_descr($parent),
+		    'vni' => (string)($entry['vni'] ?? ''),
+		    'mode' => $multicast ? 'multicast' : 'unicast',
+		    'family' => (($entry['ipproto'] ?? 'inet') === 'inet6') ? 'IPv6' : 'IPv4',
+		    'remote' => (string)($multicast ? ($entry['mcastgroup'] ?? '') : ($entry['remote-addr'] ?? '')),
+		    /* the parent's address of the tunnel's family ('' while it has none: the tunnel then waits) */
+		    'local' => (string)interface_vxlan_local_address($entry),
+		    'port' => (string)vxlan_localport($entry),
+		    'remote_port' => (string)vxlan_remoteport($entry),
+		    'learning' => !isset($entry['nolearn']),
+		    'allowrule' => isset($entry['allowrule']));
 		break;
 	case 'gifs':
 	case 'gres':

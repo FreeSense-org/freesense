@@ -43,7 +43,10 @@ function qinq_inuse($qinq, $tag) { return assigned_port("{$qinq['if']}.{$qinq['t
 function gif_inuse($num) { return assigned_port($GLOBALS['cfg']['gifs']['gif'][$num]['gifif']); }
 function gre_inuse($num) { return assigned_port($GLOBALS['cfg']['gres']['gre'][$num]['greif']); }
 function bridge_inuse($num) { return assigned_port($GLOBALS['cfg']['bridges']['bridged'][$num]['bridgeif']); }
-function vxlan_inuse($num) { return false; }
+function vxlan_inuse($num) {
+	return assigned_port($GLOBALS['cfg']['vxlans']['vxlan'][$num]['vxlanif']) ? 'This VXLAN cannot be deleted because it is still being used as an interface.' : false;
+}
+function interface_vxlan_local_address($vxlan) { return (($vxlan['ipproto'] ?? 'inet') === 'inet6') ? '' : '198.51.100.2'; }
 function lagg_inuse($num) {
 	$laggif = $GLOBALS['cfg']['laggs']['lagg'][$num]['laggif'];
 	if (assigned_port($laggif)) {
@@ -141,6 +144,8 @@ function interfaces_assign_delete($id, &$input_errors) {
 }
 function interfaces_assign_apply() { $GLOBALS['applied'] = true; return array('rebooting' => false, 'retval' => 0); }
 
+/* vxlan.inc has no dependencies: its validation messages are the real ones */
+require_once('vxlan.inc');
 require_once('restapi/routes_v1.inc');
 
 function check($condition, $message) {
@@ -188,6 +193,12 @@ $GLOBALS['cfg'] = array(
 		array('if' => '_vip5f00', 'remote-addr' => '203.0.113.7', 'tunnel-local-addr' => '', 'tunnel-remote-addr' => '',
 		    'tunnel-local-addr6' => 'fd00::1', 'tunnel-remote-addr6' => 'fd00::2', 'tunnel-remote-net6' => '64', 'descr' => '', 'greif' => 'gre0'),
 	)),
+	'vxlans' => array('vxlan' => array(
+		array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'unicast', 'vni' => '100', 'remote-addr' => '203.0.113.20', 'localport' => '8472',
+		    'allowrule' => '', 'descr' => 'dc link', 'vxlanif' => 'vxlan0', 'mac' => '02:00:00:00:00:01'),
+		array('if' => 'lan', 'ipproto' => 'inet6', 'mode' => 'multicast', 'vni' => '7', 'mcastgroup' => 'ff05::7', 'nolearn' => '',
+		    'descr' => '', 'vxlanif' => 'vxlan1', 'mac' => '02:00:00:00:00:02'),
+	)),
 	'ifgroups' => array('ifgroupentry' => array(
 		array('ifname' => 'LANS', 'members' => 'lan opt1', 'descr' => 'inside'),
 		array('ifname' => 'SPARE', 'members' => '', 'descr' => ''),
@@ -208,6 +219,8 @@ foreach ($v1 as $r) {
 
 $expect = array(
 	'network/vlans' => array('interfaces_vlan_edit.php', array('if', 'tag_type', 'tag', 'pcp', 'descr')),
+	'network/vxlans' => array('interfaces_vxlan_edit.php', array('if', 'ipproto', 'mode', 'vni', 'remote-addr', 'mcastgroup', 'learn', 'allowrule',
+	    'descr', 'localport', 'remoteport', 'ttl')),
 	'network/qinq' => array('interfaces_qinq_edit.php', array('if', 'tag_type', 'tag', 'autogroup', 'descr', 'members', 'members.*.tag')),
 	'network/bridges' => array('interfaces_bridge_edit.php', array('members', 'descr', 'maxaddr', 'timeout', 'span', 'edge', 'autoedge', 'ptp',
 	    'autoptp', 'static', 'private', 'ip6linklocal', 'enablestp', 'proto', 'stp', 'maxage', 'fwdelay', 'hellotime', 'priority', 'holdcnt',
@@ -228,8 +241,8 @@ foreach ($expect as $res => list($page, $names)) {
 	check(array_keys(restapi_schema_fields($s)) === $names, "{$res}: fields are the edit page's form fields (" . implode(', ', array_keys(restapi_schema_fields($s))) . ')');
 }
 /* every API save field is in the schema (iftun "fields"/"checkboxes"/"lists"/"maps") */
-foreach (array('vlans' => 'network/vlans', 'qinqs' => 'network/qinq', 'bridges' => 'network/bridges', 'laggs' => 'network/laggs',
-    'gifs' => 'network/gifs', 'gres' => 'network/gres', 'groups' => 'network/groups') as $res => $schema) {
+foreach (array('vlans' => 'network/vlans', 'vxlans' => 'network/vxlans', 'qinqs' => 'network/qinq', 'bridges' => 'network/bridges',
+    'laggs' => 'network/laggs', 'gifs' => 'network/gifs', 'gres' => 'network/gres', 'groups' => 'network/groups') as $res => $schema) {
 	$t = restapi_iftun_types()[$res];
 	check(($t['schema'] ?? null) === $schema, "{$res} names schema {$schema}");
 	$names = array_keys(restapi_schema_fields(restapi_schema_get($schema)));
@@ -285,6 +298,7 @@ check(array_column(field_of('network/assignments', 'port')['options'], 'value') 
 $tun = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/interfaces_tunnels.inc");
 $l2 = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/interfaces_l2.inc");
 $asg = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/interfaces_assign.inc");
+$vx = file_get_contents("{$root}/src/etc/inc/vxlan.inc");
 /* [message, field, source text that must exist in the include (null: built from parts)] */
 $messages = array(
 	'network/vlans' => array($tun, array(
@@ -299,6 +313,35 @@ $messages = array(
 		array('A QinQ VLAN exists on em1 with this tag. Please remove it to use this tag for a normal VLAN.', 'tag',
 		    'A QinQ VLAN exists on %s with this tag. Please remove it to use this tag for a normal VLAN.'),
 		array('Error occurred creating interface, please retry.', null),
+	)),
+	/* interfaces_vxlan_save() and vxlan_validate() */
+	'network/vxlans' => array($tun . $vx, array(
+		array('A valid parent interface must be selected.', 'if'),
+		array('A parent interface must be selected.', 'if'),
+		array('The parent interface has no IPv4 address.', 'if'),
+		array('The parent interface has no IPv6 address.', 'if'),
+		array('The parent interface is a bridge that this VXLAN is a member of.', 'if'),
+		array('The address family must be IPv4 or IPv6.', 'ipproto'),
+		array('The mode must be unicast or multicast.', 'mode'),
+		array('The VNI must be a number between 0 and 16777215.', 'vni', 'The VNI must be a number between 0 and %d.'),
+		array('The local port must be between 1 and 65535.', 'localport', "'local port'"),
+		array('The remote port must be between 1 and 65535.', 'remoteport', "'remote port'"),
+		array('The TTL must be between 1 and 255.', 'ttl'),
+		array('The remote address must be an IP address of the selected address family.', 'remote-addr'),
+		array('The remote address must not be a multicast address. Use multicast mode instead.', 'remote-addr'),
+		array('The remote address must be the address of another VTEP, not an unspecified, loopback, broadcast, link-local or local address.', 'remote-addr'),
+		array('The multicast group must be an IPv6 multicast address with site scope or wider (ff05::/16, ff08::/16 or ff0e::/16).', 'mcastgroup'),
+		array('The multicast group must be between 224.0.1.0 and 239.255.255.255.', 'mcastgroup'),
+		array('vxlan1 uses local port 4790. All IPv6 VXLAN tunnels must use the same local port, because FreeBSD accepts zero-checksum IPv6 UDP on one port only.',
+		    'localport', 'All IPv6 VXLAN tunnels must use the same local port, because FreeBSD accepts zero-checksum IPv6 UDP on one port only.'),
+		array('vxlan1 is a multicast tunnel on local port 4789. Unicast and multicast tunnels of one address family need different local ports.', 'localport',
+		    '%1$s is a %2$s tunnel on local port %3$d. Unicast and multicast tunnels of one address family need different local ports.'),
+		array('vxlan1 already uses VNI 7 on multicast port 4789. Multicast tunnels of one address family share one socket per port, so the VNI or the port must differ.',
+		    'vni', 'Multicast tunnels of one address family share one socket per port, so the VNI or the port must differ.'),
+		array('vxlan0 already uses VNI 100 on local address 198.51.100.2 port 4789.', 'vni', '%1$s already uses VNI %2$d on local address %3$s port %4$d.'),
+		array('The MAC address is not valid.', null),
+		array('Invalid VXLAN interface.', null),
+		array('The VXLAN interface could not be created with these settings. The system log has the details.', null),
 	)),
 	'network/qinq' => array($l2, array(
 		array('The selected VLAN Tag Type is invalid.', 'tag_type'),
@@ -436,9 +479,61 @@ foreach ($messages as $res => list($source, $list)) {
 	}
 }
 
+/* the real VXLAN validation: every message it gives for a broken form lands on a field */
+$vxs = restapi_schema_get('network/vxlans');
+$runs = array(
+	array(array('if' => '', 'ipproto' => 'x', 'mode' => 'y', 'vni' => '-1', 'localport' => '0', 'remoteport' => '70000', 'ttl' => '300'), ''),
+	array(array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'unicast', 'vni' => '5', 'remote-addr' => 'fd00::1'), ''),
+	array(array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'unicast', 'vni' => '5', 'remote-addr' => '239.1.1.1'), '198.51.100.2'),
+	array(array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'unicast', 'vni' => '5', 'remote-addr' => '127.0.0.1'), '198.51.100.2'),
+	array(array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'multicast', 'vni' => '5', 'mcastgroup' => '224.0.0.5'), '198.51.100.2'),
+	array(array('if' => 'wan', 'ipproto' => 'inet6', 'mode' => 'multicast', 'vni' => '5', 'mcastgroup' => 'ff02::1'), 'fd00::9'),
+);
+$produced = 0;
+foreach ($runs as list($form, $local)) {
+	foreach (vxlan_validate($form, $local) as $msg) {
+		$r = restapi_errors_to_fields(array($msg), $vxs, array());
+		check(count($r['fields']) === 1, "network/vxlans: vxlan_validate()'s \"{$msg}\" lands on a field");
+		$produced++;
+	}
+}
+$dup = vxlan_validate(array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'unicast', 'vni' => '100', 'remote-addr' => '203.0.113.9'), '198.51.100.2',
+    array(array('vxlanif' => 'vxlan0', 'ipproto' => 'inet', 'mode' => 'unicast', 'localaddr' => '198.51.100.2', 'localport' => 4789, 'vni' => '100')));
+check(count($dup) === 1 && array_keys(restapi_errors_to_fields($dup, $vxs, array())['fields']) === array('vni'), 'a VNI already in use lands on vni');
+check($produced >= 10, "the broken VXLAN forms produced the validation messages ({$produced})");
+check(field_of('network/vxlans', 'remote-addr')['visibleWhen'] === array('field' => 'mode', 'equals' => 'unicast') &&
+    field_of('network/vxlans', 'mcastgroup')['visibleWhen'] === array('field' => 'mode', 'equals' => 'multicast') &&
+    field_of('network/vxlans', 'vni')['max'] === VXLAN_VNI_MAX && field_of('network/vxlans', 'localport')['placeholder'] === '4789' &&
+    field_of('network/vxlans', 'ttl')['section']['advanced'] === true && field_of('network/vxlans', 'learn')['default'] === true &&
+    array_column(field_of('network/vxlans', 'if')['options'], 'value') === array_keys(interfaces_tunnel_parent_list('vxlan')),
+    'VXLAN schema: remote address or group by mode, VNI range, ports and TTL advanced, learning on by default, the page\'s parents');
+
 /* ------------------------------------------------------------------ */
 /* Items: key, stored fields, fields, display                          */
 /* ------------------------------------------------------------------ */
+
+$vxl = restapi_h_iftun_list(array('path' => '/v1/interfaces/vxlans'))['data'];
+check($vxl[0]['vxlanif'] === 'vxlan0' && $vxl[0]['vni'] === '100' && $vxl[0]['fields'] === array('if' => 'wan', 'ipproto' => 'inet', 'mode' => 'unicast',
+    'vni' => '100', 'remote-addr' => '203.0.113.20', 'mcastgroup' => '', 'localport' => '8472', 'remoteport' => '', 'ttl' => '', 'descr' => 'dc link',
+    'learn' => 'yes', 'allowrule' => 'yes'), 'a VXLAN: vxlanif, stored fields and the edit form fields (learning on unless nolearn)');
+check($vxl[0]['display'] === array('interface' => 'vxlan0', 'parent' => 'WAN', 'vni' => '100', 'mode' => 'unicast', 'family' => 'IPv4',
+    'remote' => '203.0.113.20', 'local' => '198.51.100.2', 'port' => '8472', 'remote_port' => '4789', 'learning' => true, 'allowrule' => true,
+    'description' => 'dc link', 'in_use' => false, 'in_use_reason' => '', 'assigned_to' => ''), 'VXLAN display: parent label, peer, local VTEP, ports');
+check($vxl[1]['display']['remote'] === 'ff05::7' && $vxl[1]['display']['mode'] === 'multicast' && $vxl[1]['display']['local'] === '' &&
+    $vxl[1]['display']['learning'] === false && !isset($vxl[1]['fields']['learn']), 'a multicast VXLAN shows its group; no local address yet');
+$GLOBALS['cfg']['interfaces']['opt9'] = array('if' => 'vxlan0', 'descr' => 'DC');
+$vx0 = restapi_h_iftun_get(array('path' => '/v1/interfaces/vxlans/vxlan0', 'params' => array('id' => 'vxlan0')))['data'];
+check($vx0['display']['in_use'] === true && $vx0['display']['assigned_to'] === 'DC' &&
+    $vx0['display']['in_use_reason'] === 'This VXLAN cannot be deleted because it is still being used as an interface.' &&
+    strpos($tun, $vx0['display']['in_use_reason']) !== false, 'an assigned VXLAN is in use with vxlan_inuse()\'s message');
+unset($GLOBALS['cfg']['interfaces']['opt9']);
+list($route) = restapi_match($v1, 'PUT', '/v1/interfaces/vxlans/vxlan0');
+check($route['schema'] === 'network/vxlans' && $seen['POST /v1/interfaces/vxlans']['schema'] === 'network/vxlans', 'VXLAN saves name network/vxlans');
+/* the assign page offers VXLANs as ports (interfaces_assign_port_list() and the port descriptions) */
+$plist = substr($asg, strpos($asg, 'function interfaces_assign_port_list('));
+check(strpos(substr($plist, 0, strpos($plist, "\n}\n")), "config_get_path('vxlans/vxlan', [])") !== false &&
+    strpos(file_get_contents("{$root}/src/etc/inc/interfaces_fast.inc"), "\$portinfo['isvxlan']") !== false,
+    'VXLANs are assignable ports, so they appear in meta.ports / meta.available_ports');
 
 function list_of($res) {
 	$out = restapi_h_iftun_list(array('path' => "/v1/interfaces/{$res}"));
