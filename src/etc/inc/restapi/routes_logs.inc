@@ -52,7 +52,8 @@ function restapi_routes_logs() {
 	$q = array(
 		'lines' => 'Number of entries, 1-' . RESTAPI_LOG_LINES_MAX . ' (default ' . RESTAPI_LOG_LINES_DEFAULT . ')',
 		'filter' => 'Only entries matching this regular expression (case-insensitive)',
-		'format' => 'parsed (default; fields of the formatted view) or raw (the log lines)',
+		'format' => 'parsed (default; fields of the formatted view), raw (the log lines) or webui (the WebUI log viewer: ' .
+		    'normalized entries in data, cursors in meta; takes limit, q, and action/iface (firewall) or process)',
 		'after' => 'Cursor: only entries newer than this entry id, oldest first (parsed only)',
 		'before' => 'Cursor: only entries older than this entry id, newest first (parsed only)',
 	);
@@ -310,6 +311,172 @@ function restapi_log_read($name, array $entry, $format, $lines, $match, $interfa
 	return $out + array('exists' => true, 'count' => count($rows), 'entries' => $rows, 'last_id' => $last);
 }
 
+/* ------------------------------------------------------------------ */
+/* WebUI format                                                        */
+/* ------------------------------------------------------------------ */
+
+/*
+ * format=webui: the log viewer's contract. data is a list of normalized
+ * entries (newest first, or oldest first with ?after=), meta has last_id
+ * (the next ?after=), has_more (older entries exist: ?before=) and reset
+ * (the ?after= entry is gone; the newest entries follow). Filters are
+ * applied to the normalized entries, so they combine freely:
+ *   limit    1-500 (default 100)
+ *   q        text anywhere in the entry (case-insensitive)
+ *   action   firewall: comma list (pass, block, reject, match)
+ *   iface    firewall: interface ids, comma list (wan, lan, opt1)
+ *   process  system logs: process names, comma list
+ */
+function restapi_log_webui_limit(array $q) {
+	$v = $q['limit'] ?? '';
+	if (($v === '') || ($v === null)) {
+		return 100;
+	}
+	if (!is_string($v) || !ctype_digit($v) || ((int)$v < 1) || ((int)$v > 500)) {
+		throw new RestApiError(400, 'invalid_parameter', '"limit" must be a number from 1 to 500.');
+	}
+	return (int)$v;
+}
+
+function restapi_log_webui_list(array $q, $name) {
+	$v = restapi_log_text($q, $name);
+	return array_values(array_filter(array_map('trim', explode(',', strtolower($v))), 'strlen'));
+}
+
+/* "Oct  9 03:08:43" (syslog, no year) or an RFC 5424 time as ISO 8601 with the firewall's offset. */
+function restapi_log_webui_time($time, $now = null) {
+	$now = ($now === null) ? time() : (int)$now;
+	$ts = strtotime((string)$time, $now);
+	if ($ts === false) {
+		return (string)$time;
+	}
+	/* Syslog times have no year: one more than a day ahead is last year's. */
+	if (!preg_match('/\b\d{4}\b/', (string)$time) && ($ts > $now + 86400)) {
+		$ts = strtotime('-1 year', $ts);
+	}
+	return date('c', $ts);
+}
+
+/* The description of the rule a firewall log line names (plain text; the GUI's helper returns markup). */
+function restapi_log_webui_rule(array $row) {
+	global $buffer_rules_normal, $buffer_rules_rdr;
+	$num = is_numericint($row['subrulenum'] ?? '') ? $row['subrulenum'] : ($row['rulenum'] ?? '');
+	$key = (($row['tracker'] ?? '0') == '0') ? "@{$num}" : (string)$row['tracker'];
+	$text = (string)((($row['act'] ?? '') === 'rdr') ? ($buffer_rules_rdr[$key] ?? '') : ($buffer_rules_normal[$key] ?? ''));
+	$text = trim(preg_replace('/^USER_RULE:\s*/', '', $text));
+	return ($text === '') ? null : $text;
+}
+
+function restapi_log_webui_entry(array $row, $firewall, array $ifnames) {
+	$id = restapi_log_entry_id($row);
+	if ($firewall) {
+		$port = function ($v) {
+			return (is_string($v) && ctype_digit($v)) ? (int)$v : null;
+		};
+		$proto = (string)($row['proto'] ?? '');
+		if (!empty($row['tcpflags']) && (strpos($proto, ':') === false)) {
+			$proto .= ":{$row['tcpflags']}";
+		}
+		return array(
+			'id' => $id,
+			'time' => restapi_log_webui_time($row['time'] ?? ''),
+			'action' => strtolower((string)($row['act'] ?? '')),
+			'iface' => $ifnames[$row['realint'] ?? ''] ?? (string)($row['realint'] ?? ''),
+			'iface_descr' => (string)($row['interface'] ?? ''),
+			'dir' => (($row['direction'] ?? '') === 'out') ? 'out' : 'in',
+			'proto' => $proto,
+			'src' => (string)($row['srcip'] ?? ''),
+			'srcport' => $port($row['srcport'] ?? null),
+			'dst' => (string)($row['dstip'] ?? ''),
+			'dstport' => $port($row['dstport'] ?? null),
+			'rule_id' => (string)($row['tracker'] ?? ''),
+			'rule' => restapi_log_webui_rule($row),
+			'tracker' => (string)($row['tracker'] ?? ''),
+			'len' => isset($row['length']) ? (int)$row['length'] : null,
+		);
+	}
+	return array(
+		'id' => $id,
+		'time' => restapi_log_webui_time($row['time'] ?? ''),
+		'host' => (string)($row['host'] ?? ''),
+		'process' => (string)($row['process'] ?? ''),
+		'pid' => (isset($row['pid']) && ($row['pid'] !== '')) ? (int)$row['pid'] : null,
+		'severity' => null,
+		'message' => (string)($row['message'] ?? ''),
+	);
+}
+
+/* Does a normalized entry pass the WebUI filters? */
+function restapi_log_webui_match(array $e, array $f) {
+	if (!empty($f['action']) && !in_array($e['action'] ?? '', $f['action'], true)) {
+		return false;
+	}
+	if (!empty($f['iface']) && !in_array(strtolower($e['iface'] ?? ''), $f['iface'], true)) {
+		return false;
+	}
+	if (!empty($f['process']) && !in_array(strtolower($e['process'] ?? ''), $f['process'], true)) {
+		return false;
+	}
+	if ($f['q'] !== '') {
+		$hay = mb_strtolower(implode(' ', array_map('strval', array_filter(array_diff_key($e, array('id' => 1)), 'is_scalar'))));
+		if (mb_strpos($hay, $f['q']) === false) {
+			return false;
+		}
+	}
+	return true;
+}
+
+/* Read a log in the WebUI format. Returns a handler result (data + meta). */
+function restapi_log_webui($name, array $entry, array $q) {
+	$firewall = ($entry['family'] === 'firewall');
+	$limit = restapi_log_webui_limit($q);
+	$cursor = restapi_log_cursor($q);
+	$f = array('q' => mb_strtolower(trim(restapi_log_text($q, 'q'))), 'action' => array(), 'iface' => array(), 'process' => array());
+	if ($firewall) {
+		$f['action'] = restapi_log_webui_list($q, 'action');
+		$f['iface'] = restapi_log_webui_list($q, 'iface');
+	} else {
+		$f['process'] = restapi_log_webui_list($q, 'process');
+	}
+	$path = restapi_log_path($entry, g_get('varlog_path'));
+	if (($entry['file'] !== 'utx.log') && !is_file($path)) {
+		return array('data' => array(), 'meta' => array('last_id' => null, 'has_more' => false, 'reset' => false, 'exists' => false));
+	}
+	$ifnames = array();
+	if ($firewall) {
+		buffer_rules_load();
+		foreach (get_configured_interface_list(true) as $ifname) {
+			$real = get_real_interface($ifname);
+			if ($real !== '') {
+				$ifnames[$real] = $ifname;
+			}
+		}
+	}
+	$newest_first = restapi_log_newest_first($path);
+	$filtered = ($f['q'] !== '') || $f['action'] || $f['iface'] || $f['process'];
+	foreach (array(($limit * ($filtered ? 10 : 2)) + 200, 2000, RESTAPI_LOG_SCAN_MAX) as $scan) {
+		$raw = array_values(array_filter((array)conv_log_filter($path, $scan, $scan, '', ''), 'is_array'));
+		if ($newest_first) {
+			$raw = array_reverse($raw);
+		}
+		$rows = array();
+		foreach ($raw as $row) {
+			$e = restapi_log_webui_entry($row, $firewall, $ifnames);
+			if (restapi_log_webui_match($e, $f)) {
+				$rows[] = $e;
+			}
+		}
+		$complete = count($raw) < $scan;
+		list($page, $reset, $more, $found) = restapi_log_page($rows, $cursor, $limit, $complete);
+		if (($found && (($cursor['after'] !== null) || ($cursor['before'] !== null) || (count($page) >= $limit))) ||
+		    $complete || ($scan === RESTAPI_LOG_SCAN_MAX)) {
+			break;
+		}
+	}
+	$last = empty($rows) ? null : $rows[count($rows) - 1]['id'];
+	return array('data' => $page, 'meta' => array('last_id' => $last, 'has_more' => $more, 'reset' => $reset, 'exists' => true));
+}
+
 function restapi_h_logs_list($req) {
 	$out = array();
 	foreach (restapi_log_catalog() as $name => $entry) {
@@ -330,6 +497,9 @@ function restapi_h_logs_list($req) {
 function restapi_h_logs_get($req) {
 	$name = $req['params']['name'];
 	$entry = restapi_log_entry('system', $name);
+	if ((($req['query']['format'] ?? '') === 'webui') && in_array('parsed', $entry['formats'], true) && ($name !== 'utx')) {
+		return restapi_log_webui($name, $entry, $req['query']);
+	}
 	$format = restapi_log_format($req['query'], $entry);
 	return array('data' => restapi_log_read($name, $entry, $format, restapi_log_lines($req['query']),
 	    restapi_log_filter($req['query']), '', restapi_log_cursor($req['query'])));
@@ -338,6 +508,9 @@ function restapi_h_logs_get($req) {
 function restapi_h_logs_vpn($req) {
 	$name = $req['params']['name'];
 	$entry = restapi_log_entry('vpn', $name);
+	if (($req['query']['format'] ?? '') === 'webui') {
+		return restapi_log_webui("vpn/{$name}", $entry, $req['query']);
+	}
 	$format = restapi_log_format($req['query'], $entry);
 	return array('data' => restapi_log_read("vpn/{$name}", $entry, $format, restapi_log_lines($req['query']),
 	    restapi_log_filter($req['query']), '', restapi_log_cursor($req['query'])));
@@ -346,6 +519,9 @@ function restapi_h_logs_vpn($req) {
 function restapi_h_logs_firewall($req) {
 	$q = $req['query'];
 	$entry = restapi_log_entry('firewall', 'firewall');
+	if (($q['format'] ?? '') === 'webui') {
+		return restapi_log_webui('firewall', $entry, $q);
+	}
 	$format = restapi_log_format($q, $entry);
 	$lines = restapi_log_lines($q);
 	$filter = restapi_log_filter($q);

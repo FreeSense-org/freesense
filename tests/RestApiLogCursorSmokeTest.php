@@ -58,9 +58,41 @@ $dup = array(array('id' => 'x'), array('id' => 'y'), array('id' => 'x'), array('
 list($page) = restapi_log_page($dup, array('after' => 'x', 'before' => null), 10, true);
 check($ids($page) === array('z'), 'after a repeated entry continues after its last occurrence');
 
+/* WebUI format */
+if (!function_exists('is_numericint')) {
+	function is_numericint($v) { return is_string($v) && ctype_digit($v); }
+}
+date_default_timezone_set('Europe/Copenhagen');
+$now = strtotime('2026-10-09 12:00:00');
+check(restapi_log_webui_time('Oct  9 03:08:43', $now) === '2026-10-09T03:08:43+02:00', 'syslog time as ISO 8601 with the offset');
+check(restapi_log_webui_time('Dec 31 23:59:59', strtotime('2027-01-01 00:30:00')) === '2026-12-31T23:59:59+01:00', 'last year\'s entries just after new year');
+check(restapi_log_webui_time('Oct 11 08:00:00', $now) === '2025-10-11T08:00:00+02:00', 'a time more than a day ahead is last year\'s');
+$GLOBALS['buffer_rules_normal'] = array('1000000104' => 'USER_RULE: Allow LAN to any', '@5' => 'Default deny rule IPv4');
+$GLOBALS['buffer_rules_rdr'] = array();
+$fw = array('time' => 'Oct  9 03:08:43', 'rulenum' => '5', 'subrulenum' => '', 'tracker' => '1000000104', 'realint' => 'em1', 'interface' => 'LAN',
+    'act' => 'pass', 'direction' => 'in', 'proto' => 'TCP', 'tcpflags' => 'S', 'srcip' => '192.168.1.10', 'srcport' => '51544',
+    'dstip' => '203.0.113.5', 'dstport' => '443', 'length' => '60');
+$e = restapi_log_webui_entry($fw, true, array('em1' => 'lan'));
+check($e['id'] === restapi_log_entry_id($fw) && $e['action'] === 'pass' && $e['iface'] === 'lan' && $e['iface_descr'] === 'LAN' &&
+    $e['dir'] === 'in' && $e['proto'] === 'TCP:S' && $e['src'] === '192.168.1.10' && $e['srcport'] === 51544 && $e['dstport'] === 443 &&
+    $e['rule'] === 'Allow LAN to any' && $e['rule_id'] === '1000000104' && $e['len'] === 60, 'a firewall line in the viewer\'s shape (same id as parsed)');
+check(restapi_log_webui_entry(array('tracker' => '0', 'rulenum' => '5') + $fw, true, array())['rule'] === 'Default deny rule IPv4' &&
+    restapi_log_webui_entry(array('tracker' => '9') + $fw, true, array())['rule'] === null, 'rules by number without a tracker; unknown rules are null');
+check(restapi_log_webui_entry(array('srcport' => '', 'proto' => 'ICMP', 'tcpflags' => '') + $fw, true, array())['srcport'] === null, 'no port for ICMP');
+$sys = restapi_log_webui_entry(array('time' => 'Oct  9 03:09:53', 'host' => 'fw', 'process' => 'php-fpm', 'pid' => '428', 'message' => 'Hello'), false, array());
+check(array_keys($sys) === array('id', 'time', 'host', 'process', 'pid', 'severity', 'message') && $sys['pid'] === 428 && $sys['severity'] === null,
+    'a system line in the viewer\'s shape');
+$f = array('q' => '', 'action' => array(), 'iface' => array(), 'process' => array());
+check(restapi_log_webui_match($e, $f) && restapi_log_webui_match($e, array('action' => array('pass', 'block')) + $f) &&
+    !restapi_log_webui_match($e, array('action' => array('block')) + $f) && !restapi_log_webui_match($e, array('iface' => array('wan')) + $f) &&
+    restapi_log_webui_match($e, array('q' => 'allow lan') + $f) && restapi_log_webui_match($e, array('q' => '203.0.113') + $f) &&
+    !restapi_log_webui_match($e, array('q' => restapi_log_entry_id($fw)) + $f), 'filters combine; search looks at every field but the id');
+check(restapi_log_webui_list(array('action' => ' Block, ,pass'), 'action') === array('block', 'pass'), 'comma lists');
+check(restapi_log_webui_limit(array()) === 100 && $status(function () { restapi_log_webui_limit(array('limit' => '501')); }) === 400, 'limit 1-500');
+
 /* Wiring */
 $src = file_get_contents("{$root}/src/etc/inc/restapi/routes_logs.inc");
-check(substr_count($src, 'restapi_log_cursor(') === 4, 'system, VPN and firewall logs accept cursors');
+check(substr_count($src, 'restapi_log_cursor(') === 5, 'system, VPN and firewall logs (and the WebUI format) accept cursors');
 check(strpos($src, "Cursors (\"after\", \"before\") work on parsed entries only.") !== false, 'raw format refuses cursors');
 check(strpos($src, 'array(($lines * 2) + 200, 2000, RESTAPI_LOG_SCAN_MAX)') !== false, 'live tail searches a small window first');
 

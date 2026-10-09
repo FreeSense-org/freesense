@@ -254,7 +254,7 @@ try {
 	if (isset($result['raw'])) {
 		restapi_respond($status, $result['raw'], $result['type'] ?? 'text/plain', $headers);
 	}
-	restapi_respond($status, array('data' => $result['data'] ?? null), 'application/json', $headers);
+	restapi_respond($status, restapi_result_body($result), 'application/json', $headers);
 } catch (RestApiError $e) {
 	$headers = (($e->status === 401) && !$webui) ? array('WWW-Authenticate' => 'Bearer realm="FreeSense"') : array();
 	restapi_respond($e->status, $e->payload(), 'application/json', $headers);

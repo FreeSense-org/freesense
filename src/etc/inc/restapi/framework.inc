@@ -182,6 +182,15 @@ define('RESTAPI_BATCH_MAX', 20);
  *   $base       the request array of the batch call (user, token, session)
  * Returns [{id, status, body}] where body is the usual {data} / {error}.
  */
+/* The JSON body of a handler result: {data} plus {meta} when the handler sets it (paging cursors, totals). */
+function restapi_result_body(array $result) {
+	$body = array('data' => $result['data'] ?? null);
+	if (isset($result['meta']) && is_array($result['meta'])) {
+		$body['meta'] = $result['meta'];
+	}
+	return $body;
+}
+
 function restapi_batch_run($requests, array $routes, callable $authorize, array $base) {
 	if (!is_array($requests) || !array_is_list($requests)) {
 		throw new RestApiError(400, 'invalid_batch', 'requests must be a list of {id, method, path}.');
@@ -213,7 +222,7 @@ function restapi_batch_run($requests, array $routes, callable $authorize, array 
 			if (isset($result['raw'])) {
 				throw new RestApiError(400, 'not_batchable', 'This endpoint returns raw data and cannot be batched.');
 			}
-			$out[] = array('id' => $id, 'status' => (int)($result['status'] ?? 200), 'body' => array('data' => $result['data'] ?? null));
+			$out[] = array('id' => $id, 'status' => (int)($result['status'] ?? 200), 'body' => restapi_result_body($result));
 		} catch (RestApiError $e) {
 			$out[] = array('id' => $id, 'status' => $e->status, 'body' => $e->payload());
 		} catch (Throwable $e) {
