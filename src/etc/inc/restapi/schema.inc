@@ -46,6 +46,7 @@ require_once('restapi/schemas/firewall_schedules.inc');
 require_once('restapi/schemas/firewall_vips.inc');
 require_once('restapi/schemas/services_dns_resolver.inc');
 require_once('restapi/schemas/services_ntp.inc');
+require_once('restapi/schemas/network_interfaces.inc');
 
 /* resource => array(builder function, GUI page that grants read access, permission area) */
 function restapi_schemas() {
@@ -66,6 +67,14 @@ function restapi_schemas() {
 		'services/dns_domain_override' => array('restapi_schema_services_dns_domain_override', 'services_unbound_domainoverride_edit.php', 'services.dns'),
 		'services/dns_access_list' => array('restapi_schema_services_dns_access_list', 'services_unbound_acls.php', 'services.dns'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
+		'network/assignments' => array('restapi_schema_network_assignments', 'interfaces_assign.php', 'interfaces'),
+		'network/vlans' => array('restapi_schema_network_vlans', 'interfaces_vlan_edit.php', 'interfaces'),
+		'network/qinq' => array('restapi_schema_network_qinq', 'interfaces_qinq_edit.php', 'interfaces'),
+		'network/bridges' => array('restapi_schema_network_bridges', 'interfaces_bridge_edit.php', 'interfaces'),
+		'network/laggs' => array('restapi_schema_network_laggs', 'interfaces_lagg_edit.php', 'interfaces'),
+		'network/gifs' => array('restapi_schema_network_gifs', 'interfaces_gif_edit.php', 'interfaces'),
+		'network/gres' => array('restapi_schema_network_gres', 'interfaces_gre_edit.php', 'interfaces'),
+		'network/groups' => array('restapi_schema_network_groups', 'interfaces_groups_edit.php', 'interfaces'),
 	);
 }
 
