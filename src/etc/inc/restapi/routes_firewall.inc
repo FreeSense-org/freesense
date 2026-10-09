@@ -56,16 +56,20 @@ function restapi_routes_firewall() {
 	    'dstbeginport, dstendport, localtype, localip, localbeginport, natreflection, descr, disabled, nordr, ' .
 	    'filter-rule-association, after). GET returns the same shape.');
 	$vip_body = array('type' => 'object', 'description' => 'The same fields as the virtual IP edit page ' .
-	    '(mode, interface, subnet, subnet_bits, type, descr, vhid, advbase, advskew, password, noexpand).');
+	    '(mode, interface, subnet, subnet_bits, type, descr, vhid, advbase, advskew, password, noexpand). ' .
+	    'GET returns them as "fields" (never the password). On update a missing or empty password keeps the current one.');
 	$sched_body = array('type' => 'object', 'properties' => array(
 		'name' => array('type' => 'string'),
-		'description' => array('type' => 'string'),
+		'description' => array('type' => 'string', 'description' => 'Also accepted as "descr"'),
 		'ranges' => array('type' => 'array', 'items' => array('type' => 'object', 'properties' => array(
 		    'weekdays' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '1 = Monday ... 7 = Sunday'),
-		    'dates' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => '"MM-DD" or "YYYY-MM-DD"'),
+		    'dates' => array('type' => 'array', 'items' => array('type' => 'string'),
+		    'description' => '"MM-DD" or "YYYY-MM-DD" (a list, or one comma-separated string); a range has weekdays or dates'),
 		    'start' => array('type' => 'string', 'description' => 'HH:MM'),
-		    'stop' => array('type' => 'string', 'description' => 'HH:MM'),
+		    'stop' => array('type' => 'string', 'description' => 'HH:MM, not earlier than start'),
 		    'description' => array('type' => 'string')))),
+		'timerange' => array('type' => 'array', 'description' => 'Instead of "ranges": the stored form ' .
+		    '[{position: "1,2,3", month: "12,12", day: "24,25", hour: "8:00-17:00", rangedescr}]'),
 	));
 	$apply_query = array('apply' => 'true to apply the change at once (default: stage it like the GUI)');
 	$rule_body = array('type' => 'object', 'description' => 'The same fields as the rule edit page: ' .
@@ -126,16 +130,17 @@ function restapi_routes_firewall() {
 
 		/* Virtual IPs */
 		restapi_route('GET', '/v1/firewall/virtual-ips', 'restapi_h_vip_list', array(
-			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips', 'summary' => 'List virtual IPs')),
+			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips',
+			'summary' => 'List virtual IPs (stored form, plus "fields": the edit form fields, and "display": the list columns as text)')),
 		restapi_route('GET', '/v1/firewall/virtual-ips/{id}', 'restapi_h_vip_get', array(
-			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips', 'summary' => 'Get a virtual IP')),
+			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips', 'summary' => 'Get a virtual IP (with "fields" and "display")')),
 		restapi_route('POST', '/v1/firewall/virtual-ips', 'restapi_h_vip_create', array(
-			'page' => 'firewall_virtual_ip_edit.php', 'area' => 'firewall.vips', 'write' => true,
+			'page' => 'firewall_virtual_ip_edit.php', 'area' => 'firewall.vips', 'write' => true, 'schema' => 'firewall/virtual_ips',
 			'body' => $vip_body, 'query' => $apply_query, 'summary' => 'Create a virtual IP')),
 		restapi_route('PUT', '/v1/firewall/virtual-ips/{id}', 'restapi_h_vip_update', array(
-			'page' => 'firewall_virtual_ip_edit.php', 'area' => 'firewall.vips', 'write' => true,
+			'page' => 'firewall_virtual_ip_edit.php', 'area' => 'firewall.vips', 'write' => true, 'schema' => 'firewall/virtual_ips',
 			'body' => $vip_body, 'query' => $apply_query,
-			'summary' => 'Update a virtual IP (omitted fields keep their value)')),
+			'summary' => 'Update a virtual IP (omitted fields keep their value; false clears a checkbox; no password keeps it)')),
 		restapi_route('DELETE', '/v1/firewall/virtual-ips/{id}', 'restapi_h_vip_delete', array(
 			'page' => 'firewall_virtual_ip.php', 'area' => 'firewall.vips', 'write' => true,
 			'query' => $apply_query, 'summary' => 'Delete a virtual IP that nothing uses')),
@@ -145,15 +150,17 @@ function restapi_routes_firewall() {
 
 		/* Schedules */
 		restapi_route('GET', '/v1/firewall/schedules', 'restapi_h_sched_list', array(
-			'page' => 'firewall_schedule.php', 'area' => 'firewall.schedules', 'summary' => 'List schedules')),
+			'page' => 'firewall_schedule.php', 'area' => 'firewall.schedules',
+			'summary' => 'List schedules (with "fields": the editor fields, and "display": ranges as text, active now, rules using it)')),
 		restapi_route('GET', '/v1/firewall/schedules/{name}', 'restapi_h_sched_get', array(
-			'page' => 'firewall_schedule.php', 'area' => 'firewall.schedules', 'summary' => 'Get a schedule')),
+			'page' => 'firewall_schedule.php', 'area' => 'firewall.schedules', 'summary' => 'Get a schedule (with "fields" and "display")')),
 		restapi_route('POST', '/v1/firewall/schedules', 'restapi_h_sched_create', array(
-			'page' => 'firewall_schedule_edit.php', 'area' => 'firewall.schedules', 'write' => true,
+			'page' => 'firewall_schedule_edit.php', 'area' => 'firewall.schedules', 'write' => true, 'schema' => 'firewall/schedules',
 			'body' => $sched_body, 'summary' => 'Create a schedule (applies at once, like the GUI)')),
 		restapi_route('PUT', '/v1/firewall/schedules/{name}', 'restapi_h_sched_update', array(
-			'page' => 'firewall_schedule_edit.php', 'area' => 'firewall.schedules', 'write' => true,
-			'body' => $sched_body, 'summary' => 'Replace a schedule\'s ranges (applies at once)')),
+			'page' => 'firewall_schedule_edit.php', 'area' => 'firewall.schedules', 'write' => true, 'schema' => 'firewall/schedules',
+			'body' => $sched_body,
+			'summary' => 'Update a schedule (omitted fields keep their value; "ranges" replaces all ranges; a schedule in use keeps its name; applies at once)')),
 		restapi_route('DELETE', '/v1/firewall/schedules/{name}', 'restapi_h_sched_delete', array(
 			'page' => 'firewall_schedule.php', 'area' => 'firewall.schedules', 'write' => true,
 			'summary' => 'Delete a schedule that no rule uses')),
@@ -528,13 +535,84 @@ function restapi_vips() {
 	return config_get_path('virtualip/vip', []);
 }
 
-function restapi_vip_out($id) {
+/*
+ * A virtual IP: its stored fields (never the CARP password), "fields" (the
+ * edit form fields, the PUT body) and "display" (the list page columns as
+ * text). $labels are restapi_vip_interfaces(false), passed in for lists.
+ */
+function restapi_vip_out($id, ?array $labels = null) {
 	$vip = config_get_path("virtualip/vip/{$id}", []);
+	$vip = is_array($vip) ? $vip : array();
 	unset($vip['password']);
-	return array('id' => (int)$id) + $vip;
+	return array('id' => (int)$id) + $vip + array('fields' => restapi_vip_fields($vip),
+	    'display' => restapi_vip_display($vip, $labels ?? restapi_vip_interfaces(false)));
+}
+
+/* A stored virtual IP as firewall_virtual_ip_edit.php fills its form (no password). */
+function restapi_vip_fields(array $vip) {
+	$fields = array();
+	foreach (array('mode', 'interface', 'subnet', 'descr', 'uniqid') as $key) {
+		$fields[$key] = (string)($vip[$key] ?? '');
+	}
+	/* Missing means the page's default (32), which saveVIP() fills in. */
+	if (isset($vip['subnet_bits']) && ((string)$vip['subnet_bits'] !== '')) {
+		$fields['subnet_bits'] = (string)$vip['subnet_bits'];
+	}
+	$fields['type'] = (string)(($vip['type'] ?? '') ?: 'single');
+	if (($vip['mode'] ?? '') === 'carp') {
+		foreach (array('vhid', 'advbase', 'advskew') as $key) {
+			$fields[$key] = (string)($vip[$key] ?? '');
+		}
+	}
+	/* Stored as an empty element when set; false only before a reload. */
+	if (isset($vip['noexpand']) && ($vip['noexpand'] !== false)) {
+		$fields['noexpand'] = 'yes';
+	}
+	return $fields;
+}
+
+/* The list page columns (firewall_virtual_ip.php) as text. */
+function restapi_vip_display(array $vip, array $labels) {
+	$modes = restapi_vip_modes();
+	$mode = (string)($vip['mode'] ?? '');
+	$subnet = (string)($vip['subnet'] ?? '');
+	$address = $subnet;
+	if (in_array(($vip['type'] ?? 'single'), array('single', 'network'), true) && !empty($vip['subnet_bits']) && ($subnet !== '')) {
+		$address = "{$subnet}/{$vip['subnet_bits']}";
+	}
+	$if = (string)($vip['interface'] ?? '');
+	return array(
+		'type' => (string)($modes[$mode] ?? $mode),
+		'interface' => (string)($labels[$if] ?? $if),
+		'address' => $address,
+		'vhid' => ($mode === 'carp') ? (string)($vip['vhid'] ?? '') : '',
+		'description' => (string)($vip['descr'] ?? ''),
+	);
+}
+
+/*
+ * The CARP password of a save: a missing or empty one keeps the stored
+ * password (GET never returns it); the confirmation defaults to it.
+ */
+function restapi_vip_password(array $post, array $body, array $current) {
+	if (!isset($body['password']) || ((string)$body['password'] === '')) {
+		if (isset($current['password'])) {
+			$post['password'] = $current['password'];
+		} else {
+			unset($post['password']);
+		}
+		$post['password_confirm'] = $post['password'] ?? '';
+	} elseif (!isset($body['password_confirm'])) {
+		$post['password_confirm'] = $post['password'];
+	}
+	return $post;
 }
 
 function restapi_vip_save($post, $id, $req) {
+	/* The edit page always posts IP Alias and CARP addresses as single addresses. */
+	if (in_array($post['mode'] ?? '', array('ipalias', 'carp'), true)) {
+		unset($post['type']);
+	}
 	$post['id'] = ($id === null) ? '' : (string)$id;
 	/* saveVIP() only redirects when $json is false, and with $json set it
 	 * skips the page's do_input_validation(); run that check here so the
@@ -556,7 +634,10 @@ function restapi_vip_save($post, $id, $req) {
 }
 
 function restapi_h_vip_list($req) {
-	return array('data' => array_map('restapi_vip_out', array_keys(restapi_vips())));
+	$labels = restapi_vip_interfaces(false);
+	return array('data' => array_map(function ($id) use ($labels) {
+		return restapi_vip_out($id, $labels);
+	}, array_keys(restapi_vips())));
 }
 
 function restapi_h_vip_get($req) {
@@ -564,18 +645,16 @@ function restapi_h_vip_get($req) {
 }
 
 function restapi_h_vip_create($req) {
-	list(, $extra) = restapi_vip_save(restapi_body_as_post($req['body']), null, $req);
+	$post = restapi_vip_password(restapi_body_as_post($req['body']), $req['body'], array());
+	list(, $extra) = restapi_vip_save($post, null, $req);
 	return array('status' => 201, 'data' => restapi_vip_out(count(restapi_vips()) - 1) + $extra);
 }
 
 function restapi_h_vip_update($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_vips(), 'virtual IP');
 	$current = config_get_path("virtualip/vip/{$id}", []);
-	$post = restapi_body_over($req['body'], array_filter($current, 'is_scalar'));
-	if (!isset($req['body']['password']) && isset($current['password'])) {
-		$post['password'] = $current['password'];
-	}
-	$post['password_confirm'] = $post['password'] ?? '';
+	$post = restapi_body_over($req['body'], restapi_vip_fields($current));
+	$post = restapi_vip_password($post, $req['body'], $current);
 	list(, $extra) = restapi_vip_save($post, $id, $req);
 	return array('data' => restapi_vip_out($id) + $extra);
 }
@@ -610,9 +689,13 @@ function restapi_sched_index($name) {
 	throw new RestApiError(404, 'not_found', 'No schedule with that name.');
 }
 
-function restapi_sched_out($sched) {
+/* Stored time ranges (timerange) as API ranges {weekdays | dates, start, stop, description}. */
+function restapi_sched_ranges($timerange) {
 	$ranges = array();
-	foreach ((array)($sched['timerange'] ?? array()) as $range) {
+	foreach ((array)$timerange as $range) {
+		if (!is_array($range)) {
+			continue;
+		}
 		list($start, $stop) = array_pad(explode('-', (string)($range['hour'] ?? ''), 2), 2, '');
 		$out = array('start' => $start, 'stop' => $stop, 'description' => $range['rangedescr'] ?? '');
 		if (isset($range['position'])) {
@@ -627,7 +710,129 @@ function restapi_sched_out($sched) {
 		}
 		$ranges[] = $out;
 	}
-	return array('name' => $sched['name'], 'description' => $sched['descr'] ?? '', 'ranges' => $ranges);
+	return $ranges;
+}
+
+/*
+ * A schedule: the API form (name, description, ranges), the stored fields
+ * (descr, timerange, schedlabel), "fields" (the schema's editor fields, also
+ * a valid PUT body) and "display" (the list page's columns as text).
+ * $usage is restapi_sched_usage(), passed in for lists.
+ */
+function restapi_sched_out($sched, ?array $usage = null) {
+	$ranges = restapi_sched_ranges($sched['timerange'] ?? array());
+	$out = array('name' => $sched['name'], 'description' => $sched['descr'] ?? '', 'ranges' => $ranges);
+	$out += array('descr' => (string)($sched['descr'] ?? ''), 'timerange' => array_values(array_filter((array)($sched['timerange'] ?? array()), 'is_array')));
+	if (isset($sched['schedlabel'])) {
+		$out['schedlabel'] = $sched['schedlabel'];
+	}
+	$fields = array('name' => (string)$sched['name'], 'descr' => (string)($sched['descr'] ?? ''), 'ranges' => array());
+	foreach ($ranges as $r) {
+		$fields['ranges'][] = array(
+			'weekdays' => array_map('strval', $r['weekdays'] ?? array()),
+			'dates' => implode(', ', $r['dates'] ?? array()),
+			'start' => restapi_sched_time($r['start']),
+			'stop' => restapi_sched_time($r['stop']),
+			'description' => (string)$r['description'],
+		);
+	}
+	$usage = $usage ?? restapi_sched_usage();
+	$texts = array();
+	foreach ($ranges as $r) {
+		$texts[] = restapi_sched_range_text($r);
+	}
+	$out['fields'] = $fields;
+	$out['display'] = array(
+		'ranges' => $texts,
+		'active' => function_exists('filter_get_time_based_rule_status') ? (bool)filter_get_time_based_rule_status($sched) : false,
+		'used_by' => (int)($usage[$sched['name']] ?? 0),
+		'description' => (string)($sched['descr'] ?? ''),
+	);
+	return $out;
+}
+
+/* "8:0" → "08:00" (as a time input shows it); anything else unchanged. */
+function restapi_sched_time($t) {
+	return preg_match('/^(\d{1,2}):(\d{1,2})$/', (string)$t, $m) ? sprintf('%02d:%02d', $m[1], $m[2]) : (string)$t;
+}
+
+/* How many filter rules use each schedule, by name. */
+function restapi_sched_usage() {
+	$usage = array();
+	foreach ((function_exists('get_filter_rules_list') ? get_filter_rules_list() : array()) as $rule) {
+		$name = (string)($rule['sched'] ?? '');
+		if ($name !== '') {
+			$usage[$name] = ($usage[$name] ?? 0) + 1;
+		}
+	}
+	return $usage;
+}
+
+/*
+ * One range as the list page summarises it: runs of weekdays ("Mon–Fri,
+ * Sun") or of dates ("December 24–26"), then the times and the range
+ * description: "Mon–Fri 08:00–17:00 (Office hours)".
+ */
+function restapi_sched_range_text(array $range) {
+	$runs = function (array $values, $next) {
+		$out = array();
+		foreach ($values as $v) {
+			$last = count($out) - 1;
+			if (($last >= 0) && ($next($out[$last][1]) === $v)) {
+				$out[$last][1] = $v;
+			} else {
+				$out[] = array($v, $v);
+			}
+		}
+		return $out;
+	};
+	$parts = array();
+	if (isset($range['weekdays'])) {
+		$names = restapi_sched_weekdays();
+		$days = array_values(array_unique(array_map('intval', $range['weekdays'])));
+		sort($days);
+		foreach ($runs($days, function ($d) { return $d + 1; }) as list($a, $b)) {
+			$parts[] = ($names[$a] ?? $a) . (($a === $b) ? '' : '–' . ($names[$b] ?? $b));
+		}
+	} else {
+		$months = array(1 => gettext('January'), gettext('February'), gettext('March'), gettext('April'), gettext('May'), gettext('June'),
+		    gettext('July'), gettext('August'), gettext('September'), gettext('October'), gettext('November'), gettext('December'));
+		$dates = array();
+		foreach ((array)($range['dates'] ?? array()) as $date) {
+			list($m, $d) = array_map('intval', explode('-', $date, 2) + array(1 => 0));
+			$dates[] = $m * 100 + $d;
+		}
+		foreach ($runs($dates, function ($d) { return $d + 1; }) as list($a, $b)) {
+			$month = $months[intdiv($a, 100)] ?? intdiv($a, 100);
+			$parts[] = "{$month} " . ($a % 100) . (($a === $b) ? '' : '–' . ($b % 100));
+		}
+	}
+	$text = implode(', ', $parts) . ' ' . restapi_sched_time($range['start'] ?? '') . '–' . restapi_sched_time($range['stop'] ?? '');
+	$descr = (string)($range['description'] ?? '');
+	return ($descr === '') ? $text : "{$text} ({$descr})";
+}
+
+/*
+ * A request body in the API form: "descr" for "description", and the stored
+ * "timerange" list for "ranges", so a client may send either shape.
+ */
+function restapi_sched_body(array $body) {
+	if (!array_key_exists('description', $body) && array_key_exists('descr', $body)) {
+		$body['description'] = $body['descr'];
+	}
+	if (!array_key_exists('ranges', $body) && array_key_exists('timerange', $body)) {
+		if (!is_array($body['timerange']) || !array_is_list($body['timerange'])) {
+			throw new RestApiError(400, 'invalid_field', '"timerange" must be a list.');
+		}
+		foreach ($body['timerange'] as $range) {
+			if (!is_array($range)) {
+				throw new RestApiError(400, 'invalid_field', 'Each time range must be an object.');
+			}
+		}
+		$body['ranges'] = restapi_sched_ranges($body['timerange']);
+	}
+	unset($body['descr'], $body['timerange'], $body['fields'], $body['display'], $body['schedlabel']);
+	return $body;
 }
 
 /* API ranges to the schedule edit page's numbered form fields. */
@@ -637,15 +842,24 @@ function restapi_sched_post($body) {
 	if (!is_array($ranges) || !array_is_list($ranges)) {
 		throw new RestApiError(400, 'invalid_field', '"ranges" must be a list.');
 	}
+	if (count($ranges) > 99) {
+		throw new RestApiError(400, 'invalid_field', 'A schedule has at most 99 ranges.');
+	}
 	foreach ($ranges as $i => $range) {
 		if (!is_array($range)) {
 			throw new RestApiError(400, 'invalid_field', 'Each range must be an object.');
 		}
 		$parts = array();
-		foreach ((array)($range['weekdays'] ?? array()) as $wd) {
-			$parts[] = (string)(int)$wd;
+		$weekdays = $range['weekdays'] ?? array();
+		$weekdays = is_string($weekdays) ? preg_split('/[\s,]+/', $weekdays, -1, PREG_SPLIT_NO_EMPTY) : (array)$weekdays;
+		$weekdays = array_values(array_unique(array_map('intval', array_filter($weekdays, 'is_scalar'))));
+		sort($weekdays);
+		foreach ($weekdays as $wd) {
+			$parts[] = (string)$wd;
 		}
-		foreach ((array)($range['dates'] ?? array()) as $date) {
+		$dates = $range['dates'] ?? array();
+		$dates = is_string($dates) ? preg_split('/[\s,]+/', $dates, -1, PREG_SPLIT_NO_EMPTY) : (array)$dates;
+		foreach ($dates as $date) {
 			if (!preg_match('/^(?:\d{4}-)?(\d{1,2})-(\d{1,2})$/D', (string)$date, $m)) {
 				throw new RestApiError(400, 'invalid_field', "Date \"{$date}\" must be MM-DD or YYYY-MM-DD.");
 			}
@@ -661,7 +875,8 @@ function restapi_sched_post($body) {
 }
 
 function restapi_sched_save($body, $id) {
-	$result = saveSchedule(restapi_sched_post($body), $id);
+	/* Strict: also the checks the edit page makes in the browser (start before stop, name of a schedule in use). */
+	$result = saveSchedule(restapi_sched_post($body), $id, true);
 	if (!empty($result['input_errors'])) {
 		throw restapi_validation_error($result['input_errors']);
 	}
@@ -669,8 +884,10 @@ function restapi_sched_save($body, $id) {
 }
 
 function restapi_h_sched_list($req) {
-	return array('data' => array_values(array_map('restapi_sched_out',
-	    array_filter(config_get_path('schedules/schedule', []), 'is_array'))));
+	$usage = restapi_sched_usage();
+	return array('data' => array_values(array_map(function ($sched) use ($usage) {
+		return restapi_sched_out($sched, $usage);
+	}, array_filter(config_get_path('schedules/schedule', []), 'is_array'))));
 }
 
 function restapi_h_sched_get($req) {
@@ -679,13 +896,14 @@ function restapi_h_sched_get($req) {
 }
 
 function restapi_h_sched_create($req) {
-	return array('status' => 201, 'data' => restapi_sched_save($req['body'], null));
+	return array('status' => 201, 'data' => restapi_sched_save(restapi_sched_body($req['body']), null));
 }
 
 function restapi_h_sched_update($req) {
 	$idx = restapi_sched_index($req['params']['name']);
-	$current = restapi_sched_out(config_get_path("schedules/schedule/{$idx}"));
-	return array('data' => restapi_sched_save($req['body'] + $current, $idx));
+	$sched = config_get_path("schedules/schedule/{$idx}");
+	$current = array('name' => $sched['name'], 'description' => $sched['descr'] ?? '', 'ranges' => restapi_sched_ranges($sched['timerange'] ?? array()));
+	return array('data' => restapi_sched_save(restapi_sched_body($req['body']) + $current, $idx));
 }
 
 function restapi_h_sched_delete($req) {
