@@ -84,7 +84,8 @@ function restapi_routes_services() {
 	));
 	$relay_body = array('type' => 'object', 'description' => 'The relay settings form: enable, agentoption (booleans), ' .
 	    'interface (list from "interface_choices"), server (list of upstream server addresses), carpstatusvip ' .
-	    '("none" or a VIP from "carp_choices"). Omitted fields keep their value. Saving reconfigures the relay at once.');
+	    '("none" or a VIP from "carp_choices"). Omitted fields keep their value. Saving reconfigures the relay at once. ' .
+	    'GET also returns "fields", the form of the schema services/dhcp[v6]_relay, whose servers are {address} rows; a PUT takes either form.');
 	$snmp_body = array('type' => 'object', 'description' => 'The SNMP settings form: enable, trapenable, mibii, netgraph, ' .
 	    'pf, hostres, bridge, ucd, regex (booleans), pollport, syslocation, syscontact, rocommunity, trapserver, ' .
 	    'trapserverport, trapstring, ipprotocol (inet4|inet6|inet46), bindip (list from "bindip_choices"). Omitted fields ' .
@@ -189,12 +190,12 @@ function restapi_routes_services() {
 			'page' => 'services_dhcp_relay.php', 'area' => $misc,
 			'summary' => 'DHCP Relay settings and choices (the relay cannot run while a DHCP server is enabled)')),
 		restapi_route('PUT', '/v1/services/dhcp-relay', 'restapi_h_relay_set',
-			$id_write('services_dhcp_relay.php', 'Change DHCP Relay settings (applied at once)', $relay_body)),
+			$id_write('services_dhcp_relay.php', 'Change DHCP Relay settings (applied at once)', $relay_body) + array('schema' => 'services/dhcp_relay')),
 		restapi_route('GET', '/v1/services/dhcpv6-relay', 'restapi_h_relay_get', array(
 			'page' => 'services_dhcpv6_relay.php', 'area' => $misc,
 			'summary' => 'DHCPv6 Relay settings and choices (the relay cannot run while a DHCPv6 server is enabled)')),
 		restapi_route('PUT', '/v1/services/dhcpv6-relay', 'restapi_h_relay_set',
-			$id_write('services_dhcpv6_relay.php', 'Change DHCPv6 Relay settings (applied at once)', $relay_body)),
+			$id_write('services_dhcpv6_relay.php', 'Change DHCPv6 Relay settings (applied at once)', $relay_body) + array('schema' => 'services/dhcpv6_relay')),
 
 		/* SNMP */
 		restapi_route('GET', '/v1/services/snmp', 'restapi_h_snmp_get', array(
@@ -352,6 +353,49 @@ function restapi_upnp_acl_rows(array $acl) {
 /* ------------------------------------------------------------------ */
 /* Shared                                                              */
 /* ------------------------------------------------------------------ */
+
+/*
+ * Address lists ($keys of $values) as entry-grid rows [{address}] (the WebUI
+ * schemas' grids of servers).
+ */
+function restapi_svc_rows_out(array $values, array $keys) {
+	foreach ($keys as $key) {
+		if (array_key_exists($key, $values) && is_array($values[$key])) {
+			$values[$key] = array_values(array_map(function ($a) {
+				return array('address' => (string)$a);
+			}, $values[$key]));
+		}
+	}
+	return $values;
+}
+
+/*
+ * A request body whose address lists ($keys) may be entry-grid rows
+ * [{address}] or plain strings: the lists as strings, empty rows dropped
+ * (like the form's empty inputs). Anything else is left for the type check.
+ */
+function restapi_svc_rows_in(array $body, array $keys) {
+	foreach ($keys as $key) {
+		if (!isset($body[$key]) || !is_array($body[$key]) || !array_is_list($body[$key])) {
+			continue;
+		}
+		$list = array();
+		foreach ($body[$key] as $row) {
+			if (is_array($row)) {
+				if (array_diff(array_keys($row), array('address')) || !is_scalar($row['address'] ?? '')) {
+					throw new RestApiError(400, 'invalid_field', "Field \"{$key}\" must be a list of addresses or of {address} rows.");
+				}
+				$row = (string)($row['address'] ?? '');
+			}
+			if (is_string($row) && (trim($row) === '')) {
+				continue;
+			}
+			$list[] = $row;
+		}
+		$body[$key] = $list;
+	}
+	return $body;
+}
 
 /* The staged/applied part of a write response for a subsystem with an apply function. */
 function restapi_svc_maybe_apply($req, $flag, callable $apply) {
@@ -840,10 +884,21 @@ function restapi_relay_v6($req) {
 
 function restapi_relay_types() {
 	return array('enable' => 'bool', 'agentoption' => 'bool', 'interface' => 'list', 'server' => 'list',
-	    'carpstatusvip' => 'string', 'dhcp_server_enabled' => 'ro', 'interface_choices' => 'ro', 'carp_choices' => 'ro');
+	    'carpstatusvip' => 'string', 'dhcp_server_enabled' => 'ro', 'interface_choices' => 'ro', 'carp_choices' => 'ro', 'fields' => 'ro');
 }
 
+/*
+ * The relay settings, their choices and "fields": the form of the schema
+ * services/dhcp[v6]_relay (the upstream servers as {address} rows).
+ */
 function restapi_relay_settings($v6) {
+	$out = restapi_relay_values($v6);
+	$out['fields'] = restapi_svc_rows_out(array_intersect_key($out, array_flip(array('enable', 'interface', 'carpstatusvip', 'agentoption', 'server'))),
+	    array('server'));
+	return $out;
+}
+
+function restapi_relay_values($v6) {
 	$pconfig = dhcp_relay_settings($v6);
 	return array(
 		'enable' => !empty($pconfig['enable']),
@@ -864,7 +919,7 @@ function restapi_h_relay_get($req) {
 function restapi_h_relay_set($req) {
 	$v6 = restapi_relay_v6($req);
 	$types = restapi_relay_types();
-	$values = restapi_svc_merge($req['body'], restapi_relay_settings($v6), $types);
+	$values = restapi_svc_merge(restapi_svc_rows_in($req['body'], array('server')), restapi_relay_values($v6), $types);
 	$servers = $values['server'];
 	unset($values['server']);
 	$rv = dhcp_relay_save(restapi_svc_post($values, $types) + restapi_relay_server_rows($servers), $v6);

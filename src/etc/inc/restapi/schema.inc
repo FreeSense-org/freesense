@@ -40,6 +40,7 @@
 
 require_once('restapi/schemas/firewall_aliases.inc');
 require_once('restapi/schemas/firewall_rules.inc');
+require_once('restapi/schemas/services_dhcp.inc');
 require_once('restapi/schemas/services_ntp.inc');
 
 /* resource => array(builder function, GUI page that grants read access, permission area) */
@@ -48,17 +49,29 @@ function restapi_schemas() {
 		'firewall/aliases' => array('restapi_schema_firewall_aliases', 'firewall_aliases_edit.php', 'firewall.aliases'),
 		'firewall/rules' => array('restapi_schema_firewall_rules', 'firewall_rules_edit.php', 'firewall.rules'),
 		'firewall/floating_rules' => array('restapi_schema_firewall_floating_rules', 'firewall_rules_edit.php', 'firewall.rules'),
+		'services/dhcp_server' => array('restapi_schema_services_dhcp_server', 'services_dhcp.php', 'services.dhcp'),
+		'services/dhcp_static_mapping' => array('restapi_schema_services_dhcp_static_mapping', 'services_dhcp_edit.php', 'services.dhcp'),
+		'services/dhcpv6_server' => array('restapi_schema_services_dhcpv6_server', 'services_dhcpv6.php', 'services.dhcp'),
+		'services/dhcpv6_static_mapping' => array('restapi_schema_services_dhcpv6_static_mapping', 'services_dhcpv6_edit.php', 'services.dhcp'),
+		'services/dhcp_settings' => array('restapi_schema_services_dhcp_settings', 'services_dhcp_settings.php', 'services.dhcp'),
+		'services/dhcpv6_settings' => array('restapi_schema_services_dhcpv6_settings', 'services_dhcpv6_settings.php', 'services.dhcp'),
+		'services/dhcp_relay' => array('restapi_schema_services_dhcp_relay', 'services_dhcp_relay.php', 'services.misc'),
+		'services/dhcpv6_relay' => array('restapi_schema_services_dhcpv6_relay', 'services_dhcpv6_relay.php', 'services.misc'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
 	);
 }
 
-/* The schema of a resource, or null. */
-function restapi_schema_get($resource) {
+/*
+ * The schema of a resource, or null. $query are the request's query
+ * parameters; a builder may use them for item-dependent hints (e.g.
+ * services/dhcp_server?interface=lan) and must ignore the rest.
+ */
+function restapi_schema_get($resource, array $query = array()) {
 	$all = restapi_schemas();
 	if (!isset($all[$resource])) {
 		return null;
 	}
-	$schema = call_user_func($all[$resource][0]);
+	$schema = call_user_func($all[$resource][0], $query);
 	$schema['resource'] = $resource;
 	return $schema;
 }
@@ -169,5 +182,5 @@ function restapi_h_schema($req) {
 	/* Reading a schema needs the privilege of the editor it describes. */
 	restapi_authorize(array('user' => $req['user'], 'token' => $req['token']),
 	    restapi_route('GET', '/v1/schema', 'restapi_h_schema', array('page' => $all[$resource][1], 'area' => $all[$resource][2])));
-	return array('data' => restapi_schema_get($resource));
+	return array('data' => restapi_schema_get($resource, is_array($req['query'] ?? null) ? $req['query'] : array()));
 }
