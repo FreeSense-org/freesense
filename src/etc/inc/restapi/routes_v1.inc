@@ -253,9 +253,33 @@ function restapi_h_status_interfaces($req) {
 	return array('data' => $out);
 }
 
+/* "0.753ms" / "0.0%" → 0.753 / 0.0, or null. */
+function restapi_gateway_number($value) {
+	return preg_match('/^\s*(-?[0-9]+(?:\.[0-9]+)?)/', (string)$value, $m) ? (float)$m[1] : null;
+}
+
+/*
+ * Gateway status as dpinger reports it, plus (additive, API level 8) the
+ * numbers without units (delay_ms, stddev_ms, loss_pct), the interface,
+ * description and whether it is a default gateway.
+ */
 function restapi_h_status_gateways($req) {
 	$status = return_gateways_status(true);
-	return array('data' => is_array($status) ? array_values($status) : array());
+	$gateways = return_gateways_array();
+	$out = array();
+	foreach ((is_array($status) ? $status : array()) as $name => $gw) {
+		$conf = $gateways[$gw['name'] ?? $name] ?? array();
+		$out[] = $gw + array(
+			'delay_ms' => restapi_gateway_number($gw['delay'] ?? null),
+			'stddev_ms' => restapi_gateway_number($gw['stddev'] ?? null),
+			'loss_pct' => restapi_gateway_number($gw['loss'] ?? null),
+			'interface' => (string)($conf['friendlyiface'] ?? ''),
+			'description' => (string)($conf['descr'] ?? ''),
+			'ipprotocol' => (string)($conf['ipprotocol'] ?? ''),
+			'default' => !empty($conf['isdefaultgw']),
+		);
+	}
+	return array('data' => $out);
 }
 
 function restapi_h_status_services($req) {
@@ -288,8 +312,16 @@ function restapi_h_status_arp($req) {
 
 function restapi_h_status_dhcp_leases($req) {
 	$leases = system_get_dhcpleases(false);
+	/* Additive (API level 8): reachable (seen in ARP/NDP) and static as booleans; online/type are translated text. */
+	$list = array();
+	foreach (array_values($leases['lease'] ?? array()) as $lease) {
+		$list[] = $lease + array(
+			'reachable' => (($lease['online'] ?? '') === gettext('active/online')) || (($lease['online'] ?? '') === gettext('online')),
+			'static' => (($lease['type'] ?? '') === gettext('static')),
+		);
+	}
 	return array('data' => array(
-		'leases' => array_values($leases['lease'] ?? array()),
+		'leases' => $list,
 		'failover' => array_values($leases['failover'] ?? array()),
 	));
 }

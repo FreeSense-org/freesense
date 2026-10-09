@@ -134,4 +134,25 @@ foreach (array("'/v1/status/system'" => "'index.php'", "'/v1/status/traffic'" =>
 	    "{$path} is guarded by the GUI page {$page}");
 }
 
+/* History routes (API level 8): system and gateway RRDs, one validated range, escaped paths */
+foreach (array("'/v1/status/system/history'" => "'index.php'", "'/v1/status/gateways/history'" => "'status_gateways.php'") as $path => $page) {
+	$at = strpos($routes_src, $path);
+	check(($at !== false) && (strpos($routes_src, "'page' => {$page}", $at) < (strpos($routes_src, 'restapi_route(', $at + 1) ?: PHP_INT_MAX)),
+	    "{$path} is guarded by the GUI page {$page}");
+}
+check(strpos(fn_source($routes_src, 'restapi_status_range'), 'status_metrics_ranges()') !== false, 'history ranges are validated against the known list');
+$gwh = fn_source($src, 'status_metrics_gateway_history');
+check(strpos($gwh, "preg_match('/^[A-Za-z0-9_.-]{1,64}\$/'") !== false && strpos($gwh, 'escapeshellarg($file)') !== false,
+    'gateway RRD paths are built only from validated names and passed escaped');
+check(strpos($gwh, 'CDEF:dms=d,1000,*') !== false, 'gateway delay is converted from seconds to ms');
+$sysh = fn_source($src, 'status_metrics_system_history');
+check(strpos($sysh, 'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN') !== false && strpos($sysh, 'CDEF:mem=a,w,ADDNAN,l,ADDNAN') !== false,
+    'CPU = user+nice+system+interrupt, memory = active+wired+laundry');
+
+/* Gateway numbers without units (routes_v1.inc) */
+eval(fn_source($v1, 'restapi_gateway_number'));
+check(restapi_gateway_number('0.753ms') === 0.753 && restapi_gateway_number('0.0%') === 0.0 && restapi_gateway_number('12ms') === 12.0 &&
+    restapi_gateway_number('') === null && restapi_gateway_number(null) === null && restapi_gateway_number('~') === null,
+    'dpinger values become numbers (or null)');
+
 echo "Status metrics smoke test passed.\n";
