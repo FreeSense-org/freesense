@@ -82,7 +82,7 @@ function restapi_schema_rule_endpoint($type, $floating) {
 }
 
 function restapi_schema_firewall_rule($floating) {
-	global $icmptypes4, $statetype_values, $statepolicy_values, $vlanprio, $firewall_rules_dscp_types, $ostypes;
+	global $icmptypes4, $statetype_values, $statepolicy_values, $vlanprio, $firewall_rules_dscp_types;
 
 	$actions = array('pass' => gettext('Pass'), 'block' => gettext('Block'), 'reject' => gettext('Reject'));
 	if ($floating) {
@@ -107,7 +107,7 @@ function restapi_schema_firewall_rule($floating) {
 		}
 	}
 	$os = array('' => gettext('Any'));
-	foreach ((array)($ostypes ?? array()) as $o) {
+	foreach ((function_exists('firewall_rule_ostypes') ? firewall_rule_ostypes() : array()) as $o) {
 		$os[$o] = $o;
 	}
 	$dscp = array('' => gettext('Any'));
