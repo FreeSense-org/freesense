@@ -38,6 +38,14 @@ function restapi_routes_status() {
 			'page' => 'status_graph.php', 'area' => 'status',
 			'query' => array('if' => 'Interface (wan, lan, opt1)', 'range' => '10m, 1h, 24h, 7d or 30d'),
 			'summary' => 'Traffic history in bits/s from the interface RRD')),
+		restapi_route('GET', '/v1/status/system/history', 'restapi_h_status_system_history', array(
+			'page' => 'index.php', 'area' => 'system',
+			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
+			'summary' => 'CPU and memory use in percent over time (system RRDs)')),
+		restapi_route('GET', '/v1/status/gateways/history', 'restapi_h_status_gateway_history', array(
+			'page' => 'status_gateways.php', 'area' => 'status',
+			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
+			'summary' => 'Latency, jitter (ms) and loss (%) of every gateway over time (quality RRDs)')),
 		restapi_route('GET', '/v1/status/states', 'restapi_h_status_states', array(
 			'page' => 'diag_states_summary.php', 'area' => 'status',
 			'summary' => 'State table size, limit and search/insert/removal rates')),
@@ -56,6 +64,27 @@ function restapi_h_status_system($req) {
 function restapi_h_status_traffic($req) {
 	$ifs = array_values(array_filter(array_map('trim', explode(',', (string)($req['query']['if'] ?? '')))));
 	return array('data' => status_metrics_traffic($ifs));
+}
+
+function restapi_status_range($req) {
+	$range = (string)($req['query']['range'] ?? '1h');
+	if (!array_key_exists($range, status_metrics_ranges())) {
+		throw new RestApiError(400, 'invalid_range', 'range must be one of ' . implode(', ', array_keys(status_metrics_ranges())) . '.');
+	}
+	return $range;
+}
+
+function restapi_h_status_system_history($req) {
+	$data = status_metrics_system_history(restapi_status_range($req));
+	if ($data === null) {
+		throw new RestApiError(404, 'no_history', 'There is no system history yet.');
+	}
+	return array('data' => $data);
+}
+
+function restapi_h_status_gateway_history($req) {
+	$range = restapi_status_range($req);
+	return array('data' => status_metrics_gateway_history(array_keys(return_gateways_array()), $range));
 }
 
 function restapi_h_status_traffic_history($req) {

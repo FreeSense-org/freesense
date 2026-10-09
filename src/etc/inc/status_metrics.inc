@@ -311,6 +311,72 @@ function status_metrics_ranges() {
 	    '7d' => array(604800, 3600), '30d' => array(2592000, 3600));
 }
 
+/* rrdtool xport over a range: array(step, t, series...) or null. $defs are DEF/CDEF/XPORT arguments. */
+function status_metrics_xport($range, $defs) {
+	$ranges = status_metrics_ranges();
+	if (!isset($ranges[$range])) {
+		return null;
+	}
+	list($back, $step) = $ranges[$range];
+	$cmd = '/usr/local/bin/rrdtool xport --showtime --start ' . escapeshellarg("-{$back}") . ' --end now --step ' . (int)$step .
+	    " {$defs} 2>/dev/null";
+	$data = status_metrics_parse_xport((string)shell_exec($cmd));
+	return is_array($data) ? $data : null;
+}
+
+/*
+ * CPU and memory history in percent from the system RRDs: cpu = user + nice
+ * + system + interrupt, mem = active + wired + laundry (of all memory).
+ * Null when the RRDs do not exist yet.
+ */
+function status_metrics_system_history($range) {
+	$dir = g_get('vardb_path') . '/rrd';
+	$cpu = "{$dir}/system-processor.rrd";
+	$mem = "{$dir}/system-memory.rrd";
+	if (!is_file($cpu) || !is_file($mem)) {
+		return null;
+	}
+	$c = escapeshellarg($cpu);
+	$m = escapeshellarg($mem);
+	$data = status_metrics_xport($range,
+	    "DEF:u={$c}:user:AVERAGE DEF:n={$c}:nice:AVERAGE DEF:s={$c}:system:AVERAGE DEF:i={$c}:interrupt:AVERAGE " .
+	    "DEF:a={$m}:active:AVERAGE DEF:w={$m}:wire:AVERAGE DEF:l={$m}:laundry:AVERAGE " .
+	    'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN CDEF:mem=a,w,ADDNAN,l,ADDNAN XPORT:cpu:cpu XPORT:mem:mem');
+	if ($data === null) {
+		return null;
+	}
+	return array('range' => $range, 'step' => $data['step'], 't' => $data['t'], 'cpu' => $data['cpu'] ?? array(), 'mem' => $data['mem'] ?? array());
+}
+
+/*
+ * Gateway quality history from each gateway's RRD: delay and stddev in ms,
+ * loss in percent. Gateways without an RRD are left out.
+ */
+function status_metrics_gateway_history(array $names, $range) {
+	$out = array('range' => $range, 'step' => null, 't' => array(), 'gateways' => array());
+	foreach ($names as $name) {
+		if (!preg_match('/^[A-Za-z0-9_.-]{1,64}$/', (string)$name)) {
+			continue;
+		}
+		$file = g_get('vardb_path') . "/rrd/{$name}-quality.rrd";
+		if (!is_file($file)) {
+			continue;
+		}
+		$f = escapeshellarg($file);
+		$data = status_metrics_xport($range, "DEF:d={$f}:delay:AVERAGE DEF:s={$f}:stddev:AVERAGE DEF:l={$f}:loss:AVERAGE " .
+		    'CDEF:dms=d,1000,* CDEF:sms=s,1000,* XPORT:dms:delay XPORT:sms:stddev XPORT:l:loss');
+		if ($data === null) {
+			continue;
+		}
+		if ($out['step'] === null) {
+			$out['step'] = $data['step'];
+			$out['t'] = $data['t'];
+		}
+		$out['gateways'][$name] = array('delay' => $data['delay'] ?? array(), 'stddev' => $data['stddev'] ?? array(), 'loss' => $data['loss'] ?? array());
+	}
+	return $out;
+}
+
 /* Traffic history in bits/s from the interface's RRD, or null when there is none. */
 function status_metrics_traffic_history($if, $range) {
 	$ranges = status_metrics_ranges();

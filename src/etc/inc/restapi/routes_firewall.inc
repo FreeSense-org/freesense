@@ -79,6 +79,9 @@ function restapi_routes_firewall() {
 		restapi_route('GET', '/v1/firewall/pending', 'restapi_h_fw_pending', array(
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
 			'summary' => 'Firewall changes waiting to be applied, per area')),
+		restapi_route('POST', '/v1/firewall/apply', 'restapi_h_fw_apply_all', array(
+			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'write' => true,
+			'summary' => 'Apply every pending firewall change (virtual IPs, then rules, NAT and aliases in one filter reload)')),
 
 		/* Aliases */
 		restapi_route('GET', '/v1/firewall/aliases', 'restapi_h_alias_list', array(
@@ -206,6 +209,20 @@ function restapi_fw_apply(array $subsystems) {
 		}
 	}
 	return array('applied' => ($retval == 0), 'pending' => restapi_fw_pending_list());
+}
+
+/* Apply everything pending: virtual IPs first (rules may use them), then one filter reload for rules, NAT and aliases. */
+function restapi_h_fw_apply_all($req) {
+	$ok = true;
+	if (is_subsystem_dirty('vip')) {
+		$result = applyVIP();
+		$ok = (($result['retval'] ?? 1) == 0);
+	}
+	$filter = restapi_fw_apply(array('filter', 'natconf', 'aliases'));
+	if ($ok && $filter['applied']) {
+		FreeSense_handle_custom_code('/usr/local/pkg/firewall_nat/apply');
+	}
+	return array('data' => array('applied' => $ok && $filter['applied'], 'pending' => restapi_fw_pending_list()));
 }
 
 function restapi_fw_pending_list() {
