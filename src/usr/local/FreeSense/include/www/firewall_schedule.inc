@@ -80,10 +80,12 @@ function schedule_sort() {
  * Validate and save a schedule from firewall_schedule_edit.php form fields:
  * name, descr and numbered rows scheduleN / starttimeN / stoptimeN /
  * timedescrN (N = 0..98). $id is the schedule index to replace, or null to
- * add one. Applies the filter on success.
+ * add one. Applies the filter on success. With $strict (callers without the
+ * edit page, such as the REST API) the checks the page makes in the browser
+ * apply as well (schedule_strict_errors()).
  * Returns array('input_errors' => [...], 'schedule' => the built schedule).
  */
-function saveSchedule($post, $id = null) {
+function saveSchedule($post, $id = null, $strict = false) {
 	$input_errors = array();
 	$a_schedules = config_get_path('schedules/schedule', []);
 	if (($id !== null) && !isset($a_schedules[$id])) {
@@ -188,6 +190,10 @@ function saveSchedule($post, $id = null) {
 		$input_errors[] = gettext("The schedule must have at least one time range configured.");
 	}
 
+	if ($strict) {
+		$input_errors = array_merge($input_errors, schedule_strict_errors($post, $id, $a_schedules));
+	}
+
 	if (empty($input_errors)) {
 		if (($id !== null) && !empty($a_schedules[$id]['schedlabel'])) {
 			$schedule['schedlabel'] = $a_schedules[$id]['schedlabel'];
@@ -210,4 +216,60 @@ function saveSchedule($post, $id = null) {
 	}
 
 	return array('input_errors' => $input_errors, 'schedule' => $schedule);
+}
+
+/*
+ * The rules firewall_schedule_edit.php enforces in the browser before it
+ * posts, for saveSchedule($post, $id, true): times come from 0-23 hour and
+ * 0-59 minute pickers, a start time is not later than its stop time, a range
+ * has weekdays or dates (never both), and the name of a schedule that a rule
+ * uses is read-only. Format errors saveSchedule() reports itself are not
+ * repeated.
+ */
+function schedule_strict_errors($post, $id, $a_schedules) {
+	$errors = array();
+
+	if (($id !== null) && isset($a_schedules[$id]) && ((string)$a_schedules[$id]['name'] !== (string)$post['name']) &&
+	    is_schedule_inuse($a_schedules[$id]['name'])) {
+		$errors[] = gettext("This schedule is in use so the name may not be modified!");
+	}
+
+	for ($x = 0; $x < 99; $x++) {
+		$spec = (string)($post['schedule' . $x] ?? '');
+		if (($spec === '') && ((string)($post['starttime' . $x] ?? '') === '') && ((string)($post['stoptime' . $x] ?? '') === '')) {
+			continue;
+		}
+		if ($spec === '') {
+			$errors[] = sprintf(gettext("Time range %d has no weekdays or dates."), $x + 1);
+			continue;
+		}
+		$tokens = array_filter(explode(',', $spec), 'strlen');
+		$weekly = preg_grep('/^[1-7]$/', $tokens);
+		if (!empty($weekly) && (count($weekly) < count($tokens))) {
+			$errors[] = sprintf(gettext("Time range %d has both weekdays and dates. Use one range for each."), $x + 1);
+		}
+
+		$minutes = array();
+		foreach (array('starttime', 'stoptime') as $field) {
+			$value = (string)($post[$field . $x] ?? '');
+			if (!preg_match('/^([0-9]+):([0-9]+)$/', $value, $m)) {
+				/* saveSchedule() reports it. */
+				continue;
+			}
+			if (((int)$m[1] <= 23) && ((int)$m[2] <= 59)) {
+				$minutes[$field] = ((int)$m[1] * 60) + (int)$m[2];
+			} elseif (($field == 'stoptime') && ((int)$m[1] == 24) && ((int)$m[2] == 0)) {
+				/* End of the day, as older configurations store it. */
+				$minutes[$field] = 1440;
+			} else {
+				$errors[] = sprintf(gettext("Time range %1\$d: '%2\$s' is not a valid time (00:00 to 23:59)."), $x + 1, $value);
+			}
+		}
+		if ((count($minutes) == 2) && ($minutes['starttime'] > $minutes['stoptime'])) {
+			$errors[] = sprintf(gettext('Time range %1$d: the start time %2$s is later than the stop time %3$s.'), $x + 1,
+			    $post['starttime' . $x], $post['stoptime' . $x]);
+		}
+	}
+
+	return $errors;
 }

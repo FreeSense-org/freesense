@@ -40,6 +40,8 @@
 
 require_once('restapi/schemas/firewall_aliases.inc');
 require_once('restapi/schemas/firewall_rules.inc');
+require_once('restapi/schemas/firewall_schedules.inc');
+require_once('restapi/schemas/firewall_vips.inc');
 require_once('restapi/schemas/services_ntp.inc');
 
 /* resource => array(builder function, GUI page that grants read access, permission area) */
@@ -48,6 +50,8 @@ function restapi_schemas() {
 		'firewall/aliases' => array('restapi_schema_firewall_aliases', 'firewall_aliases_edit.php', 'firewall.aliases'),
 		'firewall/rules' => array('restapi_schema_firewall_rules', 'firewall_rules_edit.php', 'firewall.rules'),
 		'firewall/floating_rules' => array('restapi_schema_firewall_floating_rules', 'firewall_rules_edit.php', 'firewall.rules'),
+		'firewall/schedules' => array('restapi_schema_firewall_schedules', 'firewall_schedule_edit.php', 'firewall.schedules'),
+		'firewall/virtual_ips' => array('restapi_schema_firewall_virtual_ips', 'firewall_virtual_ip_edit.php', 'firewall.vips'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
 	);
 }
@@ -111,7 +115,8 @@ function restapi_errors_to_fields(array $messages, array $schema, array $body = 
 				continue;
 			}
 			foreach ($body[$f['parent']] as $i => $row) {
-				$v = is_array($row) ? (string)($row[$f['column']] ?? '') : '';
+				/* Only text cells (a checklist cell is a list). */
+				$v = (is_array($row) && is_scalar($row[$f['column']] ?? '')) ? (string)($row[$f['column']] ?? '') : '';
 				if ((strlen($v) >= 3) && (strpos($m, $v) !== false)) {
 					$hit = "{$f['parent']}.{$i}.{$f['column']}";
 					break 2;
