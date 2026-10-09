@@ -44,6 +44,7 @@ require_once('restapi/schemas/firewall_rules.inc');
 require_once('restapi/schemas/interfaces_config.inc');
 require_once('restapi/schemas/firewall_schedules.inc');
 require_once('restapi/schemas/firewall_vips.inc');
+require_once('restapi/schemas/services_dns_resolver.inc');
 require_once('restapi/schemas/services_ntp.inc');
 
 /* resource => array(builder function, GUI page that grants read access, permission area) */
@@ -59,6 +60,11 @@ function restapi_schemas() {
 		'firewall/nat_outbound' => array('restapi_schema_firewall_nat_outbound', 'firewall_nat_out_edit.php', 'firewall.nat'),
 		'firewall/nat_one_to_one' => array('restapi_schema_firewall_nat_one_to_one', 'firewall_nat_1to1_edit.php', 'firewall.nat'),
 		'firewall/nat_npt' => array('restapi_schema_firewall_nat_npt', 'firewall_nat_npt_edit.php', 'firewall.nat'),
+		'services/dns_resolver' => array('restapi_schema_services_dns_resolver', 'services_unbound.php', 'services.dns'),
+		'services/dns_resolver_advanced' => array('restapi_schema_services_dns_resolver_advanced', 'services_unbound_advanced.php', 'services.dns'),
+		'services/dns_host_override' => array('restapi_schema_services_dns_host_override', 'services_unbound_host_edit.php', 'services.dns'),
+		'services/dns_domain_override' => array('restapi_schema_services_dns_domain_override', 'services_unbound_domainoverride_edit.php', 'services.dns'),
+		'services/dns_access_list' => array('restapi_schema_services_dns_access_list', 'services_unbound_acls.php', 'services.dns'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
 	);
 }
