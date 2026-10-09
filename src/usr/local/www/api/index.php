@@ -105,6 +105,8 @@ require_once('diag_ndp.inc');
 require_once('status_services.inc');
 require_once('diag_system.inc');
 require_once('pkg_mgr_install.inc');
+/* The Update Center: System > Boot Environments' shared functions (routes_update.inc). */
+require_once('system_boot_environments.inc');
 require_once('restapi.inc');
 require_once('restapi_session.inc');
 /* Live status for the WebUI (routes_status.inc). */
