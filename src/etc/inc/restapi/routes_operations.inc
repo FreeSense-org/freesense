@@ -640,7 +640,8 @@ function restapi_pkgop_start($pkgmode, $pkgname, $firmware) {
 		'user' => $_SESSION['Username'] ?? '',
 		'finish_pending' => true,
 	));
-	return array('status' => 202, 'data' => array('started' => true, 'status_url' => '/api/v1/packages/operation') +
+	/* id: the job to follow with GET /v1/jobs/{id}. */
+	return array('status' => 202, 'data' => array('started' => true, 'id' => 'packages', 'status_url' => '/api/v1/packages/operation') +
 	    array('operation' => restapi_pkgop_status(20, false)));
 }
 
