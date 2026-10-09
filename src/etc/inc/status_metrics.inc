@@ -489,6 +489,102 @@ function status_metrics_vpn() {
 	return $out;
 }
 
+/* A number from rate(1) ("3.58k", "1.2M", "940") as an integer. */
+function status_metrics_si($value) {
+	if (!preg_match('/^([0-9]+(?:\.[0-9]+)?)([kMGT]?)$/', trim((string)$value), $m)) {
+		return 0;
+	}
+	$scale = array('' => 1, 'k' => 1e3, 'M' => 1e6, 'G' => 1e9, 'T' => 1e12);
+	return (int)round((float)$m[1] * $scale[$m[2]]);
+}
+
+/*
+ * `rate -A` report → array(ip => array(in_bps, out_bps)) from its average
+ * columns: ip, momentary rx bps/pps, tx bps/pps, average rx bps/pps, tx
+ * bps/pps, separated by spaces or "|". Header lines are skipped.
+ */
+function status_metrics_parse_rate($text) {
+	$out = array();
+	foreach (preg_split('/\r?\n/', (string)$text) as $line) {
+		$f = preg_split('/[\s|]+/', trim($line));
+		if ((count($f) < 9) || (filter_var($f[0], FILTER_VALIDATE_IP) === false)) {
+			continue;
+		}
+		$out[$f[0]] = array('in_bps' => status_metrics_si($f[5]), 'out_bps' => status_metrics_si($f[7]));
+	}
+	return $out;
+}
+
+define('STATUS_METRICS_TALKERS', '/var/run/fs_metrics_talkers_%s.txt');
+define('STATUS_METRICS_TALKERS_TTL', 4);
+
+/* Names for local addresses: DHCP leases and static mappings, then DNS host overrides. */
+function status_metrics_host_names() {
+	$names = array();
+	if (function_exists('system_get_dhcpleases')) {
+		$leases = system_get_dhcpleases(false);
+		foreach ((array)($leases['lease'] ?? array()) as $lease) {
+			if (!empty($lease['ip']) && !empty($lease['hostname'])) {
+				$names[$lease['ip']] = (string)$lease['hostname'];
+			}
+		}
+	}
+	foreach (array('unbound', 'dnsmasq') as $dns) {
+		if (!config_path_enabled($dns, 'enable')) {
+			continue;
+		}
+		foreach ((array)config_get_path("{$dns}/hosts", array()) as $h) {
+			if (is_array($h) && !empty($h['ip']) && !empty($h['host']) && !isset($names[$h['ip']])) {
+				$names[$h['ip']] = (string)$h['host'];
+			}
+		}
+	}
+	return $names;
+}
+
+/*
+ * The hosts on an interface's IPv4 subnet moving the most traffic, from a
+ * one-second rate(1) sample (the tool behind the 1.x bandwidth-by-IP view):
+ * array(hosts: [{ip, host, in_bps, out_bps}], age: seconds since the sample).
+ * A sample older than STATUS_METRICS_TALKERS_TTL is renewed in the background,
+ * so a request never waits for it except the very first one. Returns null when
+ * the interface has no IPv4 subnet.
+ */
+function status_metrics_top_talkers($if, $limit = 20) {
+	$real = get_real_interface($if);
+	$ip = get_interface_ip($if);
+	$bits = get_interface_subnet($if);
+	if (empty($real) || !is_ipaddrv4($ip) || !is_numeric($bits) || !does_interface_exist($real)) {
+		return null;
+	}
+	$file = sprintf(STATUS_METRICS_TALKERS, preg_replace('/[^A-Za-z0-9_.]/', '_', $real));
+	$cmd = '/usr/local/bin/rate -i ' . escapeshellarg($real) . ' -nvlq 1 -Aba 50 -R -lc ' . escapeshellarg(gen_subnet($ip, $bits) . "/{$bits}");
+	$mtime = @filemtime($file);
+	if ($mtime === false) {
+		$text = (string)shell_exec($cmd . ' 2>/dev/null');
+		@file_put_contents($file, $text, LOCK_EX);
+		$mtime = time();
+	} else {
+		$text = (string)@file_get_contents($file);
+		$lock = "{$file}.run";
+		if (((time() - $mtime) >= STATUS_METRICS_TALKERS_TTL) && ((time() - (int)@filemtime($lock)) > 10)) {
+			@touch($lock);
+			mwexec_bg('/bin/sh -c ' . escapeshellarg("{$cmd} > " . escapeshellarg("{$file}.tmp") . ' 2>/dev/null; mv -f ' .
+			    escapeshellarg("{$file}.tmp") . ' ' . escapeshellarg($file) . '; rm -f ' . escapeshellarg($lock)));
+		}
+	}
+	$names = status_metrics_host_names();
+	$hosts = array();
+	foreach (status_metrics_parse_rate($text) as $addr => $r) {
+		if ($addr === $ip) {
+			continue;
+		}
+		$hosts[] = array('ip' => $addr, 'host' => $names[$addr] ?? '') + $r;
+	}
+	usort($hosts, function ($a, $b) { return ($b['in_bps'] + $b['out_bps']) <=> ($a['in_bps'] + $a['out_bps']); });
+	return array('hosts' => array_slice($hosts, 0, $limit), 'age' => max(0, time() - $mtime));
+}
+
 /* Traffic history in bits/s from the interface's RRD, or null when there is none. */
 function status_metrics_traffic_history($if, $range) {
 	$ranges = status_metrics_ranges();

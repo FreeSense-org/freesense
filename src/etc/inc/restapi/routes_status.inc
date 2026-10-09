@@ -49,6 +49,10 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/vpn', 'restapi_h_status_vpn', array(
 			'page' => 'index.php', 'area' => 'system',
 			'summary' => 'OpenVPN, IPsec and WireGuard tunnels: status, peer, uptime or last handshake, bytes in and out')),
+		restapi_route('GET', '/v1/status/top-talkers', 'restapi_h_status_top_talkers', array(
+			'page' => 'index.php', 'area' => 'system',
+			'query' => array('interface' => 'interface name (default lan)'),
+			'summary' => 'Hosts on an interface\'s IPv4 subnet moving the most traffic (one-second sample, bits/s)')),
 		restapi_route('GET', '/v1/status/states', 'restapi_h_status_states', array(
 			'page' => 'diag_states_summary.php', 'area' => 'status',
 			'summary' => 'State table size, limit and search/insert/removal rates')),
@@ -71,6 +75,19 @@ function restapi_h_status_traffic($req) {
 
 function restapi_h_status_vpn($req) {
 	return array('data' => status_metrics_vpn());
+}
+
+function restapi_h_status_top_talkers($req) {
+	$ifs = get_configured_interface_with_descr();
+	$if = (string)($req['query']['interface'] ?? 'lan');
+	if (!array_key_exists($if, $ifs)) {
+		throw new RestApiError(404, 'not_found', 'No such interface.');
+	}
+	$talkers = status_metrics_top_talkers($if);
+	if ($talkers === null) {
+		throw new RestApiError(409, 'no_subnet', 'The interface has no IPv4 subnet to watch.');
+	}
+	return array('data' => $talkers['hosts'], 'meta' => array('interface' => $if, 'description' => $ifs[$if], 'window' => '1s', 'age' => $talkers['age']));
 }
 
 function restapi_status_range($req) {

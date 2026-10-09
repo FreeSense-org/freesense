@@ -171,6 +171,21 @@ $at = strpos($routes_src, "'/v1/status/vpn'");
 check(($at !== false) && (strpos($routes_src, "'page' => 'index.php'", $at) < (strpos($routes_src, 'restapi_route(', $at + 1) ?: PHP_INT_MAX)),
     '/v1/status/vpn is guarded by the dashboard privilege');
 
+/* rate(1) abuser report: SI and exact numbers, header lines skipped */
+eval(fn_source($src, 'status_metrics_si'));
+eval(fn_source($src, 'status_metrics_parse_rate'));
+$rate = "                  Momentary Rx    Momentary Tx      Average Rx      Average Tx\n" .
+    "                   bps     pps |   bps     pps |   bps     pps |   bps     pps\n" .
+    "192.168.228.1     3.58k  37.38 |  1.2M  37.38 |  3.58k  37.38 |  1.2M  37.38\n" .
+    "2001:db8::5 100 1 200 2 940 3 15 4\n";
+$r = status_metrics_parse_rate($rate);
+check(count($r) === 2 && $r['192.168.228.1'] === array('in_bps' => 3580, 'out_bps' => 1200000) &&
+    $r['2001:db8::5'] === array('in_bps' => 940, 'out_bps' => 15), 'rate -A reports are parsed');
+check(status_metrics_parse_rate('') === array() && status_metrics_si('x') === 0, 'no rate output, no hosts');
+$at = strpos($routes_src, "'/v1/status/top-talkers'");
+check(($at !== false) && (strpos($routes_src, "'page' => 'index.php'", $at) < (strpos($routes_src, 'restapi_route(', $at + 1) ?: PHP_INT_MAX)),
+    '/v1/status/top-talkers is guarded by the dashboard privilege');
+
 /* Gateway numbers without units (routes_v1.inc) */
 eval(fn_source($v1, 'restapi_gateway_number'));
 check(restapi_gateway_number('0.753ms') === 0.753 && restapi_gateway_number('0.0%') === 0.0 && restapi_gateway_number('12ms') === 12.0 &&
