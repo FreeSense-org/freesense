@@ -29,6 +29,8 @@
 
 function restapi_routes_me() {
 	return array(
+		restapi_route('POST', '/v1/me/signout', 'restapi_h_me_signout', array(
+			'page' => '@authenticated', 'write' => true, 'summary' => 'Sign out of this WebUI session')),
 		restapi_route('GET', '/v1/me/profile', 'restapi_h_me_profile', array(
 			'page' => '@authenticated', 'summary' => 'Your profile: name, email, groups, initials')),
 		restapi_route('PUT', '/v1/me/profile', 'restapi_h_me_profile_put', array(
@@ -115,6 +117,15 @@ function restapi_h_me_prefs_put($req) {
 		throw new RestApiError(500, 'save_failed', 'The preferences could not be saved.');
 	}
 	return array('data' => $prefs);
+}
+
+/* Sign out of the WebUI session this request came from (WebUI 2.0 profile menu). */
+function restapi_h_me_signout($req) {
+	if (empty($req['session'])) {
+		throw new RestApiError(400, 'not_a_session', 'Only a WebUI session can sign out; API keys are revoked in System > REST API.');
+	}
+	webgui_session_signout(false);
+	return array('data' => array('signed_out' => true));
 }
 
 function restapi_h_me_sessions($req) {

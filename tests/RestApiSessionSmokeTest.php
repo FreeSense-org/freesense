@@ -29,7 +29,7 @@ function fn_source($src, $name) {
 }
 
 $fns = array('restapi_session_requested', 'restapi_session_cookie_id', 'restapi_session_problem',
-    'restapi_session_authenticate', 'restapi_session_token');
+    'restapi_session_authenticate', 'restapi_session_user', 'restapi_session_token');
 $code = '';
 foreach ($fns as $fn) {
 	$code .= fn_source($inc, $fn) . "\n}\n\n";
@@ -130,13 +130,20 @@ unset($GLOBALS['users']['alice']['expires']);
 
 /* Remote (LDAP/RADIUS) users get the pages the GUI computed at sign-in */
 $GLOBALS['cfg']['authmode'] = 'ldap';
-$GLOBALS['sess'] = array('Username' => 'bob', 'page-match' => array('page-dashboard-all', 'page-status-gateways')) + $good;
+$GLOBALS['sess'] = array('Username' => 'bob', 'authsource' => 'LDAP/corp', 'page-match' => array('page-dashboard-all', 'page-status-gateways')) + $good;
 $ctx = restapi_session_authenticate('192.0.2.10');
 t($ctx['user']['name'] === 'bob' && $ctx['user']['__pages'] === array('page-dashboard-all', 'page-status-gateways'), 'a remote user carries the session\'s pages');
 t(restapi_user_allowed_pages($ctx['user']) === array('page-dashboard-all', 'page-status-gateways'), 'authorization uses those pages');
 $GLOBALS['cfg']['authmode'] = 'Local Auth';
 $GLOBALS['sess'] = array('Username' => 'ghost') + $good;
 t(status_of(function () { restapi_session_authenticate('192.0.2.10'); }) === 401, 'a local-auth session for a removed user is refused');
+/* Default installs have no system/webgui/authmode: getUserEntry() then returns a stand-in for any name */
+$GLOBALS['cfg']['authmode'] = 'unset';
+$GLOBALS['sess'] = array('Username' => 'ghost', 'page-match' => array('firewall_rules.php*')) + $good;
+t(status_of(function () { restapi_session_authenticate('192.0.2.10'); }) === 401, 'a removed local user is refused when authmode is unset (session from the local database)');
+$GLOBALS['sess'] = array('Username' => 'ghost', 'authsource' => 'Local Database Fallback') + $good;
+t(status_of(function () { restapi_session_authenticate('192.0.2.10'); }) === 401, 'also after a local-database fallback sign-in');
+$GLOBALS['cfg']['authmode'] = 'Local Auth';
 
 /* The page frame's token */
 $_SESSION = array('Logged_In' => 'True');

@@ -105,7 +105,10 @@ $v1 = file_get_contents("{$root}/src/etc/inc/restapi/routes_v1.inc");
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 $auth = file_get_contents("{$root}/src/etc/inc/auth.inc");
 check(strpos($v1, 'restapi_routes_me()') !== false && strpos($front, "require_once('webui_prefs.inc');") !== false, 'me routes are registered and loaded');
-check(substr_count($routes, "'page' => '@authenticated'") === 9 && substr_count($routes, "'write' => true") === 5, 'own-data routes; changes are writes');
+check(substr_count($routes, "'page' => '@authenticated'") === 10 && substr_count($routes, "'write' => true") === 6, 'own-data routes; changes are writes');
+check(strpos($routes, "function restapi_h_me_signout(\$req) {
+	if (empty(\$req['session'])) {") !== false && strpos($routes, 'webgui_session_signout(false);') !== false,
+    'sign-out ends only the WebUI session the request came from');
 check(strpos($routes, "throw new RestApiError(409, 'remote_user'") !== false, 'remote users cannot edit a local profile');
 check(strpos($front, "'session_id' => \$ctx['session_id'] ?? null,") !== false &&
     strpos(file_get_contents("{$root}/src/etc/inc/restapi_session.inc"), "'session_id' => \$id,") !== false, 'the caller\'s session is known to the handlers');

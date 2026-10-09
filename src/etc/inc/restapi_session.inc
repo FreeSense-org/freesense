@@ -114,28 +114,44 @@ function restapi_session_authenticate($remote_ip) {
 		throw new RestApiError(403, 'csrf_failed', 'The request was not made by the WebUI (CSRF token mismatch). Reload the page.');
 	}
 
-	$name = (string)$s['Username'];
-	$user = restapi_local_user($name);
-	if ($user === null) {
-		$entry = getUserEntry($name);
-		if (!is_array($entry) || isset($entry['idx'])) {
-			/* A local user that was disabled or removed after signing in. */
-			throw new RestApiError(401, 'session_required', 'This account is no longer active.');
-		}
-		/* A remote (LDAP/RADIUS) user: use the pages the GUI computed at sign-in. */
-		$user = array('name' => $name, '__pages' => is_array($s['page-match'] ?? null) ? $s['page-match'] : array());
-	} elseif (!empty($user['expires']) && (strtotime($user['expires']) !== false) && (strtotime($user['expires']) < time())) {
-		throw new RestApiError(401, 'session_required', 'This account has expired.');
-	}
-
 	return array(
-		'user' => $user,
+		'user' => restapi_session_user($s),
 		'token' => array('id' => 'session', 'descr' => 'WebUI session', 'readonly' => false, 'scopes' => ''),
 		'session' => true,
 		'session_id' => $id,
 		'login_time' => isset($s['login_time']) ? (int)$s['login_time'] : null,
 		'authsource' => (string)($s['authsource'] ?? 'Local Database'),
 	);
+}
+
+/*
+ * The user of a signed-in session: the local user entry, or for a remote
+ * (LDAP/RADIUS) user a stand-in with the pages the GUI computed at sign-in.
+ * Throws 401 when a local user was disabled, removed or expired after
+ * signing in. Also used by the WebUI 2.0 page frame.
+ */
+function restapi_session_user(array $s) {
+	$name = (string)$s['Username'];
+	$user = restapi_local_user($name);
+	if ($user === null) {
+		/*
+		 * Decide by how the session signed in, not by getUserEntry(): that
+		 * returns a stand-in for any name when system/webgui/authmode is
+		 * unset (the default), so a removed local user would pass as remote.
+		 */
+		$local = (strncmp((string)($s['authsource'] ?? 'Local Database'), 'Local Database', 14) === 0);
+		$entry = $local ? null : getUserEntry($name);
+		if (!is_array($entry) || isset($entry['idx'])) {
+			/* A local user that was disabled or removed after signing in. */
+			throw new RestApiError(401, 'session_required', 'This account is no longer active.');
+		}
+		/* A remote (LDAP/RADIUS) user: use the pages the GUI computed at sign-in. */
+		return array('name' => $name, '__pages' => is_array($s['page-match'] ?? null) ? $s['page-match'] : array());
+	}
+	if (!empty($user['expires']) && (strtotime($user['expires']) !== false) && (strtotime($user['expires']) < time())) {
+		throw new RestApiError(401, 'session_required', 'This account has expired.');
+	}
+	return $user;
 }
 
 /*
