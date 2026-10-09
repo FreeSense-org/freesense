@@ -34,6 +34,7 @@ require_once('restapi/routes_firewall.inc');
 require_once('restapi/routes_nat.inc');
 require_once('restapi/routes_routing.inc');
 require_once('restapi/routes_interfaces.inc');
+require_once('restapi/routes_ifconfig.inc');
 require_once('restapi/routes_services.inc');
 require_once('restapi/routes_unbound.inc');
 require_once('restapi/routes_ntp.inc');
@@ -126,7 +127,7 @@ function restapi_routes_v1() {
 	);
 
 	$routes = array_merge($routes, restapi_routes_firewall(), restapi_routes_nat(), restapi_routes_routing(),
-	    restapi_routes_interfaces(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
+	    restapi_routes_interfaces(), restapi_routes_ifconfig(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
 	    restapi_routes_ddns(), restapi_routes_dhcp(), restapi_routes_vpn(), restapi_routes_openvpn(),
 	    restapi_routes_pki(), restapi_routes_users(), restapi_routes_system(), restapi_routes_logs(), restapi_routes_packages(),
 	    restapi_routes_diagnostics(), restapi_routes_operations(), restapi_routes_status(), restapi_routes_me());

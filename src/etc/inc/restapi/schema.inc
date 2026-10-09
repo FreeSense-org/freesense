@@ -40,6 +40,7 @@
 
 require_once('restapi/schemas/firewall_aliases.inc');
 require_once('restapi/schemas/firewall_rules.inc');
+require_once('restapi/schemas/interfaces_config.inc');
 require_once('restapi/schemas/services_ntp.inc');
 
 /* resource => array(builder function, GUI page that grants read access, permission area) */
@@ -48,6 +49,7 @@ function restapi_schemas() {
 		'firewall/aliases' => array('restapi_schema_firewall_aliases', 'firewall_aliases_edit.php', 'firewall.aliases'),
 		'firewall/rules' => array('restapi_schema_firewall_rules', 'firewall_rules_edit.php', 'firewall.rules'),
 		'firewall/floating_rules' => array('restapi_schema_firewall_floating_rules', 'firewall_rules_edit.php', 'firewall.rules'),
+		'interfaces/config' => array('restapi_schema_interfaces_config', 'interfaces.php', 'interfaces'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
 	);
 }
