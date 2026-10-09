@@ -604,7 +604,8 @@ function interfaces_edit_apply(&$input_errors = null) {
 /* Interfaces saved but not applied yet: array(pending => bool, interfaces => [names]). */
 function interfaces_edit_pending() {
 	$names = [];
-	if (file_exists(interfaces_edit_apply_file())) {
+	/* A leftover apply file without the dirty flag (e.g. after a reboot) is not a pending change. */
+	if (is_subsystem_dirty('interfaces') && file_exists(interfaces_edit_apply_file())) {
 		$names = array_keys((array)unserialize_data(file_get_contents(interfaces_edit_apply_file()), []));
 	}
 	return ['pending' => is_subsystem_dirty('interfaces'), 'interfaces' => array_values(array_map('strval', $names))];
