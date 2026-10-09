@@ -55,6 +55,8 @@ require_once('interfaces_tunnels.inc');
 require_once('interfaces_l2.inc');
 /* The Interface Assignments page's shared functions. */
 require_once('interfaces_assign.inc');
+/* The interface edit page's shared functions (Interfaces > WAN, LAN, OPTn). */
+require_once('interfaces_edit.inc');
 /* The Services pages' shared functions (DNS Forwarder, UPnP, Wake-on-LAN, IGMP Proxy, DHCP Relay, SNMP). */
 require_once('services_dnsmasq.inc');
 require_once('services_upnp.inc');
