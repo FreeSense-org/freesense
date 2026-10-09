@@ -2236,6 +2236,66 @@ function webgui_request_protocol() {
 	return webgui_request_is_secure() ? 'https' : 'http';
 }
 
+/*
+ * Sign a user in to the WebGUI session that phpsession_begin() opened:
+ * authenticate (configured server first, then the local database), start a
+ * fresh session id, record who, from where and how, write and close the
+ * session, and log the event (login protection reads these logs). Returns
+ * true on success; on failure sets $_SESSION['Login_Error'] and returns
+ * false. Used by the GUI login (session_auth()) and the WebUI 2.0 sign-in.
+ */
+function webgui_session_signin($username, $password) {
+	$attributes = array('nas_identifier' => 'webConfigurator-' . gethostname());
+	$authcfg = auth_get_authserver(config_get_path('system/webgui/authmode'));
+	$remoteauth = authenticate_user($username, $password, $authcfg, $attributes);
+	if (!$remoteauth && !authenticate_user($username, $password)) {
+		$_SESSION['Login_Error'] = gettext("Username or Password incorrect");
+		log_auth_event(LOG_AUTH_EVENT_ERROR, cleanup_invalid_username($username), get_user_remote_address(false));
+		return false;
+	}
+	// Generate a new id to avoid session fixation
+	session_regenerate_id();
+	$_SESSION['Logged_In'] = "True";
+	$_SESSION['remoteauth'] = $remoteauth;
+	if ($remoteauth) {
+		if (empty($authcfg['type']) || ($authcfg['type'] == "Local Auth")) {
+			$_SESSION['authsource'] = "Local Database";
+		} else {
+			$_SESSION['authsource'] = strtoupper($authcfg['type']) . "/{$authcfg['name']}";
+		}
+	} else {
+		$_SESSION['authsource'] = 'Local Database Fallback';
+	}
+	$_SESSION['Username'] = $username;
+	$_SESSION['user_radius_attributes'] = $attributes;
+	$_SESSION['last_access'] = time();
+	$_SESSION['protocol'] = webgui_request_protocol();
+	$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];
+	/* Shown in the WebUI's session list (Profile > Sessions). */
+	$_SESSION['login_time'] = time();
+	$_SESSION['user_agent'] = substr(preg_replace('/[\x00-\x1f\x7f]/', '', (string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 200);
+	phpsession_end(true);
+	log_auth_event(LOG_AUTH_EVENT_LOGIN, $username, get_user_remote_address() . get_user_remote_authsource());
+	return true;
+}
+
+/*
+ * End the current WebGUI session (sign out) and log it. $timeout marks a
+ * session that expired rather than one the user signed out of.
+ */
+function webgui_session_signout($timeout = false) {
+	phpsession_begin();
+	if (!empty($_SESSION['Username'])) {
+		log_auth_event($timeout ? LOG_AUTH_EVENT_TIMEOUT : LOG_AUTH_EVENT_LOGOUT, $_SESSION['Username'],
+		    get_user_remote_address() . get_user_remote_authsource());
+	}
+	$_SESSION = array();
+	if (isset($_COOKIE[session_name()])) {
+		setcookie(session_name(), '', time() - 42000, '/');
+	}
+	phpsession_destroy();
+}
+
 function session_auth() {
 	global $_SESSION, $page;
 
@@ -2266,34 +2326,8 @@ function session_auth() {
 	}
 
 	/* Validate incoming login request */
-	$attributes = array('nas_identifier' => 'webConfigurator-' . gethostname());
 	if (isset($_POST['login']) && !empty($_POST['usernamefld'])) {
-		$authcfg = auth_get_authserver(config_get_path('system/webgui/authmode'));
-		$remoteauth = authenticate_user($_POST['usernamefld'], $_POST['passwordfld'], $authcfg, $attributes);
-		if ($remoteauth || authenticate_user($_POST['usernamefld'], $_POST['passwordfld'])) {
-			// Generate a new id to avoid session fixation
-			session_regenerate_id();
-			$_SESSION['Logged_In'] = "True";
-			$_SESSION['remoteauth'] = $remoteauth;
-			if ($remoteauth) {
-				if (empty($authcfg['type']) || ($authcfg['type'] == "Local Auth")) {
-					$_SESSION['authsource'] = "Local Database";
-				} else {
-					$_SESSION['authsource'] = strtoupper($authcfg['type']) . "/{$authcfg['name']}";
-				}
-			} else {
-				$_SESSION['authsource'] = 'Local Database Fallback';
-			}
-			$_SESSION['Username'] = $_POST['usernamefld'];
-			$_SESSION['user_radius_attributes'] = $attributes;
-			$_SESSION['last_access'] = time();
-			$_SESSION['protocol'] = webgui_request_protocol();
-			$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];
-			/* Shown in the WebUI's session list (Profile > Sessions). */
-			$_SESSION['login_time'] = time();
-			$_SESSION['user_agent'] = substr(preg_replace('/[\x00-\x1f\x7f]/', '', (string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 200);
-			phpsession_end(true);
-			log_auth_event(LOG_AUTH_EVENT_LOGIN, $_POST['usernamefld'], get_user_remote_address() . get_user_remote_authsource());
+		if (webgui_session_signin($_POST['usernamefld'], $_POST['passwordfld'])) {
 			if (isset($_POST['postafterlogin'])) {
 				return true;
 			} else {
@@ -2304,9 +2338,6 @@ function session_auth() {
 			}
 			exit;
 		} else {
-			/* give the user an error message */
-			$_SESSION['Login_Error'] = gettext("Username or Password incorrect");
-			log_auth_event(LOG_AUTH_EVENT_ERROR, cleanup_invalid_username($_POST['usernamefld']), get_user_remote_address(false));
 			if (isAjax()) {
 				echo "showajaxmessage('{$_SESSION['Login_Error']}');";
 				return;
