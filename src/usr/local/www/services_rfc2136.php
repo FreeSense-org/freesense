@@ -81,73 +81,22 @@ if ($input_errors) {
 <?php
 
 
-$iflist = get_configured_interface_with_descr();
-$groupslist = return_gateway_groups_array();
-
 $i = 0;
 foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 	if (!is_array($rfc2136) || empty($rfc2136)) {
 		continue;
 	}
-	$filename = "{$g['conf_path']}/dyndns_{$rfc2136['interface']}_rfc2136_" . escapeshellarg($rfc2136['host']) . "_{$rfc2136['server']}.cache";
-	$filename_v6 = "{$g['conf_path']}/dyndns_{$rfc2136['interface']}_rfc2136_" . escapeshellarg($rfc2136['host']) . "_{$rfc2136['server']}_v6.cache";
-	$if = get_failover_interface($rfc2136['interface']);
-
-	if (file_exists($filename)) {
-		if (isset($rfc2136['usepublicip'])) {
-			$ipaddr = dyndnsCheckIP($if, null, AF_INET);
-		} else {
-			$ipaddr = get_interface_ip($if);
-		}
-
-		$cached_ip_s = explode("|", file_get_contents($filename));
-		$cached_ip = $cached_ip_s[0];
-
-		if ($ipaddr == $cached_ip) {
-			$icon_class = "fa-solid fa-circle-check";
-			$text_class = "text-success";
-			$icon_title = "Updated";
-		} else {
-			$icon_class = "fa-solid fa-circle-xmark";
-			$text_class = "text-danger";
-			$icon_title = "Failed";
-		}
-	} elseif (file_exists($filename_v6)) {
-		$ipv6addr = get_interface_ipv6($if);
-		$cached_ipv6_s = explode("|", file_get_contents($filename_v6));
-		$cached_ipv6 = $cached_ipv6_s[0];
-
-		if ($ipv6addr == $cached_ipv6) {
-			$icon_class = "fa-solid fa-circle-check";
-			$text_class = "text-success";
-			$icon_title = "Updated";
-		} else {
-			$icon_class = "fa-solid fa-circle-xmark";
-			$text_class = "text-danger";
-			$icon_title = "Failed";
-		}
-	}
+	$state = rfc2136_client_status($rfc2136);
 ?>
 						<tr<?=(isset($rfc2136['enable']) ? '' : ' class="disabled"')?>>
 							<td>
-							<?=(file_exists($filename) || file_exists($filename_v6))
-							    ? (($icon_title == 'Updated') ? fs_badge('pass', gettext('Updated')) : fs_badge('block', gettext('Failed')))
+							<?=(($state['cached_ip'] !== null) || ($state['cached_ipv6'] !== null))
+							    ? (($state['status'] == 'ok') ? fs_badge('pass', gettext('Updated')) : fs_badge('block', gettext('Failed')))
 							    : fs_badge('neutral', gettext('Not updated yet'))?>
 							</td>
 							<td>
 <?php
-	foreach ($iflist as $ifname => $ifdesc) {
-		if ($rfc2136['interface'] == $ifname) {
-			print($ifdesc);
-			break;
-		}
-	}
-	foreach ($groupslist as $ifname => $group) {
-		if ($rfc2136['interface'] == $ifname) {
-			print($ifname);
-			break;
-		}
-	}
+	print(dyndns_interface_label($rfc2136['interface']));
 ?>
 							</td>
 							<td>
@@ -158,10 +107,10 @@ foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 							</td>
 							<td>
 <?php
-	if (file_exists($filename)) {
+	if ($state['cached_ip'] !== null) {
 		print('IPv4: ');
-		print("<span class='{$text_class}'>");
-		print(htmlspecialchars($cached_ip));
+		print("<span class='" . (($state['status_ipv4'] == 'ok') ? "text-success" : "text-danger") . "'>");
+		print(htmlspecialchars($state['cached_ip']));
 		print('</span>');
 	} else {
 		print('IPv4: N/A');
@@ -169,19 +118,15 @@ foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136):
 
 	print('<br />');
 
-	if (file_exists($filename_v6)) {
+	if ($state['cached_ipv6'] !== null) {
 		print('IPv6: ');
-		$ipaddr = get_interface_ipv6($if);
-		$cached_ip_s = explode("|", file_get_contents($filename_v6));
-		$cached_ip = $cached_ip_s[0];
-
-		if ($ipaddr != $cached_ip) {
+		if ($state['status_ipv6'] != 'ok') {
 			print('<span class="text-danger">');
 		} else {
 			print('<span class="text-success">');
 		}
 
-		print(htmlspecialchars($cached_ip));
+		print(htmlspecialchars($state['cached_ipv6']));
 		print('</span>');
 	} else {
 		print('IPv6: N/A');

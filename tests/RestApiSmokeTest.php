@@ -178,6 +178,8 @@ check_api(api_error_status(function () { restapi_sched_post(array('ranges' => ar
 check_api(restapi_body_as_post(array('a' => true, 'b' => false, 'c' => 5, 'd' => array('x', 'y'))) === array('a' => 'yes', 'c' => '5', 'd' => array('x', 'y')),
     'booleans become checkbox fields like a form post');
 check_api(api_error_status(function () { restapi_body_as_post(array('o' => array('k' => 'v'))); }) === 400, 'objects are not form fields');
+check_api(restapi_body_over(array('log' => false, 'descr' => 'x'), array('log' => 'yes', 'descr' => 'old', 'type' => 'pass')) ===
+    array('descr' => 'x', 'type' => 'pass'), 'a partial update clears a checkbox sent as false and keeps omitted fields');
 check_api(restapi_json_result('{"input_errors":["x"]}') === array('input_errors' => array('x')) &&
     restapi_json_result(array('k' => 1)) === array('k' => 1), 'JSON-mode GUI results are decoded');
 
@@ -406,8 +408,8 @@ check_api(restapi_iftun_post('laggs', array('descr' => 'x'), $lg)['members'] ===
 
 $qq = restapi_iftun_fields('qinqs', array('if' => 'em1', 'tag_type' => 'ctag', 'tag' => '3998', 'members' => '10 11',
     'autogroup' => false, 'vlanif' => 'em1.3998', 'descr' => ''));
-check_api($qq['tag_type'] === 'ctag' && $qq['members'] === array('10', '11') && !isset($qq['autogroup']),
-    'QinQ fields: the stored tag type, members as a list, autogroup false is unticked');
+check_api($qq['tag_type'] === 'ctag' && $qq['members'] === array(array('tag' => '10'), array('tag' => '11')) && !isset($qq['autogroup']),
+    'QinQ fields: the stored tag type, members as entry-grid rows, autogroup false is unticked');
 check_api(restapi_iftun_fields('qinqs', array('if' => 'em1', 'tag' => '5'))['tag_type'] === 'stag' &&
     restapi_iftun_fields('qinqs', array('autogroup' => true))['autogroup'] === 'yes', 'QinQ tag type defaults to S-Tag; autogroup ticks');
 $qp = restapi_iftun_post('qinqs', array('if' => 'em1', 'tag' => 3998, 'members' => array(10, '20-21'), 'member7' => '99'));
@@ -558,8 +560,12 @@ check_api(strpos($assign_save, 'if ($input_errors) {') < strpos($assign_save, 'i
     strpos($assign_save, 'empty(config_get_path("interfaces/{$ifname}"))') !== false,
     'a remap validates (only assigned interfaces) before bringing anything down');
 $routes_if = file_get_contents("{$root}/src/etc/inc/restapi/routes_interfaces.inc");
-check_api(strpos($routes_if, 'system_reboot(') === false && strpos($routes_if, 'interfaces_assign_apply(') === false,
-    'the API never reboots for an interface mismatch (it reports reboot_needed)');
+$apply_fn = substr($routes_if, strpos($routes_if, 'function restapi_h_ifassign_apply('));
+$apply_fn = substr($apply_fn, 0, strpos($apply_fn, "\n}\n"));
+check_api(strpos($routes_if, 'system_reboot(') === false && substr_count($routes_if, 'interfaces_assign_apply(') === 2 &&
+    strpos($apply_fn, 'restapi_ifassign_confirm(') < strpos($apply_fn, 'restapi_ops_require_admin(') &&
+    strpos($apply_fn, 'restapi_ops_require_admin(') < strpos($apply_fn, 'restapi_ops_after_response('),
+    'the API reboots for an interface mismatch only in "apply", confirmed, for an administrator and after the response');
 foreach (array('restapi_h_ifassign_create', 'restapi_h_ifassign_update', 'restapi_h_ifassign_delete') as $fn) {
 	$body = substr($routes_if, strpos($routes_if, "function {$fn}("));
 	$body = substr($body, 0, strpos($body, "\n}\n"));
@@ -592,7 +598,7 @@ foreach ($v1 as $r) {
 		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' :
 		    (preg_match('#^/v1/services/ntp(/|$)#', $r['path']) ? 'services.time' :
 		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' :
-		    (preg_match('#^/v1/services/(dhcp(v6)?|router-advertisements)/#', $r['path']) ? 'services.dhcp' : 'services.misc')));
+		    (preg_match('#^/v1/services/(dhcp(v6)?/|router-advertisements(/|$))#', $r['path']) ? 'services.dhcp' : 'services.misc')));
 		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
 		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
 		if ($r['path'] === '/v1/services/upnp') {

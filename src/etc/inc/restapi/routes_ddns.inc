@@ -31,8 +31,16 @@
  * Clients are addressed by their position in config.xml. "enable" is true
  * for an enabled client (the Dynamic DNS form's checkbox is "Disable").
  * The Dynamic DNS password and the RFC 2136 key read as "(set)" and sending
- * "(set)" keeps them. Reads never contact a provider or a check IP service:
- * "cached_ip"/"cached_ipv6" are the addresses of the last update.
+ * "(set)" keeps them; so does an empty one when a client is updated. Reads
+ * never contact a provider or a check IP service: "cached_ip"/"cached_ipv6"
+ * are the addresses of the last update.
+ *
+ * For the WebUI every client also carries "fields" (the editor fields of
+ * the schemas services/dyndns and services/rfc2136, a valid create/update
+ * body; secrets empty) and "display" (the list page's columns as text).
+ * display.status compares the cached address with the interface address
+ * like the list page: "ok", "fail", or "unknown" before the first update
+ * and when only a check IP service could tell the public address.
  */
 
 require_once('restapi/framework.inc');
@@ -48,21 +56,23 @@ function restapi_routes_ddns() {
 	    'interface, host, zone, ttl, keyname, keyalgorithm, keydata ("(set)" keeps it), server ("address" or "address port"), ' .
 	    'updatesource, updatesourcefamily, recordtype (A|AAAA|both), descr (choices from GET .../choices). Omitted fields keep ' .
 	    'their value (a new client starts disabled). Saving runs the RFC 2136 updates of the enabled clients at once.');
-	$r = function ($method, $path, $handler, $page, $summary, $write = false, $body = null) use ($area) {
+	$r = function ($method, $path, $handler, $page, $summary, $write = false, $body = null, $schema = null) use ($area) {
 		return restapi_route($method, $path, $handler, array('page' => $page, 'area' => $area, 'write' => $write,
-		    'summary' => $summary, 'body' => $body));
+		    'summary' => $summary, 'body' => $body, 'schema' => $schema));
 	};
 
 	return array(
 		$r('GET', '/v1/services/dyndns/choices', 'restapi_h_dyndns_choices', 'services_dyndns_edit.php',
 		    'Choices of the Dynamic DNS client form (service types, interfaces, check IP modes)'),
 		$r('GET', '/v1/services/dyndns/clients', 'restapi_h_dyndns_list', 'services_dyndns.php',
-		    'List Dynamic DNS clients (passwords read as "(set)")'),
-		$r('GET', '/v1/services/dyndns/clients/{id}', 'restapi_h_dyndns_get', 'services_dyndns.php', 'Get a Dynamic DNS client'),
+		    'List Dynamic DNS clients (passwords read as "(set)"; with "fields" and "display": the list columns as text and the update status)'),
+		$r('GET', '/v1/services/dyndns/clients/{id}', 'restapi_h_dyndns_get', 'services_dyndns.php',
+		    'Get a Dynamic DNS client (with "fields" and "display")'),
 		$r('POST', '/v1/services/dyndns/clients', 'restapi_h_dyndns_create', 'services_dyndns_edit.php',
-		    'Create a Dynamic DNS client (an enabled client is updated at once)', true, $dyndns_body),
+		    'Create a Dynamic DNS client (an enabled client is updated at once)', true, $dyndns_body, 'services/dyndns'),
 		$r('PUT', '/v1/services/dyndns/clients/{id}', 'restapi_h_dyndns_update', 'services_dyndns_edit.php',
-		    'Update a Dynamic DNS client (omitted fields keep their value; an enabled client is updated at once)', true, $dyndns_body),
+		    'Update a Dynamic DNS client (omitted fields and an empty password keep their value; an enabled client is updated at once)', true,
+		    $dyndns_body, 'services/dyndns'),
 		$r('DELETE', '/v1/services/dyndns/clients/{id}', 'restapi_h_dyndns_delete', 'services_dyndns.php',
 		    'Delete a Dynamic DNS client and its cached address', true),
 		$r('POST', '/v1/services/dyndns/clients/{id}/toggle', 'restapi_h_dyndns_toggle', 'services_dyndns.php',
@@ -73,12 +83,14 @@ function restapi_routes_ddns() {
 		$r('GET', '/v1/services/rfc2136/choices', 'restapi_h_rfc2136_choices', 'services_rfc2136_edit.php',
 		    'Choices of the RFC 2136 client form (interfaces, key algorithms, update sources, families, record types)'),
 		$r('GET', '/v1/services/rfc2136/clients', 'restapi_h_rfc2136_list', 'services_rfc2136.php',
-		    'List RFC 2136 clients (keys read as "(set)")'),
-		$r('GET', '/v1/services/rfc2136/clients/{id}', 'restapi_h_rfc2136_get', 'services_rfc2136.php', 'Get an RFC 2136 client'),
+		    'List RFC 2136 clients (keys read as "(set)"; with "fields" and "display": the list columns as text and the update status)'),
+		$r('GET', '/v1/services/rfc2136/clients/{id}', 'restapi_h_rfc2136_get', 'services_rfc2136.php',
+		    'Get an RFC 2136 client (with "fields" and "display")'),
 		$r('POST', '/v1/services/rfc2136/clients', 'restapi_h_rfc2136_create', 'services_rfc2136_edit.php',
-		    'Create an RFC 2136 client (runs the updates of the enabled clients)', true, $rfc_body),
+		    'Create an RFC 2136 client (runs the updates of the enabled clients)', true, $rfc_body, 'services/rfc2136'),
 		$r('PUT', '/v1/services/rfc2136/clients/{id}', 'restapi_h_rfc2136_update', 'services_rfc2136_edit.php',
-		    'Update an RFC 2136 client (omitted fields keep their value; runs the updates of the enabled clients)', true, $rfc_body),
+		    'Update an RFC 2136 client (omitted fields and an empty key keep their value; runs the updates of the enabled clients)', true,
+		    $rfc_body, 'services/rfc2136'),
 		$r('DELETE', '/v1/services/rfc2136/clients/{id}', 'restapi_h_rfc2136_delete', 'services_rfc2136.php',
 		    'Delete an RFC 2136 client and its cached addresses', true),
 		$r('POST', '/v1/services/rfc2136/clients/{id}/toggle', 'restapi_h_rfc2136_toggle', 'services_rfc2136.php',
@@ -109,12 +121,29 @@ function restapi_ddns_secret_body(array $body, $field) {
 	return $body;
 }
 
+/*
+ * A secret of an existing client: "(set)", empty or omitted keeps the
+ * stored one (GET never returns it, so the WebUI sends it empty).
+ */
+function restapi_ddns_keep_secret(array $body, $field) {
+	$body = restapi_ddns_secret_body($body, $field);
+	if (array_key_exists($field, $body) && (is_null($body[$field]) || ((string)$body[$field] === ''))) {
+		unset($body[$field]);
+	}
+	return $body;
+}
+
+/* A client's list status from its cache, never asking a check IP service. */
+function restapi_ddns_status_text($status) {
+	return in_array($status, array('ok', 'fail'), true) ? $status : 'unknown';
+}
+
 /* ------------------------------------------------------------------ */
 /* Dynamic DNS                                                         */
 /* ------------------------------------------------------------------ */
 
 function restapi_dyndns_types() {
-	$types = array('id' => 'ro', 'cached_ip' => 'ro', 'cached_ipv6' => 'ro');
+	$types = array('id' => 'ro', 'cached_ip' => 'ro', 'cached_ipv6' => 'ro', 'fields' => 'ro', 'display' => 'ro');
 	foreach (array('enable', 'wildcard', 'proxied', 'verboselog', 'curl_ipresolve_v4', 'curl_ssl_verifypeer', 'curl_proxy') as $flag) {
 		$types[$flag] = 'bool';
 	}
@@ -161,11 +190,38 @@ function restapi_dyndns_settings($id) {
 
 function restapi_dyndns_out($id) {
 	$out = array('id' => (int)$id) + restapi_dyndns_settings($id);
+	$fields = $out;
+	unset($fields['id']);
+	$fields['password'] = '';
 	$out['password'] = restapi_svc_mask($out['password']);
-	list($v4, $v6) = dyndns_client_cache_files(config_get_path("dyndnses/dyndns/{$id}"));
+	$conf = config_get_path("dyndnses/dyndns/{$id}");
+	list($v4, $v6) = dyndns_client_cache_files($conf);
 	$out['cached_ip'] = restapi_ddns_cached($v4);
 	$out['cached_ipv6'] = restapi_ddns_cached($v6);
+	$out['fields'] = $fields;
+	$out['display'] = restapi_dyndns_display($conf, dyndns_client_status($conf, false), dyndns_type_list(),
+	    dyndns_interface_label((string)($conf['interface'] ?? ''), true));
 	return $out;
+}
+
+/*
+ * A Dynamic DNS client's list columns as text (services_dyndns.php): the
+ * service's name, the host name it updates, the interface, the cached
+ * address that was compared (IPv4, else IPv6) and the status. $state is
+ * dyndns_client_status(); $types is dyndns_type_list().
+ */
+function restapi_dyndns_display(array $conf, array $state, array $types, $interface) {
+	$type = (string)($conf['type'] ?? '');
+	$cached = ($state['family'] === 'inet') ? $state['cached_ip'] : (($state['family'] === 'inet6') ? $state['cached_ipv6'] : null);
+	return array(
+		'service' => html_entity_decode((string)($types[$type] ?? $type), ENT_QUOTES),
+		'hostname' => (string)dyndns_client_hostname($conf),
+		'interface' => (string)$interface,
+		'cached_ip' => (string)($cached ?? ''),
+		'status' => restapi_ddns_status_text($state['status'] ?? null),
+		'enabled' => isset($conf['enable']) && ($conf['enable'] !== false),
+		'description' => (string)($conf['descr'] ?? ''),
+	);
 }
 
 /*
@@ -187,7 +243,7 @@ function restapi_dyndns_post(array $values, $password) {
 }
 
 function restapi_dyndns_save($id, array $body, $force, $status) {
-	$body = restapi_ddns_secret_body($body, 'password');
+	$body = ($id === null) ? restapi_ddns_secret_body($body, 'password') : restapi_ddns_keep_secret($body, 'password');
 	$types = restapi_dyndns_types();
 	$current = ($id === null) ? restapi_dyndns_defaults() : restapi_dyndns_settings($id);
 	$values = restapi_svc_merge($body, $current, $types);
@@ -264,7 +320,7 @@ function restapi_h_dyndns_toggle($req) {
 /* ------------------------------------------------------------------ */
 
 function restapi_rfc2136_types() {
-	$types = array('id' => 'ro', 'cached_ip' => 'ro', 'cached_ipv6' => 'ro');
+	$types = array('id' => 'ro', 'cached_ip' => 'ro', 'cached_ipv6' => 'ro', 'fields' => 'ro', 'display' => 'ro');
 	foreach (array('enable', 'usetcp', 'usepublicip') as $flag) {
 		$types[$flag] = 'bool';
 	}
@@ -308,15 +364,46 @@ function restapi_rfc2136_settings($id) {
 
 function restapi_rfc2136_out($id) {
 	$out = array('id' => (int)$id) + restapi_rfc2136_settings($id);
+	$fields = $out;
+	unset($fields['id']);
+	$fields['keydata'] = '';
 	$out['keydata'] = restapi_svc_mask($out['keydata']);
-	list($v4, $v6) = rfc2136_client_cache_files(config_get_path("dnsupdates/dnsupdate/{$id}"));
+	$conf = config_get_path("dnsupdates/dnsupdate/{$id}");
+	list($v4, $v6) = rfc2136_client_cache_files($conf);
 	$out['cached_ip'] = restapi_ddns_cached($v4);
 	$out['cached_ipv6'] = restapi_ddns_cached($v6);
+	$out['fields'] = $fields;
+	$out['display'] = restapi_rfc2136_display($conf, rfc2136_client_status($conf, false), rfc2136_record_types(),
+	    dyndns_interface_label((string)($conf['interface'] ?? '')));
 	return $out;
 }
 
+/*
+ * An RFC 2136 client's list columns as text (services_rfc2136.php): the
+ * interface, server, host name, both cached addresses with their status,
+ * the overall status and the record type. $state is rfc2136_client_status();
+ * $records is rfc2136_record_types().
+ */
+function restapi_rfc2136_display(array $conf, array $state, array $records, $interface) {
+	$record = (string)($conf['recordtype'] ?? '');
+	$record = ($record === '') ? 'both' : $record;
+	return array(
+		'interface' => (string)$interface,
+		'server' => (string)($conf['server'] ?? ''),
+		'hostname' => (string)($conf['host'] ?? ''),
+		'record_type' => (string)($records[$record] ?? $record),
+		'cached_ip' => (string)($state['cached_ip'] ?? ''),
+		'cached_ipv6' => (string)($state['cached_ipv6'] ?? ''),
+		'status_ipv4' => ($state['status_ipv4'] === null) ? '' : restapi_ddns_status_text($state['status_ipv4']),
+		'status_ipv6' => ($state['status_ipv6'] === null) ? '' : restapi_ddns_status_text($state['status_ipv6']),
+		'status' => restapi_ddns_status_text($state['status'] ?? null),
+		'enabled' => isset($conf['enable']) && ($conf['enable'] !== false),
+		'description' => (string)($conf['descr'] ?? ''),
+	);
+}
+
 function restapi_rfc2136_save($id, array $body, $force, $status) {
-	$body = restapi_ddns_secret_body($body, 'keydata');
+	$body = ($id === null) ? restapi_ddns_secret_body($body, 'keydata') : restapi_ddns_keep_secret($body, 'keydata');
 	$types = restapi_rfc2136_types();
 	$current = ($id === null) ? restapi_rfc2136_defaults() : restapi_rfc2136_settings($id);
 	$values = restapi_svc_merge($body, $current, $types);

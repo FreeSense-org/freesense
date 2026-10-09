@@ -76,6 +76,14 @@ jobs:
               RestApiLogCursorSmokeTest \
               WebUiPrefsSmokeTest \
               RestApiSchemaSmokeTest \
+              RestApiInterfacesConfigSmokeTest \
+              RestApiUpdateCenterSmokeTest \
+              RestApiSchedulesVipsSmokeTest \
+              RestApiNatSmokeTest \
+              RestApiDnsResolverSmokeTest \
+              RestApiAssignmentsSmokeTest \
+              RestApiRoutingSmokeTest \
+              RestApiDhcpSmokeTest \
               WebUiServeSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest; do
