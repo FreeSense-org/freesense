@@ -37,11 +37,7 @@ require_once("system_routing.inc");
 
 $a_gateways = get_gateways();
 
-$categories = array(
-	'down' => gettext("Member Down"),
-	'downloss' => gettext("Packet Loss"),
-	'downlatency' => gettext("High Latency"),
-	'downlosslatency' => gettext("Packet Loss or High Latency"));
+$categories = routing_gateway_group_triggers();
 
 if (isset($_REQUEST['id']) && is_numericint($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
@@ -242,11 +238,7 @@ $section->addInput(new Form_Select(
 	'keep_failover_states',
 	'*Keep Failover States',
 	$pconfig['keep_failover_states'],
-	[
-		'' => 'Use global behavior (default)',
-		'keep' => 'Keep states on gateway recovery',
-		'kill' => 'Kill states on gateway recovery',
-	]
+	routing_gateway_group_keep_states()
 ))->setHelp('%2$sKeep states on gateway recovery%3$s: states for this gateway ' .
 	'group are unaffected.%1$s%2$sKill states on gateway recovery%3$s: states  ' .
 	'created for lower-priority gateways by policy-routing firewall rules will ' .

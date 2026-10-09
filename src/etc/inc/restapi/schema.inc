@@ -40,7 +40,10 @@
 
 require_once('restapi/schemas/firewall_aliases.inc');
 require_once('restapi/schemas/firewall_rules.inc');
+require_once('restapi/schemas/routing.inc');
+require_once('restapi/schemas/services_ddns.inc');
 require_once('restapi/schemas/services_ntp.inc');
+require_once('restapi/schemas/services_radvd.inc');
 
 /* resource => array(builder function, GUI page that grants read access, permission area) */
 function restapi_schemas() {
@@ -48,7 +51,14 @@ function restapi_schemas() {
 		'firewall/aliases' => array('restapi_schema_firewall_aliases', 'firewall_aliases_edit.php', 'firewall.aliases'),
 		'firewall/rules' => array('restapi_schema_firewall_rules', 'firewall_rules_edit.php', 'firewall.rules'),
 		'firewall/floating_rules' => array('restapi_schema_firewall_floating_rules', 'firewall_rules_edit.php', 'firewall.rules'),
+		'routing/gateways' => array('restapi_schema_routing_gateways', 'system_gateways_edit.php', 'routing'),
+		'routing/gateway_groups' => array('restapi_schema_routing_gateway_groups', 'system_gateway_groups_edit.php', 'routing'),
+		'routing/static_routes' => array('restapi_schema_routing_static_routes', 'system_routes_edit.php', 'routing'),
+		'routing/default_gateways' => array('restapi_schema_routing_default_gateways', 'system_gateways.php', 'routing'),
+		'services/dyndns' => array('restapi_schema_services_dyndns', 'services_dyndns_edit.php', 'services.ddns'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
+		'services/rfc2136' => array('restapi_schema_services_rfc2136', 'services_rfc2136_edit.php', 'services.ddns'),
+		'services/router_advertisements' => array('restapi_schema_services_router_advertisements', 'services_radvd.php', 'services.dhcp'),
 	);
 }
 

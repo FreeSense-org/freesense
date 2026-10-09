@@ -59,6 +59,11 @@
  * reconfigured; there is nothing to stage). Only interfaces the page offers
  * (a static IPv6 address, Track Interface or no IPv6 configuration, the latter
  * only to disable advertisements) can be changed (409 otherwise).
+ * GET /v1/services/router-advertisements lists those interfaces. For the
+ * WebUI each carries "fields" (the editor fields of the schema
+ * services/router_advertisements, with the RA subnets and DNS servers as
+ * rows {subnet} and {server}, which PUT also takes) and "display" (the
+ * interface, router mode, priority and DHCPv6 server as text).
  *
  * The front controller loads services_dhcp.inc at file scope.
  */
@@ -67,6 +72,7 @@ require_once('restapi/framework.inc');
 require_once('restapi/routes_services.inc');
 require_once('restapi/routes_ntp.inc');
 require_once('restapi/routes_ddns.inc');
+require_once('restapi/schemas/services_radvd.inc');
 
 function restapi_routes_dhcp() {
 	$area = 'services.dhcp';
@@ -201,11 +207,13 @@ function restapi_routes_dhcp() {
 		    'Change a DHCPv6 address pool (Kea backend; omitted fields keep their value)', true, $pool6_body),
 		$route('DELETE', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp6_pool_delete', 'services_dhcpv6.php',
 		    'Delete a DHCPv6 address pool (Kea backend)', true),
+		$route('GET', '/v1/services/router-advertisements', 'restapi_h_radvd_list', 'services_radvd.php',
+		    'Interfaces that can send router advertisements, with "fields" and "display" (interface, mode, priority, DHCPv6 server as text)'),
 		$route('GET', '/v1/services/router-advertisements/{if}', 'restapi_h_radvd_get', 'services_radvd.php',
-		    'Router advertisements of an interface: the settings and their choices'),
+		    'Router advertisements of an interface: the settings and their choices (with "fields" and "display")'),
 		/* applied at once like the page: no ?apply */
 		restapi_route('PUT', '/v1/services/router-advertisements/{if}', 'restapi_h_radvd_set', array('page' => 'services_radvd.php',
-		    'area' => $area, 'write' => true, 'body' => $ra_body,
+		    'area' => $area, 'write' => true, 'body' => $ra_body, 'schema' => 'services/router_advertisements',
 		    'summary' => 'Change the router advertisements of an interface (applied at once; omitted fields keep their value)')),
 	));
 	return $routes;
@@ -1207,7 +1215,8 @@ function restapi_h_dhcp6_pool_delete($req) {
 
 /* The Router Advertisement page's fields on interface $if. */
 function restapi_radvd_types($if) {
-	$types = array('interface' => 'ro', 'choices' => 'ro', 'ramode' => 'string', 'rapriority' => 'string', 'rainterface' => 'string');
+	$types = array('interface' => 'ro', 'choices' => 'ro', 'fields' => 'ro', 'display' => 'ro', 'ramode' => 'string', 'rapriority' => 'string',
+	    'rainterface' => 'string');
 	foreach (array('ravalidlifetime', 'rapreferredlifetime', 'raminrtradvinterval', 'ramaxrtradvinterval', 'raadvdefaultlifetime') as $field) {
 		$types[$field] = 'string';
 	}
@@ -1261,7 +1270,70 @@ function restapi_radvd_values($if) {
 function restapi_radvd_out($if) {
 	$choices = array('ramode' => restapi_svc_choices(radvd_ramode_values()), 'rapriority' => restapi_svc_choices(radvd_rapriority_values()),
 	    'rainterface' => restapi_svc_choices(radvd_rainterface_values($if)));
-	return array('interface' => $if) + restapi_radvd_values($if) + array('choices' => $choices);
+	$values = restapi_radvd_values($if);
+	$labels = get_configured_interface_with_descr();
+	return array('interface' => $if) + $values + array('choices' => $choices, 'fields' => restapi_radvd_fields($values),
+	    'display' => restapi_radvd_display((string)($labels[$if] ?? $if), $values, radvd_ramode_values(), radvd_rapriority_values(),
+	    config_path_enabled("dhcpdv6/{$if}")));
+}
+
+/* The editor fields: the API values with the RA subnets and DNS servers as entry-grid rows. */
+function restapi_radvd_fields(array $values) {
+	$fields = $values;
+	$fields['subnets'] = array_map(function ($v) { return array('subnet' => (string)$v); }, array_values((array)($values['subnets'] ?? array())));
+	$fields['radnsserver'] = array_map(function ($v) { return array('server' => (string)$v); }, array_values((array)($values['radnsserver'] ?? array())));
+	return $fields;
+}
+
+/*
+ * A request body with the entry-grid rows of "fields" ({subnet}, {server})
+ * turned into the API's lists of strings; plain lists pass unchanged.
+ */
+function restapi_radvd_body(array $body) {
+	foreach (array('subnets' => 'subnet', 'radnsserver' => 'server') as $key => $cell) {
+		if (isset($body[$key]) && is_array($body[$key]) && array_is_list($body[$key])) {
+			$body[$key] = array_map(function ($row) use ($cell) {
+				return is_array($row) ? (string)($row[$cell] ?? '') : $row;
+			}, $body[$key]);
+			$body[$key] = array_values(array_filter($body[$key], function ($v) { return !is_string($v) || (trim($v) !== ''); }));
+		}
+	}
+	return $body;
+}
+
+/*
+ * One interface of the Router Advertisement list as text: the interface,
+ * the router mode's short name, the priority, whether advertisements are
+ * sent, and the DHCPv6 server ("Enabled, not advertised" when it runs but
+ * the mode does not point clients to it, which the page warns about).
+ */
+function restapi_radvd_display($label, array $values, array $modes, array $priorities, $dhcpv6) {
+	$mode = (string)($values['ramode'] ?? 'disabled');
+	if (!$dhcpv6) {
+		$dhcp = gettext('Disabled');
+	} elseif (in_array($mode, array('managed', 'assist', 'stateless_dhcp'), true)) {
+		$dhcp = gettext('Enabled');
+	} else {
+		$dhcp = gettext('Enabled, not advertised');
+	}
+	return array(
+		'interface' => (string)$label,
+		'mode' => html_entity_decode(restapi_radvd_mode_name($modes[$mode] ?? $mode), ENT_QUOTES),
+		'priority' => html_entity_decode((string)($priorities[$values['rapriority'] ?? ''] ?? ($values['rapriority'] ?? '')), ENT_QUOTES),
+		'dhcpv6' => $dhcp,
+		'enabled' => ($mode !== 'disabled'),
+	);
+}
+
+function restapi_h_radvd_list($req) {
+	restapi_dhcp_available();
+	$out = array();
+	foreach (array_keys(get_configured_interface_with_descr()) as $if) {
+		if (radvd_offered((string)$if)) {
+			$out[] = restapi_radvd_out((string)$if);
+		}
+	}
+	return array('data' => $out);
 }
 
 /* The page's form for $values as the browser posts it. */
@@ -1285,7 +1357,7 @@ function restapi_h_radvd_get($req) {
 
 function restapi_h_radvd_set($req) {
 	$if = restapi_radvd_iface($req);
-	$values = restapi_svc_merge($req['body'], restapi_radvd_values($if), restapi_radvd_types($if));
+	$values = restapi_svc_merge(restapi_radvd_body($req['body']), restapi_radvd_values($if), restapi_radvd_types($if));
 	$rv = radvd_save($if, restapi_radvd_post($if, $values));
 	if (!empty($rv['input_errors'])) {
 		throw restapi_validation_error($rv['input_errors']);

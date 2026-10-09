@@ -33,6 +33,13 @@
  * Gateways and gateway groups are addressed by name, static routes by
  * their position in config.xml.
  *
+ * For the WebUI every gateway, gateway group and static route carries
+ * "fields" (the edit form's fields, which create and update take) and
+ * "display" (the list page's columns as plain text); the schemas
+ * routing/gateways, routing/gateway_groups, routing/static_routes and
+ * routing/default_gateways (restapi/schemas/routing.inc) key the save
+ * functions' messages to those fields.
+ *
  * The front controller loads system_routing.inc at file scope.
  */
 
@@ -67,16 +74,17 @@ function restapi_routes_routing() {
 
 		/* Gateways */
 		restapi_route('GET', '/v1/routing/gateways', 'restapi_h_gateway_list', array(
-			'page' => 'system_gateways.php', 'area' => 'routing', 'summary' => 'List gateways')),
+			'page' => 'system_gateways.php', 'area' => 'routing',
+			'summary' => 'List gateways (with "fields": the edit form fields, and "display": the list columns as text and the monitoring status)')),
 		restapi_route('GET', '/v1/routing/gateways/{name}', 'restapi_h_gateway_get', array(
-			'page' => 'system_gateways.php', 'area' => 'routing', 'summary' => 'Get a gateway')),
+			'page' => 'system_gateways.php', 'area' => 'routing', 'summary' => 'Get a gateway (with "fields" and "display")')),
 		restapi_route('POST', '/v1/routing/gateways', 'restapi_h_gateway_create', array(
-			'page' => 'system_gateways_edit.php', 'area' => 'routing', 'write' => true,
+			'page' => 'system_gateways_edit.php', 'area' => 'routing', 'write' => true, 'schema' => 'routing/gateways',
 			'body' => $gw_body, 'query' => $apply_query, 'summary' => 'Create a gateway')),
 		restapi_route('PUT', '/v1/routing/gateways/{name}', 'restapi_h_gateway_update', array(
-			'page' => 'system_gateways_edit.php', 'area' => 'routing', 'write' => true,
+			'page' => 'system_gateways_edit.php', 'area' => 'routing', 'write' => true, 'schema' => 'routing/gateways',
 			'body' => $gw_body, 'query' => $apply_query,
-			'summary' => 'Update a gateway (omitted fields keep their value)')),
+			'summary' => 'Update a gateway (omitted fields keep their value; false clears a checkbox)')),
 		restapi_route('DELETE', '/v1/routing/gateways/{name}', 'restapi_h_gateway_delete', array(
 			'page' => 'system_gateways.php', 'area' => 'routing', 'write' => true, 'query' => $apply_query,
 			'summary' => 'Delete a gateway that no group, static route or DNS server uses')),
@@ -88,6 +96,7 @@ function restapi_routes_routing() {
 			'summary' => 'The IPv4 and IPv6 default gateway selection and the choices')),
 		restapi_route('PUT', '/v1/routing/default-gateways', 'restapi_h_default_gateways_set', array(
 			'page' => 'system_gateways.php', 'area' => 'routing', 'write' => true, 'query' => $apply_query,
+			'schema' => 'routing/default_gateways',
 			'body' => array('type' => 'object', 'properties' => array(
 			    'defaultgw4' => array('type' => 'string', 'description' => 'Gateway or group name, "" (automatic) or "-" (none)'),
 			    'defaultgw6' => array('type' => 'string', 'description' => 'Gateway or group name, "" (automatic) or "-" (none)'))),
@@ -95,14 +104,15 @@ function restapi_routes_routing() {
 
 		/* Gateway groups */
 		restapi_route('GET', '/v1/routing/gateway-groups', 'restapi_h_gwgroup_list', array(
-			'page' => 'system_gateway_groups.php', 'area' => 'routing', 'summary' => 'List gateway groups')),
+			'page' => 'system_gateway_groups.php', 'area' => 'routing',
+			'summary' => 'List gateway groups (with "fields": the editor fields, and "display": the list columns as text)')),
 		restapi_route('GET', '/v1/routing/gateway-groups/{name}', 'restapi_h_gwgroup_get', array(
-			'page' => 'system_gateway_groups.php', 'area' => 'routing', 'summary' => 'Get a gateway group')),
+			'page' => 'system_gateway_groups.php', 'area' => 'routing', 'summary' => 'Get a gateway group (with "fields" and "display")')),
 		restapi_route('POST', '/v1/routing/gateway-groups', 'restapi_h_gwgroup_create', array(
-			'page' => 'system_gateway_groups_edit.php', 'area' => 'routing', 'write' => true,
+			'page' => 'system_gateway_groups_edit.php', 'area' => 'routing', 'write' => true, 'schema' => 'routing/gateway_groups',
 			'body' => $group_body, 'query' => $apply_query, 'summary' => 'Create a gateway group')),
 		restapi_route('PUT', '/v1/routing/gateway-groups/{name}', 'restapi_h_gwgroup_update', array(
-			'page' => 'system_gateway_groups_edit.php', 'area' => 'routing', 'write' => true,
+			'page' => 'system_gateway_groups_edit.php', 'area' => 'routing', 'write' => true, 'schema' => 'routing/gateway_groups',
 			'body' => $group_body, 'query' => $apply_query,
 			'summary' => 'Update a gateway group (omitted fields keep their value; "items" replaces the members)')),
 		restapi_route('DELETE', '/v1/routing/gateway-groups/{name}', 'restapi_h_gwgroup_delete', array(
@@ -111,16 +121,17 @@ function restapi_routes_routing() {
 
 		/* Static routes */
 		restapi_route('GET', '/v1/routing/static-routes', 'restapi_h_sroute_list', array(
-			'page' => 'system_routes.php', 'area' => 'routing', 'summary' => 'List static routes')),
+			'page' => 'system_routes.php', 'area' => 'routing',
+			'summary' => 'List static routes (with "fields": the edit form fields, and "display": the list columns as text)')),
 		restapi_route('GET', '/v1/routing/static-routes/{id}', 'restapi_h_sroute_get', array(
-			'page' => 'system_routes.php', 'area' => 'routing', 'summary' => 'Get a static route')),
+			'page' => 'system_routes.php', 'area' => 'routing', 'summary' => 'Get a static route (with "fields" and "display")')),
 		restapi_route('POST', '/v1/routing/static-routes', 'restapi_h_sroute_create', array(
-			'page' => 'system_routes_edit.php', 'area' => 'routing', 'write' => true,
+			'page' => 'system_routes_edit.php', 'area' => 'routing', 'write' => true, 'schema' => 'routing/static_routes',
 			'body' => $route_body, 'query' => $apply_query, 'summary' => 'Create a static route')),
 		restapi_route('PUT', '/v1/routing/static-routes/{id}', 'restapi_h_sroute_update', array(
-			'page' => 'system_routes_edit.php', 'area' => 'routing', 'write' => true,
+			'page' => 'system_routes_edit.php', 'area' => 'routing', 'write' => true, 'schema' => 'routing/static_routes',
 			'body' => $route_body, 'query' => $apply_query,
-			'summary' => 'Update a static route (omitted fields keep their value)')),
+			'summary' => 'Update a static route (omitted fields keep their value; false clears a checkbox)')),
 		restapi_route('DELETE', '/v1/routing/static-routes/{id}', 'restapi_h_sroute_delete', array(
 			'page' => 'system_routes.php', 'area' => 'routing', 'write' => true, 'query' => $apply_query,
 			'summary' => 'Delete a static route')),
@@ -183,6 +194,96 @@ function restapi_routing_group_out(array $group) {
 		'keep_failover_states' => (string)($group['keep_failover_states'] ?? ''),
 		'items' => $items,
 	);
+}
+
+/*
+ * A gateway group's editor fields (schema routing/gateway_groups, also a
+ * valid create/update body): the members as {gateway, tier, vip} rows
+ * with the tier as the select's string and "address" (the interface
+ * address, the edit page's first choice) for a member without a VIP.
+ */
+function restapi_routing_group_fields(array $group) {
+	$out = restapi_routing_group_out($group);
+	foreach ($out['items'] as &$item) {
+		$item['tier'] = (string)$item['tier'];
+		if ($item['vip'] === '') {
+			$item['vip'] = 'address';
+		}
+	}
+	unset($item);
+	return $out;
+}
+
+/*
+ * A gateway group's list columns as text (system_gateway_groups.php): the
+ * members that exist ("WAN_DHCP (tier 1)", in stored order), the trigger's
+ * label and the description. $gateways: names of the gateways the page
+ * knows (get_gateways()); $triggers: routing_gateway_group_triggers().
+ */
+function restapi_routing_group_display(array $group, array $gateways, array $triggers) {
+	$members = array();
+	foreach ((array)($group['item'] ?? array()) as $item) {
+		$parts = explode('|', (string)$item);
+		if (in_array($parts[0], $gateways, true)) {
+			$members[] = sprintf(gettext('%1$s (tier %2$s)'), $parts[0], $parts[1] ?? '');
+		}
+	}
+	$trigger = (string)($group['trigger'] ?? '');
+	return array(
+		'members' => $members,
+		'trigger' => (string)($triggers[$trigger] ?? $trigger),
+		'description' => (string)($group['descr'] ?? ''),
+	);
+}
+
+/*
+ * A gateway's list columns as text (system_gateways.php) and its
+ * monitoring status. $gw is an entry of get_gateways(); $status is
+ * return_gateways_status(true) (by name). A gateway dpinger does not
+ * report on has state "unknown" and no delay or loss.
+ */
+function restapi_routing_gateway_display(array $gw, array $status) {
+	$st = $status[$gw['name'] ?? ''] ?? null;
+	return array(
+		'interface' => (string)($gw['friendlyifdescr'] ?? ($gw['friendlyiface'] ?? '')),
+		'address' => !empty($gw['dynamic']) ? 'dynamic' : (string)($gw['gateway'] ?? ''),
+		'monitor' => (string)($gw['monitor'] ?? ''),
+		'family' => (($gw['ipprotocol'] ?? '') === 'inet6') ? 'IPv6' : 'IPv4',
+		'default' => isset($gw['isdefaultgw']),
+		'enabled' => !(isset($gw['disabled']) && ($gw['disabled'] !== false)),
+		'inactive' => isset($gw['inactive']),
+		'description' => (string)($gw['descr'] ?? ''),
+		'status' => array(
+			'state' => is_array($st) ? (string)($st['status'] ?? 'unknown') : 'unknown',
+			'substate' => is_array($st) ? (string)($st['substatus'] ?? '') : '',
+			'delay' => is_array($st) ? (string)($st['delay'] ?? '') : '',
+			'loss' => is_array($st) ? (string)($st['loss'] ?? '') : '',
+		),
+	);
+}
+
+/*
+ * A static route's list columns as text (system_routes.php): the network
+ * in lower case, the gateway as "name - address", the gateway's interface
+ * and whether the route is enabled. $gateways is get_gateways(GW_CACHE_ALL);
+ * $ifdescr turns a friendly interface name into its description.
+ */
+function restapi_routing_route_display(array $route, array $gateways, callable $ifdescr) {
+	$gw = $gateways[$route['gateway'] ?? ''] ?? null;
+	return array(
+		'network' => strtolower((string)($route['network'] ?? '')),
+		'gateway' => is_array($gw) ? ($gw['name'] . ' - ' . ($gw['gateway'] ?? '')) : (string)($route['gateway'] ?? ''),
+		'interface' => (is_array($gw) && isset($gw['friendlyiface'])) ? (string)$ifdescr($gw['friendlyiface']) : '',
+		'enabled' => !(isset($route['disabled']) && ($route['disabled'] !== false)),
+		'inactive' => is_array($gw) && isset($gw['inactive']),
+		'description' => (string)($route['descr'] ?? ''),
+	);
+}
+
+/* A request body without the read-only parts of a GET (so a GET result can be sent back). */
+function restapi_routing_body(array $body) {
+	unset($body['fields'], $body['display']);
+	return $body;
 }
 
 /*
@@ -313,7 +414,8 @@ function restapi_gateway_index(array $gateways, $name) {
 	throw new RestApiError(404, 'not_found', 'No gateway with that name.');
 }
 
-function restapi_gateway_out(array $gw) {
+/* A gateway: its stored values, "fields" and "display". $status is restapi_gateway_status(), passed in for lists. */
+function restapi_gateway_out(array $gw, ?array $status = null) {
 	return array(
 		'name' => $gw['name'],
 		'interface' => $gw['friendlyiface'] ?? '',
@@ -327,7 +429,14 @@ function restapi_gateway_out(array $gw) {
 		'default' => isset($gw['isdefaultgw']),
 		'editable' => is_numeric($gw['attribute'] ?? null),
 		'fields' => restapi_routing_gateway_fields($gw),
+		'display' => restapi_routing_gateway_display($gw, $status ?? restapi_gateway_status()),
 	);
+}
+
+/* dpinger's status of every gateway by name (return_gateways_status()), read once per request. */
+function restapi_gateway_status() {
+	$status = function_exists('return_gateways_status') ? return_gateways_status(true) : array();
+	return is_array($status) ? $status : array();
 }
 
 function restapi_gateway_by_name($name) {
@@ -345,7 +454,10 @@ function restapi_gateway_save($post, $id, $req, $status) {
 }
 
 function restapi_h_gateway_list($req) {
-	return array('data' => array_values(array_map('restapi_gateway_out', restapi_gateways())));
+	$status = restapi_gateway_status();
+	return array('data' => array_values(array_map(function ($gw) use ($status) {
+		return restapi_gateway_out($gw, $status);
+	}, restapi_gateways())));
 }
 
 function restapi_h_gateway_get($req) {
@@ -354,14 +466,14 @@ function restapi_h_gateway_get($req) {
 
 function restapi_h_gateway_create($req) {
 	/* What the edit page's selects post when left at their first choice. */
-	$post = restapi_body_as_post($req['body']) + array('ipprotocol' => 'inet', 'weight' => '1', 'gw_down_kill_states' => '');
+	$post = restapi_body_as_post(restapi_routing_body($req['body'])) + array('ipprotocol' => 'inet', 'weight' => '1', 'gw_down_kill_states' => '');
 	return restapi_gateway_save($post, null, $req, 201);
 }
 
 function restapi_h_gateway_update($req) {
 	$gateways = restapi_gateways();
 	$id = restapi_gateway_index($gateways, $req['params']['name']);
-	$post = restapi_routing_merge($req['body'], restapi_routing_gateway_fields($gateways[$id]));
+	$post = restapi_body_over(restapi_routing_body($req['body']), restapi_routing_gateway_fields($gateways[$id]));
 	return restapi_gateway_save($post, $id, $req, 200);
 }
 
@@ -401,6 +513,7 @@ function restapi_default_gateways_out() {
 		'defaultgw4' => (string)$dflts['defaultgw4'],
 		'defaultgw6' => (string)$dflts['defaultgw6'],
 		'choices' => array('defaultgw4' => $dflts['v4'], 'defaultgw6' => $dflts['v6']),
+		'fields' => array('defaultgw4' => (string)$dflts['defaultgw4'], 'defaultgw6' => (string)$dflts['defaultgw6']),
 	);
 }
 
@@ -427,7 +540,7 @@ function restapi_h_default_gateways_set($req) {
 	}
 	routing_save_default_gateways($post);
 	$out = restapi_default_gateways_out();
-	unset($out['choices']);
+	unset($out['choices'], $out['fields']);
 	return array('data' => $out + restapi_routing_maybe_apply($req));
 }
 
@@ -444,12 +557,21 @@ function restapi_gwgroup_index($name) {
 	throw new RestApiError(404, 'not_found', 'No gateway group with that name.');
 }
 
+/* A gateway group: the API shape plus "fields" (the editor fields) and "display" (the list columns as text). */
+function restapi_gwgroup_out(array $group, ?array $gateways = null) {
+	$gateways = $gateways ?? array_keys(get_gateways());
+	return restapi_routing_group_out($group) + array(
+		'fields' => restapi_routing_group_fields($group),
+		'display' => restapi_routing_group_display($group, $gateways, routing_gateway_group_triggers()),
+	);
+}
+
 function restapi_gwgroup_by_name($name) {
-	return restapi_routing_group_out(config_get_path('gateways/gateway_group/' . restapi_gwgroup_index($name)));
+	return restapi_gwgroup_out(config_get_path('gateways/gateway_group/' . restapi_gwgroup_index($name)));
 }
 
 function restapi_gwgroup_save(array $body, $id, $req, $status) {
-	$post = restapi_routing_group_post($body, array_keys(get_gateways()));
+	$post = restapi_routing_group_post(restapi_routing_body($body), array_keys(get_gateways()));
 	$result = routing_save_gateway_group($post, $id);
 	if (!empty($result['input_errors'])) {
 		throw restapi_validation_error($result['input_errors']);
@@ -459,8 +581,10 @@ function restapi_gwgroup_save(array $body, $id, $req, $status) {
 }
 
 function restapi_h_gwgroup_list($req) {
-	return array('data' => array_values(array_map('restapi_routing_group_out',
-	    array_filter(config_get_path('gateways/gateway_group', []), 'is_array'))));
+	$gateways = array_keys(get_gateways());
+	return array('data' => array_values(array_map(function ($group) use ($gateways) {
+		return restapi_gwgroup_out($group, $gateways);
+	}, array_filter(config_get_path('gateways/gateway_group', []), 'is_array'))));
 }
 
 function restapi_h_gwgroup_get($req) {
@@ -496,7 +620,8 @@ function restapi_sroutes() {
 	return is_array($routes) ? $routes : array();
 }
 
-function restapi_sroute_out($id) {
+/* A static route with "fields" and "display". $gateways is get_gateways(GW_CACHE_ALL), passed in for lists. */
+function restapi_sroute_out($id, ?array $gateways = null) {
 	$route = (array)config_get_path("staticroutes/route/{$id}", []);
 	return array(
 		'id' => (int)$id,
@@ -505,6 +630,8 @@ function restapi_sroute_out($id) {
 		'descr' => $route['descr'] ?? '',
 		'disabled' => isset($route['disabled']) && ($route['disabled'] !== false),
 		'fields' => restapi_routing_route_fields($route),
+		'display' => restapi_routing_route_display($route, $gateways ?? get_gateways(GW_CACHE_ALL),
+		    'convert_friendly_interface_to_friendly_descr'),
 	);
 }
 
@@ -517,7 +644,10 @@ function restapi_sroute_save($post, $id, $req) {
 }
 
 function restapi_h_sroute_list($req) {
-	return array('data' => array_map('restapi_sroute_out', array_keys(restapi_sroutes())));
+	$gateways = get_gateways(GW_CACHE_ALL);
+	return array('data' => array_map(function ($id) use ($gateways) {
+		return restapi_sroute_out($id, $gateways);
+	}, array_keys(restapi_sroutes())));
 }
 
 function restapi_h_sroute_get($req) {
@@ -525,14 +655,14 @@ function restapi_h_sroute_get($req) {
 }
 
 function restapi_h_sroute_create($req) {
-	$post = restapi_routing_split_network(restapi_body_as_post($req['body']));
+	$post = restapi_routing_split_network(restapi_body_as_post(restapi_routing_body($req['body'])));
 	$extra = restapi_sroute_save($post, null, $req);
 	return array('status' => 201, 'data' => restapi_sroute_out(count(restapi_sroutes()) - 1) + $extra);
 }
 
 function restapi_h_sroute_update($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_sroutes(), 'static route');
-	$post = restapi_routing_merge(restapi_routing_split_network($req['body']),
+	$post = restapi_body_over(restapi_routing_split_network(restapi_routing_body($req['body'])),
 	    restapi_routing_route_fields(config_get_path("staticroutes/route/{$id}")));
 	$extra = restapi_sroute_save($post, $id, $req);
 	return array('data' => restapi_sroute_out($id) + $extra);

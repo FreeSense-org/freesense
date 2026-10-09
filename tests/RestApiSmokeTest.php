@@ -594,7 +594,7 @@ foreach ($v1 as $r) {
 		$want = preg_match('#^/v1/services/dns-(forwarder|resolver)(/|$)#', $r['path']) ? 'services.dns' :
 		    (preg_match('#^/v1/services/ntp(/|$)#', $r['path']) ? 'services.time' :
 		    (preg_match('#^/v1/services/(dyndns|rfc2136)/#', $r['path']) ? 'services.ddns' :
-		    (preg_match('#^/v1/services/(dhcp(v6)?|router-advertisements)/#', $r['path']) ? 'services.dhcp' : 'services.misc')));
+		    (preg_match('#^/v1/services/(dhcp(v6)?/|router-advertisements(/|$))#', $r['path']) ? 'services.dhcp' : 'services.misc')));
 		check_api($r['area'] === $want, "{$r['method']} {$r['path']} is in area {$want}");
 		check_api(($r['method'] === 'GET') xor $r['write'], "{$r['method']} {$r['path']}: only GET is a read");
 		if ($r['path'] === '/v1/services/upnp') {
