@@ -39,6 +39,7 @@
  */
 
 require_once('restapi/schemas/firewall_aliases.inc');
+require_once('restapi/schemas/firewall_nat.inc');
 require_once('restapi/schemas/firewall_rules.inc');
 require_once('restapi/schemas/interfaces_config.inc');
 require_once('restapi/schemas/firewall_schedules.inc');
@@ -54,6 +55,10 @@ function restapi_schemas() {
 		'interfaces/config' => array('restapi_schema_interfaces_config', 'interfaces.php', 'interfaces'),
 		'firewall/schedules' => array('restapi_schema_firewall_schedules', 'firewall_schedule_edit.php', 'firewall.schedules'),
 		'firewall/virtual_ips' => array('restapi_schema_firewall_virtual_ips', 'firewall_virtual_ip_edit.php', 'firewall.vips'),
+		'firewall/nat_port_forwards' => array('restapi_schema_firewall_nat_port_forwards', 'firewall_nat_edit.php', 'firewall.nat'),
+		'firewall/nat_outbound' => array('restapi_schema_firewall_nat_outbound', 'firewall_nat_out_edit.php', 'firewall.nat'),
+		'firewall/nat_one_to_one' => array('restapi_schema_firewall_nat_one_to_one', 'firewall_nat_1to1_edit.php', 'firewall.nat'),
+		'firewall/nat_npt' => array('restapi_schema_firewall_nat_npt', 'firewall_nat_npt_edit.php', 'firewall.nat'),
 		'services/ntp' => array('restapi_schema_services_ntp', 'services_ntpd.php', 'services.time'),
 	);
 }

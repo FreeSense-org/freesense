@@ -53,8 +53,9 @@ function restapi_routes_firewall() {
 	));
 	$natpf_body = array('type' => 'object', 'description' => 'The same fields as the port forward edit page ' .
 	    '(interface, ipprotocol, proto, srctype, src, srcmask, srcbeginport, srcendport, dsttype, dst, dstmask, ' .
-	    'dstbeginport, dstendport, localtype, localip, localbeginport, natreflection, descr, disabled, nordr, ' .
-	    'filter-rule-association, after). GET returns the same shape.');
+	    'dstbeginport, dstendport, localtype, localip, localbeginport, natreflection, descr, disabled, nordr, nosync, ' .
+	    'filter-rule-association (none "", add-associated, add-unassociated or pass; on an update add-associated ' .
+	    'keeps an existing linked rule), after). GET returns them as "fields".');
 	$vip_body = array('type' => 'object', 'description' => 'The same fields as the virtual IP edit page ' .
 	    '(mode, interface, subnet, subnet_bits, type, descr, vhid, advbase, advskew, password, noexpand). ' .
 	    'GET returns them as "fields" (never the password). On update a missing or empty password keeps the current one.');
@@ -109,15 +110,21 @@ function restapi_routes_firewall() {
 		/* NAT port forwards */
 		restapi_route('GET', '/v1/firewall/nat/port-forwards', 'restapi_h_natpf_list', array(
 			'page' => 'firewall_nat.php', 'area' => 'firewall.nat', 'summary' => 'List port forwards')),
+		/* Specific paths before the {id} routes (the first matching route wins). */
+		restapi_route('POST', '/v1/firewall/nat/port-forwards/order', 'restapi_h_natpf_order', array(
+			'page' => 'firewall_nat.php', 'area' => 'firewall.nat', 'write' => true,
+			'body' => restapi_nat_order_body(), 'query' => $apply_query,
+			'summary' => 'Reorder the port forwards (like dragging them on the list page)')),
 		restapi_route('GET', '/v1/firewall/nat/port-forwards/{id}', 'restapi_h_natpf_get', array(
-			'page' => 'firewall_nat.php', 'area' => 'firewall.nat', 'summary' => 'Get a port forward')),
+			'page' => 'firewall_nat.php', 'area' => 'firewall.nat',
+			'summary' => 'Get a port forward (plus "fields": the edit form fields, and "display": the list columns as text)')),
 		restapi_route('POST', '/v1/firewall/nat/port-forwards', 'restapi_h_natpf_create', array(
-			'page' => 'firewall_nat_edit.php', 'area' => 'firewall.nat', 'write' => true,
+			'page' => 'firewall_nat_edit.php', 'area' => 'firewall.nat', 'write' => true, 'schema' => 'firewall/nat_port_forwards',
 			'body' => $natpf_body, 'query' => $apply_query, 'summary' => 'Create a port forward')),
 		restapi_route('PUT', '/v1/firewall/nat/port-forwards/{id}', 'restapi_h_natpf_update', array(
-			'page' => 'firewall_nat_edit.php', 'area' => 'firewall.nat', 'write' => true,
+			'page' => 'firewall_nat_edit.php', 'area' => 'firewall.nat', 'write' => true, 'schema' => 'firewall/nat_port_forwards',
 			'body' => $natpf_body, 'query' => $apply_query,
-			'summary' => 'Update a port forward (omitted fields keep their value)')),
+			'summary' => 'Update a port forward (omitted fields keep their value; false clears a checkbox)')),
 		restapi_route('POST', '/v1/firewall/nat/port-forwards/{id}/toggle', 'restapi_h_natpf_toggle', array(
 			'page' => 'firewall_nat.php', 'area' => 'firewall.nat', 'write' => true,
 			'query' => $apply_query, 'summary' => 'Enable or disable a port forward')),
@@ -422,8 +429,58 @@ function restapi_natpf_rules() {
 	return config_get_path('nat/rule', []);
 }
 
+/*
+ * getNATRule()'s shape (as before), the stored entry's other keys (source,
+ * destination, protocol, target, local-port), plus "fields" and "display"
+ * like the other NAT kinds. Additive (capability "nat-v2").
+ */
 function restapi_natpf_out($id) {
-	return array('id' => (int)$id) + (array)getNATRule($id);
+	$p = (array)getNATRule($id);
+	$raw = (array)config_get_path("nat/rule/{$id}", []);
+	return array('id' => (int)$id) + $p + $raw +
+	    array('fields' => restapi_natpf_form_fields($p), 'display' => restapi_nat_display_rdr($raw));
+}
+
+/*
+ * The edit page names its association select "filter-rule-association"
+ * (new rule: none, add associated, add unassociated, pass) or
+ * "associated-rule-id" (existing rule: none, pass, a linked rule id, new).
+ * The API offers the first one for both and turns it into what
+ * saveNATrule() expects: on an update "add-associated" keeps the linked
+ * rule the entry already has. A body that sends "associated-rule-id"
+ * without "filter-rule-association" is passed on as the edit page posts it.
+ */
+function restapi_natpf_association(array $post, array $body, $current_aid) {
+	$current_aid = (string)$current_aid;
+	if (!array_key_exists('filter-rule-association', $body) && array_key_exists('associated-rule-id', $body)) {
+		unset($post['filter-rule-association']);
+		return $post;
+	}
+	if (!isset($post['filter-rule-association'])) {
+		return $post;
+	}
+	switch ((string)$post['filter-rule-association']) {
+		case 'add-associated':
+			if (($current_aid !== '') && ($current_aid !== 'pass')) {
+				$post['associated-rule-id'] = $current_aid;
+				unset($post['filter-rule-association']);
+			} else {
+				$post['associated-rule-id'] = '';
+			}
+			break;
+		case 'add-unassociated':
+			/* Drops a linked rule, then adds an independent copy. */
+			$post['associated-rule-id'] = '';
+			break;
+		case 'pass':
+			$post['associated-rule-id'] = 'pass';
+			break;
+		case '':
+			$post['associated-rule-id'] = '';
+			unset($post['filter-rule-association']);
+			break;
+	}
+	return $post;
 }
 
 function restapi_natpf_save($post, $id, $req) {
@@ -450,7 +507,7 @@ function restapi_h_natpf_get($req) {
 
 function restapi_h_natpf_create($req) {
 	$before = count(restapi_natpf_rules());
-	$post = restapi_body_as_post($req['body']);
+	$post = restapi_natpf_association(restapi_body_as_post($req['body']), $req['body'], '');
 	$extra = restapi_natpf_save($post, null, $req);
 	$rules = restapi_natpf_rules();
 	/* A new rule goes after "after", or at the end. */
@@ -493,6 +550,9 @@ function restapi_natpf_form_fields($p) {
 	if (empty($p['localtype'])) {
 		$post['localtype'] = get_specialnet($p['localip'] ?? '', [SPECIALNET_IFADDR]) ? $p['localip'] : 'single';
 	}
+	/* The association as the API's "filter-rule-association" (see restapi_natpf_association()). */
+	$aid = (string)($p['associated-rule-id'] ?? '');
+	$post['filter-rule-association'] = ($aid === 'pass') ? 'pass' : (($aid !== '') ? 'add-associated' : '');
 	foreach (array('created', 'updated') as $meta) {
 		unset($post[$meta]);
 	}
@@ -501,10 +561,16 @@ function restapi_natpf_form_fields($p) {
 
 function restapi_h_natpf_update($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_natpf_rules(), 'port forward');
-	$post = restapi_body_over($req['body'], restapi_natpf_form_fields(getNATRule($id)));
+	$current = (array)getNATRule($id);
+	$post = restapi_body_over($req['body'], restapi_natpf_form_fields($current));
+	$post = restapi_natpf_association($post, $req['body'], $current['associated-rule-id'] ?? '');
 	unset($post['after']);
 	$extra = restapi_natpf_save($post, $id, $req);
 	return array('data' => restapi_natpf_out($id) + $extra);
+}
+
+function restapi_h_natpf_order($req) {
+	return array('data' => restapi_nat_reorder('rdr', 'nat/rule', $req['body']['order'] ?? null, null, 'applyNATrules', $req));
 }
 
 function restapi_h_natpf_toggle($req) {
