@@ -71,6 +71,9 @@ function restapi_routes_routing() {
 		restapi_route('POST', '/v1/routing/apply', 'restapi_h_routing_apply', array(
 			'page' => 'system_gateways.php', 'area' => 'routing', 'write' => true,
 			'summary' => 'Apply pending gateway, gateway group and static route changes')),
+		restapi_route('GET', '/v1/routing/pending', 'restapi_h_routing_pending', array(
+			'page' => 'system_gateways.php', 'area' => 'routing',
+			'summary' => 'Whether gateway, gateway group or static route changes are staged (not yet applied)')),
 
 		/* Gateways */
 		restapi_route('GET', '/v1/routing/gateways', 'restapi_h_gateway_list', array(
@@ -382,6 +385,10 @@ function restapi_routing_maybe_apply($req) {
 	}
 	$retval = routing_apply_changes();
 	return array('pending' => restapi_routing_pending(), 'apply' => array('applied' => ($retval == 0)));
+}
+
+function restapi_h_routing_pending($req) {
+	return array('data' => array('pending' => (bool)restapi_routing_pending()));
 }
 
 function restapi_h_routing_apply($req) {

@@ -555,6 +555,14 @@ foreach (array('GET /v1/routing/gateways', 'GET /v1/routing/gateway-groups', 'GE
 list($route, $params) = restapi_match($v1, 'GET', '/v1/services/router-advertisements');
 check($route['handler'] === 'restapi_h_radvd_list' && $route['area'] === 'services.dhcp' && $route['page'] === 'services_radvd.php',
     'the RA list needs the Router Advertisement page');
+list($route, $params) = restapi_match($v1, 'GET', '/v1/routing/pending');
+check($route['handler'] === 'restapi_h_routing_pending' && $route['area'] === 'routing' && $route['page'] === 'system_gateways.php' && !$route['write'],
+    'GET /v1/routing/pending reads with the gateway list\'s privilege');
+function is_subsystem_dirty($s) { return ($s === 'staticroutes') && !empty($GLOBALS['dirty']); }
+$GLOBALS['dirty'] = false;
+check(restapi_h_routing_pending(array()) === array('data' => array('pending' => false)), 'pending: false when nothing is staged');
+$GLOBALS['dirty'] = true;
+check(restapi_h_routing_pending(array()) === array('data' => array('pending' => true)), 'pending: true while the staticroutes flag is dirty');
 check(in_array('routing-v2', restapi_capabilities_test($root), true), 'capability routing-v2 is announced');
 function restapi_capabilities_test($root) {
 	$src = file_get_contents("{$root}/src/etc/inc/restapi.inc");
