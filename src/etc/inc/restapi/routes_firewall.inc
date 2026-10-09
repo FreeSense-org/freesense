@@ -163,6 +163,9 @@ function restapi_routes_firewall() {
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
 			'query' => array('interface' => 'Only rules of this interface (e.g. lan, wan, or "floating")'),
 			'summary' => 'List filter rules in evaluation order')),
+		restapi_route('GET', '/v1/firewall/rules/tabs', 'restapi_h_rule_tabs', array(
+			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
+			'summary' => 'The rule list tabs (Floating, then every interface and group) with their rule counts')),
 		restapi_route('GET', '/v1/firewall/rules/{id}', 'restapi_h_rule_get', array(
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
 			'summary' => 'Get a filter rule (stored form, plus "fields": the edit form fields, and "display": the list columns as text)')),
@@ -856,6 +859,20 @@ function restapi_h_rule_list($req) {
 		$out[] = restapi_rule_out($id, $rule);
 	}
 	return array('data' => $out);
+}
+
+/* The 1.x rule list tabs: Floating, then filter_get_interface_list(), as [{id, label, count}]. */
+function restapi_h_rule_tabs($req) {
+	$counts = array();
+	foreach (restapi_rules() as $rule) {
+		$tab = isset($rule['floating']) ? 'floating' : (string)($rule['interface'] ?? '');
+		$counts[$tab] = ($counts[$tab] ?? 0) + 1;
+	}
+	$tabs = array(array('id' => 'floating', 'label' => gettext('Floating'), 'count' => $counts['floating'] ?? 0));
+	foreach (filter_get_interface_list() as $id => $label) {
+		$tabs[] = array('id' => (string)$id, 'label' => (string)$label, 'count' => $counts[$id] ?? 0);
+	}
+	return array('data' => $tabs);
 }
 
 function restapi_h_rule_get($req) {
