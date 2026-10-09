@@ -34,6 +34,13 @@
  * config.xml; host overrides are kept sorted by host, so a write returns the
  * entry's new id.
  *
+ * For the WebUI 2.0 each list entry also has "fields" (the edit form's
+ * fields, a valid PUT body) and "display" (the list page's columns as
+ * text); GET /pending tells whether changes wait for apply. The access
+ * lists are served at /access-lists (and, as before, at /acls). Writes name
+ * their resource schema (schemas/services_dns_resolver.inc), so validation
+ * messages are keyed to the form fields.
+ *
  * The front controller loads services_unbound.inc at file scope.
  */
 
@@ -81,9 +88,12 @@ function restapi_routes_unbound() {
 		'description' => array('type' => 'string'),
 		'networks' => array('type' => 'array', 'description' => 'Up to 50 networks; "networks" replaces the list on update',
 		    'items' => array('type' => 'object', 'properties' => array(
-		    'network' => array('type' => 'string', 'description' => 'address/bits'), 'description' => array('type' => 'string')))),
+		    'network' => array('type' => 'string', 'description' => 'address/bits'),
+		    'acl_network' => array('type' => 'string', 'description' => 'Instead of "network": the address ...'),
+		    'mask' => array('type' => 'string', 'description' => '... and the prefix length (the edit form\'s columns)'),
+		    'description' => array('type' => 'string')))),
 	));
-	$route = function ($method, $path, $handler, $page, $summary, $write = false, $body = null) use ($dns, $base, $apply_query) {
+	$route = function ($method, $path, $handler, $page, $summary, $write = false, $body = null, $schema = null) use ($dns, $base, $apply_query) {
 		$opts = array('page' => $page, 'area' => $dns, 'summary' => $summary);
 		if ($write) {
 			$opts['write'] = true;
@@ -92,46 +102,61 @@ function restapi_routes_unbound() {
 				$opts['query'] = $apply_query;
 			}
 		}
+		if ($schema !== null) {
+			$opts['schema'] = $schema;
+		}
 		return restapi_route($method, $base . $path, $handler, $opts);
 	};
 	$page = 'services_unbound.php';
+	$acl_page = 'services_unbound_acls.php';
+	/* The access list routes, at /access-lists and (as in earlier releases) at /acls. */
+	$acl_routes = function ($path) use ($route, $acl_page, $acl_body) {
+		return array(
+			$route('GET', $path, 'restapi_h_unbound_acl_list', $acl_page, 'List access lists (with "fields" and "display")'),
+			$route('GET', "{$path}/{id}", 'restapi_h_unbound_acl_get', $acl_page, 'Get an access list (with "fields" and "display")'),
+			$route('POST', $path, 'restapi_h_unbound_acl_create', $acl_page,
+			    'Create an access list', true, $acl_body, 'services/dns_access_list'),
+			$route('PUT', "{$path}/{id}", 'restapi_h_unbound_acl_update', $acl_page,
+			    'Update an access list (omitted fields keep their value; "networks" replaces the list)', true, $acl_body, 'services/dns_access_list'),
+			$route('DELETE', "{$path}/{id}", 'restapi_h_unbound_acl_delete', $acl_page, 'Delete an access list', true),
+		);
+	};
 
-	return array(
+	return array_merge(array(
 		$route('GET', '', 'restapi_h_unbound_get', $page,
 		    'DNS Resolver general settings, their choices and whether changes are pending'),
 		$route('PUT', '', 'restapi_h_unbound_set', $page,
-		    'Change DNS Resolver general settings (omitted fields keep their value)', true, $general_body),
+		    'Change DNS Resolver general settings (staged like the page\'s Save; omitted fields keep their value)', true, $general_body,
+		    'services/dns_resolver'),
+		$route('GET', '/pending', 'restapi_h_unbound_pending', $page,
+		    'Whether DNS Resolver changes are staged and wait for apply'),
 		$route('POST', '/apply', 'restapi_h_unbound_apply', $page,
 		    'Apply pending DNS Resolver changes (settings, overrides, access lists)', true),
 		$route('GET', '/advanced', 'restapi_h_unbound_adv_get', 'services_unbound_advanced.php',
 		    'DNS Resolver advanced settings and their choices'),
 		$route('PUT', '/advanced', 'restapi_h_unbound_adv_set', 'services_unbound_advanced.php',
-		    'Change DNS Resolver advanced settings (omitted fields keep their value)', true, $advanced_body),
+		    'Change DNS Resolver advanced settings (staged; omitted fields keep their value)', true, $advanced_body,
+		    'services/dns_resolver_advanced'),
 
-		$route('GET', '/host-overrides', 'restapi_h_unbound_host_list', $page, 'List host overrides (sorted by host)'),
-		$route('GET', '/host-overrides/{id}', 'restapi_h_unbound_host_get', $page, 'Get a host override'),
+		$route('GET', '/host-overrides', 'restapi_h_unbound_host_list', $page,
+		    'List host overrides (sorted by host; with "fields" and "display")'),
+		$route('GET', '/host-overrides/{id}', 'restapi_h_unbound_host_get', $page, 'Get a host override (with "fields" and "display")'),
 		$route('POST', '/host-overrides', 'restapi_h_unbound_host_create', 'services_unbound_host_edit.php',
-		    'Create a host override (the list is sorted by host; the response has its id)', true, $host_body),
+		    'Create a host override (the list is sorted by host; the response has its id)', true, $host_body,
+		    'services/dns_host_override'),
 		$route('PUT', '/host-overrides/{id}', 'restapi_h_unbound_host_update', 'services_unbound_host_edit.php',
-		    'Update a host override (omitted fields keep their value; "aliases" replaces the list; the response has its new id)', true, $host_body),
+		    'Update a host override (omitted fields keep their value; "aliases" replaces the list; the response has its new id)', true, $host_body,
+		    'services/dns_host_override'),
 		$route('DELETE', '/host-overrides/{id}', 'restapi_h_unbound_host_delete', $page, 'Delete a host override', true),
 
-		$route('GET', '/domain-overrides', 'restapi_h_unbound_domain_list', $page, 'List domain overrides'),
-		$route('GET', '/domain-overrides/{id}', 'restapi_h_unbound_domain_get', $page, 'Get a domain override'),
+		$route('GET', '/domain-overrides', 'restapi_h_unbound_domain_list', $page, 'List domain overrides (with "fields" and "display")'),
+		$route('GET', '/domain-overrides/{id}', 'restapi_h_unbound_domain_get', $page, 'Get a domain override (with "fields" and "display")'),
 		$route('POST', '/domain-overrides', 'restapi_h_unbound_domain_create', 'services_unbound_domainoverride_edit.php',
-		    'Create a domain override', true, $domain_body),
+		    'Create a domain override', true, $domain_body, 'services/dns_domain_override'),
 		$route('PUT', '/domain-overrides/{id}', 'restapi_h_unbound_domain_update', 'services_unbound_domainoverride_edit.php',
-		    'Update a domain override (omitted fields keep their value)', true, $domain_body),
+		    'Update a domain override (omitted fields keep their value)', true, $domain_body, 'services/dns_domain_override'),
 		$route('DELETE', '/domain-overrides/{id}', 'restapi_h_unbound_domain_delete', $page, 'Delete a domain override', true),
-
-		$route('GET', '/acls', 'restapi_h_unbound_acl_list', 'services_unbound_acls.php', 'List access lists'),
-		$route('GET', '/acls/{id}', 'restapi_h_unbound_acl_get', 'services_unbound_acls.php', 'Get an access list'),
-		$route('POST', '/acls', 'restapi_h_unbound_acl_create', 'services_unbound_acls.php',
-		    'Create an access list', true, $acl_body),
-		$route('PUT', '/acls/{id}', 'restapi_h_unbound_acl_update', 'services_unbound_acls.php',
-		    'Update an access list (omitted fields keep their value)', true, $acl_body),
-		$route('DELETE', '/acls/{id}', 'restapi_h_unbound_acl_delete', 'services_unbound_acls.php', 'Delete an access list', true),
-	);
+	), $acl_routes('/access-lists'), $acl_routes('/acls'));
 }
 
 /* ------------------------------------------------------------------ */
@@ -166,12 +191,73 @@ function restapi_unbound_acl_rows($networks) {
 		if (!is_array($net) || !is_scalar($net['network'] ?? '') || !is_scalar($net['description'] ?? '')) {
 			throw new RestApiError(400, 'invalid_field', '"networks" must be a list of {network, description}.');
 		}
-		$parts = explode('/', (string)($net['network'] ?? ''), 2);
+		if (array_key_exists('acl_network', $net) || array_key_exists('mask', $net)) {
+			/* The edit form's columns (the schema's entry grid). */
+			foreach (array('acl_network', 'mask') as $key) {
+				if (!is_scalar($net[$key] ?? '')) {
+					throw new RestApiError(400, 'invalid_field', '"networks" must be a list of {network, description}.');
+				}
+			}
+			$parts = array((string)($net['acl_network'] ?? ''), (string)($net['mask'] ?? ''));
+		} else {
+			$parts = explode('/', (string)($net['network'] ?? ''), 2);
+		}
 		$post["acl_network{$i}"] = $parts[0];
 		$post["mask{$i}"] = $parts[1] ?? '';
 		$post["description{$i}"] = (string)($net['description'] ?? '');
 	}
 	return $post;
+}
+
+/* Stored ACL rows as the edit form's entry grid {acl_network, mask, description}. */
+function restapi_unbound_acl_grid($rows) {
+	$out = array();
+	foreach ((is_array($rows) ? $rows : array()) as $row) {
+		if (is_array($row)) {
+			$out[] = array('acl_network' => (string)($row['acl_network'] ?? ''), 'mask' => (string)($row['mask'] ?? ''),
+			    'description' => (string)($row['description'] ?? ''));
+		}
+	}
+	return $out;
+}
+
+/* "host.domain", or the domain alone for an empty host (as the list page names it). */
+function restapi_unbound_fqdn($host, $domain) {
+	return ((string)$host !== '') ? "{$host}.{$domain}" : (string)$domain;
+}
+
+/* The host override list columns: the name, its addresses, the additional names and the description. */
+function restapi_unbound_host_display(array $h) {
+	$ip = $h['ip'] ?? '';
+	$addresses = array();
+	foreach ((is_array($ip) ? $ip : explode(',', (string)$ip)) as $addr) {
+		if (is_scalar($addr) && (trim((string)$addr) !== '')) {
+			$addresses[] = trim((string)$addr);
+		}
+	}
+	$aliases = array();
+	$items = $h['aliases']['item'] ?? array();
+	foreach ((is_array($items) ? $items : array()) as $alias) {
+		if (is_array($alias) && ((($alias['host'] ?? '') !== '') || (($alias['domain'] ?? '') !== ''))) {
+			$aliases[] = restapi_unbound_fqdn($alias['host'] ?? '', $alias['domain'] ?? '');
+		}
+	}
+	return array('host' => restapi_unbound_fqdn($h['host'] ?? '', $h['domain'] ?? ''), 'addresses' => $addresses,
+	    'aliases' => $aliases, 'description' => (string)($h['descr'] ?? ''));
+}
+
+/* The domain override list columns. */
+function restapi_unbound_domain_display(array $d) {
+	return array('domain' => (string)($d['domain'] ?? ''), 'server' => (string)($d['ip'] ?? ''),
+	    'tls' => isset($d['forward_tls_upstream']) && ($d['forward_tls_upstream'] !== false), 'description' => (string)($d['descr'] ?? ''));
+}
+
+/* The access list columns: name, the action's label, the networks as "address/bits" and the description. */
+function restapi_unbound_acl_display(array $a, array $actions) {
+	$action = strtolower((string)($a['aclaction'] ?? ''));
+	return array('name' => (string)($a['aclname'] ?? ''), 'action' => (string)($actions[$action] ?? ($a['aclaction'] ?? '')),
+	    'networks' => array_column(restapi_unbound_acl_networks($a['row'] ?? array()), 'network'),
+	    'description' => (string)($a['description'] ?? ''));
 }
 
 /* Stored ACL rows as the API list. */
@@ -192,6 +278,10 @@ function restapi_unbound_acl_networks($rows) {
 
 function restapi_unbound_maybe_apply($req) {
 	return restapi_svc_maybe_apply($req, 'unbound', 'unbound_apply_changes');
+}
+
+function restapi_h_unbound_pending($req) {
+	return array('data' => array('pending' => is_subsystem_dirty('unbound')));
 }
 
 function restapi_h_unbound_apply($req) {
@@ -335,12 +425,15 @@ function restapi_unbound_host_out($id) {
 			    'description' => (string)($alias['description'] ?? ''));
 		}
 	}
-	return array('id' => (int)$id, 'host' => (string)($h['host'] ?? ''), 'domain' => (string)($h['domain'] ?? ''),
-	    'ip' => (string)($h['ip'] ?? ''), 'descr' => (string)($h['descr'] ?? ''), 'aliases' => $aliases);
+	$ip = $h['ip'] ?? '';
+	$fields = array('host' => (string)($h['host'] ?? ''), 'domain' => (string)($h['domain'] ?? ''),
+	    'ip' => is_array($ip) ? implode(',', $ip) : (string)$ip, 'descr' => (string)($h['descr'] ?? ''), 'aliases' => $aliases);
+	return array('id' => (int)$id) + $fields + array('fields' => $fields, 'display' => restapi_unbound_host_display($h));
 }
 
 function restapi_unbound_host_types() {
-	return array('id' => 'ro', 'host' => 'string', 'domain' => 'string', 'ip' => 'string', 'descr' => 'string', 'aliases' => 'objects');
+	return array('id' => 'ro', 'host' => 'string', 'domain' => 'string', 'ip' => 'string', 'descr' => 'string', 'aliases' => 'objects',
+	    'fields' => 'ro', 'display' => 'ro', 'pending' => 'ro', 'apply' => 'ro');
 }
 
 /* Save through the edit page's function; the list is re-sorted, so answer with the entry's new position. */
@@ -394,14 +487,15 @@ function restapi_unbound_domains() {
 
 function restapi_unbound_domain_out($id) {
 	$d = (array)config_get_path("unbound/domainoverrides/{$id}", []);
-	return array('id' => (int)$id, 'domain' => (string)($d['domain'] ?? ''), 'ip' => (string)($d['ip'] ?? ''),
+	$fields = array('domain' => (string)($d['domain'] ?? ''), 'ip' => (string)($d['ip'] ?? ''),
 	    'forward_tls_upstream' => isset($d['forward_tls_upstream']) && ($d['forward_tls_upstream'] !== false),
 	    'tls_hostname' => (string)($d['tls_hostname'] ?? ''), 'descr' => (string)($d['descr'] ?? ''));
+	return array('id' => (int)$id) + $fields + array('fields' => $fields, 'display' => restapi_unbound_domain_display($d));
 }
 
 function restapi_unbound_domain_types() {
 	return array('id' => 'ro', 'domain' => 'string', 'ip' => 'string', 'forward_tls_upstream' => 'bool',
-	    'tls_hostname' => 'string', 'descr' => 'string');
+	    'tls_hostname' => 'string', 'descr' => 'string', 'fields' => 'ro', 'display' => 'ro', 'pending' => 'ro', 'apply' => 'ro');
 }
 
 function restapi_unbound_domain_save(array $values, $id, $req) {
@@ -449,16 +543,27 @@ function restapi_unbound_acls() {
 	return is_array($acls) ? $acls : array();
 }
 
+/* The access list actions with their (translated) labels, as the edit page offers them. */
+function restapi_unbound_acl_action_labels() {
+	return function_exists('unbound_acl_actions') ? unbound_acl_actions() : restapi_unbound_acl_actions();
+}
+
 function restapi_unbound_acl_out($id) {
 	$a = (array)config_get_path("unbound/acls/{$id}", []);
+	$actions = restapi_unbound_acl_action_labels();
+	/* The edit page selects the lower-cased action (the first one when it is unknown). */
+	$fields = array('aclname' => (string)($a['aclname'] ?? ''),
+	    'aclaction' => restapi_unbound_preselect(strtolower((string)($a['aclaction'] ?? '')), array_keys($actions)),
+	    'description' => (string)($a['description'] ?? ''), 'networks' => restapi_unbound_acl_grid($a['row'] ?? array()));
 	return array('id' => (int)$id, 'aclid' => (string)($a['aclid'] ?? ''), 'aclname' => (string)($a['aclname'] ?? ''),
 	    'aclaction' => (string)($a['aclaction'] ?? ''), 'description' => (string)($a['description'] ?? ''),
-	    'networks' => restapi_unbound_acl_networks($a['row'] ?? array()));
+	    'networks' => restapi_unbound_acl_networks($a['row'] ?? array()),
+	    'fields' => $fields, 'display' => restapi_unbound_acl_display($a, $actions));
 }
 
 function restapi_unbound_acl_types() {
 	return array('id' => 'ro', 'aclid' => 'ro', 'aclname' => 'string', 'aclaction' => 'string', 'description' => 'string',
-	    'networks' => 'objects');
+	    'networks' => 'objects', 'fields' => 'ro', 'display' => 'ro', 'pending' => 'ro', 'apply' => 'ro');
 }
 
 function restapi_unbound_acl_save(array $values, $id, $req) {
