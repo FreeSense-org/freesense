@@ -165,14 +165,14 @@ function restapi_routes_firewall() {
 			'summary' => 'List filter rules in evaluation order')),
 		restapi_route('GET', '/v1/firewall/rules/{id}', 'restapi_h_rule_get', array(
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules',
-			'summary' => 'Get a filter rule (stored form, plus "fields": the edit form fields)')),
+			'summary' => 'Get a filter rule (stored form, plus "fields": the edit form fields, and "display": the list columns as text)')),
 		restapi_route('POST', '/v1/firewall/rules', 'restapi_h_rule_create', array(
-			'page' => 'firewall_rules_edit.php', 'area' => 'firewall.rules', 'write' => true,
+			'page' => 'firewall_rules_edit.php', 'area' => 'firewall.rules', 'write' => true, 'schema' => 'firewall/rules',
 			'body' => $rule_body, 'query' => $apply_query, 'summary' => 'Create a filter rule')),
 		restapi_route('PUT', '/v1/firewall/rules/{id}', 'restapi_h_rule_update', array(
-			'page' => 'firewall_rules_edit.php', 'area' => 'firewall.rules', 'write' => true,
+			'page' => 'firewall_rules_edit.php', 'area' => 'firewall.rules', 'write' => true, 'schema' => 'firewall/rules',
 			'body' => $rule_body, 'query' => $apply_query,
-			'summary' => 'Update a filter rule (omitted fields keep their value)')),
+			'summary' => 'Update a filter rule (omitted fields keep their value; false clears a checkbox)')),
 		restapi_route('POST', '/v1/firewall/rules/{id}/toggle', 'restapi_h_rule_toggle', array(
 			'page' => 'firewall_rules.php', 'area' => 'firewall.rules', 'write' => true,
 			'query' => $apply_query, 'summary' => 'Enable or disable a filter rule')),
@@ -262,6 +262,21 @@ function restapi_body_as_post(array $body) {
 			$post[$key] = array_map('strval', array_filter($value, 'is_scalar'));
 		} else {
 			throw new RestApiError(400, 'invalid_field', "Field \"{$key}\" must be a string, number, boolean or list.");
+		}
+	}
+	return $post;
+}
+
+/*
+ * A partial update: the body as edit-page POST fields over the current ones.
+ * A checkbox is "off" when it is missing from a POST, so false removes it
+ * from the merged fields (otherwise the current "yes" would win).
+ */
+function restapi_body_over(array $body, array $current) {
+	$post = restapi_body_as_post($body) + $current;
+	foreach ($body as $key => $value) {
+		if ($value === false) {
+			unset($post[$key]);
 		}
 	}
 	return $post;
@@ -476,7 +491,7 @@ function restapi_natpf_form_fields($p) {
 
 function restapi_h_natpf_update($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_natpf_rules(), 'port forward');
-	$post = restapi_body_as_post($req['body']) + restapi_natpf_form_fields(getNATRule($id));
+	$post = restapi_body_over($req['body'], restapi_natpf_form_fields(getNATRule($id)));
 	unset($post['after']);
 	$extra = restapi_natpf_save($post, $id, $req);
 	return array('data' => restapi_natpf_out($id) + $extra);
@@ -553,7 +568,7 @@ function restapi_h_vip_create($req) {
 function restapi_h_vip_update($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_vips(), 'virtual IP');
 	$current = config_get_path("virtualip/vip/{$id}", []);
-	$post = restapi_body_as_post($req['body']) + array_filter($current, 'is_scalar');
+	$post = restapi_body_over($req['body'], array_filter($current, 'is_scalar'));
 	if (!isset($req['body']['password']) && isset($current['password'])) {
 		$post['password'] = $current['password'];
 	}
@@ -684,7 +699,62 @@ function restapi_h_sched_delete($req) {
 /* ------------------------------------------------------------------ */
 
 function restapi_rule_out($id, $rule) {
-	return array('id' => (int)$id) + $rule;
+	return array('id' => (int)$id) + $rule + array('display' => restapi_rule_display((array)$rule));
+}
+
+/*
+ * A rule's list columns as text, as the 1.x rule list prints them
+ * (pprint_address/pprint_port): "*" for any, interface networks by name,
+ * "! " for an inverted match, well-known port names. Additive (API level 8).
+ */
+function restapi_rule_display(array $rule) {
+	global $filter_srcdsttype_flags, $wkports;
+	static $specialnets = null, $ifnames = null;
+	if ($specialnets === null) {
+		$specialnets = function_exists('get_specialnet') ? (array)get_specialnet('', (array)$filter_srcdsttype_flags) : array();
+		$ifnames = (array)get_configured_interface_with_descr();
+	}
+	$addr = function ($a) use ($specialnets) {
+		$a = is_array($a) ? $a : array();
+		if (isset($a['any']) || (($a['network'] ?? '') === 'any')) {
+			$text = '*';
+		} elseif (!empty($a['network'])) {
+			$text = (string)($specialnets[$a['network']] ?? $a['network']);
+		} else {
+			$text = (string)($a['address'] ?? '');
+		}
+		return (isset($a['not']) ? '! ' : '') . $text;
+	};
+	$port = function ($a) use ($wkports) {
+		$p = is_array($a) ? (string)($a['port'] ?? '') : '';
+		if ($p === '') {
+			return '*';
+		}
+		list($begin, $end) = array_pad(explode('-', $p, 2), 2, '');
+		if (($end === '') || ($begin === $end)) {
+			return $begin . (isset($wkports[$begin]) ? " ({$wkports[$begin]})" : '');
+		}
+		return "{$begin} - {$end}";
+	};
+	$families = array('inet' => 'IPv4', 'inet6' => 'IPv6', 'inet46' => 'IPv4+6');
+	$ifs = array();
+	foreach (array_filter(explode(',', (string)($rule['interface'] ?? ''))) as $if) {
+		$ifs[] = ($if === 'any') ? gettext('Any') : (string)($ifnames[$if] ?? strtoupper($if));
+	}
+	return array(
+		'tab' => isset($rule['floating']) ? 'floating' : (string)($rule['interface'] ?? ''),
+		'interfaces' => implode(', ', $ifs),
+		'protocol' => ($families[$rule['ipprotocol'] ?? 'inet'] ?? 'IPv4') . ' ' . (isset($rule['protocol']) ? strtoupper((string)$rule['protocol']) : '*'),
+		'source' => $addr($rule['source'] ?? null),
+		'source_port' => $port($rule['source'] ?? null),
+		'destination' => $addr($rule['destination'] ?? null),
+		'destination_port' => $port($rule['destination'] ?? null),
+		'gateway' => (string)($rule['gateway'] ?? ''),
+		'schedule' => (string)($rule['sched'] ?? ''),
+		'enabled' => !isset($rule['disabled']),
+		'log' => isset($rule['log']),
+		'nat' => isset($rule['associated-rule-id']),
+	);
 }
 
 /* Rule ids are positions after the same sort firewall_rules.php applies. */
@@ -719,7 +789,7 @@ function restapi_h_rule_create($req) {
 function restapi_h_rule_update($req) {
 	$rules = restapi_rules();
 	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
-	$post = restapi_body_as_post($req['body']) + filter_rule_form_fields(getFilterRule($id));
+	$post = restapi_body_over($req['body'], filter_rule_form_fields(getFilterRule($id)));
 	unset($post['after']);
 	return restapi_rule_result(saveFilterRule($post, $id), $req);
 }

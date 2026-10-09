@@ -87,6 +87,22 @@ check($e->status === 422 && $p['error']['details']['fields'] === array('name' =>
 restapi_request_context(array('schema' => null, 'body' => array()));
 $p = restapi_validation_error(array('x'))->payload();
 check(!isset($p['error']['details']['fields']), 'routes without a schema keep the old shape');
+/* Rule schemas use the rule edit page's form fields, which the rule API takes */
+$post_fields = array('type', 'disabled', 'quick', 'interface', 'direction', 'ipprotocol', 'proto', 'icmptype', 'srctype', 'srcnot', 'src',
+    'srcmask', 'srcbeginport', 'srcendport', 'dsttype', 'dstnot', 'dst', 'dstmask', 'dstbeginport', 'dstendport', 'descr', 'log', 'gateway',
+    'sched', 'statetype', 'statepolicy', 'max', 'max-src-nodes', 'max-src-states', 'max-src-conn', 'max-src-conn-rate', 'max-src-conn-rates',
+    'statetimeout', 'tag', 'tagged', 'nottagged', 'os', 'dscp', 'vlanprio', 'vlanprioset', 'allowopts', 'disablereplyto', 'nopfsync', 'nosync');
+foreach (array('firewall/rules' => false, 'firewall/floating_rules' => true) as $res => $floating) {
+	$f = restapi_schema_fields(restapi_schema_get($res));
+	check(array_diff(array_keys($f), $post_fields) === array(), "{$res}: every field is a rule edit form field");
+	check(isset($f['quick'], $f['direction']) === $floating, "{$res}: quick and direction only on floating rules");
+	check(($f['interface']['type'] === 'checklist') === $floating, "{$res}: several interfaces only on floating rules");
+}
+$r = restapi_errors_to_fields(array('10.0.0.300 is not a valid source IP address or alias.', 'A valid destination bit count must be specified.',
+    '99999 is not a valid start destination port. It must be a port alias or integer between 1 and 65535.', 'Something else.'),
+    restapi_schema_get('firewall/rules'), array());
+check(($r['fields']['src'] ?? '') !== '' && ($r['fields']['dstmask'] ?? '') !== '' && ($r['fields']['dstbeginport'] ?? '') !== '' &&
+    $r['unmatched'] === array('Something else.'), 'rule save messages land on the rule fields');
 
 /* Wiring */
 $v1 = file_get_contents("{$root}/src/etc/inc/restapi/routes_v1.inc");
@@ -94,6 +110,7 @@ $fw = file_get_contents("{$root}/src/etc/inc/restapi/routes_firewall.inc");
 $ntp = file_get_contents("{$root}/src/etc/inc/restapi/routes_ntp.inc");
 $front = file_get_contents("{$root}/src/usr/local/www/api/index.php");
 check(strpos($v1, "restapi_route('GET', '/v1/schema/{area}/{name}', 'restapi_h_schema'") !== false, 'GET /api/v1/schema/{area}/{name}');
+check(substr_count($fw, "'schema' => 'firewall/rules'") === 2, 'rule saves name their schema');
 check(substr_count($fw, "'schema' => 'firewall/aliases'") === 2 && strpos($ntp, "'schema' => 'services/ntp'") !== false, 'alias and NTP saves name their schema');
 check(strpos($front, "restapi_request_context(array('schema' => \$route['schema'] ?? null, 'body' => \$req['body']));") !== false,
     'the front controller records the route schema and body');

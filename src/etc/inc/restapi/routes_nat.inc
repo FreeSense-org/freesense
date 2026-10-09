@@ -227,8 +227,8 @@ function restapi_h_nat_create($req) {
 function restapi_h_nat_update($req) {
 	list(, $k) = restapi_nat_kind($req);
 	$id = restapi_index_param($req['params']['id'], restapi_nat_entries($k), $k['label']);
-	$post = restapi_body_as_post($req['body']) + restapi_nat_form_fields($k, call_user_func($k['get'], $id),
-	    config_get_path("{$k['path']}/{$id}", []));
+	$post = restapi_body_over($req['body'], restapi_nat_form_fields($k, call_user_func($k['get'], $id),
+	    config_get_path("{$k['path']}/{$id}", [])));
 	unset($post['after']);
 	$extra = restapi_nat_save($k, $post, $id, $req);
 	return array('data' => restapi_nat_out($k, $id) + $extra);

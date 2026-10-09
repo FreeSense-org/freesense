@@ -178,6 +178,8 @@ check_api(api_error_status(function () { restapi_sched_post(array('ranges' => ar
 check_api(restapi_body_as_post(array('a' => true, 'b' => false, 'c' => 5, 'd' => array('x', 'y'))) === array('a' => 'yes', 'c' => '5', 'd' => array('x', 'y')),
     'booleans become checkbox fields like a form post');
 check_api(api_error_status(function () { restapi_body_as_post(array('o' => array('k' => 'v'))); }) === 400, 'objects are not form fields');
+check_api(restapi_body_over(array('log' => false, 'descr' => 'x'), array('log' => 'yes', 'descr' => 'old', 'type' => 'pass')) ===
+    array('descr' => 'x', 'type' => 'pass'), 'a partial update clears a checkbox sent as false and keeps omitted fields');
 check_api(restapi_json_result('{"input_errors":["x"]}') === array('input_errors' => array('x')) &&
     restapi_json_result(array('k' => 1)) === array('k' => 1), 'JSON-mode GUI results are decoded');
 
