@@ -560,14 +560,21 @@ form > .fs-actionbar .fs-actionbar-cancel { margin-left: var(--fs-sp-2); }
 }
 .fs-megamenu-search > .form-control { padding-left: 1.9rem; }
 .fs-megamenu-grid {
-	display: grid;
-	grid-template-columns: repeat(var(--fs-mega-cols), minmax(0, 1fr));
-	gap: var(--fs-sp-2) var(--fs-sp-4);
 	max-height: calc(100vh - 11rem);
 	padding: var(--fs-sp-3) var(--fs-sp-4) var(--fs-sp-4);
 	overflow-y: auto;
+	overflow-x: hidden;
 }
-.fs-megamenu-group { min-width: 0; }
+.fs-megamenu-columns {
+	column-count: var(--fs-mega-cols);
+	column-gap: var(--fs-sp-4);
+}
+.fs-megamenu-group {
+	break-inside: avoid;
+	page-break-inside: avoid;
+	margin-bottom: var(--fs-sp-3);
+	min-width: 0;
+}
 .fs-megamenu-group-title {
 	display: flex;
 	align-items: center;
