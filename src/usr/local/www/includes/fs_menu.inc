@@ -255,7 +255,7 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 	    . ' placeholder="' . fs_h(sprintf(gettext('Filter %s…'), strip_tags($title))) . '"'
 	    . ' aria-label="' . fs_h(sprintf(gettext('Filter %s'), strip_tags($title))) . '"></label>'
 	    . '</div>';
-	$html .= '<div class="fs-megamenu-grid">';
+	$html .= '<div class="fs-megamenu-grid"><div class="fs-megamenu-columns">';
 	foreach ($by_group as $g => $group_items) {
 		if (empty($group_items)) {
 			continue;
@@ -273,7 +273,7 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 		}
 		$html .= '</ul></section>';
 	}
-	$html .= '</div>';
+	$html .= '</div></div>';
 	$html .= '<p class="fs-megamenu-empty" hidden>' . fs_h(gettext('No matching items.')) . '</p>';
 	if (!empty($trailing)) {
 		$html .= '<div class="fs-megamenu-foot">';
