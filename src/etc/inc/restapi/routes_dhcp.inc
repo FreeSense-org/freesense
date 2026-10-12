@@ -59,6 +59,22 @@
  * reconfigured; there is nothing to stage). Only interfaces the page offers
  * (a static IPv6 address, Track Interface or no IPv6 configuration, the latter
  * only to disable advertisements) can be changed (409 otherwise).
+ * GET /v1/services/router-advertisements lists those interfaces. For the
+ * WebUI each carries "fields" (the editor fields of the schema
+ * services/router_advertisements, with the RA subnets and DNS servers as
+ * rows {subnet} and {server}, which PUT also takes) and "display" (the
+ * interface, router mode, priority and DHCPv6 server as text).
+ *
+ * WebUI 2.0 (capability "dhcp-server"): GET /v1/services/dhcp[v6]/servers
+ * lists every interface with its server summary; /servers/{interface} and
+ * /servers/{interface}/static-mappings[/{id}] are the same resources as above
+ * in the item shape of the WebUI: {interface | id, ...stored..., fields,
+ * display}. "fields" are the edit form's fields (the body a PUT takes; the
+ * schemas services/dhcp[v6]_server and services/dhcp[v6]_static_mapping,
+ * whose address lists are {address} rows) and "display" the 1.x list
+ * columns and the interface hints as text. Writes stage like the GUI (GET
+ * /v1/services/dhcp[v6]/pending, POST .../apply or ?apply=true) and name
+ * their schema, so a 422 keys its messages by field.
  *
  * The front controller loads services_dhcp.inc at file scope.
  */
@@ -67,6 +83,8 @@ require_once('restapi/framework.inc');
 require_once('restapi/routes_services.inc');
 require_once('restapi/routes_ntp.inc');
 require_once('restapi/routes_ddns.inc');
+require_once('restapi/schemas/services_radvd.inc');
+require_once('restapi/schemas/services_dhcp.inc');
 
 function restapi_routes_dhcp() {
 	$area = 'services.dhcp';
@@ -134,6 +152,17 @@ function restapi_routes_dhcp() {
 	    'prefix/length), custom_kea_config (JSON text). ISC backend with network booting enabled on the interface: ' .
 	    'filename, rootpath. Omitted fields keep their value (create: empty).');
 
+	$with_schema = function (array $r, $schema) {
+		$r['schema'] = $schema;
+		return $r;
+	};
+	$srv_body = array('type' => 'object', 'description' => 'The "fields" of the server (schema services/dhcp_server or ' .
+	    'services/dhcpv6_server): the DHCP[v6] Server page\'s fields; the address lists (winsserver, dnsserver, ntpserver) ' .
+	    'as lists of addresses or of {address} rows. Omitted fields keep their value; false clears a switch; "(set)" keeps a key.');
+	$smap_body = array('type' => 'object', 'description' => 'The "fields" of the static mapping (schema ' .
+	    'services/dhcp_static_mapping or services/dhcpv6_static_mapping): the edit page\'s fields; the address lists as ' .
+	    'lists of addresses or of {address} rows. Omitted fields keep their value (create: empty).');
+
 	$routes = array(
 		$route('GET', '/v1/services/dhcp/interfaces', 'restapi_h_dhcp_interfaces', 'services_dhcp.php',
 		    'Interfaces, whether the DHCP and DHCPv6 servers can serve them and their state'),
@@ -149,8 +178,9 @@ function restapi_routes_dhcp() {
 		$routes = array_merge($routes, array(
 			$route('GET', "{$base}/settings", "restapi_h_dhcp{$v}_settings_get", "services_{$svc}_settings.php",
 			    "{$name} server settings (Kea backend), their choices and whether changes are pending"),
-			$route('PUT', "{$base}/settings", "restapi_h_dhcp{$v}_settings_set", "services_{$svc}_settings.php",
+			$with_schema($route('PUT', "{$base}/settings", "restapi_h_dhcp{$v}_settings_set", "services_{$svc}_settings.php",
 			    "Change {$name} server settings (Kea backend; omitted fields keep their value)", true, $settings_body),
+			    "services/{$svc}_settings"),
 			$route('POST', "{$base}/apply", "restapi_h_dhcp{$v}_apply", $list,
 			    "Apply pending {$name} server changes", true),
 			$route('GET', "{$base}/{if}/static-mappings", "restapi_h_dhcp{$v}_map_list", $list,
@@ -166,7 +196,37 @@ function restapi_routes_dhcp() {
 			    "Delete a {$name} static mapping", true),
 		));
 	}
-	/* after the fixed paths (settings, interfaces, apply), which {if} would match too */
+	/* WebUI 2.0: servers by interface with "fields" and "display"; before {if}, which would match "servers" and "pending" */
+	foreach (array('dhcp' => '', 'dhcpv6' => '6') as $svc => $v) {
+		$base = "/v1/services/{$svc}";
+		$list = "services_{$svc}.php";
+		$edit = "services_{$svc}_edit.php";
+		$name = $v ? 'DHCPv6' : 'DHCP';
+		$routes = array_merge($routes, array(
+			$route('GET', "{$base}/pending", "restapi_h_dhcp{$v}_pending", $list,
+			    "Whether {$name} server changes are staged until POST {$base}/apply"),
+			$route('GET', "{$base}/servers", "restapi_h_dhcp{$v}_servers", $list,
+			    "Every interface with its {$name} server: enabled, range, static mappings and whether the server can run on it"),
+			$route('GET', "{$base}/servers/{interface}", "restapi_h_dhcp{$v}_srv_get", $list,
+			    "The {$name} server of an interface: stored settings, \"fields\" (the edit form) and \"display\" (texts and hints)"),
+			$with_schema($route('PUT', "{$base}/servers/{interface}", "restapi_h_dhcp{$v}_srv_set", $list,
+			    "Change the {$name} server of an interface (omitted fields keep their value; staged like the GUI)", true, $srv_body),
+			    "services/{$svc}_server"),
+			$route('GET', "{$base}/servers/{interface}/static-mappings", "restapi_h_dhcp{$v}_smap_list", $list,
+			    "The {$name} static mappings of an interface with \"fields\" and \"display\" (sorted by address)"),
+			$route('GET', "{$base}/servers/{interface}/static-mappings/{id}", "restapi_h_dhcp{$v}_smap_get", $list,
+			    "A {$name} static mapping by position or " . ($v ? 'DUID' : 'MAC address')),
+			$with_schema($route('POST', "{$base}/servers/{interface}/static-mappings", "restapi_h_dhcp{$v}_smap_create", $edit,
+			    "Create a {$name} static mapping (the response has its id)", true, $smap_body), "services/{$svc}_static_mapping"),
+			$with_schema($route('PUT', "{$base}/servers/{interface}/static-mappings/{id}", "restapi_h_dhcp{$v}_smap_update", $edit,
+			    "Update a {$name} static mapping (omitted fields keep their value; the response has its new id)", true, $smap_body),
+			    "services/{$svc}_static_mapping"),
+			$route('DELETE', "{$base}/servers/{interface}/static-mappings/{id}", "restapi_h_dhcp{$v}_smap_delete", $list,
+			    "Delete a {$name} static mapping", true),
+		));
+	}
+
+	/* after the fixed paths (settings, interfaces, apply, pending, servers), which {if} would match too */
 	$base = '/v1/services/dhcp';
 	$routes = array_merge($routes, array(
 		$route('GET', "{$base}/{if}", 'restapi_h_dhcp_server_get', 'services_dhcp.php',
@@ -201,11 +261,13 @@ function restapi_routes_dhcp() {
 		    'Change a DHCPv6 address pool (Kea backend; omitted fields keep their value)', true, $pool6_body),
 		$route('DELETE', "{$base}/{if}/pools/{id}", 'restapi_h_dhcp6_pool_delete', 'services_dhcpv6.php',
 		    'Delete a DHCPv6 address pool (Kea backend)', true),
+		$route('GET', '/v1/services/router-advertisements', 'restapi_h_radvd_list', 'services_radvd.php',
+		    'Interfaces that can send router advertisements, with "fields" and "display" (interface, mode, priority, DHCPv6 server as text)'),
 		$route('GET', '/v1/services/router-advertisements/{if}', 'restapi_h_radvd_get', 'services_radvd.php',
-		    'Router advertisements of an interface: the settings and their choices'),
+		    'Router advertisements of an interface: the settings and their choices (with "fields" and "display")'),
 		/* applied at once like the page: no ?apply */
 		restapi_route('PUT', '/v1/services/router-advertisements/{if}', 'restapi_h_radvd_set', array('page' => 'services_radvd.php',
-		    'area' => $area, 'write' => true, 'body' => $ra_body,
+		    'area' => $area, 'write' => true, 'body' => $ra_body, 'schema' => 'services/router_advertisements',
 		    'summary' => 'Change the router advertisements of an interface (applied at once; omitted fields keep their value)')),
 	));
 	return $routes;
@@ -417,7 +479,7 @@ function restapi_dhcp_settings_section($v6) {
 
 function restapi_dhcp_settings_types() {
 	$types = array('loglevel_choices' => 'ro', 'role_choices' => 'ro', 'scertref_choices' => 'ro', 'ccertref_choices' => 'ro',
-	    'custom_kea_config_editable' => 'ro', 'pending' => 'ro');
+	    'custom_kea_config_editable' => 'ro', 'pending' => 'ro', 'backend' => 'ro', 'fields' => 'ro');
 	foreach (array('dnsreg', 'earlydnsreg', 'ha_enable', 'ha_tls', 'ha_mutualtls') as $flag) {
 		$types[$flag] = 'bool';
 	}
@@ -460,10 +522,24 @@ function restapi_dhcp_settings($v6) {
 	$out['scertref_choices'] = restapi_svc_choices($scerts);
 	$out['ccertref_choices'] = restapi_svc_choices($ccerts);
 	$out['pending'] = restapi_dhcp_pending($v6);
+	/* WebUI 2.0: the backend (Kea only) and the form of the schema services/dhcp[v6]_settings */
+	$out['backend'] = (string)dhcp_get_backend();
+	$fields = array('backend' => $out['backend']);
+	foreach (restapi_dhcp_settings_types() as $key => $type) {
+		if ($type !== 'ro') {
+			$fields[$key] = $out[$key];
+		}
+	}
+	$out['fields'] = $fields;
 	return $out;
 }
 
 function restapi_dhcp_settings_save($req, $v6) {
+	restapi_dhcp_settings_section($v6);
+	/* the backend is read-only: Kea is the only one */
+	if (isset($req['body']['backend']) && ((string)$req['body']['backend'] !== (string)dhcp_get_backend())) {
+		throw restapi_validation_error(array(gettext('Only the Kea DHCP backend is available in FreeSense.')));
+	}
 	$types = restapi_dhcp_settings_types();
 	$values = restapi_svc_merge($req['body'], restapi_dhcp_settings($v6), $types);
 	$post = restapi_svc_post($values, $types);
@@ -582,7 +658,8 @@ function restapi_dhcp_map_post(array $values) {
 	return $post;
 }
 
-function restapi_dhcp_map_save($req, $if, array $values, $id, $status = 200) {
+/* Save through the edit page's save; the response is restapi_dhcp_map_out(), or $shape($if, $id) (the WebUI item). */
+function restapi_dhcp_map_save($req, $if, array $values, $id, $status = 200, ?callable $shape = null) {
 	$rv = dhcp_staticmap_save($if, $id, restapi_dhcp_map_post($values));
 	if (!empty($rv['input_errors'])) {
 		throw restapi_validation_error($rv['input_errors']);
@@ -594,6 +671,9 @@ function restapi_dhcp_map_save($req, $if, array $values, $id, $status = 200) {
 		return html_entity_decode(strip_tags((string)$m), ENT_QUOTES);
 	}, $rv['warnings']));
 	$extra = restapi_dhcp_maybe_apply($req, false);
+	if ($shape !== null) {
+		return array('status' => $status, 'data' => $shape($if, $rv['id']) + array('warnings' => $warnings) + $extra);
+	}
 	return array('status' => $status, 'data' => restapi_dhcp_map_out($if, $rv['id']) + array('warnings' => $warnings) + $extra);
 }
 
@@ -635,15 +715,6 @@ function restapi_h_dhcp_map_delete($req) {
 /* ------------------------------------------------------------------ */
 /* DHCP server of an interface and its address pools                  */
 /* ------------------------------------------------------------------ */
-
-/* The "Deny Unknown Clients" choices of the DHCP Server page. */
-function restapi_dhcp_denyunknown_choices() {
-	return array(
-		'disabled' => gettext('Allow all clients'),
-		'enabled' => gettext('Allow known clients from any interface'),
-		'class' => gettext('Allow known clients from only this interface'),
-	);
-}
 
 /* The "DDNS Client Updates" choices of the DHCP Server page (ISC). */
 function restapi_dhcp_ddnsclientupdates_choices() {
@@ -809,8 +880,12 @@ function restapi_dhcp_server_post($if, array $values, $pool) {
 	return $post;
 }
 
-/* Save the interface ($id null), pool $id or a new pool ($act "newpool") through the page's save. */
-function restapi_dhcp_server_write($req, $if, array $values, $id, $act = '', $status = 200) {
+/*
+ * Save the interface ($id null), pool $id or a new pool ($act "newpool")
+ * through the page's save; $shape($if) builds the response of an interface
+ * save instead of restapi_dhcp_server_out() (the WebUI item).
+ */
+function restapi_dhcp_server_write($req, $if, array $values, $id, $act = '', $status = 200, ?callable $shape = null) {
 	$pool = (($id !== null) || ($act === 'newpool'));
 	$post = restapi_dhcp_server_post($if, $values, $pool);
 	if ($act === 'newpool') {
@@ -829,7 +904,7 @@ function restapi_dhcp_server_write($req, $if, array $values, $id, $act = '', $st
 		throw new RestApiError(500, 'internal_error', 'The DHCP server settings were not saved.');
 	}
 	$extra = restapi_dhcp_maybe_apply($req, false);
-	$data = $pool ? restapi_dhcp_pool_out($if, $rv['id']) : restapi_dhcp_server_out($if);
+	$data = $pool ? restapi_dhcp_pool_out($if, $rv['id']) : (($shape !== null) ? $shape($if) : restapi_dhcp_server_out($if));
 	return array('status' => $status, 'data' => array_merge($data, $extra));
 }
 
@@ -911,7 +986,8 @@ function restapi_dhcp6_map_out($if, $id) {
 	return $out;
 }
 
-function restapi_dhcp6_map_save($req, $if, array $values, $id, $status = 200) {
+/* Save through the edit page's save; the response is restapi_dhcp6_map_out(), or $shape($if, $id) (the WebUI item). */
+function restapi_dhcp6_map_save($req, $if, array $values, $id, $status = 200, ?callable $shape = null) {
 	$post = restapi_svc_post($values, restapi_dhcp6_map_types($if));
 	$post['save'] = 'Save';
 	$rv = dhcp6_staticmap_save($if, $id, $post);
@@ -922,7 +998,7 @@ function restapi_dhcp6_map_save($req, $if, array $values, $id, $status = 200) {
 		throw new RestApiError(500, 'internal_error', 'The saved static mapping was not found.');
 	}
 	$extra = restapi_dhcp_maybe_apply($req, true);
-	return array('status' => $status, 'data' => restapi_dhcp6_map_out($if, $rv['id']) + $extra);
+	return array('status' => $status, 'data' => (($shape !== null) ? $shape($if, $rv['id']) : restapi_dhcp6_map_out($if, $rv['id'])) + $extra);
 }
 
 function restapi_h_dhcp6_map_list($req) {
@@ -937,16 +1013,20 @@ function restapi_h_dhcp6_map_get($req) {
 	return array('data' => restapi_dhcp6_map_out($if, restapi_dhcp_map_id($if, $req['params']['id'], true)));
 }
 
-function restapi_h_dhcp6_map_create($req) {
-	$if = restapi_dhcp_iface($req, true);
-	$types = restapi_dhcp6_map_types($if);
+/* A new DHCPv6 mapping: what the empty edit form posts. */
+function restapi_dhcp6_map_empty($if) {
 	$empty = array_map(function ($t) {
 		return '';
-	}, array_filter($types, function ($t) {
+	}, array_filter(restapi_dhcp6_map_types($if), function ($t) {
 		return $t === 'string';
 	}));
 	$empty['earlydnsregpolicy'] = 'default';
-	$values = restapi_svc_merge($req['body'], $empty, $types);
+	return $empty;
+}
+
+function restapi_h_dhcp6_map_create($req) {
+	$if = restapi_dhcp_iface($req, true);
+	$values = restapi_svc_merge($req['body'], restapi_dhcp6_map_empty($if), restapi_dhcp6_map_types($if));
 	return restapi_dhcp6_map_save($req, $if, $values, null, 201);
 }
 
@@ -1131,8 +1211,12 @@ function restapi_dhcp6_server_post($if, array $values, $pool) {
 	return $post;
 }
 
-/* Save the interface ($id null), pool $id or a new pool ($act "newpool") through the page's save. */
-function restapi_dhcp6_server_write($req, $if, array $values, $id, $act = '', $status = 200) {
+/*
+ * Save the interface ($id null), pool $id or a new pool ($act "newpool")
+ * through the page's save; $shape($if) builds the response of an interface
+ * save instead of restapi_dhcp6_server_out() (the WebUI item).
+ */
+function restapi_dhcp6_server_write($req, $if, array $values, $id, $act = '', $status = 200, ?callable $shape = null) {
 	$pool = (($id !== null) || ($act === 'newpool'));
 	$post = restapi_dhcp6_server_post($if, $values, $pool);
 	if ($act === 'newpool') {
@@ -1151,7 +1235,7 @@ function restapi_dhcp6_server_write($req, $if, array $values, $id, $act = '', $s
 		throw new RestApiError(500, 'internal_error', 'The DHCPv6 server settings were not saved.');
 	}
 	$extra = restapi_dhcp_maybe_apply($req, true);
-	$data = $pool ? restapi_dhcp6_pool_out($if, $rv['id']) : restapi_dhcp6_server_out($if);
+	$data = $pool ? restapi_dhcp6_pool_out($if, $rv['id']) : (($shape !== null) ? $shape($if) : restapi_dhcp6_server_out($if));
 	return array('status' => $status, 'data' => array_merge($data, $extra));
 }
 
@@ -1207,7 +1291,8 @@ function restapi_h_dhcp6_pool_delete($req) {
 
 /* The Router Advertisement page's fields on interface $if. */
 function restapi_radvd_types($if) {
-	$types = array('interface' => 'ro', 'choices' => 'ro', 'ramode' => 'string', 'rapriority' => 'string', 'rainterface' => 'string');
+	$types = array('interface' => 'ro', 'choices' => 'ro', 'fields' => 'ro', 'display' => 'ro', 'ramode' => 'string', 'rapriority' => 'string',
+	    'rainterface' => 'string');
 	foreach (array('ravalidlifetime', 'rapreferredlifetime', 'raminrtradvinterval', 'ramaxrtradvinterval', 'raadvdefaultlifetime') as $field) {
 		$types[$field] = 'string';
 	}
@@ -1261,7 +1346,70 @@ function restapi_radvd_values($if) {
 function restapi_radvd_out($if) {
 	$choices = array('ramode' => restapi_svc_choices(radvd_ramode_values()), 'rapriority' => restapi_svc_choices(radvd_rapriority_values()),
 	    'rainterface' => restapi_svc_choices(radvd_rainterface_values($if)));
-	return array('interface' => $if) + restapi_radvd_values($if) + array('choices' => $choices);
+	$values = restapi_radvd_values($if);
+	$labels = get_configured_interface_with_descr();
+	return array('interface' => $if) + $values + array('choices' => $choices, 'fields' => restapi_radvd_fields($values),
+	    'display' => restapi_radvd_display((string)($labels[$if] ?? $if), $values, radvd_ramode_values(), radvd_rapriority_values(),
+	    config_path_enabled("dhcpdv6/{$if}")));
+}
+
+/* The editor fields: the API values with the RA subnets and DNS servers as entry-grid rows. */
+function restapi_radvd_fields(array $values) {
+	$fields = $values;
+	$fields['subnets'] = array_map(function ($v) { return array('subnet' => (string)$v); }, array_values((array)($values['subnets'] ?? array())));
+	$fields['radnsserver'] = array_map(function ($v) { return array('server' => (string)$v); }, array_values((array)($values['radnsserver'] ?? array())));
+	return $fields;
+}
+
+/*
+ * A request body with the entry-grid rows of "fields" ({subnet}, {server})
+ * turned into the API's lists of strings; plain lists pass unchanged.
+ */
+function restapi_radvd_body(array $body) {
+	foreach (array('subnets' => 'subnet', 'radnsserver' => 'server') as $key => $cell) {
+		if (isset($body[$key]) && is_array($body[$key]) && array_is_list($body[$key])) {
+			$body[$key] = array_map(function ($row) use ($cell) {
+				return is_array($row) ? (string)($row[$cell] ?? '') : $row;
+			}, $body[$key]);
+			$body[$key] = array_values(array_filter($body[$key], function ($v) { return !is_string($v) || (trim($v) !== ''); }));
+		}
+	}
+	return $body;
+}
+
+/*
+ * One interface of the Router Advertisement list as text: the interface,
+ * the router mode's short name, the priority, whether advertisements are
+ * sent, and the DHCPv6 server ("Enabled, not advertised" when it runs but
+ * the mode does not point clients to it, which the page warns about).
+ */
+function restapi_radvd_display($label, array $values, array $modes, array $priorities, $dhcpv6) {
+	$mode = (string)($values['ramode'] ?? 'disabled');
+	if (!$dhcpv6) {
+		$dhcp = gettext('Disabled');
+	} elseif (in_array($mode, array('managed', 'assist', 'stateless_dhcp'), true)) {
+		$dhcp = gettext('Enabled');
+	} else {
+		$dhcp = gettext('Enabled, not advertised');
+	}
+	return array(
+		'interface' => (string)$label,
+		'mode' => html_entity_decode(restapi_radvd_mode_name($modes[$mode] ?? $mode), ENT_QUOTES),
+		'priority' => html_entity_decode((string)($priorities[$values['rapriority'] ?? ''] ?? ($values['rapriority'] ?? '')), ENT_QUOTES),
+		'dhcpv6' => $dhcp,
+		'enabled' => ($mode !== 'disabled'),
+	);
+}
+
+function restapi_h_radvd_list($req) {
+	restapi_dhcp_available();
+	$out = array();
+	foreach (array_keys(get_configured_interface_with_descr()) as $if) {
+		if (radvd_offered((string)$if)) {
+			$out[] = restapi_radvd_out((string)$if);
+		}
+	}
+	return array('data' => $out);
 }
 
 /* The page's form for $values as the browser posts it. */
@@ -1285,7 +1433,7 @@ function restapi_h_radvd_get($req) {
 
 function restapi_h_radvd_set($req) {
 	$if = restapi_radvd_iface($req);
-	$values = restapi_svc_merge($req['body'], restapi_radvd_values($if), restapi_radvd_types($if));
+	$values = restapi_svc_merge(restapi_radvd_body($req['body']), restapi_radvd_values($if), restapi_radvd_types($if));
 	$rv = radvd_save($if, restapi_radvd_post($if, $values));
 	if (!empty($rv['input_errors'])) {
 		throw restapi_validation_error($rv['input_errors']);
@@ -1294,4 +1442,309 @@ function restapi_h_radvd_set($req) {
 		throw new RestApiError(500, 'internal_error', 'The router advertisement settings were not saved.');
 	}
 	return array('data' => restapi_radvd_out($if) + array('apply' => array('applied' => ($rv['retval'] == 0))));
+}
+
+/* ------------------------------------------------------------------ */
+/* WebUI 2.0: servers by interface, items with "fields" and "display"  */
+/* ------------------------------------------------------------------ */
+
+/* The address lists of the DHCP and DHCPv6 forms (entry grids of {address} rows in "fields"). */
+function restapi_dhcp_list_keys($v6) {
+	return $v6 ? array('dnsserver', 'ntpserver') : array('winsserver', 'dnsserver', 'ntpserver');
+}
+
+/* A request of the /servers/{interface} routes as the {if} handlers read it. */
+function restapi_dhcp_req_if(array $req) {
+	$req['params']['if'] = (string)($req['params']['interface'] ?? ($req['params']['if'] ?? ''));
+	return $req;
+}
+
+/*
+ * The stored part of an item: the config entry without the lists that are
+ * resources of their own ($drop) and with its keys ($secrets) as "(set)".
+ */
+function restapi_dhcp_stored($conf, array $drop, array $secrets) {
+	$out = is_array($conf) ? $conf : array();
+	foreach (array_merge($drop, array('interface', 'id', 'fields', 'display')) as $key) {
+		unset($out[$key]);
+	}
+	foreach ($secrets as $key) {
+		if (array_key_exists($key, $out)) {
+			$out[$key] = restapi_svc_mask(is_scalar($out[$key]) ? $out[$key] : '');
+		}
+	}
+	return $out;
+}
+
+/*
+ * A row of GET /v1/services/dhcp[v6]/servers from an interface context
+ * (dhcp_iface_context() / dhcp6_iface_context()).
+ */
+function restapi_dhcp_summary(array $ctx, $subnet, $static_count, $available) {
+	return array(
+		'interface' => (string)$ctx['if'],
+		'description' => (string)$ctx['name'],
+		'enabled' => (bool)$ctx['enabled'],
+		'range' => restapi_dhcp_range_text($ctx['range']['from'] ?? '', $ctx['range']['to'] ?? ''),
+		'static_count' => (int)$static_count,
+		'subnet' => (string)$subnet,
+		'available' => (bool)$available,
+	);
+}
+
+/* "display" of a DHCP server: the page's texts besides the form and the interface hints (restapi_dhcp_iface_hints()). */
+function restapi_dhcp_srv_display(array $ctx, array $hints, $static_count, $relay_enabled) {
+	return array(
+		'interface' => (string)$ctx['name'],
+		'backend' => (string)(restapi_dhcp_backend_labels()[function_exists('dhcp_get_backend') ? dhcp_get_backend() : 'kea'] ?? ''),
+		'enabled' => (bool)$ctx['enabled'],
+		'subnet' => (string)$hints['subnet'],
+		'subnet_range' => (string)$hints['subnet_range'],
+		'range' => restapi_dhcp_range_text($ctx['range']['from'] ?? '', $ctx['range']['to'] ?? ''),
+		'pools' => count((array)($ctx['pools'] ?? array())),
+		'static_count' => (int)$static_count,
+		'relay_enabled' => (bool)$relay_enabled,
+		'placeholders' => array('range_from' => (string)$hints['range_from'], 'range_to' => (string)$hints['range_to'],
+		    'gateway' => (string)$hints['gateway'], 'domain' => (string)$hints['domain'], 'dnsserver' => array_values((array)$hints['dnsserver'])),
+	);
+}
+
+/* "display" of a DHCPv6 server (hints: restapi_dhcp6_iface_hints()). */
+function restapi_dhcp6_srv_display(array $ctx, array $hints, $static_count, $pools, $relay_enabled) {
+	return array(
+		'interface' => (string)$ctx['name'],
+		'backend' => (string)(restapi_dhcp_backend_labels()[function_exists('dhcp_get_backend') ? dhcp_get_backend() : 'kea'] ?? ''),
+		'enabled' => (bool)$ctx['enabled'],
+		'prefix' => (string)$hints['prefix'],
+		'prefix_range' => (string)$hints['prefix_range'],
+		'range' => restapi_dhcp_range_text($ctx['range']['from'] ?? '', $ctx['range']['to'] ?? ''),
+		'pools' => (int)$pools,
+		'static_count' => (int)$static_count,
+		'track6' => (bool)$ctx['track6'],
+		'ramode' => (string)$ctx['ramode'],
+		'relay_enabled' => (bool)$relay_enabled,
+		'placeholders' => array('domain' => (string)$hints['domain'], 'dnsserver' => array_values((array)$hints['dnsserver'])),
+	);
+}
+
+/* "display" of a DHCP static mapping: the list page's columns and flags as text. */
+function restapi_dhcp_map_display(array $m, $early_dns = false) {
+	$mac = (string)($m['mac'] ?? '');
+	$ip = (string)($m['ipaddr'] ?? '');
+	$hostname = (string)($m['hostname'] ?? '');
+	return array(
+		'mac' => $mac,
+		'ip' => $ip,
+		'hostname' => $hostname,
+		'description' => (string)($m['descr'] ?? ''),
+		'client_id' => (string)($m['cid'] ?? ''),
+		'name' => ($hostname !== '') ? $hostname : (($ip !== '') ? $ip : $mac),
+		'static_arp' => restapi_dhcp_flag($m, 'arp_table_static_entry'),
+		'early_dns' => (bool)$early_dns,
+	);
+}
+
+/* "display" of a DHCPv6 static mapping. */
+function restapi_dhcp6_map_display(array $m, $early_dns = false) {
+	$duid = (string)($m['duid'] ?? '');
+	$ip = (string)($m['ipaddrv6'] ?? '');
+	$hostname = (string)($m['hostname'] ?? '');
+	return array(
+		'duid' => $duid,
+		'ip' => $ip,
+		'prefix' => (string)($m['pdprefix'] ?? ''),
+		'hostname' => $hostname,
+		'description' => (string)($m['descr'] ?? ''),
+		'name' => ($hostname !== '') ? $hostname : (($ip !== '') ? $ip : $duid),
+		'early_dns' => (bool)$early_dns,
+	);
+}
+
+/* Early DNS registration of a mapping as the list page's icon tells it. */
+function restapi_dhcp_map_early_dns($if, array $m, $v6) {
+	$fn = $v6 ? 'kea6_earlydnsreg_enabled' : 'kea_earlydnsreg_enabled';
+	if (!dhcp_is_backend('kea') || !function_exists($fn)) {
+		return false;
+	}
+	$conf = config_get_path(($v6 ? 'dhcpdv6' : 'dhcpd') . "/{$if}", []);
+	return (bool)$fn(is_array($conf) ? $conf : array(), $m);
+}
+
+function restapi_h_dhcp_pending($req) {
+	restapi_dhcp_available();
+	return array('data' => array('pending' => restapi_dhcp_pending(false)));
+}
+
+function restapi_h_dhcp6_pending($req) {
+	restapi_dhcp_available();
+	return array('data' => array('pending' => restapi_dhcp_pending(true)));
+}
+
+/* --- DHCP --- */
+
+function restapi_h_dhcp_servers($req) {
+	restapi_dhcp_available();
+	$out = array();
+	foreach (array_keys(get_configured_interface_with_descr()) as $if) {
+		$ctx = dhcp_iface_context($if);
+		if ($ctx === null) {
+			continue;
+		}
+		$cfgip = config_get_path("interfaces/{$if}/ipaddr");
+		$cfgsn = config_get_path("interfaces/{$if}/subnet");
+		$subnet = (is_ipaddrv4($cfgip) && !empty($cfgsn)) ? gen_subnet($cfgip, $cfgsn) . '/' . $cfgsn : '';
+		$out[] = restapi_dhcp_summary($ctx, $subnet, count(restapi_dhcp_maps($if, false)), $ctx['eligible']) +
+		    array('pools' => count($ctx['pools']));
+	}
+	return array('data' => $out);
+}
+
+/* The DHCP server of $if as the WebUI item. */
+function restapi_dhcp_srv_item($if) {
+	$fields = restapi_svc_rows_out(restapi_dhcp_server_mask(restapi_dhcp_server_values($if, null)), restapi_dhcp_list_keys(false));
+	$static_count = count(restapi_dhcp_maps($if, false));
+	return array('interface' => $if) +
+	    restapi_dhcp_stored(config_get_path("dhcpd/{$if}", []), array('staticmap', 'pool'), array('ddnsdomainkey', 'omapi_key')) +
+	    array('pending' => restapi_dhcp_pending(false), 'fields' => $fields,
+	    'display' => restapi_dhcp_srv_display(dhcp_iface_context($if), restapi_dhcp_iface_hints($if), $static_count,
+	    config_path_enabled('dhcrelay')));
+}
+
+function restapi_h_dhcp_srv_get($req) {
+	$if = restapi_dhcp_server_iface(restapi_dhcp_req_if($req));
+	return array('data' => restapi_dhcp_srv_item($if));
+}
+
+function restapi_h_dhcp_srv_set($req) {
+	$req = restapi_dhcp_req_if($req);
+	$if = restapi_dhcp_server_iface($req);
+	$body = restapi_svc_rows_in(restapi_dhcp_server_body($req['body']), restapi_dhcp_list_keys(false));
+	$values = restapi_svc_merge($body, restapi_dhcp_server_values($if, null), restapi_dhcp_server_types(false));
+	return restapi_dhcp_server_write($req, $if, $values, null, '', 200, 'restapi_dhcp_srv_item');
+}
+
+/* DHCP static mapping $id of $if as the WebUI item. */
+function restapi_dhcp_smap_item($if, $id) {
+	$m = config_get_path("dhcpd/{$if}/staticmap/{$id}", []);
+	$m = is_array($m) ? $m : array();
+	$fields = restapi_dhcp_map_out($if, $id);
+	unset($fields['id']);
+	return array('id' => (int)$id) + restapi_dhcp_stored($m, array(), array('ddnsdomainkey')) +
+	    array('fields' => restapi_svc_rows_out($fields, restapi_dhcp_list_keys(false)),
+	    'display' => restapi_dhcp_map_display($m, restapi_dhcp_map_early_dns($if, $m, false)));
+}
+
+function restapi_h_dhcp_smap_list($req) {
+	$if = restapi_dhcp_iface(restapi_dhcp_req_if($req), false);
+	return array('data' => array_map(function ($id) use ($if) {
+		return restapi_dhcp_smap_item($if, $id);
+	}, array_keys(restapi_dhcp_maps($if, false))));
+}
+
+function restapi_h_dhcp_smap_get($req) {
+	$if = restapi_dhcp_iface(restapi_dhcp_req_if($req), false);
+	return array('data' => restapi_dhcp_smap_item($if, restapi_dhcp_map_id($if, $req['params']['id'], false)));
+}
+
+function restapi_h_dhcp_smap_create($req) {
+	$req = restapi_dhcp_req_if($req);
+	$if = restapi_dhcp_iface($req, false);
+	$body = restapi_svc_rows_in($req['body'], restapi_dhcp_list_keys(false));
+	$values = restapi_svc_merge($body, restapi_dhcp_map_empty(), restapi_dhcp_map_types());
+	return restapi_dhcp_map_save($req, $if, $values, null, 201, 'restapi_dhcp_smap_item');
+}
+
+function restapi_h_dhcp_smap_update($req) {
+	$req = restapi_dhcp_req_if($req);
+	$if = restapi_dhcp_iface($req, false);
+	$id = restapi_dhcp_map_id($if, $req['params']['id'], false);
+	$body = restapi_svc_rows_in(restapi_ddns_secret_body($req['body'], 'ddnsdomainkey'), restapi_dhcp_list_keys(false));
+	$values = restapi_svc_merge($body, restapi_dhcp_map_values($if, $id), restapi_dhcp_map_types());
+	return restapi_dhcp_map_save($req, $if, $values, $id, 200, 'restapi_dhcp_smap_item');
+}
+
+function restapi_h_dhcp_smap_delete($req) {
+	return restapi_h_dhcp_map_delete(restapi_dhcp_req_if($req));
+}
+
+/* --- DHCPv6 --- */
+
+function restapi_h_dhcp6_servers($req) {
+	restapi_dhcp_available();
+	$out = array();
+	foreach (array_keys(get_configured_interface_with_descr()) as $if) {
+		$ctx = dhcp6_iface_context($if);
+		if ($ctx === null) {
+			continue;
+		}
+		$available = dhcp6_server_offered($if);
+		$prefix = $available ? restapi_dhcp6_iface_hints($if)['prefix'] : '';
+		$out[] = restapi_dhcp_summary($ctx, $prefix, count(restapi_dhcp_maps($if, true)), $available) +
+		    array('track6' => (bool)$ctx['track6'], 'ramode' => (string)$ctx['ramode']);
+	}
+	return array('data' => $out);
+}
+
+/* The DHCPv6 server of $if as the WebUI item. */
+function restapi_dhcp6_srv_item($if) {
+	$fields = restapi_svc_rows_out(restapi_dhcp6_server_mask(restapi_dhcp6_server_values($if, null)), restapi_dhcp_list_keys(true));
+	return array('interface' => $if) +
+	    restapi_dhcp_stored(config_get_path("dhcpdv6/{$if}", []), array('staticmap', 'pool'), array('ddnsdomainkey')) +
+	    array('pending' => restapi_dhcp_pending(true), 'fields' => $fields,
+	    'display' => restapi_dhcp6_srv_display(dhcp6_iface_context($if), restapi_dhcp6_iface_hints($if), count(restapi_dhcp_maps($if, true)),
+	    count(restapi_dhcp6_pools($if)), dhcp6_server_relay_enabled(dhcp6_server_iflist())));
+}
+
+function restapi_h_dhcp6_srv_get($req) {
+	$if = restapi_dhcp6_server_iface(restapi_dhcp_req_if($req));
+	return array('data' => restapi_dhcp6_srv_item($if));
+}
+
+function restapi_h_dhcp6_srv_set($req) {
+	$req = restapi_dhcp_req_if($req);
+	$if = restapi_dhcp6_server_iface($req);
+	$body = restapi_svc_rows_in(restapi_ddns_secret_body($req['body'], 'ddnsdomainkey'), restapi_dhcp_list_keys(true));
+	$values = restapi_svc_merge($body, restapi_dhcp6_server_values($if, null), restapi_dhcp6_server_types(false));
+	return restapi_dhcp6_server_write($req, $if, $values, null, '', 200, 'restapi_dhcp6_srv_item');
+}
+
+/* DHCPv6 static mapping $id of $if as the WebUI item. */
+function restapi_dhcp6_smap_item($if, $id) {
+	$m = config_get_path("dhcpdv6/{$if}/staticmap/{$id}", []);
+	$m = is_array($m) ? $m : array();
+	$fields = restapi_dhcp6_map_out($if, $id);
+	unset($fields['id']);
+	return array('id' => (int)$id) + restapi_dhcp_stored($m, array(), array()) +
+	    array('fields' => $fields, 'display' => restapi_dhcp6_map_display($m, restapi_dhcp_map_early_dns($if, $m, true)));
+}
+
+function restapi_h_dhcp6_smap_list($req) {
+	$if = restapi_dhcp_iface(restapi_dhcp_req_if($req), true);
+	return array('data' => array_map(function ($id) use ($if) {
+		return restapi_dhcp6_smap_item($if, $id);
+	}, array_keys(restapi_dhcp_maps($if, true))));
+}
+
+function restapi_h_dhcp6_smap_get($req) {
+	$if = restapi_dhcp_iface(restapi_dhcp_req_if($req), true);
+	return array('data' => restapi_dhcp6_smap_item($if, restapi_dhcp_map_id($if, $req['params']['id'], true)));
+}
+
+function restapi_h_dhcp6_smap_create($req) {
+	$req = restapi_dhcp_req_if($req);
+	$if = restapi_dhcp_iface($req, true);
+	$values = restapi_svc_merge($req['body'], restapi_dhcp6_map_empty($if), restapi_dhcp6_map_types($if));
+	return restapi_dhcp6_map_save($req, $if, $values, null, 201, 'restapi_dhcp6_smap_item');
+}
+
+function restapi_h_dhcp6_smap_update($req) {
+	$req = restapi_dhcp_req_if($req);
+	$if = restapi_dhcp_iface($req, true);
+	$id = restapi_dhcp_map_id($if, $req['params']['id'], true);
+	$values = restapi_svc_merge($req['body'], restapi_dhcp6_map_out($if, $id), restapi_dhcp6_map_types($if));
+	return restapi_dhcp6_map_save($req, $if, $values, $id, 200, 'restapi_dhcp6_smap_item');
+}
+
+function restapi_h_dhcp6_smap_delete($req) {
+	return restapi_h_dhcp6_map_delete(restapi_dhcp_req_if($req));
 }

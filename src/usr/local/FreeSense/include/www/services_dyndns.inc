@@ -119,6 +119,86 @@ function dyndns_client_cache_files($conf) {
 	return array("{$base}.cache", "{$base}_v6.cache");
 }
 
+/* The address in a client cache file ("address|time"), or null without the file. */
+function dyndns_cache_address($file) {
+	if (!file_exists($file)) {
+		return null;
+	}
+	$parts = explode("|", file_get_contents($file));
+	return $parts[0];
+}
+
+/*
+ * The current address of $interface as dyndnsCheckIP() finds it. With
+ * $remote false no check IP service is asked: null when dyndnsCheckIP()
+ * would ask one (a private address, or the "always" mode).
+ */
+function dyndns_current_ip($interface, $mode, $address_family, $remote = true) {
+	if ($remote) {
+		return dyndnsCheckIP($interface, $mode, $address_family);
+	}
+	list($address, $error) = get_request_source_address($interface, $address_family);
+	if (isset($error)) {
+		return false;
+	} elseif ($mode == 'never') {
+		return $address;
+	}
+	if (is_ipaddrv6($address)) {
+		return (($mode != 'always') && is_v6gua($address)) ? $address : null;
+	}
+	return (($mode != 'always') && is_ipaddrv4($address) && !is_private_ip($address)) ? $address : null;
+}
+
+/*
+ * The update state the list page shows for a Dynamic DNS client: the
+ * cached addresses and whether the cached address (IPv4, else IPv6) is the
+ * current one: "ok", "fail", or "unknown" before the first update (or when
+ * $remote is false and only a check IP service could tell). "family" is
+ * the cache that was compared (inet, inet6 or null).
+ */
+function dyndns_client_status($conf, $remote = true) {
+	list($file4, $file6) = dyndns_client_cache_files($conf);
+	$out = array('status' => 'unknown', 'family' => null,
+	    'cached_ip' => dyndns_cache_address($file4), 'cached_ipv6' => dyndns_cache_address($file6));
+	if ($out['cached_ip'] !== null) {
+		$out['family'] = 'inet';
+		$current = dyndns_current_ip($conf['interface'], array_get_path($conf, 'check_ip_mode'), AF_INET, $remote);
+		$cached = $out['cached_ip'];
+	} elseif ($out['cached_ipv6'] !== null) {
+		$out['family'] = 'inet6';
+		$current = dyndns_current_ip($conf['interface'], array_get_path($conf, 'check_ip_mode'), AF_INET6, $remote);
+		$cached = $out['cached_ipv6'];
+	} else {
+		return $out;
+	}
+	if ($current !== null) {
+		$out['status'] = ($current == $cached) ? 'ok' : 'fail';
+	}
+	return $out;
+}
+
+/*
+ * A client's interface as the list pages name it: the interface
+ * description (ignoring a "_stf" suffix when $strip_stf) or the gateway
+ * group name.
+ */
+function dyndns_interface_label($interface, $strip_stf = false) {
+	$label = '';
+	foreach (get_configured_interface_with_descr() as $if => $ifdesc) {
+		if (($strip_stf ? str_replace('_stf', '', $interface) : $interface) == $if) {
+			$label .= $ifdesc;
+			break;
+		}
+	}
+	foreach (return_gateway_groups_array() as $if => $group) {
+		if ($interface == $if) {
+			$label .= $if;
+			break;
+		}
+	}
+	return $label;
+}
+
 /*
  * The edit form's fields as the page preselects them for client $id ($dup:
  * a copy without the host name). An empty array for a new client.
@@ -474,6 +554,33 @@ function rfc2136_record_types() {
 function rfc2136_client_cache_files($conf) {
 	$base = g_get('conf_path') . "/dyndns_{$conf['interface']}_rfc2136_" . escapeshellarg($conf['host']) . "_{$conf['server']}";
 	return array("{$base}.cache", "{$base}_v6.cache");
+}
+
+/*
+ * The update state the list page shows for an RFC 2136 client: the cached
+ * addresses, whether each is the current one ("ok"/"fail", null without a
+ * cache) and the overall "status" (IPv4, else IPv6; "unknown" before the
+ * first update, or when $remote is false and only a check IP service could
+ * tell the public IPv4 address).
+ */
+function rfc2136_client_status($conf, $remote = true) {
+	list($file4, $file6) = rfc2136_client_cache_files($conf);
+	$if = get_failover_interface($conf['interface']);
+	$out = array('status' => 'unknown', 'status_ipv4' => null, 'status_ipv6' => null,
+	    'cached_ip' => dyndns_cache_address($file4), 'cached_ipv6' => dyndns_cache_address($file6));
+	if ($out['cached_ip'] !== null) {
+		if (isset($conf['usepublicip'])) {
+			$current = dyndns_current_ip($if, null, AF_INET, $remote);
+			$out['status_ipv4'] = ($current === null) ? 'unknown' : (($current == $out['cached_ip']) ? 'ok' : 'fail');
+		} else {
+			$out['status_ipv4'] = (get_interface_ip($if) == $out['cached_ip']) ? 'ok' : 'fail';
+		}
+	}
+	if ($out['cached_ipv6'] !== null) {
+		$out['status_ipv6'] = (get_interface_ipv6($if) == $out['cached_ipv6']) ? 'ok' : 'fail';
+	}
+	$out['status'] = $out['status_ipv4'] ?? $out['status_ipv6'] ?? 'unknown';
+	return $out;
 }
 
 /* The edit form's fields as the page preselects them for client $id ($dup: a copy without the host name). */

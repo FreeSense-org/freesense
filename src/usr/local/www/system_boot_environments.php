@@ -13,108 +13,21 @@
 
 require_once('guiconfig.inc');
 
-const BECTL = '/usr/local/sbin/freesense-be';
-
-function be_command(array $arguments, &$output = null): int {
-	$command = BECTL . ' ' . implode(' ', array_map('escapeshellarg', $arguments));
-	$lines = [];
-	exec($command . ' 2>&1', $lines, $status);
-	$output = implode("\n", $lines);
-	return $status;
-}
-
-function be_valid_name(string $name): bool {
-	return preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/D', $name) === 1;
-}
-
-function be_version_parts(string $version): array {
-	if (preg_match('/^(.*?)(\d{8}(?:[._-]\d{4,6})?)$/', $version, $matches)) {
-		return [rtrim($matches[1], '._-'), $matches[2]];
-	}
-	return [$version, ''];
-}
-
-function be_created_parts(string $created): array {
-	if (preg_match('/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}(?::\d{2})?)(Z)?/', $created, $matches)) {
-		return [$matches[1], $matches[2] . (!empty($matches[3]) ? ' UTC' : '')];
-	}
-	return [$created, ''];
-}
+require_once('system_boot_environments.inc');
 
 if ($_POST) {
 	$action = $_POST['action'] ?? '';
 	if ($action === 'settings') {
-		$retention = filter_var($_POST['retention_auto'] ?? 3, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 10]]);
-		$timeout = filter_var($_POST['health_timeout'] ?? 300, FILTER_VALIDATE_INT, ['options' => ['min_range' => 60, 'max_range' => 900]]);
-		if ($retention === false || $timeout === false) {
-			$input_errors[] = gettext('Invalid retention or health timeout value.');
-		} else {
-			/* Store explicit strings: upgrade/health scripts read these nodes as text. */
-			config_set_path('system/bootenv/enabled', isset($_POST['enabled']) ? 'true' : 'false');
-			config_set_path('system/bootenv/automatic_rollback', isset($_POST['automatic_rollback']) ? 'true' : 'false');
-			config_set_path('system/bootenv/retention_auto', $retention);
-			config_set_path('system/bootenv/health_timeout', $timeout);
-			write_config(gettext('Updated ZFS boot environment settings.'));
-			$savemsg = gettext('Boot environment settings saved.');
-		}
+		list($input_errors, $savemsg) = be_settings_save($_POST);
 	} else {
-		$name = trim($_POST['name'] ?? '');
-		$commands = [];
-		if (!be_valid_name($name)) {
-			$input_errors[] = gettext('Invalid boot environment name.');
-		} elseif ($action === 'create' || $action === 'destroy' || $action === 'activate' || $action === 'activate-once') {
-			$commands[] = [$action, $name];
-		} elseif ($action === 'clone' || $action === 'rename') {
-			$target = trim($_POST['target'] ?? '');
-			if (!be_valid_name($target)) $input_errors[] = gettext('Invalid target boot environment name.');
-			else $commands[] = [$action, $name, $target];
-		} elseif ($action === 'describe') {
-			$commands[] = [$action, $name, substr(trim($_POST['description'] ?? ''), 0, 256)];
-		} elseif ($action === 'edit') {
-			/* the edit modal: description first (under the current name), then the rename if the name changed */
-			$target = trim($_POST['target'] ?? '');
-			if (!be_valid_name($target)) {
-				$input_errors[] = gettext('Invalid target boot environment name.');
-			} else {
-				$commands[] = ['describe', $name, substr(trim($_POST['description'] ?? ''), 0, 256)];
-				if ($target !== $name) {
-					$commands[] = ['rename', $name, $target];
-				}
-			}
-		} else {
-			$input_errors[] = gettext('Unknown boot environment action.');
-		}
-		foreach ($input_errors ? [] : $commands as $args) {
-			if (be_command($args, $result) !== 0) {
-				$input_errors[] = $result;
-				break;
-			}
-		}
-		if (!$input_errors) {
-			$done = [
-				'create' => gettext('Created boot environment %s.'),
-				'clone' => gettext('Created boot environment %s as a clone.'),
-				'edit' => gettext('Saved boot environment %s.'),
-				'rename' => gettext('Renamed boot environment %s.'),
-				'describe' => gettext('Saved the description of %s.'),
-				'destroy' => gettext('Deleted boot environment %s.'),
-				'activate' => gettext('Boot environment %s is used from the next boot on.'),
-				'activate-once' => gettext('Boot environment %s is used for the next boot only.'),
-			];
-			$savemsg = sprintf($done[$action] ?? gettext('Boot environment action completed (%s).'),
-			    htmlspecialchars(($action === 'edit') ? trim($_POST['target'] ?? $name) : $name));
-			if ($action === 'activate-once' && ($_POST['reboot'] ?? '') === '1') {
-				mwexec_bg('/sbin/shutdown -r now');
-			}
-		}
+		list($input_errors, $savemsg) = be_page_action($action, $_POST);
 	}
 }
 
-$raw = '';
-$available = is_executable(BECTL) && be_command(['list'], $raw) === 0;
-$data = $available ? json_decode($raw, true) : null;
-$compatible = (bool)($data['status']['compatible'] ?? false);
-$environments = $data['environments'] ?? [];
+$bootenv = be_load();
+$available = $bootenv['available'];
+$compatible = $bootenv['compatible'];
+$environments = $bootenv['environments'];
 $settings = config_get_path('system/bootenv', []);
 $bootenv_enabled = !array_key_exists('enabled', $settings) || $settings['enabled'] !== 'false';
 $bootenv_automatic_rollback = !array_key_exists('automatic_rollback', $settings) || $settings['automatic_rollback'] !== 'false';
@@ -124,15 +37,7 @@ if (!in_array($view, ['environments', 'settings'], true)) {
 }
 
 // Keep the running environment at the top, followed by the newest snapshots.
-usort($environments, static function (array $left, array $right): int {
-	$current = (int)!empty($right['active_now']) <=> (int)!empty($left['active_now']);
-	if ($current !== 0) {
-		return $current;
-	}
-	$left_created = strtotime($left['metadata']['created'] ?? $left['created'] ?? '') ?: 0;
-	$right_created = strtotime($right['metadata']['created'] ?? $right['created'] ?? '') ?: 0;
-	return $right_created <=> $left_created;
-});
+$environments = be_sort_environments($environments);
 
 $pgtitle = [gettext('System'), gettext('Boot Environments')];
 if (($view === 'environments') && $available && $compatible) {

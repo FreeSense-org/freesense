@@ -59,6 +59,13 @@ function interfaces_assign_reboot_needed() {
 	return file_exists(INTERFACES_ASSIGN_REBOOT_FILE);
 }
 
+/* Set when the interfaces were changed and wait for a reload; the page then also shows "Apply Changes". */
+define('INTERFACES_ASSIGN_RELOAD_FILE', '/tmp/reload_interfaces');
+
+function interfaces_assign_reload_pending() {
+	return file_exists(INTERFACES_ASSIGN_RELOAD_FILE);
+}
+
 /*
  * Every port that can be assigned, keyed by port name: physical ports
  * (without LAGG members), wireless clones, VLANs, bridges, GIF, GRE, VXLAN,

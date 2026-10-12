@@ -82,9 +82,6 @@ fs_tabs('services-dyndns', 'services_dyndns.php');
 					<tbody>
 <?php
 
-$iflist = get_configured_interface_with_descr();
-$groupslist = return_gateway_groups_array();
-
 $i = 0;
 foreach (config_get_path("dyndnses/dyndns", []) as $dyndns):
 	if (!is_array($dyndns) || empty($dyndns)) {
@@ -95,60 +92,18 @@ foreach (config_get_path("dyndnses/dyndns", []) as $dyndns):
 	} else {
 		$hostname = $dyndns['host'];
 	}
-	$filename = "{$g['conf_path']}/dyndns_{$dyndns['interface']}{$dyndns['type']}" . escapeshellarg($hostname) . "{$dyndns['id']}.cache";
-	$filename_v6 = "{$g['conf_path']}/dyndns_{$dyndns['interface']}{$dyndns['type']}" . escapeshellarg($hostname) . "{$dyndns['id']}_v6.cache";
-	if (file_exists($filename)) {
-		$ipaddr = dyndnsCheckIP($dyndns['interface'], array_get_path($dyndns, 'check_ip_mode'), AF_INET);
-		$cached_ip_s = explode("|", file_get_contents($filename));
-		$cached_ip = $cached_ip_s[0];
-
-		if ($ipaddr == $cached_ip) {
-			$icon_class = "fa-solid fa-circle-check";
-			$text_class = "text-success";
-			$icon_title = "Updated";
-		} else {
-			$icon_class = "fa-solid fa-circle-xmark";
-			$text_class = "text-danger";
-			$icon_title = "Failed";
-		}
-	} else if (file_exists($filename_v6)) {
-		$ipv6addr = dyndnsCheckIP($dyndns['interface'], array_get_path($dyndns, 'check_ip_mode'), AF_INET6);
-		$cached_ipv6_s = explode("|", file_get_contents($filename_v6));
-		$cached_ipv6 = $cached_ipv6_s[0];
-
-		if ($ipv6addr == $cached_ipv6) {
-			$icon_class = "fa-solid fa-circle-check";
-			$text_class = "text-success";
-			$icon_title = "Updated";
-		} else {
-			$icon_class = "fa-solid fa-circle-xmark";
-			$text_class = "text-danger";
-			$icon_title = "Failed";
-		}
-	}
+	$state = dyndns_client_status($dyndns);
+	$text_class = ($state['status'] == 'ok') ? "text-success" : "text-danger";
 ?>
 						<tr<?=!isset($dyndns['enable'])?' class="disabled"':''?>>
 							<td>
-							<?=(file_exists($filename) || file_exists($filename_v6))
-							    ? (($icon_title == 'Updated') ? fs_badge('pass', gettext('Updated')) : fs_badge('block', gettext('Failed')))
+							<?=($state['family'] !== null)
+							    ? (($state['status'] == 'ok') ? fs_badge('pass', gettext('Updated')) : fs_badge('block', gettext('Failed')))
 							    : fs_badge('neutral', gettext('Not updated yet'))?>
 							</td>
 							<td>
 <?php
-	foreach ($iflist as $if => $ifdesc) {
-		if (str_replace('_stf', '', $dyndns['interface']) == $if) {
-			print($ifdesc);
-
-			break;
-		}
-	}
-
-	foreach ($groupslist as $if => $group) {
-		if ($dyndns['interface'] == $if) {
-			print($if);
-			break;
-		}
-	}
+	print(dyndns_interface_label($dyndns['interface'], true));
 ?>
 							</td>
 							<td>
@@ -172,13 +127,9 @@ foreach (config_get_path("dyndnses/dyndns", []) as $dyndns):
 							</td>
 							<td>
 <?php
-	if (file_exists($filename)) {
+	if ($state['family'] !== null) {
 		print("<span class='{$text_class}'>");
-		print(htmlspecialchars($cached_ip));
-		print('</span>');
-	} elseif (file_exists($filename_v6)) {
-		print("<span class='{$text_class}'>");
-		print(htmlspecialchars($cached_ipv6));
+		print(htmlspecialchars(($state['family'] == 'inet') ? $state['cached_ip'] : $state['cached_ipv6']));
 		print('</span>');
 	} else {
 		print('N/A');

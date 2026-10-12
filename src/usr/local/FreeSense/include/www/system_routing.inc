@@ -283,6 +283,24 @@ function routing_toggle_gateway($a_gateways, $id, &$input_errors) {
 /* Gateway groups                                                      */
 /* ------------------------------------------------------------------ */
 
+/* The edit page's "Trigger Level" choices. */
+function routing_gateway_group_triggers() {
+	return array(
+		'down' => gettext("Member Down"),
+		'downloss' => gettext("Packet Loss"),
+		'downlatency' => gettext("High Latency"),
+		'downlosslatency' => gettext("Packet Loss or High Latency"));
+}
+
+/* The edit page's "Keep Failover States" choices. */
+function routing_gateway_group_keep_states() {
+	return array(
+		'' => 'Use global behavior (default)',
+		'keep' => 'Keep states on gateway recovery',
+		'kill' => 'Kill states on gateway recovery',
+	);
+}
+
 /*
  * Validate and save a gateway group from the edit form's fields: name,
  * descr, trigger, keep_failover_states, and per gateway "<gateway>" (tier

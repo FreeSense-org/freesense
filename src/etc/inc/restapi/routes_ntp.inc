@@ -54,7 +54,7 @@ function restapi_routes_ntp() {
 			'page' => 'services_ntpd.php', 'area' => $area,
 			'summary' => 'NTP server settings (the authentication key reads as "(set)") and whether ntpd runs')),
 		restapi_route('PUT', '/v1/services/ntp', 'restapi_h_ntp_set', array(
-			'page' => 'services_ntpd.php', 'area' => $area, 'write' => true, 'body' => $settings_body,
+			'page' => 'services_ntpd.php', 'area' => $area, 'write' => true, 'body' => $settings_body, 'schema' => 'services/ntp',
 			'summary' => 'Change NTP server settings (applied at once; omitted fields keep their value)')),
 		restapi_route('GET', '/v1/services/ntp/acls', 'restapi_h_ntp_acls_get', array(
 			'page' => 'services_ntpd_acls.php', 'area' => $area,

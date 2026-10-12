@@ -2256,6 +2256,42 @@ EOD;
 EOD;
 	}
 
+	/*
+	 * WebUI 2.0 (FreeSense-webui) next to this GUI while it is being built:
+	 * its pages under /next/ (one front controller, never a script named by
+	 * the URL), its engine and themes as static files under /ui/ and
+	 * /themes/ (the paths they keep after the cutover). Prefix locations win
+	 * over the regex locations below, so none of these reach this GUI.
+	 * Only present when the package is installed.
+	 */
+	$webui_location = "";
+	if (($captive_portal == false) && is_file(WEBUI2_ROOT . '/index.php')) {
+		$webui_root = WEBUI2_ROOT;
+		$webui_location = <<<EOD
+		location = /next {
+			return 301 /next/;
+		}
+		location ^~ /next/ {
+			fastcgi_pass   unix:{$g['varrun_path']}/php-fpm.socket;
+			fastcgi_param  SCRIPT_FILENAME  {$webui_root}/index.php;
+			fastcgi_param  SCRIPT_NAME  /next/index.php;
+			fastcgi_param  HTTP_PROXY  "";
+			fastcgi_read_timeout 180;
+			fastcgi_hide_header X-Frame-Options;
+			include        /usr/local/etc/nginx/fastcgi_params;
+		}
+		location ^~ /ui/ {
+			root {$webui_root};
+			expires \$static_expires;
+		}
+		location ^~ /themes/ {
+			root {$webui_root};
+			expires \$static_expires;
+		}
+
+EOD;
+	}
+
 	$plugin_locations = "";
 	if ($captive_portal == false) {
 		$pluginparams = [ 'section' => 'location' ];
@@ -2270,7 +2306,7 @@ EOD;
 
 	$nginx_config .= <<<EOD
 		root "{$document_root}";
-{$static_expires}{$api_location}		location / {
+{$static_expires}{$api_location}{$webui_location}		location / {
 			index  index.php index.html index.htm;
 		}
 		location ~ (\.inc$|\.orig$|\.pkgsave$) {

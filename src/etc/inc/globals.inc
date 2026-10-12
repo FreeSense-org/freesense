@@ -32,6 +32,8 @@ define('SEC_OPEN', 0x00);
 // IP address types
 define('IPV4', 4);
 define('IPV6', 6);
+/* Web root of WebUI 2.0 (FreeSense-webui): index.php, ui/ (engine), themes/. Its pages are under /next/ until the cutover. */
+define('WEBUI2_ROOT', '/usr/local/www-ui');
 define('IPV4V6', 2);
 define('ALIAS', 1);
 

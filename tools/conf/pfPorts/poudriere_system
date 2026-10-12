@@ -35,6 +35,7 @@ net/trafshow
 net/trafshow3
 net/vnstat
 security/%%PRODUCT_NAME%%
+security/%%PRODUCT_NAME%%-webui
 shells/zsh
 sysutils/%%PRODUCT_NAME%%-cloud-init
 sysutils/%%PRODUCT_NAME%%-default-config
