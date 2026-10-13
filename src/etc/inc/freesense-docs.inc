@@ -21,6 +21,8 @@ function freesense_docs_topic_path($page) {
 		'index' => '/',
 		'pkg_mgr_install' => '/packages/installing-packages/',
 		'pkg_mgr_installed' => '/packages/installing-packages/',
+		'pkg_mgr_repos' => '/packages/custom-repositories/',
+		'pkg_mgr_repos_edit' => '/packages/custom-repositories/',
 		'pkg_mgr_settings' => '/packages/installing-packages/',
 		'system_packages' => '/packages/installing-packages/',
 		'system_update' => '/guides/updates-and-channels/',

@@ -58,6 +58,7 @@ $fs_tab_groups['system-bootenv'] = [
 $fs_tab_groups['system-packages'] = [
 	[gettext('Installed Packages'), 'pkg_mgr_installed.php'],
 	[gettext('Available Packages'), 'pkg_mgr.php'],
+	[gettext('Repositories'), 'pkg_mgr_repos.php'],
 ];
 
 $fs_tab_groups['system-update'] = [

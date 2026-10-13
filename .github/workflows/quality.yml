@@ -69,6 +69,7 @@ jobs:
               KernelModulePolicySmokeTest \
               VxlanConfigSmokeTest \
               RemoteBackupSmokeTest \
+              PackageRepositoriesSmokeTest \
               RestApiSmokeTest \
               RestApiSessionSmokeTest \
               RestApiBatchSmokeTest \

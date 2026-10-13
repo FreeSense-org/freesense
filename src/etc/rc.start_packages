@@ -32,6 +32,7 @@ require_once("captiveportal.inc");
 require_once("pkg-utils.inc");
 require_once("freesense-utils.inc");
 require_once("service-utils.inc");
+require_once("pkg_custom_repos.inc");
 
 if (file_exists("{$g['tmp_path']}/.rc.start_packages.running")) {
 	$stat = stat("{$g['tmp_path']}/.rc.start_packages.running");
@@ -50,6 +51,9 @@ if (file_exists("{$g['conf_path']}/needs_package_sync") &&
 }
 
 @file_put_contents("{$g['tmp_path']}/.rc.start_packages.running", "");
+
+/* Render the custom package repositories from config.xml, which is where they are kept; the files are rebuilt every start. */
+pkgrepo_apply();
 
 logger(LOG_INFO, localize_text("Restarting/Starting all packages."));
 
