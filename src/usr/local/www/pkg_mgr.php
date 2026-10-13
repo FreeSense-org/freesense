@@ -254,6 +254,14 @@ events.push(function() {
 				if (window.FreeSenseUI && window.FreeSenseUI.initTables) {
 					window.FreeSenseUI.initTables(document.getElementById('pkg-list'));
 				}
+				// This tab is for finding packages to add: start on the ones that are not
+				// installed yet (the status filter still reaches the rest). Skip it when
+				// everything is installed, so the page is not empty.
+				var notInstalled = document.querySelector('#pkg-list select[data-fs-filter="state"]');
+				if (notInstalled && table && parseInt(table.getAttribute('data-pkg-available') || '0', 10) > 0) {
+					notInstalled.value = 'available';
+					notInstalled.dispatchEvent(new Event('change', {bubbles: true}));
+				}
 			}
 		},
 		error: function() {
