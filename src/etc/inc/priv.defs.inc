@@ -551,6 +551,13 @@ $priv_list['page-system-packagemanager-installed']['descr'] = gettext("Allow acc
 $priv_list['page-system-packagemanager-installed']['match'] = array();
 $priv_list['page-system-packagemanager-installed']['match'][] = "pkg_mgr_installed.php*";
 
+$priv_list['page-system-packagemanager-repositories'] = array();
+$priv_list['page-system-packagemanager-repositories']['name'] = gettext("WebCfg - System: Package Manager: Repositories");
+$priv_list['page-system-packagemanager-repositories']['descr'] = gettext("Allow access to the 'System: Package Manager: Repositories' page.");
+$priv_list['page-system-packagemanager-repositories']['match'] = array();
+$priv_list['page-system-packagemanager-repositories']['match'][] = "pkg_mgr_repos.php*";
+$priv_list['page-system-packagemanager-repositories']['match'][] = "pkg_mgr_repos_edit.php*";
+
 $priv_list['page-services-captiveportal'] = array();
 $priv_list['page-services-captiveportal']['name'] = gettext("WebCfg - Services: Captive Portal");
 $priv_list['page-services-captiveportal']['descr'] = gettext("Allow access to the 'Services: Captive Portal' page.");

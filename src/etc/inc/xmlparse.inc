@@ -47,7 +47,7 @@ function listtags() {
 		'member', 'menu', 'tab', 'mobilekey', 'mobilegroup', 'monitor_type', 'mount',
 		'npt', 'ntpserver',
 		'onetoone', 'openvpn-server', 'openvpn-client', 'openvpn-csc', 'option',
-		'package', 'passthrumac', 'phase1', 'phase2', 'ppp', 'pppoe', 'priv', 'proxyarpnet', 'pool',
+		'package', 'passthrumac', 'phase1', 'phase2', 'pkgrepo', 'ppp', 'pppoe', 'priv', 'proxyarpnet', 'pool',
 		'qinqentry', 'queue',
 		'pages', 'pipe', 'radnsserver', 'roll', 'route', 'row', 'rrddatafile', 'rule',
 		'schedule', 'service', 'servernat', 'servers', 'sshkeyfile',

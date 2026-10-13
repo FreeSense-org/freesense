@@ -39,6 +39,7 @@ require_once("shaper.inc");
 require_once("pkg-utils.inc");
 require_once("package_catalog.inc");
 require_once("pkg_mgr_install.inc");
+require_once("pkg_custom_repos.inc");
 
 $failmsg = "";
 $sendto = "output";
@@ -159,7 +160,9 @@ if (!empty($_REQUEST['mode'])) {
 		'reinstallall',
 		'reinstallpkg',
 		'delete',
-		'installed'
+		'installed',
+		'installcustom',
+		'removecustom'
 	);
 
 	if (!in_array($_REQUEST['mode'], $valid_modes)) {
@@ -239,7 +242,7 @@ if (!empty($_REQUEST['id'])) {
 }
 
 if (!empty($_REQUEST['pkg'])) {
-	if (!pkg_valid_name($pkgname)) {
+	if (!in_array($pkgmode, array('installcustom', 'removecustom'), true) ? !pkg_valid_name($pkgname) : !pkgrepo_pkg_name_ok($pkgname)) {
 		header("Location: pkg_mgr_installed.php");
 		return;
 	}
@@ -274,6 +277,10 @@ if ($firmwareupdate) {
 	$subject_name = $package_meta['display_name'] ?: $catalog_shortname;
 	$back_href = ($pkgmode == 'delete' || $pkgmode == 'reinstallpkg') ? 'pkg_mgr_installed.php' : 'pkg_mgr.php';
 	$back_label = ($pkgmode == 'delete' || $pkgmode == 'reinstallpkg') ? gettext('Back to installed packages') : gettext('Back to available packages');
+	if ($pkgmode == 'installcustom' || $pkgmode == 'removecustom') {
+		$back_href = 'pkg_mgr_repos.php';
+		$back_label = gettext('Back to repositories');
+	}
 }
 
 include("head.inc");
@@ -347,7 +354,7 @@ if ($input_errors) {
 
 if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
     ($firmwareupdate || $pkgmode == 'reinstallall' || !empty($pkgname))):
-	if ($pkgmode === 'delete') {
+	if ($pkgmode === 'delete' || $pkgmode === 'removecustom') {
 		$confirm_button_class = 'btn-danger';
 		$confirm_button_icon = 'trash-can';
 		$confirm_button_label = gettext('Remove package');
@@ -438,6 +445,52 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		<div class="fs-pkg-body">
 			<?php print_info_box($pkgname_vital_message); ?>
 			<a class="btn btn-outline-secondary" href="pkg_mgr_installed.php"><i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i><?=gettext('Back to installed packages')?></a>
+		</div>
+<?php
+	elseif ($pkgmode == 'installcustom' || $pkgmode == 'removecustom'):
+		$custom_removal = ($pkgmode == 'removecustom');
+		$custom_review = $custom_removal ? pkgrepo_review_remove($pkgname) : pkgrepo_review_install($pkgname);
+?>
+		<div class="fs-pkg-head">
+			<span class="fs-pkg-head-icon"><i class="fa-solid fa-<?=$custom_removal ? 'trash-can' : 'box-open'?>" aria-hidden="true"></i></span>
+			<div class="fs-pkg-head-text">
+				<div class="fs-pkg-eyebrow"><?=$custom_removal ? gettext('Review the removal') : gettext('Review the installation')?></div>
+				<h2 class="fs-pkg-title"><?=htmlspecialchars($pkgname)?></h2>
+				<div class="fs-pkg-sub"><?=gettext('From a package repository that is not part of FreeSense')?></div>
+			</div>
+		</div>
+		<div class="fs-pkg-body">
+			<input type="hidden" name="mode" value="<?=htmlspecialchars($pkgmode)?>" />
+			<input type="hidden" name="pkg" value="<?=htmlspecialchars($pkgname)?>" />
+			<input type="hidden" name="confirmed" value="true" />
+			<div class="alert alert-warning"><?=gettext('This package is not tested with FreeSense and is installed as root. FreeSense never upgrades it automatically, and a firmware update may need it reinstalled.')?></div>
+<?php if (!empty($custom_review['plan']['new'])): ?>
+			<table class="table table-sm fs-mono mb-3">
+				<thead><tr><th><?=gettext('Package')?></th><th><?=gettext('Version')?></th><th><?=gettext('Repository')?></th></tr></thead>
+				<tbody>
+<?php foreach ($custom_review['plan']['new'] as $item): ?>
+					<tr><td><?=htmlspecialchars($item[0])?></td><td><?=htmlspecialchars($item[1])?></td><td><?=htmlspecialchars($item[2])?></td></tr>
+<?php endforeach; ?>
+				</tbody>
+			</table>
+<?php endif; ?>
+<?php if ($custom_removal && !empty($custom_review['plan']['removed'])): ?>
+			<p><?=gettext('This will remove:')?> <span class="fs-mono"><?=htmlspecialchars(implode(', ', $custom_review['plan']['removed']))?></span></p>
+<?php endif; ?>
+<?php if (!$custom_review['ok']): ?>
+			<div class="alert alert-danger">
+				<strong><?=$custom_removal ? gettext('This cannot be removed:') : gettext('This cannot be installed:')?></strong>
+				<ul class="mb-0">
+<?php foreach ($custom_review['reasons'] as $reason): ?>
+					<li><?=htmlspecialchars($reason)?></li>
+<?php endforeach; ?>
+				</ul>
+			</div>
+<?php endif; ?>
+		</div>
+		<div class="fs-pkg-foot">
+			<a class="btn btn-outline-secondary" href="pkg_mgr_repos.php"><?=gettext('Cancel')?></a>
+			<button type="submit" class="btn <?=htmlspecialchars($confirm_button_class)?>" name="pkgconfirm" id="pkgconfirm" value="<?=gettext("Confirm")?>"<?=$custom_review['ok'] ? '' : ' disabled'?>><i class="fa-solid fa-<?=htmlspecialchars($confirm_button_icon)?> icon-embed-btn" aria-hidden="true"></i><?=htmlspecialchars($confirm_button_label)?></button>
 		</div>
 <?php
 	elseif ($pkgmode == 'reinstallall'):
@@ -561,7 +614,7 @@ if ($firmwareupdate) {
 	$pkg_success_txt = gettext('Upgrade will continue after the system restarts. Please do not reset or power off.');
 	$pkg_fail_txt = gettext('System update failed!');
 	$pkg_wait_txt = gettext('Please wait while the system update completes.');
-} else if ($pkgmode == 'delete') {
+} else if ($pkgmode == 'delete' || $pkgmode == 'removecustom') {
 	$panel_heading_txt = gettext("Removing package");
 	$pkg_success_txt = sprintf(gettext('%1$s removal successfully completed.'), $pkgname_bold);
 	$pkg_fail_txt = sprintf(gettext('%1$s removal failed!'), $pkgname_bold);
@@ -687,7 +740,11 @@ endif;
 ob_flush();
 
 if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
-	$started = pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $_POST['fwbranch'] ?? '', $repos);
+	if ($pkgmode == 'installcustom' || $pkgmode == 'removecustom') {
+		$started = pkgrepo_start($pkgmode, $pkgname);
+	} else {
+		$started = pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $_POST['fwbranch'] ?? '', $repos);
+	}
 	$progbar = $started['progbar'];
 	$logfilename = $started['logfilename'];
 	if ($started['started']) {
