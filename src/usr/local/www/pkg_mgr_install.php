@@ -178,6 +178,13 @@ if ($input_errors) {
 }
 $completed = isset($_POST['completed']) && $_POST['completed'] == 'true';
 $reboot_needed = isset($_POST['reboot_needed']) && $_POST['reboot_needed'] == "yes";
+// The versions the update goes from and to, captured when the update was offered
+// (the updater is busy, and the installed version changes, once the run starts).
+$update_versions = [];
+foreach (['from_version', 'to_version'] as $version_field) {
+	$value = $_POST[$version_field] ?? '';
+	$update_versions[$version_field] = (is_string($value) && preg_match('/^[A-Za-z0-9._,+-]{1,80}$/D', $value)) ? $value : '';
+}
 
 $postlog = "";
 
@@ -323,6 +330,8 @@ if ($input_errors) {
 	background: var(--fs-surface-raised); border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); box-shadow: var(--fs-shadow-overlay); }
 .fs-run-spinner { width: 4rem; height: 4rem; margin: 0 auto 1.25rem; border-width: .4rem; }
 .fs-run-card h2 { margin: 0 0 .5rem; font-size: 1.25rem; }
+.fs-run-versions { display: inline-block; margin: 0 auto 1rem; padding: .6rem 1rem; text-align: left; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); font-size: var(--fs-fs-sm); word-break: break-all; }
+.fs-run-versions-label { display: inline-block; min-width: 2.5rem; color: var(--fs-text-muted); text-transform: uppercase; font-size: var(--fs-fs-xs); font-weight: 600; letter-spacing: .04em; }
 .fs-run-card .fs-run-msg { margin: 0 auto .75rem; max-width: 34rem; color: var(--fs-text-muted); }
 .fs-run-card .fs-run-elapsed { font-variant-numeric: tabular-nums; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); margin-bottom: .75rem; }
 .fs-run-card .progress { margin: 0 auto 1rem; max-width: 30rem; }
@@ -395,6 +404,8 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 						<div class="fs-pkg-status-label" id="confirmlabel"><?=gettext('Update status')?></div>
 						<input type="hidden" name="id" value="firmware" />
 						<input type="hidden" name="confirmed" id="confirmed" value="true" />
+						<input type="hidden" name="from_version" id="from_version" value="" />
+						<input type="hidden" name="to_version" id="to_version" value="" />
 						<span id="uptodate">
 							<i class="fa-solid fa-rotate fa-spin text-warning" aria-hidden="true"></i>
 							<span class="text-muted"><?=gettext("Checking for updates…")?></span>
@@ -582,6 +593,8 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 	<input type="hidden" name="pkg" value="<?=htmlspecialchars($pkgname)?>" />
 	<input type="hidden" name="completed" value="true" />
 	<input type="hidden" name="confirmed" value="true" />
+	<input type="hidden" name="from_version" value="<?=htmlspecialchars($update_versions['from_version'])?>" />
+	<input type="hidden" name="to_version" value="<?=htmlspecialchars($update_versions['to_version'])?>" />
 	<input type="hidden" id="reboot_needed" name="reboot_needed" value="no" />
 
 	<div class="panel panel-default is-running" id="pkg-run">
@@ -637,6 +650,12 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 		<div class="fs-run-card">
 			<div class="spinner-border fs-run-spinner text-primary" role="status" aria-hidden="true"></div>
 			<h2 id="run-overlay-title"><?=htmlspecialchars($panel_heading_txt)?></h2>
+<?php if ($firmwareupdate && $update_versions['from_version'] !== '' && $update_versions['to_version'] !== ''): ?>
+			<div class="fs-run-versions fs-mono" id="run-versions">
+				<div><span class="fs-run-versions-label"><?=gettext('From')?></span> <?=htmlspecialchars($update_versions['from_version'])?></div>
+				<div><span class="fs-run-versions-label"><?=gettext('To')?></span> <?=htmlspecialchars($update_versions['to_version'])?></div>
+			</div>
+<?php endif; ?>
 			<p class="fs-run-msg" id="run-overlay-msg"></p>
 			<div class="fs-run-elapsed" id="run-elapsed" aria-hidden="true"></div>
 			<div id="countdown"></div>
@@ -825,6 +844,9 @@ function get_firmware_versions() {
 		} else if (json && !json.pkg_version_error) {
 			$('#installed_version').text(json.installed_version);
 			$('#version').text(json.version);
+			// remembered for the run: the overlay shows what the update goes from and to
+			$('#from_version').val(json.installed_version || '');
+			$('#to_version').val(json.version || '');
 			// Offer an available version only when it is newer; otherwise the tile
 			// just repeats what is installed.
 			$('#available_tile').toggle(json.pkg_version_compare == '<');

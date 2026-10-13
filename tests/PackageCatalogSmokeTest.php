@@ -79,7 +79,7 @@ foreach (['id="available_tile"', "toggle(json.pkg_version_compare == '<')"] as $
 	}
 }
 foreach (['id="run-overlay"', 'function openRunOverlay', 'function closeRunOverlay', 'run-details-toggle',
-    'Show details', "openRunOverlay('working')", "openRunOverlay('reboot')", 'onbeforeunload'] as $requiredText) {
+    'Show details', 'id="run-versions"', 'from_version', "openRunOverlay('working')", "openRunOverlay('reboot')", 'onbeforeunload'] as $requiredText) {
 	if (strpos($updateManager, $requiredText) === false) {
 		fwrite(STDERR, "Update page does not lock the page behind a busy overlay while it runs.\n");
 		exit(1);
