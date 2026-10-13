@@ -202,7 +202,7 @@ if (is_array($browse_packages)):
 	</form>
 </div>
 <?php if ($browse_total > count($browse_packages)): ?>
-<div class="px-3 pt-2 small fs-muted"><?=sprintf(gettext('Showing %1$d of %2$d packages. Search to narrow the list.'), count($browse_packages), $browse_total)?></div>
+<div class="px-3 pt-2 small fs-muted"><?=sprintf(gettext('Showing %1$d of %2$d packages. Search to narrow the list.'), (int)count($browse_packages), (int)$browse_total)?></div>
 <?php endif; ?>
 	<div class="panel-body table-responsive">
 		<table class="table table-hover">
@@ -219,6 +219,8 @@ if (is_array($browse_packages)):
 					<td class="fs-mono text-nowrap"><?=htmlspecialchars($p[1])?></td>
 					<td><?=htmlspecialchars($p[2])?></td>
 					<td class="fs-col-actions">
+<?php /* every attribute and label fs_row_actions() prints is escaped by fs_attrs()/fs_h() */ ?>
+						<?php // nosemgrep: php.lang.security.injection.printed-request.printed-request ?>
 						<?=fs_row_actions(array(
 							array('custom', 'pkg_mgr_install.php?mode=installcustom&pkg=' . urlencode($p[0]), $p[0], array('icon' => 'fa-download', 'label' => sprintf(gettext('Review and install %s'), $p[0]))),
 						))?>
