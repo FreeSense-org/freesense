@@ -94,7 +94,13 @@ function pkg_env($extra_env = array()) {
 		"HTTP_USER_AGENT" => $user_agent,
 		"ASSUME_ALWAYS_YES" => "true",
 		"FETCH_TIMEOUT" => 5,
-		"FETCH_RETRY" => 2
+		"FETCH_RETRY" => 2,
+		/*
+		 * Only the FreeSense repositories: pkg.conf also lets the shell read the
+		 * custom repositories (Package Manager > Repositories), which the
+		 * WebUI asks for explicitly when it works with them.
+		 */
+		"REPOS_DIR" => "/etc/pkg/,/usr/local/etc/pkg/repos/"
 	);
 
 	$http_proxy = config_get_path('system/proxyurl');

@@ -119,4 +119,12 @@ $with_dependent = pkgrepo_parse_plan("Installed packages to be REMOVED:\n\tlibto
 check_pr(count(pkgrepo_guard_removal('libtool', $with_dependent, $origin, array('spike'))) === 1, 'removing a package that would take a FreeSense one with it is refused');
 check_pr(pkgrepo_guard_removal('ghost', $rm, $origin, array('spike')) !== array(), 'a package that is not installed is refused');
 
+/* The WebUI's own package operations stay on the FreeSense repositories; only the custom ones opt in. */
+$utils = file_get_contents($root . '/src/etc/inc/pkg-utils.inc');
+check_pr(strpos($utils, '"REPOS_DIR" => "' . pkgrepo_repos_dir(false) . '"') !== false,
+    'pkg_env() limits pkg to the system repository directories by default');
+$config_layer = file_get_contents($root . '/src/etc/inc/pkg_custom_repos.inc');
+check_pr(substr_count($config_layer, "'REPOS_DIR' => pkgrepo_repos_dir(true)") >= 2,
+    'the custom repository operations ask for the custom directory explicitly');
+
 echo "Package repositories smoke test passed.\n";
