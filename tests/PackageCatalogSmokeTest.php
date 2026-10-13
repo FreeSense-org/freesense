@@ -34,6 +34,12 @@ if (strpos($packageManager, 'require_once("package_catalog.inc")') === false) {
 	exit(1);
 }
 
+if (strpos($packageManager, "select[data-fs-filter=\"state\"]") === false ||
+    strpos($packageManager, "notInstalled.value = 'available'") === false) {
+	fwrite(STDERR, "Available Packages does not start on the packages that are not installed.\n");
+	exit(1);
+}
+
 $packageUtilities = file_get_contents(dirname(__DIR__) . '/src/etc/inc/pkg-utils.inc');
 $installedPackageManager = file_get_contents(dirname(__DIR__) . '/src/usr/local/www/pkg_mgr_installed.php');
 foreach ([$packageManager, $installedPackageManager] as $packagePage) {
