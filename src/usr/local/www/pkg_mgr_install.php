@@ -638,8 +638,8 @@ if ($firmwareupdate) {
 	$pkg_wait_txt = gettext('Please wait while the reinstallation of all packages completes.');
 } else if ($pkgmode == 'upgradecustom') {
 	$panel_heading_txt = gettext("Updating package");
-	$pkg_success_txt = sprintf(gettext('%1$s update successfully completed.'), $pkgname_bold);
-	$pkg_fail_txt = sprintf(gettext('%1$s update failed!'), $pkgname_bold);
+	$pkg_success_txt = sprintf(gettext('%1$s was successfully brought up to date.'), $pkgname_bold);
+	$pkg_fail_txt = sprintf(gettext('%1$s could not be brought up to date!'), $pkgname_bold);
 	$pkg_wait_txt = sprintf(gettext('Please wait while %1$s is updated.'), $pkgname_bold);
 } else if ($pkgmode == 'reinstallpkg') {
 	$panel_heading_txt = gettext("Reinstalling package");
