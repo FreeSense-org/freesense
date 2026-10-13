@@ -36,6 +36,7 @@ require_once("globals.inc");
 require_once("guiconfig.inc");
 require_once("pkg-utils.inc");
 require_once("package_catalog.inc");
+require_once("pkg_mgr_sources.inc");
 
 // if upgrade in progress, alert user
 if (is_subsystem_dirty('packagelock')) {
@@ -44,6 +45,36 @@ if (is_subsystem_dirty('packagelock')) {
 	include("head.inc");
 	print_info_box("Please wait while packages are reinstalled in the background.");
 	include("foot.inc");
+	exit;
+}
+
+/* The packages of one other source, fetched when the Source filter is switched to it. */
+if (($_REQUEST['ajax'] ?? '') === 'source') {
+	$source = '';
+	foreach (array_keys(pkgrepo_source_options()) as $known) {
+		if ($known === ($_REQUEST['source'] ?? null)) {
+			$source = $known;
+		}
+	}
+	if ($source === '') {
+		print(json_encode(array('error' => 'unknown source')));
+		exit;
+	}
+	$query = trim((string)($_REQUEST['q'] ?? ''));
+	$html = '';
+	$total = 0;
+	$shown = 0;
+	/* the search text only decides which rows are kept */
+	foreach (pkgrepo_source_rows($source) as $p) {
+		if ($query === '' || stripos($p[0], $query) !== false || stripos($p[2], $query) !== false) {
+			$total++;
+			if ($shown < PKG_MGR_SOURCE_LIMIT) {
+				$html .= pkg_mgr_available_source_row($source, $p);
+				$shown++;
+			}
+		}
+	}
+	print(json_encode(array('html' => $html, 'total' => $total, 'shown' => $shown)));
 	exit;
 }
 
@@ -100,11 +131,14 @@ function get_pkg_table() {
 			$count['available']++;
 		}
 
-		$rows .= '<tr data-fs-filter-category="' . fs_h($meta['category']) . '" data-fs-filter-state="' . $state . '">';
+		$rows .= '<tr data-fs-filter-category="' . fs_h($meta['category']) . '" data-fs-filter-state="' . $state . '" data-fs-filter-source="official">';
 
 		/* package */
 		$rows .= '<td><strong>' . fs_h($name) . '</strong>' .
 		    '<div class="fs-muted small">' . fs_h($meta['category']) . ' · ' . fs_h(ucfirst($meta['resource_profile'])) . '</div></td>';
+
+		/* source */
+		$rows .= '<td>' . pkg_mgr_official_badge() . '</td>';
 
 		/* version */
 		$rows .= '<td class="fs-mono text-nowrap">';
@@ -167,6 +201,7 @@ function get_pkg_table() {
 	    ' data-pkg-updates="' . $count['updates'] . '">' . "\n";
 	$pkgtbl .= '<thead><tr>' .
 	    '<th data-fs-search>' . fs_h(gettext("Package")) . '</th>' .
+	    '<th>' . fs_h(gettext("Source")) . '</th>' .
 	    '<th>' . fs_h(gettext("Version")) . '</th>' .
 	    '<th data-fs-search>' . fs_h(gettext("Description")) . '</th>' .
 	    '<th>' . fs_h(gettext("Status")) . '</th>' .
@@ -214,10 +249,11 @@ foreach (freesense_package_catalog_categories() as $category) {
 	'search' => gettext('Search names, descriptions, capabilities…'),
 	'noun' => gettext('packages'),
 	'noun_one' => gettext('package'),
-	'filters' => [
+	'filters' => array_filter([
+		'source' => pkg_mgr_source_filter(false),
 		'category' => $categories,
 		'state' => [gettext('Any status'), 'available' => gettext('Not installed'), 'installed' => gettext('Installed'), 'update' => gettext('Update available')],
-	],
+	]),
 ]); ?>
 	<div id="pkgtbl" class="panel-body table-responsive">
 		<div id="waitmsg" class="fs-pkg-loading" role="status">
@@ -232,6 +268,55 @@ foreach (freesense_package_catalog_categories() as $category) {
 
 <script type="text/javascript">
 //<![CDATA[
+
+// The Source filter starts on the official packages, which are already in the table.
+// Choosing another source loads that repository's packages (at most 300; the search
+// box then searches the repository itself, as the FreeBSD one has tens of thousands).
+function fsSourceFilter() {
+	var source = document.querySelector('#pkg-list select[data-fs-filter="source"]');
+	var search = document.querySelector('#pkg-list [data-fs-search-input]');
+	var category = document.querySelector('#pkg-list select[data-fs-filter="category"]');
+	var timer = null;
+	if (!source) {
+		return;
+	}
+	var note = $('<div class="px-3 pt-2 small fs-muted" id="source-note" hidden></div>').insertBefore('#pkgtbl');
+	var load = function () {
+		$('#pkgtable tbody tr.fs-source-row').remove();
+		note.prop('hidden', true);
+		var finish = function () {
+			category.dispatchEvent(new Event('change', {bubbles: true}));
+		};
+		if (source.value === '') {
+			finish();
+			return;
+		}
+		var wanted = source.value;
+		$.post('pkg_mgr.php', {ajax: 'source', source: wanted, q: search.value}, function (r) {
+			if (source.value !== wanted) {
+				return;
+			}
+			$('#pkgtable tbody tr.fs-source-row').remove();
+			if (r && r.html !== undefined) {
+				$('#pkgtable tbody').append(r.html);
+				if (r.total > r.shown) {
+					note.text(<?=json_encode(gettext('Showing the first %1$s of %2$s packages. Type in the search box to find the rest.'))?>
+					    .replace('%1$s', r.shown).replace('%2$s', r.total)).prop('hidden', false);
+				} else if (r.total === 0) {
+					note.text(<?=json_encode(gettext('This repository lists no packages. Refresh it under Repositories first.'))?>).prop('hidden', false);
+				}
+			}
+			finish();
+		}, 'json');
+	};
+	source.addEventListener('change', load);
+	search.addEventListener('input', function () {
+		if (source.value !== '') {
+			clearTimeout(timer);
+			timer = setTimeout(load, 400);
+		}
+	});
+}
 
 events.push(function() {
 
@@ -262,6 +347,7 @@ events.push(function() {
 					notInstalled.value = 'available';
 					notInstalled.dispatchEvent(new Event('change', {bubbles: true}));
 				}
+				fsSourceFilter();
 			}
 		},
 		error: function() {

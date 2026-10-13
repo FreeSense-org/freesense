@@ -119,6 +119,33 @@ $with_dependent = pkgrepo_parse_plan("Installed packages to be REMOVED:\n\tlibto
 check_pr(count(pkgrepo_guard_removal('libtool', $with_dependent, $origin, array('spike'))) === 1, 'removing a package that would take a FreeSense one with it is refused');
 check_pr(pkgrepo_guard_removal('ghost', $rm, $origin, array('spike')) !== array(), 'a package that is not installed is refused');
 
+/* Updating one package from its own repository may change that package and nothing else. */
+$upgrade = pkgrepo_parse_plan("Installed packages to be UPGRADED:\n\ttool: 1.0 -> 2.0 [spike]\n\nNew packages to be INSTALLED:\n\tlibnew: 1.0 [spike]\n");
+check_pr($upgrade['changed'] === array(array('tool', '1.0 -> 2.0', 'spike')), 'the update plan is parsed');
+check_pr(pkgrepo_guard($upgrade, array('spike'), array(), array('tool')) === array(), 'an explicit update of the package itself is allowed');
+check_pr(pkgrepo_guard($upgrade, array('spike'), array(), array('other')) !== array(), 'an update that changes another package is refused');
+$upgrade_other = pkgrepo_parse_plan("Installed packages to be UPGRADED:\n\ttool: 1.0 -> 2.0 [spike]\n\topenssl: 3 -> 4 [spike]\n");
+check_pr(count(pkgrepo_guard($upgrade_other, array('spike'), array(), array('tool'))) === 1, 'an update that drags another installed package along is refused');
+check_pr(pkgrepo_guard(pkgrepo_parse_plan("Installed packages to be UPGRADED:\n\ttool: 1.0 -> 2.0 [FreeSense]\n"), array('spike'), array(), array('tool')) !== array(),
+    'an update that would come from a FreeSense repository is not an update of a custom package');
+
+/* The package lists: official first, other sources by filter, one Source column, no foreign data pushed at load. */
+$sources = file_get_contents($root . '/src/usr/local/FreeSense/include/www/pkg_mgr_sources.inc');
+$available = file_get_contents($root . '/src/usr/local/www/pkg_mgr.php');
+$installed = file_get_contents($root . '/src/usr/local/www/pkg_mgr_installed.php');
+foreach (array('Available' => $available, 'Installed' => $installed) as $label => $page) {
+	check_pr(strpos($page, 'data-fs-filter-source="official"') !== false, "{$label}: official rows carry the source attribute");
+	check_pr(strpos($page, 'pkg_mgr_official_badge()') !== false, "{$label}: official rows are marked Official");
+	check_pr(strpos($page, 'gettext("Source")') !== false, "{$label}: there is a Source column");
+	check_pr(strpos($page, "'source' => pkg_mgr_source_filter(") !== false, "{$label}: the toolbar has a Source filter");
+}
+check_pr(strpos($installed, "source.value = 'official'") !== false, 'the Installed list starts on the official packages');
+check_pr(strpos($available, "'ajax'") !== false && strpos($available, "=== 'source'") !== false && strpos($available, 'PKG_MGR_SOURCE_LIMIT') !== false,
+    'the Available list loads another source on demand, capped');
+check_pr(strpos($available, 'pkgrepo_source_rows($source)') !== false, 'the search text only decides which rows are kept');
+check_pr(strpos($sources, 'mode=installcustom') !== false && strpos($sources, 'mode=upgradecustom') !== false && strpos($sources, 'mode=removecustom') !== false,
+    'rows of other sources offer install, update and remove');
+
 /* The WebUI's own package operations stay on the FreeSense repositories; only the custom ones opt in. */
 $utils = file_get_contents($root . '/src/etc/inc/pkg-utils.inc');
 check_pr(strpos($utils, '"REPOS_DIR" => "' . pkgrepo_repos_dir(false) . '"') !== false,

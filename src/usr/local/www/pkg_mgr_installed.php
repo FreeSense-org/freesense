@@ -32,6 +32,7 @@
 require_once("guiconfig.inc");
 require_once("pkg-utils.inc");
 require_once("package_catalog.inc");
+require_once("pkg_mgr_sources.inc");
 
 /* if upgrade in progress, alert user */
 if (is_subsystem_dirty('packagelock')) {
@@ -58,7 +59,10 @@ function pkg_mgr_installed_plain_text($text) {
 function get_pkg_table() {
 	$installed_packages = get_pkg_info('all', false, true);
 
-	if (empty($installed_packages)) {
+	/* packages from the repositories added under Package Manager > Repositories: listed, but not shown until the Source filter asks */
+	list($source_rows, $source_count) = pkg_mgr_installed_source_rows();
+
+	if (empty($installed_packages) && $source_count === 0) {
 		print ("nopkg");
 		exit;
 	}
@@ -130,11 +134,14 @@ function get_pkg_table() {
 			$count['current']++;
 		}
 
-		$rows .= '<tr data-fs-filter-state="' . $state . '" data-fs-filter-category="' . fs_h($meta['category']) . '">';
+		$rows .= '<tr data-fs-filter-state="' . $state . '" data-fs-filter-category="' . fs_h($meta['category']) . '" data-fs-filter-source="official">';
 
 		/* package */
 		$rows .= '<td><strong' . ($missing ? ' class="text-danger"' : '') . '>' . fs_h($name) . '</strong>' .
 		    '<div class="fs-muted small">' . fs_h($meta['category']) . ' · ' . fs_h(ucfirst($meta['resource_profile'])) . '</div></td>';
+
+		/* source */
+		$rows .= '<td class="align-middle">' . pkg_mgr_official_badge() . '</td>';
 
 		/* status */
 		$rows .= '<td class="text-nowrap align-middle">' . $badge . '</td>';
@@ -205,6 +212,8 @@ function get_pkg_table() {
 		$rows .= '</tr>' . "\n";
 	}
 
+	$rows .= $source_rows;
+
 	$pkgtbl = '<table id="pkgtable" class="table table-hover" data-sortable' .
 	    ' data-pkg-installed="' . $count['installed'] . '"' .
 	    ' data-pkg-current="' . $count['current'] . '"' .
@@ -212,6 +221,7 @@ function get_pkg_table() {
 	    ' data-pkg-missing="' . $count['missing'] . '">' . "\n";
 	$pkgtbl .= '<thead><tr>' .
 	    '<th data-fs-search>' . fs_h(gettext("Package")) . '</th>' .
+	    '<th>' . fs_h(gettext("Source")) . '</th>' .
 	    '<th>' . fs_h(gettext("Status")) . '</th>' .
 	    '<th>' . fs_h(gettext("Version")) . '</th>' .
 	    '<th data-fs-search>' . fs_h(gettext("Description")) . '</th>' .
@@ -262,10 +272,11 @@ foreach (freesense_package_catalog_categories() as $category) {
 	'search' => gettext('Search installed packages…'),
 	'noun' => gettext('packages'),
 	'noun_one' => gettext('package'),
-	'filters' => [
+	'filters' => array_filter([
+		'source' => pkg_mgr_source_filter(true),
 		'state' => [gettext('Any status'), 'current' => gettext('Up to date'), 'update' => gettext('Update available'), 'missing' => gettext('Need attention')],
 		'category' => $categories,
-	],
+	]),
 	'actions' => '<a class="btn btn-sm btn-outline-secondary" href="pkg_mgr.php"><i class="fa-solid fa-plus icon-embed-btn" aria-hidden="true"></i>' . fs_h(gettext('Available packages')) . '</a>',
 ]); ?>
 	<div id="pkgtbl" class="panel-body table-responsive">
@@ -313,6 +324,12 @@ events.push(function() {
 				});
 				if (window.FreeSenseUI && window.FreeSenseUI.initTables) {
 					window.FreeSenseUI.initTables(document.getElementById('pkg-list'));
+				}
+				// FreeSense's own packages first; packages from other repositories appear when the Source filter asks
+				var source = document.querySelector('#pkg-list select[data-fs-filter="source"]');
+				if (source) {
+					source.value = 'official';
+					source.dispatchEvent(new Event('change', {bubbles: true}));
 				}
 			}
 		},

@@ -162,7 +162,8 @@ if (!empty($_REQUEST['mode'])) {
 		'delete',
 		'installed',
 		'installcustom',
-		'removecustom'
+		'removecustom',
+		'upgradecustom'
 	);
 
 	if (!in_array($_REQUEST['mode'], $valid_modes)) {
@@ -242,7 +243,7 @@ if (!empty($_REQUEST['id'])) {
 }
 
 if (!empty($_REQUEST['pkg'])) {
-	if (!in_array($pkgmode, array('installcustom', 'removecustom'), true) ? !pkg_valid_name($pkgname) : !pkgrepo_pkg_name_ok($pkgname)) {
+	if (!in_array($pkgmode, array('installcustom', 'removecustom', 'upgradecustom'), true) ? !pkg_valid_name($pkgname) : !pkgrepo_pkg_name_ok($pkgname)) {
 		header("Location: pkg_mgr_installed.php");
 		return;
 	}
@@ -277,9 +278,9 @@ if ($firmwareupdate) {
 	$subject_name = $package_meta['display_name'] ?: $catalog_shortname;
 	$back_href = ($pkgmode == 'delete' || $pkgmode == 'reinstallpkg') ? 'pkg_mgr_installed.php' : 'pkg_mgr.php';
 	$back_label = ($pkgmode == 'delete' || $pkgmode == 'reinstallpkg') ? gettext('Back to installed packages') : gettext('Back to available packages');
-	if ($pkgmode == 'installcustom' || $pkgmode == 'removecustom') {
-		$back_href = 'pkg_mgr_repos.php';
-		$back_label = gettext('Back to repositories');
+	if ($pkgmode == 'installcustom' || $pkgmode == 'removecustom' || $pkgmode == 'upgradecustom') {
+		$back_href = 'pkg_mgr.php';
+		$back_label = gettext('Back to packages');
 	}
 }
 
@@ -358,10 +359,10 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		$confirm_button_class = 'btn-danger';
 		$confirm_button_icon = 'trash-can';
 		$confirm_button_label = gettext('Remove package');
-	} elseif ($pkgmode === 'reinstallpkg' || $pkgmode === 'reinstallall') {
+	} elseif ($pkgmode === 'reinstallpkg' || $pkgmode === 'reinstallall' || $pkgmode === 'upgradecustom') {
 		$confirm_button_class = 'btn-primary';
 		$confirm_button_icon = 'arrows-rotate';
-		$confirm_button_label = ($pkgmode === 'reinstallall') ? gettext('Reinstall all packages') : gettext('Reinstall package');
+		$confirm_button_label = ($pkgmode === 'reinstallall') ? gettext('Reinstall all packages') : ($pkgmode === 'upgradecustom' ? gettext('Update package') : gettext('Reinstall package'));
 	} else {
 		$confirm_button_class = 'btn-primary';
 		$confirm_button_icon = 'download';
@@ -447,14 +448,15 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			<a class="btn btn-outline-secondary" href="pkg_mgr_installed.php"><i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i><?=gettext('Back to installed packages')?></a>
 		</div>
 <?php
-	elseif ($pkgmode == 'installcustom' || $pkgmode == 'removecustom'):
+	elseif ($pkgmode == 'installcustom' || $pkgmode == 'removecustom' || $pkgmode == 'upgradecustom'):
 		$custom_removal = ($pkgmode == 'removecustom');
-		$custom_review = $custom_removal ? pkgrepo_review_remove($pkgname) : pkgrepo_review_install($pkgname);
+		$custom_upgrade = ($pkgmode == 'upgradecustom');
+		$custom_review = $custom_removal ? pkgrepo_review_remove($pkgname) : ($custom_upgrade ? pkgrepo_review_upgrade($pkgname) : pkgrepo_review_install($pkgname));
 ?>
 		<div class="fs-pkg-head">
-			<span class="fs-pkg-head-icon"><i class="fa-solid fa-<?=$custom_removal ? 'trash-can' : 'box-open'?>" aria-hidden="true"></i></span>
+			<span class="fs-pkg-head-icon"><i class="fa-solid fa-<?=$custom_removal ? 'trash-can' : ($custom_upgrade ? 'arrows-rotate' : 'box-open')?>" aria-hidden="true"></i></span>
 			<div class="fs-pkg-head-text">
-				<div class="fs-pkg-eyebrow"><?=$custom_removal ? gettext('Review the removal') : gettext('Review the installation')?></div>
+				<div class="fs-pkg-eyebrow"><?=$custom_removal ? gettext('Review the removal') : ($custom_upgrade ? gettext('Review the update') : gettext('Review the installation'))?></div>
 				<h2 class="fs-pkg-title"><?=htmlspecialchars($pkgname)?></h2>
 				<div class="fs-pkg-sub"><?=gettext('From a package repository that is not part of FreeSense')?></div>
 			</div>
@@ -464,6 +466,16 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			<input type="hidden" name="pkg" value="<?=htmlspecialchars($pkgname)?>" />
 			<input type="hidden" name="confirmed" value="true" />
 			<div class="alert alert-warning"><?=gettext('This package is not tested with FreeSense and is installed as root. FreeSense never upgrades it automatically, and a firmware update may need it reinstalled.')?></div>
+<?php if ($custom_upgrade && !empty($custom_review['plan']['changed'])): ?>
+			<table class="table table-sm fs-mono mb-3">
+				<thead><tr><th><?=gettext('Package')?></th><th><?=gettext('Version')?></th><th><?=gettext('Repository')?></th></tr></thead>
+				<tbody>
+<?php foreach ($custom_review['plan']['changed'] as $item): ?>
+					<tr><td><?=htmlspecialchars($item[0])?></td><td><?=htmlspecialchars($item[1])?></td><td><?=htmlspecialchars($item[2])?></td></tr>
+<?php endforeach; ?>
+				</tbody>
+			</table>
+<?php endif; ?>
 <?php if (!empty($custom_review['plan']['new'])): ?>
 			<table class="table table-sm fs-mono mb-3">
 				<thead><tr><th><?=gettext('Package')?></th><th><?=gettext('Version')?></th><th><?=gettext('Repository')?></th></tr></thead>
@@ -479,7 +491,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 <?php endif; ?>
 <?php if (!$custom_review['ok']): ?>
 			<div class="alert alert-danger">
-				<strong><?=$custom_removal ? gettext('This cannot be removed:') : gettext('This cannot be installed:')?></strong>
+				<strong><?=$custom_removal ? gettext('This cannot be removed:') : ($custom_upgrade ? gettext('This cannot be updated:') : gettext('This cannot be installed:'))?></strong>
 				<ul class="mb-0">
 <?php foreach ($custom_review['reasons'] as $reason): ?>
 					<li><?=htmlspecialchars($reason)?></li>
@@ -624,6 +636,11 @@ if ($firmwareupdate) {
 	$pkg_success_txt = gettext('All packages reinstallation successfully completed.');
 	$pkg_fail_txt = gettext('All packages reinstallation failed!');
 	$pkg_wait_txt = gettext('Please wait while the reinstallation of all packages completes.');
+} else if ($pkgmode == 'upgradecustom') {
+	$panel_heading_txt = gettext("Updating package");
+	$pkg_success_txt = sprintf(gettext('%1$s update successfully completed.'), $pkgname_bold);
+	$pkg_fail_txt = sprintf(gettext('%1$s update failed!'), $pkgname_bold);
+	$pkg_wait_txt = sprintf(gettext('Please wait while %1$s is updated.'), $pkgname_bold);
 } else if ($pkgmode == 'reinstallpkg') {
 	$panel_heading_txt = gettext("Reinstalling package");
 	$pkg_success_txt = sprintf(gettext('%1$s reinstallation successfully completed.'), $pkgname_bold);
@@ -740,7 +757,7 @@ endif;
 ob_flush();
 
 if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
-	if ($pkgmode == 'installcustom' || $pkgmode == 'removecustom') {
+	if ($pkgmode == 'installcustom' || $pkgmode == 'removecustom' || $pkgmode == 'upgradecustom') {
 		$started = pkgrepo_start($pkgmode, $pkgname);
 	} else {
 		$started = pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $_POST['fwbranch'] ?? '', $repos);

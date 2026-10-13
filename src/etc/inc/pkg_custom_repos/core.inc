@@ -280,9 +280,13 @@ function pkgrepo_parse_plan($output) {
  * package names the FreeSense repositories supply. Returns a list of reasons
  * the plan is refused, empty when it is fine.
  */
-function pkgrepo_guard(array $plan, array $foreign, array $system) {
+function pkgrepo_guard(array $plan, array $foreign, array $system, array $may_change = array()) {
 	$reasons = array();
 	foreach ($plan['changed'] as $item) {
+		/* an explicit update of one package from its own repository may change that package, nothing else */
+		if (in_array($item[0], $may_change, true) && in_array($item[2], $foreign, true)) {
+			continue;
+		}
 		$reasons[] = sprintf(gettext('It would change the installed package %s.'), $item[0]);
 	}
 	foreach ($plan['removed'] as $name) {
