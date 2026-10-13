@@ -77,17 +77,28 @@ $priorities = pkgrepo_priorities($repos);
 $builtin = pkgrepo_builtin();
 $freebsd = pkgrepo_freebsd_enabled();
 
-/* the repository whose packages are shown */
-$browse = (string)($_GET['browse'] ?? '');
+/* the repository whose packages are shown: picked from the known ones, never taken from the request */
+$browse = '';
 $browse_packages = null;
 $browse_total = 0;
-$browse_query = (string)($_GET['q'] ?? '');
-if ($browse !== '' && (in_array($browse, array_column($repos, 'name'), true) || ($browse === 'FreeBSD-ports' && $freebsd))) {
-	list($browse_packages, $browse_total) = pkgrepo_catalog($browse, $browse_query);
-} else {
-	$browse = '';
+$browse_query = trim((string)($_GET['q'] ?? ''));
+foreach (array_merge(array_column($repos, 'name'), $freebsd ? array('FreeBSD-ports') : array()) as $known) {
+	if ($known === ($_GET['browse'] ?? null)) {
+		$browse = $known;
+	}
 }
-
+if ($browse !== '') {
+	/* The whole catalogue is read and filtered here, so the search text only decides which rows are kept. */
+	$browse_packages = array();
+	foreach (pkgrepo_catalog($browse) as $p) {
+		if ($browse_query === '' || stripos($p[0], $browse_query) !== false || stripos($p[2], $browse_query) !== false) {
+			$browse_total++;
+			if (count($browse_packages) < 300) {
+				$browse_packages[] = $p;
+			}
+		}
+	}
+}
 $pgtitle = array(gettext('System'), gettext('Package Manager'), gettext('Repositories'));
 $pglinks = array('', 'pkg_mgr_installed.php', '@self');
 if (count($repos) < PKGREPO_MAX_CUSTOM) {
@@ -219,7 +230,7 @@ if (is_array($browse_packages)):
 					<td class="fs-mono text-nowrap"><?=htmlspecialchars($p[1])?></td>
 					<td><?=htmlspecialchars($p[2])?></td>
 					<td class="fs-col-actions">
-						<?=fs_row_actions(array( // nosemgrep: php.lang.security.injection.printed-request.printed-request
+						<?=fs_row_actions(array(
 							array('custom', 'pkg_mgr_install.php?mode=installcustom&pkg=' . urlencode($p[0]), $p[0], array('icon' => 'fa-download', 'label' => sprintf(gettext('Review and install %s'), $p[0]))),
 						))?>
 					</td>
