@@ -259,20 +259,12 @@ function pkgrepo_refresh($name) {
 }
 
 /*
- * The packages one repository offers: array of array(name, version, comment),
- * at most $limit of them. A search ($query: letters, digits and . _ + -) lists
- * the packages whose name contains it; without one the first $limit are shown,
- * which is all a small repository has but a fraction of the FreeBSD one.
+ * Every package one repository offers: array of array(name, version, comment),
+ * sorted by name. Large repositories (FreeBSD's has tens of thousands) are
+ * filtered and capped by the caller.
  */
-function pkgrepo_catalog($name, $query = '', $limit = 300) {
-	$query = preg_replace('/[^A-Za-z0-9._+-]/', '', (string)$query);
-	$command = 'rquery -U -r ' . escapeshellarg($name);
-	if ($query !== '') {
-		$command .= ' -x ' . escapeshellarg('%n|%v|%c') . ' ' . escapeshellarg(preg_quote($query, '/'));
-	} else {
-		$command .= ' ' . escapeshellarg('%n|%v|%c');
-	}
-	list($rc, $out) = pkgrepo_pkg($command);
+function pkgrepo_catalog($name) {
+	list($rc, $out) = pkgrepo_pkg('rquery -U -r ' . escapeshellarg($name) . ' ' . escapeshellarg('%n|%v|%c'));
 	$packages = array();
 	if ($rc === 0) {
 		foreach (preg_split('/\r?\n/', trim($out)) as $line) {
@@ -285,7 +277,7 @@ function pkgrepo_catalog($name, $query = '', $limit = 300) {
 	usort($packages, function ($a, $b) {
 		return strcmp($a[0], $b[0]);
 	});
-	return array(array_slice($packages, 0, $limit), count($packages));
+	return $packages;
 }
 
 /*
