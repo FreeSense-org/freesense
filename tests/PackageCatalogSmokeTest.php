@@ -78,6 +78,13 @@ foreach (['id="available_tile"', "toggle(json.pkg_version_compare == '<')"] as $
 		exit(1);
 	}
 }
+foreach (['id="run-overlay"', 'function openRunOverlay', 'function closeRunOverlay', 'run-details-toggle',
+    'Show details', "openRunOverlay('working')", "openRunOverlay('reboot')", 'onbeforeunload'] as $requiredText) {
+	if (strpos($updateManager, $requiredText) === false) {
+		fwrite(STDERR, "Update page does not lock the page behind a busy overlay while it runs.\n");
+		exit(1);
+	}
+}
 foreach (['/v1/releases/', 'render_update_notes', 'fa-wand-magic-sparkles',
     'freesense.release-notes/v2', 'update_notes_freesense_tab',
     'update_notes_platform_tab', 'FreeBSD ports snapshot updated'] as $requiredText) {
