@@ -1,48 +1,44 @@
 # FreeSense release policy
 
-FreeSense uses `main` for development and matching `RELENG_x_y` branches for
-supported releases. Stable artifacts are never built directly: a release branch
-produces an immutable `x.y.z-rc.N` candidate, and the tested candidate is promoted
-without rebuilding it.
+FreeSense has two channels, planned and published from `freesense-os-base`:
 
-## Monthly train
+- **Stable** is the immutable `x.y.z` release line (currently `1.1.x`). Every
+  Stable release is built from a sealed release lock and is never rebuilt or
+  rewritten once published.
+- **Development** is the rolling next line (currently `1.2`). Development builds
+  are experimental and unsupported.
 
-1. Merge features to `main` during days 1–14.
-2. Freeze and build a candidate on day 15.
-3. Test and fix candidates through day 25.
-4. Promote on the final Tuesday after the acceptance checklist passes.
+Upgrading from an older Stable line to a newer one is one-way: an installed
+system never downgrades to an earlier line.
 
-Critical security releases may bypass the calendar, but not candidate isolation,
-signature verification, acceptance, or manual promotion approval.
+## How a Stable release is made
 
-## Required acceptance record
+Stable artifacts are never built from a moving branch. A release is an exact
+lock file, `config/releases/<version>.json` in `freesense-os-base`, which pins
+the `freesense`, `freesense-system-ports` and `freesense-packages` commits, the
+FreeBSD source and ports commits, and the worker inputs.
 
-Record the exact source, ports, OS-definition, and FreeBSD commits; BIOS and UEFI
-installation results; OTA results on two independent VMs; configuration-import
-results; signature/hash checks; rollback drill; known issues; and approver. Link
-that record when dispatching `Promote or roll back Stable`.
+1. Verify the commits to release in a Development build and on the test VM.
+2. Add the sealed lock (`schema_version: freesense.release-lock/v1`) and a pull
+   request that passes CI. Patch releases (`1.1.1`, ...) add a new lock only.
+3. Dispatch `Publish FreeSense Stable train` (`stable.yml`) with the exact
+   `release` and, if wanted, `queue_development`. The workflow plans from the
+   lock, builds System and Optional Packages, seals and signs the Stable
+   channel, builds the installer images, publishes the downloads, and finally
+   writes the signed release document. The `channel-publisher` GitHub
+   environment gates publication.
+4. Confirm the live release documents and download metadata
+   (`pkg.freesense.org/v1/releases/stable.json`) and the website.
 
-Stable promotion requires the protected `stable-release` GitHub environment.
-Configure it with required reviewers and restrict deployment branches to `main`.
-Protect `main` and `RELENG_*` from force pushes and require pull requests plus CI.
-Review authority belongs to the FreeSense organization and its configured repository
-teams; release automation must not depend on a contributor's personal namespace.
+System and Optional Packages are planned independently: a System-only change
+does not force an Optional Packages rebuild.
 
-## Operator sequence
+## Fixes to a released line
 
-1. Open a Release acceptance issue in `freesense-os-base`.
-2. Dispatch `Build ALL` with `ref=RELENG_1_0`, `candidate_id=1.0.0-rc.N`, and the
-   appropriate runner. The workflow derives the isolated R2 prefix and refuses a
-   direct Stable build.
-3. Test the Candidate channel and complete the acceptance issue.
-4. Dispatch `Promote or roll back Stable` with `operation=promote`, the candidate,
-   stable version, acceptance URL, curated notes, and confirmation `PROMOTE`.
-5. For an operational rollback, dispatch the same workflow with `operation=rollback`,
-   the retained Stable version, acceptance/incident URL, and confirmation `ROLLBACK`.
+Only necessary security fixes are released as Stable patches. Ordinary fixes
+land on `main` and ship with the next line.
 
-## Retention and rollback
+## Retention
 
-Stable package and ISO snapshots are immutable and retained indefinitely.
-Candidates remain available through the following stable release. Rollback changes
-only the public channel pointers to an earlier immutable Stable snapshot; it never
-rewrites or deletes a published release.
+Stable package, ISO and image snapshots are immutable and retained
+indefinitely, including those of earlier Stable lines.
