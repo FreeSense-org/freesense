@@ -219,7 +219,7 @@ if (is_array($browse_packages)):
 					<td class="fs-mono text-nowrap"><?=htmlspecialchars($p[1])?></td>
 					<td><?=htmlspecialchars($p[2])?></td>
 					<td class="fs-col-actions">
-						<?=fs_row_actions(array( // nosemgrep: php.lang.security.injection.printed-request.printed-request (fs_row_actions escapes every attribute and label)
+						<?=fs_row_actions(array( // nosemgrep: php.lang.security.injection.printed-request.printed-request
 							array('custom', 'pkg_mgr_install.php?mode=installcustom&pkg=' . urlencode($p[0]), $p[0], array('icon' => 'fa-download', 'label' => sprintf(gettext('Review and install %s'), $p[0]))),
 						))?>
 					</td>
