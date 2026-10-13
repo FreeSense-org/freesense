@@ -315,6 +315,21 @@ if ($input_errors) {
 .fs-pkg-log .panel-heading { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
 .fs-pkg-log .panel-title { margin-right: auto; }
 .fs-pkg-log .fs-console { min-height: 12rem; }
+/* While a run is in progress the page is dimmed and locked behind a busy card */
+.fs-run-overlay { position: fixed; inset: 0; z-index: 2000; align-items: center; justify-content: center; padding: 1rem;
+	background: color-mix(in srgb, #05080c 62%, transparent); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.fs-run-overlay:not([hidden]) { display: flex; }
+.fs-run-card { width: 100%; max-width: 46rem; max-height: calc(100vh - 2rem); overflow: auto; padding: 2rem 1.5rem 1.25rem; text-align: center;
+	background: var(--fs-surface-raised); border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); box-shadow: var(--fs-shadow-overlay); }
+.fs-run-spinner { width: 4rem; height: 4rem; margin: 0 auto 1.25rem; border-width: .4rem; }
+.fs-run-card h2 { margin: 0 0 .5rem; font-size: 1.25rem; }
+.fs-run-card .fs-run-msg { margin: 0 auto .75rem; max-width: 34rem; color: var(--fs-text-muted); }
+.fs-run-card .fs-run-elapsed { font-variant-numeric: tabular-nums; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); margin-bottom: .75rem; }
+.fs-run-card .progress { margin: 0 auto 1rem; max-width: 30rem; }
+.fs-run-card #countdown h4 { font-size: 1rem; margin: 0 0 1rem; }
+.fs-run-card .fs-pkg-log { margin: 1rem 0 0; text-align: left; }
+.fs-run-card .fs-pkg-log .fs-console { min-height: 10rem; max-height: 45vh; overflow: auto; }
+@media (prefers-reduced-motion: reduce) { .fs-run-spinner { animation-duration: 3s; } }
 @media (max-width: 575.98px) { .fs-pkg-head { align-items: flex-start; flex-wrap: wrap; } .fs-pkg-body { padding: 1rem; } }
 </style>
 
@@ -590,7 +605,6 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 			</span>
 		</div>
 		<div class="fs-pkg-body">
-			<div id="countdown"></div>
 			<div class="progress" role="progressbar" aria-label="<?=gettext('Progress')?>" style="display: none;">
 				<div id="progressbar" class="progress-bar progress-bar-striped progress-bar-animated" aria-valuemin="0" aria-valuemax="100" style="width: 1%"></div>
 			</div>
@@ -617,6 +631,19 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 		<textarea id="output" name="output" hidden spellcheck="false"><?=($completed ? htmlspecialchars($_POST['output']) : gettext("Please wait while the update system initializes"))?></textarea>
 	</div>
 
+
+	<!-- Busy overlay: dims and locks the page while the run is in progress -->
+	<div class="fs-run-overlay" id="run-overlay" role="alertdialog" aria-modal="true" aria-labelledby="run-overlay-title" aria-describedby="run-overlay-msg" hidden>
+		<div class="fs-run-card">
+			<div class="spinner-border fs-run-spinner text-primary" role="status" aria-hidden="true"></div>
+			<h2 id="run-overlay-title"><?=htmlspecialchars($panel_heading_txt)?></h2>
+			<p class="fs-run-msg" id="run-overlay-msg"></p>
+			<div class="fs-run-elapsed" id="run-elapsed" aria-hidden="true"></div>
+			<div id="countdown"></div>
+			<button type="button" class="btn btn-sm btn-outline-secondary" id="run-details-toggle" aria-expanded="false" aria-controls="run-details"><i class="fa-solid fa-terminal icon-embed-btn" aria-hidden="true"></i><span><?=gettext('Show details')?></span></button>
+			<div id="run-details" hidden></div>
+		</div>
+	</div>
 
 	<!-- Modal used to display installation notices -->
 	<div id="notice" name="notice" class="modal fade" role="dialog" tabindex="-1" aria-labelledby="notice-title">
@@ -674,6 +701,7 @@ if ($completed):
 //<![CDATA[
 events.push(function() {
 	time = "<?=$guitimeout?>";
+	openRunOverlay('reboot');
 	startCountdown();
 });
 //]]>
@@ -712,6 +740,10 @@ function setRunState(state) {
 		$('#progressbar').removeClass('progress-bar-animated progress-bar-striped');
 		$('#run-done').show();
 	}
+	// A failed run hands the page back with its log; success stays dimmed until the reload
+	if (state === 'failure') {
+		closeRunOverlay();
+	}
 }
 
 // Mirror the log (decoded by the textarea, which is also posted on reload) into the console
@@ -725,6 +757,7 @@ function showOutput(force) {
 
 // Display a success banner
 function show_success() {
+	window.onbeforeunload = null; // the page reloads itself next
 	setRunState('success');
 	$('#progressbar').addClass('bg-success');
 	if (!"<?=$firmwareupdate?>") {
@@ -883,6 +916,82 @@ function render_update_notes(notes) {
 	$('#update_notes_card').show();
 }
 
+// Busy overlay. 'working' while the run is in progress, 'reboot' while the firewall restarts.
+var runOverlayTimer = null;
+var runOverlayStart = 0;
+
+function runOverlayKeys(e) {
+	if (e.key !== 'Tab') {
+		return;
+	}
+	var items = $('#run-overlay').find('button:visible, a[href]:visible, input:visible, [tabindex]:visible').filter(':not([tabindex="-1"])');
+	if (!items.length) {
+		e.preventDefault();
+		return;
+	}
+	var first = items.first()[0], last = items.last()[0];
+	if (!$.contains(document.getElementById('run-overlay'), document.activeElement)) {
+		e.preventDefault();
+		first.focus();
+	} else if (e.shiftKey && document.activeElement === first) {
+		e.preventDefault();
+		last.focus();
+	} else if (!e.shiftKey && document.activeElement === last) {
+		e.preventDefault();
+		first.focus();
+	}
+}
+
+function openRunOverlay(mode) {
+	var overlay = $('#run-overlay');
+	if (!overlay.length || !overlay.prop('hidden')) {
+		return;
+	}
+	if (mode === 'reboot') {
+		$('#run-overlay-title').text("<?=gettext('Update installed')?>");
+		$('#run-elapsed').text('');
+		$('#run-overlay-msg').text("<?=gettext('The firewall is restarting to finish the update. This page reloads when it is back. Do not power off or reset the system.')?>");
+	} else {
+		$('#run-overlay-msg').text("<?=$firmwareupdate ?
+		    gettext('Do not power off, reset or leave this page. The firewall restarts by itself if the update needs it.') :
+		    gettext('Do not leave this page until this finishes.')?>");
+		window.onbeforeunload = function(e) {
+			e.preventDefault();
+			e.returnValue = '';
+			return '';
+		};
+		runOverlayStart = Date.now();
+		runOverlayTimer = setInterval(function() {
+			var s = Math.floor((Date.now() - runOverlayStart) / 1000);
+			$('#run-elapsed').text("<?=gettext('Elapsed')?> " + Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2));
+		}, 1000);
+		$('#run-elapsed').text("<?=gettext('Elapsed')?> 0:00");
+		// the panel underneath only repeats what the overlay says
+		$('#pkg-run').hide();
+	}
+	// the progress bar (when pkg reports one) and the log live inside the card
+	$('#pkg-run .progress').insertBefore('#run-elapsed');
+	$('.fs-pkg-log').appendTo('#run-details');
+	overlay.prop('hidden', false);
+	$(document).on('keydown.runoverlay', runOverlayKeys);
+	$('#run-details-toggle').trigger('focus');
+}
+
+function closeRunOverlay() {
+	var overlay = $('#run-overlay');
+	if (overlay.prop('hidden')) {
+		return;
+	}
+	clearInterval(runOverlayTimer);
+	window.onbeforeunload = null;
+	$(document).off('keydown.runoverlay');
+	$('#run-overlay .progress').appendTo('#pkg-run .fs-pkg-body');
+	$('.fs-pkg-log').insertAfter('#pkg-run');
+	$('#pkg-run').show();
+	overlay.prop('hidden', true);
+	showOutput(true);
+}
+
 function getLogsStatus() {
 	var ajaxRequest;
 	var repeat;
@@ -953,6 +1062,7 @@ function getLogsStatus() {
 
 				// Display any UI notice the package installer may have created
 				if (json.notice.length > 0) {
+					closeRunOverlay();
 					$('#noticebody').html(json.notice);
 					bootstrap.Modal.getOrCreateInstance(document.getElementById('notice')).show();
 				} else {
@@ -1022,8 +1132,18 @@ events.push(function() {
 	// Start polling the system to obtain progress information
 	if ("<?=$start_polling?>") {
 		setTimeout(getLogsStatus, 3000);
-		show_info();
+		openRunOverlay('working');
 	}
+
+	$('#run-details-toggle').click(function() {
+		var open = $('#run-details').prop('hidden');
+		$('#run-details').prop('hidden', !open);
+		$(this).attr('aria-expanded', open ? 'true' : 'false').find('span').text(open ?
+		    "<?=gettext('Hide details')?>" : "<?=gettext('Show details')?>");
+		if (open) {
+			showOutput(true);
+		}
+	});
 
 	// If we are just re-drawing the page after a successful install/remove/reinstall,
 	// we only need to re-populate the progress indicator and the status banner
