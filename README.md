@@ -36,7 +36,9 @@ buildable outside any vendor's private infrastructure.
   [auditable patch series](https://github.com/FreeSense-org/freesense-os-base/tree/os-base/freebsd-16.0), not an opaque fork.
 - 🔑 **Own your trust root.** Rebuild under Apache 2.0 with your own signing key and run an
   independent, equally-official distribution.
-- 🧭 **Development and RC Preview channels** with signed web-UI upgrades. Stable remains unavailable while the base is FreeBSD 16-CURRENT.
+- 🧭 **Stable and Development channels** with signed upgrades from the WebUI or console. Stable is the
+  supported 1.1.x line; Development is the rolling, experimental 1.2 line. Upgrading from 1.0 to 1.1
+  is one-way.
 
 ## What's in this repo
 
@@ -57,10 +59,13 @@ publishes signed artifacts to R2.
 
 ## Status
 
-Actively developed. The distribution builds from source and boots to a working installer and web GUI;
-release hardening and package-catalog validation are ongoing. Remaining `pfSense` identifiers are
-retained only for attribution, imports, compatibility formats, or documented boot/runtime hooks;
-they are not FreeSense product branding. Current 16-CURRENT builds are unsupported previews.
+**Stable 1.1** (amd64) is the supported release line; it replaced 1.0.x on 2026-10-13. `main` is the
+rolling **1.2 Development** line, built nightly; Development builds are experimental and unsupported.
+See [`.github/RELEASING.md`](.github/RELEASING.md) for the release policy and
+[docs.freesense.org](https://docs.freesense.org) for the documentation of each line.
+
+Remaining `pfSense` identifiers are retained only for attribution, imports, compatibility formats, or
+documented boot/runtime hooks; they are not FreeSense product branding.
 
 ---
 

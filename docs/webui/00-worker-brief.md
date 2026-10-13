@@ -32,7 +32,7 @@ Then open the **pilot page** for your page type (listed in `02-page-types.md`) a
 3. Run local checks:
    - `docker run --rm -v "$PWD:/src" -w /src php:8.5-cli sh tools/ci/php-lint.sh`
    - the smoke tests from `.github/workflows/quality.yml` if you touched anything under `src/etc/inc` or `classes/`
-4. Check every page you changed on the 1.1 test VM (copy the files onto the VM, or wait for the nightly build). Use **both themes** at **375px and 1440px**. Do every action on the page once: add, edit, copy, toggle, delete with cancel, delete with confirm, search, sort, bulk select, and save with a validation error.
+4. Check every page you changed on the Development test VM (copy the files onto the VM, or wait for the nightly build). Use **both themes** at **375px and 1440px**. Do every action on the page once: add, edit, copy, toggle, delete with cancel, delete with confirm, search, sort, bulk select, and save with a validation error.
 5. Open a PR. The description includes the page list, before/after screenshots (dark theme, 1440px), the checklist below with each item ticked, and any "Shared change needed" notes.
 6. CI (`quality`, `semgrep`) must be green. **Do not trigger a manual build.** A merge produces a System build only, through the nightly Development build.
 
