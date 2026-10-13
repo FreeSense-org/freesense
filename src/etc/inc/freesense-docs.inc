@@ -6,7 +6,14 @@
  */
 
 function freesense_docs_edition_prefix($version) {
-	return preg_match('/^1\.1(?:\.|$)/', (string)$version) ? '/1.1' : '';
+	/* The current Stable release is served at the docs root. */
+	if (preg_match('/^1\.0(?:\.|$)/', (string)$version)) {
+		return '/1.0';
+	}
+	if (preg_match('/^1\.2(?:\.|$)/', (string)$version)) {
+		return '/1.2';
+	}
+	return '';
 }
 
 function freesense_docs_topic_path($page) {

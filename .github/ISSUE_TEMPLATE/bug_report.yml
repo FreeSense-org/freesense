@@ -11,8 +11,8 @@ body:
     id: version
     attributes:
       label: FreeSense version
-      description: Shown on the dashboard / console (e.g. 1.0.0-RELEASE or 1.1.0-DEVELOPMENT).
-      placeholder: "1.0.0-RELEASE"
+      description: Shown on the dashboard / console (e.g. 1.1.0-RELEASE or 1.2.0-DEVELOPMENT).
+      placeholder: "1.1.0-RELEASE"
     validations:
       required: true
   - type: dropdown
