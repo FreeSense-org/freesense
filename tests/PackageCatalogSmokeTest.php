@@ -72,6 +72,12 @@ foreach (['Updates are pulled from this branch', 'Change branch'] as $removedTex
 		exit(1);
 	}
 }
+foreach (['id="available_tile"', "toggle(json.pkg_version_compare == '<')"] as $requiredText) {
+	if (strpos($updateManager, $requiredText) === false) {
+		fwrite(STDERR, "Update page shows an available version that is not newer than the installed one.\n");
+		exit(1);
+	}
+}
 foreach (['/v1/releases/', 'render_update_notes', 'fa-wand-magic-sparkles',
     'freesense.release-notes/v2', 'update_notes_freesense_tab',
     'update_notes_platform_tab', 'FreeBSD ports snapshot updated'] as $requiredText) {

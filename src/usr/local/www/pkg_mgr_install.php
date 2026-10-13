@@ -371,7 +371,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 ?>
 			<div class="fs-tiles">
 				<div class="fs-tile"><div class="fs-tile-label"><i class="fa-solid fa-server" aria-hidden="true"></i><?=gettext('Installed system')?></div><div class="fs-tile-value fs-mono" id="installed_version"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
-				<div class="fs-tile"><div class="fs-tile-label"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><?=gettext('Available system')?></div><div class="fs-tile-value fs-mono" id="version"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
+				<div class="fs-tile" id="available_tile"><div class="fs-tile-label"><i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i><?=gettext('Available system')?></div><div class="fs-tile-value fs-mono" id="version"><i class="fa-solid fa-ellipsis fa-fade" aria-hidden="true"></i></div></div>
 			</div>
 
 			<div class="fs-pkg-status mb-3" id="confirm">
@@ -792,6 +792,9 @@ function get_firmware_versions() {
 		} else if (json && !json.pkg_version_error) {
 			$('#installed_version').text(json.installed_version);
 			$('#version').text(json.version);
+			// Offer an available version only when it is newer; otherwise the tile
+			// just repeats what is installed.
+			$('#available_tile').toggle(json.pkg_version_compare == '<');
 			render_update_notes(json.release_notes || null);
 
 			// If the installed and latest versions are the same, print an "Up to date" message
