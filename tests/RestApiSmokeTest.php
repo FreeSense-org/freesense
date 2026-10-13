@@ -2516,12 +2516,19 @@ foreach (array(
     'GET /v1/packages/installed' => array('pkg_mgr_installed.php', 'packages', false),
     'GET /v1/packages/available' => array('pkg_mgr.php', 'packages', false),
     'GET /v1/system/version' => array('pkg_mgr_install.php', 'packages', false),
+    'GET /v1/packages/repositories' => array('pkg_mgr_repos.php', 'packages', false),
+    'POST /v1/packages/repositories' => array('pkg_mgr_repos.php', 'packages', true),
+    'PUT /v1/packages/repositories/{id}' => array('pkg_mgr_repos.php', 'packages', true),
+    'DELETE /v1/packages/repositories/{id}' => array('pkg_mgr_repos.php', 'packages', true),
+    'POST /v1/packages/repositories/{id}/refresh' => array('pkg_mgr_repos.php', 'packages', true),
+    'GET /v1/packages/repositories/{id}/packages' => array('pkg_mgr_repos.php', 'packages', false),
+    'PUT /v1/packages/freebsd-repository' => array('pkg_mgr_repos.php', 'packages', true),
     'GET /v1/status/services' => array('status_services.php', 'status', false)) as $key => $want) {
 	check_api(isset($f1_routes[$key]) && ($f1_routes[$key]['page'] === $want[0]) && ($f1_routes[$key]['area'] === $want[1]) &&
 	    ($f1_routes[$key]['write'] === $want[2]), "route {$key} (page {$want[0]}, area {$want[1]})");
 }
 foreach ($v1 as $r) {
-	if (($r['area'] === 'logs') || (($r['area'] === 'packages') && ($r['handler'] !== 'restapi_h_firmware_update') && (strpos($r['handler'], 'restapi_h_pkgop_') !== 0))) {
+	if (($r['area'] === 'logs') || (($r['area'] === 'packages') && ($r['handler'] !== 'restapi_h_firmware_update') && (strpos($r['handler'], 'restapi_h_pkgop_') !== 0) && (strpos($r['handler'], 'restapi_h_pkgrepo_') !== 0))) {
 		check_api(($r['method'] === 'GET') && !$r['write'], "{$r['method']} {$r['path']}: logs and the package lists are read only (the operations are step F4)");
 	}
 }

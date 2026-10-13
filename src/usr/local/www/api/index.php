@@ -38,6 +38,8 @@ require_once('priv.inc');
 /* backup.inc must be loaded at file scope: rrd_data_xml() uses its globals. */
 require_once('backup.inc');
 require_once('remote_backup.inc');
+/* The custom package repositories (restapi/routes_pkgrepos.inc). */
+require_once('pkg_custom_repos.inc');
 /* The GUI's shared firewall save functions; they set globals at file scope. */
 require_once('alias-utils.inc');
 require_once('firewall_nat.inc');

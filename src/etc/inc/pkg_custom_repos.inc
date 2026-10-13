@@ -159,6 +159,10 @@ function pkgrepo_delete($id) {
 		return false;
 	}
 	pkgrepo_store($repos, sprintf(gettext('Package repository "%s" deleted.'), $name));
+	/* its cached catalogue goes too, so its packages are no longer offered */
+	if (pkgrepo_name_valid($name)) {
+		mwexec('/bin/rm -rf ' . escapeshellarg('/var/db/pkg/repos/' . $name));
+	}
 	return true;
 }
 
@@ -254,7 +258,7 @@ function pkgrepo_refresh($name) {
 	}
 	list($rc, $out, $err) = pkgrepo_pkg('update -f -r ' . escapeshellarg($name));
 	/* pkg exits 0 even when the signature is refused; it leaves no catalogue behind and says why on stderr */
-	$ok = ($rc === 0) && trim($err) === '' && file_exists('/var/db/pkg/repo-' . $name . '.sqlite');
+	$ok = ($rc === 0) && trim($err) === '' && file_exists('/var/db/pkg/repos/' . $name . '/db');
 	return array($ok, trim($ok ? $out : (trim($err) !== '' ? $err : $out)));
 }
 
