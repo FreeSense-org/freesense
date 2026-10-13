@@ -2,7 +2,7 @@
 
 Date: 2026-10-06
 Status: proposal. No code has changed yet.
-Repo: `src/usr/local/www`, branch `main` (1.1 Development only)
+Repo: `src/usr/local/www`, branch `main` (now the 1.2 Development line; the phases merged before 2026-10-13 shipped in Stable 1.1.0)
 Builds on: the 2026-10-03 WebUI overhaul plan (workspace planning notes) (visual tokens, shell, tables, forms). None of that plan has shipped yet; this plan absorbs it and sequences the two together.
 
 Every implementer reads `00-worker-brief.md` first.
@@ -159,7 +159,7 @@ Status 19 + ~10 package entries, and System 17. Firewall (6) and VPN (3) are sma
   so unconverted or third-party packages still appear.
 - **Package change (`freesense-packages`):** add `<group>` to the ~35 package XMLs that declare menus. That's an
   Optional Packages source change, so it triggers an **Optional Packages rebuild**; the System side does not
-  depend on it (fallback mapping), so the two can merge in either order. 1.1 only.
+  depend on it (fallback mapping), so the two can merge in either order. Development line only.
 
 ### PRs
 1. `freesense`: menu renderer + group registry + search + mobile off-canvas + core group keys + fallback mapping for
@@ -170,8 +170,8 @@ Status 19 + ~10 package entries, and System 17. Firewall (6) and VPN (3) are sma
 ## 5. Release impact
 
 - **System-only.** Every change is in the `freesense` base repo, so each merge produces a **System build only**, through the normal nightly Development build. **Optional Packages do not rebuild**, and no PR in this plan edits `freesense-packages`. Packages pick up the new look through the shared CSS, `display_top_tabs()` and the Form classes.
-- **1.1 only.** No 1.0.x backport.
-- **No manual builds.** Verify on the 1.1 test VM (`192.168.228.2`) from the nightly build, or by copying changed files onto the VM.
+- **Development line only.** No backport to a Stable line.
+- **No manual builds.** Verify on the Development test VM (`192.168.228.2`) from the nightly build, or by copying changed files onto the VM.
 - Package spot-check every phase: 2–3 package pages (an XML `pkg_edit.php` page and a custom-PHP package page).
 
 ## 6. Decisions (2026-10-06)
