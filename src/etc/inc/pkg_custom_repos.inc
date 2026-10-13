@@ -397,6 +397,102 @@ function pkgrepo_review_remove($pkgname) {
 	return array('plan' => array('new' => array(), 'removed' => $plan['removed']), 'reasons' => $reasons, 'raw' => $out, 'ok' => empty($reasons));
 }
 
+/* The installed packages: name => array(version, repository it came from). */
+function pkgrepo_installed_map() {
+	list($rc, $out) = pkgrepo_pkg('query ' . escapeshellarg('%n|%v|%R'));
+	$map = array();
+	if ($rc === 0) {
+		foreach (preg_split('/\r?\n/', trim($out)) as $line) {
+			$parts = explode('|', $line, 3);
+			if (count($parts) === 3) {
+				$map[$parts[0]] = array($parts[1], $parts[2]);
+			}
+		}
+	}
+	return $map;
+}
+
+/* The Source filter's choices: name => label. Only enabled repositories are offered. */
+function pkgrepo_source_options() {
+	$options = array();
+	foreach (pkgrepo_list() as $repo) {
+		if (!empty($repo['enable'])) {
+			$options[$repo['name']] = $repo['name'];
+		}
+	}
+	if (pkgrepo_freebsd_enabled()) {
+		$options['FreeBSD-ports'] = 'FreeBSD';
+	}
+	return $options;
+}
+
+/*
+ * Every package one source offers, for the Available Packages list: array of
+ * array(name, version, comment, state, installed_version) where state is
+ * available|installed|update. The caller filters and caps it.
+ */
+function pkgrepo_source_rows($source) {
+	$installed = pkgrepo_installed_map();
+	$rows = array();
+	foreach (pkgrepo_catalog($source) as $p) {
+		$state = 'available';
+		$installed_version = '';
+		if (isset($installed[$p[0]])) {
+			$installed_version = $installed[$p[0]][0];
+			$state = ($installed[$p[0]][1] === $source && pkg_version_compare($installed_version, $p[1]) == '<') ? 'update' : 'installed';
+		}
+		$rows[] = array($p[0], $p[1], $p[2], $state, $installed_version);
+	}
+	return $rows;
+}
+
+/*
+ * The installed packages that came from a custom or the FreeBSD repository, with
+ * the version their repository offers now: array of array(name, version, repo,
+ * available, state, comment) where state is current|update|missing.
+ */
+function pkgrepo_installed_foreign_detail() {
+	$detail = array();
+	foreach (pkgrepo_installed_foreign() as $p) {
+		list($rc, $out) = pkgrepo_pkg('rquery -U -r ' . escapeshellarg($p[2]) . ' ' . escapeshellarg('%v|%c') . ' ' . escapeshellarg($p[0]));
+		$available = '';
+		$comment = '';
+		if ($rc === 0 && trim($out) !== '') {
+			list($available, $comment) = array_pad(explode('|', trim($out), 2), 2, '');
+		}
+		if ($available === '') {
+			$state = 'missing';
+		} else {
+			$state = (pkg_version_compare($p[1], $available) == '<') ? 'update' : 'current';
+		}
+		$detail[] = array($p[0], $p[1], $p[2], $available, $state, $comment);
+	}
+	return $detail;
+}
+
+/* What updating a package from the repository it came from would do, and whether it is allowed. */
+function pkgrepo_review_upgrade($pkgname) {
+	$map = pkgrepo_installed_map();
+	$foreign = pkgrepo_foreign_names();
+	if (!isset($map[$pkgname])) {
+		return array('plan' => array('new' => array(), 'changed' => array()), 'reasons' => array(sprintf(gettext('%s is not installed.'), $pkgname)), 'raw' => '', 'ok' => false);
+	}
+	$repo = $map[$pkgname][1];
+	if (!in_array($repo, $foreign, true) || preg_match(PKGREPO_RESERVED_PATTERN, $pkgname) === 1) {
+		return array('plan' => array('new' => array(), 'changed' => array()),
+		    'reasons' => array(sprintf(gettext('%s is managed by FreeSense and is not updated from here.'), $pkgname)), 'raw' => '', 'ok' => false);
+	}
+	list($rc, $out, $err) = pkgrepo_pkg('upgrade -n -r ' . escapeshellarg($repo) . ' ' . escapeshellarg($pkgname));
+	$plan = pkgrepo_parse_plan($out);
+	$reasons = pkgrepo_guard($plan, $foreign, pkgrepo_system_names(), array($pkgname));
+	if ($rc !== 0 && empty($reasons)) {
+		$reasons[] = ($err !== '') ? trim($err) : gettext('pkg could not work out what updating this would do.');
+	} elseif (empty($reasons) && empty($plan['changed'])) {
+		$reasons[] = gettext('It is already up to date.');
+	}
+	return array('plan' => $plan, 'reasons' => $reasons, 'raw' => $out, 'ok' => empty($reasons), 'repo' => $repo);
+}
+
 /*
  * Run an install or removal in the background with the log protocol the
  * Package Installer page polls (log file, socket file, pid file, "__RC=n" line).
@@ -407,7 +503,7 @@ function pkgrepo_start($pkgmode, $pkgname) {
 	$logfilename = pkg_mgr_install_logfile(false, $pkgname);
 	$result = array('started' => false, 'reason' => 'failed', 'failmsg' => '', 'progbar' => false,
 	    'logfilename' => $logfilename, 'pid' => null);
-	if (!pkgrepo_pkg_name_ok($pkgname) || !in_array($pkgmode, array('installcustom', 'removecustom'), true)) {
+	if (!pkgrepo_pkg_name_ok($pkgname) || !in_array($pkgmode, array('installcustom', 'removecustom', 'upgradecustom'), true)) {
 		return $result;
 	}
 	if ($pkgmode === 'installcustom') {
@@ -417,6 +513,14 @@ function pkgrepo_start($pkgmode, $pkgname) {
 			return $result;
 		}
 		$action = 'install -y';
+	} elseif ($pkgmode === 'upgradecustom') {
+		$review = pkgrepo_review_upgrade($pkgname);
+		if (!$review['ok']) {
+			$result['failmsg'] = implode("
+", $review['reasons']);
+			return $result;
+		}
+		$action = 'upgrade -y -r ' . escapeshellarg($review['repo']);
 	} else {
 		$review = pkgrepo_review_remove($pkgname);
 		if (!$review['ok']) {
