@@ -89,6 +89,8 @@ $pkgname_vital = is_vital_system_default_package($pkgname);
 $pkgname_vital_message = gettext("This package is vital to system operation and cannot be removed.");
 
 if ($_REQUEST['ajax']) {
+	/* The polls get JSON, never a page the browser would render. */
+	header('Content-Type: application/json');
 	$response = "";
 	$code = 0;
 	$postlog = "";
@@ -137,6 +139,8 @@ if ($_REQUEST['ajax']) {
 	if ($readlog !== null) {
 		$resparray = array();
 		$resparray['log'] = $readlog['log'];
+		// What it is doing now, for the status window (shown with .text())
+		$resparray['step'] = pkg_mgr_install_step($postlog);
 		$statusarray = $readlog['status'];
 		$notice = array('notice' => "");
 	} else {
@@ -151,11 +155,8 @@ if ($_REQUEST['ajax']) {
 	//
 	$notice['notice'] = pkg_mgr_install_ui_notice();
 
-	// What it is doing now, for the status window
-	$steparray = array('step' => pkg_mgr_install_step($postlog));
-
 	// Glob all the arrays we have made together, and convert to JSON
-	print(json_encode($resparray + $pidarray + $statusarray + $progarray + $notice + $steparray));
+	print(json_encode($resparray + $pidarray + $statusarray + $progarray + $notice));
 
 	exit;
 }
@@ -822,6 +823,7 @@ events.push(function() {
 endif;
 
 ?>
+<div id="pkg-failmsg" hidden data-failmsg="<?=htmlspecialchars((string)$failmsg)?>"></div>
 
 <script type="text/javascript">
 //<![CDATA[
@@ -929,7 +931,7 @@ function get_firmware_versions() {
 	ajaxVersionRequest.done(function (response, textStatus, jqXHR) {
 		var json = new Object;
 
-		json = JSON.parse(response);
+		json = (typeof response === 'string') ? JSON.parse(response) : response;
 
 		if (json && json.pkg_busy == '1') {
 			$('#uptodate').html('<i class="fa-solid fa-hourglass-half text-warning"></i> <span class="text-warning">' + '<?=gettext("Another update is already running. Please try again in a few moments.")?>' + "</span>");
@@ -1138,7 +1140,7 @@ function getLogsStatus() {
 	ajaxRequest.done(function (response, textStatus, jqXHR) {
 		var json = new Object;
 
-		json = JSON.parse(response);
+		json = (typeof response === 'string') ? JSON.parse(response) : response;
 
 //		alert("JSON data: " + JSON.stringify(json));
 
@@ -1258,7 +1260,7 @@ events.push(function() {
 	showOutput(true);
 
 	// If the update has a message to be displayed, do that here
-	var failmsg = <?=json_encode((string)$failmsg)?>;
+	var failmsg = $('#pkg-failmsg').attr('data-failmsg') || '';
 
 	if (failmsg.length > 0) {
 		$('#output').val(failmsg);
