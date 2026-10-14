@@ -23,8 +23,9 @@ firewalls.
 FreeSense started in 2004 as a fork of the m0n0wall Project which ended
 2015/02/15, though has diverged significantly since.
 
-FreeSense is Copyright 2004-2026 Rubicon Communications, LLC (Netgate) and
-published under an open source license. (https://freesense.org/license)
+pfSense is Copyright 2004-2026 Rubicon Communications, LLC (Netgate) and
+published under an open source license. (https://pfsense.org/license)
+FreeSense changes are Copyright 2025-2026 The FreeSense Project.
 
 Read more at https://freesense.org/ and support the team by buying bundled
 hardware appliances or commercial support.

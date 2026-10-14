@@ -7,7 +7,7 @@
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2025-2026 The FreeSense Project
- * Copyright (c) 2012 mkirbst @ FreeSense Forum
+ * Copyright (c) 2012 mkirbst @ pfSense Forum
  * All rights reserved.
  *
  * originally part of m0n0wall (http://m0n0.ch/wall)
