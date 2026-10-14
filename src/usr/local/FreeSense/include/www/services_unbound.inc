@@ -7,7 +7,7 @@
  * Copyright (c) 2013-2016 Electric Sheep Fencing
  * Copyright (c) 2014-2026 Rubicon Communications, LLC (Netgate)
  * Copyright (c) 2025-2026 The FreeSense Project
- * Copyright (c) 2014 Warren Baker (warren@freesense.org)
+ * Copyright (c) 2014 Warren Baker (warren@pfsense.org)
  * All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
