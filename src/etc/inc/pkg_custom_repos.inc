@@ -530,8 +530,15 @@ function pkgrepo_start($pkgmode, $pkgname) {
 		}
 		$action = 'delete -y';
 	}
+	if (isvalidpid($paths['gui_pidfile'])) {
+		$result['reason'] = 'another_instance';
+		$result['failmsg'] = gettext("Another update or package operation is running. Try again when it has finished.");
+		return $result;
+	}
 	write_config(gettext("Creating restore point before package installation."));
-	unlink_if_exists($logfilename . ".txt");
+	foreach (array('.txt', '.json', '.done') as $suffix) {
+		unlink_if_exists($logfilename . $suffix);
+	}
 	unlink_if_exists($paths['sock_file']);
 	$env = '';
 	foreach (pkg_env(array('REPOS_DIR' => pkgrepo_repos_dir(true))) as $key => $value) {
@@ -541,19 +548,11 @@ function pkgrepo_start($pkgmode, $pkgname) {
 	$command = '/bin/sh -c ' . escapeshellarg(
 	    ': > ' . escapeshellarg($paths['sock_file']) . '; ' .
 	    '/usr/bin/env' . $env . ' /usr/local/sbin/pkg-static ' . $action . ' ' . escapeshellarg($pkgname) .
-	    ' >> ' . $log . ' 2>&1; echo "__RC=$?" >> ' . $log);
+	    ' >> ' . $log . ' 2>&1; rc=$?; echo "__RC=$rc" >> ' . $log . '; echo "__EXIT=$rc" >> ' . $log);
+	/* Return at once: the page's status polls follow the run (and see a quick one end). */
 	$execpid = mwexec_bg($command);
-	for ($i = 0; $i < 50 && posix_kill($execpid, 0) && !file_exists($paths['sock_file']); $i++) {
-		usleep(100000);
-	}
-	if (posix_kill($execpid, 0)) {
-		@file_put_contents($paths['gui_pidfile'], $execpid);
-		@file_put_contents($paths['gui_mode'], implode("\n", array($pkgmode, $pkgname)));
-		return array('started' => true, 'reason' => '', 'failmsg' => '', 'progbar' => false,
-		    'logfilename' => $logfilename, 'pid' => (int)$execpid);
-	}
-	$log_lines = @file($logfilename . '.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: array();
-	array_pop($log_lines);
-	$result['failmsg'] = implode("\n", $log_lines);
-	return $result;
+	@file_put_contents($paths['gui_pidfile'], $execpid);
+	@file_put_contents($paths['gui_mode'], implode("\n", array($pkgmode, $pkgname)));
+	return array('started' => true, 'reason' => '', 'failmsg' => '', 'progbar' => false,
+	    'logfilename' => $logfilename, 'pid' => (int)$execpid);
 }

@@ -151,8 +151,11 @@ if ($_REQUEST['ajax']) {
 	//
 	$notice['notice'] = pkg_mgr_install_ui_notice();
 
+	// What it is doing now, for the status window
+	$steparray = array('step' => pkg_mgr_install_step($postlog));
+
 	// Glob all the arrays we have made together, and convert to JSON
-	print(json_encode($resparray + $pidarray + $statusarray + $progarray + $notice));
+	print(json_encode($resparray + $pidarray + $statusarray + $progarray + $notice + $steparray));
 
 	exit;
 }
@@ -196,7 +199,8 @@ foreach (['from_version', 'to_version'] as $version_field) {
 
 $postlog = "";
 
-if (isvalidpid($gui_pidfile) && file_exists($sock_file)) {
+/* An operation is running (started here or by the REST API): follow it again. */
+if (isvalidpid($gui_pidfile) && file_exists($gui_mode)) {
 	$progbar = true;
 	$mode = "firmwareupdate";
 	if (file_exists($gui_mode)) {
@@ -351,6 +355,7 @@ if ($input_errors) {
 .fs-run-versions { display: inline-block; margin: 0 auto 1rem; padding: .6rem 1rem; text-align: left; border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); font-size: var(--fs-fs-sm); word-break: break-all; }
 .fs-run-versions-label { display: inline-block; min-width: 2.5rem; color: var(--fs-text-muted); text-transform: uppercase; font-size: var(--fs-fs-xs); font-weight: 600; letter-spacing: .04em; }
 .fs-run-card .fs-run-msg { margin: 0 auto .75rem; max-width: 34rem; color: var(--fs-text-muted); }
+.fs-run-card .fs-run-step { margin: 0 auto .75rem; max-width: 34rem; min-height: 1.5em; font-weight: 600; overflow-wrap: anywhere; }
 .fs-run-card .fs-run-elapsed { font-variant-numeric: tabular-nums; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); margin-bottom: .75rem; }
 .fs-run-card .progress { margin: 0 auto 1rem; max-width: 30rem; }
 .fs-run-card #countdown h4 { font-size: 1rem; margin: 0 0 1rem; }
@@ -592,7 +597,12 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 		}
 		fs_tile(gettext('Resource use'), ucfirst($package_meta['resource_profile']));
 		fs_tile(gettext('Support'), ucfirst($package_meta['support']));
-		fs_tile(gettext('Tested on'), ucfirst($package_meta['last_tested_release']));
+		/* "development" says nothing about a Stable system; show it only where it applies. */
+		$tested = (string)$package_meta['last_tested_release'];
+		$running_development = (strpos(g_get('product_version'), 'DEVELOPMENT') !== false);
+		if (($tested !== '') && ($tested !== 'unknown') && (($tested !== 'development') || $running_development)) {
+			fs_tile(gettext('Tested on'), ($tested === 'development') ? gettext('Development builds') : ucfirst($tested));
+		}
 ?>
 			</div>
 			<?php if (!empty($package_meta['capabilities'])): ?>
@@ -730,6 +740,7 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 		<div class="fs-run-card">
 			<div class="spinner-border fs-run-spinner text-primary" role="status" aria-hidden="true"></div>
 			<h2 id="run-overlay-title"><?=htmlspecialchars($panel_heading_txt)?></h2>
+			<p class="fs-run-step" id="run-step" aria-live="polite"><?=gettext('Starting')?>&hellip;</p>
 <?php if ($firmwareupdate && $update_versions['from_version'] !== '' && $update_versions['to_version'] !== ''): ?>
 			<div class="fs-run-versions fs-mono" id="run-versions">
 				<div><span class="fs-run-versions-label"><?=gettext('From')?></span> <?=htmlspecialchars(pkg_version_display($update_versions['from_version'], $update_versions['to_version']))?></div>
@@ -772,16 +783,13 @@ if (!isvalidpid($gui_pidfile) && $confirmed && !$completed) {
 	} else {
 		$started = pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $_POST['fwbranch'] ?? '', $repos);
 	}
+	/* Returns at once: the status window follows the run through the polls. */
 	$progbar = $started['progbar'];
 	$logfilename = $started['logfilename'];
 	if ($started['started']) {
 		$start_polling = true;
 	}
 	$failmsg = $started['failmsg'];
-	if ($started['reason'] == 'failed') {
-		/* Make javascript happy not sending any \n */
-		$failmsg = preg_replace("/\n/", '%%', $failmsg);
-	}
 }
 
 $uptodatemsg = gettext("Up to date.");
@@ -1079,6 +1087,9 @@ function openRunOverlay(mode) {
 		$('#run-elapsed').text("<?=gettext('Elapsed')?> 0:00");
 		// the panel underneath only repeats what the overlay says
 		$('#pkg-run').hide();
+		// moving stripes until pkg reports how far it is
+		$('#pkg-run .progress').show();
+		$('#progressbar').css('width', '100%').removeAttr('aria-valuenow');
 	}
 	// the progress bar (when pkg reports one) and the log live inside the card
 	$('#pkg-run .progress').insertBefore('#run-elapsed');
@@ -1136,6 +1147,11 @@ function getLogsStatus() {
 			_o.html(json.log);
 			showOutput(false);
 
+			// What it is doing now
+			if (json.step) {
+				$('#run-step').text(json.step);
+			}
+
 			// Update the progress bar
 			progress = 0;
 
@@ -1183,6 +1199,10 @@ function getLogsStatus() {
 
 			if ((json.pid == "stopped") && ((progress != 0) || (json.exitstatus != 0))) {
 				show_failure();
+				if (json.exitstatus == 75) {
+					$('#final').text("<?=gettext('Another update or package operation is running. Try again when it has finished.')?>");
+				}
+				closeRunOverlay();
 				repeat = false;
 			}
 			// ToDo: There are more end conditions we need to catch
@@ -1190,7 +1210,12 @@ function getLogsStatus() {
 
 		// And maybe do it again
 		if (repeat)
-			setTimeout(getLogsStatus, 500);
+			setTimeout(getLogsStatus, 1000);
+	});
+
+	// A poll the firewall did not answer (busy, or restarting): keep asking.
+	ajaxRequest.fail(function () {
+		setTimeout(getLogsStatus, 2000);
 	});
 }
 
@@ -1232,18 +1257,18 @@ events.push(function() {
 	showOutput(true);
 
 	// If the update has a message to be displayed, do that here
-	var failmsg = "<?=$failmsg?>".replace(/%%/g, "\n");
+	var failmsg = <?=json_encode((string)$failmsg)?>;
 
 	if (failmsg.length > 0) {
-		$('#output').html(failmsg);
+		$('#output').val(failmsg);
 		showOutput(true);
 		show_failure();
 	}
 
 	// Start polling the system to obtain progress information
 	if ("<?=$start_polling?>") {
-		setTimeout(getLogsStatus, 3000);
 		openRunOverlay('working');
+		setTimeout(getLogsStatus, 300);
 	}
 
 	$('#run-details-toggle').click(function() {

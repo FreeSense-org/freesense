@@ -159,6 +159,24 @@ function pkg_mgr_install_read_log($postlog, $html = true) {
 
 	// Log file is read a line at a time so that we can detect/modify certain entries
 	while (($logline = fgets($logfile)) !== false) {
+		/*
+		 * The launcher's own last line: FreeSense-upgrade's exit status.
+		 * It is the result when the upgrader wrote no __RC line (another
+		 * instance held the lock, or it stopped before its first step).
+		 */
+		if (strpos($logline, "__EXIT=") === 0) {
+			$exit = (int)substr(trim($logline), strlen("__EXIT="));
+			if (!isset($statusarray['exitstatus'])) {
+				$statusarray['exitstatus'] = $exit;
+				$statusarray['reboot_needed'] = "no";
+				if ($exit == 75) {
+					$response .= gettext("Another update or package operation is running. Try again when it has finished.") . "\n";
+				} elseif ($exit != 0) {
+					$response .= gettext("Failed") . "\n";
+				}
+			}
+			continue;
+		}
 		// Check for return codes and replace with suitable strings
 		$rc_pos = strpos($logline, "__RC=");
 		if ($rc_pos !== false) {
@@ -189,6 +207,29 @@ function pkg_mgr_install_read_log($postlog, $html = true) {
 
 	fclose($logfile);
 	return array('log' => $response, 'status' => $statusarray);
+}
+
+/*
+ * What the operation is doing now, for the status window: the last message
+ * line of the log ("" before the first one). Result lines and pkg's progress
+ * dots are left out.
+ */
+function pkg_mgr_install_step($postlog) {
+	$lines = @file($postlog . '.txt', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+	if (!is_array($lines)) {
+		return "";
+	}
+	for ($i = count($lines) - 1; $i >= 0; $i--) {
+		if ((strpos($lines[$i], '__RC=') !== false) || (strpos($lines[$i], '__EXIT=') === 0)) {
+			continue;
+		}
+		$line = trim(preg_replace(array('/^>>>\s*/', '/\s*\.{3,}\s*(done\.?)?\s*$/i'), '', $lines[$i]));
+		if ($line === '') {
+			continue;
+		}
+		return (strlen($line) > 160) ? substr($line, 0, 157) . '...' : $line;
+	}
+	return "";
 }
 
 /* The newest progress record of an operation (array with 'data' => {current, total}), or an empty array. */
@@ -228,22 +269,36 @@ function pkg_mgr_install_ui_notice() {
 }
 
 /*
- * What the page does when the process it polls has stopped (on every poll
- * after that): wait for the return code in the log, reload the filter and
- * restart the package services.
+ * What the page does when the process it polls has stopped: wait for the
+ * final line in the log, reload the filter and restart the package services.
+ * Runs once per operation (the first poll after the end); later polls only
+ * read the result.
  */
 function pkg_mgr_install_finish($postlog) {
-	// The log files may not be complete when the process terminates so we need wait until we see the
-	// exit status (__RC=x)
-	waitfor_string_in_file($postlog . '.txt', "__RC=", 10);
+	$done = $postlog . '.done';
+	$lock = lock('pkg-mgr-install-finish', LOCK_EX);
+	try {
+		if (file_exists($done)) {
+			return false;
+		}
+		@touch($done);
+	} finally {
+		unlock($lock);
+	}
+	// The launcher appends __EXIT= once FreeSense-upgrade has ended (after its
+	// own __RC= line), so the log is complete when that line is there.
+	waitfor_string_in_file($postlog . '.txt', "__EXIT=", 10);
 	filter_configure();
 	send_event("service restart packages");
+	return true;
 }
 
 /*
  * Start an operation like the page's confirmation does: write a restore
- * point, then run FreeSense-upgrade in the background (retried while another
- * instance holds its lock) and record its pid and mode for the polls.
+ * point, then run FreeSense-upgrade once in the background and record its pid
+ * and mode for the status polls. Returns at once; how the run goes, and how it
+ * ends, the polls read from its log. The launcher appends "__EXIT=<status>"
+ * when FreeSense-upgrade has ended (75: another instance held its lock).
  *   $pkgmode         installed (install), reinstallpkg, delete, reinstallall
  *   $pkgname         the package (validated by the caller)
  *   $firmwareupdate  true for the system update ($pkgmode is then ignored
@@ -252,10 +307,9 @@ function pkg_mgr_install_finish($postlog) {
  *                    the page no longer posts it)
  * Returns array('started' => bool, 'reason' => why nothing was started
  * ('' when started; 'vital': a vital package's removal; 'nothing': a
- * reinstallation of all packages without packages; 'another_instance':
- * another FreeSense-upgrade kept its lock through 30 attempts; 'failed': it
- * ended at once, its log is in failmsg), 'failmsg' => string (lines
- * separated by "\n"), 'progbar' => bool, 'logfilename' => string,
+ * reinstallation of all packages without packages; 'another_instance': an
+ * update or package operation is already running), 'failmsg' => string
+ * (lines separated by "\n"), 'progbar' => bool, 'logfilename' => string,
  * 'pid' => int|null).
  */
 function pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $fwbranch = '', $repos = array()) {
@@ -266,33 +320,7 @@ function pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $fwbranch = 
 	$freesense_upgrade = $paths['upgrade'];
 	$logfilename = pkg_mgr_install_logfile($firmwareupdate, $pkgname);
 	$pkgname_vital = is_vital_system_default_package((string)$pkgname);
-	$pkgname_vital_message = gettext("This package is vital to system operation and cannot be removed.");
-	$failmsg = "";
-	$start_polling = false;
-	$execpid = null;
-
-	/* Write out configuration to create a backup prior to pkg install. */
-	if ($firmwareupdate) {
-		// The branch is chosen on Update Settings, so system/pkg_repo_conf_path is
-		// already set — no fwbranch selector to honour here anymore. If a fwbranch
-		// value is somehow still posted, respect it for backwards compatibility.
-		if (!empty($fwbranch)) {
-			foreach ($repos as $repo) {
-				if ($repo['name'] == $fwbranch) {
-					config_set_path('system/pkg_repo_conf_path', $repo['name']);
-					break;
-				}
-			}
-		}
-		write_config(gettext("Creating restore point before upgrade."));
-	} else {
-		write_config(gettext("Creating restore point before package installation."));
-	}
-
 	$progbar = true;
-
-	// Remove the log file before starting
-	unlink_if_exists($logfilename . ".txt");
 
 	unset($params);
 	$mode = array();
@@ -334,82 +362,57 @@ function pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $fwbranch = 
 			break;
 	}
 
+	$result = array('started' => false, 'reason' => '', 'failmsg' => '', 'progbar' => $progbar,
+	    'logfilename' => $logfilename, 'pid' => null);
 	if (($pkgmode == 'delete') && $pkgname_vital) {
-		$failmsg = $pkgname_vital_message;
-	} elseif (isset($params)) {
-		$another_instance = true;
-		$log = array();
-		$upgrade_script = "{$freesense_upgrade} -y -l {$logfilename}.txt -p {$sock_file}";
+		$result['reason'] = 'vital';
+		$result['failmsg'] = gettext("This package is vital to system operation and cannot be removed.");
+		return $result;
+	}
+	if (!isset($params)) {
+		$result['reason'] = 'nothing';
+		return $result;
+	}
+	/* Refuse at once while an operation runs, instead of after its lock timed out. */
+	if (isvalidpid($gui_pidfile) || isvalidpid(g_get('varrun_path') . '/' . g_get('product_name') . '-upgrade.pid')) {
+		$result['reason'] = 'another_instance';
+		$result['failmsg'] = gettext("Another update or package operation is running. Try again when it has finished.");
+		return $result;
+	}
 
-		for ($idx = 0; $idx < 30; $idx++) {
-			unlink_if_exists($sock_file);
-			$execpid = mwexec_bg("{$upgrade_script} {$params}");
-
-			// Make sure the upgrade process starts
-			while (posix_kill($execpid, 0) && !file_exists($sock_file)) {
-				usleep(100000);
-			}
-
-			// Collect log output earlier
-			if (!file_exists($logfilename . '.txt')) {
-				touch($logfilename . '.txt');
-			}
-			$log = file($logfilename . '.txt',
-			    FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-
-			/*
-			 * If it is not running anymore, read return code from
-			 * logfile and decide what to do next
-			 */
-			if (!posix_kill($execpid, 0)) {
-				$last = preg_match('/^__RC=(\d+)/', end($log),
-				    $matches);
-
-				if (!empty($matches[1])) {
-					/*
-					 * return code 75 means another process
-					 * is running.  In this case we try
-					 * again
-					 */
-					if ((int)$matches[1] != 75) {
-						$another_instance = false;
-						break;
-					}
+	/* Write out configuration to create a backup prior to pkg install. */
+	if ($firmwareupdate) {
+		// The branch is chosen on Update Settings, so system/pkg_repo_conf_path is
+		// already set — no fwbranch selector to honour here anymore. If a fwbranch
+		// value is somehow still posted, respect it for backwards compatibility.
+		if (!empty($fwbranch)) {
+			foreach ($repos as $repo) {
+				if ($repo['name'] == $fwbranch) {
+					config_set_path('system/pkg_repo_conf_path', $repo['name']);
+					break;
 				}
-			} elseif (file_exists($sock_file)) {
-				$another_instance = false;
-				$start_polling = true;
-				@file_put_contents($gui_pidfile, $execpid);
-				/* One item per line: the page reads the mode and the package back with file(). */
-				@file_put_contents($gui_mode, implode("\n", $mode));
-				break;
 			}
 		}
-
-		/*
-		 * If FreeSense-upgrade failed to run, present log to user
-		 */
-		if ($another_instance) {
-			$failmsg = gettext(sprintf("Another instance of %s " .
-			    "is running.  Try again later",
-			    g_get('product_name') . "-upgrade"));
-		} elseif (!$start_polling) {
-			/* Remove last line, used to provide return code */
-			unset($log[count($log)-1]);
-			$failmsg = implode("\n", $log);
-		}
-	}
-
-	if ($start_polling) {
-		$reason = '';
-	} elseif (($pkgmode == 'delete') && $pkgname_vital) {
-		$reason = 'vital';
-	} elseif (!isset($params)) {
-		$reason = 'nothing';
+		write_config(gettext("Creating restore point before upgrade."));
 	} else {
-		$reason = $another_instance ? 'another_instance' : 'failed';
+		write_config(gettext("Creating restore point before package installation."));
 	}
 
-	return array('started' => $start_polling, 'reason' => $reason, 'failmsg' => $failmsg, 'progbar' => $progbar,
-	    'logfilename' => $logfilename, 'pid' => $start_polling ? (int)$execpid : null);
+	// Remove the files of the previous run before starting
+	foreach (array('.txt', '.json', '.done') as $suffix) {
+		unlink_if_exists($logfilename . $suffix);
+	}
+	unlink_if_exists($sock_file);
+	$log = $logfilename . '.txt';
+	@file_put_contents($log, '');
+
+	$upgrade = "{$freesense_upgrade} -y -l " . escapeshellarg($log) . ' -p ' . escapeshellarg($sock_file) . " {$params}";
+	$execpid = mwexec_bg('/bin/sh -c ' . escapeshellarg($upgrade . '; echo "__EXIT=$?" >> ' . escapeshellarg($log)));
+	@file_put_contents($gui_pidfile, $execpid);
+	/* One item per line: the page reads the mode and the package back with file(). */
+	@file_put_contents($gui_mode, implode("\n", $mode));
+
+	$result['started'] = true;
+	$result['pid'] = (int)$execpid;
+	return $result;
 }

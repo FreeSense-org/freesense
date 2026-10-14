@@ -249,7 +249,9 @@ foreach (freesense_package_catalog_categories() as $category) {
 .fs-pkg-desc { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 46rem; }
 .fs-pkg-deps { margin-top: .35rem; font-size: var(--fs-fs-xs); }
 #pkgtable th { white-space: nowrap; vertical-align: bottom; }
-#pkgtable td:not(.fs-col-actions) a { text-decoration: underline dotted; text-underline-offset: 2px; }
+/* no underline at rest: a dotted line hides the underscore in versions such as 1.1_8 */
+#pkgtable td:not(.fs-col-actions) a { text-decoration: none; }
+#pkgtable td:not(.fs-col-actions) a:hover { text-decoration: underline; text-underline-offset: 3px; }
 #pkgtable td:not(.fs-col-actions) a:not(:hover) { color: inherit; }
 #pkgtable td .fs-pkg-deps a:not(:hover) { color: var(--fs-text-muted); }
 .fs-pkg-newver { color: var(--fs-text-strong); font-weight: 600; }
