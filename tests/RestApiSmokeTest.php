@@ -164,6 +164,8 @@ $url_post = restapi_alias_post(array('name' => 'u', 'type' => 'urltable', 'updat
 check_api($url_post['address_subnet0'] === '3', 'urltable update frequency goes in address_subnet0');
 check_api(api_error_status(function () { restapi_alias_post(array('type' => 'host', 'entries' => 'x'), ''); }) === 400,
     'entries must be a list');
+check_api(api_error_status(function () { restapi_alias_post(array('name' => 'a', 'type' => 'host', 'descr' => 'd',
+    'address' => '10.0.0.1'), ''); }) === 400, 'config.xml field names are unknown alias fields, not silently dropped');
 
 $sched_post = restapi_sched_post(array('name' => 's', 'ranges' => array(
     array('weekdays' => array(1, 5), 'start' => '08:00', 'stop' => '17:00', 'description' => 'w'),

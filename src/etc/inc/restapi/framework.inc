@@ -232,6 +232,15 @@ function restapi_batch_run($requests, array $routes, callable $authorize, array 
 	return $out;
 }
 
+/* 400 for a body field the endpoint does not know, so a misspelt field is not silently ignored. */
+function restapi_reject_unknown_fields(array $body, array $known) {
+	foreach (array_keys($body) as $field) {
+		if (!in_array($field, $known, true)) {
+			throw new RestApiError(400, 'unknown_field', "Unknown field \"{$field}\".");
+		}
+	}
+}
+
 /* Decode a JSON request body; an empty body is an empty object. */
 function restapi_decode_body($raw) {
 	if (trim((string)$raw) === '') {
