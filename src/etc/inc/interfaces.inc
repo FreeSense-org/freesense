@@ -435,7 +435,10 @@ function interface_vlan_configure(&$vlan, $flush = true, $skip_parent_mtu = fals
 	/* Since we are going to add vlan(4) try to enable all that hardware supports. */
 	FreeSense_interface_capabilities($if, IFCAP_VLAN_HWTAGGING|IFCAP_VLAN_MTU|IFCAP_VLAN_HWFILTER);
 
-	if (!empty($vlanif) && does_interface_exist($vlanif)) {
+	/* Ask the kernel, not the cached list: a VLAN created earlier in the
+	 * same request is missing from the cache, and the rename below would
+	 * then fail and leave the temporary vlanN clone behind. */
+	if (!empty($vlanif) && does_interface_exist($vlanif, true)) {
 		FreeSense_interface_destroy($vlanif);
 	}
 
@@ -444,7 +447,11 @@ function interface_vlan_configure(&$vlan, $flush = true, $skip_parent_mtu = fals
 		logger(LOG_ERR, localize_text('Failed to configure interface %1$s: Could not create temporary interface %2$s', $vlan['vlanif'], 'vlan'));
 		return(NULL);
 	}
-	FreeSense_interface_rename($tmpvlanif, $vlanif);
+	if (FreeSense_interface_rename($tmpvlanif, $vlanif) !== true) {
+		FreeSense_interface_destroy($tmpvlanif);
+		logger(LOG_ERR, localize_text('Failed to configure interface %1$s: Could not rename temporary interface %2$s', $vlanif, $tmpvlanif));
+		return(NULL);
+	}
 	FreeSense_ngctl_name("{$tmpvlanif}:", $vlanif);
 
 	FreeSense_vlan_create($vlanif, $if, $tag, $pcp);
