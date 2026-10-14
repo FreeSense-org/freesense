@@ -288,6 +288,12 @@ if ($firmwareupdate) {
 	}
 }
 
+/* The release-line notes in the documentation edition of the installed release. */
+require_once("freesense-docs.inc");
+$docs_prefix = freesense_docs_edition_prefix(g_get('product_version_string'));
+$release_notes_url = 'https://docs.freesense.org' . $docs_prefix .
+    (($docs_prefix === '/1.2') ? '/releases/development/' : '/releases/stable/');
+
 include("head.inc");
 
 if ($firmwareupdate) {
@@ -977,7 +983,12 @@ function render_update_notes(notes) {
 	Object.keys(counts).forEach(function(type) {
 		summary.append($('<span>').addClass('badge text-bg-' + styles[type]).append($('<i>').addClass('fa-solid fa-' + icons[type] + ' me-1')).append(document.createTextNode(type.charAt(0).toUpperCase() + type.slice(1) + ' ' + counts[type])));
 	});
-	if (!changes.length) list.append($('<div>').addClass('text-body-secondary py-3').text('<?=gettext('No FreeSense changes in this firmware.')?>'));
+	if (!changes.length) {
+		/* A release can consist only of FreeBSD, build or package updates; say so and point to the release notes. */
+		list.append($('<div>').addClass('text-body-secondary py-3')
+		    .append(document.createTextNode('<?=gettext('This release has no base-system changes.')?> '))
+		    .append($('<a>').attr({href: <?=json_encode($release_notes_url)?>, target: '_blank', rel: 'noopener'}).text('<?=gettext('Read the release notes')?>')));
+	}
 
 	function platformRow(icon, color, title, detail) {
 		var row = $('<div>').addClass('list-group-item bg-transparent px-0 d-flex gap-3');
