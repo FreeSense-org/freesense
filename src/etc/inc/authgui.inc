@@ -276,6 +276,13 @@ function display_login_form() {
 
 	$loginautocomplete = config_path_enabled('system/webgui','loginautocomplete') ? '' : 'autocomplete="off"';
 
+	/* The firmware version, unless General Setup hides it ("1.1.5", "1.2.0 Development"). */
+	$login_version = '';
+	if (!config_path_enabled('system/webgui', 'loginhideversion')) {
+		$login_version = str_replace(array('-RELEASE', '-DEVELOPMENT'), array('', ' ' . gettext('Development')),
+		    trim((string)g_get('product_version')));
+	}
+
 	if (is_ipaddr($http_host) && !$local_ip &&
 		!config_path_enabled('system/webgui','nohttpreferercheck')) {
 		$warnclass = "pagebodywarn";	// Make room for a warning display row
@@ -327,7 +334,12 @@ function display_login_form() {
 						<input name="passwordfld" id="passwordfld" type="password" class="form-control" placeholder="<?=gettext('Password')?>" />
 						<button type="submit" name="login" value="Sign In" class="btn btn-primary fs-login__submit"><?=gettext('Sign In')?></button>
 					</form>
-					<footer class="fs-login__footer"><?=print_credit()?></footer>
+					<footer class="fs-login__footer">
+<?php if ($login_version !== ''): ?>
+						<div class="fs-login__version"><?=htmlspecialchars(g_get('product_label') . ' ' . $login_version)?></div>
+<?php endif; ?>
+						<?=print_credit()?>
+					</footer>
 				</div>
 			</main>
 		</div>

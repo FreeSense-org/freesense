@@ -101,12 +101,12 @@ function get_pkg_table() {
 			if ($version_compare == '>') {
 				// we're running a newer version of the package
 				$state = 'current';
-				$status = sprintf(gettext('Newer than available (%s)'), $pkg['version']);
+				$status = sprintf(gettext('Newer than available (%s)'), pkg_package_version_display($pkg['version'], $pkg['installed_version']));
 				$badge = fs_badge('info', gettext('Newer'), $status);
 			} else if ($version_compare == '<') {
 				// we're running an older version of the package
 				$state = 'update';
-				$status = sprintf(gettext('Upgrade available to %s'), $pkg['version']);
+				$status = sprintf(gettext('Upgrade available to %s'), pkg_package_version_display($pkg['version'], $pkg['installed_version']));
 				$badge = fs_badge('warn', gettext('Update available'), $status);
 				$upgradeavail = true;
 				$vergetstr = '&from=' . rawurlencode($pkg['installed_version']) . '&to=' . rawurlencode($pkg['version']);
@@ -146,17 +146,18 @@ function get_pkg_table() {
 		/* status */
 		$rows .= '<td class="text-nowrap align-middle">' . $badge . '</td>';
 
-		/* version: installed -> available */
+		/* version: installed -> available (without the port revision; the full version in the tooltip) */
+		$installed_display = pkg_package_version_display($pkg['installed_version'], $pkg['version'] ?? '');
 		$rows .= '<td class="text-nowrap align-middle"><span class="fs-mono">';
 		if (!g_get('disablepackagehistory')) {
-			$rows .= '<a target="_blank" rel="noopener" title="' . fs_h(gettext("View changelog")) . '" href="' . fs_h($pkg['changeloglink']) . '">' .
-			    fs_h($pkg['installed_version']) . '</a>';
+			$rows .= '<a target="_blank" rel="noopener" title="' . fs_h($pkg['installed_version'] . ' · ' . gettext("View changelog")) . '" href="' . fs_h($pkg['changeloglink']) . '">' .
+			    fs_h($installed_display) . '</a>';
 		} else {
-			$rows .= fs_h($pkg['installed_version']);
+			$rows .= '<span title="' . fs_h($pkg['installed_version']) . '">' . fs_h($installed_display) . '</span>';
 		}
 		if ($upgradeavail) {
 			$rows .= ' <span class="fs-muted" aria-hidden="true">→</span><span class="visually-hidden">' . fs_h(gettext('available')) . '</span> ' .
-			    '<span class="fs-pkg-newver">' . fs_h($pkg['version']) . '</span>';
+			    '<span class="fs-pkg-newver" title="' . fs_h($pkg['version']) . '">' . fs_h(pkg_package_version_display($pkg['version'], $pkg['installed_version'])) . '</span>';
 		}
 		$rows .= '</span></td>';
 
@@ -187,7 +188,7 @@ function get_pkg_table() {
 		if ($upgradeavail) {
 			$actions[] = array('custom', 'pkg_mgr_install.php?mode=reinstallpkg&' . $pkgarg . $vergetstr, $name,
 			    array('icon' => 'fa-arrows-rotate', 'label' => sprintf(gettext("Update package %s"), $pkg['name']),
-			    'confirm' => sprintf(gettext('Update %1$s to %2$s?'), $name, $pkg['version']),
+			    'confirm' => sprintf(gettext('Update %1$s to %2$s?'), $name, pkg_package_version_display($pkg['version'], $pkg['installed_version'])),
 			    'detail' => gettext('You review the update on the next page before it starts.'),
 			    'confirm_action' => gettext('Continue')));
 		} else if (!isset($pkg['obsolete'])) {

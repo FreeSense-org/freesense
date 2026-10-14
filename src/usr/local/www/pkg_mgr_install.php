@@ -591,9 +591,9 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			<div class="fs-tiles">
 <?php
 		if ($is_upgrade) {
-			fs_tile(gettext('Version'), $_REQUEST['from'] . ' → ' . $_REQUEST['to']);
+			fs_tile(gettext('Version'), pkg_package_version_display($_REQUEST['from'], $_REQUEST['to']) . ' → ' . pkg_package_version_display($_REQUEST['to'], $_REQUEST['from']));
 		} else {
-			fs_tile(gettext('Version'), $package_version);
+			fs_tile(gettext('Version'), pkg_package_version_display($package_version));
 		}
 		fs_tile(gettext('Resource use'), ucfirst($package_meta['resource_profile']));
 		fs_tile(gettext('Support'), ucfirst($package_meta['support']));
@@ -1068,6 +1068,7 @@ function openRunOverlay(mode) {
 	}
 	if (mode === 'reboot') {
 		$('#run-overlay-title').text("<?=gettext('Update installed')?>");
+		$('#run-step').text('');
 		$('#run-elapsed').text('');
 		$('#run-overlay-msg').text("<?=gettext('The firewall is restarting to finish the update. This page reloads when it is back. Do not power off or reset the system.')?>");
 	} else {

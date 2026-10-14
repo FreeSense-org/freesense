@@ -118,7 +118,8 @@ function get_pkg_table() {
 		if ($update) {
 			$state = 'update';
 			$badge = fs_badge('warn', gettext('Update available'),
-			    sprintf(gettext('Installed %1$s, available %2$s'), $index['installed_version'], $index['version']));
+			    sprintf(gettext('Installed %1$s, available %2$s'), pkg_package_version_display($index['installed_version'], $index['version']),
+			    pkg_package_version_display($index['version'], $index['installed_version'])));
 			$count['installed']++;
 			$count['updates']++;
 		} elseif ($installed) {
@@ -143,9 +144,10 @@ function get_pkg_table() {
 		/* version */
 		$rows .= '<td class="fs-mono text-nowrap">';
 		if (!g_get('disablepackagehistory')) {
-			$rows .= '<a target="_blank" rel="noopener" title="' . fs_h(gettext("View changelog")) . '" href="' . fs_h($index['changeloglink']) . '">' . fs_h($index['version']) . '</a>';
+			$rows .= '<a target="_blank" rel="noopener" title="' . fs_h($index['version'] . ' · ' . gettext("View changelog")) . '" href="' . fs_h($index['changeloglink']) . '">' .
+			    fs_h(pkg_package_version_display($index['version'])) . '</a>';
 		} else {
-			$rows .= fs_h($index['version']);
+			$rows .= '<span title="' . fs_h($index['version']) . '">' . fs_h(pkg_package_version_display($index['version'])) . '</span>';
 		}
 		$rows .= '</td>';
 

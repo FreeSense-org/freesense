@@ -158,6 +158,7 @@ body#login, body#error {
 }
 .fs-login__footer { margin-top: 2.25rem; font-size: .8rem; color: var(--fs-muted); text-align: center; }
 .fs-login__footer a { color: var(--fs-muted); }
+.fs-login__version { margin-bottom: .35rem; font-family: var(--fs-font-mono, ui-monospace, monospace); letter-spacing: .02em; }
 .fs-login__footer a:hover { color: var(--fs-coral-hi); }
 
 /* ----- responsive: collapse to single column ----- */

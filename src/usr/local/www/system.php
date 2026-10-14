@@ -297,6 +297,13 @@ $section->addInput(new Form_Checkbox(
 	$pconfig['loginshowhost']
 ));
 
+$section->addInput(new Form_Checkbox(
+	'loginhideversion',
+	'Login version',
+	'Hide the firmware version on the login page',
+	$pconfig['loginhideversion']
+))->setHelp('The login page shows the installed FreeSense version unless this is checked.');
+
 $section->addInput(new Form_Textarea(
 	'login_message',
 	'Login Message',

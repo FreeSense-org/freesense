@@ -107,7 +107,7 @@ function restapi_routes_system() {
 	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, logincss (from the choices), timeservers (space ' .
 	    'separated), dashboardcolumns (1-6), login_message, dnsallowoverride, interfacessort, dashboardavailablewidgetspanel, ' .
 	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
-	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost (booleans). ' .
+	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost, loginhideversion (booleans). ' .
 	    'Omitted fields keep their value. Applied at once (hostname, DNS, timezone, NTP, filter).');
 	$hasync_body = array('type' => 'object', 'description' => 'The High Availability form: pfsyncenabled, synctlsinsecure, adminsync ' .
 	    'and the synchronize* options (booleans; synchronizekea6 only with the Kea DHCP backend), pfsyncinterface (from the ' .
@@ -848,7 +848,7 @@ function restapi_h_tunables_apply($req) {
 function restapi_sysgen_flags() {
 	return array('dnsallowoverride', 'interfacessort', 'dashboardavailablewidgetspanel', 'systemlogsfilterpanel',
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'requirestatefilter', 'requirefirewallinterface',
-	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'roworderdragging', 'loginshowhost');
+	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'roworderdragging', 'loginshowhost', 'loginhideversion');
 }
 
 function restapi_sysgen_types() {

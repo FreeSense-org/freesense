@@ -3330,6 +3330,16 @@ check_api(pkg_mgr_install_read_log($f4_tmp, false) === array('log' => "done\nSuc
 file_put_contents("{$f4_tmp}.txt", ">>> Creating boot environment... done.\n>>> Downloading upgrade packages...\n\n__EXIT=0\n");
 check_api(pkg_mgr_install_step($f4_tmp) === 'Downloading upgrade packages' && pkg_mgr_install_step("{$f4_tmp}-none") === '',
     'the status window shows the current step');
+file_put_contents("{$f4_tmp}.txt", "===> Extracting new base tarball\nWriting configuration... done.\n");
+check_api(pkg_mgr_install_step($f4_tmp) === 'Writing configuration', 'step text without "... done." and "===>"');
+file_put_contents("{$f4_tmp}.txt", "===> Extracting new base tarball\n");
+check_api(pkg_mgr_install_step($f4_tmp) === 'Extracting new base tarball', 'step text without the "===>" prefix');
+/* Package versions without the port revision, like the system version */
+eval($fn_body(file_get_contents("{$root}/src/etc/inc/pkg-utils.inc"), 'pkg_package_version_display') . "\n}\n");
+check_api(pkg_package_version_display('1.1_8') === '1.1' && pkg_package_version_display('10.1.0_8,1') === '10.1.0' &&
+    pkg_package_version_display('2.8.2') === '2.8.2' && pkg_package_version_display('1.0.0_6', '1.1.0') === '1.0.0' &&
+    pkg_package_version_display('1.0.0_7', '1.0.0_6') === '1.0.0 (build 7)' && pkg_package_version_display('1.1.0', '1.1.0_1') === '1.1.0' && pkg_package_version_display('1.1.0_1', '1.1.0') === '1.1.0 (build 1)',
+    'package versions show without "_N"; a revision-only change shows the build');
 file_put_contents("{$f4_tmp}.json", "{\"type\":\"INFO_PROGRESS_TICK\",\"data\":{\"current\":3,\"total\":9}}\n{\"type\":\"INFO_PROGRESS_TICK\",\"data\":{\"current\":4,\"total\":9}}\nx\n");
 check_api(pkg_mgr_install_read_progress($f4_tmp) === array('type' => 'INFO_PROGRESS_TICK', 'data' => array('current' => 4, 'total' => 9)) &&
     pkg_mgr_install_read_progress("{$f4_tmp}-none") === array(), 'the newest progress record');
