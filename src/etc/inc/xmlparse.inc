@@ -104,13 +104,17 @@ function startElement($parser, $name, $attrs) {
 function endElement($parser, $name) {
 	global $depth, $curpath, $parsedcfg, $havedata, $listtags;
 
-	if ($havedata == $depth) {
-		$ptr = &$parsedcfg;
-		foreach ($curpath as $path) {
-			$ptr = &$ptr[$path];
-		}
-		$ptr = "";
+	$ptr = &$parsedcfg;
+	foreach ($curpath as $path) {
+		$ptr = &$ptr[$path];
 	}
+	if ($havedata == $depth) {
+		$ptr = "";
+	} else if (is_string($ptr)) {
+		/* cData() keeps line breaks inside a value; trim them off its end. */
+		$ptr = rtrim($ptr, "\t\n\r");
+	}
+	unset($ptr);
 
 	array_pop($curpath);
 
@@ -137,22 +141,27 @@ function endElement($parser, $name) {
 function cData($parser, $data) {
 	global $depth, $curpath, $parsedcfg, $havedata;
 
+	$ptr = &$parsedcfg;
+	foreach ($curpath as $path) {
+		$ptr = &$ptr[$path];
+	}
+
+	/*
+	 * Expat reports a line break it normalized from CRLF or CR, and the &#13;
+	 * written by xml_config_escape(), as a chunk of its own. Inside a value,
+	 * append chunks untrimmed so those line breaks survive; endElement() trims
+	 * the end of the value.
+	 */
+	if (is_string($ptr)) {
+		$ptr .= html_entity_decode($data, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1);
+		return;
+	}
+
 	$data = trim($data, "\t\n\r");
 
-	if ($data != "") {
-		$ptr = &$parsedcfg;
-		foreach ($curpath as $path) {
-			$ptr = &$ptr[$path];
-		}
-
-		if (is_string($ptr)) {
-			$ptr .= html_entity_decode($data, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1);
-		} else {
-			if (trim($data, " ") != "") {
-				$ptr = html_entity_decode($data, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1);
-				$havedata++;
-			}
-		}
+	if (trim($data, " ") != "") {
+		$ptr = html_entity_decode($data, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1);
+		$havedata++;
 	}
 }
 
@@ -237,6 +246,14 @@ function parse_xml_config_raw($cffile, $rootobj, $isstring = "false") {
 	}
 }
 
+/*
+ * Escape a value for config.xml. An XML parser turns a literal CR into LF, so
+ * CR is written as a character reference; browser textareas submit CRLF.
+ */
+function xml_config_escape($val) {
+	return str_replace("\r", "&#13;", htmlentities($val, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1));
+}
+
 /* Return true if a field should be cdata encoded */
 function is_cdata_entity($ent) {
 	$cdata_fields = array(
@@ -301,9 +318,9 @@ function dump_xml_config_sub($arr, $indent) {
 						if ((is_bool($cval) && $cval == true) || ($cval === "")) {
 							$xmlconfig .= "<{$ent}></{$ent}>\n";
 						} else if (is_cdata_entity($ent)) {
-							$xmlconfig .= "<{$ent}><![CDATA[" . htmlentities($cval, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1) . "]]></{$ent}>\n";
+							$xmlconfig .= "<{$ent}><![CDATA[" . xml_config_escape($cval) . "]]></{$ent}>\n";
 						} else {
-							$xmlconfig .= "<{$ent}>" . htmlentities($cval, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1) . "</{$ent}>\n";
+							$xmlconfig .= "<{$ent}>" . xml_config_escape($cval) . "</{$ent}>\n";
 						}
 					}
 				}
@@ -325,9 +342,9 @@ function dump_xml_config_sub($arr, $indent) {
 			} else if (!is_bool($val)) {
 				$xmlconfig .= str_repeat("\t", $indent);
 				if (is_cdata_entity($ent)) {
-					$xmlconfig .= "<{$ent}><![CDATA[" . htmlentities($val, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1) . "]]></{$ent}>\n";
+					$xmlconfig .= "<{$ent}><![CDATA[" . xml_config_escape($val) . "]]></{$ent}>\n";
 				} else {
-					$xmlconfig .= "<{$ent}>" . htmlentities($val, ENT_QUOTES | ENT_SUBSTITUTE | ENT_XML1) . "</{$ent}>\n";
+					$xmlconfig .= "<{$ent}>" . xml_config_escape($val) . "</{$ent}>\n";
 				}
 			}
 		}

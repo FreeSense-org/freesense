@@ -86,7 +86,8 @@ jobs:
               RestApiRoutingSmokeTest \
               RestApiDhcpSmokeTest \
               GlobalsRegistrySmokeTest \
-              XmlNumericKeySmokeTest; do
+              XmlNumericKeySmokeTest \
+              XmlLineBreakSmokeTest; do
               php -d error_reporting=E_ALL "tests/$t.php"
             done
           '
