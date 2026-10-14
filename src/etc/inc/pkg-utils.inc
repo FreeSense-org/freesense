@@ -1893,9 +1893,19 @@ function update_repos() {
 	];
 
 	/* Execute repoc with a full pkg style environment, including proxy
-	 * configuration. */
+	 * configuration, but without pkg's REPOS_DIR and FETCH_TIMEOUT: repoc
+	 * 1.0.0_6 and older read the same names and then lose the selected
+	 * update channel. */
+	$repoc_env = pkg_env();
+	unset($repoc_env['REPOS_DIR'], $repoc_env['FETCH_TIMEOUT']);
+	/* The configured channel (a name, or its .conf path) wins over repoc's marker from an earlier run. */
+	$selected_channel = basename((string)config_get_path('system/pkg_repo_conf_path', ''), '.conf');
+	$selected_channel = preg_replace('/^' . preg_quote($product_name, '/') . '-repo-/', '', $selected_channel);
+	if (preg_match('/^[a-z0-9][a-z0-9.-]*$/D', $selected_channel)) {
+		$repoc_env['FREESENSE_SELECTED_CHANNEL'] = $selected_channel;
+	}
 	$process = proc_open(sprintf('/usr/local/sbin/%s-repoc -N', $product_name),
-	    $dspec, $pipes, '/', pkg_env());
+	    $dspec, $pipes, '/', $repoc_env);
 
 	/* Process failed to start */
 	if (!is_resource($process)) {

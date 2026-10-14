@@ -3304,7 +3304,7 @@ check_api(restapi_pkgop_lines(array()) === RESTAPI_PKGOP_LINES_DEFAULT && restap
 
 /* The Package Installer's shared functions (log, progress and mode file parsing) */
 $f4_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/pkg_mgr_install.inc");
-foreach (array('pkg_mgr_install_name_ok', 'pkg_mgr_install_read_mode', 'pkg_mgr_install_read_log', 'pkg_mgr_install_read_progress') as $fn) {
+foreach (array('pkg_mgr_install_name_ok', 'pkg_mgr_install_read_mode', 'pkg_mgr_install_read_log', 'pkg_mgr_install_read_progress', 'pkg_mgr_install_step') as $fn) {
 	if (!function_exists($fn)) {
 		eval($fn_body($f4_inc, $fn) . "\n}\n");
 	}
@@ -3317,6 +3317,19 @@ check_api($f4_log === array('log' => "Installing &lt;b&gt;x&lt;/b&gt; &amp; y\nm
 file_put_contents("{$f4_tmp}.txt", "err\n__RC=75\n");
 check_api(pkg_mgr_install_read_log($f4_tmp) === array('log' => "err\nFailed\n", 'status' => array('reboot_needed' => 'no', 'exitstatus' => "75\n")) &&
     pkg_mgr_install_read_log("{$f4_tmp}-none") === null, 'a failed operation; no log yet is null ("not_ready")');
+/* The launcher's __EXIT line: the result when the upgrader wrote none (75: another instance); ignored after __RC */
+file_put_contents("{$f4_tmp}.txt", ">>> Updating repositories metadata...\n__EXIT=75\n");
+check_api(pkg_mgr_install_read_log($f4_tmp, false) === array('log' => ">>> Updating repositories metadata...\nAnother update or package operation is running. Try again when it has finished.\n",
+    'status' => array('exitstatus' => 75, 'reboot_needed' => 'no')), '[fix] a run that never got the lock ends as busy (exit 75), not as a silent success');
+file_put_contents("{$f4_tmp}.txt", "ERROR: Unable to update the repository settings.\n__EXIT=1\n");
+check_api(pkg_mgr_install_read_log($f4_tmp, false) === array('log' => "ERROR: Unable to update the repository settings.\nFailed\n",
+    'status' => array('exitstatus' => 1, 'reboot_needed' => 'no')), '[fix] an upgrader that stopped before its first step fails with its own message');
+file_put_contents("{$f4_tmp}.txt", "done\n__RC=0\n__EXIT=0\n");
+check_api(pkg_mgr_install_read_log($f4_tmp, false) === array('log' => "done\nSuccess\n", 'status' => array('reboot_needed' => 'no', 'exitstatus' => "0\n")),
+    'after __RC the launcher line changes nothing');
+file_put_contents("{$f4_tmp}.txt", ">>> Creating boot environment... done.\n>>> Downloading upgrade packages...\n\n__EXIT=0\n");
+check_api(pkg_mgr_install_step($f4_tmp) === 'Downloading upgrade packages' && pkg_mgr_install_step("{$f4_tmp}-none") === '',
+    'the status window shows the current step');
 file_put_contents("{$f4_tmp}.json", "{\"type\":\"INFO_PROGRESS_TICK\",\"data\":{\"current\":3,\"total\":9}}\n{\"type\":\"INFO_PROGRESS_TICK\",\"data\":{\"current\":4,\"total\":9}}\nx\n");
 check_api(pkg_mgr_install_read_progress($f4_tmp) === array('type' => 'INFO_PROGRESS_TICK', 'data' => array('current' => 4, 'total' => 9)) &&
     pkg_mgr_install_read_progress("{$f4_tmp}-none") === array(), 'the newest progress record');
@@ -3333,9 +3346,13 @@ $f4_start = $fn_body($f4_inc, 'pkg_mgr_install_start');
 check_api(strpos($f4_start, '@file_put_contents($gui_mode, implode("\n", $mode));') !== false && strpos($f4_start, '@file_put_contents($gui_mode, $mode);') === false,
     '[fix] the mode file has one item per line (the page reads the package back)');
 check_api(strpos($f4_start, 'write_config(gettext("Creating restore point before package installation."));') < strpos($f4_start, 'mwexec_bg(') &&
-    strpos($f4_start, "if ((int)\$matches[1] != 75) {") !== false && strpos($f4_start, 'for ($idx = 0; $idx < 30; $idx++) {') !== false &&
-    strpos($f4_start, '"-i ALL_PACKAGES -f"') !== false && substr_count($f4_start, 'mwexec_bg(') === 1,
-    'the start writes a restore point first and retries while another instance holds the lock, like the page did');
+    strpos($f4_start, '\'; echo "__EXIT=$?" >> \'') !== false && strpos($f4_start, 'for ($idx') === false && strpos($f4_start, 'usleep(') === false &&
+    strpos($f4_start, '"-i ALL_PACKAGES -f"') !== false && substr_count($f4_start, 'mwexec_bg(') === 1 &&
+    strpos($f4_start, "'another_instance'") < strpos($f4_start, 'write_config('),
+    '[fix] the start writes a restore point, launches FreeSense-upgrade once and returns at once (no retries, no wait for its socket); a running operation is refused first');
+$f4_finish = $fn_body($f4_inc, 'pkg_mgr_install_finish');
+check_api(strpos($f4_finish, "lock('pkg-mgr-install-finish', LOCK_EX)") !== false && strpos($f4_finish, '"__EXIT="') !== false,
+    '[fix] the finished work runs once per operation, after the launcher\'s last line');
 
 /* The pages are thin wrappers */
 $f4_page = function ($p) use ($root) { return file_get_contents("{$root}/src/usr/local/www/{$p}"); };
