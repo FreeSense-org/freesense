@@ -110,7 +110,7 @@ if ($_REQUEST['getupdatestatus']) {
 ?>
 		<div>
 			<?=gettext("Version ")?>
-			<span class="text-success"><?=$system_version['version']?></span> <?=gettext("is available.")?>
+			<span class="text-success" title="<?=htmlspecialchars($system_version['version'])?>"><?=htmlspecialchars(pkg_version_display($system_version['version'], $system_version['installed_version'] ?? ''))?></span> <?=gettext("is available.")?>
 			<a class="fa-solid fa-cloud-arrow-down fa-lg" href="/pkg_mgr_install.php?id=firmware"></a>
 		</div>
 <?php

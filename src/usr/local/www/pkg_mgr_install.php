@@ -101,6 +101,10 @@ if ($_REQUEST['ajax']) {
 	// JSON encode the result, print it and exit
 	if ($_REQUEST['getversion']) {
 		$firmwareversions = get_system_pkg_version(false);
+		if (isset($firmwareversions['installed_version'], $firmwareversions['version'])) {
+			$firmwareversions['installed_display'] = pkg_version_display($firmwareversions['installed_version'], $firmwareversions['version']);
+			$firmwareversions['version_display'] = pkg_version_display($firmwareversions['version'], $firmwareversions['installed_version']);
+		}
 		$channel = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
 		if (preg_match('/^[A-Za-z0-9_.-]+$/D', $channel)) {
 			// Release notes travel with the canonical release document used by
@@ -722,8 +726,8 @@ if ($confirmed || isvalidpid($gui_pidfile)):
 			<h2 id="run-overlay-title"><?=htmlspecialchars($panel_heading_txt)?></h2>
 <?php if ($firmwareupdate && $update_versions['from_version'] !== '' && $update_versions['to_version'] !== ''): ?>
 			<div class="fs-run-versions fs-mono" id="run-versions">
-				<div><span class="fs-run-versions-label"><?=gettext('From')?></span> <?=htmlspecialchars($update_versions['from_version'])?></div>
-				<div><span class="fs-run-versions-label"><?=gettext('To')?></span> <?=htmlspecialchars($update_versions['to_version'])?></div>
+				<div><span class="fs-run-versions-label"><?=gettext('From')?></span> <?=htmlspecialchars(pkg_version_display($update_versions['from_version'], $update_versions['to_version']))?></div>
+				<div><span class="fs-run-versions-label"><?=gettext('To')?></span> <?=htmlspecialchars(pkg_version_display($update_versions['to_version'], $update_versions['from_version']))?></div>
 			</div>
 <?php endif; ?>
 			<p class="fs-run-msg" id="run-overlay-msg"></p>
@@ -916,8 +920,8 @@ function get_firmware_versions() {
 		if (json && json.pkg_busy == '1') {
 			$('#uptodate').html('<i class="fa-solid fa-hourglass-half text-warning"></i> <span class="text-warning">' + '<?=gettext("Another update is already running. Please try again in a few moments.")?>' + "</span>");
 		} else if (json && !json.pkg_version_error) {
-			$('#installed_version').text(json.installed_version);
-			$('#version').text(json.version);
+			$('#installed_version').text(json.installed_display || json.installed_version).attr('title', json.installed_version || '');
+			$('#version').text(json.version_display || json.version).attr('title', json.version || '');
 			// remembered for the run: the overlay shows what the update goes from and to
 			$('#from_version').val(json.installed_version || '');
 			$('#to_version').val(json.version || '');
