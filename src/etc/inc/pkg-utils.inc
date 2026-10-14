@@ -1573,6 +1573,25 @@ function get_base_pkg_name() {
 	return false;
 }
 
+/*
+ * A system package version as the WebUI shows it. The build appends the
+ * publication generation to the release ("1.1.2_9" or "1.1.2.9"); people
+ * only need the release ("1.1.2"). When $other has the same release but a
+ * different generation (two Development builds), the generation is kept as
+ * "(build N)" so the two stay distinguishable. Anything else is returned as is.
+ */
+function pkg_version_display($version, $other = '') {
+	$version = (string)$version;
+	if (!preg_match('/^(\d+\.\d+\.\d+)[._](\d+)$/D', $version, $m)) {
+		return $version;
+	}
+	if (preg_match('/^(\d+\.\d+\.\d+)[._](\d+)$/D', (string)$other, $o) &&
+	    $o[1] === $m[1] && $o[2] !== $m[2]) {
+		return sprintf(gettext('%1$s (build %2$s)'), $m[1], $m[2]);
+	}
+	return $m[1];
+}
+
 /* Verify if system needs updating from selected repo or upgrading from available repos (meta package or base) */
 function get_system_pkg_version($use_cache = true, $updates_only = true) {
 	$result = ['pkg_use_cache' => $use_cache];
