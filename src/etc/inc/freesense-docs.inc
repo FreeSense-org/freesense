@@ -42,6 +42,8 @@ function freesense_docs_topic_path($page) {
 		'network_tools' => '/packages/diagnostics/',
 		'interfaces_vxlan' => '/configure/interfaces-vlans-bridges/#vxlan',
 		'interfaces_vxlan_edit' => '/configure/interfaces-vlans-bridges/#vxlan',
+		'miniupnpd' => '/base-os/built-in-services/',
+		'crash_reporter' => '/operations/diagnostics-and-troubleshooting/',
 	);
 	if (isset($exact[$key])) {
 		return $exact[$key];
@@ -55,7 +57,7 @@ function freesense_docs_topic_path($page) {
 		'/^suricata/' => '/packages/suricata/',
 		'/^crowdsec/' => '/packages/crowdsec/',
 		'/^acme/' => '/packages/acme/',
-		'/^(wireguard|vpn_wg_|status_wireguard)/' => '/packages/wireguard/',
+		'/^(wireguard|wg\/|vpn_wg_|status_wireguard)/' => '/packages/wireguard/',
 		'/^(tailscale|status_tailscale)/' => '/packages/tailscale/',
 		'/^zerotier/' => '/packages/zerotier/',
 		'/^(frr|status_frr)/' => '/packages/frr/',
@@ -79,7 +81,7 @@ function freesense_docs_topic_path($page) {
 		'/^(andwatch|status_andwatch)/' => '/packages/andwatch/',
 		'/^lldpd/' => '/packages/lldpd/',
 		'/^nut(_|$)/' => '/packages/nut/',
-		'/^diagnostics$/' => '/packages/diagnostics/',
+		'/^diagnostics(\/|$)/' => '/packages/diagnostics/',
 		'/^open-vm-tools/' => '/packages/open-vm-tools/',
 		'/^(system|status)_restapi/' => '/api/overview/',
 		'/^system_(gateways?|routing|staticroutes)/' => '/base-os/routing-and-high-availability/',
