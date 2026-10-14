@@ -115,11 +115,7 @@ function restapi_routes_diagnostics() {
 
 /* 400 for fields the endpoint does not know. */
 function restapi_diag_fields(array $body, array $known) {
-	foreach (array_keys($body) as $field) {
-		if (!in_array($field, $known, true)) {
-			throw new RestApiError(400, 'unknown_field', "Unknown field \"{$field}\".");
-		}
-	}
+	restapi_reject_unknown_fields($body, $known);
 }
 
 /* A string field (trimmed of nothing); $default when absent. 400 when it is not a string or too long. */

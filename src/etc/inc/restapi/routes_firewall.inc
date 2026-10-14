@@ -346,6 +346,7 @@ function restapi_alias_out($alias) {
 
 /* Turn an API alias body into the firewall_aliases_edit.php form fields. */
 function restapi_alias_post($body, $origname) {
+	restapi_reject_unknown_fields($body, array('name', 'type', 'description', 'entries', 'update_frequency'));
 	$type = (string)($body['type'] ?? '');
 	$post = array(
 		'name' => (string)($body['name'] ?? ''),
