@@ -1,71 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
+		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<link rel="apple-touch-icon-precomposed" href="/apple-touch/apple-touch-icon-iphone-60x60-precomposed.png">
-		<link rel="apple-touch-icon-precomposed" sizes="60x60" href="/apple-touch/apple-touch-icon-ipad-76x76-precomposed.png">
-		<link rel="apple-touch-icon-precomposed" sizes="114x114" href="/apple-touch/apple-touch-icon-iphone-retina-120x120-precomposed.png">
-		<link rel="apple-touch-icon-precomposed" sizes="144x144" href="/apple-touch/apple-touch-icon-ipad-retina-152x152-precomposed.png">
 		<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
 		<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-		<link rel="manifest" href="/manifest.json">
-		<link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
 		<link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css" type="text/css">
 		<link rel="stylesheet" href="/css/login.css" type="text/css">
 		<title>404 - File Not Found</title>
-		<script type="text/javascript">
-			//<![CDATA{
-			var events = events || [];
-			//]]>
-		</script>
-		<script src="/vendor/jquery/jquery-4.0.0.min.js"></script>
-		<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-		<script src="/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-		<script>
-			$(function(){
-				$("#logodiv").load("logo.svg");
-			});
-		</script>
-
 	</head>
 
 	<body id="login">
-		<div id="total">
-			<header>
-				<div id="headerrow">
-					<div class="row">
-						<div class="col-sm-4">
-							<div id="logodiv" style="text-align:center" class="nowarning">
-							</div>
-						</div>
-						<div class="col-sm-4 nowarning msgbox text-center text-danger">
-							The requested file does not exist.<br/>
-						</div>
-						<div class="col-sm-4 nowarning msgbox text-center">
-							<h4>404 Error</h4>
-						</div>
-					</div>
+		<div class="fs-login">
+			<aside class="fs-login__brand">
+				<div class="fs-login__brand-inner">
+					<div class="fs-login__logo"></div>
+					<p class="fs-login__tag">The open-source firewall, <span class="fs-login__tag-accent">rebuilt in the open.</span></p>
+					<p class="fs-login__sub2">OPEN FIREWALL DISTRO</p>
 				</div>
-			</header>
-			<div style="background: #1e3f75;" class="pagebody">
-				<div class="col-sm-4"></div>
-				<div class="col-sm-4 logoCol">
-					<div class="loginCont mx-auto d-block text-center">
-						<strong><a href="/">Return to Dashboard</a></strong>
-					</div>
-				</div>
-				<div class="col-sm-4"></div>
-			</div>
-			<footer id="3">
-				<div id="footertext">
-					<p class="text-muted">
+			</aside>
+
+			<main class="fs-login__panel">
+				<div class="fs-login__card">
+					<div class="fs-login__logo-sm"></div>
+					<h1 class="fs-login__title">Page not found</h1>
+					<p class="fs-login__host">The requested file does not exist.</p>
+					<a class="btn btn-primary fs-login__submit" href="/">Return to Dashboard</a>
+					<footer class="fs-login__footer">
 						<a target="_blank" href="https://freesense.org">FreeSense</a>
 						is free and open-source software.
 						&copy; 2025 - 2026 The FreeSense Project.
 						<a target="_blank" href="https://freesense.org/license">View license</a>.
-					</p>
+					</footer>
 				</div>
-			</footer>
+			</main>
 		</div>
+
+		<script>
+			/* Inline the logo so login.css can colour it, as on the sign-in page. */
+			fetch('/logo.svg').then((r) => r.ok ? r.text() : '').then((svg) => {
+				document.querySelectorAll('.fs-login__logo, .fs-login__logo-sm').forEach((el) => { el.innerHTML = svg; });
+			});
+		</script>
 	</body>
 </html>
