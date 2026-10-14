@@ -1592,6 +1592,24 @@ function pkg_version_display($version, $other = '') {
 	return $m[1];
 }
 
+/*
+ * A package version as the package lists show it: without the port revision
+ * ("_N") and epoch (",N"), like the system version ("1.1_8" shows as "1.1").
+ * When $other differs from it only in that revision, the revision is shown:
+ * "1.0.0 (build 7)". The full version stays in the tooltip.
+ */
+function pkg_package_version_display($version, $other = '') {
+	$version = (string)$version;
+	$re = '/^(.+?)(?:_(\d+))?(?:,\d+)?$/D';
+	if (!preg_match($re, $version, $m)) {
+		return $version;
+	}
+	if ((($m[2] ?? '') !== '') && preg_match($re, (string)$other, $o) && ($o[1] === $m[1]) && (($o[2] ?? '') !== $m[2])) {
+		return sprintf(gettext('%1$s (build %2$s)'), $m[1], $m[2]);
+	}
+	return $m[1];
+}
+
 /* Verify if system needs updating from selected repo or upgrading from available repos (meta package or base) */
 function get_system_pkg_version($use_cache = true, $updates_only = true) {
 	$result = ['pkg_use_cache' => $use_cache];

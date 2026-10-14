@@ -223,7 +223,7 @@ function pkg_mgr_install_step($postlog) {
 		if ((strpos($lines[$i], '__RC=') !== false) || (strpos($lines[$i], '__EXIT=') === 0)) {
 			continue;
 		}
-		$line = trim(preg_replace(array('/^>>>\s*/', '/\s*\.{3,}\s*(done\.?)?\s*$/i'), '', $lines[$i]));
+		$line = trim(preg_replace(array('/^(>>>|=+>)\s*/', '/\s*\.{3,}\s*(done\.?)?\s*$/i'), '', $lines[$i]));
 		if ($line === '') {
 			continue;
 		}

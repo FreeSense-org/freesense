@@ -95,6 +95,7 @@ function system_general_settings() {
 	//$pconfig['dashboardperiod'] = isset($config['widgets']['period']) ? $config['widgets']['period']:"10";
 	$pconfig['roworderdragging'] = config_path_enabled('system/webgui', 'roworderdragging');
 	$pconfig['loginshowhost'] = config_path_enabled('system/webgui', 'loginshowhost');
+	$pconfig['loginhideversion'] = config_path_enabled('system/webgui', 'loginhideversion');
 	$pconfig['login_message'] = htmlentities(base64_decode(config_get_path('system/login_message', '')));
 	$pconfig['requirestatefilter'] = config_path_enabled('system/webgui', 'requirestatefilter');
 	$pconfig['requirefirewallinterface'] = config_path_enabled('system/webgui', 'requirefirewallinterface');
@@ -336,6 +337,7 @@ function system_general_save(array $post) {
 		}
 
 		config_set_path('system/webgui/loginshowhost', $post['loginshowhost'] ? true:false);
+		config_set_path('system/webgui/loginhideversion', $post['loginhideversion'] ? true:false);
 
 		if (isset($post['login_message']) && (strlen(strval($post['login_message'])) > 0)) {
 			$login_message = strip_tags(strval($pconfig['login_message']));
