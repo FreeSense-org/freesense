@@ -408,6 +408,26 @@ The heading becomes one disclosure button (chevron, `aria-expanded`, keyboard). 
 their fields. Open them after a failed save as above; if the browser rejects a field inside a closed
 section, `js/freesense-ui.js` opens that section so the field can be shown.
 
+## Multi-select dropdown
+
+For choosing several items from a list of up to a few hundred (targets such as groups and firewalls):
+`<select multiple data-fs-multiselect>` becomes a dropdown with the same look as the single selects
+(coral chevron, popup like `.dropdown-menu`, coral checkmarks, `<optgroup>` headers), a search box and
+the choices as chips in the closed control. The real select stays in the form and posts as before.
+
+```php
+<select class="form-select" id="targets" name="targets[]" multiple data-fs-multiselect data-fs-exclusive="all"
+    data-fs-text-search="<?=gettext('Search groups and firewalls…')?>" data-fs-text-none="<?=gettext('Choose firewalls…')?>">
+	<option value="all"><?=gettext('All firewalls')?></option>
+	<optgroup label="<?=gettext('Groups')?>">…</optgroup>
+</select>
+```
+
+`data-fs-exclusive` names an option ("All …") that clears the others and is cleared by them. Keyboard:
+arrows move, Enter ticks, Escape closes only the list (a surrounding modal stays open). Modal forms fill it
+with a list: `data-fs-fill='{"targets[]": ["g:1", "n:x"]}'` (the same works for checkboxes sharing a name).
+Use the searchable checklist instead for long lists with descriptions (privileges).
+
 ## Searchable checklist
 
 For a long multiple choice (privileges): `<select multiple data-fs-checklist>` becomes a searchable

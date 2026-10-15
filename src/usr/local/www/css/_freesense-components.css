@@ -804,3 +804,56 @@ a.fs-toast-text:hover { text-decoration: underline; }
 .fs-toast-close { flex: none; font-size: .7rem; }
 .fs-toast--out { opacity: 0; transform: translateY(.5rem); }
 @media (prefers-reduced-motion: reduce) { .fs-toast { transition: none; } }
+
+/* ---- multi-select dropdown (<select multiple data-fs-multiselect>, freesense-ui.js) ----
+   Same look as the customizable single selects: input-like control with a
+   coral chevron, popup like .dropdown-menu, coral checkmarks, optgroup
+   headers. */
+.fs-multiselect { position: relative; min-width: 12rem; }
+.fs-multiselect-control {
+	display: flex; align-items: center; gap: .35rem; width: 100%; min-height: calc(1.5em + .75rem + 2px);
+	text-align: start; cursor: pointer;
+	border-radius: var(--bs-border-radius-sm); transition: border-color .12s ease, box-shadow .12s ease;
+}
+.fs-multiselect.fs-open .fs-multiselect-control { border-color: var(--fs-coral); box-shadow: 0 0 0 .2rem rgba(234, 79, 45, 0.18); }
+.fs-multiselect .fs-multiselect-control.form-select { background-image: none; padding-inline-end: .75rem; }
+.fs-multiselect-chips { display: flex; flex-wrap: wrap; gap: .25rem; min-width: 0; flex: 1 1 auto; }
+.fs-multiselect-chip {
+	max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	padding: .05rem .5rem; border-radius: 999px; font-size: .8rem;
+	background: rgba(234, 79, 45, 0.16); color: var(--bs-emphasis-color);
+}
+.fs-multiselect-more, .fs-multiselect-placeholder { font-size: .8rem; color: var(--bs-secondary-color); align-self: center; }
+.fs-multiselect-icon {
+	flex: none; margin-inline-start: auto; width: 0; height: 0;
+	border-inline: .3rem solid transparent; border-top: .38rem solid var(--fs-coral);
+	transition: rotate .15s ease;
+}
+.fs-multiselect.fs-open .fs-multiselect-icon { rotate: 180deg; }
+.fs-multiselect-pop {
+	position: absolute; z-index: 1060; inset-inline-start: 0; top: 100%; margin-top: .3rem;
+	min-width: 100%; width: max-content; max-width: min(28rem, 92vw);
+	background-color: var(--bs-body-bg); color: var(--bs-body-color);
+	border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12); padding: .35rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.fs-multiselect-pop:not([hidden]) { animation: fs-ms-in .14s ease-out; }
+	@keyframes fs-ms-in { from { opacity: 0; transform: translateY(-4px); } }
+}
+.fs-multiselect-search { margin-bottom: .3rem; }
+.fs-multiselect-list { max-height: 18rem; overflow-y: auto; }
+.fs-multiselect-group {
+	font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+	color: var(--bs-secondary-color); padding: .4rem .4rem .1rem;
+}
+.fs-multiselect-item {
+	position: relative; padding: .4rem .8rem .4rem 2rem; border-radius: var(--bs-border-radius-sm);
+	font-size: .9rem; cursor: pointer; transition: background-color .1s ease;
+}
+.fs-multiselect-item:hover, .fs-multiselect-item.fs-active { background-color: rgba(234, 79, 45, 0.14); color: var(--bs-emphasis-color); }
+.fs-multiselect-item[aria-selected="true"] { background-color: rgba(234, 79, 45, 0.22); font-weight: 500; }
+.fs-multiselect-item[aria-selected="true"]::before {
+	content: "\2713"; position: absolute; inset-inline-start: .75rem; color: var(--fs-coral);
+}
+.fs-multiselect-empty { padding: .4rem .8rem; font-size: .85rem; color: var(--bs-secondary-color); }

@@ -226,7 +226,20 @@
 			form.reset();
 			Object.keys(fill).forEach(function (name) {
 				var field = form.elements[name];
-				if (field && field.type === 'checkbox') {
+				if (Array.isArray(fill[name])) {
+					/* a list: checkboxes sharing the name, or a multiple select */
+					var want = fill[name].map(String);
+					if (field && field.tagName === 'SELECT') {
+						Array.prototype.forEach.call(field.options, function (o) {
+							o.selected = want.indexOf(o.value) !== -1;
+						});
+						field.dispatchEvent(new Event('change', {bubbles: true}));
+					} else if (field) {
+						Array.prototype.forEach.call(field.length !== undefined ? field : [field], function (f) {
+							f.checked = want.indexOf(f.value) !== -1;
+						});
+					}
+				} else if (field && field.type === 'checkbox') {
 					field.checked = !!fill[name];
 				} else if (field) {
 					field.value = fill[name];
@@ -1112,6 +1125,254 @@
 		});
 	}
 
+	/* ------------------------------------------------------------ multi-select dropdown */
+
+	/*
+	 * <select multiple data-fs-multiselect> shown as a dropdown like the single
+	 * selects: chips in the closed control, a popup with search, optgroup
+	 * headers and checkmarks. The real <select> stays in the form (hidden) and
+	 * is what posts. Optional: data-fs-exclusive="value" (an option such as
+	 * "All firewalls" that clears the others and is cleared by them),
+	 * data-fs-text-search / -empty / -none / -more for the words.
+	 */
+	var multiOpen = null;
+
+	function initMultiSelect(select) {
+		var t = function (key, fallback) {
+			return select.getAttribute('data-fs-text-' + key) || fallback;
+		};
+		var exclusive = select.getAttribute('data-fs-exclusive');
+		var uid = (select.id || 'fs-ms') + '-ms';
+
+		var root = document.createElement('div');
+		root.className = 'fs-multiselect';
+		var control = document.createElement('button');
+		control.type = 'button';
+		control.className = 'form-select fs-multiselect-control';
+		control.setAttribute('aria-haspopup', 'listbox');
+		control.setAttribute('aria-expanded', 'false');
+		control.setAttribute('aria-controls', uid + '-pop');
+		var label = select.id ? document.querySelector('label[for="' + select.id + '"]') : null;
+		if (label) {
+			label.htmlFor = uid + '-control';
+			control.id = uid + '-control';
+		} else if (select.getAttribute('aria-label')) {
+			control.setAttribute('aria-label', select.getAttribute('aria-label'));
+		}
+		var chips = document.createElement('span');
+		chips.className = 'fs-multiselect-chips';
+		control.appendChild(chips);
+		var icon = document.createElement('span');
+		icon.className = 'fs-multiselect-icon';
+		icon.setAttribute('aria-hidden', 'true');
+		control.appendChild(icon);
+
+		var pop = document.createElement('div');
+		pop.className = 'fs-multiselect-pop';
+		pop.id = uid + '-pop';
+		pop.hidden = true;
+		var search = document.createElement('input');
+		search.type = 'search';
+		search.className = 'form-control form-control-sm fs-multiselect-search';
+		search.setAttribute('autocomplete', 'off');
+		search.setAttribute('placeholder', t('search', 'Search…'));
+		search.setAttribute('aria-label', t('search', 'Search…'));
+		var list = document.createElement('div');
+		list.className = 'fs-multiselect-list';
+		list.setAttribute('role', 'listbox');
+		list.setAttribute('aria-multiselectable', 'true');
+		var empty = document.createElement('div');
+		empty.className = 'fs-multiselect-empty';
+		empty.textContent = t('empty', 'Nothing matches the search.');
+		empty.hidden = true;
+		pop.appendChild(search);
+		pop.appendChild(list);
+		pop.appendChild(empty);
+
+		var items = [];
+		var heads = [];
+		var add = function (opt, group) {
+			var row = document.createElement('div');
+			row.className = 'fs-multiselect-item';
+			row.setAttribute('role', 'option');
+			row.id = uid + '-o' + items.length;
+			row.textContent = opt.text;
+			row.addEventListener('mousedown', function (e) {
+				e.preventDefault();
+			});
+			row.addEventListener('click', function () {
+				toggle(items.indexOf(it));
+			});
+			var it = {opt: opt, row: row, head: group, text: opt.text.toLowerCase()};
+			items.push(it);
+			list.appendChild(row);
+		};
+		Array.prototype.forEach.call(select.children, function (node) {
+			if (node.tagName === 'OPTGROUP') {
+				var h = document.createElement('div');
+				h.className = 'fs-multiselect-group';
+				h.textContent = node.label;
+				list.appendChild(h);
+				heads.push(h);
+				Array.prototype.forEach.call(node.children, function (o) {
+					add(o, h);
+				});
+			} else if (node.tagName === 'OPTION') {
+				add(node, null);
+			}
+		});
+
+		var active = -1;
+		function visible() {
+			return items.filter(function (it) {
+				return !it.row.hidden;
+			});
+		}
+		function setActive(i) {
+			items.forEach(function (it, n) {
+				it.row.classList.toggle('fs-active', n === i);
+			});
+			active = i;
+			if (i >= 0) {
+				search.setAttribute('aria-activedescendant', items[i].row.id);
+				items[i].row.scrollIntoView({block: 'nearest'});
+			}
+		}
+		function render() {
+			items.forEach(function (it) {
+				it.row.setAttribute('aria-selected', it.opt.selected ? 'true' : 'false');
+			});
+			chips.textContent = '';
+			var on = items.filter(function (it) {
+				return it.opt.selected;
+			});
+			if (on.length === 0) {
+				var none = document.createElement('span');
+				none.className = 'fs-multiselect-placeholder';
+				none.textContent = t('none', 'Choose…');
+				chips.appendChild(none);
+			}
+			on.slice(0, 3).forEach(function (it) {
+				var c = document.createElement('span');
+				c.className = 'fs-multiselect-chip';
+				c.textContent = it.opt.text;
+				chips.appendChild(c);
+			});
+			if (on.length > 3) {
+				var more = document.createElement('span');
+				more.className = 'fs-multiselect-more';
+				more.textContent = t('more', '+%d more').replace('%d', on.length - 3);
+				chips.appendChild(more);
+			}
+		}
+		function toggle(i) {
+			if (i < 0) {
+				return;
+			}
+			var it = items[i];
+			it.opt.selected = !it.opt.selected;
+			if (exclusive !== null && it.opt.selected) {
+				items.forEach(function (o) {
+					if (o !== it && ((it.opt.value === exclusive) || (o.opt.value === exclusive))) {
+						o.opt.selected = false;
+					}
+				});
+			}
+			render();
+			select.dispatchEvent(new Event('change', {bubbles: true}));
+		}
+		function filter() {
+			var q = search.value.trim().toLowerCase();
+			items.forEach(function (it) {
+				it.row.hidden = q !== '' && it.text.indexOf(q) === -1;
+			});
+			heads.forEach(function (h) {
+				h.hidden = !items.some(function (it) {
+					return it.head === h && !it.row.hidden;
+				});
+			});
+			var v = visible();
+			empty.hidden = v.length > 0;
+			setActive(v.length ? items.indexOf(v[0]) : -1);
+		}
+		function open() {
+			if (multiOpen && multiOpen !== close) {
+				multiOpen();
+			}
+			pop.hidden = false;
+			root.classList.add('fs-open');
+			control.setAttribute('aria-expanded', 'true');
+			search.value = '';
+			filter();
+			search.focus();
+			multiOpen = close;
+		}
+		function close(refocus) {
+			pop.hidden = true;
+			root.classList.remove('fs-open');
+			control.setAttribute('aria-expanded', 'false');
+			if (multiOpen === close) {
+				multiOpen = null;
+			}
+			if (refocus) {
+				control.focus();
+			}
+		}
+		control.addEventListener('click', function () {
+			if (pop.hidden) {
+				open();
+			} else {
+				close(true);
+			}
+		});
+		control.addEventListener('keydown', function (e) {
+			if ((e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') && pop.hidden) {
+				e.preventDefault();
+				open();
+			}
+		});
+		search.addEventListener('input', filter);
+		search.addEventListener('keydown', function (e) {
+			var v = visible();
+			var pos = v.indexOf(items[active]);
+			if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+				e.preventDefault();
+				if (v.length) {
+					pos = (e.key === 'ArrowDown') ? Math.min(v.length - 1, pos + 1) : Math.max(0, pos - 1);
+					setActive(items.indexOf(v[pos]));
+				}
+			} else if (e.key === 'Enter') {
+				e.preventDefault();
+				toggle(active);
+			} else if (e.key === 'Escape') {
+				/* close only the list: a surrounding modal stays open */
+				e.preventDefault();
+				e.stopPropagation();
+				close(true);
+			} else if (e.key === 'Tab') {
+				close(false);
+			}
+		});
+		document.addEventListener('mousedown', function (e) {
+			if (!pop.hidden && !root.contains(e.target)) {
+				close(false);
+			}
+		});
+		select.addEventListener('change', render);
+		if (select.form) {
+			/* form.reset() changes the options without a change event */
+			select.form.addEventListener('reset', function () {
+				setTimeout(render, 0);
+			});
+		}
+
+		root.appendChild(control);
+		root.appendChild(pop);
+		select.hidden = true;
+		select.parentNode.insertBefore(root, select.nextSibling);
+		render();
+	}
+
 	/* ---------------------------------------------------------- searchable checklist */
 
 	/*
@@ -1275,6 +1536,7 @@
 			}
 		}, true);
 		document.querySelectorAll('select[multiple][data-fs-checklist]').forEach(initChecklist);
+		document.querySelectorAll('select[multiple][data-fs-multiselect]').forEach(initMultiSelect);
 
 		// icon-only header links: give them an accessible name
 		document.querySelectorAll('.context-links a[title]:not([aria-label])').forEach(function (a) {
