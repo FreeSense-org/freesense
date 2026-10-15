@@ -40,6 +40,10 @@ foreach ($pidfiles as $pidfile) {
 
 system_webgui_start();
 
+/* The loop above also stopped the REST API listeners (nginx-restapi-*.pid); start them again. */
+require_once("restapi_listener.inc");
+restapi_listeners_configure(true);
+
 captiveportal_init_webgui();
 
 enable_rrd_graphing();
