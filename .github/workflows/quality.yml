@@ -18,13 +18,20 @@ jobs:
       - name: Resolve matching system-ports branch
         id: sysports
         env:
+          # A same-named branch first, then the branch a pull request targets
+          # (RELENG_1_1 for Stable fixes, so they are checked against the
+          # Stable line), then main.
           CANDIDATE_REF: ${{ github.head_ref || github.ref_name }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if git ls-remote --exit-code --heads https://github.com/FreeSense-org/freesense-system-ports.git "${CANDIDATE_REF}" >/dev/null; then
-            echo "ref=${CANDIDATE_REF}" >> "${GITHUB_OUTPUT}"
-          else
-            echo "ref=main" >> "${GITHUB_OUTPUT}"
-          fi
+          ref=main
+          for candidate in "${CANDIDATE_REF}" "${BASE_REF}"; do
+            if [ -n "${candidate}" ] && git ls-remote --exit-code --heads https://github.com/FreeSense-org/freesense-system-ports.git "${candidate}" >/dev/null; then
+              ref=${candidate}
+              break
+            fi
+          done
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           repository: FreeSense-org/freesense-system-ports
