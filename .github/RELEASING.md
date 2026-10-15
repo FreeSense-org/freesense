@@ -13,30 +13,39 @@ system never downgrades to an earlier line.
 
 ## How a Stable release is made
 
+The full rules (R1–R9) are in `freesense-os-base/docs/release-policy.md`.
+
 Stable artifacts are never built from a moving branch. A release is an exact
 lock file, `config/releases/<version>.json` in `freesense-os-base`, which pins
-the `freesense`, `freesense-system-ports` and `freesense-packages` commits, the
-FreeBSD source and ports commits, and the worker inputs.
+the `freesense`, `freesense-system-ports` and `freesense-packages` commits on
+the maintenance branch (`RELENG_1_1`), the FreeBSD source and ports commits,
+and the worker inputs. Locks are append-only.
 
-1. Verify the commits to release in a Development build and on the test VM.
-2. Add the sealed lock (`schema_version: freesense.release-lock/v1`) and a pull
-   request that passes CI. Patch releases (`1.1.1`, ...) add a new lock only.
-3. Dispatch `Publish FreeSense Stable train` (`stable.yml`) with the exact
-   `release` and, if wanted, `queue_development`. The workflow plans from the
-   lock, builds System and Optional Packages, seals and signs the Stable
-   channel, builds the installer images, publishes the downloads, and finally
-   writes the signed release document. The `channel-publisher` GitHub
-   environment gates publication.
-4. Confirm the live release documents and download metadata
-   (`pkg.freesense.org/v1/releases/stable.json`) and the website.
+1. Fix on `main`, then cherry-pick to `RELENG_1_1` with `git cherry-pick -x`
+   through a pull request.
+2. Add the next lock (`1.1.N`), proposed daily by `stable-refresh.yml` from
+   the `RELENG_1_1` heads. A version number is never reused: a cancelled or
+   broken release is listed in `config/releases/withdrawn.json`.
+3. Dispatch `Publish FreeSense Stable train` (`stable.yml`) with
+   `stage=candidate`. It builds System and Optional Packages; nothing goes
+   live.
+4. Upgrade-test the current Stable release to the candidate on a test VM.
+5. Dispatch it again with `stage=seal`. After approval in the
+   `stable-publisher` environment it signs the Stable channel (live on
+   devices), tags `v1.1.N` in the four repositories, builds the installer
+   images and publishes the downloads and release documents. Seals are at
+   least 24 hours apart unless the lock gives a reason.
+6. Confirm the live release documents
+   (`pkg.freesense.org/v1/releases/stable.amd64.json`) and the website.
 
 System and Optional Packages are planned independently: a System-only change
 does not force an Optional Packages rebuild.
 
 ## Fixes to a released line
 
-Only necessary security fixes are released as Stable patches. Ordinary fixes
-land on `main` and ship with the next line.
+Stable patches are cut for security fixes, broken-update or regression fixes,
+or a reviewed batch of fixes. Features land on `main` and ship with the next
+line.
 
 ## Retention
 
