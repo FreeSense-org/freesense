@@ -1,0 +1,155 @@
+#!/usr/local/bin/php
+<?php
+/*
+ * freesense-join
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Copyright (c) 2026 The FreeSense Project
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Join this firewall to a FreeSense Fleet controller, or leave it.
+ *
+ *   freesense-join join '<link>' [--key <join key>]   the key is asked for when omitted
+ *   freesense-join status
+ *   freesense-join leave                              tell the controller, then leave
+ *   freesense-join detach                             Emergency Detach: leave without the controller
+ *   freesense-join menu                               the console menu entry (interactive)
+ *
+ * The join key is secret: prefer the prompt over --key, which stays in the
+ * shell history and the process list.
+ */
+
+require_once('config.inc');
+require_once('functions.inc');
+require_once('fleet_agent.inc');
+
+function usage() {
+	fwrite(STDERR, "usage: freesense-join join '<link>' [--key <join key>]\n" .
+	    "       freesense-join status\n" .
+	    "       freesense-join leave\n" .
+	    "       freesense-join detach\n" .
+	    "       freesense-join menu\n");
+	exit(64);
+}
+
+function ask($prompt, $secret = false) {
+	fwrite(STDOUT, $prompt);
+	if ($secret) {
+		shell_exec('/bin/stty -echo 2>/dev/null');
+	}
+	$line = fgets(STDIN);
+	if ($secret) {
+		shell_exec('/bin/stty echo 2>/dev/null');
+		fwrite(STDOUT, "\n");
+	}
+	return ($line === false) ? '' : trim($line);
+}
+
+/* The steps as they happen, in plain words. */
+function progress($name, $state, $text) {
+	static $labels = array('connect' => 'Connecting to the controller', 'verify' => 'Checking the controller\'s certificate',
+	    'prove' => 'Proving the join key', 'approval' => 'Waiting for approval', 'tunnel' => 'Setting up the tunnel',
+	    'heartbeat' => 'First heartbeat');
+	fleet_progress_write($name, $state, $text);
+	if ($name === 'fail') {
+		fwrite(STDERR, "FAILED  {$text}\n");
+	} elseif (($name === 'approval') && ($state === 'wait')) {
+		fwrite(STDOUT, "WAITING {$labels[$name]}. Ask the administrator to approve this box and compare the code: {$text}\n");
+	} elseif ($state === 'done') {
+		fwrite(STDOUT, "OK      {$labels[$name]}\n");
+	}
+}
+
+function do_join($link, $key) {
+	if ($key === '') {
+		$key = ask('Join key: ', true);
+	}
+	$parsed = fleet_join_link_parse($link);
+	$io = fleet_join_io($parsed);
+	$io['step'] = 'progress';
+	if (fleet_node_membership()['enrolled']) {
+		throw new FleetJoinError('E109', 'This firewall is already managed. Leave its fleet first.');
+	}
+	$norm = fleet_join_key_normalize($key);
+	if ($norm === null) {
+		throw new FleetJoinError('E103', 'The join key is not valid. Check it for typing mistakes.');
+	}
+	@unlink(FLEET_PROGRESS_FILE);
+	$m = fleet_join_run($parsed, $norm, $io);
+	fwrite(STDOUT, "\nJoined {$m['controller_url']} as {$m['node_id']} ({$m['role']}).\n");
+}
+
+function show_status() {
+	$m = fleet_node_membership();
+	if (!$m['enrolled']) {
+		fwrite(STDOUT, "Not managed by a Fleet controller.\n");
+		return false;
+	}
+	fwrite(STDOUT, "Managed by {$m['controller']['url']}\n  node {$m['node_id']}, role {$m['role']}, connection {$m['method']}, overlay {$m['overlay_address']}\n");
+	return true;
+}
+
+$args = array_slice($argv, 1);
+$command = array_shift($args);
+
+try {
+	switch ($command) {
+	case 'join':
+		$link = array_shift($args);
+		if (($link === null) || ($link === '')) {
+			usage();
+		}
+		$key = '';
+		if (($args[0] ?? '') === '--key') {
+			$key = (string)($args[1] ?? '');
+		}
+		do_join($link, $key);
+		break;
+	case 'status':
+		exit(show_status() ? 0 : 1);
+	case 'leave':
+	case 'detach':
+		if (!fleet_node_membership()['enrolled']) {
+			fwrite(STDERR, "Not managed by a Fleet controller.\n");
+			exit(1);
+		}
+		fleet_leave($command);
+		fwrite(STDOUT, "Left the fleet. The last configuration is kept in " . FLEET_ARCHIVE_DIR . ".\n");
+		break;
+	case 'menu':
+		if (show_status()) {
+			if (strtolower(ask('Leave the fleet? (type "leave" to confirm, Enter to go back): ')) === 'leave') {
+				fleet_leave('detach');
+				fwrite(STDOUT, "Left the fleet.\n");
+			}
+		} else {
+			$link = ask('Join link (https://.../fleet/join#...): ');
+			if ($link !== '') {
+				do_join($link, '');
+			}
+		}
+		break;
+	default:
+		usage();
+	}
+} catch (FleetJoinError $e) {
+	fwrite(STDERR, "FLEET-{$e->fleet_code}: {$e->getMessage()}\n");
+	exit(1);
+} catch (Throwable $e) {
+	fwrite(STDERR, 'Failed: ' . $e->getMessage() . "\n");
+	exit(1);
+}
