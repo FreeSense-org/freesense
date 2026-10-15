@@ -461,6 +461,10 @@ fleet_boot();
 require_once('restapi_listener.inc');
 restapi_listeners_configure();
 
+/* a Fleet join seed from a USB stick or seed disk (unattended seeds join in the background) */
+require_once('fleet_seed.inc');
+fleet_seed_boot();
+
 /* power down hard drive if needed/set */
 system_set_harddisk_standby();
 

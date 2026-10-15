@@ -72,6 +72,13 @@ function restapi_routes_management() {
 		restapi_route('DELETE', '/v1/management/activity', 'restapi_h_mgmt_activity_delete', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'summary' => 'Clear the activity notice')),
+		restapi_route('POST', '/v1/auth/handoff', 'restapi_h_mgmt_handoff', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('user', 'operator'), 'properties' => array(
+			    'user' => array('type' => 'string', 'description' => 'Local user to sign in as; must be listed in <fleet><handoff_users> by a local administrator'),
+			    'operator' => array('type' => 'string', 'description' => 'Who opens the WebUI (recorded in the log)'),
+			    'seconds' => array('type' => 'integer', 'description' => 'Validity, 10 to 120 (default 60)'))),
+			'summary' => 'A one-time link that opens the WebUI signed in (Fleet "Open WebUI")')),
 		restapi_route('GET', '/v1/management/policy-bundle', 'restapi_h_mgmt_bundle_get', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'The controller-signed policy bundle this box enforces')),
@@ -214,6 +221,20 @@ function restapi_h_mgmt_activity_put($req) {
 function restapi_h_mgmt_activity_delete($req) {
 	@unlink(FLEET_ACTIVITY_FILE);
 	return array('data' => null);
+}
+function restapi_h_mgmt_handoff($req) {
+	restapi_mgmt_enrolled();
+	try {
+		$request = fleet_handoff_request($req['body'], fleet_handoff_allowed_users((string)config_get_path('fleet/handoff_users', '')));
+		list($token, $expires) = fleet_handoff_issue($request);
+	} catch (DomainException $e) {
+		throw new RestApiError(403, 'handoff_not_allowed', $e->getMessage());
+	} catch (InvalidArgumentException $e) {
+		list($field, $message) = array_pad(explode(': ', $e->getMessage(), 2), 2, '');
+		throw restapi_field_error($field, $message);
+	}
+	logger(LOG_NOTICE, localize_text('Fleet: one-time WebUI link issued for %1$s (operator %2$s).', $request['user'], $request['operator']));
+	return array('data' => array('path' => '/?fleet_handoff=' . $token, 'expires' => $expires), 'status' => 201);
 }
 function restapi_h_mgmt_bundle_get($req) {
 	$stored = fleet_policy_bundle_read();

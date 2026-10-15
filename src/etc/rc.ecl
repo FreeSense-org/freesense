@@ -174,6 +174,9 @@ function find_config_xml() {
 					echo "\nmounted: $mounted ";
 				}
 				if ($status == 0 && intval($mounted) > 0) {
+					/* A FreeSense Fleet join seed on the same medium (fleet_seed.inc). */
+					require_once('fleet_seed.inc');
+					fleet_seed_capture('/tmp/mnt/cf');
 					// Item was mounted - look for config.xml file
 					$config_location = discover_config($slice);
 					if ($config_location) {
