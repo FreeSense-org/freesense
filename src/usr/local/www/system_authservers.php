@@ -36,10 +36,11 @@ require_once("auth.inc");
 require_once("freesense-utils.inc");
 require_once("system_authservers.inc");
 
-// Have we been called to populate the "Select a container" modal?
-if ($_REQUEST['ajax']) {
+// Have we been called to populate the "Select a container" modal? POST only:
+// the lookup connects to the given LDAP server, so it needs the CSRF token.
+if ($_POST['ajax']) {
 
-	print(authsrv_ldap_containers_html($_REQUEST));
+	print(authsrv_ldap_containers_html($_POST));
 
 	exit;
 }
