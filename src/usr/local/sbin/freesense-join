@@ -28,6 +28,8 @@
  *   freesense-join leave                              tell the controller, then leave
  *   freesense-join detach                             Emergency Detach: leave without the controller
  *   freesense-join menu                               the console menu entry (interactive)
+ *   freesense-join breakglass <hours 1-24> <reason>   suspend policy Lock (alerts at once)
+ *   freesense-join breakglass off                     Lock is active again
  *
  * The join key is secret: prefer the prompt over --key, which stays in the
  * shell history and the process list.
@@ -36,13 +38,15 @@
 require_once('config.inc');
 require_once('functions.inc');
 require_once('fleet_agent.inc');
+require_once('fleet_guard.inc');
 
 function usage() {
 	fwrite(STDERR, "usage: freesense-join join '<link>' [--key <join key>]\n" .
 	    "       freesense-join status\n" .
 	    "       freesense-join leave\n" .
 	    "       freesense-join detach\n" .
-	    "       freesense-join menu\n");
+	    "       freesense-join menu\n" .
+	    "       freesense-join breakglass <hours 1-24> <reason> | off\n");
 	exit(64);
 }
 
@@ -129,6 +133,19 @@ try {
 		}
 		fleet_leave($command);
 		fwrite(STDOUT, "Left the fleet. The last configuration is kept in " . FLEET_ARCHIVE_DIR . ".\n");
+		break;
+	case 'breakglass':
+		if (($args[0] ?? '') === 'off') {
+			fleet_breakglass_clear();
+			fwrite(STDOUT, "Break-glass ended. Policy Lock is active again.\n");
+			break;
+		}
+		if (!ctype_digit((string)($args[0] ?? '')) || (count($args) < 2)) {
+			usage();
+		}
+		$hours = (int)array_shift($args);
+		$rec = fleet_breakglass_set($hours, implode(' ', $args), 'console (' . get_current_user() . ')');
+		fwrite(STDOUT, 'Break-glass is on until ' . gmdate('Y-m-d H:i', $rec['until']) . " UTC. The controller was alerted.\n");
 		break;
 	case 'menu':
 		if (show_status()) {

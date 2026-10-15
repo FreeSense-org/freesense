@@ -119,6 +119,7 @@ require_once('webui_prefs.inc');
 require_once('restapi_listener.inc');
 require_once('fleet_node.inc');
 require_once('fleet_agent.inc');
+require_once('fleet_guard.inc');
 require_once('restapi_log.inc');
 require_once('restapi/routes_v1.inc');
 
@@ -253,6 +254,10 @@ try {
 	    'authsource' => empty($ctx['session']) ? "API key {$ctx['token']['id']}" : "{$ctx['authsource']} (WebUI)");
 	try {
 		$result = call_user_func($route['handler'], $req);
+		/* write_config() refused a save because a Fleet policy rule is in Lock mode. */
+		if (!empty($GLOBALS['fleet_lock_blocked'])) {
+			throw new RestApiError(409, 'blocked_by_policy', (string)$GLOBALS['fleet_lock_blocked']);
+		}
 	} finally {
 		$session_opencounter = 0;
 	}
