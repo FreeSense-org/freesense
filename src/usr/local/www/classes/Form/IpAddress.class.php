@@ -26,6 +26,7 @@
 class Form_IpAddress extends Form_Input
 {
 	protected $_mask;
+	protected $_auto;
 
 	public function __construct($name, $title, $value, $type = "BOTH")
 	{

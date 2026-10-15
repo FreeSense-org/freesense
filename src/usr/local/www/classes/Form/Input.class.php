@@ -78,7 +78,7 @@ class Form_Input extends Form_Element
 
 	public function getValue()
 	{
-		return $this->_attributes['value'];
+		return $this->_attributes['value'] ?? null;
 	}
 
 	public function getName()
@@ -109,7 +109,7 @@ class Form_Input extends Form_Element
 
 	public function getType()
 	{
-		return $this->_attributes['type'];
+		return $this->_attributes['type'] ?? null;
 	}
 
 	public function getTagName()
@@ -207,7 +207,7 @@ class Form_Input extends Form_Element
 	public function setPlaceholder($text)
 	{
 		$placeholder_input_types = array('email', 'number', 'password', 'search', 'tel', 'text', 'url');
-		if (in_array(strtolower($this->_attributes['type']), $placeholder_input_types))
+		if (in_array(strtolower((string)($this->_attributes['type'] ?? '')), $placeholder_input_types))
 			$this->_attributes['placeholder'] = $text;
 
 		return $this;
@@ -275,6 +275,7 @@ class Form_Input extends Form_Element
 		if (!isset($this->_help) && '<div>' == $column)
 			return (string)$input;
 
+		$help = '';
 		if (!empty($this->_help))
 		{
 			$help = '<span class="form-text help-block">'. $this->_help .'</span>';

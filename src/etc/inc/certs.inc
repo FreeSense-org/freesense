@@ -597,6 +597,7 @@ function cert_get_subject($str_crt, $decode = true) {
 		return "";
 	}
 
+	$subject = '';
 	ksort($components);
 	foreach ($components as $a => $v) {
 		if (is_array($v)) {
@@ -695,6 +696,7 @@ function cert_get_issuer($str_crt, $decode = true) {
 		return "unknown";
 	}
 
+	$issuer = '';
 	ksort($components);
 	foreach ($components as $a => $v) {
 		if (is_array($v)) {

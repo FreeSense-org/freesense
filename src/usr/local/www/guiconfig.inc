@@ -36,7 +36,7 @@ function FreeSense_csrf_callback() {
 	include "csrf_error.php";
 }
 
-if (!$nocsrf) {
+if (empty($nocsrf)) {
 	function csrf_startup() {
 		csrf_conf('rewrite-js', '/csrf/csrf-magic.js');
 		/* Loading the configuration to get this value breaks other
@@ -53,7 +53,7 @@ if (!$nocsrf) {
 }
 
 /* make sure nothing is cached */
-if (!$omit_nocacheheaders) {
+if (empty($omit_nocacheheaders)) {
 	header("Expires: 0");
 	header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
 	header("Cache-Control: no-cache, no-store, must-revalidate");
@@ -88,7 +88,7 @@ if (!function_exists('set_language')) {
 set_language();
 
 /* Some ajax scripts still need access to GUI */
-if (!$ignorefirmwarelock) {
+if (empty($ignorefirmwarelock)) {
 	if (is_subsystem_dirty('firmwarelock')) {
 		if (!$d_isfwfile) {
 			header("Location: system_update.php");
@@ -1079,10 +1079,10 @@ function get_flash_message() {
  */
 function getGETPOSTsettingvalue($settingname, $default) {
 	$settingvalue = $default;
-	if ($_GET[$settingname]) {
+	if (!empty($_GET[$settingname])) {
 		$settingvalue = $_GET[$settingname];
 	}
-	if ($_POST[$settingname]) {
+	if (!empty($_POST[$settingname])) {
 		$settingvalue = $_POST[$settingname];
 	}
 	return $settingvalue;

@@ -104,9 +104,11 @@ foreach ($filterlog as $fe) {
 		}
 	}
 	/* Handle some special cases */
-	$key = $fe['srcport'] ? $fe['proto'] . '/' . $fe['srcport'] : (string)$fe['srcport'];
+	$srcport = $fe['srcport'] ?? '';
+	$key = $srcport ? $fe['proto'] . '/' . $srcport : (string)$srcport;
 	$summary['srcport'][$key] = ($summary['srcport'][$key] ?? 0) + 1;
-	$key = $fe['dstport'] ? $fe['proto'] . '/' . $fe['dstport'] : (string)$fe['dstport'];
+	$dstport = $fe['dstport'] ?? '';
+	$key = $dstport ? $fe['proto'] . '/' . $dstport : (string)$dstport;
 	$summary['dstport'][$key] = ($summary['dstport'][$key] ?? 0) + 1;
 }
 

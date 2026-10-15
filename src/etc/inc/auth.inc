@@ -31,7 +31,7 @@
  */
 require_once("config.lib.inc");
 include_once('phpsessionmanager.inc');
-if (!$do_not_include_config_gui_inc) {
+if (empty($do_not_include_config_gui_inc)) {
 	require_once("config.gui.inc");
 }
 
@@ -147,7 +147,7 @@ if (function_exists("display_error_form") && !config_path_enabled('system/webgui
 
 // If the HTTP_REFERER is something other than ourselves then disallow.
 if (function_exists("display_error_form") && !config_path_enabled('system/webgui', 'nohttpreferercheck')) {
-	if ($_SERVER['HTTP_REFERER']) {
+	if (!empty($_SERVER['HTTP_REFERER'])) {
 		if (file_exists("{$g['tmp_path']}/setupwizard_lastreferrer")) {
 			if ($_SERVER['HTTP_REFERER'] == file_get_contents("{$g['tmp_path']}/setupwizard_lastreferrer")) {
 				unlink("{$g['tmp_path']}/setupwizard_lastreferrer");
@@ -363,7 +363,7 @@ function get_user_privileges(& $user) {
 	// cache auth results for a short time to ease load on auth services & logs
 	$recheck_time = config_get_path('system/webgui/auth_refresh_time', 30);
 
-	if ($authcfg['type'] == "ldap") {
+	if (($authcfg['type'] ?? '') == "ldap") {
 		if (isset($_SESSION["ldap_allowed_groups"]) &&
 		    (time() <= $_SESSION["auth_check_time"] + $recheck_time)) {
 			$allowed_groups = $_SESSION["ldap_allowed_groups"];
@@ -372,7 +372,7 @@ function get_user_privileges(& $user) {
 			$_SESSION["ldap_allowed_groups"] = $allowed_groups;
 			$_SESSION["auth_check_time"] = time();
 		}
-	} elseif ($authcfg['type'] == "radius") {
+	} elseif (($authcfg['type'] ?? '') == "radius") {
 		if (isset($_SESSION["radius_allowed_groups"]) &&
 		    (time() <= $_SESSION["auth_check_time"] + $recheck_time)) {
 			$allowed_groups = $_SESSION["radius_allowed_groups"];
@@ -395,8 +395,8 @@ function get_user_privileges(& $user) {
 
 	foreach ($allowed_groups as $name) {
 		$group = getGroupEntry($name);
-		$group = $group['item'];
-		if (is_array($group['priv'])) {
+		$group = $group['item'] ?? null;
+		if (is_array($group['priv'] ?? null)) {
 			$privs = array_merge($privs, $group['priv']);
 		}
 	}
@@ -2507,14 +2507,14 @@ function session_auth() {
 	 * to submit a HTML form. It basically disables the observation
 	 * of the submit event and hence does not trigger Ajax.
 	 */
-	if ($_REQUEST['disable_ajax']) {
+	if (!empty($_REQUEST['disable_ajax'])) {
 		$_SESSION['NO_AJAX'] = "True";
 	}
 
 	/*
 	 * Same to re-enable Ajax.
 	 */
-	if ($_REQUEST['enable_ajax']) {
+	if (!empty($_REQUEST['enable_ajax'])) {
 		unset($_SESSION['NO_AJAX']);
 	}
 	phpsession_end(true);
@@ -2598,7 +2598,7 @@ rpc: files
 EOD;
 
 	if (config_path_enabled('system/webgui', 'shellauth')) {
-		if (($authcfg['type'] == "radius") && isset($authcfg['radius_auth_port'])) {
+		if ((($authcfg['type'] ?? '') == "radius") && isset($authcfg['radius_auth_port'])) {
 			$radius_conf = "auth {$authcfg['host']}:{$authcfg['radius_auth_port']} " .
 					"{$authcfg['radius_secret']} {$authcfg['radius_timeout']}\n";
 			if (isset($authcfg['radius_acct_port'])) {
@@ -2644,7 +2644,7 @@ password	required	pam_unix.so		no_warn try_first_pass
 EOD;
 
 			@file_put_contents("/etc/radius.conf", $header . $radius_conf);
-		} elseif (($authcfg['type'] == "ldap") && !empty($authcfg['ldap_pam_groupdn'])) {
+		} elseif ((($authcfg['type'] ?? '') == "ldap") && !empty($authcfg['ldap_pam_groupdn'])) {
 			// do not try to reconnect
 			$ldapconf = "bind_policy soft\n";
 			// Bind/connect timelimit

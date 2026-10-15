@@ -45,8 +45,7 @@ function get_country_providers($country) {
 			return is_array(array_get_path($sp, 'provider/0')) ? array_get_path($sp, 'provider') : [ array_get_path($sp, 'provider') ];
 		}
 	}
-	$provider_list = (is_array($provider_list)) ? $provider_list : array();
-	return $provider_list;
+	return array();
 }
 
 function country_list() {

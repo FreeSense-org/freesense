@@ -111,18 +111,18 @@ function get_shortcut_status_link($shortcut_section, $addspace = true, $service 
 			if (!empty($zone)) {
 				$link = "status_captiveportal.php?zone={$zone}";
 			} else {
-				$link = $shortcuts[$shortcut_section]['status'];
+				$link = $shortcuts[$shortcut_section]['status'] ?? '';
 			}
 			break;
 		case "captiveportal-vouchers":
 			if (!empty($zone)) {
 				$link = "status_captiveportal_vouchers.php?zone={$zone}";
 			} else {
-				$link = $shortcuts[$shortcut_section]['status'];
+				$link = $shortcuts[$shortcut_section]['status'] ?? '';
 			}
 			break;
 		default:
-			$link = $shortcuts[$shortcut_section]['status'];
+			$link = $shortcuts[$shortcut_section]['status'] ?? '';
 			break;
 	}
 	if (!empty($link)) {

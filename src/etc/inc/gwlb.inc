@@ -128,6 +128,7 @@ function refresh_gateways(): void {
 	// Get gateways that exist in the config
 	$saved_gateways = array_column(config_get_path('gateways/gateway_item', []), 'name', 'name');
 
+	$write_config = false;
 	// Exclude null gateways from being saved to config
 	foreach (array_diff_key($GLOBALS["GatewaysCache"], array_fill_keys(['Null4', 'Null6'], null)) as $gateway) {
 		// Save any of the generated gateways that are not found in config
@@ -1135,21 +1136,16 @@ function return_gateways_status_text($byname = false, $brief = false) {
 }
 
 function compare_gateway_order_configured($a, $b) {
-	if ($a['friendlyiface'] == $b['friendlyiface']) {
+	$a_iface = $a['friendlyiface'] ?? '';
+	$b_iface = $b['friendlyiface'] ?? '';
+	if ($a_iface == $b_iface) {
 		return strcasecmp($a['name'], $b['name']);
 	}
-	return compare_interface_friendly_names($a['friendlyiface'], $b['friendlyiface']);
+	return compare_interface_friendly_names($a_iface, $b_iface);
 }
 
 function order_gateways_as_configured($gateways_arr) {
 	uasort($gateways_arr, 'compare_gateway_order_configured');
-	$count = count($gateways_arr);
-	for ($i = 0; $i < $count; $i++) {
-		if ($gateway['attribute'] == 'system') {
-			continue;
-		}
-		$gateway['attribute'] = $i;
-	}
 	return $gateways_arr;
 }
 
@@ -2863,7 +2859,7 @@ function gateway_getgwtiername($gways, $idx) {
 			$defgw = get_gateway_or_group_by_name($gw6, $gways);
 		}
 
-		if ($defgw['type'] == "gatewaygroup") {
+		if (($defgw['type'] ?? '') == "gatewaygroup") {
 			$detail = gateway_is_gwgroup_member($gwname, true);
 			foreach($detail as $gwitem) {
 				if ($gwitem['name'] == $defgw['name']) {
