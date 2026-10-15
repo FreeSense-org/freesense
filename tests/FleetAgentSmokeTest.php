@@ -170,4 +170,14 @@ foreach (restapi_routes_management() as $r) {
 }
 check($leave !== null && $leave['method'] === 'POST' && $leave['write'] && function_exists($leave['handler']), 'POST /v1/management/leave exists');
 
+$reboot = null;
+foreach (restapi_routes_management() as $r) {
+	if ($r['path'] === '/v1/management/reboot') {
+		$reboot = $r;
+	}
+}
+check($reboot !== null && $reboot['method'] === 'POST' && $reboot['write'] && $reboot['area'] === 'management' && function_exists($reboot['handler']),
+    'POST /v1/management/reboot exists and needs management write (only a managed box grants it)');
+check(!in_array('api-management-write', fleet_access_privs('monitor'), true), 'a monitor-only box cannot be rebooted by the controller');
+
 echo "FleetAgentSmokeTest: OK\n";
