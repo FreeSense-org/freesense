@@ -1197,6 +1197,7 @@
 /usr/local/www/vendor/jquery-ui/themes/smoothness/theme.css
 /usr/local/www/vendor/js-cookie/.jshintrc
 /usr/local/www/vendor/js-cookie/js.cookie.js
+/usr/local/www/vendor/jquery-treegrid/js/jquery.cookie.js
 /usr/local/www/vendor/visibility/visibility-1.2.3.min.js
 /usr/local/www/vpn_ipsec_ca.php
 /usr/local/www/vpn_ipsec_ca_edit.php
