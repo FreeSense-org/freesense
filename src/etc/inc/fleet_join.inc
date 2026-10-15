@@ -321,13 +321,17 @@ function fleet_join_rollback(array $undo): void {
 /* System access: pinned HTTPS and WireGuard keys                      */
 /* ------------------------------------------------------------------ */
 
-/* pure: an HTTP/1.0 response -> array(status, decoded JSON body or array()). */
+/* Largest answer read: a configuration with many rules and certificates fits easily. */
+define('FLEET_HTTP_MAX_BYTES', 16 * 1048576);
+
+/* pure: an HTTP/1.0 response -> array(status, decoded JSON body or array(), raw body). */
 function fleet_http_parse_response(string $raw): array {
 	if (!preg_match('~^HTTP/1\.[01] (\d{3}) [^\r\n]*\r\n(.*?)\r\n\r\n(.*)$~Ds', $raw, $m)) {
 		throw new FleetJoinError('E105', 'The controller sent no valid HTTP answer.');
 	}
 	$json = json_decode($m[3], true);
-	return array((int)$m[1], is_array($json) ? $json : array());
+	/* The raw body too, for answers that are not JSON (a configuration as XML). */
+	return array((int)$m[1], is_array($json) ? $json : array(), $m[3]);
 }
 
 /* pure: the peer certificate matches the fingerprint from the link. */
@@ -369,7 +373,7 @@ function fleet_http_pinned(array $link, string $method, string $path, ?array $bo
 		    "Accept: application/json\r\nConnection: close\r\n" .
 		    (($body === null) ? '' : "Content-Type: application/json\r\nContent-Length: " . strlen($payload) . "\r\n") .
 		    "\r\n" . $payload);
-		$raw = stream_get_contents($fp, 1048576);
+		$raw = stream_get_contents($fp, FLEET_HTTP_MAX_BYTES);
 	} finally {
 		fclose($fp);
 	}
