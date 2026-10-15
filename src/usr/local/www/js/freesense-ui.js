@@ -1380,3 +1380,57 @@
 		init();
 	}
 })();
+
+/*
+ * Top-bar items from packages (fs_nav_plugin_html() in fs_menu.inc): an
+ * item with data-fs-nav-poll asks its page every 15 s (60 s in a hidden
+ * tab) for { hidden, badge, kind, busy, label } and updates in place.
+ */
+(function () {
+	'use strict';
+
+	var KINDS = ['info', 'warn', 'block', 'neutral'];
+
+	function update(link, d) {
+		var li = link.parentNode;
+		var badge = link.querySelector('.fs-nav-badge');
+		li.hidden = !!d.hidden;
+		link.setAttribute('data-busy', d.busy ? 'true' : 'false');
+		var n = Math.max(0, parseInt(d.badge, 10) || 0);
+		badge.textContent = String(n);
+		badge.hidden = n === 0;
+		var kind = KINDS.indexOf(d.kind) >= 0 ? d.kind : 'info';
+		badge.className = 'badge fs-nav-badge fs-nav-badge--' + kind;
+		if (typeof d.label === 'string' && d.label !== '') {
+			link.title = d.label;
+			link.setAttribute('aria-label', d.label);
+		}
+	}
+
+	function watch(link) {
+		var url = link.getAttribute('data-fs-nav-poll');
+		function poll() {
+			fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } })
+				.then(function (r) { return r.ok ? r.json() : null; })
+				.then(function (d) {
+					if (d) {
+						update(link, d);
+					}
+				})
+				.catch(function () {})
+				.then(function () {
+					setTimeout(poll, document.hidden ? 60000 : 15000);
+				});
+		}
+		setTimeout(poll, 15000);
+	}
+
+	function init() {
+		Array.prototype.forEach.call(document.querySelectorAll('.fs-nav-plugin[data-fs-nav-poll]'), watch);
+	}
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', init);
+	} else {
+		init();
+	}
+})();

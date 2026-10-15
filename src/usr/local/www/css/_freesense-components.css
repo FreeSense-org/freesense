@@ -755,3 +755,15 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 .fs-section-toggle:hover > i, .fs-section-toggle:focus-visible > i { color: var(--fs-coral); }
 .fs-section-toggle:focus-visible { outline: 2px solid var(--fs-coral); outline-offset: 4px; border-radius: 2px; }
 @media (prefers-reduced-motion: reduce) { .fs-section-toggle > i { transition: none; } }
+
+/* Top-bar items from packages (plugin_navbar): an icon, a count, a spinner while busy. */
+.navbar .fs-nav-plugin { display: inline-flex; align-items: center; gap: .3rem; }
+.navbar .fs-nav-plugin[data-busy="true"] > i { animation: fs-nav-spin 1.2s linear infinite; color: var(--fs-info); }
+.fs-nav-badge--info { background: var(--fs-info) !important; }
+.fs-nav-badge--warn { background: var(--fs-warn) !important; color: #1b1b1b; }
+.fs-nav-badge--block { background: var(--fs-block) !important; }
+.fs-nav-badge--neutral { background: var(--fs-neutral) !important; }
+@keyframes fs-nav-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+	.navbar .fs-nav-plugin[data-busy="true"] > i { animation: none; }
+}
