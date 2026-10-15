@@ -1893,11 +1893,11 @@ function radius_backed($username, $password, $authcfg, &$attributes = array()) {
 		logger(LOG_ERR, localize_text("Error during RADIUS authentication : %s", $rauth->getError()), LOG_PREFIX_AUTHPROVIDER_RADIUS);
 		$attributes['error_message'] = gettext("Error : could not connect to authentication server.");
 	} else {
-		$nasid = $attributes['nas_identifier'];
+		$nasid = $attributes['nas_identifier'] ?? '';
 		if (empty($nasid)) {
 			$nasid = gethostname(); //If no RADIUS NAS-Identifier is given : we use freesense's hostname as NAS-Identifier
 		}
-		$nasip = nasip_fallback($authcfg['radius_nasip_attribute']);
+		$nasip = nasip_fallback($authcfg['radius_nasip_attribute'] ?? '');
 		$nasmac = get_interface_mac(find_ip_interface($nasip));
 
 		$rauth->putAttribute(RADIUS_NAS_IP_ADDRESS, $nasip, "addr");
