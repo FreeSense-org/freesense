@@ -298,7 +298,11 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
  *   busy   true spins the icon (something is running)
  *   hidden true keeps the item out of sight until a poll shows it
  *   poll   a page of this WebUI answering the same fields as JSON;
- *          freesense-ui.js asks it every 15 s (60 s in a hidden tab)
+ *          freesense-ui.js asks it every 15 s (60 s in a hidden tab) with
+ *          ?since=<cursor>. The answer may also carry
+ *            cursor  a number the next poll sends back as since
+ *            toasts  up to 5 notices: { text, kind, href, sticky }
+ *          shown at the bottom right of any page (see fs_nav_toasts()).
  * Anything else, or a wrong value, is dropped: a package cannot put
  * markup or another site's address into the top bar.
  */
@@ -361,4 +365,23 @@ function fs_nav_plugin_items(): array {
 		log_error('plugin_navbar: ' . $e->getMessage());
 	}
 	return $items;
+}
+
+/*
+ * pure: the notices in a poll answer, made safe the same way as the item:
+ * plain text up to 200 characters, a known kind, a local link, at most 5.
+ * freesense-ui.js applies the same rules; this is the reference and the test.
+ */
+function fs_nav_toasts($raw): array {
+	$out = array();
+	foreach (is_array($raw) ? array_slice($raw, 0, 5) : array() as $t) {
+		$text = is_array($t) ? trim((string)($t['text'] ?? '')) : '';
+		if (($text === '') || (strlen($text) > 200) || preg_match('/[\x00-\x1f\x7f]/', $text)) {
+			continue;
+		}
+		$href = (string)($t['href'] ?? '');
+		$out[] = array('text' => $text, 'kind' => in_array($t['kind'] ?? '', array('info', 'pass', 'warn', 'block'), true) ? $t['kind'] : 'info',
+		    'href' => preg_match('#^/(?!/)[A-Za-z0-9_./?=&%-]*$#D', $href) ? $href : '', 'sticky' => !empty($t['sticky']));
+	}
+	return $out;
 }
