@@ -101,6 +101,10 @@ function restapi_listener_address_choices() {
 		}
 		$choices[(string)$key] = $label;
 	}
+	/* The management tunnel of a managed firewall (fleet_agent.inc). */
+	if ((string)config_get_path('fleet/overlay_address', '') !== '') {
+		$choices['fleet'] = gettext('FreeSense Fleet tunnel');
+	}
 	return $choices;
 }
 
@@ -127,6 +131,14 @@ function restapi_listener_resolve(array $l) {
 	$out = array('addresses' => array(), 'realif' => '', 'to' => '');
 	if ($key === 'lo0') {
 		$out['addresses'] = array('127.0.0.1', '::1');
+		return $out;
+	}
+	if ($key === 'fleet') {
+		$overlay = (string)config_get_path('fleet/overlay_address', '');
+		if (is_ipaddr($overlay)) {
+			/* wgfleet0 is FLEET_WG_IF; it is not an assigned interface, so it has no friendly name. */
+			$out = array('addresses' => array($overlay), 'realif' => 'wgfleet0', 'to' => $overlay);
+		}
 		return $out;
 	}
 	$vips = get_configured_vip_list();

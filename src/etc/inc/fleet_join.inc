@@ -194,7 +194,8 @@ function fleet_join_error_for_reply(int $status, string $api_code): FleetJoinErr
  *   get(path, bearer)             -> array(status, json)
  *   wg_keypair()                  -> array(private, public)  public as 32 raw bytes
  *   clock()                       -> UNIX time
- *   create_access()               -> array(api_key, undo callable)   the fleet-controller user and key
+ *   create_access(role)           -> array(api_key, undo callable, array(cert_sha256, certref))
+ *                                    the fleet-controller user, its key and the box's API certificate
  *   apply(array $membership)      -> undo callable    config.xml <fleet>, tunnel, listener
  *   inventory()                   -> array            model, serial, version, NICs, instance id
  *   step(name, state, text)       progress for the screen ("start", "done", "wait", "fail")
@@ -222,6 +223,7 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 		if (abs((int)($begin['time'] ?? 0) - $io['clock']()) > 300) {
 			throw new FleetJoinError('E108', 'The clocks differ by more than 5 minutes. Synchronize NTP first.');
 		}
+		$role = in_array($begin['role'] ?? '', FLEET_ROLES, true) ? $begin['role'] : 'monitor';
 		$step('connect', 'done', '');
 
 		$step('verify', 'start', '');
@@ -266,11 +268,11 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 		$step('approval', 'done', '');
 
 		$step('tunnel', 'start', '');
-		list($api_key, $undo_access) = $io['create_access']();
+		list($api_key, $undo_access, $extra) = $io['create_access']($role) + array(2 => array());
 		$undo[] = $undo_access;
 		list($status, $done) = $io['post']('/fleet/join/complete', array(
 			'enrollment_id' => $eid, 'api_key' => $api_key,
-			'proof' => fleet_join_complete_proof($okm, $eid, $api_key),
+			'proof' => fleet_join_complete_proof($okm, $eid, $api_key), 'node_cert_sha256' => (string)($extra['cert_sha256'] ?? ''),
 		), $bearer);
 		if ($status !== 200) {
 			throw fleet_join_error_for_reply($status, (string)($done['error']['code'] ?? ''));
@@ -281,6 +283,7 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 			'method' => (string)($done['method'] ?? 'wireguard'), 'overlay_address' => (string)($done['overlay_address'] ?? ''),
 			'role' => (string)($done['role'] ?? 'monitor'), 'hostname' => (string)($done['hostname'] ?? ''),
 			'peers' => (array)($done['peers'] ?? array()), 'wg_private' => $wg_private,
+			'listener_certref' => (string)($extra['certref'] ?? ''), 'controller_networks' => (array)($done['controller_networks'] ?? array()),
 		);
 		if (!fleet_valid_node_id($membership['node_id']) || !in_array($membership['method'], FLEET_METHODS, true)) {
 			throw new FleetJoinError('E105', 'The controller sent an invalid membership.');

@@ -451,6 +451,10 @@ $ipsec_dynamic_hosts = ipsec_configure();
 /* start SNMP service */
 services_snmpd_configure();
 
+/* the Fleet management tunnel of a managed firewall, before the listener that binds to it */
+require_once('fleet_agent.inc');
+fleet_boot();
+
 /* start the REST API listeners (after the interfaces and virtual IPs have their addresses) */
 require_once('restapi_listener.inc');
 restapi_listeners_configure();

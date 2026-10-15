@@ -144,6 +144,7 @@ class FakeController {
 	public $eid = 'e-0123456789abcdef0123';
 	public $node_id = 'node-0123456789';
 	public $time;
+	public $node_cert = '';
 
 	public function __construct($okm, $cert, $time) {
 		$this->okm = $okm;
@@ -160,7 +161,7 @@ class FakeController {
 		}
 		if ($path === '/fleet/join/begin') {
 			return array(200, array('challenge' => base64_encode($this->challenge),
-			    'controller_wg_pub' => base64_encode($this->ctrl_pub), 'time' => $this->time));
+			    'controller_wg_pub' => base64_encode($this->ctrl_pub), 'time' => $this->time, 'role' => 'managed'));
 		}
 		if ($path === '/fleet/join/enroll') {
 			$want = fleet_join_proof($this->okm, $this->challenge, base64_decode($body['nonce']), $body['token_id'],
@@ -175,6 +176,7 @@ class FakeController {
 			if (!hash_equals($want, $body['proof'])) {
 				return array(401, array('error' => array('code' => 'bad_proof')));
 			}
+			$this->node_cert = $body['node_cert_sha256'];
 			return array(200, array('node_id' => $this->node_id, 'signing_key' => 'PEM', 'method' => 'wireguard',
 			    'overlay_address' => 'fd12:3456:789a:f1::10', 'role' => 'managed', 'hostname' => 'dk-cph-edge01', 'peers' => array()));
 		}
@@ -195,8 +197,10 @@ function make_io(FakeController $c, array &$events, array &$undone, array $opts 
 		'get' => function ($p, $bearer) use ($c) { return $c->get($p, $bearer); },
 		'wg_keypair' => function () { return array('PRIVATE', str_repeat("\x33", 32)); },
 		'clock' => function () use (&$now, $opts) { return $now += ($opts['tick'] ?? 0); },
-		'create_access' => function () use (&$undone) {
-			return array('fsk_0123456789ab_' . str_repeat('A', 43), function () use (&$undone) { $undone[] = 'access'; });
+		'create_access' => function ($role) use (&$undone, &$events) {
+			$events[] = "role:{$role}";
+			return array('fsk_0123456789ab_' . str_repeat('A', 43), function () use (&$undone) { $undone[] = 'access'; },
+			    array('cert_sha256' => str_repeat('c', 64), 'certref' => 'abc123'));
 		},
 		'apply' => function ($m) use (&$undone, $opts) {
 			if (!empty($opts['apply_fails'])) {
@@ -222,6 +226,8 @@ $m = run_join($parsed, $data, $c, $events, $undone);
 check($m['node_id'] === 'node-0123456789' && $m['controller_url'] === 'https://hq.example.net:8443' && $m['role'] === 'managed' &&
     $m['hostname'] === 'dk-cph-edge01' && $m['wg_private'] === 'PRIVATE', 'a join returns the membership');
 check($undone === array(), 'nothing is undone on success');
+check(in_array('role:managed', $events, true) && $c->node_cert === str_repeat('c', 64) && $m['listener_certref'] === 'abc123',
+    'the invitation\'s role reaches the access setup, and the box\'s certificate fingerprint reaches the controller');
 check(count(preg_grep('/^approval:wait:\d{6}$/', $events)) === 1, 'the approval code is shown while waiting');
 check($events[0] === 'connect:start' && end($events) === 'heartbeat:done', 'steps run in order');
 check($c->log[0] === 'POST /fleet/join/begin' && in_array('POST /fleet/join/complete', $c->log, true), 'the exchange order');

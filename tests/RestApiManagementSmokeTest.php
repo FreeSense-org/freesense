@@ -35,7 +35,7 @@ foreach (restapi_routes_management() as $r) {
 }
 foreach (array('GET /v1/status/carp', 'GET /v1/management/status', 'GET /v1/management/policy-bundle',
     'PUT /v1/management/policy-bundle', 'GET /v1/management/vault', 'GET /v1/management/vault/{id}',
-    'PUT /v1/management/vault/{id}', 'DELETE /v1/management/vault/{id}') as $key) {
+    'PUT /v1/management/vault/{id}', 'DELETE /v1/management/vault/{id}', 'POST /v1/management/leave') as $key) {
 	check(isset($routes[$key]), "route {$key} exists");
 	check(function_exists($routes[$key]['handler']), "handler of {$key} exists");
 }
@@ -44,7 +44,7 @@ check($routes['GET /v1/status/carp']['scope'] === 'status:read' && $routes['GET 
 foreach ($routes as $key => $r) {
 	if (strpos($key, '/v1/management/') !== false) {
 		check($r['area'] === 'management' && $r['page'] === 'system_fleet.php', "{$key}: management area");
-		check($r['write'] === in_array($r['method'], array('PUT', 'DELETE'), true), "{$key}: only PUT/DELETE write");
+		check($r['write'] === in_array($r['method'], array('PUT', 'DELETE', 'POST'), true), "{$key}: PUT, DELETE and POST write; GET reads");
 	}
 }
 check(array_key_exists('management', restapi_areas()) && restapi_area_privilege('management', 'write') === 'api-management-write',

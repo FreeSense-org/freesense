@@ -84,7 +84,7 @@ echo " 4) Reset to factory defaults         13) Update from console"
 echo " 5) Reboot system                     14) ${sshd_option} Secure Shell (sshd)"
 echo " 6) Halt system                       15) Restore recent configuration"
 echo " 7) Ping host                         16) Restart PHP-FPM"
-echo " 8) Shell"
+echo " 8) Shell                             17) Fleet central management"
 
 echo
 read -p "Enter an option: " opmode
@@ -142,6 +142,9 @@ case ${opmode} in
 	;;
 16)
 	/etc/rc.php-fpm_restart
+	;;
+17)
+	/usr/local/bin/php -f /usr/local/sbin/freesense-join menu
 	;;
 100)
 	protocol=$(/usr/local/sbin/read_xml_tag.sh string system/webgui/protocol)

@@ -44,6 +44,10 @@ function restapi_routes_management() {
 		restapi_route('GET', '/v1/management/status', 'restapi_h_mgmt_status', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'Fleet membership, version, configuration revision and hash, rollback protection, policy bundle, vault use and CARP summary (the heartbeat)')),
+		restapi_route('POST', '/v1/management/leave', 'restapi_h_mgmt_leave', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('confirm'), 'properties' => array('confirm' => array('type' => 'boolean'))),
+			'summary' => 'Leave the fleet: removes the controller\'s access, the tunnel and the listener after the answer is sent')),
 		restapi_route('GET', '/v1/management/policy-bundle', 'restapi_h_mgmt_bundle_get', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'The controller-signed policy bundle this box enforces')),
@@ -107,6 +111,21 @@ function restapi_h_mgmt_status($req) {
 		'carp' => $carp['summary'],
 		'api_level' => RESTAPI_LEVEL,
 	));
+}
+
+/* The controller removes a box from the fleet. The answer goes out first; the tunnel and listener it came through are taken down after. */
+function restapi_h_mgmt_leave($req) {
+	restapi_mgmt_enrolled();
+	if (($req['body']['confirm'] ?? false) !== true) {
+		throw new RestApiError(400, 'confirmation_required', 'Leaving the fleet requires {"confirm": true}.');
+	}
+	register_shutdown_function(function () {
+		if (function_exists('fastcgi_finish_request')) {
+			fastcgi_finish_request();
+		}
+		fleet_leave('leave');
+	});
+	return array('data' => array('leaving' => true));
 }
 
 function restapi_h_mgmt_bundle_get($req) {
