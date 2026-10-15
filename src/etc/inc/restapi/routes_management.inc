@@ -110,6 +110,11 @@ function restapi_routes_management() {
 			    'bundle' => array('type' => 'string', 'description' => 'The bundle JSON as text: {version, node_id ("*" or this box), rules: [...]}'),
 			    'signature' => array('type' => 'string', 'description' => 'base64 ECDSA P-256 / SHA-256 signature of the bundle text by the controller'))),
 			'summary' => 'Replace the policy bundle; refused unless signed by this box\'s controller and at least as new as the one held')),
+		restapi_route('POST', '/v1/management/remediate', 'restapi_h_mgmt_remediate', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('rules'), 'properties' => array(
+			    'rules' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Ids of rules in mode "remediate" from the bundle this box holds'))),
+			'summary' => 'Fix policy rules from the held bundle (allow-listed settings only), in one save; one result per rule')),
 		restapi_route('GET', '/v1/management/vault', 'restapi_h_mgmt_vault_list', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'Encrypted backup replicas this box keeps for the fleet, with use and quota')),
@@ -358,6 +363,17 @@ function restapi_mgmt_error(InvalidArgumentException $e, $status, $default_code)
 		return new RestApiError($status, $m[1], $m[2]);
 	}
 	return new RestApiError($status, $default_code, $e->getMessage());
+}
+
+function restapi_h_mgmt_remediate($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('rules'));
+	$ids = $req['body']['rules'] ?? null;
+	if (!is_array($ids) || empty($ids) || (count($ids) > FLEET_REMEDIATE_MAX) ||
+	    (count(array_filter($ids, function ($id) { return is_string($id) && preg_match('/^[A-Z][A-Z0-9]{1,5}-[0-9]{3}$/D', $id); })) !== count($ids))) {
+		throw new RestApiError(422, 'invalid_rules', 'rules must be 1 to ' . FLEET_REMEDIATE_MAX . ' rule ids such as OPS-001');
+	}
+	return array('data' => fleet_remediate_run(array_values(array_unique($ids))));
 }
 
 function restapi_h_mgmt_bundle_put($req) {
