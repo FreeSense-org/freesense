@@ -51,6 +51,8 @@ class Crypt_CHAP {
 	public $challenge = null;
 	/* Binary response */
 	public $response = null;
+	/* User name (MS-CHAPv2 hashes it into the challenge) */
+	public $username = null;
 	/* User password */
 	public $password = null;
 	/* Id of the authentication request */
@@ -174,7 +176,6 @@ class Crypt_CHAP_MSv1 extends Crypt_CHAP {
  * challenge, the authenticator challenge and the user name.
  */
 class Crypt_CHAP_MSv2 extends Crypt_CHAP_MSv1 {
-	public $username = null;
 	/* 16 byte random binary peer challenge */
 	public $peerChallenge = null;
 	/* 16 byte random binary authenticator challenge */
