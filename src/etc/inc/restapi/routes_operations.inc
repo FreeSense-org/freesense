@@ -690,6 +690,15 @@ function restapi_h_firmware_update($req) {
 	restapi_ops_require_admin($req, 'The system update');
 	$body = restapi_ops_body($req['body'], array('confirm' => 'bool'));
 	restapi_ops_confirm($body, 'The system update');
+	return restapi_firmware_update_start()[0];
+}
+
+/*
+ * Start the system update when one is available (shared by the update
+ * route and the Fleet controller's route): array(the 202 answer, the
+ * version it updates from, the version it updates to).
+ */
+function restapi_firmware_update_start(): array {
 	restapi_pkgop_not_running();
 	/* Like System > Update, which offers the update only when the check finds a newer version. */
 	ob_start();
@@ -709,5 +718,5 @@ function restapi_h_firmware_update($req) {
 		throw new RestApiError(409, 'no_update', 'No update is available (installed ' . $v['installed_version'] . ', latest ' .
 		    ($v['version'] ?? '?') . ').');
 	}
-	return restapi_pkgop_start('', '', true);
+	return array(restapi_pkgop_start('', '', true), (string)$v['installed_version'], (string)($v['version'] ?? ''));
 }

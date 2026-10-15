@@ -63,6 +63,14 @@ function restapi_routes_management() {
 		restapi_route('DELETE', '/v1/management/commit-confirm/{id}', 'restapi_h_mgmt_confirm_rollback', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'summary' => 'Revert to the snapshot now')),
+		restapi_route('POST', '/v1/management/update', 'restapi_h_mgmt_update', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('confirm', 'operator'), 'properties' => array(
+			    'confirm' => array('type' => 'boolean', 'description' => 'Must be true'),
+			    'operator' => array('type' => 'string', 'description' => 'Who asked for it on the controller (shown and logged)'))),
+			'summary' => 'Start the system update for the Fleet controller (a managed box only; /v1/system/firmware/update needs a ' .
+			    'full administrator). Like System > Update: only when an update is available; it reboots when it needs to. ' .
+			    'Answers 202 with from and to; follow it with GET /v1/packages/operation.')),
 		restapi_route('POST', '/v1/management/reboot', 'restapi_h_mgmt_reboot', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('confirm', 'operator'), 'properties' => array(
@@ -197,6 +205,31 @@ function restapi_h_mgmt_confirm_begin($req) {
 		throw new RestApiError(500, 'snapshot_failed', $e->getMessage());
 	}
 	return array('data' => $record, 'status' => 201);
+}
+
+/*
+ * The system update for the Fleet controller: the same checks and the same
+ * background update as System > Update, allowed for the management write
+ * privilege that only a managed box grants.
+ */
+function restapi_h_mgmt_update($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('confirm', 'operator'));
+	if (($req['body']['confirm'] ?? false) !== true) {
+		throw restapi_field_error('confirm', 'Updating requires {"confirm": true}.');
+	}
+	$operator = (string)($req['body']['operator'] ?? '');
+	if (($operator === '') || (strlen($operator) > 80) || preg_match('/[\x00-\x1f\x7f]/', $operator)) {
+		throw restapi_field_error('operator', 'Who asks for the update, 1 to 80 characters.');
+	}
+	/* routes_operations.inc is loaded by api/index.php. */
+	list($answer, $from, $to) = restapi_firmware_update_start();
+	logger(LOG_NOTICE, localize_text('Fleet: system update from %1$s to %2$s requested by %3$s.', $from, $to, $operator));
+	@file_put_contents(FLEET_ACTIVITY_FILE, json_encode(fleet_activity_record(array('text' => "Updating to {$to}", 'by' => $operator, 'seconds' => 3600),
+	    time())), LOCK_EX);
+	$answer['data']['from'] = $from;
+	$answer['data']['to'] = $to;
+	return $answer;
 }
 
 /*

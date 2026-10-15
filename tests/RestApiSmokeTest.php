@@ -3388,7 +3388,7 @@ check_api(strpos($fn_body($f4_diag, 'diag_reboot_run'), "case 'reroot':") !== fa
 /* API guards: administrators and confirm before anything happens, the dangerous work after the answer, no reroot, no system update by accident */
 $f4_ops = file_get_contents("{$root}/src/etc/inc/restapi/routes_operations.inc");
 foreach (array('restapi_h_system_reboot' => 'restapi_ops_after_response(', 'restapi_h_system_halt' => 'restapi_ops_after_response(',
-    'restapi_pkgop_handle' => 'restapi_pkgop_start(', 'restapi_h_firmware_update' => 'restapi_pkgop_start(') as $fn => $act) {
+    'restapi_pkgop_handle' => 'restapi_pkgop_start(', 'restapi_h_firmware_update' => 'restapi_firmware_update_start(') as $fn => $act) {
 	$b = $fn_body($f4_ops, $fn);
 	check_api(strpos($b, 'restapi_ops_require_admin($req, ') !== false && strpos($b, 'restapi_ops_require_admin($req, ') < strpos($b, 'restapi_ops_confirm($body, ') &&
 	    strpos($b, 'restapi_ops_confirm($body, ') < strpos($b, $act), "{$fn}(): administrator, then confirm, then {$act}");
@@ -3411,7 +3411,8 @@ check_api(strpos($f4_after, 'register_shutdown_function(') !== false && strpos($
 check_api(strpos($fn_body($f4_ops, 'restapi_h_system_reboot'), "if (g_get('debug')) {") < strpos($fn_body($f4_ops, 'restapi_h_system_reboot'), 'restapi_ops_after_response(') &&
     strpos($fn_body($f4_ops, 'restapi_h_system_halt'), "if (g_get('debug')) {") < strpos($fn_body($f4_ops, 'restapi_h_system_halt'), 'restapi_ops_after_response('),
     'reboot and halt keep the pages\' debug guard');
-$f4_fw = $fn_body($f4_ops, 'restapi_h_firmware_update');
+/* The start is shared by System > Update over the API and the Fleet controller's route. */
+$f4_fw = $fn_body($f4_ops, 'restapi_firmware_update_start');
 check_api(strpos($f4_fw, "if ((\$v['pkg_version_compare'] ?? null) !== '<') {") < strpos($f4_fw, 'restapi_pkgop_start(') && strpos($f4_fw, 'restapi_pkgop_not_running();') < strpos($f4_fw, 'restapi_pkgop_start(') &&
     strpos($f4_fw, "restapi_pkgop_start('', '', true)") !== false, 'system update: only when an update is available and nothing runs');
 $f4_handle = $fn_body($f4_ops, 'restapi_pkgop_handle');
