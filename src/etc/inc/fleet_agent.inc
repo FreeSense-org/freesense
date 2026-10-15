@@ -54,6 +54,7 @@ define('FLEET_NODE_API_PORT', 8444);
 define('FLEET_WG_MTU', 1380);
 define('FLEET_WG_KEEPALIVE', 25);
 define('FLEET_LISTENER_DESCR', 'FreeSense Fleet');
+define('FLEET_CERT_DESCR', 'FreeSense Fleet node API');
 
 /* ------------------------------------------------------------------ */
 /* Pure builders                                                       */
@@ -222,6 +223,121 @@ function fleet_filter_early_rules(): string {
 	return fleet_filter_early_rules_for(fleet_node_membership(), fleet_stored_peers());
 }
 
+/*
+ * pure: a configuration to restore, with this box's fleet membership taken
+ * from the running configuration: the <fleet> section, the fleet-controller
+ * user and its API keys, the API certificate and the tunnel listener. A
+ * restore from the controller must never cut the box off from it, whatever
+ * the backup contained (also a backup from before the box joined).
+ */
+function fleet_restore_carry(array $restored, array $running): array {
+	$mine = function ($list, callable $is) {
+		return array_values(array_filter(is_array($list) ? $list : array(), function ($x) use ($is) {
+			return is_array($x) && $is($x);
+		}));
+	};
+	$theirs = function ($list, callable $is) {
+		return array_values(array_filter(is_array($list) ? $list : array(), function ($x) use ($is) {
+			return is_array($x) && !$is($x);
+		}));
+	};
+	$is_user = function ($u) {
+		return ($u['name'] ?? '') === FLEET_USER;
+	};
+	$is_token = function ($t) {
+		return ($t['username'] ?? '') === FLEET_USER;
+	};
+	$is_cert = function ($c) {
+		return ($c['descr'] ?? '') === FLEET_CERT_DESCR;
+	};
+	$is_listener = function ($l) {
+		return ($l['descr'] ?? '') === FLEET_LISTENER_DESCR;
+	};
+
+	if (isset($running['fleet'])) {
+		$restored['fleet'] = $running['fleet'];
+	} else {
+		unset($restored['fleet']);
+	}
+	$restored['system']['user'] = array_merge($theirs($restored['system']['user'] ?? null, $is_user), $mine($running['system']['user'] ?? null, $is_user));
+	$restored['system']['nextuid'] = (string)max((int)($restored['system']['nextuid'] ?? 0), (int)($running['system']['nextuid'] ?? 0));
+	$restored['cert'] = array_merge($theirs($restored['cert'] ?? null, $is_cert), $mine($running['cert'] ?? null, $is_cert));
+	$restored['restapi']['apitoken'] = array_merge($theirs($restored['restapi']['apitoken'] ?? null, $is_token),
+	    $mine($running['restapi']['apitoken'] ?? null, $is_token));
+	$restored['restapi']['apilistener'] = array_merge($theirs($restored['restapi']['apilistener'] ?? null, $is_listener),
+	    $mine($running['restapi']['apilistener'] ?? null, $is_listener));
+	if (isset($running['fleet'])) {
+		/* The listener needs the REST API on; the WebGUI's own API stays as the backup had it. */
+		$restored['restapi']['enable'] = true;
+		if (!isset($restored['restapi']['noguiapi']) && !empty($running['restapi']['noguiapi'])) {
+			$restored['restapi']['noguiapi'] = true;
+		}
+	}
+	foreach (array('cert', 'restapi') as $k) {
+		foreach ($restored[$k] as $sub => $v) {
+			if ($v === array()) {
+				unset($restored[$k][$sub]);
+			}
+		}
+	}
+	if ($restored['cert'] === array()) {
+		unset($restored['cert']);
+	}
+	return $restored;
+}
+
+/* pure: why a parsed configuration cannot be restored on this box, or null. */
+function fleet_restore_problem($parsed, string $running_version): ?string {
+	if (!is_array($parsed) || !isset($parsed['version']) || !isset($parsed['system'])) {
+		return 'This is not a FreeSense configuration.';
+	}
+	if (version_compare((string)$parsed['version'], $running_version, '>')) {
+		return "The configuration is from a newer FreeSense (config version {$parsed['version']}, this firewall has {$running_version}). Update the firewall first.";
+	}
+	return null;
+}
+
+/*
+ * Restore a configuration from the controller. Runs inside a commit-confirm
+ * window, so the box goes back by itself if the controller cannot confirm.
+ */
+function fleet_restore_apply(string $xml, string $description): void {
+	global $config;
+	require_once('xmlparse.inc');
+	$root = g_get('xml_rootobj');
+	/* The parser reads files only; both files hold secrets, so they are root-only and removed after. */
+	$in = g_get('tmp_path') . '/fleet-restore-in-' . bin2hex(random_bytes(6)) . '.xml';
+	$tmp = g_get('tmp_path') . '/fleet-restore-' . bin2hex(random_bytes(6)) . '.xml';
+	$umask = umask(077);
+	try {
+		$parsed = (@file_put_contents($in, $xml) === false) ? -1 : parse_xml_config($in, array($root, 'pfsense'));
+	} finally {
+		@unlink($in);
+		umask($umask);
+	}
+	$problem = fleet_restore_problem($parsed, (string)config_get_path('version', ''));
+	if ($problem !== null) {
+		throw new InvalidArgumentException($problem);
+	}
+	$merged = fleet_restore_carry($parsed, $config);
+	$umask = umask(077);
+	$written = @file_put_contents($tmp, dump_xml_config($merged, $root));
+	umask($umask);
+	if ($written === false) {
+		throw new RuntimeException('The configuration could not be written.');
+	}
+	try {
+		if (!config_restore($tmp, $description)) {
+			throw new RuntimeException('The configuration could not be restored.');
+		}
+	} finally {
+		@unlink($tmp);
+	}
+	/* Rules and aliases now; some settings (interfaces, services) apply fully after a reboot. */
+	require_once('filter.inc');
+	filter_configure();
+}
+
 /* pure: what the progress file holds after each join step. */
 function fleet_progress_record(array $steps, string $name, string $state, string $text, int $now): array {
 	$steps[$name] = array('state' => $state, 'text' => $text, 'time' => $now);
@@ -360,7 +476,7 @@ function fleet_access_create_unlocked(string $role): array {
 			throw new RuntimeException(implode(' ', $token['input_errors']));
 		}
 
-		$cert = array('refid' => uniqid(), 'descr' => 'FreeSense Fleet node API');
+		$cert = array('refid' => uniqid(), 'descr' => FLEET_CERT_DESCR);
 		$dn = array('organizationName' => 'FreeSense Fleet node', 'commonName' => config_get_path('system/hostname') . '-fleet');
 		if (!cert_create($cert, null, 0, 3650, $dn, 'self-signed', 'sha256', 'ECDSA', 'prime256v1')) {
 			throw new RuntimeException('The API certificate could not be created.');
@@ -387,7 +503,7 @@ function fleet_access_remove(): void {
 		}
 	}
 	foreach (config_get_path('cert', []) as $idx => $cert) {
-		if (is_array($cert) && (($cert['descr'] ?? '') === 'FreeSense Fleet node API')) {
+		if (is_array($cert) && (($cert['descr'] ?? '') === FLEET_CERT_DESCR)) {
 			config_del_path("cert/{$idx}");
 			config_set_path('cert', array_values(config_get_path('cert', [])));
 		}
