@@ -145,3 +145,34 @@ function fleet_handoff_signin(string $token): bool {
 	log_auth_event(LOG_AUTH_EVENT_LOGIN, $user['name'], get_user_remote_address() . get_user_remote_authsource());
 	return true;
 }
+
+/*
+ * pure: where this box's WebGUI can be opened, for the controller's "Open
+ * WebUI": one URL per interface address. $webgui is <system><webgui>,
+ * $addresses is a list of array('name' => 'LAN', 'ip' => '192.0.2.1').
+ */
+function fleet_webgui_endpoints(array $webgui, array $addresses): array {
+	$https = (($webgui['protocol'] ?? 'https') !== 'http');
+	$port = (int)($webgui['port'] ?? 0);
+	$suffix = (($port > 0) && ($port !== ($https ? 443 : 80))) ? ":{$port}" : '';
+	$urls = array();
+	foreach ($addresses as $a) {
+		$ip = (string)($a['ip'] ?? '');
+		if (!filter_var($ip, FILTER_VALIDATE_IP)) {
+			continue;
+		}
+		$host = (strpos($ip, ':') !== false) ? "[{$ip}]" : $ip;
+		$urls[] = array('name' => (string)$a['name'], 'url' => ($https ? 'https' : 'http') . "://{$host}{$suffix}");
+	}
+	return $urls;
+}
+
+/* What the status route reports: the WebGUI URLs and the users a handoff may sign in as. */
+function fleet_handoff_offer(): array {
+	$addresses = array();
+	foreach (get_configured_interface_with_descr() as $if => $descr) {
+		$addresses[] = array('name' => $descr, 'ip' => get_interface_ip($if));
+	}
+	return array('webgui' => fleet_webgui_endpoints((array)config_get_path('system/webgui', []), $addresses),
+	    'handoff_users' => fleet_handoff_allowed_users((string)config_get_path('fleet/handoff_users', '')));
+}

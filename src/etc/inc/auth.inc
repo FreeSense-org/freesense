@@ -2448,7 +2448,15 @@ function session_auth() {
 	    (config_get_path('fleet/handoff_users', '') !== '')) {
 		require_once('fleet_handoff.inc');
 		if (fleet_handoff_signin($_GET['fleet_handoff'])) {
-			header('Location: /');
+			/*
+			 * Not a redirect: the visit started on the controller, so a
+			 * redirect is still cross-site and the SameSite=Strict session
+			 * cookie would not be sent. A reload from this page is same-site.
+			 */
+			header('Cache-Control: no-store');
+			header('Referrer-Policy: no-referrer');
+			echo '<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=/">' .
+			    '<title>FreeSense</title></head><body><a href="/">' . gettext('Continue to the WebUI') . '</a></body></html>';
 			exit;
 		}
 	}
