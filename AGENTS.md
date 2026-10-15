@@ -15,3 +15,6 @@ Base product source: installer, WebUI, system behavior. Release rules are in
 - Every file under `src/` must be listed in the FreeSense-system pkg-plist in
   `freesense-system-ports`; CI audits both repositories.
 - Merge with `gh pr merge --rebase` (keeps the `dev@freesense.org` author).
+- Coding style: follow `docs/coding-standards.md` (PHP, classes, naming,
+  config, errors, security, REST, tests, shell/Python, commits) and, for
+  WebUI pages, `docs/webui/`. Match the surrounding code first.
