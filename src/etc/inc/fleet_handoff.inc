@@ -55,7 +55,7 @@ function fleet_handoff_request(array $body, array $allowed): array {
 	}
 	$user = (string)($body['user'] ?? '');
 	if (empty($allowed)) {
-		throw new DomainException('Handoff is off on this firewall. A local administrator can allow it for chosen users on System > Central Management.');
+		throw new DomainException('Handoff is off on this firewall. A local administrator can allow it for chosen users with: freesense-join handoff-users <user>.');
 	}
 	if (!in_array($user, $allowed, true)) {
 		throw new InvalidArgumentException('user: not one of the users this firewall allows a handoff for');
