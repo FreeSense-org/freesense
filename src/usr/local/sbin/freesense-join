@@ -150,7 +150,7 @@ try {
 			usage();
 		}
 		$hours = (int)array_shift($args);
-		$rec = fleet_breakglass_set($hours, implode(' ', $args), 'console (' . get_current_user() . ')');
+		$rec = fleet_breakglass_set($hours, implode(' ', $args), 'console (' . (getenv('USER') ?: (posix_getpwuid(posix_geteuid())['name'] ?? 'root')) . ')');
 		fwrite(STDOUT, 'Break-glass is on until ' . gmdate('Y-m-d H:i', $rec['until']) . " UTC. The controller was alerted.\n");
 		break;
 	case 'handoff-users':

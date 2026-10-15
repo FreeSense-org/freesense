@@ -313,6 +313,8 @@ function fleet_access_create_unlocked(string $role): array {
 		$entry = fleet_access_user_entry($uid, password_hash(bin2hex(random_bytes(32)), PASSWORD_BCRYPT), $role);
 		config_set_path('system/user/', $entry);
 		write_config('Fleet: user ' . FLEET_USER . ' created.');
+		/* getUserEntry() reads an index built when auth.inc loaded. */
+		$GLOBALS['userindex'] = index_users();
 		local_user_set($entry);
 
 		$post = array('username' => FLEET_USER, 'descr' => 'FreeSense Fleet controller', 'expires_days' => '');
@@ -357,6 +359,7 @@ function fleet_access_remove(): void {
 		}
 	}
 	write_config('Fleet: access for the controller removed.');
+	$GLOBALS['userindex'] = index_users();
 }
 
 /*
@@ -464,6 +467,11 @@ function fleet_leave_unlocked(string $why, ?array $restapi_before): void {
 	fleet_tunnel_down();
 	@unlink(FLEET_WG_KEY);
 	@unlink(FLEET_POLICY_BUNDLE);
+	/* Other boxes' replicas are fleet data; a box that left keeps none. */
+	foreach (glob(FLEET_VAULT_DIR . '/*') ?: array() as $file) {
+		@unlink($file);
+	}
+	@rmdir(FLEET_VAULT_DIR);
 	write_config("Fleet: left the fleet ({$why}).");
 	restapi_listeners_apply();
 	logger(LOG_NOTICE, localize_text('Fleet: this firewall left its fleet (%s).', $why));
