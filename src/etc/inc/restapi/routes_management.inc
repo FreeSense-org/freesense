@@ -63,6 +63,13 @@ function restapi_routes_management() {
 		restapi_route('DELETE', '/v1/management/commit-confirm/{id}', 'restapi_h_mgmt_confirm_rollback', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'summary' => 'Revert to the snapshot now')),
+		restapi_route('POST', '/v1/management/reboot', 'restapi_h_mgmt_reboot', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('confirm', 'operator'), 'properties' => array(
+			    'confirm' => array('type' => 'boolean', 'description' => 'Must be true'),
+			    'operator' => array('type' => 'string', 'description' => 'Who asked for it on the controller (shown and logged)'))),
+			'summary' => 'Reboot this firewall for the Fleet controller (a managed box only; /v1/system/reboot needs a full administrator). ' .
+			    'Answers 202, shows a notice, then reboots a few seconds later.')),
 		restapi_route('POST', '/v1/management/restore', 'restapi_h_mgmt_restore', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('config', 'commit_confirm'), 'properties' => array(
@@ -188,6 +195,34 @@ function restapi_h_mgmt_confirm_begin($req) {
 		throw new RestApiError(500, 'snapshot_failed', $e->getMessage());
 	}
 	return array('data' => $record, 'status' => 201);
+}
+
+/*
+ * Reboot for the Fleet controller. The general reboot route needs a full
+ * administrator, which the fleet-controller user never is; this one needs
+ * the management write privilege, which only a managed box grants.
+ */
+function restapi_h_mgmt_reboot($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('confirm', 'operator'));
+	if (($req['body']['confirm'] ?? false) !== true) {
+		throw restapi_field_error('confirm', 'Rebooting requires {"confirm": true}.');
+	}
+	$operator = (string)($req['body']['operator'] ?? '');
+	if (($operator === '') || (strlen($operator) > 80) || preg_match('/[\x00-\x1f\x7f]/', $operator)) {
+		throw restapi_field_error('operator', 'Who asks for the reboot, 1 to 80 characters.');
+	}
+	logger(LOG_NOTICE, localize_text('Fleet: reboot requested by %s.', $operator));
+	/* "Fleet is working on this firewall: Rebooting" on its WebUI and console until it is back. */
+	@file_put_contents(FLEET_ACTIVITY_FILE, json_encode(fleet_activity_record(array('text' => 'Rebooting', 'by' => $operator, 'seconds' => 300), time())), LOCK_EX);
+	if (g_get('debug')) {
+		return array('status' => 202, 'data' => array('rebooting' => false, 'message' => 'Not actually rebooting (DEBUG is set true).'));
+	}
+	/* diag_system.inc and routes_operations.inc are loaded by api/index.php. */
+	restapi_ops_after_response(RESTAPI_OPS_DELAY, function () {
+		diag_reboot_run('reboot');
+	});
+	return array('status' => 202, 'data' => array('rebooting' => true, 'after_seconds' => RESTAPI_OPS_DELAY));
 }
 
 /*
