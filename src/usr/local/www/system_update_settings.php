@@ -60,8 +60,9 @@ if ($savemsg) {
 
 fs_tabs('system-update', 'system_update_settings.php');
 
-if (pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path')) === 'candidate') {
-	print_info_box(gettext('RC Preview is based on FreeBSD 16-CURRENT, has no upstream security support, and must not be used for production systems.'), 'warning');
+if (pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path')) === 'testing') {
+	print_info_box(gettext('Testing installs nightly builds of the next Stable patch before it is released. Use it on test systems only. ' .
+	    'Once that patch is released on Stable, this system can return to the Stable branch.'), 'warning');
 }
 
 // Check to see if any new repositories have become available. This data is cached and
@@ -84,7 +85,7 @@ if (file_exists($helpfilename)) {
 	$field->setHelp(file_get_contents($helpfilename));
 } else {
 	$field->setHelp(gettext('Please select the branch from which to update the system firmware. %1$s' .
-					'Use of the development version is at your own risk!'), '<br />');
+					'Testing and the development version are for test systems; use them at your own risk!'), '<br />');
 }
 
 $section->addInput($field);
