@@ -62,6 +62,7 @@ jobs:
             php -v | head -n 1
             for t in \
               ConfigImportGuardSmokeTest \
+              NavPluginSmokeTest \
               ConfigUpgradeSmokeTest \
               ConfigCacheSmokeTest \
               WebGuiRestoreSmokeTest \

@@ -658,6 +658,9 @@ if (are_notices_pending()) {
 						<kbd class="fs-nav-search-kbd">Ctrl K</kbd>
 					</button>
 				</li>
+				<?php foreach (fs_nav_plugin_items() as $fs_nav_item) {
+					echo fs_nav_plugin_html($fs_nav_item);
+				} ?>
 				<?php if ($display_notices):?>
 					<?php $notices = get_notices()?>
 					<li class="nav-item">

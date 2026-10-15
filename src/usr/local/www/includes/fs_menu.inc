@@ -285,3 +285,80 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 
 	return $html . '</div></li>';
 }
+
+/*
+ * Top-bar items from packages (plugin_navbar). A package's
+ * <pkgname>_plugin_navbar() returns one item, or null for none:
+ *   id     a-z, 0-9 and dashes (the element is fs-nav-<package>-<id>)
+ *   icon   a Font Awesome solid icon name, e.g. fa-server
+ *   label  what the item is, for screen readers and the tooltip
+ *   href   a page of this WebUI (starts with /); the item is shown only to
+ *          users allowed to open it
+ *   badge  a count, 0 hides the badge; kind info, warn, block or neutral
+ *   busy   true spins the icon (something is running)
+ *   hidden true keeps the item out of sight until a poll shows it
+ *   poll   a page of this WebUI answering the same fields as JSON;
+ *          freesense-ui.js asks it every 15 s (60 s in a hidden tab)
+ * Anything else, or a wrong value, is dropped: a package cannot put
+ * markup or another site's address into the top bar.
+ */
+
+/* pure: a package's top-bar item made safe, or null. */
+function fs_nav_plugin_item(string $pkg, $raw): ?array {
+	if (!is_array($raw) || !preg_match('/^[a-z0-9_-]{1,40}$/D', strtolower($pkg))) {
+		return null;
+	}
+	$id = (string)($raw['id'] ?? '');
+	$icon = (string)($raw['icon'] ?? '');
+	$label = trim((string)($raw['label'] ?? ''));
+	$href = (string)($raw['href'] ?? '');
+	$local = function (string $url): bool {
+		return (bool)preg_match('#^/(?!/)[A-Za-z0-9_./?=&%-]*$#D', $url);
+	};
+	if (!preg_match('/^[a-z0-9-]{1,32}$/D', $id) || !preg_match('/^fa-[a-z0-9-]{1,40}$/D', $icon) ||
+	    ($label === '') || (strlen($label) > 80) || preg_match('/[\x00-\x1f\x7f]/', $label) || !$local($href)) {
+		return null;
+	}
+	$poll = (string)($raw['poll'] ?? '');
+	return array(
+		'id' => strtolower($pkg) . '-' . $id,
+		'icon' => $icon,
+		'label' => $label,
+		'href' => $href,
+		'badge' => max(0, min(9999, (int)($raw['badge'] ?? 0))),
+		'kind' => in_array($raw['kind'] ?? '', array('info', 'warn', 'block', 'neutral'), true) ? $raw['kind'] : 'info',
+		'busy' => !empty($raw['busy']),
+		'hidden' => !empty($raw['hidden']),
+		'poll' => ($poll !== '' && $local($poll)) ? $poll : '',
+	);
+}
+
+/* pure: the <li> for an item made by fs_nav_plugin_item(). */
+function fs_nav_plugin_html(array $item): string {
+	$e = function ($v) {
+		return htmlspecialchars((string)$v, ENT_QUOTES);
+	};
+	return '<li class="nav-item" id="fs-nav-' . $e($item['id']) . '"' . ($item['hidden'] ? ' hidden' : '') . '>' .
+	    '<a class="nav-link fs-nav-plugin" href="' . $e($item['href']) . '" title="' . $e($item['label']) . '" aria-label="' . $e($item['label']) . '"' .
+	    ($item['poll'] !== '' ? ' data-fs-nav-poll="' . $e($item['poll']) . '"' : '') . ' data-busy="' . ($item['busy'] ? 'true' : 'false') . '">' .
+	    '<i class="fa-solid ' . $e($item['icon']) . '" aria-hidden="true"></i>' .
+	    '<span class="badge fs-nav-badge fs-nav-badge--' . $e($item['kind']) . '"' . ($item['badge'] > 0 ? '' : ' hidden') . '>' . (int)$item['badge'] . '</span>' .
+	    '</a></li>';
+}
+
+/* The top-bar items of the installed packages that this user may open. */
+function fs_nav_plugin_items(): array {
+	$items = array();
+	try {
+		foreach (pkg_call_plugins('plugin_navbar', array('event' => 'items')) as $pkg => $raw) {
+			$item = fs_nav_plugin_item((string)$pkg, $raw);
+			if (($item !== null) && isAllowedPage(ltrim(parse_url($item['href'], PHP_URL_PATH), '/'))) {
+				$items[] = $item;
+			}
+		}
+	} catch (Throwable $e) {
+		/* A broken package never breaks the top bar of every page. */
+		log_error('plugin_navbar: ' . $e->getMessage());
+	}
+	return $items;
+}
