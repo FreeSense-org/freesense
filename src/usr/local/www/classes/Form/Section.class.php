@@ -96,14 +96,14 @@ class Form_Section extends Form_Element
 	{
 		$element = parent::__toString();
 
-		if (!empty(trim($this->_title)) || is_numeric($this->_title))
+		if (!empty(trim((string)$this->_title)) || is_numeric($this->_title))
 			$title = htmlspecialchars(gettext($this->_title));
 		else
 			$title = '';
 
 		$body = implode('', $this->_groups);
 		$bodyclass = '<div class="panel-body">';
-		$id = strval($this->_attributes['id']);
+		$id = strval($this->_attributes['id'] ?? '');
 
 		$collapsible = (bool)(intval($this->_collapsible) & COLLAPSIBLE) && ($title != 'NOTITLE');
 		if ($collapsible) {

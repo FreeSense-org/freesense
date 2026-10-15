@@ -139,6 +139,7 @@ class freesense_xmlrpc_server {
 	public function exec_php($code) {
 		$this->auth();
 
+		$toreturn = null;
 		eval($code);
 		if ($toreturn) {
 			return $toreturn;

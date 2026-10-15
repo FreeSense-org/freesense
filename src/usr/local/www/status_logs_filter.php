@@ -252,14 +252,14 @@ if (!$rawfilter):
 			['custom', 'easyrule.php?' . http_build_query(['action' => 'block', 'int' => $int, 'src' => $filterent['srcip'], 'ipproto' => $ipproto]),
 			    $srcname, ['icon' => 'fa-regular fa-square-minus', 'label' => sprintf(gettext('EasyRule: block %s'), $srcname)]],
 			['custom', 'easyrule.php?' . http_build_query(['action' => 'pass', 'int' => $int, 'proto' => $proto, 'src' => $filterent['srcip'],
-			    'dst' => $filterent['dstip'], 'dstport' => $filterent['dstport'], 'ipproto' => $ipproto]),
+			    'dst' => $filterent['dstip'], 'dstport' => $filterent['dstport'] ?? '', 'ipproto' => $ipproto]),
 			    $srcname, ['icon' => 'fa-regular fa-square-plus', 'label' => gettext('EasyRule: pass this traffic')]],
 		];
 ?>
 				<tr>
 					<td class="fs-fw-actcell">
 						<?=$fw_action($filterent)?>
-<?php		if ($filterent['count']): ?>
+<?php		if (!empty($filterent['count'])): ?>
 						<span class="fs-muted small" title="<?=gettext('Repeated entries')?>">&times;<?=htmlspecialchars($filterent['count'])?></span>
 <?php		endif; ?>
 <?php		if ($filterdescriptions === "2"): ?>
@@ -276,8 +276,8 @@ if (!$rawfilter):
 <?php		if ($filterdescriptions === "1"): ?>
 					<td class="fs-fw-rule"><?=$rule_descr?></td>
 <?php		endif; ?>
-					<td class="fs-mono fs-fw-addr"><?=$fw_endpoint($filterent['srcip'], $filterent['srcport'], $proto)?><span class="fs-fw-resolved" data-fs-ip="<?=fs_h($rawsrcip)?>"></span></td>
-					<td class="fs-mono fs-fw-addr"><?=$fw_endpoint($filterent['dstip'], $filterent['dstport'], $proto)?><span class="fs-fw-resolved" data-fs-ip="<?=fs_h($rawdstip)?>"></span></td>
+					<td class="fs-mono fs-fw-addr"><?=$fw_endpoint($filterent['srcip'], $filterent['srcport'] ?? '', $proto)?><span class="fs-fw-resolved" data-fs-ip="<?=fs_h($rawsrcip)?>"></span></td>
+					<td class="fs-mono fs-fw-addr"><?=$fw_endpoint($filterent['dstip'], $filterent['dstport'] ?? '', $proto)?><span class="fs-fw-resolved" data-fs-ip="<?=fs_h($rawdstip)?>"></span></td>
 					<td class="fs-mono text-nowrap"><?=htmlspecialchars($protostr)?></td>
 					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
 				</tr>

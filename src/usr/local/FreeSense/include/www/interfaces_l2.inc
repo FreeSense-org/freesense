@@ -777,7 +777,7 @@ function interfaces_bridge_port_list($selection) {
 		if (substr($if_config[$ifn]['if'], 0, 6) != "bridge") {
 			$portlist['list'][$ifn] = $ifdescr;
 
-			if (in_array($ifn, explode(',', $selection))) {
+			if (in_array($ifn, explode(',', (string)$selection))) {
 				array_push($portlist['selected'], $ifn);
 			}
 		}

@@ -403,13 +403,14 @@ function display_row($trc, $value, $fieldname, $type, $rowhelper, $description, 
 			}
 
 			$source_url = $rowhelper['source'];
+			$pkg_source_txt = array();
 			try{
 				@eval("\$pkg_source_txt = $source_url;");
 			} catch (\Throwable | \Error | \Exception $e) {
 				logger(LOG_ERR, localize_text("Error in '%s': %s", $source_url, $e->getMessage()));
 			}
 
-			foreach ($pkg_source_txt as $opt) {
+			foreach ((array)$pkg_source_txt as $opt) {
 				$source_name = ($rowhelper['source_name'] ? $opt[$rowhelper['source_name']] : $opt[$rowhelper['name']]);
 				$source_value = ($rowhelper['source_value'] ? $opt[$rowhelper['source_value']] : $opt[$rowhelper['value']]);
 				$options[$source_value] = $source_name;
@@ -503,7 +504,7 @@ function parse_package_templates() {
 				}
 			}
 			/* replace $domain_total_rows with total rows */
-			$template_text = str_replace("$domain_total_rows", $row_helper_total_rows, $template_text);
+			$template_text = str_replace('$domain_total_rows', $row_helper_total_rows, $template_text);
 
 			/* replace cr's */
 			$template_text = str_replace("\\n", "\n", $template_text);

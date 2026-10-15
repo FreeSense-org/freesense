@@ -199,7 +199,7 @@ function interface_is_qinq($if = NULL) {
 	}
 
 	/* Check basic format. */
-	list($qinqif, $vlantag, $inqtag) = explode(".", $if);
+	list($qinqif, $vlantag, $inqtag) = array_pad(explode(".", $if), 3, null);
 	if (empty($qinqif) || empty($vlantag) || empty($inqtag) ||
 	    !vlan_valid_tag($vlantag) || !vlan_valid_tag($inqtag)) {
 		return (NULL);
@@ -6514,7 +6514,7 @@ function get_real_interface($interface = "wan", $family = "all", $realv6iface = 
 					case 'ppp':
 					case 'l2tp':
 					case 'pptp':
-						if (is_array($cfg['wireless']) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
+						if (is_array($cfg['wireless'] ?? null) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
 							$wanif = interface_get_wireless_clone($cfg['if']);
 						} else {
 							$wanif = $cfg['if'];
@@ -6540,7 +6540,7 @@ function get_real_interface($interface = "wan", $family = "all", $realv6iface = 
 								}
 								break;
 							default:
-								if (is_array($cfg['wireless']) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
+								if (is_array($cfg['wireless'] ?? null) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
 									$wanif = interface_get_wireless_clone($cfg['if']);
 								} else {
 									$wanif = $cfg['if'];
@@ -6553,7 +6553,7 @@ function get_real_interface($interface = "wan", $family = "all", $realv6iface = 
 				// Wireless cloned NIC support (FreeBSD 8+)
 				// interface name format: $parentnic_wlanparentnic#
 				// example: ath0_wlan0
-				if (is_array($cfg['wireless']) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
+				if (is_array($cfg['wireless'] ?? null) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
 					$wanif = interface_get_wireless_clone($cfg['if']);
 				} else {
 					$wanif = $cfg['if'];
@@ -6911,8 +6911,8 @@ function find_interface_ipv6($interface, $flush = false, $linklocal_fallback = f
 		if (!isset($ifinfo)) {
 			return;
 		}
-		$interface_ipv6_arr_cache[$interface] = $ifinfo['ipaddr6'];
-		$interface_snv6_arr_cache[$interface] = $ifinfo['subnetbits6'];
+		$interface_ipv6_arr_cache[$interface] = $ifinfo['ipaddr6'] ?? null;
+		$interface_snv6_arr_cache[$interface] = $ifinfo['subnetbits6'] ?? null;
 	}
 
 	return $interface_ipv6_arr_cache[$interface];
@@ -6983,8 +6983,8 @@ function find_interface_subnetv6($interface, $flush = false) {
 		if (!isset($ifinfo)) {
 			return;
 		}
-		$interface_ipv6_arr_cache[$interface] = $ifinfo['ipaddr6'];
-		$interface_snv6_arr_cache[$interface] = $ifinfo['subnetbits6'];
+		$interface_ipv6_arr_cache[$interface] = $ifinfo['ipaddr6'] ?? null;
+		$interface_snv6_arr_cache[$interface] = $ifinfo['subnetbits6'] ?? null;
 	}
 
 	return $interface_snv6_arr_cache[$interface];
@@ -8244,7 +8244,7 @@ function get_interface_addresses($interface, $linklocal_fallback = false) {
 
 		// Get a link-local address
 		if (!empty($address_flags['linklocal'])) {
-			$address_priority_list['linklocal'] = $address_flags[array_key_first($address_flags['linklocal'])];
+			$address_priority_list['linklocal'] = $address_flags['linklocal'][array_key_first($address_flags['linklocal'])];
 		}
 
 		$selected_address = null;

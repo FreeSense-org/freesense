@@ -126,8 +126,8 @@ function get_user_privdesc($user) {
 
 	foreach ($names as $name) {
 		$group = getGroupEntry($name);
-		$group = $group['item'];
-		$group_privs = $group['priv'];
+		$group = $group['item'] ?? null;
+		$group_privs = $group['priv'] ?? null;
 		if (!is_array($group_privs)) {
 			continue;
 		}
@@ -246,7 +246,7 @@ function getAllowedPages($username, &$attributes = array()) {
 		// cache auth results for a short time to ease load on auth services & logs
 		$recheck_time = config_get_path('system/webgui/auth_refresh_time', 30);
 		// obtain ldap groups if we are in ldap mode
-		if ($authcfg['type'] == "ldap") {
+		if (($authcfg['type'] ?? '') == "ldap") {
 			if (isset($_SESSION["ldap_allowed_groups"]) &&
 			    (time() <= $_SESSION["auth_check_time"] + $recheck_time)) {
 				$allowed_groups = $_SESSION["ldap_allowed_groups"];
@@ -255,7 +255,7 @@ function getAllowedPages($username, &$attributes = array()) {
 				$_SESSION["ldap_allowed_groups"] = $allowed_groups;
 				$_SESSION["auth_check_time"] = time();
 			}
-		} elseif ($authcfg['type'] == "radius") {
+		} elseif (($authcfg['type'] ?? '') == "radius") {
 			if (isset($_SESSION["radius_allowed_groups"]) &&
 			    (time() <= $_SESSION["auth_check_time"] + $recheck_time)) {
 				$allowed_groups = $_SESSION["radius_allowed_groups"];
