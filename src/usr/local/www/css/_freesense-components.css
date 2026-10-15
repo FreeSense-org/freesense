@@ -767,3 +767,40 @@ tr.fs-row-current > td:first-child { box-shadow: inset 3px 0 0 var(--fs-coral); 
 @media (prefers-reduced-motion: reduce) {
 	.navbar .fs-nav-plugin[data-busy="true"] > i { animation: none; }
 }
+
+/* Notices from packages (toasts in a plugin_navbar poll), bottom right. */
+.fs-toasts {
+	position: fixed;
+	right: 1rem;
+	bottom: 1rem;
+	z-index: 1080;
+	display: flex;
+	flex-direction: column;
+	gap: .5rem;
+	max-width: min(26rem, calc(100vw - 2rem));
+}
+.fs-toast {
+	display: flex;
+	align-items: center;
+	gap: .6rem;
+	padding: .65rem .75rem .65rem .9rem;
+	border: 1px solid var(--fs-border);
+	border-left: 4px solid var(--fs-info);
+	border-radius: var(--fs-r-md);
+	background: var(--fs-surface-raised);
+	color: var(--fs-text);
+	box-shadow: var(--fs-shadow-overlay);
+	transition: opacity .5s var(--fs-ease), transform .5s var(--fs-ease);
+}
+.fs-toast > i { color: var(--fs-info); }
+.fs-toast--pass { border-left-color: var(--fs-pass); }
+.fs-toast--pass > i { color: var(--fs-pass); }
+.fs-toast--warn { border-left-color: var(--fs-warn); }
+.fs-toast--warn > i { color: var(--fs-warn); }
+.fs-toast--block { border-left-color: var(--fs-block); }
+.fs-toast--block > i { color: var(--fs-block); }
+.fs-toast-text { flex: 1 1 auto; color: var(--fs-text); text-decoration: none; }
+a.fs-toast-text:hover { text-decoration: underline; }
+.fs-toast-close { flex: none; font-size: .7rem; }
+.fs-toast--out { opacity: 0; transform: translateY(.5rem); }
+@media (prefers-reduced-motion: reduce) { .fs-toast { transition: none; } }

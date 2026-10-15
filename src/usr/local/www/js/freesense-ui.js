@@ -1385,11 +1385,72 @@
  * Top-bar items from packages (fs_nav_plugin_html() in fs_menu.inc): an
  * item with data-fs-nav-poll asks its page every 15 s (60 s in a hidden
  * tab) for { hidden, badge, kind, busy, label } and updates in place.
+ * The answer may carry notices (toasts) and a cursor: the cursor is kept
+ * per item in localStorage, shared by every tab, so a notice shows once.
  */
 (function () {
 	'use strict';
 
 	var KINDS = ['info', 'warn', 'block', 'neutral'];
+	var TOAST_KINDS = { info: 'fa-circle-info', pass: 'fa-circle-check', warn: 'fa-triangle-exclamation', block: 'fa-circle-xmark' };
+	var LOCAL = /^\/(?!\/)[A-Za-z0-9_.\/?=&%-]*$/;
+
+	function store(key, value) {
+		try {
+			if (value === undefined) {
+				return localStorage.getItem(key);
+			}
+			localStorage.setItem(key, value);
+		} catch (e) {
+		}
+		return null;
+	}
+
+	function toastHost() {
+		var host = document.getElementById('fs-toasts');
+		if (!host) {
+			host = document.createElement('div');
+			host.id = 'fs-toasts';
+			host.className = 'fs-toasts';
+			host.setAttribute('aria-live', 'polite');
+			host.setAttribute('role', 'status');
+			document.body.appendChild(host);
+		}
+		return host;
+	}
+
+	/* Same rules as fs_nav_toasts() in fs_menu.inc. */
+	function toast(t) {
+		var text = typeof t.text === 'string' ? t.text.trim() : '';
+		if (text === '' || text.length > 200 || /[\x00-\x1f\x7f]/.test(text)) {
+			return;
+		}
+		var kind = TOAST_KINDS[t.kind] ? t.kind : 'info';
+		var box = document.createElement('div');
+		box.className = 'fs-toast fs-toast--' + kind;
+		var icon = document.createElement('i');
+		icon.className = 'fa-solid ' + TOAST_KINDS[kind];
+		icon.setAttribute('aria-hidden', 'true');
+		box.appendChild(icon);
+		var body = document.createElement(typeof t.href === 'string' && LOCAL.test(t.href) ? 'a' : 'span');
+		body.className = 'fs-toast-text';
+		body.textContent = text;
+		if (body.tagName === 'A') {
+			body.href = t.href;
+		}
+		box.appendChild(body);
+		var close = document.createElement('button');
+		close.type = 'button';
+		close.className = 'btn-close btn-close-white fs-toast-close';
+		close.setAttribute('aria-label', 'Close');
+		close.addEventListener('click', function () { box.remove(); });
+		box.appendChild(close);
+		toastHost().appendChild(box);
+		if (!t.sticky) {
+			setTimeout(function () { box.classList.add('fs-toast--out'); }, 8000);
+			setTimeout(function () { box.remove(); }, 8600);
+		}
+	}
 
 	function update(link, d) {
 		var li = link.parentNode;
@@ -1409,12 +1470,22 @@
 
 	function watch(link) {
 		var url = link.getAttribute('data-fs-nav-poll');
+		var key = 'fs-nav-cursor:' + link.parentNode.id;
 		function poll() {
-			fetch(url, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } })
+			var since = store(key);
+			var q = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'since=' + encodeURIComponent(since || '');
+			fetch(q, { credentials: 'same-origin', cache: 'no-store', headers: { 'Accept': 'application/json' } })
 				.then(function (r) { return r.ok ? r.json() : null; })
 				.then(function (d) {
 					if (d) {
 						update(link, d);
+						/* Another tab may have shown these already: only the tab that moves the cursor shows them. */
+						if (d.cursor !== undefined && String(d.cursor) !== store(key)) {
+							if (since !== null && store(key) === since && Array.isArray(d.toasts)) {
+								d.toasts.slice(0, 5).forEach(toast);
+							}
+							store(key, String(d.cursor));
+						}
 					}
 				})
 				.catch(function () {})
@@ -1422,7 +1493,8 @@
 					setTimeout(poll, document.hidden ? 60000 : 15000);
 				});
 		}
-		setTimeout(poll, 15000);
+		/* The first poll at once: it only sets the cursor, so old news never pops up. */
+		setTimeout(poll, store(key) === null ? 0 : 15000);
 	}
 
 	function init() {

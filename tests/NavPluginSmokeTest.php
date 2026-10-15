@@ -23,6 +23,7 @@ function fn_source($code, $name) {
 
 eval(fn_source($src, 'fs_nav_plugin_item'));
 eval(fn_source($src, 'fs_nav_plugin_html'));
+eval(fn_source($src, 'fs_nav_toasts'));
 
 $ok = array('id' => 'activity', 'icon' => 'fa-server', 'label' => 'Fleet: 2 actions running', 'href' => '/fleet/fleet_activity.php',
     'badge' => 2, 'kind' => 'info', 'busy' => true, 'poll' => '/fleet/fleet_nav.php');
@@ -39,5 +40,14 @@ check(fs_nav_plugin_item('fleet', array('poll' => 'http://x/') + $ok)['poll'] ==
 $html = fs_nav_plugin_html(fs_nav_plugin_item('fleet', array('label' => '<b>"x"</b>', 'badge' => 0, 'hidden' => true) + $ok));
 check(strpos($html, '<b>') === false && strpos($html, '&lt;b&gt;') !== false && strpos($html, ' hidden>') !== false &&
     preg_match('/fs-nav-badge--info" hidden>0</', $html) === 1, 'the label is escaped, a zero badge and a hidden item stay hidden');
+
+$toasts = fs_nav_toasts(array(array('text' => 'Reboot Lab: done', 'kind' => 'pass', 'href' => '/fleet/fleet_activity.php?op=9'),
+    array('text' => '', 'kind' => 'pass'), array('text' => "bad\x07", 'kind' => 'pass'), array('text' => 'x', 'kind' => 'evil', 'href' => 'https://evil.example/', 'sticky' => 1), 'junk'));
+check(count($toasts) === 2 && $toasts[0]['href'] === '/fleet/fleet_activity.php?op=9' && $toasts[1] === array('text' => 'x', 'kind' => 'info', 'href' => '', 'sticky' => true),
+    'notices: plain text only, known kinds, local links');
+check(count(fs_nav_toasts(array_fill(0, 9, array('text' => 'a')))) === 5 && fs_nav_toasts('nope') === array(), 'at most five notices per poll');
+$js = file_get_contents("{$root}/src/usr/local/www/js/freesense-ui.js");
+$toast_js = substr($js, strpos($js, 'function toast(t)'), 2000);
+check(strpos($toast_js, 'body.textContent = text') !== false && strpos($toast_js, 'innerHTML') === false, 'the script puts notice text in as text, never as markup');
 
 echo "NavPluginSmokeTest: OK\n";
