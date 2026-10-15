@@ -98,7 +98,7 @@ foreach (glob("/usr/local/www/widgets/widgets/*.widget.php") as $file) {
 		'basename' => $basename,
 		'title' => $widgettitle,
 		'display' => 'none',
-		'multicopy' => ${$basename . '_allow_multiple_widget_copies'}
+		'multicopy' => ${$basename . '_allow_multiple_widget_copies'} ?? false
 	);
 }
 
@@ -293,7 +293,7 @@ if ($user_settings['widgets']['sequence'] != "") {
 			'col' => $col,
 			'display' => $display,
 			'copynum' => $copynum,
-			'multicopy' => ${$basename . '_allow_multiple_widget_copies'}
+			'multicopy' => ${$basename . '_allow_multiple_widget_copies'} ?? false
 		);
 
 		// Update the known_widgets entry so we know if any copy of the widget is being displayed

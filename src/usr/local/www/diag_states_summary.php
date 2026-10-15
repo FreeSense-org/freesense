@@ -41,13 +41,13 @@ $allipinfo = array();
 $pairipinfo = array();
 
 function addipinfo(&$iparr, $ip, $proto, $srcport, $dstport) {
-	$iparr[$ip]['seen']++;
-	$iparr[$ip]['protos'][$proto]['seen']++;
+	$iparr[$ip]['seen'] = ($iparr[$ip]['seen'] ?? 0) + 1;
+	$iparr[$ip]['protos'][$proto]['seen'] = ($iparr[$ip]['protos'][$proto]['seen'] ?? 0) + 1;
 	if (!empty($srcport)) {
-		$iparr[$ip]['protos'][$proto]['srcports'][$srcport]++;
+		$iparr[$ip]['protos'][$proto]['srcports'][$srcport] = ($iparr[$ip]['protos'][$proto]['srcports'][$srcport] ?? 0) + 1;
 	}
 	if (!empty($dstport)) {
-		$iparr[$ip]['protos'][$proto]['dstports'][$dstport]++;
+		$iparr[$ip]['protos'][$proto]['dstports'][$dstport] = ($iparr[$ip]['protos'][$proto]['dstports'][$dstport] ?? 0) + 1;
 	}
 }
 
