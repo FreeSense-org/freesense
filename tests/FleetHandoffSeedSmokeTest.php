@@ -101,4 +101,13 @@ unlink("{$tmp}/config/fleet-join.conf");
 rmdir("{$tmp}/config");
 rmdir($tmp);
 
+/* ---- where the controller can open the WebGUI ---- */
+$ips = array(array('name' => 'WAN', 'ip' => '203.0.113.7'), array('name' => 'LAN', 'ip' => '192.168.1.1'),
+    array('name' => 'OPT1', 'ip' => ''), array('name' => 'V6', 'ip' => '2001:db8::1'));
+check(fleet_webgui_endpoints(array('protocol' => 'https'), $ips) === array(array('name' => 'WAN', 'url' => 'https://203.0.113.7'),
+    array('name' => 'LAN', 'url' => 'https://192.168.1.1'), array('name' => 'V6', 'url' => 'https://[2001:db8::1]')), 'one URL per address; no address, no URL');
+check(fleet_webgui_endpoints(array('protocol' => 'https', 'port' => '8443'), array($ips[1]))[0]['url'] === 'https://192.168.1.1:8443' &&
+    fleet_webgui_endpoints(array('protocol' => 'http', 'port' => '80'), array($ips[1]))[0]['url'] === 'http://192.168.1.1', 'protocol and port');
+check(fleet_webgui_endpoints(array(), array(array('name' => 'X', 'ip' => 'evil.example/'))) === array(), 'only IP addresses become URLs');
+
 echo "FleetHandoffSeedSmokeTest: OK\n";

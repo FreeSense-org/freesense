@@ -144,7 +144,7 @@ function restapi_h_mgmt_status($req) {
 		'activity' => fleet_activity_read(),
 		'carp' => $carp['summary'],
 		'api_level' => RESTAPI_LEVEL,
-	));
+	) + fleet_handoff_offer());
 }
 
 /* The controller removes a box from the fleet. The answer goes out first; the tunnel and listener it came through are taken down after. */
