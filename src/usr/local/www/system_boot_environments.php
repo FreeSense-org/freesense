@@ -36,6 +36,8 @@ if (!in_array($view, ['environments', 'settings'], true)) {
 	$view = 'environments';
 }
 
+$running_version = trim((string)@file_get_contents('/etc/version'));
+
 // Keep the running environment at the top, followed by the newest snapshots.
 $environments = be_sort_environments($environments);
 
@@ -122,6 +124,8 @@ if ($view === 'environments'):
 			$version_parts = be_version_parts((string)($meta['version'] ?? '-'));
 			$created_parts = be_created_parts((string)($meta['created'] ?? $be['created']));
 			$description = (string)($meta['description'] ?? '');
+			$locked = be_entry_locked($be, $running_version);
+			if ($locked) $states[] = fs_badge('warn', gettext('Older release'));
 			$deletable = !$be['active_now'] && !$be['active_reboot'] && !$be['active_once'] && ($meta['health'] ?? '') !== 'pending';
 		?>
 		<tr<?=$be['active_now'] ? ' class="fs-row-current"' : ''?>>
@@ -141,9 +145,9 @@ if ($view === 'environments'):
 					<input type="hidden" name="name" value="<?=htmlspecialchars($be['name'])?>">
 					<input type="hidden" name="reboot" value="0">
 					<div class="fs-actions">
-					<button class="fs-action" name="action" value="activate" title="<?=gettext('Activate persistently')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s persistently'), $be['name']))?>"><i class="fa-solid fa-star" aria-hidden="true"></i></button>
-					<button class="fs-action" name="action" value="activate-once" title="<?=gettext('Activate once')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s once'), $be['name']))?>"><i class="fa-solid fa-play" aria-hidden="true"></i></button>
-					<button class="fs-action" name="action" value="activate-once" title="<?=gettext('Activate once and reboot')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s once and reboot'), $be['name']))?>"
+					<button class="fs-action" name="action" value="activate"<?=$locked ? ' disabled' : ''?> title="<?=$locked ? gettext('Locked: an installed release cannot go back to an older one') : gettext('Activate persistently')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s persistently'), $be['name']))?>"><i class="fa-solid fa-star" aria-hidden="true"></i></button>
+					<button class="fs-action" name="action" value="activate-once"<?=$locked ? ' disabled' : ''?> title="<?=$locked ? gettext('Locked: an installed release cannot go back to an older one') : gettext('Activate once')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s once'), $be['name']))?>"><i class="fa-solid fa-play" aria-hidden="true"></i></button>
+					<button class="fs-action" name="action" value="activate-once"<?=$locked ? ' disabled' : ''?> title="<?=$locked ? gettext('Locked: an installed release cannot go back to an older one') : gettext('Activate once and reboot')?>" aria-label="<?=htmlspecialchars(sprintf(gettext('Activate %s once and reboot'), $be['name']))?>"
 					    data-fs-confirm="<?=htmlspecialchars(sprintf(gettext('Reboot into boot environment “%s” now?'), $be['name']))?>"
 					    data-fs-confirm-detail="<?=gettext('The firewall restarts and is unreachable until it is back up.')?>"
 					    data-fs-confirm-action="<?=gettext('Reboot')?>"
