@@ -48,6 +48,30 @@ function restapi_routes_management() {
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('confirm'), 'properties' => array('confirm' => array('type' => 'boolean'))),
 			'summary' => 'Leave the fleet: removes the controller\'s access, the tunnel and the listener after the answer is sent')),
+		restapi_route('GET', '/v1/management/commit-confirm', 'restapi_h_mgmt_confirm_list', array(
+			'page' => 'system_fleet.php', 'area' => 'management',
+			'summary' => 'Changes waiting for confirmation (each is reverted at its deadline)')),
+		restapi_route('POST', '/v1/management/commit-confirm', 'restapi_h_mgmt_confirm_begin', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('seconds'), 'properties' => array(
+			    'seconds' => array('type' => 'integer', 'description' => 'Time to confirm, 30 to 3600'),
+			    'label' => array('type' => 'string', 'description' => 'What is being changed (shown if it is reverted)'))),
+			'summary' => 'Snapshot the configuration before a risky change; it is restored at the deadline unless confirmed')),
+		restapi_route('POST', '/v1/management/commit-confirm/{id}/confirm', 'restapi_h_mgmt_confirm_accept', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'The change worked: keep it')),
+		restapi_route('DELETE', '/v1/management/commit-confirm/{id}', 'restapi_h_mgmt_confirm_rollback', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'Revert to the snapshot now')),
+		restapi_route('PUT', '/v1/management/activity', 'restapi_h_mgmt_activity_put', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('text'), 'properties' => array(
+			    'text' => array('type' => 'string'), 'step' => array('type' => 'integer'), 'steps' => array('type' => 'integer'),
+			    'by' => array('type' => 'string'), 'seconds' => array('type' => 'integer', 'description' => 'How long the notice stays, 10 to 3600'))),
+			'summary' => 'Show "Fleet is working on this firewall" on the WebUI and console until it expires')),
+		restapi_route('DELETE', '/v1/management/activity', 'restapi_h_mgmt_activity_delete', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'Clear the activity notice')),
 		restapi_route('GET', '/v1/management/policy-bundle', 'restapi_h_mgmt_bundle_get', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'The controller-signed policy bundle this box enforces')),
@@ -108,6 +132,9 @@ function restapi_h_mgmt_status($req) {
 		'policy_bundle' => ($bundle === null) ? null :
 		    array('version' => (int)$bundle['bundle']['version'], 'received' => (int)$bundle['received']),
 		'vault' => fleet_vault_usage($m),
+		'breakglass' => fleet_breakglass_read(),
+		'pending_confirms' => count(fleet_confirm_pending()),
+		'activity' => fleet_activity_read(),
 		'carp' => $carp['summary'],
 		'api_level' => RESTAPI_LEVEL,
 	));
@@ -128,6 +155,66 @@ function restapi_h_mgmt_leave($req) {
 	return array('data' => array('leaving' => true));
 }
 
+function restapi_h_mgmt_confirm_list($req) {
+	return array('data' => fleet_confirm_pending());
+}
+
+function restapi_h_mgmt_confirm_begin($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('seconds', 'label'));
+	if (!is_int($req['body']['seconds'] ?? null)) {
+		throw restapi_field_error('seconds', 'An integer from ' . FLEET_CONFIRM_MIN . ' to ' . FLEET_CONFIRM_MAX . ' is required.');
+	}
+	try {
+		$record = fleet_confirm_begin($req['body']['seconds'], (string)($req['body']['label'] ?? ''), (string)$req['user']['name']);
+	} catch (InvalidArgumentException $e) {
+		list($field, $message) = array_pad(explode(': ', $e->getMessage(), 2), 2, '');
+		throw restapi_field_error($field, $message);
+	} catch (RuntimeException $e) {
+		throw new RestApiError(500, 'snapshot_failed', $e->getMessage());
+	}
+	return array('data' => $record, 'status' => 201);
+}
+
+function restapi_mgmt_confirm_id($req) {
+	$id = (string)$req['params']['id'];
+	if (!fleet_confirm_valid_id($id) || (fleet_confirm_read($id) === null)) {
+		throw new RestApiError(404, 'not_found', 'No such pending change.');
+	}
+	return $id;
+}
+
+function restapi_h_mgmt_confirm_accept($req) {
+	fleet_confirm_accept(restapi_mgmt_confirm_id($req));
+	return array('data' => array('confirmed' => true));
+}
+
+function restapi_h_mgmt_confirm_rollback($req) {
+	$id = restapi_mgmt_confirm_id($req);
+	if (!fleet_confirm_rollback($id, 'the controller asked for it')) {
+		throw new RestApiError(500, 'restore_failed', 'The snapshot could not be restored.');
+	}
+	return array('data' => array('reverted' => true));
+}
+
+function restapi_h_mgmt_activity_put($req) {
+	restapi_mgmt_enrolled();
+	try {
+		$record = fleet_activity_record($req['body'], time());
+	} catch (InvalidArgumentException $e) {
+		list($field, $message) = array_pad(explode(': ', $e->getMessage(), 2), 2, '');
+		throw restapi_field_error($field, $message);
+	}
+	if (@file_put_contents(FLEET_ACTIVITY_FILE, json_encode($record), LOCK_EX) === false) {
+		throw new RestApiError(500, 'write_failed', 'The notice could not be saved.');
+	}
+	return array('data' => $record);
+}
+
+function restapi_h_mgmt_activity_delete($req) {
+	@unlink(FLEET_ACTIVITY_FILE);
+	return array('data' => null);
+}
 function restapi_h_mgmt_bundle_get($req) {
 	$stored = fleet_policy_bundle_read();
 	if ($stored === null) {

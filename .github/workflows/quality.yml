@@ -99,6 +99,7 @@ jobs:
               RestApiManagementSmokeTest \
               FleetJoinSmokeTest \
               FleetAgentSmokeTest \
+              FleetGuardSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest \
               XmlLineBreakSmokeTest \

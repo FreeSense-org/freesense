@@ -42,6 +42,7 @@
 
 require_once('fleet_node.inc');
 require_once('fleet_join.inc');
+require_once('fleet_guard.inc');
 require_once('restapi/framework.inc');
 
 define('FLEET_USER', 'fleet-controller');
@@ -288,6 +289,15 @@ function fleet_boot(): void {
  * after undoing its own work.
  */
 function fleet_access_create(string $role): array {
+	fleet_lock_bypass(true);
+	try {
+		return fleet_access_create_unlocked($role);
+	} finally {
+		fleet_lock_bypass(false);
+	}
+}
+
+function fleet_access_create_unlocked(string $role): array {
 	require_once('auth.inc');
 	require_once('certs.inc');
 	require_once('restapi.inc');
@@ -354,6 +364,15 @@ function fleet_access_remove(): void {
  * undo callable. Throws (after undoing its own work) with the reason.
  */
 function fleet_apply(array $m): callable {
+	fleet_lock_bypass(true);
+	try {
+		return fleet_apply_unlocked($m);
+	} finally {
+		fleet_lock_bypass(false);
+	}
+}
+
+function fleet_apply_unlocked(array $m): callable {
 	require_once('restapi.inc');
 	require_once('restapi_listener.inc');
 	foreach ($m['peers'] as $peer) {
@@ -410,6 +429,15 @@ function fleet_apply(array $m): callable {
  * restores the REST API setting and keeps a copy of the last configuration.
  */
 function fleet_leave(string $why, ?array $restapi_before = null): void {
+	fleet_lock_bypass(true);
+	try {
+		fleet_leave_unlocked($why, $restapi_before);
+	} finally {
+		fleet_lock_bypass(false);
+	}
+}
+
+function fleet_leave_unlocked(string $why, ?array $restapi_before): void {
 	require_once('restapi_listener.inc');
 	if (($why !== 'rollback') && is_file(g_get('conf_path') . '/config.xml')) {
 		if (fleet_node_dir(FLEET_ARCHIVE_DIR)) {

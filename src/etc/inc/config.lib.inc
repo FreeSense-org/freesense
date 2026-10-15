@@ -644,6 +644,20 @@ function write_config($desc="Unknown", $backup = true, $write_config_only = fals
 		return false;
 	}
 
+	/* FreeSense Fleet: a policy rule in Lock mode refuses a save that would break it (fleet_guard.inc). */
+	if (file_exists('/cf/conf/fleet/policy-bundle.json')) {
+		require_once('fleet_guard.inc');
+		$fleet_blocked = fleet_lock_refusal();
+		if ($fleet_blocked !== null) {
+			logger(LOG_WARNING, localize_text('Configuration save refused: %s', $fleet_blocked), LOG_PREFIX_CONFIG);
+			file_notice('fleet-lock', $fleet_blocked, 'Fleet', '', 1, true);
+			$GLOBALS['fleet_lock_blocked'] = $fleet_blocked;
+			/* Drop the refused change from memory too. */
+			config_read_file(true, false);
+			return false;
+		}
+	}
+
 	if ($backup) {
 		backup_config();
 	}

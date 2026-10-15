@@ -453,6 +453,8 @@ services_snmpd_configure();
 
 /* the Fleet management tunnel of a managed firewall, before the listener that binds to it */
 require_once('fleet_agent.inc');
+require_once('fleet_guard.inc');
+fleet_confirm_boot();
 fleet_boot();
 
 /* start the REST API listeners (after the interfaces and virtual IPs have their addresses) */

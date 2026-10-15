@@ -753,6 +753,12 @@ if (are_notices_pending()) {
 	}
 
 /* End Password Security Warnings */
+
+/* A firewall managed by a FreeSense Fleet controller says so, and what the controller is doing. */
+if (config_get_path('fleet/node_id', '') !== '') {
+	require_once('fleet_guard.inc');
+	fleet_banner_print();
+}
 ?>
 
 	<header class="header fs-pagehead">
