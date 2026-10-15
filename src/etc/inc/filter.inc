@@ -4896,9 +4896,16 @@ function filter_rules_generate() {
 		echo "filter_rules_generate() being called $mt\n";
 	}
 
-	$PFConfig->set_config(PFCONFIG_PACKAGE_EARLY['id'],
+	/*
+	 * A FreeSense Fleet managed box lets its controller reach the API through
+	 * the management tunnel. Early, so "Allow IPv6" off (the overlay is IPv6)
+	 * cannot block it.
+	 */
+	require_once('fleet_agent.inc');
+	$PFConfig->set_config(PFCONFIG_PACKAGE_EARLY['id'], array_merge(
+		array_from_filter_lines(fleet_filter_early_rules()),
 		array_from_filter_lines(discover_pkg_rules("pfearly"))
-	);
+	));
 
 	$PFConfig->set_config(PFCONFIG_RADIUS_OPENVPN['id'],
 		['anchor "openvpn/*"'],

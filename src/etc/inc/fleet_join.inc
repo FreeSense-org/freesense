@@ -352,7 +352,7 @@ function fleet_http_pinned(array $link, string $method, string $path, ?array $bo
 	$errstr = '';
 	$fp = @stream_socket_client("ssl://{$host}:{$link['port']}", $errno, $errstr, 5, STREAM_CLIENT_CONNECT, $ctx);
 	if ($fp === false) {
-		throw new FleetJoinError('E105', "The controller is unreachable ({$errstr}). Check the address, DNS and that TCP port {$link['port']} is open.");
+		throw new FleetJoinError('E105', "{$link['authority']} is unreachable ({$errstr}). Check the address, DNS, the tunnel and that TCP port {$link['port']} is open.");
 	}
 	try {
 		$cert = stream_context_get_params($fp)['options']['ssl']['peer_certificate'] ?? null;
