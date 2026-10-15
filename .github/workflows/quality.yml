@@ -48,6 +48,10 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/src" -w /src \
             php:8.5-cli sh tools/ci/php-lint.sh
+      - name: Composer dependencies have no known advisories
+        # The runtime Composer packages (composer.lock) against the PHP security
+        # advisories database; see docs/security/third-party-components.md.
+        run: docker run --rm -v "$PWD:/app:ro" -w /app composer:2 audit --locked --no-interaction
       - name: PHP 8.5 smoke tests
         # tests/ConfigLibTest.php is not run here: it loads config.lib.inc ->
         # util.inc, which needs the FreeBSD-patched PEAR Net_IPv6 and other
