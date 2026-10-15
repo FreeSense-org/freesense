@@ -164,6 +164,12 @@ function be_page_commands(string $action, array $post): array {
 /* A page action (create, clone, rename, describe, edit, destroy, activate, activate-once): array(input_errors, savemsg). */
 function be_page_action(string $action, array $post): array {
 	$name = trim($post['name'] ?? '');
+	if (($action === 'activate') || ($action === 'activate-once')) {
+		$refusal = be_activation_refusal(be_load()['environments'], $name, trim((string)@file_get_contents('/etc/version')));
+		if ($refusal !== null) {
+			return [[$refusal], null];
+		}
+	}
 	list($commands, $input_errors) = be_page_commands($action, $post);
 	$savemsg = null;
 	if (!$input_errors) {
@@ -292,6 +298,38 @@ function be_locked(?string $be_version, string $system_version): bool {
 	$be = be_release($be_version);
 	$sys = be_release($system_version);
 	return ($be !== null) && ($sys !== null) && ($be < $sys);
+}
+
+/*
+ * pure: whether a boot environment (a freesense-be list entry) holds an older
+ * release than the running system and so cannot be activated. The running
+ * environment is never locked. Same rule as the REST API's "locked".
+ */
+function be_entry_locked(array $be, string $running_version): bool {
+	if (!empty($be['active_now'])) {
+		return false;
+	}
+	$meta = is_array($be['metadata'] ?? null) ? $be['metadata'] : [];
+	$version = isset($meta['version']) && ($meta['version'] !== 'Unknown') ? (string)$meta['version'] : null;
+	return be_locked($version, $running_version);
+}
+
+/*
+ * pure: why the boot environment $name cannot be activated (message), or null.
+ * $environments are the freesense-be list entries.
+ */
+function be_activation_refusal(array $environments, string $name, string $running_version): ?string {
+	foreach ($environments as $be) {
+		if ((string)($be['name'] ?? '') !== $name) {
+			continue;
+		}
+		if (be_entry_locked($be, $running_version)) {
+			$version = (string)(is_array($be['metadata'] ?? null) ? ($be['metadata']['version'] ?? '') : '');
+			return sprintf(gettext('Boot environment %1$s holds an older release (%2$s). An installed release cannot go back to an older one.'),
+			    $name, $version);
+		}
+	}
+	return null;
 }
 
 /*

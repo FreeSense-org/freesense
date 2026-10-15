@@ -76,6 +76,22 @@ check(!be_locked('1.1.0', '1.1.0-DEVELOPMENT') && !be_locked('1.1.0_3', '1.1.0-D
 check(!be_locked(null, '1.1.0-DEVELOPMENT') && !be_locked('Unknown', '1.1.0-DEVELOPMENT') && !be_locked('1.2.0', '1.1.0-DEVELOPMENT'),
     'unknown and newer versions are not locked');
 
+/* ---- WebUI activation uses the same rule ---- */
+$old = ['name' => 'old', 'active_now' => false, 'metadata' => ['version' => '1.0.1-RELEASE']];
+$same = ['name' => 'same', 'active_now' => false, 'metadata' => ['version' => '1.1.0_3']];
+$cur = ['name' => 'cur', 'active_now' => true, 'metadata' => ['version' => '1.0.1']];
+$unk = ['name' => 'unk', 'active_now' => false, 'metadata' => ['version' => 'Unknown']];
+check(be_entry_locked($old, '1.1.0-DEVELOPMENT') && !be_entry_locked($same, '1.1.0-DEVELOPMENT'), 'be_entry_locked: older release locked, same release not');
+check(!be_entry_locked($cur, '1.1.0-DEVELOPMENT') && !be_entry_locked($unk, '1.1.0-DEVELOPMENT') && !be_entry_locked(['name' => 'x'], '1.1.0'),
+    'be_entry_locked: the running, unknown and metadata-less environments are not locked');
+$all = [$old, $same, $cur, $unk];
+$refusal = be_activation_refusal($all, 'old', '1.1.0-DEVELOPMENT');
+check(is_string($refusal) && strpos($refusal, 'old') !== false && strpos($refusal, '1.0.1-RELEASE') !== false, 'the WebUI refuses to activate an older release');
+check(be_activation_refusal($all, 'same', '1.1.0-DEVELOPMENT') === null && be_activation_refusal($all, 'missing', '1.1.0-DEVELOPMENT') === null,
+    'the WebUI allows an environment of the same release and leaves unknown names to bectl');
+$page_src = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system_boot_environments.inc");
+check(strpos($page_src, "be_activation_refusal(be_load()['environments']") !== false, 'be_page_action checks the lock before activating');
+
 /* ---- API entries ---- */
 $envs = array(
 	array('name' => 'default', 'active_now' => true, 'active_reboot' => true, 'active_once' => false, 'space' => '1.21G',
