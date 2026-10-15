@@ -225,7 +225,8 @@
 		if (form) {
 			form.reset();
 			Object.keys(fill).forEach(function (name) {
-				var field = form.elements[name];
+				/* namedItem: a field called "length" or "item" must not hit the collection itself */
+				var field = form.elements.namedItem(name);
 				if (Array.isArray(fill[name])) {
 					/* a list: checkboxes sharing the name, or a multiple select */
 					var want = fill[name].map(String);
