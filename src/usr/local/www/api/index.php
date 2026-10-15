@@ -117,6 +117,7 @@ require_once('notices.inc');
 /* The caller's profile, preferences, sessions and dashboard layout (routes_me.inc). */
 require_once('webui_prefs.inc');
 require_once('restapi_listener.inc');
+require_once('fleet_node.inc');
 require_once('restapi_log.inc');
 require_once('restapi/routes_v1.inc');
 
