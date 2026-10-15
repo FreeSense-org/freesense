@@ -31,6 +31,7 @@ security/%%PRODUCT_NAME%%-pkg-suricata
 security/%%PRODUCT_NAME%%-pkg-Tailscale
 sysutils/%%PRODUCT_NAME%%-pkg-Automation
 sysutils/%%PRODUCT_NAME%%-pkg-Diagnostics
+sysutils/%%PRODUCT_NAME%%-pkg-Fleet
 sysutils/%%PRODUCT_NAME%%-pkg-node_exporter
 sysutils/%%PRODUCT_NAME%%-pkg-nut
 sysutils/%%PRODUCT_NAME%%-pkg-syslog-ng
