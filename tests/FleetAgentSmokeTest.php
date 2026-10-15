@@ -107,6 +107,46 @@ $filter = file_get_contents("{$root}/src/etc/inc/filter.inc");
 $early = strpos($filter, 'array_from_filter_lines(fleet_filter_early_rules())');
 check($early !== false && $early < strpos($filter, 'discover_pkg_rules("pfearly")'), 'filter.inc puts it among the early rules (before "Block all IPv6")');
 
+/* ---- restore from the controller keeps the membership ---- */
+$fuser = array('name' => 'fleet-controller', 'uid' => '2005', 'priv' => array('api-management-read'));
+$running = array('version' => '24.5', 'fleet' => array('enable' => true, 'node_id' => 'node-1'),
+    'system' => array('nextuid' => '2006', 'user' => array(array('name' => 'admin', 'uid' => '0'), $fuser)),
+    'cert' => array(array('refid' => 'w', 'descr' => 'webConfigurator'), array('refid' => 'f', 'descr' => 'FreeSense Fleet node API')),
+    'restapi' => array('enable' => true, 'noguiapi' => true,
+        'apitoken' => array(array('username' => 'admin', 'id' => 'a'), array('username' => 'fleet-controller', 'id' => 'f')),
+        'apilistener' => array(array('descr' => 'FreeSense Fleet', 'port' => '8444'))));
+/* A backup from before the box joined: no Fleet at all, an older admin, its own certificate. */
+$old = array('version' => '24.5', 'system' => array('nextuid' => '2000', 'user' => array(array('name' => 'admin', 'uid' => '0', 'descr' => 'old'))),
+    'cert' => array(array('refid' => 'w', 'descr' => 'webConfigurator old')), 'aliases' => array('alias' => array(array('name' => 'A'))));
+$m = fleet_restore_carry($old, $running);
+check($m['fleet'] === $running['fleet'] && $m['aliases'] === $old['aliases'], 'the <fleet> section comes from the running box; the rest from the backup');
+check(array_column($m['system']['user'], 'name') === array('admin', 'fleet-controller') && $m['system']['user'][0]['descr'] === 'old' &&
+    $m['system']['nextuid'] === '2006', 'the fleet-controller user is kept, other users come from the backup, uids never go back');
+check(array_column($m['cert'], 'descr') === array('webConfigurator old', 'FreeSense Fleet node API'), 'the API certificate is kept');
+check(array_column($m['restapi']['apitoken'], 'username') === array('fleet-controller') && count($m['restapi']['apilistener']) === 1 &&
+    $m['restapi']['enable'] === true && $m['restapi']['noguiapi'] === true, 'its key and the tunnel listener are kept; the REST API stays on for them');
+/* A backup that has a stale Fleet user and listener of its own: replaced, not doubled. */
+$stale = $running;
+$stale['system']['user'][1]['uid'] = '1999';
+$stale['restapi']['apilistener'][0]['port'] = '9999';
+$m2 = fleet_restore_carry($stale, $running);
+check(count($m2['system']['user']) === 2 && $m2['system']['user'][1]['uid'] === '2005' && $m2['restapi']['apilistener'][0]['port'] === '8444',
+    'the box\'s current membership wins over what the backup had');
+/* A box that is not in a fleet: nothing is invented. */
+$nofleet = $running;
+unset($nofleet['fleet']);
+$nofleet['system']['user'] = array($running['system']['user'][0]);
+$nofleet['cert'] = array($running['cert'][0]);
+$nofleet['restapi'] = array();
+$m3 = fleet_restore_carry($old, $nofleet);
+check(!isset($m3['fleet']) && !isset($m3['restapi']['enable']) && array_column($m3['system']['user'], 'name') === array('admin'), 'no membership, none added');
+check(fleet_restore_problem($old, '24.5') === null && fleet_restore_problem(array('version' => '25.0', 'system' => array()), '24.5') !== null &&
+    fleet_restore_problem(-1, '24.5') !== null && fleet_restore_problem(array('foo' => 1), '24.5') !== null,
+    'only a FreeSense configuration that is not newer than the box');
+$routes = file_get_contents("{$root}/src/etc/inc/restapi/routes_management.inc");
+check(strpos($routes, "'/v1/management/restore'") !== false && strpos($routes, 'fleet_confirm_read($id) === null') !== false,
+    'the restore route exists and needs an open commit-confirm window');
+
 /* ---- wiring ---- */
 $listener_src = file_get_contents("{$root}/src/etc/inc/restapi_listener.inc");
 check(strpos($listener_src, "\$choices['fleet']") !== false && strpos($listener_src, "if (\$key === 'fleet')") !== false &&

@@ -63,6 +63,13 @@ function restapi_routes_management() {
 		restapi_route('DELETE', '/v1/management/commit-confirm/{id}', 'restapi_h_mgmt_confirm_rollback', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'summary' => 'Revert to the snapshot now')),
+		restapi_route('POST', '/v1/management/restore', 'restapi_h_mgmt_restore', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('config', 'commit_confirm'), 'properties' => array(
+			    'config' => array('type' => 'string', 'description' => 'The whole config.xml to restore'),
+			    'commit_confirm' => array('type' => 'string', 'description' => 'ID of the open commit-confirm window this restore runs in'),
+			    'description' => array('type' => 'string', 'description' => 'Shown in the configuration history'))),
+			'summary' => 'Restore a configuration from the controller (inside a commit-confirm window; Fleet membership is kept)')),
 		restapi_route('PUT', '/v1/management/activity', 'restapi_h_mgmt_activity_put', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('text'), 'properties' => array(
@@ -181,6 +188,36 @@ function restapi_h_mgmt_confirm_begin($req) {
 		throw new RestApiError(500, 'snapshot_failed', $e->getMessage());
 	}
 	return array('data' => $record, 'status' => 201);
+}
+
+/*
+ * Restore a configuration sent by the controller. Only inside an open
+ * commit-confirm window: if the box cannot be reached afterwards, the
+ * watchdog puts the snapshot back by itself.
+ */
+function restapi_h_mgmt_restore($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('config', 'commit_confirm', 'description'));
+	$id = (string)($req['body']['commit_confirm'] ?? '');
+	if (!fleet_confirm_valid_id($id) || (fleet_confirm_read($id) === null)) {
+		throw restapi_field_error('commit_confirm', 'Open a commit-confirm window first (POST /v1/management/commit-confirm) and pass its id.');
+	}
+	if (!is_string($req['body']['config'] ?? null) || ($req['body']['config'] === '')) {
+		throw restapi_field_error('config', 'The whole config.xml is required.');
+	}
+	$description = trim((string)($req['body']['description'] ?? ''));
+	if (($description === '') || (strlen($description) > 200) || preg_match('/[\x00-\x1f\x7f]/', $description)) {
+		$description = 'Restored by FreeSense Fleet';
+	}
+	try {
+		fleet_restore_apply($req['body']['config'], $description);
+	} catch (InvalidArgumentException $e) {
+		throw restapi_field_error('config', $e->getMessage());
+	} catch (RuntimeException $e) {
+		throw new RestApiError(500, 'restore_failed', $e->getMessage());
+	}
+	return array('data' => array('restored' => true, 'commit_confirm' => $id,
+	    'note' => 'Rules and aliases are active now; interface and service settings apply fully after a reboot.'));
 }
 
 function restapi_mgmt_confirm_id($req) {
