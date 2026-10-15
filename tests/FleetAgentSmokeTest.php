@@ -180,4 +180,6 @@ check($reboot !== null && $reboot['method'] === 'POST' && $reboot['write'] && $r
     'POST /v1/management/reboot exists and needs management write (only a managed box grants it)');
 check(!in_array('api-management-write', fleet_access_privs('monitor'), true), 'a monitor-only box cannot be rebooted by the controller');
 
+check(fleet_boottime_parse('{ sec = 1792097681, usec = 168518 } Thu Oct 15 20:54:41 2026') === 1792097681 && fleet_boottime_parse('') === 0, 'the boot time from kern.boottime');
+
 echo "FleetAgentSmokeTest: OK\n";

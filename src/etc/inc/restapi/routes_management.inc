@@ -142,6 +142,8 @@ function restapi_h_mgmt_status($req) {
 		'version' => trim((string)@file_get_contents('/etc/version')),
 		'platform' => php_uname('m'),
 		'time' => time(),
+		/* The controller sees a reboot happened (and finished) when this changes. */
+		'boot_time' => fleet_boottime_parse((string)get_single_sysctl('kern.boottime')),
 		'config_revision' => array(
 			'time' => (int)config_get_path('revision/time', 0),
 			'description' => (string)config_get_path('revision/description', ''),

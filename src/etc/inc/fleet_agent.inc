@@ -338,6 +338,11 @@ function fleet_restore_apply(string $xml, string $description): void {
 	filter_configure();
 }
 
+/* pure: kern.boottime ("{ sec = 1792097681, usec = 168518 } Thu Oct ...") as a Unix time, or 0. */
+function fleet_boottime_parse(string $sysctl): int {
+	return preg_match('/\bsec = (\d+)/', $sysctl, $m) ? (int)$m[1] : 0;
+}
+
 /* pure: what the progress file holds after each join step. */
 function fleet_progress_record(array $steps, string $name, string $state, string $text, int $now): array {
 	$steps[$name] = array('state' => $state, 'text' => $text, 'time' => $now);
