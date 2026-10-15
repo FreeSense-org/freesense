@@ -139,7 +139,8 @@ EOT;
 			$input->setWidth($spaceLeft / count($missingWidth));
 		}
 
-		if (strtolower($this->_labelTarget->getType()) == 'hidden') {
+		$hidden = false;
+		if (strtolower((string)$this->_labelTarget->getType()) == 'hidden') {
 			$hidden = true;
 		}
 
@@ -159,7 +160,8 @@ EOT;
 		$label = new Form_Element('label', false, ['for' => $target]);
 		$label->addClass('col-sm-'.Form::LABEL_WIDTH, 'control-label');
 
-		if (!empty(trim($this->_title)) || is_numeric($this->_title)) {
+		$title = '';
+		if (!empty(trim((string)$this->_title)) || is_numeric($this->_title)) {
 			$title = htmlspecialchars(gettext($this->_title));
 
 			// If the element tile (label) begins with a '*', remove the '*' and add a span with class

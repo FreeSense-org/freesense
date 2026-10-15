@@ -45,7 +45,7 @@ require_once("crypt.inc");
 // Set the memory limit to 128M on i386.  When someone has something like 500+ tunnels
 // the parser needs quite a bit of ram.   Do not remove this line unless you
 // know what you are doing.  If in doubt, check with dev@ _/FIRST/_!
-if (!$ARCH) {
+if (empty($ARCH)) {
 	$ARCH = php_uname("m");
 }
 

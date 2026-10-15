@@ -32,6 +32,16 @@ require_once('notices.inc');
 
 header('Content-Type: text/html; charset=utf-8');
 
+/* Optional page variables: pages set these before including head.inc. */
+$columnsContainer ??= '';
+$dashboard_available_widgets_hidden ??= false;
+$system_logs_filter_form_hidden ??= false;
+$system_logs_manage_log_form_hidden ??= false;
+$monitoring_settings_form_hidden ??= false;
+$status_monitoring ??= false;
+$hide_service_status ??= false;
+$shortcut_section ??= '';
+
 $pagetitle = strip_tags(gentitle($pgtitle));
 $system_url = config_get_path('system/hostname') . "." . config_get_path('system/domain');
 

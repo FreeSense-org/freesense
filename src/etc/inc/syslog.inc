@@ -1234,7 +1234,7 @@ function parse_firewall_log_line($line) {
 					case "paramprob":
 					case "redirect":
 					case "maskreply":
-						$flent['icmp_descr'] = $rule_data[$field++];
+						$flent['icmp_descr'] = $rule_data[$field++] ?? '';
 						break;
 					case "needfrag":
 						$flent['icmp_dstip'] = $rule_data[$field++];
@@ -1252,7 +1252,7 @@ function parse_firewall_log_line($line) {
 						$flent['icmp_ttime'] = $rule_data[$field++];
 						break;
 					default :
-						$flent['icmp_descr'] = $rule_data[$field++];
+						$flent['icmp_descr'] = $rule_data[$field++] ?? '';
 						break;
 				}
 				break;

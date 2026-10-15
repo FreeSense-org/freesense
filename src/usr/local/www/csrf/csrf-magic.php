@@ -15,7 +15,7 @@
 
 include_once('phpsessionmanager.inc');
 
-if (!is_array($GLOBALS['csrf'])) {
+if (!is_array($GLOBALS['csrf'] ?? null)) {
 	$GLOBALS['csrf'] = [];
 }
 

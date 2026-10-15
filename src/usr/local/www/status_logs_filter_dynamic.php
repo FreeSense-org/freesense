@@ -162,8 +162,8 @@ filter_form_firewall();
 			$srcIP = $filterent['srcip'];
 			$dstIP = $filterent['dstip'];
 		}
-		$srcPort = $filterent['srcport'] ? ":" . $filterent['srcport'] : "";
-		$dstPort = $filterent['dstport'] ? ":" . $filterent['dstport'] : "";
+		$srcPort = !empty($filterent['srcport']) ? ":" . $filterent['srcport'] : "";
+		$dstPort = !empty($filterent['dstport']) ? ":" . $filterent['dstport'] : "";
 		$proto = $filterent['proto'];
 		if ($proto == "TCP") {
 			$proto .= ":{$filterent['tcpflags']}";
