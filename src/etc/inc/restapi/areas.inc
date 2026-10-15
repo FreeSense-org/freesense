@@ -67,6 +67,7 @@ function restapi_areas() {
 		'packages' => 'Packages and system version (lists, update check, install, reinstall, remove, system update)',
 		'diagnostics' => 'Diagnostics (ping, traceroute, DNS lookup, states)',
 		'operations' => 'System operations (service start/stop/restart, state table reset, reboot, halt)',
+		'management' => 'Central management by a FreeSense Fleet controller (status, policy bundle, backup replicas)',
 	);
 }
 

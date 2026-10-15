@@ -96,6 +96,7 @@ jobs:
               RestApiAssignmentsSmokeTest \
               RestApiRoutingSmokeTest \
               RestApiDhcpSmokeTest \
+              RestApiManagementSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest \
               XmlLineBreakSmokeTest \

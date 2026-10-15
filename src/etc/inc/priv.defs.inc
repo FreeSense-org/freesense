@@ -1121,6 +1121,13 @@ $priv_list['page-system-crlmanager']['descr'] = gettext("Allow access to the 'Sy
 $priv_list['page-system-crlmanager']['match'] = array();
 $priv_list['page-system-crlmanager']['match'][] = "system_crlmanager.php*";
 
+$priv_list['page-system-fleet'] = array();
+$priv_list['page-system-fleet']['name'] = gettext("WebCfg - System: Central Management");
+$priv_list['page-system-fleet']['descr'] = gettext("Allow access to the 'System: Central Management' page and the matching REST API endpoints, used by a FreeSense Fleet controller.");
+$priv_list['page-system-fleet']['warn'] = "standard-warning-root";
+$priv_list['page-system-fleet']['match'] = array();
+$priv_list['page-system-fleet']['match'][] = "system_fleet.php*";
+
 $priv_list['page-system-gatewaygroups'] = array();
 $priv_list['page-system-gatewaygroups']['name'] = gettext("WebCfg - System: Gateway Groups");
 $priv_list['page-system-gatewaygroups']['descr'] = gettext("Allow access to the 'System: Gateway Groups' page.");
