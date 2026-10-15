@@ -179,6 +179,14 @@ foreach (restapi_routes_management() as $r) {
 check($reboot !== null && $reboot['method'] === 'POST' && $reboot['write'] && $reboot['area'] === 'management' && function_exists($reboot['handler']),
     'POST /v1/management/reboot exists and needs management write (only a managed box grants it)');
 check(!in_array('api-management-write', fleet_access_privs('monitor'), true), 'a monitor-only box cannot be rebooted by the controller');
+$upd = null;
+foreach (restapi_routes_management() as $r) {
+	if ($r['path'] === '/v1/management/update') {
+		$upd = $r;
+	}
+}
+check($upd !== null && $upd['write'] && $upd['area'] === 'management' && function_exists($upd['handler']) && function_exists('restapi_firmware_update_start'),
+    'POST /v1/management/update exists for managed boxes and shares the update start with System > Update');
 
 check(fleet_boottime_parse('{ sec = 1792097681, usec = 168518 } Thu Oct 15 20:54:41 2026') === 1792097681 && fleet_boottime_parse('') === 0, 'the boot time from kern.boottime');
 
