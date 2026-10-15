@@ -40,8 +40,8 @@ require_once("system_authservers.inc");
 // the lookup connects to the given LDAP server, so it needs the CSRF token.
 if ($_POST['ajax']) {
 
-	// The modal is built by the Form classes, which escape every value. nosemgrep: php.lang.security.injection.printed-request.printed-request
-	print(authsrv_ldap_containers_html($_POST));
+	// The modal is built by the Form classes, which escape every value.
+	print(authsrv_ldap_containers_html($_POST)); // nosemgrep: php.lang.security.injection.printed-request.printed-request
 
 	exit;
 }

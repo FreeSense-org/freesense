@@ -977,8 +977,8 @@ events.push(function() {
 
 	// Populate the "gateway" selector from a JSON array composed in the PHP
 	function updateGWselect() {
-		// JSON with HEX flags is a safe JavaScript string literal. nosemgrep: php.lang.security.injection.echoed-request.echoed-request
-		var selected = <?=json_encode((string)$gwselected, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)?>;
+		// JSON with the HEX flags is a safe JavaScript string literal.
+		var selected = <?=json_encode((string)$gwselected, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) /* nosemgrep: php.lang.security.injection.echoed-request.echoed-request */ ?>;
 		var protocol = $('#ipprotocol').val();
 		var json = JSON.parse(<?=json_encode($gwjson)?>);
 
