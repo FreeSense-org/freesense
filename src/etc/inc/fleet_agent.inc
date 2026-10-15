@@ -184,10 +184,11 @@ function fleet_membership_section(array $m, int $now, array $restapi_before): ar
 		'hostname' => $m['hostname'],
 		'joined' => (string)$now,
 		'listener_certref' => $m['listener_certref'],
-		'peer' => array_map(function ($p) {
+		/* config.xml keeps a list under a wrapper element: <peer><item>...</item></peer>. */
+		'peer' => array('item' => array_map(function ($p) {
 			return array('public_key' => $p['public_key'], 'endpoint' => (string)($p['endpoint'] ?? ''),
 			    'allowed_ips' => implode(' ', $p['allowed_ips']));
-		}, $m['peers']),
+		}, $m['peers'])),
 		/* What the REST API setting was before, so leaving restores it. */
 		'restapi_was_enabled' => !empty($restapi_before['enable']) ? 'yes' : 'no',
 		'restapi_was_guiapi' => !empty($restapi_before['noguiapi']) ? 'no' : 'yes',
@@ -199,6 +200,26 @@ function fleet_listener_post(array $m): array {
 	return array('descr' => FLEET_LISTENER_DESCR, 'address' => 'fleet', 'port' => FLEET_NODE_API_PORT,
 	    'certref' => $m['listener_certref'], 'allowednetworks' => implode(' ', fleet_controller_networks($m['peers'])),
 	    'ratelimit' => '50', 'enable' => true, 'firewall' => true);
+}
+
+/*
+ * pure: the early pf rule that lets the controller reach this box's API
+ * through the tunnel (only from the controller's networks, only to the
+ * overlay address and API port). Empty when not enrolled over WireGuard.
+ */
+function fleet_filter_early_rules_for(array $m, array $peers): string {
+	$nets = fleet_controller_networks($peers);
+	if (!$m['enrolled'] || ($m['method'] !== 'wireguard') || empty($nets) || !filter_var($m['overlay_address'], FILTER_VALIDATE_IP)) {
+		return '';
+	}
+	$family = (strpos($m['overlay_address'], ':') !== false) ? 'inet6' : 'inet';
+	return "pass in quick on " . FLEET_WG_IF . " {$family} proto tcp from { " . implode(' ', $nets) . " } to {$m['overlay_address']} port " .
+	    FLEET_NODE_API_PORT . " keep state label \"USER_RULE: FreeSense Fleet controller access\"\n";
+}
+
+/* What filter.inc adds to the early rules. */
+function fleet_filter_early_rules(): string {
+	return fleet_filter_early_rules_for(fleet_node_membership(), fleet_stored_peers());
 }
 
 /* pure: what the progress file holds after each join step. */
@@ -261,8 +282,21 @@ function fleet_tunnel_up(array $m, array $peers): ?string {
 
 /* The peers stored in config.xml <fleet>. */
 function fleet_stored_peers(): array {
+	return fleet_peers_from_section((array)config_get_path('fleet/peer', []));
+}
+
+/*
+ * pure: the peers of a <fleet><peer> section as read back from config.xml:
+ * <peer><item>..</item></peer> gives ['item' => entry] for one peer and
+ * ['item' => [entry, ...]] for several.
+ */
+function fleet_peers_from_section(array $section): array {
+	$items = $section['item'] ?? $section;
+	if (is_array($items) && isset($items['public_key'])) {
+		$items = array($items);
+	}
 	$peers = array();
-	foreach ((array)config_get_path('fleet/peer', []) as $p) {
+	foreach ((array)$items as $p) {
 		if (is_array($p)) {
 			$peers[] = array('public_key' => (string)($p['public_key'] ?? ''), 'endpoint' => (string)($p['endpoint'] ?? ''),
 			    'allowed_ips' => preg_split('/\s+/', trim((string)($p['allowed_ips'] ?? '')), -1, PREG_SPLIT_NO_EMPTY));

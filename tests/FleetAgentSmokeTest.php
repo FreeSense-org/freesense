@@ -76,7 +76,7 @@ $m = array('node_id' => 'node-0123456789', 'controller_url' => 'https://hq.examp
     'hostname' => 'dk-cph-edge01', 'peers' => array($peer), 'wg_private' => 'SECRET-KEY', 'listener_certref' => 'abc123');
 $section = fleet_membership_section($m, 1760000000, array());
 check($section['enable'] === true && $section['joined'] === '1760000000' && $section['restapi_was_enabled'] === 'no' &&
-    $section['peer'][0]['allowed_ips'] === 'fd12:3456:789a:f1::/64', 'the <fleet> section');
+    $section['peer']['item'][0]['allowed_ips'] === 'fd12:3456:789a:f1::/64', 'the <fleet> section');
 check(strpos(json_encode($section), 'SECRET-KEY') === false, 'the WireGuard private key is never written to config.xml');
 check(fleet_membership_section($m, 1, array('enable' => true))['restapi_was_enabled'] === 'yes' &&
     fleet_membership_section($m, 1, array('enable' => true, 'noguiapi' => true))['restapi_was_guiapi'] === 'no', 'the REST API setting is remembered');
@@ -87,6 +87,25 @@ check($listener['address'] === 'fleet' && $listener['port'] === 8444 && $listene
     $listener['certref'] === 'abc123' && $listener['firewall'] === true, 'the listener: tunnel only, controller networks only');
 $prog = fleet_progress_record(fleet_progress_record(array(), 'connect', 'done', '', 5), 'approval', 'wait', '634403', 6);
 check($prog['connect']['state'] === 'done' && $prog['approval']['text'] === '634403', 'progress is kept per step');
+
+
+/* ---- peers as config.xml gives them back ---- */
+$one = array('item' => array('public_key' => $pub, 'endpoint' => 'hq.example.net:51830', 'allowed_ips' => 'fd12:3456:789a:f1::1/128'));
+$two = array('item' => array($one['item'], array('public_key' => $pub, 'endpoint' => '', 'allowed_ips' => 'fd12::/64 10.9.0.1/32')));
+check(fleet_peers_from_section($one) === array(array('public_key' => $pub, 'endpoint' => 'hq.example.net:51830', 'allowed_ips' => array('fd12:3456:789a:f1::1/128'))),
+    'one peer: <peer><item> reads back as a single entry');
+check(count(fleet_peers_from_section($two)) === 2 && fleet_peers_from_section($two)[1]['allowed_ips'] === array('fd12::/64', '10.9.0.1/32'), 'several peers');
+check(fleet_peers_from_section($section['peer']) === array($peer), 'what the section writes reads back the same');
+check(fleet_peers_from_section(array()) === array() && fleet_peers_from_section(array('item' => array('public_key' => 'bad'))) === array(), 'nothing or junk gives no peers');
+/* ---- the early pf rule for the controller ---- */
+$rule = fleet_filter_early_rules_for($mem, array($peer));
+check($rule === "pass in quick on wgfleet0 inet6 proto tcp from { fd12:3456:789a:f1::/64 } to fd12:3456:789a:f1::10 port 8444 keep state " .
+    "label \"USER_RULE: FreeSense Fleet controller access\"\n", 'only the controller\'s networks, only the overlay address and API port');
+check(fleet_filter_early_rules_for(fleet_membership(array()), array($peer)) === '' && fleet_filter_early_rules_for($mem, array()) === '' &&
+    fleet_filter_early_rules_for(array('method' => 'direct') + $mem, array($peer)) === '', 'no rule when not enrolled, without peers or not over WireGuard');
+$filter = file_get_contents("{$root}/src/etc/inc/filter.inc");
+$early = strpos($filter, 'array_from_filter_lines(fleet_filter_early_rules())');
+check($early !== false && $early < strpos($filter, 'discover_pkg_rules("pfearly")'), 'filter.inc puts it among the early rules (before "Block all IPv6")');
 
 /* ---- wiring ---- */
 $listener_src = file_get_contents("{$root}/src/etc/inc/restapi_listener.inc");
