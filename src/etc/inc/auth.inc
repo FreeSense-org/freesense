@@ -1820,7 +1820,7 @@ function radius_backed($username, $password, $authcfg, &$attributes = array()) {
 	$ret = false;
 
 	require_once("Auth/RADIUS.php");
-	require_once("Crypt/CHAP.php");
+	require_once("radius_chap.inc");
 
 	if ($authcfg) {
 		$radiusservers = array();
@@ -1861,7 +1861,11 @@ function radius_backed($username, $password, $authcfg, &$attributes = array()) {
 			$crpt->password = $password;
 			$rauth->challenge = $crpt->challenge;
 			$rauth->chapid = $crpt->chapid;
-			$rauth->response = $crpt->challengeResponse();
+			try {
+				$rauth->response = $crpt->challengeResponse();
+			} catch (Throwable $e) {
+				return radius_chap_failed($e, $attributes);
+			}
 			$rauth->flags = 1;
 			break;
 
@@ -1872,7 +1876,11 @@ function radius_backed($username, $password, $authcfg, &$attributes = array()) {
 			$rauth->challenge = $crpt->authChallenge;
 			$rauth->peerChallenge = $crpt->peerChallenge;
 			$rauth->chapid = $crpt->chapid;
-			$rauth->response = $crpt->challengeResponse();
+			try {
+				$rauth->response = $crpt->challengeResponse();
+			} catch (Throwable $e) {
+				return radius_chap_failed($e, $attributes);
+			}
 			break;
 
 		default:
@@ -1930,11 +1938,12 @@ function radius_backed($username, $password, $authcfg, &$attributes = array()) {
 
 
 	// Get attributes, even if auth failed.
-	if ($rauth->getAttributes()) {
-	$attributes = array_merge($attributes,$rauth->listAttributes());
+	$reply = radius_read_reply_attributes($rauth);
+	if (is_array($reply)) {
+		$attributes = array_merge($attributes, $reply);
 
-	// We convert the session_terminate_time to unixtimestamp if its set before returning the whole array to our caller
-	if (!empty($attributes['session_terminate_time'])) {
+		// We convert the session_terminate_time to unixtimestamp if its set before returning the whole array to our caller
+		if (!empty($attributes['session_terminate_time'])) {
 			$stt = &$attributes['session_terminate_time'];
 			$stt = strtotime(preg_replace("/\+(\d+):(\d+)$/", " +\${1}\${2}", preg_replace("/(\d+)T(\d+)/", "\${1} \${2}",$stt)));
 		}
@@ -1944,6 +1953,95 @@ function radius_backed($username, $password, $authcfg, &$attributes = array()) {
 	$rauth->close();
 
 	return $ret;
+}
+
+/* Log a failure to build the CHAP response and return the "internal error" result. */
+function radius_chap_failed($e, &$attributes) {
+	logger(LOG_ERR, localize_text("Error during RADIUS authentication : %s", $e->getMessage()), LOG_PREFIX_AUTHPROVIDER_RADIUS);
+	$attributes['error_message'] = gettext("Internal error during authentication.");
+	return null;
+}
+
+/*
+ * Read the attributes of a RADIUS reply into the array radius_backed() hands
+ * to its callers: session_timeout, idle_timeout, interim_interval,
+ * reply_message, framed_*, class (always an array, one entry per Class
+ * attribute, see radius_get_groups()), and from vendor attributes
+ * session_terminate_time, bw_up, bw_down (WISPr) and maxbytes (ChilliSpot).
+ *
+ * Auth_RADIUS::getAttributes() only knows a subset of these and keeps just the
+ * last Class attribute, so the reply is read directly from the radius handle.
+ * Returns false when the reply is malformed.
+ */
+function radius_read_reply_attributes($rauth) {
+	if (!is_resource($rauth->res) && !is_object($rauth->res)) {
+		return false;
+	}
+
+	$out = array();
+	while ($attrib = radius_get_attr($rauth->res)) {
+		if (!is_array($attrib)) {
+			return false;
+		}
+		$data = $attrib['data'];
+
+		switch ($attrib['attr']) {
+			case RADIUS_SESSION_TIMEOUT:
+				$out['session_timeout'] = radius_cvt_int($data);
+				break;
+			case RADIUS_IDLE_TIMEOUT:
+				$out['idle_timeout'] = radius_cvt_int($data);
+				break;
+			case 85: /* Acct-Interim-Interval, not defined by the radius extension */
+				$out['interim_interval'] = radius_cvt_int($data);
+				break;
+			case RADIUS_CLASS:
+				$out['class'][] = radius_cvt_string($data);
+				break;
+			case RADIUS_REPLY_MESSAGE:
+				$out['reply_message'] = radius_cvt_string($data);
+				break;
+			case RADIUS_FILTER_ID:
+				$out['filter_id'] = radius_cvt_string($data);
+				break;
+			case RADIUS_SERVICE_TYPE:
+				$out['service_type'] = radius_cvt_int($data);
+				break;
+			case RADIUS_FRAMED_IP_ADDRESS:
+				$out['framed_ip'] = radius_cvt_addr($data);
+				break;
+			case RADIUS_FRAMED_IP_NETMASK:
+				$out['framed_mask'] = radius_cvt_addr($data);
+				break;
+			case RADIUS_FRAMED_MTU:
+				$out['framed_mtu'] = radius_cvt_int($data);
+				break;
+			case RADIUS_VENDOR_SPECIFIC:
+				$vendor = radius_get_vendor_attr($data);
+				if (!is_array($vendor)) {
+					return false;
+				}
+				$vdata = $vendor['data'];
+				if ($vendor['vendor'] == 14122) { /* WISPr */
+					switch ($vendor['attr']) {
+						case 9: /* WISPr-Session-Terminate-Time */
+							$out['session_terminate_time'] = radius_cvt_string($vdata);
+							break;
+						case 7: /* WISPr-Bandwidth-Max-Up */
+							$out['bw_up'] = radius_cvt_int($vdata);
+							break;
+						case 8: /* WISPr-Bandwidth-Max-Down */
+							$out['bw_down'] = radius_cvt_int($vdata);
+							break;
+					}
+				} elseif ($vendor['vendor'] == 14559 && $vendor['attr'] == 3) { /* ChilliSpot-Max-Total-Octets */
+					$out['maxbytes'] = radius_cvt_int($vdata);
+				}
+				break;
+		}
+	}
+
+	return $out;
 }
 
 function nasip_fallback($ip) {
