@@ -312,6 +312,25 @@ function fleet_vault_path(string $id, string $ext): string {
 	return FLEET_VAULT_DIR . "/{$id}.{$ext}";
 }
 
+/*
+ * The vault as a Fleet archive (.fsfa): a tar.gz of the encrypted replicas
+ * and their metadata, written to $out (a stream). A new controller restores
+ * the fleet from it with the recovery key (Recover fleet); this box cannot
+ * read what is inside. Returns false when the vault is empty or tar fails.
+ */
+function fleet_vault_export($out): bool {
+	if (empty(fleet_vault_list())) {
+		return false;
+	}
+	$p = proc_open(array('/usr/bin/tar', '-czf', '-', '-C', FLEET_VAULT_DIR, '.'), array(1 => array('pipe', 'w'), 2 => array('file', '/dev/null', 'w')), $pipes);
+	if (!is_resource($p)) {
+		return false;
+	}
+	stream_copy_to_stream($pipes[1], $out);
+	fclose($pipes[1]);
+	return proc_close($p) === 0;
+}
+
 /* Every replica's metadata, by id. */
 function fleet_vault_list(): array {
 	$out = array();
