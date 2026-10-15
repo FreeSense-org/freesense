@@ -30,6 +30,10 @@
  *    box holds, so Lock works while the controller is offline. A save is only
  *    refused when it introduces the violation; a box that already breaks a
  *    rule can still be saved (and fixed).
+ *  - Remediate: the controller asks the box to fix rules in mode
+ *    "remediate" from the bundle it holds. Only paths on a short allow-list
+ *    (each with a value check and its reload) are ever changed; a rule
+ *    that cannot be fixed by setting one value is left for the admin.
  *  - Break-glass: at the console an admin suspends Lock for 1 to 24 hours,
  *    with a reason. It raises an alert and shows in the heartbeat (E321).
  *  - The "Managed by" banner, including what the controller is doing now.
@@ -50,6 +54,10 @@ define('FLEET_CONFIRM_MIN', 30);
 define('FLEET_CONFIRM_MAX', 3600);
 define('FLEET_BREAKGLASS_MAX_HOURS', 24);
 define('FLEET_ACTIVITY_MAX_SECONDS', 3600);
+/* What remediation may change, and what has to reload after. */
+define('FLEET_REMEDIATE_PATHS', array('system/timeservers' => 'ntp', 'system/timezone' => 'timezone', 'system/domain' => 'hostname',
+    'system/hostname' => 'hostname', 'system/webgui/noantilockout' => 'filter'));
+define('FLEET_REMEDIATE_MAX', 50);
 
 /* ------------------------------------------------------------------ */
 /* Policy rules                                                        */
@@ -140,6 +148,130 @@ function fleet_lock_message(array $violations, string $controller): string {
 	}
 	return 'Blocked by Fleet policy ' . implode('; ', $parts) . ' (managed by ' . $controller . ').' .
 	    ' A console administrator can suspend Lock with break-glass: freesense-join breakglass.';
+}
+
+/* ------------------------------------------------------------------ */
+/* Remediate                                                           */
+/* ------------------------------------------------------------------ */
+
+/* pure: a value remediation may write at an allowed path. */
+function fleet_remediate_value_ok(string $path, string $value): bool {
+	switch ($path) {
+	case 'system/timeservers':
+		return (bool)preg_match('/^[A-Za-z0-9.:-]{1,253}( [A-Za-z0-9.:-]{1,253}){0,9}$/D', $value);
+	case 'system/timezone':
+		return in_array($value, timezone_identifiers_list(), true);
+	case 'system/domain':
+		return (bool)preg_match('/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/iD', $value);
+	case 'system/hostname':
+		return (bool)preg_match('/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/iD', $value);
+	}
+	return false;
+}
+
+/*
+ * pure: what fixing $rule takes, given the current value as text (null:
+ * absent): array('none') when it already holds, array('set', value),
+ * array('unset'), or null when Fleet may not or cannot fix it here.
+ * A rule may carry "fix": the value to write when the test is not
+ * "equals" (for example a time server for "set and not empty").
+ */
+function fleet_remediate_plan(array $rule, ?string $current): ?array {
+	if (!fleet_rule_valid($rule) || ($rule['mode'] !== 'remediate') || !isset(FLEET_REMEDIATE_PATHS[$rule['path']])) {
+		return null;
+	}
+	if (fleet_rule_compliant($rule, function () use ($current) { return $current; })) {
+		return array('none');
+	}
+	if ($rule['op'] === 'absent') {
+		return array('unset');
+	}
+	if ($rule['op'] === 'present') {
+		return ($rule['path'] === 'system/webgui/noantilockout') ? array('set', '') : null;
+	}
+	$value = ($rule['op'] === 'equals') ? (string)$rule['value'] : (is_string($rule['fix'] ?? null) ? $rule['fix'] : null);
+	if (($value === null) || !fleet_remediate_value_ok($rule['path'], $value) ||
+	    !fleet_rule_compliant($rule, function () use ($value) { return $value; })) {
+		return null;
+	}
+	return array('set', $value);
+}
+
+/*
+ * Fix the rules with these ids from the bundle this box holds, in one
+ * configuration save, then reload what they touch. Returns one result per
+ * id: {id, result: fixed | compliant | cannot | unknown, detail}.
+ */
+function fleet_remediate_run(array $ids): array {
+	$stored = fleet_policy_bundle_read();
+	$rules = array();
+	foreach ((array)($stored['bundle']['rules'] ?? array()) as $r) {
+		if (is_array($r) && isset($r['id'])) {
+			$rules[(string)$r['id']] = $r;
+		}
+	}
+	$text = function ($value) {
+		return ($value === null) ? null : (is_array($value) ? (empty($value) ? '' : null) : (string)$value);
+	};
+	$out = array();
+	$changes = array();
+	foreach ($ids as $id) {
+		$rule = $rules[$id] ?? null;
+		if ($rule === null) {
+			$out[] = array('id' => $id, 'result' => 'unknown', 'detail' => 'The bundle on this box has no such rule.');
+			continue;
+		}
+		$plan = fleet_remediate_plan($rule, $text(config_get_path($rule['path'])));
+		if ($plan === null) {
+			$out[] = array('id' => $id, 'result' => 'cannot', 'detail' => 'Fleet does not fix ' . $rule['path'] . ' by itself; change it by hand.');
+		} elseif ($plan[0] === 'none') {
+			$out[] = array('id' => $id, 'result' => 'compliant', 'detail' => 'Already compliant.');
+		} else {
+			$changes[$id] = array($rule['path'], $plan);
+		}
+	}
+	if (empty($changes)) {
+		return $out;
+	}
+	foreach ($changes as list($path, $plan)) {
+		if ($plan[0] === 'unset') {
+			config_del_path($path);
+		} else {
+			config_set_path($path, $plan[1]);
+		}
+	}
+	$was = fleet_lock_bypass();
+	fleet_lock_bypass(true);
+	write_config('Fleet remediation: ' . implode(', ', array_keys($changes)));
+	fleet_lock_bypass($was);
+	$reloads = array_unique(array_map(function ($c) { return FLEET_REMEDIATE_PATHS[$c[0]]; }, $changes));
+	foreach ($reloads as $what) {
+		try {
+			switch ($what) {
+			case 'ntp':
+				system_ntp_configure();
+				break;
+			case 'timezone':
+				system_timezone_configure();
+				break;
+			case 'hostname':
+				system_hostname_configure();
+				system_hosts_generate();
+				system_resolvconf_generate();
+				break;
+			case 'filter':
+				filter_configure();
+				break;
+			}
+		} catch (Throwable $e) {
+			logger(LOG_WARNING, 'Fleet remediation: reloading ' . $what . ' failed: ' . $e->getMessage());
+		}
+	}
+	foreach ($changes as $id => list($path, $plan)) {
+		$out[] = array('id' => $id, 'result' => 'fixed', 'detail' => ($plan[0] === 'unset') ? "Removed {$path}." : "Set {$path} to \"{$plan[1]}\".");
+	}
+	logger(LOG_NOTICE, 'Fleet: remediated ' . implode(', ', array_keys($changes)) . '.');
+	return $out;
 }
 
 /* ------------------------------------------------------------------ */

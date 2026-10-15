@@ -154,4 +154,22 @@ foreach (array('GET /v1/management/commit-confirm', 'POST /v1/management/commit-
 }
 check(!isset($have['DELETE /v1/management/breakglass']) && !isset($have['POST /v1/management/breakglass']), 'break-glass cannot be switched on through the API');
 
+
+/* ---- remediate ---- */
+$rm = function (array $r) { return $r + array('id' => 'OPS-001', 'title' => 't', 'mode' => 'remediate'); };
+check(fleet_remediate_plan($rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Europe/Copenhagen')), 'Etc/UTC') === array('set', 'Europe/Copenhagen'),
+    'remediate sets the value an equals rule wants');
+check(fleet_remediate_plan($rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Europe/Copenhagen')), 'Europe/Copenhagen') === array('none'), 'a compliant rule needs nothing');
+check(fleet_remediate_plan($rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Mars/Base')), 'Etc/UTC') === null, 'an unknown time zone is never written');
+check(fleet_remediate_plan($rm(array('path' => 'system/timeservers', 'op' => 'regex', 'value' => '.', 'fix' => 'pool.ntp.org')), null) === array('set', 'pool.ntp.org') &&
+    fleet_remediate_plan($rm(array('path' => 'system/timeservers', 'op' => 'regex', 'value' => '.')), null) === null, '"set and not empty" needs a fix value');
+check(fleet_remediate_plan($rm(array('path' => 'system/webgui/noantilockout', 'op' => 'absent')), '') === array('unset'), 'absent rules remove the setting');
+check(fleet_remediate_plan($rm(array('path' => 'system/ssh/port', 'op' => 'equals', 'value' => '22')), '2222') === null &&
+    fleet_remediate_plan($rm(array('path' => 'system/webgui/protocol', 'op' => 'equals', 'value' => 'https')), 'http') === null, 'paths off the allow-list are never changed');
+check(fleet_remediate_plan(array('mode' => 'lock') + $rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Etc/UTC')), 'Europe/Oslo') === null,
+    'only rules in mode remediate are fixed');
+check(fleet_remediate_plan($rm(array('path' => 'system/domain', 'op' => 'equals', 'value' => 'bad domain!')), 'x.net') === null &&
+    fleet_remediate_plan($rm(array('path' => 'system/hostname', 'op' => 'equals', 'value' => 'fw-01')), 'old') === array('set', 'fw-01'), 'names are checked before they are written');
+check(isset($have['POST /v1/management/remediate']) && $have['POST /v1/management/remediate']['write'] && function_exists($have['POST /v1/management/remediate']['handler']),
+    'route POST /v1/management/remediate (write)');
 echo "FleetGuardSmokeTest: OK\n";
