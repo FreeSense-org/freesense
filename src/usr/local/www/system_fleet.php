@@ -39,6 +39,17 @@ require_once("system_boot_environments.inc");
 
 $pgtitle = array(gettext("System"), gettext("Central Management"));
 
+/* The replicas this box keeps, as one file for Recover fleet on a new controller (they stay encrypted). */
+if (($_POST['vault_download'] ?? '') === '1') {
+	$name = 'fleet-vault-' . preg_replace('/[^A-Za-z0-9.-]/', '_', (string)config_get_path('system/hostname', 'firewall')) . '-' . date('Ymd-His') . '.fsfa';
+	header('Content-Type: application/gzip');
+	header('Content-Disposition: attachment; filename="' . $name . '"');
+	header('Cache-Control: no-store');
+	log_error(sprintf(gettext('Fleet: the backup vault was downloaded by %s.'), $_SESSION['Username'] ?? '?'));
+	fleet_vault_export(fopen('php://output', 'w'));
+	exit;
+}
+
 $m = fleet_node_membership();
 $bundle = fleet_policy_bundle_read();
 $vault = fleet_vault_usage($m);
@@ -85,6 +96,20 @@ else:
 	fs_tile(gettext('Rollback protection'), $protected ? gettext('Yes') : gettext('No'), $protected ? null : 'warn',
 	    $protected ? gettext('ZFS boot environments') : gettext('A failed update cannot roll back by itself. ZFS is recommended.'));
 ?>
+</div>
+<?php
+endif;
+if ($vault['replicas'] > 0):
+?>
+<div class="panel panel-default">
+	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Fleet backup copies')?></h2></div>
+	<div class="panel-body">
+		<p><?=sprintf(gettext('This firewall keeps %1$d encrypted backup copies for its fleet (%2$s). It cannot read them. If the controller is lost, download them here and use Recover fleet on a new controller with the fleet\'s recovery key.'),
+		    $vault['replicas'], format_bytes($vault['used_bytes']))?></p>
+		<form method="post">
+			<button class="btn btn-sm btn-outline-secondary" type="submit" name="vault_download" value="1"><i class="fa-solid fa-download icon-embed-btn" aria-hidden="true"></i><?=gettext('Download the copies (.fsfa)')?></button>
+		</form>
+	</div>
 </div>
 <?php
 endif;
