@@ -2433,7 +2433,7 @@ $pages_um = array(
 	    'usermgr_root_priv_text()'),
 	'system_groupmanager_addprivs.php' => array('usermgr_group_privs_add($groupid, $_POST, $guiuser)', 'usermgr_priv_list_sorted()', 'usermgr_root_priv_text()',
 	    "if (!is_numericint(\$groupid) || !is_array(config_get_path(\"system/group/{\$groupid}\"))) {"),
-	'system_authservers.php' => array('authsrv_ldap_containers_html($_REQUEST)', 'authsrv_list()', "authsrv_delete(\$_POST['id'], \$guiuser)", 'authsrv_form($a_server[$id], $dup ?? false)',
+	'system_authservers.php' => array('authsrv_ldap_containers_html($_POST)', 'authsrv_list()', "authsrv_delete(\$_POST['id'], \$guiuser)", 'authsrv_form($a_server[$id], $dup ?? false)',
 	    'authsrv_new_form()', 'authsrv_save($_POST, $id, $guiuser)', 'authsrv_radiusnas_list()', "\$read_only = (is_array(\$guiuser) && userHasPrivilege(\$guiuser, \"user-config-readonly\"));",
 	    "if (\$_POST['save'] && !\$read_only) {"),
 );
