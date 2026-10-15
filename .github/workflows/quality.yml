@@ -100,6 +100,7 @@ jobs:
               FleetJoinSmokeTest \
               FleetAgentSmokeTest \
               FleetGuardSmokeTest \
+              FleetHandoffSeedSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest \
               XmlLineBreakSmokeTest \

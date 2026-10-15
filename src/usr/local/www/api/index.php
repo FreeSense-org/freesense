@@ -120,6 +120,7 @@ require_once('restapi_listener.inc');
 require_once('fleet_node.inc');
 require_once('fleet_agent.inc');
 require_once('fleet_guard.inc');
+require_once('fleet_handoff.inc');
 require_once('restapi_log.inc');
 require_once('restapi/routes_v1.inc');
 

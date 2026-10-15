@@ -2443,6 +2443,16 @@ function session_auth() {
 		}
 	}
 
+	/* A one-time "Open WebUI" link from the FreeSense Fleet controller (fleet_handoff.inc). */
+	if (empty($_SESSION['Logged_In']) && isset($_GET['fleet_handoff']) && is_string($_GET['fleet_handoff']) &&
+	    (config_get_path('fleet/handoff_users', '') !== '')) {
+		require_once('fleet_handoff.inc');
+		if (fleet_handoff_signin($_GET['fleet_handoff'])) {
+			header('Location: /');
+			exit;
+		}
+	}
+
 	/* Show login page if they aren't logged in */
 	if (empty($_SESSION['Logged_In'])) {
 		phpsession_end(true);
