@@ -30,6 +30,16 @@ if [ -z "${TERM}" ] || [ "${TERM}" = "dumb" ]; then
 	export TERM
 fi
 
+# bsddialog (used by the installer) refuses to draw on a tty that has no size,
+# and a serial console has none until something sets it: the ZFS step failed with
+# "Error: --ignore to continue". Give such a tty the standard 24x80; a terminal
+# that reports its real size is left alone.
+for _tty in /dev/console /dev/ttyu0; do
+	if [ -c "${_tty}" ] && [ "$(stty -f "${_tty}" size 2>/dev/null)" = "0 0" ]; then
+		stty -f "${_tty}" rows 24 cols 80 2>/dev/null
+	fi
+done
+
 # A machine-readable signal lets release automation prove that the real ISO
 # reached the installer without scraping a terminal UI.
 if [ -w /dev/ttyu0 ]; then
