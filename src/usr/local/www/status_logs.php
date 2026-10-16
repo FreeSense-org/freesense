@@ -76,7 +76,7 @@ $allowed_logs = array(
 );
 
 // The logs to display are specified in a REQUEST argument. Default to 'system' logs
-if (!$_REQUEST['logfile']) {
+if (empty($_REQUEST['logfile'])) {
 	$logfile = 'system';
 } else {
 	$logfile = $_REQUEST['logfile'];

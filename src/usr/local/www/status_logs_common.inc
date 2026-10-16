@@ -62,7 +62,7 @@ function status_logs_common_code() {
 	$read_only = (is_array($guiuser) && userHasPrivilege($guiuser['item'], "user-config-readonly"));
 	phpsession_end();
 
-	if ($_POST['clear']) {
+	if (!empty($_POST['clear'])) {
 		if (!$read_only) {
 			clear_log_file($logfile_path);
 		} else{

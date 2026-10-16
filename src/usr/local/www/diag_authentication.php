@@ -74,7 +74,7 @@ $pgtitle = array(gettext("Diagnostics"), gettext("Authentication"));
 $shortcut_section = "authentication";
 include("head.inc");
 
-if ($input_errors && $auth_ok !== false) {
+if (!empty($input_errors) && $auth_ok !== false) {
 	print_input_errors($input_errors);
 }
 
@@ -104,7 +104,7 @@ foreach (auth_get_authserver_list() as $key => $auth_server) {
 				</div>
 				<div>
 					<label class="form-label" for="username"><?=gettext('Username')?></label>
-					<input class="form-control" type="text" id="username" name="username" value="<?=htmlspecialchars($pconfig['username'])?>" placeholder="<?=gettext('Username')?>" autocomplete="new-password" required>
+					<input class="form-control" type="text" id="username" name="username" value="<?=htmlspecialchars($pconfig['username'] ?? '')?>" placeholder="<?=gettext('Username')?>" autocomplete="new-password" required>
 				</div>
 				<div>
 					<label class="form-label" for="password"><?=gettext('Password')?></label>
@@ -112,7 +112,7 @@ foreach (auth_get_authserver_list() as $key => $auth_server) {
 				</div>
 				<div>
 					<div class="form-check">
-						<input class="form-check-input" type="checkbox" id="debug" name="debug" value="yes"<?=($_POST['debug'] == 'yes') ? ' checked' : ''?>>
+						<input class="form-check-input" type="checkbox" id="debug" name="debug" value="yes"<?=(($_POST['debug'] ?? null) == 'yes') ? ' checked' : ''?>>
 						<label class="form-check-label" for="debug"><?=gettext('Set debug flag')?></label>
 					</div>
 					<div class="form-text"><?=gettext('May add diagnostic entries to the system log, for example for LDAP.')?></div>

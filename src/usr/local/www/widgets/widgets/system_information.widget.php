@@ -39,7 +39,7 @@ include_once("includes/functions.inc.php");
  * the Dashboard includes the widget. During other types of requests, such as
  * saving settings or AJAX, the value may be set via $_POST or similar.
  */
-if ($_POST['widgetkey'] || $_GET['widgetkey']) {
+if (!empty($_POST['widgetkey']) || !empty($_GET['widgetkey'])) {
 	$rwidgetkey = isset($_POST['widgetkey']) ? $_POST['widgetkey'] : (isset($_GET['widgetkey']) ? $_GET['widgetkey'] : null);
 	if (is_valid_widgetkey($rwidgetkey, $user_settings, __FILE__)) {
 		$widgetkey = $rwidgetkey;
@@ -76,7 +76,7 @@ $sysinfo_items = array(
 $updtext = sprintf(gettext("Obtaining update status %s"), "<i class='fa-solid fa-rotate fa-spin'></i>");
 $state_tt = gettext("Adaptive state handling is enabled, state timeouts are reduced to ");
 
-if ($_REQUEST['getupdatestatus']) {
+if (!empty($_REQUEST['getupdatestatus'])) {
 	require_once("pkg-utils.inc");
 
 	$cache_file = g_get('version_cache_file');
@@ -141,7 +141,7 @@ if ($_REQUEST['getupdatestatus']) {
 	endif;
 
 	exit;
-} elseif ($_POST['widgetkey']) {
+} elseif (!empty($_POST['widgetkey'])) {
 	set_customwidgettitle($user_settings);
 
 	$validNames = array();
@@ -162,7 +162,7 @@ if ($_REQUEST['getupdatestatus']) {
 
 $hwcrypto = get_cpu_crypto_support();
 
-$skipsysinfoitems = explode(",", $user_settings['widgets'][$widgetkey]['filter']);
+$skipsysinfoitems = explode(",", $user_settings['widgets'][$widgetkey]['filter'] ?? '');
 
 $rows_displayed = false;
 // use the preference of the first thermal sensor widget, if it's available (false == empty)
@@ -415,13 +415,14 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 
 		// Calculate scaling factor
 		$adaptive = false;
+		$scalingfactor = null;
 		$maxstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
 		$adaptivestart = (config_get_path('system/adaptivestart', 0) > 0) ? config_get_path('system/adaptivestart') : intval($maxstates * 0.6);
 		$adaptiveend = (config_get_path('system/adaptiveend', 0) > 0) ? config_get_path('system/adaptiveend') : intval($maxstates * 1.2);
 		$adaptive_text = "";
 
 		if ($pfstatetext > $adaptivestart) {
-		    $scalingfactor = round(($adaptiveend - $pfstatetext) / ($adaptiveend - $adaptivestart) * 100, 0);
+		    $scalingfactor = round(($adaptiveend - (int)$pfstatetext) / ($adaptiveend - $adaptivestart) * 100, 0);
 		    $adaptive = true;
 		}
 ?>
@@ -458,10 +459,10 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 					get_mbuf();
 				?>
 				<div class="progress">
-					<div id="mbufPB" class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="<?=$mbufusage?>" aria-valuemin="0" aria-valuemax="100" style="width: <?=$mbufusage?>%">
+					<div id="mbufPB" class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="<?=$mbufusage ?? ''?>" aria-valuemin="0" aria-valuemax="100" style="width: <?=$mbufusage ?? ''?>%">
 					</div>
 				</div>
-				<span id="mbufusagemeter"><?=$mbufusage?>%</span>&nbsp;<span id="mbuf">(<?= htmlspecialchars($mbufstext)?>)</span>
+				<span id="mbufusagemeter"><?=$mbufusage ?? ''?>%</span>&nbsp;<span id="mbuf">(<?= htmlspecialchars($mbufstext ?? '')?>)</span>
 			</td>
 		</tr>
 <?php

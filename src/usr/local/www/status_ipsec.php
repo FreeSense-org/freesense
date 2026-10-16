@@ -37,18 +37,18 @@ require_once("guiconfig.inc");
 require_once("ipsec.inc");
 require_once("service-utils.inc");
 
-if ($_POST['act'] == 'connect') {
+if (($_POST['act'] ?? null) == 'connect') {
 	/* Assume type is IKE */
 	$type = empty($_POST['type']) ? 'ike' : $_POST['type'];
 	ipsec_initiate_by_conid($type, $_POST['conid']);
-} elseif ($_POST['act'] == 'disconnect') {
+} elseif (($_POST['act'] ?? null) == 'disconnect') {
 	/* Assume type is IKE */
 	$type = empty($_POST['type']) ? 'ike' : $_POST['type'];
 	ipsec_terminate_by_conid($type, $_POST['conid'], $_POST['uniqueid']);
 }
 
 // If this is just an AJAX call to update the table body, just generate the body and quit
-if ($_REQUEST['ajax']) {
+if (!empty($_REQUEST['ajax'])) {
 	print_ipsec_body();
 	exit;
 }

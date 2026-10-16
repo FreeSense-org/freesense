@@ -38,7 +38,11 @@ require_once("services_igmpproxy.inc");
 
 //igmpproxy_sort();
 
-if ($_POST['apply']) {
+$pconfig = [];
+$input_errors = null;
+$changes_applied = false;
+
+if (!empty($_POST['apply'])) {
 	$pconfig = $_POST;
 
 	$changes_applied = true;
@@ -47,7 +51,7 @@ if ($_POST['apply']) {
 
 $pconfig = array_merge((array)$pconfig, igmpproxy_settings());
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
@@ -58,7 +62,7 @@ if ($_POST['save']) {
 	}
 }
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? null) == "del") {
 	if (igmpproxy_delete_entry($_POST['id'])) {
 		header("Location: services_igmpproxy.php");
 		exit;
@@ -92,7 +96,7 @@ $section->addInput(new Form_Checkbox(
 	'enable',
 	'Enable',
 	'Enable IGMP',
-	$pconfig['enable']
+	$pconfig['enable'] ?? null
 ));
 
 $section->addInput(new Form_Checkbox(

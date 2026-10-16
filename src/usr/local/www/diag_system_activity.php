@@ -31,7 +31,7 @@
 
 require_once('guiconfig.inc');
 
-if ($_REQUEST['getactivity']) {
+if (!empty($_REQUEST['getactivity'])) {
 	header('Content-Type: text/plain; charset=UTF-8');
 	exec('/usr/bin/top -baHS 999 2>/dev/null', $output, $rc);
 	echo (($rc === 0) ? implode(PHP_EOL, $output) : sprintf(gettext('Unable to gather system activity (%d)'), $rc));
@@ -40,6 +40,7 @@ if ($_REQUEST['getactivity']) {
 
 
 $pgtitle = [gettext('Diagnostics'), gettext('System Activity')];
+$input_errors = null;
 
 include('head.inc');
 

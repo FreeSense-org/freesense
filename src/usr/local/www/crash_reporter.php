@@ -57,7 +57,7 @@ if (!empty($_POST['Download'])) {
 	}
 }
 
-if ($_POST['Submit'] == "No") {
+if (($_POST['Submit'] ?? null) == "No") {
 	unlink_if_exists("/var/crash/*");
 	// Erase the contents of the PHP error log
 	fclose(fopen("/tmp/PHP_errors.log", 'w'));

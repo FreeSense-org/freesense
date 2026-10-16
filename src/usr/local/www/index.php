@@ -87,9 +87,9 @@ while (($filename = readdir($dirhandle)) !== false) {
 foreach (glob("/usr/local/www/widgets/widgets/*.widget.php") as $file) {
 	$basename = basename($file, '.widget.php');
 	// Get the widget title that should be in a var defined in the widget's inc file.
-	$widgettitle = ${$basename . '_title'};
+	$widgettitle = ${$basename . '_title'} ?? null;
 
-	if (empty(trim($widgettitle))) {
+	if (empty(trim($widgettitle ?? ''))) {
 		// Fall back to constructing a title from the file name of the widget.
 		$widgettitle = ucwords(str_replace('_', ' ', $basename));
 	}
@@ -279,9 +279,9 @@ if ($user_settings['widgets']['sequence'] != "") {
 			$widgettitle = htmlentities($user_settings['widgets'][$widgetkey]['descr']);
 		} else {
 			// Get the widget title that should be in a var defined in the widget's inc file.
-			$widgettitle = ${$basename . '_title'};
+			$widgettitle = ${$basename . '_title'} ?? null;
 
-			if (empty(trim($widgettitle))) {
+			if (empty(trim($widgettitle ?? ''))) {
 				// Fall back to constructing a title from the file name of the widget.
 				$widgettitle = ucwords(str_replace('_', ' ', $basename));
 			}
@@ -306,7 +306,7 @@ if ($user_settings['widgets']['sequence'] != "") {
 	##find custom configurations of a particular widget and load its info to $pconfig
 	$widgets_config = config_get_path('widgets', []);
 	foreach ($widgets as $widgetname => $widgetconfig) {
-		if ($widgets_config["{$widgetname}-config"]) {
+		if (!empty($widgets_config["{$widgetname}-config"])) {
 			$pconfig["{$widgetname}-config"] = $widgets_config["{$widgetname}-config"];
 		}
 	}
@@ -411,9 +411,9 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 				$widget_showallnone_id = 'widget-' . $widgetkey . '_showallnone';
 
 				// Compose the widget title and include the title link if available
-				$widgetlink = ${$widgetconfig['basename'] . '_title_link'};
+				$widgetlink = ${$widgetconfig['basename'] . '_title_link'} ?? null;
 
-				if ((strlen($widgetlink) > 0)) {
+				if ((strlen($widgetlink ?? '') > 0)) {
 					$wtitle = '<a href="' . $widgetlink . '"> ' . $widgetconfig['title'] . '</a>';
 				} else {
 					$wtitle = $widgetconfig['title'];
@@ -444,7 +444,7 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 							// Determine if this is the first instance of this particular widget.
 							// Provide the $widget_first_instance var, to make it easy for the included widget code
 							// to be able to know if it is being included for the first time.
-							if ($widgets_found[$widgetconfig['basename']]) {
+							if (!empty($widgets_found[$widgetconfig['basename']])) {
 								$widget_first_instance = false;
 							} else {
 								$widget_first_instance = true;

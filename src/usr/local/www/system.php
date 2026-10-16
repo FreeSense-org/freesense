@@ -48,7 +48,7 @@ function is_timezone($elt) {
 	return !preg_match("/\/$/", $elt);
 }
 
-if ($pconfig['timezone'] <> $_POST['timezone']) {
+if (($pconfig['timezone'] ?? null) <> ($_POST['timezone'] ?? null)) {
 	filter_pflog_start();
 }
 
@@ -83,11 +83,11 @@ if ($_POST) {
 $pgtitle = array(gettext("System"), gettext("General Setup"));
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 ?>
@@ -157,7 +157,7 @@ foreach ($pconfig['dnsserver'] as $dnsserver) {
 		'dnshost' . $dnsserver_num,
 		'DNS Hostname',
 		'text',
-		$pconfig['dnshost' . $dnsserver_num]
+		$pconfig['dnshost' . $dnsserver_num] ?? null
 	))->setHelp(($is_last_dnsserver) ? $dnshost_help:null);
 
 	if (($multiwan > 1) || ($multiwan6 > 1)) {

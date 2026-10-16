@@ -51,7 +51,7 @@ global $cpzoneid;
 $concurrentlogins_list = array("disabled" => "Disabled", "multiple" => "Multiple", "last" => "Last login", "first" => "First login");
 $cpzoneid = 1; /* Just a default */
 
-$cpzone = strtolower(array_get_path($_REQUEST, 'zone'));
+$cpzone = strtolower(array_get_path($_REQUEST, 'zone') ?? '');
 if (empty($cpzone)) {
 	header("Location: services_captiveportal_zones.php");
 	exit;

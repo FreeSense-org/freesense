@@ -72,7 +72,7 @@ if (isset($_REQUEST['ajaxLog']) && $_REQUEST['file'] == $plog_file_current) {
 }
 
 /* Handle AJAX POST call for the tcpdump process check. */
-if ($_REQUEST['isCaptureRunning']) {
+if (!empty($_REQUEST['isCaptureRunning'])) {
 	/* Check for any matching tcpdump processes currently running.
  	 * Handle multiple matches; assume the first match is correct. */
 	$processes_check = get_pgrep_output('^\/usr\/sbin\/tcpdump.*-w -');
@@ -84,7 +84,7 @@ if ($_REQUEST['isCaptureRunning']) {
 
 // Page properties
 $allowautocomplete = true;
-if ($_POST['download_button'] != '') {
+if (($_POST['download_button'] ?? '') != '') {
 	$nocsrf = true;
 }
 $pgtitle = array(gettext('Diagnostics'), gettext('Packet Capture'));
@@ -92,6 +92,7 @@ $pgtitle = array(gettext('Diagnostics'), gettext('Packet Capture'));
 $available_interfaces = get_interfaces_sorted();
 $max_view_size = 50 * 1024 * 1024; // Avoid timeout by only requesting 50MB at a time.
 
+$action = null;
 $run_capture = false;
 $expression_string = '';
 $input_error = [];
@@ -281,7 +282,7 @@ if ($process_running || $run_capture) {
 	$show_buttons['start_button'] = false;
 } else {
 	// Show the Start button
-	if (file_exists($pcap_file_last)) {
+	if (file_exists($pcap_file_last ?? '')) {
 		if ($action == 'clear') {
 			// Clear related files (the file buttons stay hidden)
 			foreach ($pcap_files_list as $pcap_file) {
@@ -463,7 +464,7 @@ $group = new Form_Group('Capture');
 $group->add(new Form_Select(
 	'interface',
 	null,
-	$input_interface,
+	$input_interface ?? null,
 	$available_interfaces
 ))->setHelp('Interface to capture packets on.')->setWidth(4);
 $group->add(new Form_Select(
@@ -478,14 +479,14 @@ $group->add(new Form_Input(
 	'count',
 	'Packet Count',
 	null,
-	$input_count,
+	$input_count ?? null,
 	array('type' => 'number', 'min' => 0, 'step' => 1, 'placeholder' => 1000)
 ))->setHelp('Packets to capture (default 1000, 0 for no limit).')->setWidth(3);
 $group->add(new Form_Input(
 	'length',
 	'Packet Length',
 	null,
-	$input_length,
+	$input_length ?? null,
 	array('type' => 'number', 'min' => 0, 'step' => 1, 'placeholder' => 0)
 ))->setHelp('Bytes per packet (default 0 for no limit).')->setWidth(3);
 $section->add($group);
@@ -526,7 +527,7 @@ foreach ($form_filter_sections as $fs_key => $fs_var) {
 	$group->add(new Form_Select(
 		$fs_match_id,
 		null,
-		${$fs_match_input_varvar},
+		${$fs_match_input_varvar} ?? null,
 		($fs_key == array_key_first($form_filter_sections) ? $form_fsmatch : $form_fsmatch_tagged)
 	))->setHelp($fs_var['matchdescription'])->addClass('match-selection inputselectcombo')->setWidth(3);
 	$group->add(new Form_StaticText(
@@ -569,7 +570,7 @@ foreach ($form_filter_sections as $fs_key => $fs_var) {
 					$attribute_input_id,
 					$attribute_strings['placeholder'],
 					null,
-					${$attribute_input_varvar},
+					${$attribute_input_varvar} ?? null,
 					array('type' => 'number', 'min' => 1, 'max' => 9, 'step' => 1)
 				);
 				break;
@@ -577,9 +578,9 @@ foreach ($form_filter_sections as $fs_key => $fs_var) {
 				$attribute_field = new Form_SelectInputCombo(
 					$attribute_input_id,
 					$attribute_strings['placeholder'],
-					${$attribute_input_varvar}
+					${$attribute_input_varvar} ?? null
 				);
-				$attribute_field->addSelect($attribute_match_id, ${$attribute_match_varvar}, ${$form_match_varvar});
+				$attribute_field->addSelect($attribute_match_id, ${$attribute_match_varvar} ?? null, ${$form_match_varvar});
 				break;
 		}
 		$attribute_field->setHelp($attribute_strings['description'])->setWidth($attribute_strings['width']);

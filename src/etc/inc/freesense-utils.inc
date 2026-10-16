@@ -230,7 +230,7 @@ function gen_webguicss_field(&$section, $value) {
 
 	$csslist = get_css_files();
 
-	if (!isset($csslist[$value])) {
+	if (!isset($csslist[$value ?? ''])) {
 		$value = "FreeSense.css";
 	}
 
@@ -4258,7 +4258,7 @@ function calculate_ipv6_delegation_length($if) {
 			$pdlen = (64 - ((int) $rd6plen[1] + (32 - (int) $cfg['prefix-6rd-v4plen'])));
 			break;
 		case "dhcp6":
-			$pdlen = $cfg['dhcp6-ia-pd-len'];
+			$pdlen = $cfg['dhcp6-ia-pd-len'] ?? null;
 			break;
 		default:
 			$pdlen = 0;

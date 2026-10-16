@@ -78,7 +78,7 @@ if ($submit == "DOWNLOAD") {
 // Returns true or false depending on blankness of argument.
 
 function isBlank($arg) {
-	return preg_match("/^\s*$/", $arg);
+	return preg_match("/^\s*$/", (string)$arg);
 }
 
 // Function: Puts
@@ -91,7 +91,7 @@ function puts($arg) {
 $pgtitle = array(gettext("Diagnostics"), gettext("Command Prompt"));
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 ?>
@@ -117,7 +117,7 @@ if ($input_errors) {
 	// Create recall buffer array (of encoded strings).
 <?php
 
-if (isBlank($_POST['txtRecallBuffer'])) {
+if (isBlank($_POST['txtRecallBuffer'] ?? '')) {
 	puts("	 var arrRecallBuffer = new Array;");
 } else {
 	puts("	 var arrRecallBuffer = new Array(");
@@ -224,11 +224,11 @@ if (isBlank($_POST['txtRecallBuffer'])) {
 </script>
 <?php
 
-if (isBlank($_POST['txtCommand']) && isBlank($_POST['txtPHPCommand']) && isBlank($ulmsg)) {
+if (isBlank($_POST['txtCommand'] ?? '') && isBlank($_POST['txtPHPCommand'] ?? '') && isBlank($ulmsg ?? '')) {
 	print_callout(gettext("The capabilities offered here can be dangerous. No support is available. Use them at your own risk!"), 'danger', gettext('Advanced Users Only'));
 }
 
-if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
+if (($_POST['submit'] ?? '') == "EXEC" && !isBlank($_POST['txtCommand'] ?? '')):?>
 	<div class="panel panel-default fs-cmd-output">
 		<div class="panel-heading">
 			<h2 class="panel-title"><?=gettext('Shell output')?><code><?=htmlspecialchars($_POST['txtCommand'])?></code></h2>
@@ -257,12 +257,12 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 				<button type="button" class="btn btn-outline-secondary" id="btnRecallPrev" name="btnRecallPrev" title="<?=gettext("Recall Previous Command")?>" aria-label="<?=gettext("Recall Previous Command")?>">
 					<i class="fa-solid fa-angles-left" aria-hidden="true"></i>
 				</button>
-				<input id="txtCommand" name="txtCommand" placeholder="<?=gettext('Command')?>" type="text" class="form-control fs-mono" aria-label="<?=gettext('Command')?>" value="<?=htmlspecialchars($_POST['txtCommand'])?>" />
+				<input id="txtCommand" name="txtCommand" placeholder="<?=gettext('Command')?>" type="text" class="form-control fs-mono" aria-label="<?=gettext('Command')?>" value="<?=htmlspecialchars($_POST['txtCommand'] ?? '')?>" />
 				<button type="button" class="btn btn-outline-secondary" id="btnRecallNext" name="btnRecallNext" title="<?=gettext("Recall Next Command")?>" aria-label="<?=gettext("Recall Next Command")?>">
 					<i class="fa-solid fa-angles-right" aria-hidden="true"></i>
 				</button>
 			</div>
-			<input type="hidden" name="txtRecallBuffer" value="<?=htmlspecialchars($_POST['txtRecallBuffer']) ?>" />
+			<input type="hidden" name="txtRecallBuffer" value="<?=htmlspecialchars($_POST['txtRecallBuffer'] ?? '') ?>" />
 			<div class="fs-cmd-actions">
 				<button name="submit" type="submit" class="btn btn-primary" value="EXEC" title="<?=gettext("Execute the entered command")?>" data-fs-busy="true">
 					<i class="fa-solid fa-bolt icon-embed-btn" aria-hidden="true"></i><?=gettext("Execute"); ?>
@@ -275,7 +275,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 	</div>
 
 <?php
-	if ($ulmsg) {
+	if (!empty($ulmsg)) {
 		print_info_box($ulmsg, 'success', false);
 	}
 ?>
@@ -285,7 +285,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 			<div class="fs-cmd-body">
 				<div>
 					<label class="form-label" for="dlPath"><?=gettext('File path')?></label>
-					<input name="dlPath" type="text" id="dlPath" placeholder="<?=gettext('File to download')?>" class="form-control fs-mono" value="<?=htmlspecialchars($_REQUEST['dlPath']);?>"/>
+					<input name="dlPath" type="text" id="dlPath" placeholder="<?=gettext('File to download')?>" class="form-control fs-mono" value="<?=htmlspecialchars($_REQUEST['dlPath'] ?? '');?>"/>
 					<div class="form-text"><?=htmlspecialchars(sprintf(gettext('Only regular files in %s can be downloaded.'), ($diag_tmp !== false) ? $diag_tmp : g_get('tmp_path')))?></div>
 				</div>
 				<div class="fs-cmd-actions">
@@ -316,7 +316,7 @@ if ($_POST['submit'] == "EXEC" && !isBlank($_POST['txtCommand'])):?>
 
 	// Experimental version. Writes the user's php code to a file and executes it via a new instance of PHP
 	// This is intended to prevent bad code from breaking the GUI
-	if ($_POST['submit'] == "EXECPHP" && !isBlank($_POST['txtPHPCommand'])) {
+	if (($_POST['submit'] ?? '') == "EXECPHP" && !isBlank($_POST['txtPHPCommand'] ?? '')) {
 
 		safe_mkdir(g_get('tmp_path_user_code'));     //create if doesn't exist
 		$tmpfile = tempnam(g_get('tmp_path_user_code'), "");
@@ -384,7 +384,7 @@ END_FILE;
 //<![CDATA[
 	events.push(function() {
 		// scroll error locator if needed (does nothing if no error)
-		$('#errdiv').scrollTop(<?=max($errline - ($lineno_correction - 3.5), 0);?> * parseFloat($('#errdiv').css('line-height')));
+		$('#errdiv').scrollTop(<?=max(($errline ?? 0) - ($lineno_correction - 3.5), 0);?> * parseFloat($('#errdiv').css('line-height')));
 
 		// Scroll to the bottom of the page to more easily see the results of a PHP exec command
 		$("html, body").animate({ scrollTop: $(document).height() }, 1000);
@@ -398,7 +398,7 @@ END_FILE;
 		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Execute PHP commands')?></h2></div>
 		<div class="fs-cmd-body">
 			<label class="visually-hidden" for="txtPHPCommand"><?=gettext('PHP code')?></label>
-			<textarea id="txtPHPCommand" placeholder="<?=gettext('Command')?>" name="txtPHPCommand" rows="9" cols="80" class="form-control fs-mono" spellcheck="false"><?=htmlspecialchars($_POST['txtPHPCommand'])?></textarea>
+			<textarea id="txtPHPCommand" placeholder="<?=gettext('Command')?>" name="txtPHPCommand" rows="9" cols="80" class="form-control fs-mono" spellcheck="false"><?=htmlspecialchars($_POST['txtPHPCommand'] ?? '')?></textarea>
 			<div class="fs-cmd-actions">
 				<button name="submit" type="submit" class="btn btn-primary" value="EXECPHP" title="<?=gettext("Execute this PHP Code")?>" data-fs-busy="true">
 					<i class="fa-solid fa-bolt icon-embed-btn" aria-hidden="true"></i><?=gettext("Execute")?>

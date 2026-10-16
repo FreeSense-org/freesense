@@ -104,7 +104,7 @@ if (!empty($arp_table)) {
 }
 include('head.inc');
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box(htmlentities($savemsg), $savemsgtype);
 }
 ?>

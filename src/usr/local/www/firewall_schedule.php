@@ -44,7 +44,7 @@ require_once("firewall_schedule.inc");
 
 $pgtitle = array(gettext("Firewall"), gettext("Schedules"));
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? '') == "del") {
 	$errmsg = deleteSchedule($_POST);
 }
 
@@ -52,7 +52,7 @@ fs_page_action(gettext('Add schedule'), 'firewall_schedule_edit.php', 'fa-plus')
 
 include("head.inc");
 
-if ($errmsg) {
+if (!empty($errmsg)) {
 	print_info_box($errmsg, 'danger');
 }
 ?>

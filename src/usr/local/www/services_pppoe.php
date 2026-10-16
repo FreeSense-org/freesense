@@ -33,7 +33,7 @@ require_once("guiconfig.inc");
 require_once("filter.inc");
 require_once("vpn.inc");
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	if (file_exists("{$g['tmp_path']}/.vpn_pppoe.apply")) {
 		$toapplylist = unserialize_data(file_get_contents("{$g['tmp_path']}/.vpn_pppoe.apply"), []);
 		foreach ($toapplylist as $pppoeid) {
@@ -55,7 +55,7 @@ if ($_POST['apply']) {
 }
 
 $this_pppoe_config = isset($_POST['id']) ? config_get_path("pppoes/pppoe/{$_POST['id']}") : null;
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? null) == "del") {
 	if ($this_pppoe_config) {
 		if ("{$g['varrun_path']}/pppoe" . $this_pppoe_config['pppoeid'] . "-vpn.pid") {
 			killbypid("{$g['varrun_path']}/pppoe" . $this_pppoe_config['pppoeid'] . "-vpn.pid");
@@ -75,7 +75,7 @@ $shortcut_section = "pppoes";
 fs_page_action(gettext('Add PPPoE server'), 'services_pppoe_edit.php', 'fa-plus');
 include("head.inc");
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 

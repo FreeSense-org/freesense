@@ -37,7 +37,7 @@ $lineheight = "18"; // Required by the jumpToLine() JS function
 $pgtitle = array(gettext("Diagnostics"), gettext("Edit File"));
 require_once("guiconfig.inc");
 
-if ($_POST['action']) {
+if (!empty($_POST['action'])) {
 	switch ($_POST['action']) {
 		case 'load':
 			if (strlen($_POST['file']) < 1) {
@@ -457,7 +457,7 @@ var Base64 = {
 
 };
 
-	<?php if ($_POST['action'] == "load"): ?>
+	<?php if (($_POST['action'] ?? '') == "load"): ?>
 		events.push(function() {
 			$("#fbTarget").val("<?=htmlspecialchars($_POST['path'])?>");
 			loadFile();

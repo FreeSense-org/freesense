@@ -819,7 +819,7 @@ function system_get_kea6status() {
 cleanup:
 	socket_close($fd);
 out:
-	return (json_decode($retjson, true));
+	return (json_decode($retjson ?? '', true));
 }
 
 function system_get_kea4status() {
@@ -863,7 +863,7 @@ function system_get_kea4status() {
 cleanup:
 	socket_close($fd);
 out:
-	return (json_decode($retjson, true));
+	return (json_decode($retjson ?? '', true));
 }
 
 function system_clear_all_kea4leases() {
@@ -3347,7 +3347,7 @@ function system_get_serial() {
 
 	$vm_guest = get_single_sysctl('kern.vm_guest');
 
-	$serial = chop($serial);
+	$serial = chop($serial ?? '');
 	if (strlen($serial) >= 10 && strlen($serial) <= 18 &&
 	    $vm_guest == 'none') {
 		return $serial;

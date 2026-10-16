@@ -34,12 +34,12 @@ require_once("services_dyndns.inc");
 
 global $dyndns_split_domain_types;
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? '') == "del") {
 	dyndns_delete_client($_POST['id']);
 
 	header("Location: services_dyndns.php");
 	exit;
-} else if ($_POST['act'] == "toggle") {
+} else if (($_POST['act'] ?? '') == "toggle") {
 	if (dyndns_toggle_client($_POST['id'])) {
 		header("Location: services_dyndns.php");
 		exit;
@@ -51,7 +51,7 @@ $pglinks = array("", "@self", "@self");
 fs_page_action(gettext('Add client'), 'services_dyndns_edit.php', 'fa-plus');
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 

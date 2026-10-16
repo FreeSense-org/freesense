@@ -43,7 +43,7 @@ require_once("vpn_ipsec.inc");
 
 global $p1_authentication_methods;
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$retval = ipsec_apply_changes();
 } else {
 	/*
@@ -73,7 +73,7 @@ if ($input_errors) {
 
 fs_tabs('vpn-ipsec', 'vpn_ipsec.php');
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 

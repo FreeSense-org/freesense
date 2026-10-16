@@ -58,11 +58,11 @@ $pgtitle = array(gettext("System"), gettext("Advanced"), gettext("Admin Access")
 $pglinks = array("", "@self", "@self");
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval, $extra_save_msg);
 }
 
@@ -313,7 +313,7 @@ $addresses = explode(' ', $pconfig['sshguard_whitelist']);
 $numaddrs = count($addresses);
 
 while ($counter < $numaddrs) {
-	list($address, $address_subnet) = explode("/", $addresses[$counter]);
+	list($address, $address_subnet) = array_pad(explode("/", $addresses[$counter]), 2, null);
 
 	$group = new Form_Group($counter == 0 ? 'Pass list' : '');
 	$group->addClass('repeatable');
@@ -436,11 +436,11 @@ events.push(function() {
 <?php
 include("foot.inc");
 
-if ($restart_sshd) {
+if (!empty($restart_sshd)) {
 	restart_SSHD();
 }
 
-if ($restart_webgui) {
+if (!empty($restart_webgui)) {
 	restart_GUI();
 }
 

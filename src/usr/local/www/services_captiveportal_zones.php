@@ -38,7 +38,7 @@ require_once("captiveportal.inc");
 global $cpzone;
 global $cpzoneid;
 
-if ($_POST['act'] == "del" && !empty($_POST['zone'])) {
+if (($_POST['act'] ?? null) == "del" && !empty($_POST['zone'])) {
 	$cpzone = strtolower(htmlspecialchars($_POST['zone']));
 	if (config_get_path("captiveportal/{$cpzone}")) {
 		$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");

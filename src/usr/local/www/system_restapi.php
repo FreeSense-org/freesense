@@ -51,14 +51,14 @@ if (strpos($act, 'listener_') === 0) {
 	$view = in_array($asked, array('keys', 'listeners'), true) ? $asked : '';
 }
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	$result = restapi_save_settings($_POST);
 	$input_errors = $result['input_errors'];
 	if (empty($input_errors)) {
 		$savemsg = gettext('REST API settings saved.');
 	}
 	$pconfig = $_POST;
-} elseif ($_POST['create']) {
+} elseif (!empty($_POST['create'])) {
 	$result = restapi_create_token($_POST);
 	if (empty($result['input_errors'])) {
 		$new_token = $result['token'];
@@ -110,10 +110,10 @@ include("head.inc");
 
 restapi_print_tabs('system_restapi.php', true, $view);
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 

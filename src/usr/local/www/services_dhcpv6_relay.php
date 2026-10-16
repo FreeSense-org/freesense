@@ -72,11 +72,11 @@ if ($dhcpd_enabled) {
 	print_info_box(gettext('DHCPv6 Relay cannot be enabled while the DHCPv6 Server is enabled on any interface.'), 'danger', false);
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied && !$dhcpd_enabled) {
+if (!empty($changes_applied) && !$dhcpd_enabled) {
 	print_apply_result_box($retval);
 }
 
@@ -123,7 +123,7 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp(gettext('Append the circuit ID (interface number) and the agent ID to the DHCPv6 request.'));
 
 $counter = 0;
-foreach (explode(',', $pconfig['server']) as $server) {
+foreach (explode(',', $pconfig['server'] ?? '') as $server) {
 	$group = new Form_Group((($counter === 0) ? '*' . gettext('Upstream Servers') : ''));
 	$group->addClass('repeatable');
 
