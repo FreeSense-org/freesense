@@ -330,10 +330,12 @@ function fs_nav_plugin_item(string $pkg, $raw): ?array {
 		'label' => $label,
 		'href' => $href,
 		'badge' => max(0, min(9999, (int)($raw['badge'] ?? 0))),
-		'kind' => in_array($raw['kind'] ?? '', array('info', 'warn', 'block', 'neutral'), true) ? $raw['kind'] : 'info',
+		'kind' => in_array($raw['kind'] ?? '', array('info', 'pass', 'warn', 'block', 'neutral'), true) ? $raw['kind'] : 'info',
 		'busy' => !empty($raw['busy']),
 		'hidden' => !empty($raw['hidden']),
 		'poll' => ($poll !== '' && $local($poll)) ? $poll : '',
+		/* optional: a page of this WebUI whose HTML fills a dropdown under the item, fetched when it opens */
+		'panel' => (($raw['panel'] ?? '') !== '' && $local((string)$raw['panel'])) ? (string)$raw['panel'] : '',
 	);
 }
 
@@ -342,12 +344,15 @@ function fs_nav_plugin_html(array $item): string {
 	$e = function ($v) {
 		return htmlspecialchars((string)$v, ENT_QUOTES);
 	};
-	return '<li class="nav-item" id="fs-nav-' . $e($item['id']) . '"' . ($item['hidden'] ? ' hidden' : '') . '>' .
+	$panel = (string)($item['panel'] ?? '');
+	return '<li class="nav-item' . (($panel !== '') ? ' dropdown' : '') . '" id="fs-nav-' . $e($item['id']) . '"' . ($item['hidden'] ? ' hidden' : '') . '>' .
 	    '<a class="nav-link fs-nav-plugin" href="' . $e($item['href']) . '" title="' . $e($item['label']) . '" aria-label="' . $e($item['label']) . '"' .
-	    ($item['poll'] !== '' ? ' data-fs-nav-poll="' . $e($item['poll']) . '"' : '') . ' data-busy="' . ($item['busy'] ? 'true' : 'false') . '">' .
+	    ($item['poll'] !== '' ? ' data-fs-nav-poll="' . $e($item['poll']) . '"' : '') . ' data-busy="' . ($item['busy'] ? 'true' : 'false') . '" data-kind="' . $e($item['kind']) . '"' .
+	    (($panel !== '') ? ' data-fs-nav-panel="' . $e($panel) . '" data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false"' : '') . '>' .
 	    '<i class="fa-solid ' . $e($item['icon']) . '" aria-hidden="true"></i>' .
 	    '<span class="badge fs-nav-badge fs-nav-badge--' . $e($item['kind']) . '"' . ($item['badge'] > 0 ? '' : ' hidden') . '>' . (int)$item['badge'] . '</span>' .
-	    '</a></li>';
+	    '</a>' . (($panel !== '') ? '<div class="dropdown-menu dropdown-menu-end fs-navpanel"><div class="fs-navpanel-body"><p class="fs-navpanel-wait">' .
+	    $e(gettext('Loading...')) . '</p></div></div>' : '') . '</li>';
 }
 
 /* The top-bar items of the installed packages that this user may open. */
