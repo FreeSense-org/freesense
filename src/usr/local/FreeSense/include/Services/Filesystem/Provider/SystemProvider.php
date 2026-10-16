@@ -50,7 +50,7 @@ final class SystemProvider extends AbstractProvider {
 
 			$parent = $this->_getParentFilesystemPath($path);
 
-			$filesystems[$parent]['children'][$path] = &Arrays::getRef($filesystems, $path);
+			$filesystems[$parent ?? '']['children'][$path] = &Arrays::getRef($filesystems, $path);
 
 			if (is_null($parent)) {
 				$roots[$path] = $path;

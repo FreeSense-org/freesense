@@ -2810,7 +2810,7 @@ function get_user_remote_address($print_all=true) {
 	$remote_address = $_SERVER['REMOTE_ADDR'];
 	/* Add extra identifying header information upon request */
 	if ($print_all) {
-		if (!empty($_SERVER['HTTP_CLIENT_IP'] &&
+		if (!empty(($_SERVER['HTTP_CLIENT_IP'] ?? null) &&
 		    is_ipaddr($_SERVER['HTTP_CLIENT_IP']))) {
 			$remote_address .= "[{$_SERVER['HTTP_CLIENT_IP']}]";
 		} elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR']) &&
@@ -4887,7 +4887,7 @@ function array_set_path(array &$arr, string $path, $value, $default = null) {
 
 	// set the leaf node value
 	if ($append) {
-		if (is_array($el[$vkey])) {
+		if (is_array($el[$vkey] ?? null)) {
 			$el[$vkey][] = $value;
 		} else {
 			$el[$vkey] = [$value];
@@ -5880,7 +5880,7 @@ function interfaces_interrupts() {
 	$interrupts = array();
 	if ($rc == 0) {
 		$vnstatarr = json_decode(implode(" ", $rawdata), JSON_OBJECT_AS_ARRAY);
-		$interruptarr = $vnstatarr['interrupt-statistics']['interrupt'];
+		$interruptarr = $vnstatarr['interrupt-statistics']['interrupt'] ?? [];
 
 		foreach ($interruptarr as $int){
 			preg_match("/irq\d+: ([a-z0-9]+)/", $int['name'], $matches);

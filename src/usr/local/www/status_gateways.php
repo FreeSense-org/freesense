@@ -32,7 +32,7 @@
 
 require_once("guiconfig.inc");
 
-if ($_POST['act'] == 'killgw') {
+if (($_POST['act'] ?? null) == 'killgw') {
 	if (!empty($_POST['gwname'])) {
 		mwexec("/sbin/pfctl -k label -k " . escapeshellarg(make_rule_label_string($_POST['gwname'], RULE_LABEL_KEY_GATEWAY, false)));
 	} elseif (!empty($_POST['gwip']) && is_ipaddr($_POST['gwip'])) {

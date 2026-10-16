@@ -39,7 +39,7 @@ exec("/sbin/pfctl -sT", $tables);
 // Set default table
 $tablename = "sshguard";
 
-if ($_REQUEST['type'] && in_array($_REQUEST['type'], $tables)) {
+if (!empty($_REQUEST['type']) && in_array($_REQUEST['type'], $tables)) {
 	$tablename = $_REQUEST['type'];
 } else {
 	/* Invalid 'type' passed, do not take any actions that use the 'type' field. */
@@ -61,13 +61,13 @@ foreach (config_get_path('aliases/alias', []) as $alias) {
 # Determine if selected alias is either a bogons or URL table.
 if (($tablename == "bogons") || ($tablename == "bogonsv6")) {
 	$bogons = true;
-} else if (preg_match('/urltable/i', $tmp['type'])) {
+} else if (preg_match('/urltable/i', $tmp['type'] ?? '')) {
 	$urltable = true;
 } else {
 	$bogons = $urltable = false;
 }
 
-if ($_REQUEST['delete']) {
+if (!empty($_REQUEST['delete'])) {
 	if (is_ipaddr($_REQUEST['delete']) || is_subnet($_REQUEST['delete'])) {
 		exec("/sbin/pfctl -t " . escapeshellarg($_REQUEST['type']) . " -T delete " . escapeshellarg($_REQUEST['delete']), $delete);
 		echo htmlentities($_REQUEST['delete']);
@@ -75,11 +75,11 @@ if ($_REQUEST['delete']) {
 	exit;
 }
 
-if ($_POST['clearall']) {
+if (!empty($_POST['clearall'])) {
 	exec("/sbin/pfctl -t " . escapeshellarg($tablename) . " -T flush");
 }
 
-if ($_POST['Download'] && ($bogons || $urltable)) {
+if (!empty($_POST['Download']) && ($bogons || $urltable)) {
 
 	if ($bogons) {				// If selected table is either bogons or bogonsv6.
 		$mwexec_bg_cmd = '/etc/rc.update_bogons.sh now';
@@ -150,7 +150,7 @@ if ($bogons || $urltable) {
 
 include("head.inc");
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 

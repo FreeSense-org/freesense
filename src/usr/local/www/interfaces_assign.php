@@ -133,17 +133,17 @@ if (file_exists("/tmp/reload_interfaces")) {
 	echo "<p>\n";
 	print_apply_box(gettext("The interface configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));
 	echo "<br /></p>\n";
-} elseif ($applymsg) {
+} elseif (!empty($applymsg)) {
 	print_apply_box($applymsg);
-} elseif ($action_msg) {
+} elseif (!empty($action_msg)) {
 	print_info_box($action_msg, $class);
-} elseif ($changes_applied) {
+} elseif (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 
 FreeSense_handle_custom_code("/usr/local/pkg/interfaces_assign/pre_input_errors");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
@@ -184,7 +184,7 @@ $type_labels = ['dhcp' => 'DHCP', 'pppoe' => 'PPPoE', 'pptp' => 'PPTP', 'l2tp' =
 			<tbody>
 <?php
 	foreach (config_get_path('interfaces', []) as $ifname => $iface):
-		$ifdescr = $iface['descr'] ? $iface['descr'] : strtoupper($ifname);
+		$ifdescr = !empty($iface['descr']) ? $iface['descr'] : strtoupper($ifname);
 		$addrs = [];
 		foreach ([['ipaddr', 'subnet'], ['ipaddrv6', 'subnetv6']] as $af) {
 			$addr = $iface[$af[0]] ?? '';

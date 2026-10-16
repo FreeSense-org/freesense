@@ -129,7 +129,8 @@ function print_states($tracker_start, $tracker_end = -1) {
 
 filter_rules_sort();
 
-if ($_REQUEST['if']) {
+$if = null;
+if (!empty($_REQUEST['if'])) {
 	$if = $_REQUEST['if'];
 }
 
@@ -147,18 +148,18 @@ if (!$if || !isset($iflist[$if])) {
 	}
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$retval = applyFilterRules();
 }
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? null) == "del") {
 	if (deleteFilterRule($_POST['id'], $if)) {
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
 }
 
-if (($_POST['act'] == 'killid') &&
+if ((($_POST['act'] ?? null) == 'killid') &&
     (!empty($_POST['tracker'])) &&
     (!empty($if))) {
 	mwexec("/sbin/pfctl -k label -k " . escapeshellarg(make_rule_label_string($_POST['tracker'], RULE_LABEL_KEY_IDENTIFIER, false)));
@@ -167,7 +168,8 @@ if (($_POST['act'] == 'killid') &&
 }
 
 // Handle save msg if defined
-if ($_REQUEST['savemsg']) {
+$savemsg = null;
+if (!empty($_REQUEST['savemsg'])) {
 	$savemsg = htmlentities($_REQUEST['savemsg']);
 }
 
@@ -185,12 +187,12 @@ if (isset($_POST['del_x'])) {
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
-} else if ($_POST['act'] == "toggle") {
+} else if (($_POST['act'] ?? null) == "toggle") {
 	if (toggleFilterRule($_POST['id']) !== false) {
 		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
 		exit;
 	}
-} else if ($_POST['order-store']) {
+} else if (!empty($_POST['order-store'])) {
 	reorderFilterRules($_POST['rule'], $_POST['separator'], $if);
 
 	header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
@@ -267,7 +269,7 @@ if ($savemsg) {
 	print_info_box($savemsg, 'success');
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 

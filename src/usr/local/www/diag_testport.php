@@ -47,7 +47,7 @@ define('NC_TIMEOUT', 10);
 $do_testport = false;
 $retval = 1;
 
-if ($_POST || $_REQUEST['host']) {
+if ($_POST || ($_REQUEST['host'] ?? null)) {
 	unset($input_errors);
 
 	/* input validation */
@@ -178,7 +178,7 @@ if ($_POST || $_REQUEST['host']) {
 	}
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
@@ -192,16 +192,16 @@ $sources = ['' => gettext('Any')] + get_possible_traffic_source_addresses(true);
 			<div class="panel-body">
 				<div>
 					<label class="form-label" for="host"><?=gettext('Hostname or IP address')?></label>
-					<input class="form-control fs-mono" type="text" id="host" name="host" value="<?=htmlspecialchars($host)?>" placeholder="<?=gettext('Host to connect to')?>" required autofocus>
+					<input class="form-control fs-mono" type="text" id="host" name="host" value="<?=htmlspecialchars($host ?? '')?>" placeholder="<?=gettext('Host to connect to')?>" required autofocus>
 				</div>
 				<div class="fs-tool-row">
 					<div>
 						<label class="form-label" for="port"><?=gettext('Port')?></label>
-						<input class="form-control fs-mono" type="text" inputmode="numeric" id="port" name="port" value="<?=htmlspecialchars($port)?>" placeholder="443" required>
+						<input class="form-control fs-mono" type="text" inputmode="numeric" id="port" name="port" value="<?=htmlspecialchars($port ?? '')?>" placeholder="443" required>
 					</div>
 					<div>
 						<label class="form-label" for="srcport"><?=gettext('Source port')?></label>
-						<input class="form-control fs-mono" type="text" inputmode="numeric" id="srcport" name="srcport" value="<?=htmlspecialchars($srcport)?>" placeholder="<?=gettext('Any')?>">
+						<input class="form-control fs-mono" type="text" inputmode="numeric" id="srcport" name="srcport" value="<?=htmlspecialchars($srcport ?? '')?>" placeholder="<?=gettext('Any')?>">
 					</div>
 				</div>
 				<div class="fs-tool-row">
@@ -209,7 +209,7 @@ $sources = ['' => gettext('Any')] + get_possible_traffic_source_addresses(true);
 						<label class="form-label" for="ipprotocol"><?=gettext('IP protocol')?></label>
 						<select class="form-select" id="ipprotocol" name="ipprotocol">
 <?php foreach (['ipv4' => 'IPv4', 'ipv6' => 'IPv6'] as $k => $v): ?>
-							<option value="<?=$k?>"<?=($ipprotocol == $k) ? ' selected' : ''?>><?=$v?></option>
+							<option value="<?=$k?>"<?=(($ipprotocol ?? null) == $k) ? ' selected' : ''?>><?=$v?></option>
 <?php endforeach; ?>
 						</select>
 					</div>
@@ -217,14 +217,14 @@ $sources = ['' => gettext('Any')] + get_possible_traffic_source_addresses(true);
 						<label class="form-label" for="sourceip"><?=gettext('Source address')?></label>
 						<select class="form-select" id="sourceip" name="sourceip">
 <?php foreach ($sources as $k => $v): ?>
-							<option value="<?=htmlspecialchars($k)?>"<?=((string)$sourceip === (string)$k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
+							<option value="<?=htmlspecialchars($k)?>"<?=((string)($sourceip ?? null) === (string)$k) ? ' selected' : ''?>><?=htmlspecialchars($v)?></option>
 <?php endforeach; ?>
 						</select>
 					</div>
 				</div>
 				<div>
 					<div class="form-check">
-						<input class="form-check-input" type="checkbox" id="showtext" name="showtext" value="yes"<?=$showtext ? ' checked' : ''?>>
+						<input class="form-check-input" type="checkbox" id="showtext" name="showtext" value="yes"<?=!empty($showtext) ? ' checked' : ''?>>
 						<label class="form-check-label" for="showtext"><?=gettext('Show remote text')?></label>
 					</div>
 					<div class="form-text"><?=gettext('Shows what the server sends after connecting. Takes 10 seconds or more.')?></div>

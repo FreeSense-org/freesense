@@ -49,7 +49,7 @@ $ttl = DIAG_TRACEROUTE_DEFAULT_TTL;
 $ipproto = 'ipv4';
 $sourceip = 'any';
 
-if ($_POST || $_REQUEST['host']) {
+if ($_POST || ($_REQUEST['host'] ?? null)) {
 	unset($input_errors);
 
 	/* input validation */
@@ -72,7 +72,7 @@ if ($_POST || $_REQUEST['host']) {
 	$useicmp = false;
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 

@@ -38,7 +38,7 @@ require_once("interfaces.inc");
 require_once("freesense-utils.inc");
 require_once("util.inc");
 
-if ($_POST['ifdescr'] && $_POST['submit']) {
+if (!empty($_POST['ifdescr']) && !empty($_POST['submit'])) {
 	$interface = $_POST['ifdescr'];
 	if ($_POST['status'] == "up") {
 		if ($_POST['relinquish_lease']) {
@@ -180,7 +180,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 	foreach ($actions as $a) {
 		$facts[] = [$a['type'], $a['state'], false, null];
 	}
-	if ($ifinfo['ppp_uptime'] || $ifinfo['ppp_uptime_accumulated']) {
+	if (!empty($ifinfo['ppp_uptime']) || !empty($ifinfo['ppp_uptime_accumulated'])) {
 		$facts[] = [$ifinfo['ppp_uptime_accumulated'] ? gettext('Uptime (historical)') : gettext('Uptime'),
 		    $ifinfo['ppp_uptime'] . $ifinfo['ppp_uptime_accumulated'], false, null];
 	}
@@ -189,14 +189,14 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 	    'cell_service' => gettext("Cell service"), 'cell_bwupstream' => gettext("Cell upstream"), 'cell_bwdownstream' => gettext("Cell downstream"),
 	    'cell_upstream' => gettext("Cell current up"), 'cell_downstream' => gettext("Cell current down"),
 	] as $key => $label) {
-		if ($ifinfo[$key]) {
+		if (!empty($ifinfo[$key])) {
 			$facts[] = [$label, $ifinfo[$key], false, null];
 		}
 	}
 
 	$traffic = [];
 	if ($ifinfo['status'] != "down") {
-		if ($ifinfo['dhcplink'] != "down" && $ifinfo['pppoelink'] != "down" && $ifinfo['pptplink'] != "down") {
+		if (($ifinfo['dhcplink'] ?? null) != "down" && ($ifinfo['pppoelink'] ?? null) != "down" && ($ifinfo['pptplink'] ?? null) != "down") {
 			if ($ifinfo['ipaddr']) {
 				$prefix = $ifinfo['subnet'];
 				if (is_ipaddrv4($prefix)) {
@@ -204,7 +204,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 				}
 				$facts[] = [gettext('IPv4 address'), $ifinfo['ipaddr'] . ($prefix ? '/' . $prefix : ''), true, null];
 			}
-			if ($ifinfo['gateway']) {
+			if (!empty($ifinfo['gateway'])) {
 				$facts[] = [gettext('IPv4 gateway'), $ifinfo['gateway'], true, null];
 			}
 			if ($ifinfo['ipaddrv6']) {
@@ -213,7 +213,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 			if ($ifinfo['linklocal']) {
 				$facts[] = [gettext('IPv6 link-local'), $ifinfo['linklocal'], true, null];
 			}
-			if ($ifinfo['gatewayv6']) {
+			if (!empty($ifinfo['gatewayv6'])) {
 				$facts[] = [gettext("IPv6 gateway"), trim(($if_config[$ifdescr]['gatewayv6'] ?? '') . " " . $ifinfo['gatewayv6']), true, null];
 			}
 			$dns_servers = get_dynamic_nameservers($ifdescr);
@@ -227,16 +227,16 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 		    'vendor' => [gettext("Vendor"), false], 'temperature' => [gettext("Temperature"), false], 'voltage' => [gettext("Voltage"), false],
 		    'rx' => [gettext("RX"), false], 'tx' => [gettext("TX"), false], 'laggproto' => [gettext("LAGG protocol"), false],
 		] as $key => list($label, $mono)) {
-			if ($ifinfo[$key]) {
+			if (!empty($ifinfo[$key])) {
 				$facts[] = [$label, $ifinfo[$key], $mono, null];
 			}
 		}
-		if ($ifinfo['laggport']) {
+		if (!empty($ifinfo['laggport'])) {
 			$facts[] = [gettext("LAGG ports"), implode(', ', (array)get_lagg_ports($ifinfo['laggport'])), true, null];
 		}
 		foreach (['channel' => gettext("Channel"), 'ssid' => gettext("SSID"), 'bssid' => gettext("BSSID"),
 		    'rate' => gettext("Rate"), 'rssi' => gettext("RSSI")] as $key => $label) {
-			if ($ifinfo[$key]) {
+			if (!empty($ifinfo[$key])) {
 				$facts[] = [$label, $ifinfo[$key], ($key == 'bssid'), null];
 			}
 		}
@@ -255,7 +255,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 		}
 	}
 
-	if ($ifinfo['bridge']) {
+	if (!empty($ifinfo['bridge'])) {
 		$facts[] = [sprintf(gettext('Bridge (%1$s)'), $ifinfo['bridgeint']), $ifinfo['bridge'], true, null];
 	}
 	if (is_array($ifinterrupts[$ifinfo['hwif']] ?? null) && $ifinterrupts[$ifinfo['hwif']]['total']) {

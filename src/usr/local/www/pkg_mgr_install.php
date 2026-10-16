@@ -88,7 +88,7 @@ if (!empty($_REQUEST['pkg']) && pkg_mgr_install_name_ok($_REQUEST['pkg'])) {
 $pkgname_vital = is_vital_system_default_package($pkgname);
 $pkgname_vital_message = gettext("This package is vital to system operation and cannot be removed.");
 
-if ($_REQUEST['ajax']) {
+if (!empty($_REQUEST['ajax'])) {
 	/* The polls get JSON, never a page the browser would render. */
 	header('Content-Type: application/json');
 	$response = "";
@@ -185,7 +185,7 @@ if (!empty($_REQUEST['mode'])) {
 // After a successful installation/removal/update the page is reloaded so that any menu changes show up
 // immediately. These values passed as POST arguments tell the page the state it was in before the reload.
 $confirmed = isset($_POST['confirmed']) && $_POST['confirmed'] == 'true';
-if ($input_errors) {
+if (!empty($input_errors)) {
 	$confirmed = false;
 }
 $completed = isset($_POST['completed']) && $_POST['completed'] == 'true';

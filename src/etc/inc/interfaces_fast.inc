@@ -133,7 +133,7 @@ function get_real_interface_fast($interfaces = array(), $family = "all", $realv6
 						case 'ppp':
 						case 'l2tp':
 						case 'pptp':
-							if (is_array($cfg['wireless']) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
+							if (is_array($cfg['wireless'] ?? null) || preg_match(g_get('wireless_regex'), $cfg['if'])) {
 								$wanif = interface_get_wireless_clone($cfg['if']);
 							} else {
 								$wanif = $cfg['if'];
@@ -216,7 +216,7 @@ function interface_assign_description_fast($portlist, $friendlyifnames) {
 	$out = array();
 	$gettext = gettext('on');
 	foreach($portlist as $portname => $portinfo) {
-		if ($portinfo['isvlan']) {
+		if (!empty($portinfo['isvlan'])) {
 			$descr = sprintf('VLAN %1$s '.$gettext.' %2$s', $portinfo['tag'], $portinfo['if']);
 			$iface = $friendlyifnames[$portinfo['if']];
 			if (isset($iface) && strlen($iface) > 0) {
@@ -225,29 +225,29 @@ function interface_assign_description_fast($portlist, $friendlyifnames) {
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['iswlclone']) {
+		} elseif (!empty($portinfo['iswlclone'])) {
 			$descr = $portinfo['cloneif'];
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['isppp']) {
+		} elseif (!empty($portinfo['isppp'])) {
 			$descr = $portinfo['descr'];
-		} elseif ($portinfo['isbridge']) {
+		} elseif (!empty($portinfo['isbridge'])) {
 			$descr = strtoupper($portinfo['bridgeif']);
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['isgre']) {
+		} elseif (!empty($portinfo['isgre'])) {
 			$descr = "GRE {$portinfo['remote-addr']}";
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['isgif']) {
+		} elseif (!empty($portinfo['isgif'])) {
 			$descr = "GIF {$portinfo['remote-addr']}";
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['isvxlan']) {
+		} elseif (!empty($portinfo['isvxlan'])) {
 			$peer = ($portinfo['mode'] == 'multicast') ? $portinfo['mcastgroup'] : $portinfo['remote-addr'];
 			/* the parent is a friendly name or a VIP, not a real interface */
 			$descr = sprintf('VXLAN %1$s %2$s '.$gettext.' %3$s', $portinfo['vni'], $peer,
@@ -255,12 +255,12 @@ function interface_assign_description_fast($portlist, $friendlyifnames) {
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['islagg']) {
+		} elseif (!empty($portinfo['islagg'])) {
 			$descr = strtoupper($portinfo['laggif']);
 			if ($portinfo['descr']) {
 				$descr .= " (" . $portinfo['descr'] . ")";
 			}
-		} elseif ($portinfo['isqinq']) {
+		} elseif (!empty($portinfo['isqinq'])) {
 			$descr = $portinfo['descr'];
 		} elseif (substr($portname, 0, 4) == 'ovpn') {
 			$descr = $portname . " (" . $ovpn_descrs[substr($portname, 5)] . ")";

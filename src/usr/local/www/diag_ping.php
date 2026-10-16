@@ -47,7 +47,7 @@ $wait = DIAG_PING_DEFAULT_WAIT;
 $ipproto = 'ipv4';
 $sourceip = '';
 
-if ($_POST || $_REQUEST['host']) {
+if ($_POST || !empty($_REQUEST['host'])) {
 	unset($input_errors);
 	unset($do_ping);
 
@@ -81,7 +81,7 @@ if ($do_ping) {
 
 include('head.inc');
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 

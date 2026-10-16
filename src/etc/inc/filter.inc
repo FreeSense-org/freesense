@@ -6386,7 +6386,7 @@ function filter_get_interface_list($open = false) {
 	foreach ($iflist as $ifent => $ifname) {
 		$realifname = get_real_interface($ifent);
 		foreach ($filter_interface_remove as $ifr) {
-			if (substr($realifname, 0, strlen($ifr)) == $ifr) {
+			if (substr((string)$realifname, 0, strlen($ifr)) == $ifr) {
 				continue 2;
 			}
 		}

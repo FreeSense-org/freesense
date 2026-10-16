@@ -46,7 +46,7 @@ require_once("backup.inc");
 $rrddbpath = "/var/db/rrd";
 $rrdtool = "/usr/bin/nice -n20 /usr/local/bin/rrdtool";
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	ob_flush();
 	flush();
 	clear_subsystem_dirty("restore");
@@ -234,11 +234,11 @@ include("head.inc");
 
 fs_tabs('diagnostics-backup', 'diag_backup.php');
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 

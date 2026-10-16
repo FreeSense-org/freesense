@@ -91,11 +91,11 @@ $gateway_settings6 = [];
 
 $changes_applied = false;
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	unset($input_errors);
 	$retval = interfaces_edit_apply($input_errors);
 	$changes_applied = ($retval !== null);
-} elseif ($_POST['save']) {
+} elseif (!empty($_POST['save'])) {
 	unset($input_errors);
 	if (interfaces_edit_save($if, $_POST, $input_errors, $ctx)) {
 		header("Location: interfaces.php?if={$if}");
@@ -123,7 +123,7 @@ $defgatewayname6 = array_get_path($wancfg, 'descr') . "GWv6";
 
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
@@ -652,7 +652,7 @@ $group->add(new Form_Input(
 	'pppoe_resethour',
 	null,
 	'number',
-	(strlen(array_get_path($pconfig, 'pppoe_resethour')) > 0) ? array_get_path($pconfig, 'pppoe_resethour'): "0",
+	(strlen(array_get_path($pconfig, 'pppoe_resethour') ?? '') > 0) ? array_get_path($pconfig, 'pppoe_resethour'): "0",
 	['min' => 0, 'max' => 23]
 ))->setHelp('Hour (0-23), blank for * (every)');
 
@@ -660,7 +660,7 @@ $group->add(new Form_Input(
 	'pppoe_resetminute',
 	null,
 	'number',
-	(strlen(array_get_path($pconfig, 'pppoe_resetminute')) > 0) ? array_get_path($pconfig, 'pppoe_resetminute') : "0",
+	(strlen(array_get_path($pconfig, 'pppoe_resetminute') ?? '') > 0) ? array_get_path($pconfig, 'pppoe_resetminute') : "0",
 	['min' => 0, 'max' => 59]
 ))->setHelp('Minute (0-59), blank for * (every)');
 
@@ -756,14 +756,14 @@ $section->add($group);
 $section->addInput(new Form_IpAddress(
 	'pptp_local0',
 	'*Local IP address',
-	$_POST['pptp_local0'] ? $_POST['pptp_local0'] : array_get_path($pconfig, 'pptp_localip/0', []),
+	!empty($_POST['pptp_local0']) ? $_POST['pptp_local0'] : array_get_path($pconfig, 'pptp_localip/0', []),
 	'V4'
-))->addMask('pptp_subnet0', $_POST['pptp_subnet0'] ? $_POST['pptp_subnet0'] : array_get_path($pconfig, 'pptp_subnet/0', []));
+))->addMask('pptp_subnet0', !empty($_POST['pptp_subnet0']) ? $_POST['pptp_subnet0'] : array_get_path($pconfig, 'pptp_subnet/0', []));
 
 $section->addInput(new Form_IpAddress(
 	'pptp_remote0',
 	'*Remote IP address',
-	$_POST['pptp_remote0'] ? $_POST['pptp_remote0'] : array_get_path($pconfig, 'pptp_remote/0', []),
+	!empty($_POST['pptp_remote0']) ? $_POST['pptp_remote0'] : array_get_path($pconfig, 'pptp_remote/0', []),
 	'HOSTV4'
 ));
 
@@ -2094,7 +2094,7 @@ events.push(function() {
 		// timeout, retry, select-timeout, reboot, backoff-cutoff, initial-interval
 		if (val == "DHCP")		setPresetsnow("60", "300", "0", "10", "120", "10");
 		if (val == "FreeSense")	setPresetsnow("60", "15", "0", "", "", "1");
-		if (val == "SavedCfg")	setPresetsnow("<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_timeout'));?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_retry'));?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_select_timeout'));?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_reboot'));?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_backoff_cutoff'));?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_initial_interval'));?>");
+		if (val == "SavedCfg")	setPresetsnow("<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_timeout') ?? '');?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_retry') ?? '');?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_select_timeout') ?? '');?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_reboot') ?? '');?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_backoff_cutoff') ?? '');?>", "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_initial_interval') ?? '');?>");
 		if (val == "Clear")		setPresetsnow("", "", "", "", "", "");
 	}
 
@@ -2281,7 +2281,7 @@ events.push(function() {
 	updatewifimode($('#mode').val());
 
 	// Set preset buttons on page load
-	var sv = "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_values'));?>";
+	var sv = "<?=htmlspecialchars(array_get_path($pconfig, 'adv_dhcp_pt_values') ?? '');?>";
 	if (sv == "") {
 		$("input[name=adv_dhcp_pt_values][value='SavedCfg']").prop('checked', true);
 	} else {

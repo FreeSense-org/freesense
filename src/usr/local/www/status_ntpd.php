@@ -91,7 +91,7 @@ if ($allow_query && (config_get_path('ntpd/enable') != 'disabled')) {
 		$server['offset'] = $peerinfo[8];
 		$server['jitter'] = $peerinfo[9];
 
-		$server['ind'] = $ntpq_server_responses[$i]['ind'];
+		$server['ind'] = $ntpq_server_responses[$i]['ind'] ?? null;
 		$server['assid'] = $ntpq_server_responses[$i]['assid'];
 		$server['status_word'] = $ntpq_server_responses[$i]['status_word'];
 		$server['conf'] = $ntpq_server_responses[$i]['conf'];
@@ -206,7 +206,7 @@ global $gps_goo_lnk;
 $gps_goo_lnk = 1;
 
 // GPS satellite information (if available)
-if (($gps_ok) && ($gps_lat) && ($gps_lon)) {
+if ((!empty($gps_ok)) && ($gps_lat) && ($gps_lon)) {
 	$gps_goo_lnk = 2;
 	$showgps = 1;
 }
@@ -232,7 +232,7 @@ if (isset($gps_ok) && config_path_enabled('ntpd/gps','extstatus')) {
 }
 
 // Responding to an AJAX call, we return the GPS data or the status data depending on $_REQUEST['dogps']
-if ($_REQUEST['ajax']) {
+if (!empty($_REQUEST['ajax'])) {
 
 	if ($_REQUEST['dogps'] == "yes") {
 		print_gps();
@@ -442,7 +442,7 @@ $ntp_stratum = ($ntp_active !== null && is_numeric($ntp_active['stratum'])) ? (i
 <?php
 
 // GPS satellite information (if available)
-if (($gps_ok) && ($gps_lat) && ($gps_lon)):
+if ((!empty($gps_ok)) && ($gps_lat) && ($gps_lon)):
 	$gps_goo_lnk = 2;
 	$showgps = 1;
 ?>

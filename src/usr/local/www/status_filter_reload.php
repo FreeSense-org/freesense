@@ -40,16 +40,16 @@ if (file_exists("{$g['varrun_path']}/filter_reload_status")) {
 	$status = file_get_contents("{$g['varrun_path']}/filter_reload_status");
 }
 
-if ($_REQUEST['getstatus']) {
+if (!empty($_REQUEST['getstatus'])) {
 	echo "|" . htmlspecialchars($status) . "|";
 	exit;
 }
-if ($_POST['reloadfilter']) {
+if (!empty($_POST['reloadfilter'])) {
 	send_event("filter reload");
 	header("Location: status_filter_reload.php");
 	exit;
 }
-if ($_POST['syncfilter']) {
+if (!empty($_POST['syncfilter'])) {
 	send_event("filter sync");
 	header("Location: status_filter_reload.php");
 	exit;

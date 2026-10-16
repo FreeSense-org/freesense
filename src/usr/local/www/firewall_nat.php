@@ -46,7 +46,7 @@ $rdr_srctype_flags = [SPECIALNET_ANY, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPE
 $rdr_dsttype_flags = [SPECIALNET_ANY, SPECIALNET_SELF, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPECIALNET_IFNET, SPECIALNET_VIPS];
 
 // Process $_POST/$_REQUEST =======================================================================
-if ($_REQUEST['savemsg']) {
+if (!empty($_REQUEST['savemsg'])) {
 	$savemsg = $_REQUEST['savemsg'];
 }
 
@@ -54,9 +54,9 @@ if ($_REQUEST['savemsg']) {
 // edit access to the interface of every one of them. Actions without a rule
 // (apply) check the page-level access as before (empty interface).
 $nat_target_ids = [];
-if (is_array($_POST['rule'])) {
+if (is_array($_POST['rule'] ?? null)) {
 	$nat_target_ids = $_POST['rule'];
-} elseif (is_numericint($_POST['id'])) {
+} elseif (is_numericint($_POST['id'] ?? null)) {
 	$nat_target_ids = [$_POST['id']];
 }
 $nat_access = empty($nat_target_ids) ? have_natpfruleint_access('') : true;
@@ -71,13 +71,13 @@ unset($natent);
 
 if (array_key_exists('order-store', $_REQUEST) && $nat_access) {
 	reorderNATrules($_POST);
-} else if ($_POST['apply'] && $nat_access) {
+} else if (!empty($_POST['apply']) && $nat_access) {
 	$retval = applyNATrules();
-} else if (($_POST['act'] == "del" || isset($_POST['del_x'])) && $nat_access) {
+} else if ((($_POST['act'] ?? null) == "del" || isset($_POST['del_x'])) && $nat_access) {
 	if ((is_numericint($_POST['id']) && config_get_path("nat/rule/{$_POST['id']}")) || (is_array($_POST['rule']) && count($_POST['rule']))) {
 		deleteNATrule($_POST);
 	}
-} elseif (($_POST['act'] == "toggle" || isset($_POST['toggle_x'])) && $nat_access) {
+} elseif ((($_POST['act'] ?? null) == "toggle" || isset($_POST['toggle_x'])) && $nat_access) {
 	if ((is_numericint($_POST['id']) && config_get_path("nat/rule/{$_POST['id']}")) || (is_array($_POST['rule']) && count($_POST['rule']))) {
 		toggleNATrule($_POST);
 	}
@@ -92,7 +92,7 @@ if (isAllowedPage('firewall_nat_edit.php')) {
 }
 include("head.inc");
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 
@@ -186,7 +186,7 @@ $system_aliases_hosts = get_reserved_table_names('', 'host,network,url,urltable'
 foreach (get_anynat_rules_list('rdr') as $natent):
 
 	// Display separator(s) for section beginning at rule n
-	if ($seprows[$nnats]) {
+	if (!empty($seprows[$nnats])) {
 		display_separator($separators, $nnats, $columns_in_table);
 	}
 
@@ -373,7 +373,7 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 endforeach;
 
 // There can be separator(s) after the last rule listed.
-if ($seprows[$nnats]) {
+if (!empty($seprows[$nnats])) {
 	display_separator($separators, $nnats, $columns_in_table);
 }
 ?>
@@ -387,7 +387,7 @@ if ($seprows[$nnats]) {
 <script type="text/javascript">
 //<![CDATA[
 //Need to create some variables here so that jquery/FreeSenseHelpers.js can read them
-iface = "<?=strtolower($if)?>";
+iface = "<?=strtolower($if ?? '')?>";
 cncltxt = '<?=gettext("Cancel")?>';
 svtxt = '<?=gettext("Save")?>';
 svbtnplaceholder = '<?=gettext("Enter a description, Save, then drag to final location.")?>';

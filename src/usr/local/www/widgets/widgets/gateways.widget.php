@@ -38,7 +38,7 @@ require_once("/usr/local/www/widgets/include/gateways.inc");
  * the Dashboard includes the widget. During other types of requests, such as
  * saving settings or AJAX, the value may be set via $_POST or similar.
  */
-if ($_POST['widgetkey'] || $_GET['widgetkey']) {
+if (!empty($_POST['widgetkey']) || !empty($_GET['widgetkey'])) {
 	$rwidgetkey = isset($_POST['widgetkey']) ? $_POST['widgetkey'] : (isset($_GET['widgetkey']) ? $_GET['widgetkey'] : null);
 	if (is_valid_widgetkey($rwidgetkey, $user_settings, __FILE__)) {
 		$widgetkey = $rwidgetkey;
@@ -68,9 +68,10 @@ if (!function_exists('compose_table_body_contents')) {
 			$display_type = "gw_ip";
 		}
 
-		$hiddengateways = explode(",", $user_settings["widgets"][$widgetkey]["gatewaysfilter"]);
+		$hiddengateways = explode(",", $user_settings["widgets"][$widgetkey]["gatewaysfilter"] ?? '');
 		$gw_found = false;
 		$gw_displayed = false;
+		$counter = null;
 
 		foreach (get_gateways() as $gname => $gateway) {
 			$gw_found = true;
@@ -194,7 +195,7 @@ if ($_REQUEST && $_REQUEST['ajax']) {
 	exit;
 }
 
-if ($_POST['widgetkey']) {
+if (!empty($_POST['widgetkey'])) {
 	set_customwidgettitle($user_settings);
 
 	if (!is_array($user_settings["widgets"][$_POST['widgetkey']])) {

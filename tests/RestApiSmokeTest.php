@@ -3153,7 +3153,7 @@ check_api(strpos($admin_post_fn, "(\$post[\$field] != '') && (!is_numericint(\$p
     strpos($admin_post_fn, "foreach (explode(' ', (string)\$post['sshguard_whitelist']) as \$whitelist_address) {") < strpos($admin_post_fn, '} else {'),
     '[fix] login protection numbers are checked (sshguard.conf is read by a shell); the JSON pass list is checked like the rows');
 $admin_page = file_get_contents("{$root}/src/usr/local/www/system_advanced_admin.php");
-check_api(strpos($admin_page, '$rv = doAdvancedAdminPOST($_POST);') !== false && strpos($admin_page, "if (\$restart_webgui) {\n\trestart_GUI();") !== false,
+check_api(strpos($admin_page, '$rv = doAdvancedAdminPOST($_POST);') !== false && strpos($admin_page, "if (!empty(\$restart_webgui)) {\n\trestart_GUI();") !== false,
     'the Admin Access page saves and restarts as before');
 
 /* The pages are thin wrappers */

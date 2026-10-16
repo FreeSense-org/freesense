@@ -53,7 +53,7 @@ function find_ipalias($carpif) {
 
 $status = get_carp_status();
 
-if ($_POST['carp_maintenancemode'] != "") {
+if (($_POST['carp_maintenancemode'] ?? '') != "") {
 	if (!config_path_enabled('', 'virtualip_carp_maintenancemode')) {
 		if ($_POST['carp_maintenancemode'] == "disable"){
 			$errmsg = gettext("Persistent CARP Maintenance Mode is already disabled.");
@@ -80,7 +80,7 @@ if ($_POST['carp_maintenancemode'] != "") {
 	}
 }
 
-if ($_POST['disablecarp'] != "") {
+if (($_POST['disablecarp'] ?? '') != "") {
 	$viparr = config_get_path('virtualip/vip', []);
 	if ($status != 0) {
 		if ($_POST['disablecarp'] == "enable"){
@@ -175,9 +175,9 @@ if ($carpcount > 0) {
 }
 
 include("head.inc");
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
-} else if ($errmsg) {
+} else if (!empty($errmsg)) {
 	print_info_box($errmsg);
 }
 

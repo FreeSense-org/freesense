@@ -319,7 +319,7 @@ function openvpn_build_cert_list($include_none = false, $prioritize_server_certs
 		}
 		$properties = array();
 		$propstr = "";
-		$ca = lookup_ca($cert['caref']);
+		$ca = lookup_ca($cert['caref'] ?? null);
 		$ca = $ca['item'];
 		$purpose = cert_get_purpose($cert['crt'], true);
 

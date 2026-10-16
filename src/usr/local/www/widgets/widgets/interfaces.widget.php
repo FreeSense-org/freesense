@@ -34,7 +34,7 @@ require_once("/usr/local/www/widgets/include/interfaces.inc");
  * the Dashboard includes the widget. During other types of requests, such as
  * saving settings or AJAX, the value may be set via $_POST or similar.
  */
-if ($_POST['widgetkey'] || $_GET['widgetkey']) {
+if (!empty($_POST['widgetkey']) || !empty($_GET['widgetkey'])) {
 	$rwidgetkey = isset($_POST['widgetkey']) ? $_POST['widgetkey'] : (isset($_GET['widgetkey']) ? $_GET['widgetkey'] : null);
 	if (is_valid_widgetkey($rwidgetkey, $user_settings, __FILE__)) {
 		$widgetkey = $rwidgetkey;
@@ -48,7 +48,7 @@ $ifdescrs = get_configured_interface_with_descr();
 // Update once per minute by default, instead of every 10 seconds
 $widgetperiod = config_get_path('widgets/period', 10) * 1000 * 6;
 
-if ($_POST['widgetkey'] && !$_REQUEST['ajax']) {
+if (!empty($_POST['widgetkey']) && empty($_REQUEST['ajax'])) {
 	set_customwidgettitle($user_settings);
 
 	$validNames = array();
@@ -74,7 +74,7 @@ if ($_POST['widgetkey'] && !$_REQUEST['ajax']) {
 		<tbody>
 
 <?php
-$skipinterfaces = explode(",", $user_settings['widgets'][$widgetkey]['iffilter']);
+$skipinterfaces = explode(",", $user_settings['widgets'][$widgetkey]['iffilter'] ?? '');
 $widgetkey_nodash = str_replace("-", "", $widgetkey);
 $interface_is_displayed = false;
 
@@ -85,10 +85,10 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 
 	$interface_is_displayed = true;
 	$ifinfo = get_interface_info($ifdescr);
-	if ($ifinfo['pppoelink'] || $ifinfo['pptplink'] || $ifinfo['l2tplink']) {
+	if (!empty($ifinfo['pppoelink']) || !empty($ifinfo['pptplink']) || !empty($ifinfo['l2tplink'])) {
 		/* PPP link (non-cell) - looks like a modem */
 		$typeicon = 'fa-regular fa-hard-drive';
-	} else if ($ifinfo['ppplink']) {
+	} else if (!empty($ifinfo['ppplink'])) {
 		/* PPP Link (usually cellular) */
 		$typeicon = 'fa-solid fa-signal';
 	} else if (is_interface_wireless($ifdescr)) {
@@ -129,7 +129,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 			<?php endif; ?>
 		</td>
 		<td>
-			<?php if ($ifinfo['pppoelink'] == "up" || $ifinfo['pptplink'] == "up" || $ifinfo['l2tplink'] == "up" || $ifinfo['ppplink'] == "up"):?>
+			<?php if (($ifinfo['pppoelink'] ?? null) == "up" || ($ifinfo['pptplink'] ?? null) == "up" || ($ifinfo['l2tplink'] ?? null) == "up" || ($ifinfo['ppplink'] ?? null) == "up"):?>
 				<?=sprintf(gettext("Uptime: %s"), htmlspecialchars($ifinfo['ppp_uptime']));?>
 			<?php elseif (isset($ifinfo['laggproto'])):?>
 				<?=sprintf(gettext("LAGG Ports: %s"), htmlspecialchars(get_lagg_ports($ifinfo['laggport'])));?>
@@ -138,7 +138,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 			<?php endif; ?>
 		</td>
 
-		<td <?=($ifinfo['dhcplink'] ? ' title="via dhcp"':'')?>>
+		<td <?=(!empty($ifinfo['dhcplink']) ? ' title="via dhcp"':'')?>>
 			<?php if (empty($ifinfo['ipaddr']) && empty($ifinfo['ipaddrv6'])): ?>
 				n/a
 			<?php else: ?>
@@ -148,7 +148,7 @@ foreach ($ifdescrs as $ifdescr => $ifname):
 					print('<br />');
 				}
 ?>
-				<?=htmlspecialchars($ifinfo['ipaddrv6'])?>
+				<?=htmlspecialchars($ifinfo['ipaddrv6'] ?? '')?>
 			<?php endif; ?>
 		</td>
 	</tr>
@@ -186,7 +186,7 @@ endif;
 					</thead>
 					<tbody>
 <?php
-				$skipinterfaces = explode(",", $user_settings['widgets'][$widgetkey]['iffilter']);
+				$skipinterfaces = explode(",", $user_settings['widgets'][$widgetkey]['iffilter'] ?? '');
 				$idx = 0;
 
 				foreach ($ifdescrs as $ifdescr => $ifname):
@@ -215,7 +215,7 @@ endif;
 <?php
 
 /* for AJAX response, we only need the panels */
-if ($_REQUEST['ajax']) {
+if (!empty($_REQUEST['ajax'])) {
 	exit;
 }
 ?>

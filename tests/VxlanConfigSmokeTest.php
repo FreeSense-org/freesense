@@ -175,7 +175,7 @@ check_vxlan($recreate !== false && $bootexit !== false && $recreate < $bootexit,
     'rc.newwanipv6 must recreate VXLAN tunnels before its boot-time exit');
 
 $fast = file_get_contents($root . '/src/etc/inc/interfaces_fast.inc');
-check_vxlan(preg_match("/isvxlan'\\]\\) \\{(.*?)\\} elseif/s", $fast, $branch) === 1 &&
+check_vxlan(preg_match("/isvxlan'\\]\\)+ \\{(.*?)\\} elseif/s", $fast, $branch) === 1 &&
     strpos($branch[1], '$friendlyifnames') === false,
     'the assignments label must not look up a VXLAN parent in the real-interface map');
 

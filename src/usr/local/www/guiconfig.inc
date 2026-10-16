@@ -786,12 +786,12 @@ function display_top_tabs(& $tab_array, $no_drop_down = false, $type = 'pills', 
 
 function add_package_tabs($tabgroup, &$tab_array) {
 	foreach (config_get_path('installedpackages/package', []) as $pkg) {
-		if (!is_array($pkg['tabs']['tab'])) {
+		if (!is_array($pkg['tabs']['tab'] ?? null)) {
 			continue;
 		}
 
 		foreach ($pkg['tabs']['tab'] as $tab) {
-			if ($tab['tabgroup'] != $tabgroup) {
+			if (($tab['tabgroup'] ?? null) != $tabgroup) {
 				continue;
 			}
 			$tab_entry = array();

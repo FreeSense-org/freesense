@@ -34,7 +34,7 @@ require_once("guiconfig.inc");
 
 // What page, aka. action is being wanted
 // If they "get" a page but don't pass all arguments, smartctl will throw an error
-$action = $_POST['action'];
+$action = $_POST['action'] ?? null;
 
 $pgtitle = array(gettext("Diagnostics"), gettext("S.M.A.R.T. Status"));
 
@@ -78,7 +78,7 @@ include("head.inc");
 /* words highlighted in smartctl output */
 $smart_marks = array('PASSED' => 'fs-smart-pass', 'FAILED' => 'fs-smart-fail', 'Warning' => 'fs-smart-warn');
 
-$targetdev = basename($_POST['device']);
+$targetdev = basename($_POST['device'] ?? '');
 
 if (!file_exists('/dev/' . $targetdev)) {
 	print_info_box(gettext("Device does not exist, bailing."), 'danger');

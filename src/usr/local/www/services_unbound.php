@@ -40,11 +40,11 @@ $python_scripts = unbound_python_scripts();
 $pconfig = unbound_general_settings();
 $certs_available = unbound_certs_available();
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$retval = unbound_apply_changes();
 }
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	unset($input_errors);
 	$rv = unbound_save_general($_POST);
 	$input_errors = $rv['input_errors'];
@@ -62,7 +62,7 @@ if ($pconfig['custom_options']) {
 $view = fs_view_param(['general', 'hosts', 'domains'], 'general');
 $view_url = 'services_unbound.php' . (($view === 'general') ? '' : '?view=' . $view);
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? '') == "del") {
 	if (unbound_delete_override($_POST['type'], $_POST['id'])) {
 		header("Location: " . $view_url);
 		exit;
@@ -86,11 +86,11 @@ $shortcut_section = "resolver";
 
 include_once("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 
