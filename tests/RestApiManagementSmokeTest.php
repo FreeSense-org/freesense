@@ -148,6 +148,10 @@ check(count($entries) === 2 && $entries[0]['state'] === 'MASTER' && $entries[1][
 check(fleet_carp_summary($entries, true) === 'mixed', 'MASTER + BACKUP is mixed');
 $states['c3'] = 'MASTER';
 check(fleet_carp_summary(fleet_carp_entries($vips, true, function ($id) use ($states) { return $states[$id]; }), true) === 'master', 'all MASTER');
+$hs = fleet_hasync_summary(array('synchronizetoip' => '10.0.0.2', 'synchronizerules' => 'on', 'synchronizealiases' => 'on', 'synchronizenat' => '', 'pfsyncenabled' => 'on'));
+check(($hs['peer'] === '10.0.0.2') && ($hs['sections'] === array('aliases', 'rules')), 'HA sync: the peer and the sections switched on');
+check(fleet_hasync_summary(array('synchronizerules' => 'on'))['sections'] === array(), 'HA sync without a peer syncs nothing (the secondary of a pair)');
+check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc'), "'carp_vips' =>") !== false, 'the Fleet status carries each CARP address and its state');
 check(fleet_carp_entries($vips, true, function ($id) { return 'weird'; })[0]['state'] === 'UNKNOWN', 'unexpected text is UNKNOWN');
 check(fleet_carp_entries($vips, false, function ($id) { return 'MASTER'; })[0]['state'] === 'DISABLED' &&
     fleet_carp_summary($entries, false) === 'disabled', 'CARP disabled');

@@ -289,6 +289,22 @@ function fleet_carp_status(): array {
 	);
 }
 
+/*
+ * pure: what HA config sync does on this box: the peer it pushes to (the
+ * primary of a pair has one; the secondary has none) and which sections.
+ */
+function fleet_hasync_summary(array $hasync): array {
+	$peer = trim((string)($hasync['synchronizetoip'] ?? ''));
+	$sections = array();
+	foreach ($hasync as $k => $v) {
+		if ((strpos((string)$k, 'synchronize') === 0) && ($k !== 'synchronizetoip') && ($v === 'on')) {
+			$sections[] = substr((string)$k, strlen('synchronize'));
+		}
+	}
+	sort($sections);
+	return array('peer' => $peer, 'sections' => ($peer === '') ? array() : $sections);
+}
+
 /* The policy bundle this box holds, or null. */
 function fleet_policy_bundle_read(): ?array {
 	$stored = @json_decode((string)@file_get_contents(FLEET_POLICY_BUNDLE), true);
