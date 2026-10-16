@@ -110,6 +110,17 @@ function restapi_routes_management() {
 			    'bundle' => array('type' => 'string', 'description' => 'The bundle JSON as text: {version, node_id ("*" or this box), rules: [...]}'),
 			    'signature' => array('type' => 'string', 'description' => 'base64 ECDSA P-256 / SHA-256 signature of the bundle text by the controller'))),
 			'summary' => 'Replace the policy bundle; refused unless signed by this box\'s controller and at least as new as the one held')),
+		restapi_route('GET', '/v1/management/accounts', 'restapi_h_mgmt_accounts_get', array(
+			'page' => 'system_fleet.php', 'area' => 'management',
+			'summary' => 'The users and groups Fleet manages here, the local names, and the privileges this version knows')),
+		restapi_route('PUT', '/v1/management/accounts', 'restapi_h_mgmt_accounts_put', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('format'), 'properties' => array(
+			    'format' => array('type' => 'string', 'description' => '"fleet-users-v1"'),
+			    'users' => array('type' => 'array', 'items' => array('type' => 'object'), 'description' => '{name, fullname, bcrypt_hash, ssh_keys, expires (YYYY-MM-DD), disabled, groups}'),
+			    'groups' => array('type' => 'array', 'items' => array('type' => 'object'), 'description' => '{name, description, privs}'),
+			    'dry_run' => array('type' => 'boolean', 'description' => 'Only return what would change'))),
+			'summary' => 'Bring the Fleet-owned users and groups in line (local accounts are never changed)')),
 		restapi_route('POST', '/v1/management/remediate', 'restapi_h_mgmt_remediate', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('rules'), 'properties' => array(
@@ -363,6 +374,23 @@ function restapi_mgmt_error(InvalidArgumentException $e, $status, $default_code)
 		return new RestApiError($status, $m[1], $m[2]);
 	}
 	return new RestApiError($status, $default_code, $e->getMessage());
+}
+
+function restapi_h_mgmt_accounts_get($req) {
+	restapi_mgmt_enrolled();
+	require_once('fleet_accounts.inc');
+	return array('data' => fleet_accounts_state());
+}
+
+function restapi_h_mgmt_accounts_put($req) {
+	restapi_mgmt_enrolled();
+	require_once('fleet_accounts.inc');
+	restapi_reject_unknown_fields($req['body'], array('format', 'users', 'groups', 'dry_run'));
+	try {
+		return array('data' => fleet_accounts_apply($req['body'], !empty($req['body']['dry_run'])));
+	} catch (InvalidArgumentException $e) {
+		throw restapi_mgmt_error($e, 422, 'invalid_accounts');
+	}
 }
 
 function restapi_h_mgmt_remediate($req) {
