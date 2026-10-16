@@ -155,6 +155,17 @@ foreach (array('GET /v1/management/commit-confirm', 'POST /v1/management/commit-
 check(!isset($have['DELETE /v1/management/breakglass']) && !isset($have['POST /v1/management/breakglass']), 'break-glass cannot be switched on through the API');
 
 
+/* ---- lock accounts ---- */
+$ou = array(array('name' => 'admin', 'uid' => '0'), array('name' => 'anna', 'uid' => '2004', 'fleet' => '1', 'descr' => 'Anna'));
+$og = array(array('name' => 'shop', 'gid' => '2001', 'fleet' => '1', 'member' => array('2004')));
+check(fleet_lock_accounts_changed($ou, $og, $ou, $og) === array(), 'an unchanged save is fine');
+$nu = $ou;
+$nu[1]['descr'] = 'Changed';
+$nu[0]['descr'] = 'local admin edit';
+check(fleet_lock_accounts_changed($nu, $og, $ou, $og) === array('user anna'), 'changing a Fleet user is refused; local users stay free');
+check(fleet_lock_accounts_changed(array($ou[0]), array(), $ou, $og) === array('user anna', 'group shop'), 'removing Fleet accounts is refused');
+check(fleet_lock_accounts_changed(array_merge($ou, array(array('name' => 'local2'))), $og, $ou, $og) === array(), 'adding local users is fine');
+
 /* ---- remediate ---- */
 $rm = function (array $r) { return $r + array('id' => 'OPS-001', 'title' => 't', 'mode' => 'remediate'); };
 check(fleet_remediate_plan($rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Europe/Copenhagen')), 'Etc/UTC') === array('set', 'Europe/Copenhagen'),
