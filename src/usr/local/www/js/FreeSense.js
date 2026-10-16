@@ -355,8 +355,8 @@ $(function() {
 			if (left === 0) {
 				toggle.addClass('is-clear');
 				panel.find('.fs-notif-list, .fs-notif-clear').remove();
-				panel.append('<div class="fs-notif-empty"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>' +
-				    (panel.attr('data-empty') || 'No notifications.') + '</span></div>');
+				panel.append($('<div class="fs-notif-empty"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span></span></div>')
+				    .find('span').text(panel.attr('data-empty') || 'No notifications.').end());
 			}
 		}).fail(function () { btn.prop('disabled', false); });
 	});

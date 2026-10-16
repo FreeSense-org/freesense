@@ -1771,7 +1771,12 @@
 		fetch(url, { credentials: 'same-origin', cache: 'no-store' })
 			.then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
 			.then(function (html) { body.innerHTML = html; })
-			.catch(function () { body.innerHTML = '<p class="fs-navpanel-wait">' + (link.getAttribute('aria-label') || '') + '</p>'; });
+			.catch(function () {
+				var p = document.createElement('p');
+				p.className = 'fs-navpanel-wait';
+				p.textContent = link.getAttribute('aria-label') || '';
+				body.replaceChildren(p);
+			});
 	});
 
 	function init() {
