@@ -682,7 +682,7 @@ function ipsec_status() {
 
 		/* Mark this IKE ID as connected and drop the status info underneath the P1 config */
 		list($ikeid, $reqid) = ipsec_id_by_conid($ikesa['con-id']);
-		if (!array_key_exists($ikeid, $cmap)) {
+		if (!array_key_exists((string) $ikeid, $cmap)) {
 			// Doesn't match known tunnel
 			$cmap['connected']['p1'][$ikesa['con-id']] = $ikesa['con-id'];
 		} else {
@@ -835,7 +835,7 @@ function ipsec_initiate_by_conid($type, $conid) {
 			/* Find relevant P2s and initiate all of them */
 			$cmap = ipsec_map_config_by_id();
 			list($ikeid, $reqid) = ipsec_id_by_conid($conid);
-			if (array_key_exists($ikeid, $cmap)) {
+			if (array_key_exists((string) $ikeid, $cmap)) {
 				if ($cmap[$ikeid]['p1']['iketype'] == 'ikev2' && !isset($cmap[$ikeid]['p1']['splitconn'])) {
 					/* IKEv2 without split only has one P2, named the same as the P1 */
 					ipsec_initiate_by_conid('child', ipsec_conid($cmap[$ikeid]['p1']));

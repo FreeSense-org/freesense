@@ -201,7 +201,7 @@ function snmp_save($post) {
 	if (is_array($post['bindip'])) {
 		$bindoptions = snmp_build_if_list(array())['options'];
 		foreach ($post['bindip'] as $bindip) {
-			if (!array_key_exists($bindip, $bindoptions)) {
+			if (!array_key_exists((string) $bindip, $bindoptions)) {
 				$input_errors[] = sprintf(gettext("%s is not an interface SNMP can bind to."), $bindip);
 			}
 		}

@@ -2536,7 +2536,7 @@ function system_ntp_setup_gps($serialport) {
 
 	$serialports = get_serial_ports(true);
 
-	if (!array_key_exists($serialport, $serialports)) {
+	if (!array_key_exists((string) $serialport, $serialports)) {
 		return false;
 	}
 
@@ -2625,7 +2625,7 @@ function system_ntp_setup_rawspeed($serialport, $baud) {
 function system_ntp_setup_pps($serialport) {
 	$serialports = get_serial_ports(true);
 
-	if (!array_key_exists($serialport, $serialports)) {
+	if (!array_key_exists((string) $serialport, $serialports)) {
 		return false;
 	}
 

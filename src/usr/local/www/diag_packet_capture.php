@@ -115,7 +115,7 @@ if ($_POST) {
 	/* Save previous input to use on page load after submission */
 	// capture options
 	$input_interface = $_POST['interface'];
-	if (!array_key_exists($input_interface, $available_interfaces)) {
+	if (!array_key_exists((string) $input_interface, $available_interfaces)) {
 		$input_error[] = 'No valid interface selected.';
 	}
 	$input_filter = ($_POST['filter'] !== null) ? intval($_POST['filter']) : null;

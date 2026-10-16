@@ -109,7 +109,7 @@ function print_ipsec_body() {
 	$rows = 0;
 	foreach ($status as $ikesa) {
 		list($ikeid, $reqid) = ipsec_id_by_conid($ikesa['con-id']);
-		if (!array_key_exists($ikeid, $cmap)) {
+		if (!array_key_exists((string) $ikeid, $cmap)) {
 			// Doesn't match known tunnel
 			$p1connected[$ikesa['con-id']] = $ikesa['con-id'];
 		} else {
@@ -212,7 +212,7 @@ function print_ipsec_body() {
 		$name = $cmap[$ikeid]['p1']['descr'] ?? '';
 		$label = ($name !== '') ? $name : $ikesa['con-id'];
 		$actions = '';
-		if (array_key_exists($ikeid, $cmap)) {
+		if (array_key_exists((string) $ikeid, $cmap)) {
 			$actions .= ipsec_ui_edit("vpn_ipsec_phase1.php?ikeid={$ikeid}", sprintf(gettext('Edit phase 1 of %s'), $label));
 		}
 		if (!in_array($ikesa['state'], array('ESTABLISHED', 'CONNECTING'))) {

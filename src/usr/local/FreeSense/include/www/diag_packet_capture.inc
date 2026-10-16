@@ -550,12 +550,12 @@ function get_expression_string(array $filterattributes, bool $vlan_supported = t
 
 		/* Make sure the respective Section is included when all related
 		 * FilterAttribute input is empty. */
-		if (!array_key_exists($fa->getFilterSection(), $fs_strings)) {
+		if (!array_key_exists((string) $fa->getFilterSection(), $fs_strings)) {
 			$fs_strings[$fa->getFilterSection()] = '';
 		}
 
 		// If $fs_exclude does not yet have this offset, add it
-		if (!array_key_exists($fa->getFilterSection(), $fs_exclude)) {
+		if (!array_key_exists((string) $fa->getFilterSection(), $fs_exclude)) {
 			$fs_exclude[$fa->getFilterSection()] = false;
 		}
 

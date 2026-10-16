@@ -217,7 +217,7 @@ function restapi_ifconfig_shown(array $values, array $form_post) {
 function restapi_ifconfig_changes(array $body, array $values, array $current) {
 	$out = array();
 	foreach (restapi_ifconfig_fields() as $api => list($field, $type)) {
-		if (!array_key_exists($api, $body)) {
+		if (!array_key_exists((string) $api, $body)) {
 			continue;
 		}
 		$same = ($type === 'bool') ? ((bool)$values[$api] === (bool)($current[$api] ?? false)) :
@@ -235,7 +235,7 @@ function restapi_ifconfig_from_post(array $post) {
 	foreach (restapi_ifconfig_fields() as $api => list($field, $type)) {
 		if ($type === 'bool') {
 			$out[$api] = !empty($post[$field]);
-		} elseif (array_key_exists($field, $post)) {
+		} elseif (array_key_exists((string) $field, $post)) {
 			$out[$api] = (string)$post[$field];
 		}
 	}
@@ -342,7 +342,7 @@ function restapi_ifconfig_check(array $changes, array $form_post, array $out) {
 		if (!$out['address_configurable'] && in_array($api, array('ipv4_type', 'ipv6_type'), true)) {
 			throw new RestApiError(400, 'field_unavailable', 'This interface type does not support manual address configuration.');
 		}
-		if (($type === 'string') && !array_key_exists($field, $form_post)) {
+		if (($type === 'string') && !array_key_exists((string) $field, $form_post)) {
 			throw new RestApiError(400, 'field_unavailable', "\"{$api}\" cannot be set on this interface.");
 		}
 	}

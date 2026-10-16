@@ -60,7 +60,7 @@ function easyrule_find_rule_interface($int) {
 
 	/* Check if the given name matches a known assigned interface id or
 	 * common group name */
-	if (array_key_exists($int, $iflist)) {
+	if (array_key_exists((string) $int, $iflist)) {
 		return $int;
 	}
 
@@ -183,7 +183,7 @@ function easyrule_block_alias_add($host, $int = 'wan') {
 	}
 
 	if (isset($id) &&
-	    array_key_exists($id, $a_aliases) &&
+	    array_key_exists((string) $id, $a_aliases) &&
 	    is_array($a_aliases[$id])) {
 
 		// Catch case when the list is empty

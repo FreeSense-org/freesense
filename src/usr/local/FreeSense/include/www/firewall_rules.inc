@@ -972,9 +972,9 @@ function saveFilterRule($post, $id = null, $after = null, $if = null) {
 				// Only need to check valid if just one selected != "any", or >1 selected
 				$p = $post['ipprotocol'];
 				foreach ($t as $type) {
-					if (($p == 'inet' && !array_key_exists($type, $icmptypes4)) ||
-					    ($p == 'inet6' && !array_key_exists($type, $icmptypes6)) ||
-					    ($p == 'inet46' && !array_key_exists($type, $icmptypes46))) {
+					if (($p == 'inet' && !array_key_exists((string) $type, $icmptypes4)) ||
+					    ($p == 'inet6' && !array_key_exists((string) $type, $icmptypes6)) ||
+					    ($p == 'inet46' && !array_key_exists((string) $type, $icmptypes46))) {
 							$bad_types[] = $type;
 					}
 				}
