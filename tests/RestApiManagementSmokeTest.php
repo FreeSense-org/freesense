@@ -155,7 +155,7 @@ check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes
 $rm = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
 check((strpos($rm, "'/v1/management/ha-sync-user'") !== false) && (strpos($rm, "fleet_hasync_user_set(null)") !== false), 'the HA sync user can be set and removed through the management API');
 check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/fleet_accounts.inc'), "'fleet-hasync'") !== false, 'users sync never touches the HA sync user');
-check(RESTAPI_LEVEL >= 12, 'API level 12: virtual IPs and the HA sync user for Fleet');
+check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 12);") !== false, 'API level 12: virtual IPs and the HA sync user for Fleet');
 check(fleet_carp_entries($vips, true, function ($id) { return 'weird'; })[0]['state'] === 'UNKNOWN', 'unexpected text is UNKNOWN');
 check(fleet_carp_entries($vips, false, function ($id) { return 'MASTER'; })[0]['state'] === 'DISABLED' &&
     fleet_carp_summary($entries, false) === 'disabled', 'CARP disabled');
