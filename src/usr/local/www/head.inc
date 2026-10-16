@@ -634,19 +634,16 @@ if ($fs_menu_mode === 'icons') {
 				<?php foreach (fs_nav_plugin_items() as $fs_nav_item) {
 					echo fs_nav_plugin_html($fs_nav_item);
 				} ?>
-				<?php if ($display_notices):?>
-					<?php $notices = get_notices()?>
-					<li class="nav-item">
-						<a class="nav-link fs-nav-notices" href="#" data-bs-toggle="modal" data-bs-target="#notices" role="button" aria-expanded="false">
-							<i class="fa-solid fa-bell text-danger" title="<?=gettext("Notices")?>"></i>
-							<span class="badge bg-danger"><?=count($notices)?></span>
+				<?php $notices = $display_notices ? get_notices() : array(); $fs_notice_count = is_array($notices) ? count($notices) : 0; ?>
+					<li class="nav-item dropdown">
+						<a class="nav-link fs-nav-notices<?=($fs_notice_count === 0) ? ' is-clear' : ''?>" href="#" id="fs-notif-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+						    role="button" aria-expanded="false" title="<?=($fs_notice_count === 0) ? gettext('No notifications') : gettext('Notifications')?>">
+							<i class="fa-solid fa-bell" aria-hidden="true"></i>
+							<span class="badge bg-danger"<?=($fs_notice_count === 0) ? ' hidden' : ''?>><?=$fs_notice_count?></span>
+							<span class="visually-hidden"><?=gettext('Notifications')?></span>
 						</a>
+						<?=fs_notices_panel($notices, $allow_clear_notices && isAllowedPage('/index.php'))?>
 					</li>
-				<?php else: ?>
-					<li class="nav-item">
-						<span class="nav-link fs-nav-notices is-clear" title="<?=gettext("No notices")?>"><i class="fa-solid fa-bell" aria-hidden="true"></i><span class="visually-hidden"><?=gettext("No notices")?></span></span>
-					</li>
-				<?php endif; ?>
 					<li class="nav-item">
 						<a class="nav-link" href="/index.php?logout" usepost>
 							<i class="fa-solid fa-right-from-bracket" title="<?=gettext("Logout") . " (" . $_SESSION['Username'] . "@" . htmlspecialchars($system_url) . ")"?>"></i>
@@ -938,86 +935,7 @@ if (config_get_path('remote_managed_pages/item')) {
 	}
 }
 
-// Modal notices window
-// The notices modal needs to be outside of the page display div or things get messy
-if ($display_notices):
-?>
-
-<div id="notices" class="modal fade" role="dialog">
-	<div class="modal-dialog">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h3 class="modal-title" id="myModalLabel"><?=gettext("Notices")?></h3>
-				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?=htmlspecialchars(gettext("Close"))?>"></button>
-			</div>
-
-			<div class="modal-body">
-<?php
-	$noticeCategories = array();
-
-	if (is_array($notices)) {
-		foreach ($notices as $time => $notice) {
-			if (!isset($noticeCategories[ $notice['category'] ])) {
-				$noticeCategories[ $notice['category'] ] = array();
-			}
-
-			$notice['time'] = $time;
-			array_push($noticeCategories[ $notice['category'] ], $notice);
-		}
-	}
-
-	foreach ($noticeCategories as $category => $catNotices):?>
-				<h4><?=$category?></h4>
-				<ul>
-<?php
-	foreach ($catNotices as $notice):
-?>
-					<li>
-						<b>
-<?php if (!empty($notice['url'])):?>
-							<a href="<?=htmlspecialchars($notice['url'])?>"><?=htmlspecialchars($notice['id'])?></a> -
-<?php endif;?>
-						</b>
-						<?=str_replace("\n", "<br/>", htmlspecialchars(htmlspecialchars_decode(htmlspecialchars_decode($notice['notice']))))?>
-						<i>@ <?=date('Y-m-d H:i:s', $notice['time'])?></i>
-					</li>
-<?php	endforeach;?>
-				</ul>
-<?php endforeach;?>
-			</div>
-
-			<div class="modal-footer">
-				<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="fa-solid fa-xmark icon-embed-btn"></i><?=gettext("Close")?></button>
-<?php if ($allow_clear_notices && isAllowedPage("/index.php")):?>
-				<button type="button" id="clearallnotices" class="btn btn-primary"><i class="fa-regular fa-trash-can icon-embed-btn"></i><?=gettext("Mark All as Read")?></button>
-<?php endif;?>
-			</div>
-		</div>
-	</div>
-</div>
-
-<script type="text/javascript">
-//<![CDATA[
-	events.push(function() {
-	    $('#clearallnotices').click(function() {
-			ajaxRequest = $.ajax({
-				url: "/index.php",
-				type: "post",
-				data: { closenotice: "all"},
-				success: function() {
-					window.location = window.location.href;
-				},
-				failure: function() {
-					alert("Error clearing notices!");
-				}
-			});
-		});
-	});
-//]]>
-</script>
-
-<?php
-endif; // ($display_notices)
+/* Notifications: the panel under the bell in the top bar (fs_notices_panel, includes/fs_menu.inc). */
 
 // Get the flash Messages
 get_flash_message();

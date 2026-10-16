@@ -1010,3 +1010,35 @@ body { --fs-navbar-h: 6.9rem; }
 	body { --fs-navbar-h: 3.6rem; }
 	.fs-topbar .fs-topbar-tools .fs-nav-search-label, .fs-topbar .fs-topbar-tools .fs-nav-search-kbd { display: none; }
 }
+
+/* Notifications: the panel under the bell. */
+.fs-notif { width: min(26rem, calc(100vw - 2rem)); padding: 0; overflow: hidden; border-radius: var(--fs-r-md); }
+.fs-notif-head { display: flex; align-items: center; justify-content: space-between; padding: .6rem .9rem; border-bottom: 1px solid var(--fs-border); }
+.fs-notif-head strong { color: var(--fs-text-strong); }
+.fs-notif-head .btn-link { padding: 0; font-size: var(--fs-fs-sm); }
+.fs-notif-list { list-style: none; margin: 0; padding: 0; max-height: min(70vh, 34rem); overflow-y: auto; }
+.fs-notif-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--fs-sp-2); padding: .7rem .9rem; border-bottom: 1px solid var(--fs-border); }
+.fs-notif-item:last-child { border-bottom: 0; }
+.fs-notif-icon { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; border-radius: var(--fs-r-sm); color: var(--fc); background: color-mix(in srgb, var(--fc) 15%, transparent); }
+.fs-tone-block { --fc: var(--fs-block); } .fs-tone-warn { --fc: var(--fs-warn); } .fs-tone-info { --fc: var(--fs-info); } .fs-tone-pass { --fc: var(--fs-pass); }
+.fs-notif-title { font-weight: 600; color: var(--fs-text-strong); line-height: 1.3; overflow-wrap: anywhere; }
+.fs-notif-meta { margin-top: 2px; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-notif-where { display: block; font-family: var(--bs-font-monospace); font-size: var(--fs-fs-xs); overflow-wrap: anywhere; }
+.fs-notif-details { margin-top: var(--fs-sp-1); font-size: var(--fs-fs-sm); }
+.fs-notif-details summary { cursor: pointer; color: var(--fs-text-muted); }
+.fs-notif-details pre { margin: var(--fs-sp-1) 0 0; padding: var(--fs-sp-2); max-height: 14rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+	font-size: var(--fs-fs-xs); background: color-mix(in srgb, var(--fs-text) 5%, transparent); border-radius: var(--fs-r-sm); }
+.fs-notif-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); margin-top: var(--fs-sp-2); }
+.fs-notif-actions .btn { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .55rem; font-size: var(--fs-fs-sm); }
+.fs-notif-actions .btn-link { padding-left: 0; padding-right: 0; color: var(--fs-text-muted); }
+.fs-notif-empty { display: flex; align-items: center; gap: var(--fs-sp-2); padding: 1.1rem .9rem; color: var(--fs-text-muted); }
+.fs-notif-empty i { color: var(--fs-pass); font-size: 1.2rem; }
+.fs-topbar .fs-nav-notices.is-clear { cursor: pointer; }
+.fs-topbar .fs-nav-notices:not(.is-clear) > i { color: var(--fs-block); }
+
+/* Dialogs open with a short zoom from the centre instead of sliding down from the top. */
+.modal.fade .modal-dialog { transform: scale(.94); opacity: 0; transition: transform .18s ease-out, opacity .18s ease-out; }
+.modal.show .modal-dialog { transform: none; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+	.modal.fade .modal-dialog { transform: none; transition: opacity .1s linear; }
+}
