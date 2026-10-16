@@ -30,6 +30,9 @@
  *    box holds, so Lock works while the controller is offline. A save is only
  *    refused when it introduces the violation; a box that already breaks a
  *    rule can still be saved (and fixed).
+ *  - Lock accounts: with "lock_accounts" in the bundle, a local save that
+ *    changes or removes a user or group Fleet manages (<fleet>1</fleet>)
+ *    is refused; the controller changes them with the next sync.
  *  - Remediate: the controller asks the box to fix rules in mode
  *    "remediate" from the bundle it holds. Only paths on a short allow-list
  *    (each with a value check and its reload) are ever changed; a rule
@@ -135,6 +138,35 @@ function fleet_lock_new_violations(array $rules, callable $new, callable $old): 
 	foreach ($rules as $rule) {
 		if (fleet_rule_valid($rule) && ($rule['mode'] === 'lock') && fleet_rule_compliant($rule, $old) && !fleet_rule_compliant($rule, $new)) {
 			$out[] = $rule;
+		}
+	}
+	return $out;
+}
+
+/*
+ * pure: the Fleet-owned users and groups a save would change or remove
+ * (added ones are a local admin's business). Entries as in config.xml.
+ */
+function fleet_lock_accounts_changed(array $new_users, array $new_groups, array $old_users, array $old_groups): array {
+	$index = function (array $list) {
+		$out = array();
+		foreach ($list as $e) {
+			if (is_array($e) && isset($e['name'])) {
+				$out[strtolower((string)$e['name'])] = $e;
+			}
+		}
+		return $out;
+	};
+	$out = array();
+	foreach (array('user' => array($new_users, $old_users), 'group' => array($new_groups, $old_groups)) as $kind => list($new, $old)) {
+		$new = $index($new);
+		foreach ($index($old) as $key => $e) {
+			if (empty($e['fleet'])) {
+				continue;
+			}
+			if (!isset($new[$key]) || (json_encode($new[$key]) !== json_encode($e))) {
+				$out[] = "{$kind} {$e['name']}";
+			}
 		}
 	}
 	return $out;
@@ -415,7 +447,8 @@ function fleet_lock_refusal(): ?string {
 		$rules = array_values(array_filter((array)$stored['bundle']['rules'], function ($r) {
 			return is_array($r) && (($r['mode'] ?? '') === 'lock');
 		}));
-		if (empty($rules)) {
+		$lock_accounts = !empty($stored['bundle']['lock_accounts']);
+		if (empty($rules) && !$lock_accounts) {
 			return null;
 		}
 		require_once('xmlparse.inc');
@@ -426,6 +459,15 @@ function fleet_lock_refusal(): ?string {
 		$text = function ($value) {
 			return ($value === null) ? null : (is_array($value) ? (empty($value) ? '' : null) : (string)$value);
 		};
+		if ($lock_accounts) {
+			$changed = fleet_lock_accounts_changed((array)config_get_path('system/user', array()), (array)config_get_path('system/group', array()),
+			    (array)array_get_path($old_config, 'system/user', array()), (array)array_get_path($old_config, 'system/group', array()));
+			if (!empty($changed)) {
+				return 'Blocked by Fleet: ' . implode(', ', $changed) . ' ' . ((count($changed) === 1) ? 'is' : 'are') . ' managed by ' .
+				    (string)config_get_path('fleet/controller_url') . '; change ' . ((count($changed) === 1) ? 'it' : 'them') . ' there.' .
+				    ' A console administrator can suspend Lock with break-glass: freesense-join breakglass.';
+			}
+		}
 		$violations = fleet_lock_new_violations($rules,
 		    function ($path) use ($text) { return $text(config_get_path($path)); },
 		    function ($path) use ($text, &$old_config) { return $text(array_get_path($old_config, $path)); });
