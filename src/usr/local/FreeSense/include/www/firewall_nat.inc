@@ -208,7 +208,8 @@ function build_srctype_list($json = false) {
 	}
 }
 
-function saveNATrule($post, $id, $json = false) {
+/* $all_ifaces: accept any interface, not only those the logged-in user's rule pages allow (the REST API decides by area). */
+function saveNATrule($post, $id, $json = false, $all_ifaces = false) {
 	$rdr_lcltype_flags = [SPECIALNET_IFADDR];
 	$rdr_srctype_flags = [SPECIALNET_CHECKPERM, SPECIALNET_ANY, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPECIALNET_IFNET];
 	$rdr_dsttype_flags = [SPECIALNET_ANY, SPECIALNET_SELF, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPECIALNET_IFNET, SPECIALNET_VIPS];
@@ -372,7 +373,7 @@ function saveNATrule($post, $id, $json = false) {
 		$post['localip'] = trim($post['localip']);
 	}
 
-	if (!array_key_exists($post['interface'], create_interface_list($json))) {
+	if (!array_key_exists($post['interface'], create_interface_list($json || $all_ifaces))) {
 		$input_errors[] = gettext("The submitted interface does not exist.");
 	}
 

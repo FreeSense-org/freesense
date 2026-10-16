@@ -500,7 +500,7 @@ function restapi_natpf_family(array $post) {
 
 function restapi_natpf_save($post, $id, $req) {
 	$post = restapi_natpf_family($post);
-	$result = saveNATrule($post, $id);
+	$result = saveNATrule($post, $id, false, true);
 	if (!empty($result['input_errors'])) {
 		throw restapi_validation_error($result['input_errors']);
 	}
