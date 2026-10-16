@@ -54,6 +54,14 @@ define('FLEET_NODE_API_PORT', 8444);
 define('FLEET_WG_MTU', 1380);
 define('FLEET_WG_KEEPALIVE', 25);
 define('FLEET_LISTENER_DESCR', 'FreeSense Fleet');
+/* Extra connection paths (fleet_paths.inc) are listeners described "FreeSense Fleet path: <method>". */
+define('FLEET_PATH_DESCR', 'FreeSense Fleet path: ');
+
+/* pure: a REST API listener Fleet owns (the tunnel listener or a path). */
+function fleet_listener_is_fleet($l): bool {
+	$d = is_array($l) ? (string)($l['descr'] ?? '') : '';
+	return ($d === FLEET_LISTENER_DESCR) || (strncmp($d, FLEET_PATH_DESCR, strlen(FLEET_PATH_DESCR)) === 0);
+}
 define('FLEET_CERT_DESCR', 'FreeSense Fleet node API');
 
 /* ------------------------------------------------------------------ */
@@ -267,7 +275,7 @@ function fleet_restore_carry(array $restored, array $running): array {
 		return ($c['descr'] ?? '') === FLEET_CERT_DESCR;
 	};
 	$is_listener = function ($l) {
-		return ($l['descr'] ?? '') === FLEET_LISTENER_DESCR;
+		return fleet_listener_is_fleet($l);
 	};
 
 	if (isset($running['fleet'])) {
@@ -667,7 +675,7 @@ function fleet_leave_unlocked(string $why, ?array $restapi_before): void {
 		);
 	}
 	$list = array_values(array_filter((array)config_get_path('restapi/apilistener', []), function ($l) {
-		return !(is_array($l) && (($l['descr'] ?? '') === FLEET_LISTENER_DESCR));
+		return !fleet_listener_is_fleet($l);
 	}));
 	config_set_path('restapi/apilistener', $list);
 	if (empty($restapi_before['enable'])) {

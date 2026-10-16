@@ -121,6 +121,19 @@ function restapi_routes_management() {
 			    'groups' => array('type' => 'array', 'items' => array('type' => 'object'), 'description' => '{name, description, privs}'),
 			    'dry_run' => array('type' => 'boolean', 'description' => 'Only return what would change'))),
 			'summary' => 'Bring the Fleet-owned users and groups in line (local accounts are never changed)')),
+		restapi_route('GET', '/v1/management/paths', 'restapi_h_mgmt_paths', array(
+			'page' => 'system_fleet.php', 'area' => 'management',
+			'summary' => 'The extra connection paths (direct, tailscale) and where a path could listen')),
+		restapi_route('PUT', '/v1/management/paths/{method}', 'restapi_h_mgmt_path_put', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'Add or change a path: one more API listener on the Fleet port, open only to the controller',
+			'body' => array('type' => 'object', 'required' => array('address', 'allowed'), 'properties' => array(
+			    'address' => array('type' => 'string', 'description' => 'Where to listen: a key from "choices" ("tailscale" for a Tailscale path)'),
+			    'allowed' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'The controller\'s address(es) on this path'),
+			    'wan' => array('type' => 'boolean', 'description' => 'Confirm a direct path on a WAN interface (otherwise FLEET-E135)'))))),
+		restapi_route('DELETE', '/v1/management/paths/{method}', 'restapi_h_mgmt_path_delete', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'Remove a path (the tunnel stays)')),
 		restapi_route('POST', '/v1/management/remediate', 'restapi_h_mgmt_remediate', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('rules'), 'properties' => array(
@@ -184,6 +197,7 @@ function restapi_h_mgmt_status($req) {
 		'activity' => fleet_activity_read(),
 		'carp' => $carp['summary'],
 		'api_level' => RESTAPI_LEVEL,
+		'paths' => array_map(function ($p) { return array('key' => $p['key'], 'addresses' => $p['addresses']); }, fleet_paths()),
 	) + fleet_handoff_offer());
 }
 
@@ -462,4 +476,31 @@ function restapi_h_mgmt_vault_delete($req) {
 		throw new RestApiError(404, 'not_found', 'No such replica.');
 	}
 	return array('data' => null);
+}
+
+function restapi_h_mgmt_paths($req) {
+	restapi_mgmt_enrolled();
+	return array('data' => array('paths' => fleet_paths(), 'choices' => fleet_path_choices()));
+}
+
+function restapi_h_mgmt_path_put($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('address', 'allowed', 'wan'));
+	$method = (string)($req['params']['method'] ?? '');
+	$allowed = $req['body']['allowed'] ?? null;
+	try {
+		$path = fleet_path_set($method, (string)($req['body']['address'] ?? ''), is_array($allowed) ? $allowed : array(), ($req['body']['wan'] ?? false) === true);
+	} catch (InvalidArgumentException $e) {
+		throw new RestApiError(422, 'invalid_path', $e->getMessage());
+	}
+	return array('data' => $path);
+}
+
+function restapi_h_mgmt_path_delete($req) {
+	restapi_mgmt_enrolled();
+	$method = (string)($req['params']['method'] ?? '');
+	if (!in_array($method, FLEET_PATH_METHODS, true)) {
+		throw new RestApiError(404, 'not_found', 'The connection method is direct or tailscale.');
+	}
+	return array('data' => array('removed' => fleet_path_remove($method)));
 }
