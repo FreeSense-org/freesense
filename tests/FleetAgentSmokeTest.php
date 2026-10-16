@@ -28,6 +28,8 @@ check(in_array('api-management-write', $man, true) && in_array('api-config-write
     in_array('api-packages-write', $man, true) && in_array('api-operations-write', $man, true), 'a managed box may be changed');
 check(!in_array('api-users-write', $man, true) && !in_array('api-pki-write', $man, true) && !in_array('page-all', $man, true) &&
     !in_array('user-shell-access', $man, true), 'the controller never gets users, certificates, a shell or all pages');
+check(in_array('api-firewall-aliases-read', $man, true) && in_array('api-firewall-aliases-write', $man, true) &&
+    !in_array('api-firewall-aliases-read', $mon, true) && !in_array('api-firewall-rules-write', $man, true), 'templates may push aliases to a managed box, nothing more of the firewall');
 $all_areas = array_keys(restapi_areas());
 foreach ($man as $p) {
 	check($p === 'page-system-restapi-keys' || preg_match('/^api-[a-z-]+-(read|write)$/D', $p) === 1, "{$p} is a known kind of privilege");
