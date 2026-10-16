@@ -298,6 +298,46 @@ function validate_webguihostnamemenu_field(&$input_errors, $value) {
 	}
 }
 
+/* The page width choices: wide (default), the classic 1200 px, or the whole window. */
+function webgui_pagewidth_choices() {
+	return array('' => gettext('Wide (1680 px)'), 'classic' => gettext('Classic (1200 px)'), 'full' => gettext('Full window width'));
+}
+
+function gen_webguipagewidth_field(&$section, $value) {
+	$section->addInput(new Form_Select(
+		'webguipagewidth',
+		'Page width',
+		$value,
+		webgui_pagewidth_choices()
+	))->setHelp('How wide the pages may get on a large screen. Classic keeps the content at 1200 px like older versions; Wide uses more of the screen.');
+}
+
+function validate_webguipagewidth_field(&$input_errors, $value) {
+	if (!array_key_exists((string)$value, webgui_pagewidth_choices())) {
+		$input_errors[] = gettext("The submitted Page width value is invalid.");
+	}
+}
+
+/* The top bar: icons with their names (default), or icons only (the names show as tooltips). */
+function webgui_menuicons_choices() {
+	return array('' => gettext('Icons and text'), 'icons' => gettext('Icons only'));
+}
+
+function gen_webguimenuicons_field(&$section, $value) {
+	$section->addInput(new Form_Select(
+		'webguimenuicons',
+		'Top bar menu',
+		$value,
+		webgui_menuicons_choices()
+	))->setHelp('Icons only makes the top bar compact; hover a menu for its name. On small screens the menu always shows names.');
+}
+
+function validate_webguimenuicons_field(&$input_errors, $value) {
+	if (!array_key_exists((string)$value, webgui_menuicons_choices())) {
+		$input_errors[] = gettext("The submitted Top bar menu value is invalid.");
+	}
+}
+
 /****f* freesense-utils/gen_dashboardcolumns_field
  * NAME
  *   gen_dashboardcolumns_field

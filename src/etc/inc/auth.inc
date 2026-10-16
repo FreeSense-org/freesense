@@ -2132,6 +2132,8 @@ function get_user_settings($username) {
 	$settings['widgets'] = config_get_path('widgets');
 	$settings['webgui']['dashboardcolumns'] = config_get_path('system/webgui/dashboardcolumns');
 	$settings['webgui']['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
+	$settings['webgui']['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
+	$settings['webgui']['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
 	$settings['webgui']['webguicss'] = config_get_path('system/webgui/webguicss');
 	$settings['webgui']['logincss'] = config_get_path('system/webgui/logincss');
 	$settings['webgui']['interfacessort'] = config_path_enabled('system/webgui', 'interfacessort');
