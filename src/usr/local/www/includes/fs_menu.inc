@@ -225,7 +225,7 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 	    . '<i class="fa-solid ' . fs_h($icon) . ' fs-menu-icon" aria-hidden="true"></i><span class="fs-menu-label">' . $title . '</span></a>';
 
 	if (!$groups) {
-		$html .= '<ul class="dropdown-menu' . $menuclass_dropdown . '" aria-labelledby="' . $id . '-toggle">';
+		$html .= '<ul class="dropdown-menu' . $menuclass_dropdown . '" aria-labelledby="' . $id . '-toggle" data-fs-title="' . fs_h(strip_tags($title)) . '">';
 		foreach ($visible as $it) {
 			$html .= isset($it[0]) ? '<li><hr class="dropdown-divider"></li>' : '<li>' . fs_menu_link($it) . '</li>';
 		}
@@ -247,7 +247,7 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 		$by_group[isset($groups[$g]) ? $g : 'other'][] = $it;
 	}
 
-	$html .= '<div class="dropdown-menu fs-megamenu' . $menuclass_dropdown . '" aria-labelledby="' . $id . '-toggle">';
+	$html .= '<div class="dropdown-menu fs-megamenu' . $menuclass_dropdown . '" aria-labelledby="' . $id . '-toggle" data-fs-title="' . fs_h(strip_tags($title)) . '">';
 	$html .= '<div class="fs-megamenu-head">'
 	    . '<span class="fs-megamenu-title">' . $title . '</span>'
 	    . '<label class="fs-megamenu-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>'
