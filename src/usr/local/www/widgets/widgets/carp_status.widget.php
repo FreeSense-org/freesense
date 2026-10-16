@@ -89,7 +89,7 @@ $carp_enabled = get_carp_status();
 	}
 	if ($carpint === 0) {
 ?>
-		<tr><td colspan="3"><?=gettext('No CARP Interfaces Defined.')?> <?=sprintf(gettext('Click %1$shere%2$s to configure CARP.'), '<a href="status_carp.php">', '</a>')?></td></tr>
+		<tr><td colspan="3" class="p-0"><?=fs_widget_empty('fa-clone', gettext('No CARP addresses yet.'), '<a href="firewall_virtual_ip.php">' . gettext('Add one') . '</a>')?></td></tr>
 <?php
 	}
 ?>

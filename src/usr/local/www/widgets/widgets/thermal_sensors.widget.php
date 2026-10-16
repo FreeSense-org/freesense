@@ -184,6 +184,7 @@ $thermal_sensors_widget_showFahrenheit = getBoolValueFromConfig($user_settings, 
 	//NOTE: the refresh interval will be reset to a proper value in showThermalSensorsData() (thermal_sensors.js).
 	events.push(function(){
 		var tsParams = {
+			noSensorsText: <?=json_encode(gettext('This system reports no temperature sensors.'))?>,
 			zoneWarningTempThreshold:<?= $thermal_sensors_widget_zoneWarningTempThreshold; ?>,
 			zoneCriticalTempThreshold:<?= $thermal_sensors_widget_zoneCriticalTempThreshold; ?>,
 			coreWarningTempThreshold:<?= $thermal_sensors_widget_coreWarningTempThreshold; ?>,

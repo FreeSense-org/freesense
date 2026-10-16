@@ -221,8 +221,8 @@ if (!function_exists('get_dyndns_service_text')) {
 	<?php endforeach;?>
 	<?php if ($rowid == -1):?>
 	<tr>
-		<td colspan="4" class="text-center">
-			<?=gettext('All Dyn DNS entries are hidden.');?>
+		<td colspan="4" class="p-0">
+			<?=fs_widget_empty('fa-eye-slash', gettext('All Dynamic DNS entries are hidden.'))?>
 		</td>
 	</tr>
 	<?php endif;?>

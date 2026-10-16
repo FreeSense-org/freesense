@@ -286,7 +286,7 @@ if (!function_exists('printPanel')) {
 		endif;
 
 		if ((empty($clients)) && (empty($servers)) && (empty($sk_servers))) {
-			$none_to_display_text = gettext("No OpenVPN instances defined");
+			$none_to_display_text = gettext("No OpenVPN servers or clients yet.");
 		} else if (!$got_ovpn_server && !$got_sk_server && !$got_ovpn_client) {
 			$none_to_display_text = gettext("All OpenVPN instances are hidden");
 		} else {
@@ -294,7 +294,7 @@ if (!function_exists('printPanel')) {
 		}
 
 		if (strlen($none_to_display_text) > 0) {
-			print('<table class="table"><tbody><td class="text-center">' . $none_to_display_text . '</td></tbody></table>');
+			print(fs_widget_empty('fa-shield-halved', $none_to_display_text, '<a href="vpn_openvpn_server.php">' . gettext('Set up OpenVPN') . '</a>'));
 		}
 	}
 }

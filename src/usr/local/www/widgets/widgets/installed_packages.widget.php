@@ -42,7 +42,7 @@ function get_pkg_stats() {
 	});
 
 	if (empty($installed_packages)) {
-		print_info_box(gettext("No packages installed."), 'warning', false);
+		print(fs_widget_empty('fa-box-open', gettext('No packages installed.'), '<a href="pkg_mgr.php">' . gettext('Browse packages') . '</a>'));
 		return;
 	}
 
@@ -142,6 +142,4 @@ function get_pkg_stats() {
 	</table>
 </div>
 
-<p class="text-center">
-	<?=gettext("Packages may be added/managed here: ")?> <a href="pkg_mgr_installed.php"><?=gettext("System")?> -&gt; <?=gettext("Packages")?></a>
-</p>
+

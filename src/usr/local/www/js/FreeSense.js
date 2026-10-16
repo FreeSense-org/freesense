@@ -301,6 +301,8 @@ $(function() {
 	if (!coarsePointer) {
 		$('.fs-main').find('input:enabled:visible, textarea:enabled:visible')
 			.not('[type=button], [type=submit], [type=reset], [type=checkbox], [type=radio], [type=search], [type=file], [readonly]')
+			// never a field inside a dashboard widget: it would scroll the dashboard to that widget
+			.filter(function () { return !$(this).closest('[id^="widgets-col"]').length; })
 			.first().trigger('focus');
 	} else if (document.activeElement && document.activeElement.matches('.fs-main [autofocus]')) {
 		// same for fields that carry the autofocus attribute (diagnostic tools)

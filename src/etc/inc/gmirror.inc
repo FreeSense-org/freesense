@@ -65,7 +65,7 @@ function gmirror_html_status() {
 	$mirrors = gmirror_get_status();
 	$output = "";
 	if (count($mirrors) < 1) {
-		print_info_box(gettext("No mirrors found."), 'warning', false);
+		print(fs_widget_empty('fa-copy', gettext('No disk mirrors on this system.')));
 		return;
 	}
 
