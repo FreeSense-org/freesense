@@ -327,7 +327,7 @@ if ($dashboard_available_widgets_hidden) {
 }
 
 ## Set Page Title and Include Header
-$pgtitle = array(gettext("Home"));
+$pgtitle = array(gettext("Dashboard"));
 include("head.inc");
 
 if ($savemsg) {
