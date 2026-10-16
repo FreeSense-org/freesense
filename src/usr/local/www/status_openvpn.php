@@ -43,7 +43,7 @@ $sk_servers = openvpn_get_active_servers("p2p");
 $clients = openvpn_get_active_clients();
 
 /* Handle AJAX */
-if ($_POST['action']) {
+if (!empty($_POST['action'])) {
 	if ($_POST['action'] == "kill") {
 		$port      = $_POST['port'];
 		$remipp    = $_POST['remipp'];
@@ -73,7 +73,7 @@ if ($_POST['action']) {
 		exit;
 	}
 }
-if ($_POST['action']) {
+if (!empty($_POST['action'])) {
 	if (($_POST['action'] == "showrule") && is_numeric($_POST['vpnid']) &&
 	    !preg_match("/[^a-zA-Z0-9\.\-_]/", $_POST['username']) && is_port($_POST['port'])) {
 		$rulesfile = "{$g['tmp_path']}/ovpn_ovpns{$_POST['vpnid']}_{$_POST['username']}_{$_POST['port']}.rules";

@@ -39,7 +39,7 @@ $viewtypes = array('default', 'label', 'long', 'queue', 'rules', 'size', 'speed'
 $viewall = array('queue', 'label', 'rules');
 $numstates = array('50', '100', '200', '500', '1000', 'all');
 
-if ($_REQUEST['getactivity']) {
+if (!empty($_REQUEST['getactivity'])) {
 	if ($_REQUEST['sorttype'] && in_array($_REQUEST['sorttype'], $sorttypes) &&
 	    $_REQUEST['viewtype'] && in_array($_REQUEST['viewtype'], $viewtypes) &&
 	    $_REQUEST['states'] && in_array($_REQUEST['states'], $numstates)) {
@@ -78,7 +78,7 @@ $cur_sort = in_array($_REQUEST['sorttype'] ?? '', $sorttypes) ? $_REQUEST['sortt
 $cur_states = in_array($_REQUEST['states'] ?? '', $numstates) ? $_REQUEST['states'] : '100';
 $cur_filter = (string)($_REQUEST['filter'] ?? '');
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 

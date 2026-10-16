@@ -54,7 +54,7 @@ if (isset($_REQUEST['userid']) && is_numericint($_REQUEST['userid'])) {
 	$id = $_REQUEST['userid'];
 }
 
-$act = $_REQUEST['act'];
+$act = $_REQUEST['act'] ?? null;
 
 if (isset($_SERVER['HTTP_REFERER'])) {
 	$referer = $_SERVER['HTTP_REFERER'];
@@ -65,7 +65,7 @@ if (isset($_SERVER['HTTP_REFERER'])) {
 if (isset($id)) {
 	$this_user = config_get_path("system/user/{$id}");
 }
-if ($this_user) {
+if (!empty($this_user)) {
 	$pconfig = usermgr_user_form($this_user);
 }
 
@@ -84,7 +84,7 @@ if (!empty($_POST) && $read_only) {
 	$input_errors = array(gettext("Insufficient privileges to make the requested change (read only)."));
 }
 
-if (($_POST['act'] == "deluser") && !$read_only) {
+if ((($_POST['act'] ?? null) == "deluser") && !$read_only) {
 
 	$rv = usermgr_user_delete($id ?? null, $_POST['username'] ?? null, $guiuser);
 	if ($rv === null) {
@@ -122,7 +122,7 @@ if (isset($_POST['dellall']) && !$read_only) {
 	}
 }
 
-if (($_POST['act'] == "delcert") && !$read_only) {
+if ((($_POST['act'] ?? null) == "delcert") && !$read_only) {
 
 	$rv = usermgr_user_cert_remove($id ?? null, $_POST['certid'], $guiuser);
 	if ($rv === null) {
@@ -137,7 +137,7 @@ if (($_POST['act'] == "delcert") && !$read_only) {
 	$_POST['act'] = "edit";
 }
 
-if (($_POST['act'] == "delprivid") && !$read_only && isset($id)) {
+if ((($_POST['act'] ?? null) == "delprivid") && !$read_only && isset($id)) {
 	$rv = usermgr_user_priv_remove($id, $_POST['privid'], $guiuser);
 	if (!empty($rv['errors'])) {
 		$delete_errors = $rv['errors'];
@@ -147,7 +147,7 @@ if (($_POST['act'] == "delprivid") && !$read_only && isset($id)) {
 	$_POST['act'] = "edit";
 }
 
-if ($_POST['save'] && !$read_only) {
+if (!empty($_POST['save']) && !$read_only) {
 	unset($input_errors);
 	$input_errors = usermgr_user_save($_POST, $id ?? null, $guiuser, $pconfig, $savemsg);
 
@@ -159,7 +159,7 @@ if ($_POST['save'] && !$read_only) {
 $pgtitle = array(gettext("System"), gettext("User Manager"), gettext("Users"));
 $pglinks = array("", "system_usermanager.php", "system_usermanager.php");
 
-if ($act == "new" || $act == "edit" || $input_errors) {
+if ($act == "new" || $act == "edit" || !empty($input_errors)) {
 	$pgtitle[] = gettext('Edit');
 	$pglinks[] = "@self";
 } elseif (!$read_only) {
@@ -168,21 +168,21 @@ if ($act == "new" || $act == "edit" || $input_errors) {
 
 include("head.inc");
 
-if ($delete_errors) {
+if (!empty($delete_errors)) {
 	print_input_errors($delete_errors);
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 
 fs_tabs('system-usermanager', 'system_usermanager.php');
 
-if (!($act == "new" || $act == "edit" || $input_errors)) {
+if (!($act == "new" || $act == "edit" || !empty($input_errors))) {
 ?>
 <form method="post">
 <div class="panel panel-default fs-table">
@@ -265,7 +265,7 @@ foreach (config_get_path('system/user', []) as $i => $userent):
 
 $form = new Form;
 
-if ($act == "new" || $act == "edit" || $input_errors):
+if ($act == "new" || $act == "edit" || !empty($input_errors)):
 
 	$form->addGlobal(new Form_Input(
 		'act',
@@ -407,7 +407,7 @@ if ($act == "new" || $act == "edit" || $input_errors):
 
 	foreach (config_get_path('system/group', []) as $Ggroup) {
 		if ($Ggroup['name'] != "all") {
-			if (($act == 'edit' || $input_errors) && $Ggroup['member'] && is_numericint($id) && in_array(config_get_path("system/user/{$id}/uid", []), $Ggroup['member'])) {
+			if (($act == 'edit' || !empty($input_errors)) && $Ggroup['member'] && is_numericint($id) && in_array(config_get_path("system/user/{$id}/uid", []), $Ggroup['member'])) {
 				$usersGroups[ $Ggroup['name'] ] = $Ggroup['name'];	// Add it to the user's list
 			} else {
 				$systemGroups[ $Ggroup['name'] ] = $Ggroup['name']; // Add it to the 'not a member of' list

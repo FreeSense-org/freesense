@@ -43,12 +43,12 @@ require_once("firewall_virtual_ip.inc");
 $input_errors = array();
 $retval = 0;
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$rv = applyVIP();
 	$retval = $rv['retval'];
 }
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? null) == "del") {
 	$rv = deleteVIP($_POST['id']);
 	$input_errors = $rv['input_errors'];
 }
@@ -63,9 +63,9 @@ $pgtitle = array(gettext("Firewall"), gettext("Virtual IPs"));
 fs_page_action(gettext('Add virtual IP'), 'firewall_virtual_ip_edit.php', 'fa-plus');
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
-} else if ($_POST['apply']) {
+} else if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 } else if (is_subsystem_dirty('vip')) {
 	print_apply_box(gettext("The VIP configuration has been changed.") . "<br />" . gettext("The changes must be applied for them to take effect."));

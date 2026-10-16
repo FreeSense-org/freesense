@@ -34,7 +34,7 @@ require_once("guiconfig.inc");
 $pgtitle = array(gettext("Diagnostics"), gettext("Limiter Info"));
 $shortcut_section = "trafficshaper-limiters";
 
-if ($_REQUEST['getactivity']) {
+if (!empty($_REQUEST['getactivity'])) {
 	$text = shell_exec('/sbin/dnctl pipe show');
 	if ($text == "") {
 		$text = gettext("No limiters were found on this system.");
@@ -62,7 +62,7 @@ $sections = array(
 
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 ?>

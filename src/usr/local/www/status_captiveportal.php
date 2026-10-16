@@ -67,7 +67,7 @@ function multiple_auth_server_type() {
 	}
 }
 
-$cpzone = strtolower($_REQUEST['zone']);
+$cpzone = strtolower($_REQUEST['zone'] ?? '');
 
 if (count(config_get_path('captiveportal', [])) == 1) {
 	$cpzone = current(array_keys(config_get_path('captiveportal', [])));
@@ -82,7 +82,7 @@ if (isset($cpzone) && !empty($cpzone) && config_path_enabled("captiveportal/{$cp
 	$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");
 }
 
-if ($_POST['act'] == "del" && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id'])) {
+if (($_POST['act'] ?? '') == "del" && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id'])) {
 	captiveportal_disconnect_client($_POST['id'], 6, "DISCONNECT - KICKED OUT BY ADMINISTRATOR");
 	/* keep displaying last activity times */
 	if ($_POST['showact']) {
@@ -93,7 +93,7 @@ if ($_POST['act'] == "del" && !empty($cpzone) && isset($cpzoneid) && isset($_POS
 	exit;
 }
 
-if ($_POST['deleteall'] && !empty($cpzone) && isset($cpzoneid)) {
+if (!empty($_POST['deleteall']) && !empty($cpzone) && isset($cpzoneid)) {
 	captiveportal_disconnect_all();
 	header("Location: status_captiveportal.php?zone={$cpzone}");
 	exit;

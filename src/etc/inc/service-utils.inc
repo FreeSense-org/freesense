@@ -296,7 +296,7 @@ function is_service_running($service, $ps = "") {
 			continue;
 		}
 		if (isset($aservice['name']) && (strtolower($service) == strtolower($aservice['name']))) {
-			if ($aservice['custom_php_service_status_command'] <> "") {
+			if (($aservice['custom_php_service_status_command'] ?? '') <> "") {
 				eval("\$rc={$aservice['custom_php_service_status_command']};");
 				return $rc;
 			}

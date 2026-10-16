@@ -7752,7 +7752,7 @@ function get_failover_interface($interface, $family = "all") {
 
 	/* compare against gateway groups */
 	$a_groups = return_gateway_groups_array(true);
-	if (is_array($a_groups[$interface])) {
+	if (is_array($a_groups[$interface] ?? null)) {
 		/* we found a gateway group, fetch the interface or vip */
 		if (!empty($a_groups[$interface][0]['vip'])) {
 			return $a_groups[$interface][0]['vip'];

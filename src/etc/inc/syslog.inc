@@ -916,7 +916,7 @@ function conv_log_filter($logfile, $nentries, $tail = 500, $filtertext = "", $fi
 	$filterlog = array();
 	$counter = 0;
 
-	$filterinterface = strtoupper($filterinterface);
+	$filterinterface = strtoupper((string)$filterinterface);
 	foreach ($logarr as $logent) {
 		if ($counter >= $nentries) {
 			break;

@@ -34,7 +34,7 @@ function nic_ui_assignments() {
 	$result = [];
 	foreach (config_get_path('interfaces', []) as $logical => $config) {
 		if (!empty($config['if'])) {
-			$result[$config['if']] = $config['descr'] ?: strtoupper($logical);
+			$result[$config['if']] = ($config['descr'] ?? null) ?: strtoupper($logical);
 		}
 	}
 	return $result;

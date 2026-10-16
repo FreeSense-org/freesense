@@ -39,9 +39,9 @@ require_once("filter.inc");
 require_once("shaper.inc");
 require_once("alias-utils.inc");
 
-$tab = ($_REQUEST['tab'] == "" ? "ip" : preg_replace("/\W/", "", $_REQUEST['tab']));
+$tab = (($_REQUEST['tab'] ?? '') == "" ? "ip" : preg_replace("/\W/", "", $_REQUEST['tab']));
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$retval = 0;
 
 	/* reload all components that use aliases */
@@ -53,7 +53,7 @@ if ($_POST['apply']) {
 }
 
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? null) == "del") {
 	$delete_error = deleteAlias($_POST['id']);
 
 	if (strlen($delete_error) == 0) {
@@ -98,10 +98,10 @@ function alias_list_values($alias) {
 
 include("head.inc");
 
-if ($delete_error) {
+if (!empty($delete_error)) {
 	print_info_box($delete_error, 'danger');
 }
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 

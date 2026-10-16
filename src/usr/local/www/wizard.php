@@ -39,14 +39,14 @@ require_once("system.inc");
 
 global $g;
 
-$stepid = htmlspecialchars($_REQUEST['stepid']);
+$stepid = htmlspecialchars($_REQUEST['stepid'] ?? '');
 
 
 if (!$stepid) {
 	$stepid = "0";
 }
 
-$xml = htmlspecialchars($_REQUEST['xml']);
+$xml = htmlspecialchars($_REQUEST['xml'] ?? '');
 
 if (empty($xml)) {
 	$xml = "not_defined";

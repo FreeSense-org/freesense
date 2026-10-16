@@ -44,18 +44,18 @@ unset($input_errors);
 
 $pconfig = $_REQUEST;
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	$pconfig = $_POST;
 	routing_save_default_gateways($pconfig);
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$retval = routing_apply_changes();
 }
 
 $a_gateways = get_gateways(GW_CACHE_INDEXED);
 
-if ($_REQUEST['act'] == "del") {
+if (($_REQUEST['act'] ?? null) == "del") {
 	if (routing_delete_gateway($a_gateways, $_REQUEST['id'], $input_errors)) {
 		header("Location: system_gateways.php");
 		exit;
@@ -71,7 +71,7 @@ if (isset($_REQUEST['del_x'])) {
 		}
 	}
 
-} else if ($_REQUEST['act'] == "toggle" && $a_gateways[$_REQUEST['id']]) {
+} else if (($_REQUEST['act'] ?? null) == "toggle" && $a_gateways[$_REQUEST['id']]) {
 	if (routing_toggle_gateway($a_gateways, $_REQUEST['id'], $input_errors)) {
 		header("Location: system_gateways.php");
 		exit;
@@ -89,11 +89,11 @@ $shortcut_section = "gateways";
 fs_page_action(gettext('Add gateway'), 'system_gateways_edit.php', 'fa-plus');
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 

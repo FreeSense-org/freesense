@@ -42,7 +42,7 @@ $class = "";
 $can_edit = isAllowedPage('services_wol_edit.php');
 
 /* Waking every device changes state, so only accept it via POST. */
-if ($_POST['wakeall'] != "") {
+if (($_POST['wakeall'] ?? '') != "") {
 	wol_wake_all($savemsg, $class);
 }
 
@@ -59,7 +59,7 @@ if (isset($_POST['save_device'])) {
 		exit;
 	}
 	$input_errors = $device_errors;
-} elseif ($_POST['Submit'] || $_POST['mac']) {
+} elseif (!empty($_POST['Submit']) || !empty($_POST['mac'])) {
 	unset($input_errors);
 
 	if ($_POST['mac']) {
@@ -71,7 +71,7 @@ if (isset($_POST['save_device'])) {
 	$input_errors = wol_wake_device($mac, $if, $savemsg, $class);
 }
 
-if (is_numericint($_POST['id']) && $_POST['act'] == "del") {
+if (is_numericint($_POST['id'] ?? null) && ($_POST['act'] ?? null) == "del") {
 	if (wol_delete_entry($_POST['id'])) {
 		header("Location: services_wol.php");
 		exit;
@@ -103,7 +103,7 @@ if ($can_edit) {
 }
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 

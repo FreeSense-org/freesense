@@ -78,7 +78,7 @@ function ntpd_migrate_openntpd() {
 /* The settings form's fields as the page preselects them (time servers are read from system/timeservers). */
 function ntpd_settings() {
 	$pconfig = config_get_path('ntpd', []);
-	$pconfig['enable'] = ($pconfig['enable'] != 'disabled') ? 'enabled' : 'disabled';
+	$pconfig['enable'] = (($pconfig['enable'] ?? null) != 'disabled') ? 'enabled' : 'disabled';
 	if (empty($pconfig['interface'])) {
 		$pconfig['interface'] = array();
 	} else {

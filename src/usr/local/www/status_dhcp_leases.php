@@ -49,7 +49,7 @@ $show_all = (intval($_REQUEST['all'] ?? 0) == 1);
 $all_param = $show_all ? 1 : 0;
 
 if (dhcp_is_backend('isc')):
-if (($_POST['deleteip']) && (is_ipaddr($_POST['deleteip']))) {
+if ((!empty($_POST['deleteip'])) && (is_ipaddr($_POST['deleteip']))) {
 	$leasesfile = "{$g['dhcpd_chroot_path']}/var/db/dhcpd.leases";
 
 	/* Stop DHCPD */
@@ -86,13 +86,13 @@ if (($_POST['deleteip']) && (is_ipaddr($_POST['deleteip']))) {
 endif; /* dhcp_is_backend('isc') */
 
 if (dhcp_is_backend('kea')):
-if (($_POST['deleteip']) && (is_ipaddr($_POST['deleteip']))) {
+if ((!empty($_POST['deleteip'])) && (is_ipaddr($_POST['deleteip']))) {
 	system_del_kea4lease($_POST['deleteip']);
 }
 endif; /* dhcp_is_backend('kea') */
 
 if (dhcp_is_backend('isc')):
-if ($_POST['cleardhcpleases']) {
+if (!empty($_POST['cleardhcpleases'])) {
 	killbyname("dhcpd");
 	sleep(2);
 	unlink_if_exists("{$g['dhcpd_chroot_path']}/var/db/dhcpd.leases*");
@@ -103,7 +103,7 @@ if ($_POST['cleardhcpleases']) {
 endif; /* dhcp_is_backend('isc') */
 
 if (dhcp_is_backend('kea')):
-if ($_POST['cleardhcpleases']) {
+if (!empty($_POST['cleardhcpleases'])) {
 	system_clear_all_kea4leases();
 }
 endif; /* dhcp_is_backend('kea') */
@@ -128,7 +128,7 @@ $expired_string = gettext("expired");
 $dynamic_string = gettext("dynamic");
 $static_string = gettext("static");
 
-if ($_REQUEST['order']) {
+if (!empty($_REQUEST['order'])) {
 	usort($leases['lease'], function($a, $b) {
 		return strcmp($a[$_REQUEST['order']], $b[$_REQUEST['order']]);
 	});

@@ -121,7 +121,7 @@ if (empty($pagename)) {
 /* If the filename is pkg_edit.php or wizard.php, reparse looking
 	for the .xml filename */
 if (($pagename == "pkg.php") || ($pagename == "pkg_edit.php") || ($pagename == "wizard.php")) {
-	$param_split = explode('&', $uri_split[2]);
+	$param_split = explode('&', $uri_split[2] ?? '');
 	foreach ($param_split as $param) {
 		if (substr($param, 0, 4) == "xml=") {
 			$xmlfile = explode('=', $param);
@@ -129,7 +129,7 @@ if (($pagename == "pkg.php") || ($pagename == "pkg_edit.php") || ($pagename == "
 		}
 	}
 } else if ($pagename == "status_logs.php") {
-	$param_split = explode('&', $uri_split[2]);
+	$param_split = explode('&', $uri_split[2] ?? '');
 	foreach ($param_split as $param) {
 		if (substr($param, 0, 8) == "logfile=") {
 			$logtype = explode('=', $param);
@@ -867,7 +867,7 @@ if (!$hide_service_status && !empty($shortcuts[$shortcut_section]['service']) &&
 	$ssvc = array();
 	switch ($shortcut_section) {
 		case "openvpn":
-			$ssvc = find_service_by_openvpn_vpnid($vpnid);
+			$ssvc = find_service_by_openvpn_vpnid($vpnid ?? null);
 			break;
 		case "captiveportal":
 			$ssvc = find_service_by_cp_zone($cpzone);

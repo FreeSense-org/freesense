@@ -109,7 +109,7 @@ if ($read_only) {
 	print_info_box(gettext("The current user is read-only and cannot change the configuration."), 'danger');
 }
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 

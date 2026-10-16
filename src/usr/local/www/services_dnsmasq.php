@@ -38,6 +38,7 @@ require_once("guiconfig.inc");
 require_once("services_dnsmasq.inc");
 
 $retval = 0;
+$input_errors = null;
 
 $rv = getDNSMasqConfig();
 $pconfig = $rv['config'];
@@ -49,14 +50,14 @@ $iflist = $rv['iflist'];
 $view = fs_view_param(['general', 'hosts', 'domains'], 'general');
 $view_url = 'services_dnsmasq.php' . (($view === 'general') ? '' : '?view=' . $view);
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$retval = applyDNSMasqConfig();
-} else if ($_POST['save']) {
+} else if (!empty($_POST['save'])) {
 	$rv = saveDNSMasqConfig($_POST);
 	$pconfig = $rv['pconfig'];
 	$input_errors = $rv['input_errors'];
 	$iflist = $rv['iflist'];
-} else if ($_POST['act'] == "del") {
+} else if (($_POST['act'] ?? null) == "del") {
 	deleteDNSMasqEntry($_POST);
 	header("Location: " . $view_url);
 	exit;
@@ -82,7 +83,7 @@ if ($input_errors) {
 	print_input_errors($input_errors);
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	print_apply_result_box($retval);
 }
 

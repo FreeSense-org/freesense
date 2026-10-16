@@ -128,10 +128,10 @@ if ($can_manage) {
 }
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 if (!restapi_enabled()) {

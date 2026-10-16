@@ -39,7 +39,7 @@ require_once("pkg-utils.inc");
 require_once("freesense-utils.inc");
 require_once("util.inc");
 
-$xml = htmlspecialchars($_REQUEST['xml']);
+$xml = htmlspecialchars($_REQUEST['xml'] ?? '');
 
 $xml_fullpath = realpath('/usr/local/pkg/' . $xml);
 

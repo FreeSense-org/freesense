@@ -42,7 +42,7 @@ if (!g_get('services_dhcp_server_enable')) {
 	exit;
 }
 
-$if = $_REQUEST['if'];
+$if = $_REQUEST['if'] ?? null;
 $iflist = get_configured_interface_with_descr();
 
 /* set the starting interface */
@@ -83,7 +83,7 @@ $ramode_help = gettext('Select the Operating Mode for the Router Advertisement (
 	    'be another host on the network.'), g_get('product_label')) .
 	'</div>';
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	unset($input_errors);
 
 	$rv = radvd_save((string)$if, $_POST);
@@ -106,15 +106,15 @@ $shortcut_section = 'radvd';
 
 include('head.inc');
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 
-if ($info_msg) {
+if (!empty($info_msg)) {
 	print_info_box($info_msg, 'success');
 }
 
@@ -161,14 +161,14 @@ $section = new Form_Section(gettext('Router Advertisement'));
 $section->addInput(new Form_Select(
 	'ramode',
 	'*'.gettext('Router Mode'),
-	$pconfig['ramode'],
+	($pconfig['ramode'] ?? null),
 	$advertise_modes
 ))->setHelp($ramode_help);
 
 $section->addInput(new Form_Select(
 	'rapriority',
 	'*'.gettext('Router Priority'),
-	$pconfig['rapriority'],
+	($pconfig['rapriority'] ?? null),
 	$priority_modes
 ))->setHelp(gettext('Select the Priority for the RA Daemon.'));
 
@@ -187,7 +187,7 @@ $section->addInput(new Form_Input(
 	'ravalidlifetime',
 	gettext('Valid Lifetime'),
 	'number',
-	$pconfig['ravalidlifetime'],
+	($pconfig['ravalidlifetime'] ?? null),
 	['min' => 1, 'max' => 655350, 'placeholder' => 86400]
 ))->setHelp(gettext('The length of time in seconds (relative to the time the packet is sent) that the prefix is valid for the purpose of on-link determination.%1$s' .
 'The default is 86400 seconds.'), '<br />');
@@ -196,7 +196,7 @@ $section->addInput(new Form_Input(
 	'rapreferredlifetime',
 	gettext('Preferred Lifetime'),
 	'number',
-	$pconfig['rapreferredlifetime'],
+	($pconfig['rapreferredlifetime'] ?? null),
 	['placeholder' => 14400]
 ))->setHelp(gettext('The length of time in seconds (relative to the time the packet is sent) that addresses generated from the prefix via SLAAC remain preferred.%1$s' .
 			'The default is 14400 seconds.'), '<br />');
@@ -205,7 +205,7 @@ $section->addInput(new Form_Input(
 	'raminrtradvinterval',
 	gettext('Minimum RA Interval'),
 	'number',
-	$pconfig['raminrtradvinterval'],
+	($pconfig['raminrtradvinterval'] ?? null),
 	['min' => 3, 'max' => 1350, 'placeholder' => 200]
 ))->setHelp(gettext('The minimum time allowed between sending unsolicited multicast router advertisements in seconds.%1$s' .
 'The default is 200 seconds.'), '<br />');
@@ -214,7 +214,7 @@ $section->addInput(new Form_Input(
 	'ramaxrtradvinterval',
 	gettext('Maximum RA Interval'),
 	'number',
-	$pconfig['ramaxrtradvinterval'],
+	($pconfig['ramaxrtradvinterval'] ?? null),
 	['min' => 4, 'max' => 1800, 'placeholder' => 600]
 ))->setHelp(gettext('The maximum time allowed between sending unsolicited multicast router advertisements in seconds.%1$s' .
 'The default is 600 seconds.'), '<br />');
@@ -233,7 +233,7 @@ $section->addInput(new Form_Input(
 	'raadvdefaultlifetime',
 	gettext('Router Lifetime'),
 	'number',
-	$pconfig['raadvdefaultlifetime'],
+	($pconfig['raadvdefaultlifetime'] ?? null),
 	['min' => 0, 'max' => 9000, 'placeholder' => $raadvdefaultlifetime]
 ))->setHelp(gettext('The lifetime associated with the default router in seconds.%1$s' .
 'The default is 3 * Maximum RA interval seconds.'), '<br />');
@@ -242,13 +242,13 @@ $section->addInput(new Form_Checkbox(
 	'pref64_enable',
 	'PREF64',
 	'Advertise a NAT64 prefix',
-	$pconfig['pref64_enable']
+	($pconfig['pref64_enable'] ?? null)
 ))->setHelp('Check to enable advertising of the NAT64 prefix with PREF64.');
 $section->addInput(new Form_Input(
 	'pref64_lifetime',
 	gettext('NAT64 Prefix Lifetime'),
 	'number',
-	$pconfig['pref64_lifetime'],
+	($pconfig['pref64_lifetime'] ?? null),
 	['min' => 1, 'max' => 65528, 'placeholder' => (intval(array_get_path($pconfig, 'ramaxrtradvinterval', 600)) * 3)]
 ))->setHelp(gettext('The length of time in seconds (relative to the time
 	the packet is sent) that the prefix is valid for the purpose of NAT64
@@ -317,7 +317,7 @@ $section->addInput(new Form_Checkbox(
 	'radvd-dns',
 	gettext('Enable DNS'),
 	gettext('Provide DNS Configuration via the RA Daemon'),
-	$pconfig['radvd-dns']
+	($pconfig['radvd-dns'] ?? null)
 ))->setHelp(gettext('Unchecking this box disables the RA Daemon RDNSS/DNSSL options. ' .
 			'Use with caution, as the resulting behavior may violate some RFCs.'));
 
@@ -325,7 +325,7 @@ $section->addInput(new Form_Checkbox(
 	'rasamednsasdhcp6',
 	gettext('Mirror DHCPv6'),
 	gettext('Mirror DHCPv6 DNS Configuration'),
-	$pconfig['rasamednsasdhcp6']
+	($pconfig['rasamednsasdhcp6'] ?? null)
 ))->setHelp(gettext('When checked, the DNS configuration will be copied from the primary DHCPv6 options automatically.'));
 
 $ifipv6 = get_interface_ipv6($if);
@@ -342,7 +342,7 @@ if (config_path_enabled('dnsmasq') ||
 	$dns_arrv6 = [$ifipv6];
 }
 
-if (is_numeric($pool) || ($act === 'newpool')) {
+if (is_numeric($pool ?? null) || (($act ?? null) === 'newpool')) {
 	$subnet_dnsservers = config_get_path('dhcpdv6/'.$if.'/dnsserver', []);
 	if (!empty($subnet_dnsservers)) {
 		$dns_arrv6 = $subnet_dnsservers;
@@ -354,7 +354,7 @@ for ($idx = 1; $idx <= 4; $idx++) {
 	$last = $section->addInput(new Form_IpAddress(
 		'radns' . $idx,
 		gettext('DNS Server') . ' '. $idx,
-		$pconfig['radns' . $idx],
+		($pconfig['radns' . $idx] ?? null),
 		'ALIASV6'
 	))->addClass('autotrim')
 	  ->setAttribute('placeholder', $dns_arrv6[$idx - 1] ?? sprintf(gettext('DNS Server %s'), $idx));
@@ -365,7 +365,7 @@ $section->addInput(new Form_Input(
 	'radomainsearchlist',
 	gettext('Domain Search List'),
 	'text',
-	$pconfig['radomainsearchlist']
+	($pconfig['radomainsearchlist'] ?? null)
 ))->addClass('autotrim')
   ->setAttribute('placeholder', 'example.com;sub.example.com')
   ->setHelp(gettext('The RA Daemon can optionally provide a domain search list. Use the semicolon character as separator.'));

@@ -40,6 +40,8 @@ require_once("services_snmp.inc");
 snmp_init_config();
 
 $pconfig = snmp_settings();
+$input_errors = null;
+$changes_applied = false;
 
 if ($_POST) {
 

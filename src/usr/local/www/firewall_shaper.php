@@ -70,7 +70,7 @@ if ($_POST) {
 	}
 }
 
-if ($interface) {
+if (!empty($interface)) {
 	$altq = $altq_list_queues[$interface];
 
 	if ($altq) {
@@ -87,7 +87,7 @@ $dfltmsg = false;
 if ($_GET) {
 	switch ($action) {
 	case "delete":
-		if ($queue) {
+		if (!empty($queue)) {
 			$queue->delete_queue();
 			if (write_config("Traffic Shaper: Item deleted")) {
 				mark_subsystem_dirty('shaper');
@@ -370,21 +370,21 @@ if (isAllowedPage('status_queues.php')) {
 
 include("head.inc");
 
-if ($queue) {
+if (!empty($queue)) {
 	print($queue->build_javascript());
 }
 
-print($newjavascript);
+print($newjavascript ?? '');
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($no_write_config_msg) {
+if (!empty($no_write_config_msg)) {
 	print_info_box($no_write_config_msg, 'danger');
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 
@@ -395,7 +395,7 @@ if (is_subsystem_dirty('shaper')) {
 fs_tabs('firewall-shaper', 'firewall_shaper.php');
 
 $show_form = (!$dfltmsg && $sform);
-$ifdescr = $shaperIFlist[$interface] ?? $interface;
+$ifdescr = $shaperIFlist[$interface ?? ''] ?? ($interface ?? null);
 ?>
 
 <style>
