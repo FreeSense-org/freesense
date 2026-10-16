@@ -1010,3 +1010,13 @@ body { --fs-navbar-h: 6.9rem; }
 	body { --fs-navbar-h: 3.6rem; }
 	.fs-topbar .fs-topbar-tools .fs-nav-search-label, .fs-topbar .fs-topbar-tools .fs-nav-search-kbd { display: none; }
 }
+
+/* Icons-only menu: even, generous spacing; more on Wide and Full, where the row is long. */
+@media (min-width: 992px) {
+	body.fs-menu-icons .fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-left: .85rem; padding-right: .85rem; }
+	body.fs-menu-icons:not(.fs-width-classic) .fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-left: 1.1rem; padding-right: 1.1rem; }
+	body.fs-menu-icons .fs-topbar .fs-topbar-menu > .nav-item:first-child > .nav-link { padding-left: .5rem; }
+	body.fs-menu-icons .fs-topbar .fs-topbar-menu > .nav-item > .dropdown-toggle::after { display: none; }
+	/* Names shown: a little more air between them on the long rows. */
+	body:not(.fs-menu-icons):not(.fs-width-classic) .fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-left: 1rem; padding-right: 1rem; }
+}
