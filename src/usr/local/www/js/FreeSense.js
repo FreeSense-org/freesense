@@ -307,6 +307,44 @@ $(function() {
 		document.activeElement.blur();
 	}
 
+	/*
+	 * Automatic top bar (body.fs-menu-auto): names while they fit, then a
+	 * tighter bar (fs-menu-tight), then icons only (fs-menu-icons). Measured,
+	 * so it holds for every page width, zoom level and language.
+	 */
+	(function () {
+		var body = document.body, bar = document.querySelector('#topmenu > .container');
+		if (!body.classList.contains('fs-menu-auto') || !bar) {
+			return;
+		}
+		var fits = function () {
+			var cs = getComputedStyle(bar), room = bar.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+			var need = 0;
+			bar.querySelectorAll(':scope > .navbar-brand, #pf-navbar > .navbar-nav').forEach(function (el) {
+				var ms = getComputedStyle(el);
+				/* the menus' auto margin is free space, not something they need */
+				need += el.scrollWidth + parseFloat(ms.marginLeft) + (el.classList.contains('me-auto') ? 0 : parseFloat(ms.marginRight));
+			});
+			return need + 16 <= room;
+		};
+		var fit = function () {
+			body.classList.remove('fs-menu-tight', 'fs-menu-icons');
+			if (window.innerWidth < 992 || fits()) {
+				return;
+			}
+			body.classList.add('fs-menu-tight');
+			if (!fits()) {
+				body.classList.add('fs-menu-icons');
+			}
+		};
+		var t;
+		fit();
+		window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fit, 120); });
+		if (document.fonts && document.fonts.ready) {
+			document.fonts.ready.then(fit);
+		}
+	}());
+
 	$(".resizable").each(function() {
 		$(this).css('height', 80).resizable({minHeight: 80, minWidth: 200}).parent().css('padding-bottom', 0);
 		$(this).css('height', 78);
