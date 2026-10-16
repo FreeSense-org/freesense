@@ -69,6 +69,7 @@ function get_uptime() {
 	$upsecs = (int)($uptime);
 
 	$uptimestr = "";
+	$hours = $minutes = $seconds = "";
 	if ($updays > 1) {
 		$uptimestr .= "$updays Days ";
 	} else if ($updays > 0) {

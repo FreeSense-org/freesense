@@ -36,8 +36,10 @@ require_once("freesense-utils.inc");
 require_once("diag_tools.inc");
 
 $host = $host_utf8 = '';
+$input_errors = $type = $resolved = null;
+$createdalias = $couldnotcreatealias = false;
 
-list($host, $host_utf8) = diag_dns_host($_REQUEST['host']);
+list($host, $host_utf8) = diag_dns_host($_REQUEST['host'] ?? null);
 
 $alias_exists = diag_dns_alias_state($host)['exists'];
 
@@ -65,7 +67,7 @@ if ($_POST) {
 	}
 }
 
-if ($_POST['host'] && $_POST['dialog_output']) {
+if (!empty($_POST['host']) && !empty($_POST['dialog_output'])) {
 	$host = (isset($resolvedptr) ? $resolvedptr : $host);
 	diag_dns_display_host_results($ipaddr, $host, $dns_speeds);
 	exit;

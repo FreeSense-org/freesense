@@ -66,11 +66,11 @@ $pglinks = array("", "@self", "@self");
 $shortcut_section = "ntp";
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 
@@ -162,7 +162,7 @@ $section->addInput(new Form_Button(
 
 $section->addInput(new Form_StaticText(
 	null,
-	$btnaddrow
+	$btnaddrow ?? null
 ))->setHelp(
 	'NTP will only sync if a majority of the servers agree on the time.  For best results you should configure between 3 and 5 servers ' .
 	'(%4$sNTP support pages recommend at least 4 or 5%5$s), or a pool. If only one server is configured, it %2$swill%3$s be believed, and if 2 servers ' .
@@ -181,7 +181,7 @@ $section->addInput(new Form_Input(
 	'ntpmaxpeers',
 	'Max candidate pool peers',
 	'number',
-	$pconfig['ntpmaxpeers'],
+	$pconfig['ntpmaxpeers'] ?? null,
 	['min' => $min_candidate_peers, 'max' => $max_candidate_peers]
 ))->setHelp('Maximum number of candidate peers in the NTP pool. This value should be set low enough to provide sufficient alternate sources ' .
 	    'while not contacting an excessively large number of peers. ' .
@@ -193,7 +193,7 @@ $section->addInput(new Form_Input(
 	'ntporphan',
 	'Orphan Mode',
 	'text',
-	$pconfig['orphan'],
+	$pconfig['orphan'] ?? null,
 	['placeholder' => "12"]
 ))->setHelp('Orphan mode allows the system clock to be used when no other clocks are available. ' .
 			'The number here specifies the stratum reported during orphan mode and should normally be set to a number high enough ' .
@@ -202,14 +202,14 @@ $section->addInput(new Form_Input(
 $section->addInput(new Form_Select(
 	'ntpminpoll',
 	'Minimum Poll Interval',
-	$pconfig['ntpminpoll'],
+	$pconfig['ntpminpoll'] ?? null,
 	$ntp_poll_values
 ))->setHelp('Minimum poll interval for NTP messages. If set, must be less than or equal to Maximum Poll Interval.');
 
 $section->addInput(new Form_Select(
 	'ntpmaxpoll',
 	'Maximum Poll Interval',
-	$pconfig['ntpmaxpoll'],
+	$pconfig['ntpmaxpoll'] ?? null,
 	$ntp_poll_values
 ))->setHelp('Maximum poll interval for NTP messages. If set, must be greater than or equal to Minimum Poll Interval.');
 
@@ -217,21 +217,21 @@ $section->addInput(new Form_Checkbox(
 	'statsgraph',
 	'NTP Graphs',
 	'Enable RRD graphs of NTP statistics (default: disabled).',
-	$pconfig['statsgraph']
+	$pconfig['statsgraph'] ?? null
 ));
 
 $section->addInput(new Form_Checkbox(
 	'logpeer',
 	'Logging',
 	'Log peer messages (default: disabled).',
-	$pconfig['logpeer']
+	$pconfig['logpeer'] ?? null
 ));
 
 $section->addInput(new Form_Checkbox(
 	'logsys',
 	null,
 	'Log system messages (default: disabled).',
-	$pconfig['logsys']
+	$pconfig['logsys'] ?? null
 ))->setHelp('These options enable additional messages from NTP to be written to the System Log %1$sStatus > System Logs > NTP%2$s',
 			'<a href="status_logs.php?logfile=ntpd">', '</a>.');
 
@@ -254,21 +254,21 @@ $section->addInput(new Form_Checkbox(
 	'clockstats',
 	null,
 	'Log reference clock statistics (default: disabled).',
-	$pconfig['clockstats']
+	$pconfig['clockstats'] ?? null
 ));
 
 $section->addInput(new Form_Checkbox(
 	'loopstats',
 	null,
 	'Log clock discipline statistics (default: disabled).',
-	$pconfig['loopstats']
+	$pconfig['loopstats'] ?? null
 ));
 
 $section->addInput(new Form_Checkbox(
 	'peerstats',
 	null,
 	'Log NTP peer statistics (default: disabled).',
-	$pconfig['peerstats']
+	$pconfig['peerstats'] ?? null
 ));
 
 // Leap seconds section
@@ -304,7 +304,7 @@ $section->addInput(new Form_StaticText(
 $section->addInput(new Form_Textarea(
 	'leaptext',
 	null,
-	base64_decode(chunk_split($pconfig['leapsec']))
+	base64_decode(chunk_split($pconfig['leapsec'] ?? ''))
 ))->setHelp('Enter Leap second configuration as text OR select a file to upload.');
 
 $section->addInput(new Form_Input(
@@ -316,7 +316,7 @@ $section->addInput(new Form_Input(
 $section->addInput(new Form_Select(
 	'dnsresolv',
 	'DNS Resolution',
-	$pconfig['dnsresolv'],
+	$pconfig['dnsresolv'] ?? null,
 	ntpd_dnsresolv_choices()
 ))->setHelp('Force NTP peer DNS resolution IP protocol.');
 
@@ -324,7 +324,7 @@ $section->addInput(new Form_Checkbox(
 	'serverauth',
 	'Enable NTP Server Authentication',
 	'Enable NTPv3 authentication (RFC 1305)',
-	$pconfig['serverauth']
+	$pconfig['serverauth'] ?? null
 ))->setHelp('Authentication allows the NTP client to confirm it is communicating with the intended server, ' .
 	    'which protects against man-in-the-middle attacks.');
 
@@ -335,7 +335,7 @@ $group->add(new Form_Input(
 	'serverauthkeyid',
 	'Key ID',
 	null,
-	$pconfig['serverauthkeyid'],
+	$pconfig['serverauthkeyid'] ?? null,
 	['placeholder' => 'Key ID', 'type' => 'number', 'min' => 1, 'max' => 65535, 'step' => 1]
 ))->setWidth(2)->setHelp('ID associated with the authentication key');
 
@@ -343,7 +343,7 @@ $group->add(new Form_Input(
 	'serverauthkey',
 	'NTP Authentication key',
 	'text',
-	base64_decode($pconfig['serverauthkey']),
+	base64_decode($pconfig['serverauthkey'] ?? ''),
 	['placeholder' => 'NTP Authentication key']
 ))->setHelp(
 	'Key format: %1$s MD5 - The key is 1 to 20 printable characters %1$s' .
@@ -355,7 +355,7 @@ $group->add(new Form_Input(
 $group->add(new Form_Select(
 	'serverauthalgo',
 	null,
-	$pconfig['serverauthalgo'],
+	$pconfig['serverauthalgo'] ?? null,
 	$ntp_auth_halgos
 ))->setWidth(2)->setHelp('Digest algorithm');
 
@@ -386,7 +386,7 @@ events.push(function() {
 		// On page load decide the initial state based on the data.
 		if (ispageload) {
 <?php
-			if (!$pconfig['clockstats'] && !$pconfig['loopstats'] && !$pconfig['peerstats']) {
+			if (empty($pconfig['clockstats']) && empty($pconfig['loopstats']) && empty($pconfig['peerstats'])) {
 				$showadv = false;
 			} else {
 				$showadv = true;

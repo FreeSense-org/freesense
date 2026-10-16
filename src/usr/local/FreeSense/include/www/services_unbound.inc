@@ -102,7 +102,7 @@ function unbound_general_settings() {
 	$pconfig['port'] = config_get_path('unbound/port');
 	$pconfig['tlsport'] = config_get_path('unbound/tlsport');
 	$pconfig['sslcertref'] = config_get_path('unbound/sslcertref');
-	$pconfig['custom_options'] = base64_decode(config_get_path('unbound/custom_options'));
+	$pconfig['custom_options'] = base64_decode(config_get_path('unbound/custom_options', ''));
 
 	if (config_get_path('unbound/active_interface')) {
 		$pconfig['active_interface'] = explode(",", config_get_path('unbound/active_interface'));

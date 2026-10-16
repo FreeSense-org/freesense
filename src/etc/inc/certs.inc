@@ -781,7 +781,7 @@ function cert_get_ocspstaple($str_crt, $decode = true) {
 		$str_crt = base64_decode($str_crt);
 	}
 	$crt_details = openssl_x509_parse($str_crt);
-	if (($crt_details['extensions']['tlsfeature'] == "status_request") ||
+	if ((($crt_details['extensions']['tlsfeature'] ?? null) == "status_request") ||
 	    !empty($crt_details['extensions']['1.3.6.1.5.5.7.1.24'])) {
 		return true;
 	}
@@ -884,7 +884,7 @@ function is_ipsec_peer_ca($caref) {
 
 function is_ldap_peer_ca($caref) {
 	foreach (config_get_path('system/authserver', []) as $authserver) {
-		if (($authserver['ldap_caref'] == $caref) &&
+		if ((($authserver['ldap_caref'] ?? null) == $caref) &&
 		    ($authserver['ldap_urltype'] != 'Standard TCP')) {
 			return true;
 		}
@@ -915,7 +915,7 @@ function is_kea_cert(string $certref): bool {
 
 function is_user_cert($certref) {
 	foreach (config_get_path('system/user', []) as $user) {
-		if (!is_array($user['cert'])) {
+		if (!is_array($user['cert'] ?? null)) {
 			continue;
 		}
 		foreach ($user['cert'] as $cert) {
@@ -2330,7 +2330,7 @@ function cert_print_dates($cert) {
 	/* Get the expiration days */
 	$expiredays = cert_get_lifetime($cert, true);
 	/* Analyze the lifetime value */
-	list($lrclass, $expstring) = cert_analyze_lifetime(cert_get_lifetime($cert), $expiredays, ($cert['autorenew'] == 'enabled'));
+	list($lrclass, $expstring) = cert_analyze_lifetime(cert_get_lifetime($cert), $expiredays, (($cert['autorenew'] ?? null) == 'enabled'));
 	/* Output the dates, with a tooltip showing days until expiration, and
 	 * a visual indication of warning/expired status. */
 	?>
@@ -2481,7 +2481,7 @@ function cert_print_infoblock($cert) {
 
 		/* Lifetime before certificate expires (days from now to end) */
 		$expiredays = cert_get_lifetime($cert, true);
-		list($lrclass, $expstring) = cert_analyze_lifetime($lifetime, $expiredays, ($cert['autorenew'] == 'enabled'));
+		list($lrclass, $expstring) = cert_analyze_lifetime($lifetime, $expiredays, (($cert['autorenew'] ?? null) == 'enabled'));
 		$certextinfo .= '<b>' . gettext("Lifetime Remaining: ") . '</b> ';
 		$certextinfo .= "<span class=\"text-{$lrclass}\">{$expstring}</span>";
 		$certextinfo .= '<br/>';
@@ -2546,7 +2546,7 @@ function cert_notify_expiring() {
 		if ($expiredays === null) {
 			continue;
 		}
-		list($lrclass, $expstring) = cert_analyze_lifetime(cert_get_lifetime($cert), $expiredays, ($cert['autorenew'] == 'enabled'));
+		list($lrclass, $expstring) = cert_analyze_lifetime(cert_get_lifetime($cert), $expiredays, (($cert['autorenew'] ?? null) == 'enabled'));
 		/* Only notify if the certificate is expiring soon, or has
 		 * already expired */
 		if (($lrclass == 'danger') ||

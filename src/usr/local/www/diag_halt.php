@@ -38,7 +38,7 @@ require_once("functions.inc");
 require_once("captiveportal.inc");
 require_once("diag_system.inc");
 
-if ($_POST['save'] == 'No') {
+if (($_POST['save'] ?? '') == 'No') {
 	header("Location: index.php");
 	exit;
 }

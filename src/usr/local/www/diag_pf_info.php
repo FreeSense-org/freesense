@@ -32,13 +32,14 @@
 require_once("guiconfig.inc");
 
 $pgtitle = array(gettext("Diagnostics"), gettext("pfInfo"));
+$input_errors = null;
 
-if (stristr($_POST['Submit'], gettext("No"))) {
+if (stristr($_POST['Submit'] ?? '', gettext("No"))) {
 	header("Location: index.php");
 	exit;
 }
 
-if ($_REQUEST['getactivity']) {
+if (!empty($_REQUEST['getactivity'])) {
 	$text = shell_exec('/sbin/pfctl -vvsi');
 	$text .= "<p/>";
 	$text .= shell_exec('/sbin/pfctl -vvsm');

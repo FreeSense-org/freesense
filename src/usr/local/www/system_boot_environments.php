@@ -46,8 +46,8 @@ if (($view === 'environments') && $available && $compatible) {
 	fs_page_action(gettext('Create snapshot'), '#', 'fa-camera', 'primary', ['data-fs-modal' => '#be-create']);
 }
 include('head.inc');
-if ($input_errors) print_input_errors($input_errors);
-if ($savemsg) print_info_box($savemsg, 'success');
+if (!empty($input_errors)) print_input_errors($input_errors);
+if (!empty($savemsg)) print_info_box($savemsg, 'success');
 
 /* health text -> badge state */
 function be_health_badge(string $health): string {

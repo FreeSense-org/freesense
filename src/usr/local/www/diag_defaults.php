@@ -37,7 +37,7 @@
 require_once("guiconfig.inc");
 require_once("pkg-utils.inc");
 
-if ($_POST['Submit'] == " " . gettext("No") . " ") {
+if (($_POST['Submit'] ?? null) == " " . gettext("No") . " ") {
 	header("Location: index.php");
 	exit;
 }
@@ -51,7 +51,7 @@ include("head.inc");
 .fs-defaults-hint > i { margin-top: .2rem; color: var(--fs-info); }
 </style>
 
-<?php if ($_POST['Submit'] == " " . gettext("Yes") . " "):
+<?php if (($_POST['Submit'] ?? null) == " " . gettext("Yes") . " "):
 	print_info_box(gettext("The system has been reset to factory defaults and is now rebooting. This may take a few minutes, depending on the hardware."))?>
 <pre class="fs-console">
 <?php

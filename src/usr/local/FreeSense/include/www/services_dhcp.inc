@@ -3106,7 +3106,7 @@ function radvd_form(string $if): array {
 
 		$pconfig['subnets'] = config_get_path("dhcpdv6/{$if}/subnets/item");
 	}
-	if (!is_array($pconfig['subnets'])) {
+	if (!is_array($pconfig['subnets'] ?? null)) {
 		$pconfig['subnets'] = array();
 	}
 

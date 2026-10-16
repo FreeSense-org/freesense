@@ -58,6 +58,8 @@ $this_server_config = isset($id) ? config_get_path("openvpn/openvpn-server/{$id}
 
 if (isset($_REQUEST['act'])) {
 	$act = $_REQUEST['act'];
+} else {
+	$act = null;
 }
 
 $user_can_edit_advanced = openvpn_user_can_edit_advanced("page-openvpn-server-advanced");
@@ -68,7 +70,7 @@ if ($this_server_config) {
 	$vpnid = 0;
 }
 
-if ($_POST['act'] == "del") {
+if (($_POST['act'] ?? null) == "del") {
 	$rv = openvpn_instance_delete('server', $id ?? null, $user_can_edit_advanced);
 	if ($rv === null) {
 		FreeSenseHeader("vpn_openvpn_server.php");
@@ -94,7 +96,7 @@ if ($act == "dup") {
 	unset($id);
 }
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	unset($input_errors);
 	$pconfig = $_POST;
 
@@ -145,11 +147,11 @@ if (!$is_editor) {
 }
 include("head.inc");
 
-if (!$savemsg) {
+if (empty($savemsg)) {
 	$savemsg = "";
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
@@ -1707,7 +1709,7 @@ events.push(function() {
 	$('#certref').on('change', function() {
 		var errmsg = "";
 
-		if ($(this).find(":selected").index() >= "<?=$servercerts?>") {
+		if ($(this).find(":selected").index() >= "<?=$servercerts ?? ''?>") {
 			var errmsg = '<span class="text-danger">' + "<?=gettext('Warning: The selected server certificate was not created as an SSL/TLS Server certificate and may not work as expected')?>" + '</span>';
 		}
 

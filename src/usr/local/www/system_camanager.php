@@ -46,7 +46,7 @@ $default_lifetime = pki_ca_default_lifetime();
 $openssl_ecnames = cert_build_curve_list();
 $class = "success";
 
-$act = $_REQUEST['act'];
+$act = $_REQUEST['act'] ?? null;
 
 if (isset($_REQUEST['id']) && ctype_alnum($_REQUEST['id'])) {
 	$id = $_REQUEST['id'];
@@ -93,7 +93,7 @@ switch ($act) {
 		break;
 }
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 	unset($input_errors);
 	$input_errors = array();
 	$pconfig = $_POST;
@@ -107,26 +107,26 @@ if ($_POST['save']) {
 $pgtitle = array(gettext('System'), gettext('Certificates'), gettext('Authorities'));
 $pglinks = array("", "system_camanager.php", "system_camanager.php");
 
-if ($act == "new" || $act == "edit" || $act == gettext("Save") || $input_errors) {
+if ($act == "new" || $act == "edit" || $act == gettext("Save") || !empty($input_errors)) {
 	$pgtitle[] = gettext('Edit');
 	$pglinks[] = "@self";
 }
-if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_errors)) {
+if (!($act == "new" || $act == "edit" || $act == gettext("Save") || !empty($input_errors))) {
 	fs_page_action(gettext('Add CA'), '?act=new', 'fa-plus');
 }
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, $class);
 }
 
 fs_tabs('system-certificates', 'system_camanager.php');
 
-if (!($act == "new" || $act == "edit" || $act == gettext("Save") || $input_errors)) {
+if (!($act == "new" || $act == "edit" || $act == gettext("Save") || !empty($input_errors))) {
 ?>
 
 <div class="panel panel-default fs-table">
@@ -170,20 +170,20 @@ foreach (config_get_path('ca', []) as $ca):
 	$issuer = htmlspecialchars($issuer);
 	$certcount = 0;
 
-	$issuer_ca = lookup_ca($ca['caref']);
+	$issuer_ca = lookup_ca($ca['caref'] ?? null);
 	$issuer_ca = $issuer_ca['item'];
 	if ($issuer_ca) {
 		$issuer_name = htmlspecialchars($issuer_ca['descr']);
 	}
 
 	foreach (config_get_path('cert', []) as $cert) {
-		if ($cert['caref'] == $ca['refid']) {
+		if (($cert['caref'] ?? null) == $ca['refid']) {
 			$certcount++;
 		}
 	}
 
 	foreach (config_get_path('ca', []) as $cert) {
-		if ($cert['caref'] == $ca['refid']) {
+		if (($cert['caref'] ?? null) == $ca['refid']) {
 			$certcount++;
 		}
 	}

@@ -34,7 +34,7 @@ require_once("service-utils.inc");
 require_once("shortcuts.inc");
 require_once("status_services.inc");
 
-if ($_POST['ajax']) {
+if (!empty($_POST['ajax'])) {
 	if (isset($_POST['service'])) {
 		$service_name = htmlspecialchars($_REQUEST['service']);
 	}
@@ -50,7 +50,7 @@ if ($_POST['ajax']) {
 $pgtitle = array(gettext("Status"), gettext("Services"));
 include("head.inc");
 
-if ($savemsg) {
+if (!empty($savemsg)) {
 	print_info_box($savemsg, 'success');
 }
 

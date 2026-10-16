@@ -54,10 +54,10 @@ $pconfig = config_get_path('kea', []);
 
 $iflist = get_configured_interface_with_descr();
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$changes_applied = true;
 	$retval = dhcp_apply_changes();
-} elseif ($_POST['act']) {
+} elseif (!empty($_POST['act'])) {
 	switch($_POST['act']) {
 	case 'save':
 		[$input_errors, $pconfig] = dhcp_do_settings_post($_POST);
@@ -68,7 +68,7 @@ if ($_POST['apply']) {
 	}
 }
 
-$pconfig['custom_kea_config'] = base64_decode($pconfig['custom_kea_config']);
+$pconfig['custom_kea_config'] = base64_decode($pconfig['custom_kea_config'] ?? '');
 
 $pgtitle = array(gettext('Services'), gettext('DHCP Server'), gettext('Settings'));
 $pglinks = array('', '@self', '@self');
@@ -84,11 +84,11 @@ if (config_path_enabled('dhcrelay')) {
 	print_info_box(gettext('DHCP Relay is currently enabled. DHCP Server canot be enabled while the DHCP Relay is enabled on any interface.'), 'danger', false);
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 
@@ -108,7 +108,7 @@ foreach ($iflist as $ifent => $ifname) {
 	$oc = config_get_path("interfaces/{$ifent}", []);
 
 	/* Not static IPv4 or subnet >= 31 */
-	if ($oc['subnet'] >= 31) {
+	if (($oc['subnet'] ?? null) >= 31) {
 		$have_small_subnet = true;
 		$example_name = $ifname;
 		$example_cidr = $oc['subnet'];

@@ -34,8 +34,10 @@ require_once("vpn.inc");
 require_once("vpn_l2tp.inc");
 
 $pconfig = l2tp_settings_form();
+$input_errors = null;
+$changes_applied = false;
 
-if ($_POST['save']) {
+if (!empty($_POST['save'])) {
 
 	unset($input_errors);
 	$rv = l2tp_settings_save($_POST);
@@ -92,7 +94,7 @@ fs_summary_card([
 		[gettext('Server address'), (string)$saved['localip'], 'mono' => true],
 		[gettext('Remote range'), $remote_range, 'mono' => !$radius_ips],
 		[gettext('Max users'), (string)$saved['n_l2tp_units']],
-		[gettext('Authentication'), ($auth_types[$saved['paporchap']] ?? 'CHAP') . ($saved['radiusenable'] ? ' · RADIUS' : '')],
+		[gettext('Authentication'), ($auth_types[$saved['paporchap'] ?? ''] ?? 'CHAP') . ($saved['radiusenable'] ? ' · RADIUS' : '')],
 		[gettext('Users'), sprintf(ngettext('%d local user', '%d local users', $user_count), $user_count), 'href' => 'vpn_l2tp_users.php'],
 	],
 	'label' => gettext('L2TP server summary'),

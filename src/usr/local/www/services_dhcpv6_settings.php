@@ -68,10 +68,10 @@ if (is_array($dhcrelaycfg) && isset($dhcrelaycfg['enable']) && isset($dhcrelaycf
 	}
 }
 
-if ($_POST['apply']) {
+if (!empty($_POST['apply'])) {
 	$changes_applied = true;
 	$retval = dhcp6_apply_changes();
-} elseif ($_POST['act']) {
+} elseif (!empty($_POST['act'])) {
 	switch($_POST['act']) {
 	case 'save':
 		[$input_errors, $pconfig] = dhcp6_do_settings_post($_POST);
@@ -82,7 +82,7 @@ if ($_POST['apply']) {
 	}
 }
 
-$pconfig['custom_kea_config'] = base64_decode($pconfig['custom_kea_config']);
+$pconfig['custom_kea_config'] = base64_decode($pconfig['custom_kea_config'] ?? '');
 
 $pgtitle = array(gettext('Services'), gettext('DHCPv6 Server'), gettext('Settings'));
 $pglinks = array('', '@self', '@self');
@@ -98,11 +98,11 @@ if ($dhcrelay_enabled) {
 	print_info_box(gettext('DHCPv6 Relay is currently enabled. DHCPv6 Server canot be enabled while the DHCPv6 Relay is enabled on any interface.'), 'danger', false);
 }
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 
-if ($changes_applied) {
+if (!empty($changes_applied)) {
 	print_apply_result_box($retval);
 }
 

@@ -115,7 +115,7 @@ if (isset($user_settings['widgets']['traffic_graphs']['smoothfactor'])) {
 	$tg_smoothfactor = 0;
 }
 
-$skip_tg_items = explode(",", $user_settings['widgets']['traffic_graphs']['filter']);
+$skip_tg_items = explode(",", $user_settings['widgets']['traffic_graphs']['filter'] ?? '');
 $tg_displayed = false;
 $tg_displayed_ifs_array = [];
 $tg_displayed_realifsarray = [];

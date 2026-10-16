@@ -49,14 +49,14 @@ if ($_POST) {
 }
 
 foreach ($checkbox_names as $name) {
-	$pconfig[$name] = $a_hasync[$name];
+	$pconfig[$name] = $a_hasync[$name] ?? null;
 }
-$pconfig['pfhostid']	= $a_hasync['pfhostid'];
-$pconfig['pfsyncpeerip']	= $a_hasync['pfsyncpeerip'];
-$pconfig['pfsyncinterface'] = $a_hasync['pfsyncinterface'];
-$pconfig['synchronizetoip'] = $a_hasync['synchronizetoip'];
-$pconfig['username']		= $a_hasync['username'];
-$pconfig['passwordfld']	 = $a_hasync['password'];
+$pconfig['pfhostid']	= $a_hasync['pfhostid'] ?? null;
+$pconfig['pfsyncpeerip']	= $a_hasync['pfsyncpeerip'] ?? null;
+$pconfig['pfsyncinterface'] = $a_hasync['pfsyncinterface'] ?? null;
+$pconfig['synchronizetoip'] = $a_hasync['synchronizetoip'] ?? null;
+$pconfig['username']		= $a_hasync['username'] ?? null;
+$pconfig['passwordfld']	 = $a_hasync['password'] ?? null;
 
 $ifaces = get_configured_interface_with_descr();
 $ifaces["lo0"] = "loopback";
@@ -72,7 +72,7 @@ foreach ($ifaces as $ifname => $iface) {
 
 include("head.inc");
 
-if ($input_errors) {
+if (!empty($input_errors)) {
 	print_input_errors($input_errors);
 }
 

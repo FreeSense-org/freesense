@@ -87,7 +87,7 @@ if (($_POST['deleteip']) && (is_ipaddr($_POST['deleteip']))) {
 	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 
-if ($_POST['cleardhcpleases']) {
+if (!empty($_POST['cleardhcpleases'])) {
 	killbyname("dhcpd");
 	sleep(2);
 	unlink_if_exists("{$g['dhcpd_chroot_path']}/var/db/dhcpd6.leases*");
@@ -98,17 +98,17 @@ if ($_POST['cleardhcpleases']) {
 endif; /* dhcp_is_backend('isc') */
 
 if (dhcp_is_backend('kea')):
-if ($_POST['deleteip'] && is_ipaddrv6($_POST['deleteip'])) {
+if (!empty($_POST['deleteip']) && is_ipaddrv6($_POST['deleteip'])) {
 	system_del_kea6lease($_POST['deleteip']);
 	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 
-if ($_POST['deletepd']) {
+if (!empty($_POST['deletepd'])) {
 	system_del_kea6lease($_POST['deletepd'], 'IA_PD');
 	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
 
-if ($_POST['cleardhcpleases']) {
+if (!empty($_POST['cleardhcpleases'])) {
 	system_clear_all_kea6leases();
 	header("Location: status_dhcpv6_leases.php?all={$all_param}");
 }
@@ -225,7 +225,7 @@ if (!is_array($prefixes)) {
 	$prefixes = [];
 }
 
-if ($_REQUEST['order']) {
+if (!empty($_REQUEST['order'])) {
 	usort($leases, "leasecmp");
 }
 

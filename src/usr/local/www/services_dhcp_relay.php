@@ -44,6 +44,8 @@ $carpiflist = dhcp_relay_carp_list(false);
  *   the two are not compatible with each other.
  */
 $dhcpd_enabled = dhcp_relay_dhcpd_enabled(false);
+$input_errors = null;
+$changes_applied = false;
 
 if ($_POST) {
 
@@ -122,7 +124,7 @@ $section->addInput(new Form_Checkbox(
 ))->setHelp(gettext('Append the circuit ID (interface number) and the agent ID to the DHCP request.'));
 
 $counter = 0;
-foreach (explode(',', $pconfig['server']) as $server) {
+foreach (explode(',', $pconfig['server'] ?? '') as $server) {
 	$group = new Form_Group($counter == 0 ? '*' . gettext('Upstream Servers') : '');
 	$group->addClass('repeatable');
 
