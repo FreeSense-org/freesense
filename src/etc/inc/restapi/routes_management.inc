@@ -196,6 +196,12 @@ function restapi_h_mgmt_status($req) {
 		'pending_confirms' => count(fleet_confirm_pending()),
 		'activity' => fleet_activity_read(),
 		'carp' => $carp['summary'],
+		/* Each CARP address and its state, so the controller can find HA pairs and split-brain. */
+		'carp_vips' => array_map(function ($v) {
+			return array('interface' => $v['interface'], 'vhid' => $v['vhid'], 'address' => $v['address'], 'state' => $v['state'], 'advskew' => $v['advskew']);
+		}, $carp['vips']),
+		'carp_maintenance' => $carp['maintenance'],
+		'hasync' => fleet_hasync_summary((array)config_get_path('hasync', [])),
 		'api_level' => RESTAPI_LEVEL,
 		'paths' => array_map(function ($p) { return array('key' => $p['key'], 'addresses' => $p['addresses']); }, fleet_paths()),
 	) + fleet_handoff_offer());
