@@ -963,8 +963,6 @@ body.fs-width-full {
 	body.fs-menu-tight #topmenu .navbar-nav > .nav-item > .nav-link { padding-left: .45rem; padding-right: .45rem; font-size: .84rem; }
 	body.fs-menu-tight #topmenu .navbar-nav > .nav-item > .dropdown-toggle::after { display: none; }
 	body.fs-menu-tight #topmenu .fs-menu-icon { margin-right: .3rem; }
-	body.fs-menu-tight #topmenu .fs-nav-search-label, body.fs-menu-tight #topmenu .fs-nav-search-kbd,
-	body.fs-menu-icons #topmenu .fs-nav-search-label, body.fs-menu-icons #topmenu .fs-nav-search-kbd { display: none; }
 
 	/* Icons only: each dropdown names itself at the top. */
 	body.fs-menu-icons #topmenu .dropdown-menu[data-fs-title]::before {
@@ -986,4 +984,29 @@ body.fs-width-full {
 		margin-right: 0;
 		font-size: 1.05rem;
 	}
+}
+
+/*
+ * The top bar in two rows inside the page width: the logo with Search,
+ * notices and logout, a line, then the menu and a line under it. The lines
+ * follow the page width (Classic, Wide, Full), centred like the content.
+ */
+body { --fs-navbar-h: 6.9rem; }
+.navbar.fs-topbar { border-bottom: 0; padding-bottom: var(--fs-sp-1); }
+.navbar.fs-topbar > .container { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
+.fs-topbar-row { display: flex; align-items: center; gap: var(--fs-sp-2); min-height: 3.6rem; border-bottom: 1px solid var(--fs-chrome-border); }
+.fs-topbar-row .navbar-brand { padding-left: 0; margin-right: auto; }
+.fs-topbar .fs-topbar-tools { flex-direction: row; align-items: center; gap: var(--fs-sp-1); }
+.fs-topbar .fs-topbar-tools .nav-link { padding: .5rem .55rem; border-bottom: 0; }
+.fs-topbar .fs-nav-notices.is-clear { color: var(--fs-pass); cursor: default; }
+.fs-topbar .fs-nav-notices.is-clear i { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--fs-pass) 45%, transparent)); }
+.fs-topbar .navbar-toggler { margin-left: var(--fs-sp-1); }
+@media (min-width: 992px) {
+	.fs-topbar #pf-navbar { border-bottom: 1px solid var(--fs-chrome-border); }
+	.fs-topbar .fs-topbar-menu { flex-wrap: nowrap; margin-left: calc(-1 * .8rem); }
+	.fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-top: .8rem; padding-bottom: .7rem; margin-bottom: -1px; white-space: nowrap; }
+}
+@media (max-width: 991.98px) {
+	body { --fs-navbar-h: 3.6rem; }
+	.fs-topbar .fs-topbar-tools .fs-nav-search-label, .fs-topbar .fs-topbar-tools .fs-nav-search-kbd { display: none; }
 }
