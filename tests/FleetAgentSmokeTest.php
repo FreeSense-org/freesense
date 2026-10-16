@@ -29,7 +29,9 @@ check(in_array('api-management-write', $man, true) && in_array('api-config-write
 check(!in_array('api-users-write', $man, true) && !in_array('api-pki-write', $man, true) && !in_array('page-all', $man, true) &&
     !in_array('user-shell-access', $man, true), 'the controller never gets users, certificates, a shell or all pages');
 check(in_array('api-firewall-aliases-read', $man, true) && in_array('api-firewall-aliases-write', $man, true) &&
-    !in_array('api-firewall-aliases-read', $mon, true) && !in_array('api-firewall-rules-write', $man, true), 'templates may push aliases to a managed box, nothing more of the firewall');
+    !in_array('api-firewall-aliases-read', $mon, true) && in_array('api-firewall-rules-write', $man, true) && in_array('api-firewall-nat-write', $man, true) &&
+    !in_array('api-firewall-vips-write', $man, true) && !in_array('api-firewall-schedules-write', $man, true),
+    'templates may push aliases, rules and port forwards to a managed box, nothing more of the firewall');
 check(in_array('api-services-misc-write', $man, true) && !in_array('api-services-misc-write', $mon, true) && !in_array('api-services-dns-write', $man, true),
     'templates may set SNMP on a managed box (services.misc), not DNS services');
 $all_areas = array_keys(restapi_areas());
@@ -204,4 +206,6 @@ check(fleet_boottime_parse('{ sec = 1792097681, usec = 168518 } Thu Oct 15 20:54
 check((fleet_tunnel_mtu(array(array('endpoint' => '100.66.127.21:51830'))) === 1200) && (fleet_tunnel_mtu(array(array('endpoint' => '[fd7a:115c:a1e0::1]:51830'))) === 1200) &&
     (fleet_tunnel_mtu(array(array('endpoint' => '203.0.113.7:51830'))) === 1380) && (fleet_tunnel_mtu(array(array('endpoint' => '100.128.0.1:51830'))) === 1380),
     'a tunnel inside a tailnet uses a smaller MTU so its packets fit inside Tailscale (MTU 1280)');
+check(in_array(restapi_area_privilege('firewall.rules', 'write'), fleet_access_privs('managed'), true) && in_array(restapi_area_privilege('firewall.nat', 'write'), fleet_access_privs('managed'), true) &&
+    !in_array(restapi_area_privilege('firewall.rules', 'write'), fleet_access_privs('monitor'), true), 'a managed firewall takes rule and NAT templates; a monitored one does not');
 echo "FleetAgentSmokeTest: OK\n";
