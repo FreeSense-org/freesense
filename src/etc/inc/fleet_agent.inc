@@ -67,7 +67,7 @@ define('FLEET_CERT_DESCR', 'FreeSense Fleet node API');
  */
 function fleet_access_privs(string $role): array {
 	$read = array('system', 'status', 'config', 'backup', 'packages', 'logs', 'management');
-	$write = array('management', 'config', 'backup', 'packages', 'operations', 'system.settings', 'firewall.aliases');
+	$write = array('management', 'config', 'backup', 'packages', 'operations', 'system.settings', 'firewall.aliases', 'services.misc');
 	$privs = array('page-system-restapi-keys');
 	foreach ($read as $area) {
 		$privs[] = restapi_area_privilege($area, 'read');

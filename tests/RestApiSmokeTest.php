@@ -2961,6 +2961,8 @@ foreach (array(
     'PUT /v1/system/general' => array('system.php', true),
     'GET /v1/system/hasync' => array('system_hasync.php', false),
     'PUT /v1/system/hasync' => array('system_hasync.php', true),
+    'GET /v1/system/syslog-remote' => array('status_logs_settings.php', false),
+    'PUT /v1/system/syslog-remote' => array('status_logs_settings.php', true),
     'GET /v1/system/update-settings' => array('system_update_settings.php', false),
     'PUT /v1/system/update-settings' => array('system_update_settings.php', true),
     'GET /v1/system/advanced/admin' => array('system_advanced_admin.php', false),

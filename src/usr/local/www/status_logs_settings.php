@@ -88,17 +88,6 @@ if (!$pconfig['nentries']) {
 	$pconfig['nentries'] = g_get('default_log_entries');
 }
 
-function is_valid_syslog_server($target) {
-	$parts = explode(":", $target);
-	if (is_numericint($parts[0])) {
-		/* OS interprets numeric value as decimal IP address, see upstream issue 12000 */
-		return false;
-	}
-	return (is_ipaddr($target)
-		|| is_ipaddrwithport($target)
-		|| is_hostname($target)
-		|| is_hostnamewithport($target));
-}
 
 phpsession_begin();
 $guiuser = getUserEntry($_SESSION['Username']);
@@ -136,13 +125,13 @@ if ($_POST['resetlogs'] == gettext("Reset Log Files")) {
 	}
 
 	/* input validation */
-	if ($_POST['enable'] && !is_valid_syslog_server($_POST['remoteserver'])) {
+	if ($_POST['enable'] && !syslog_remote_target_valid($_POST['remoteserver'])) {
 		$input_errors[] = gettext("A valid IP address/hostname or IP/hostname:port must be specified for remote syslog server #1.");
 	}
-	if ($_POST['enable'] && $_POST['remoteserver2'] && !is_valid_syslog_server($_POST['remoteserver2'])) {
+	if ($_POST['enable'] && $_POST['remoteserver2'] && !syslog_remote_target_valid($_POST['remoteserver2'])) {
 		$input_errors[] = gettext("A valid IP address/hostname or IP/hostname:port must be specified for remote syslog server #2.");
 	}
-	if ($_POST['enable'] && $_POST['remoteserver3'] && !is_valid_syslog_server($_POST['remoteserver3'])) {
+	if ($_POST['enable'] && $_POST['remoteserver3'] && !syslog_remote_target_valid($_POST['remoteserver3'])) {
 		$input_errors[] = gettext("A valid IP address/hostname or IP/hostname:port must be specified for remote syslog server #3.");
 	}
 

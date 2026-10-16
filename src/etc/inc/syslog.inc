@@ -1593,3 +1593,92 @@ function return_clog($logfile, $tail, $withorig = true, $grepfor = "", $grepinve
 function return_log($logfile, $tail, $withorig = true, $grepfor = "", $grepinvert = "", $grepreverse = false) {
 	return dump_log($logfile, $tail, $withorig, $grepfor, $grepinvert, $format = 'none', $grepreverse);
 }
+
+/* ------------------------------------------------------------------ */
+/* Remote logging (shared by Status > System Logs > Settings and the   */
+/* REST API: GET/PUT /v1/system/syslog-remote)                         */
+/* ------------------------------------------------------------------ */
+
+define('SYSLOG_REMOTE_CONTENTS', array('system', 'filter', 'resolver', 'dhcp', 'ppp', 'auth', 'portalauth', 'vpn', 'dpinger', 'hostapd', 'routing', 'ntpd'));
+
+/* A remote syslog target: an address or host name, optionally with :port. A bare number is refused (the OS reads it as an address, upstream issue 12000). */
+function syslog_remote_target_valid($target) {
+	$parts = explode(':', (string)$target);
+	if (is_numericint($parts[0])) {
+		return false;
+	}
+	return is_ipaddr($target) || is_ipaddrwithport($target) || is_hostname($target) || is_hostnamewithport($target);
+}
+
+/* The remote logging settings: enable, servers (up to 3), sourceip, ipproto, contents ("all" or a list of SYSLOG_REMOTE_CONTENTS). */
+function syslog_remote_values() {
+	$servers = array();
+	foreach (array('remoteserver', 'remoteserver2', 'remoteserver3') as $k) {
+		$v = (string)config_get_path("syslog/{$k}", '');
+		if ($v !== '') {
+			$servers[] = $v;
+		}
+	}
+	$contents = config_path_enabled('syslog', 'logall') ? 'all' : array_values(array_filter(SYSLOG_REMOTE_CONTENTS, function ($c) {
+		return config_path_enabled('syslog', $c);
+	}));
+	return array('enable' => config_path_enabled('syslog', 'enable'), 'servers' => $servers, 'sourceip' => (string)config_get_path('syslog/sourceip', ''),
+	    'ipproto' => ((string)config_get_path('syslog/ipproto', '') === 'ipv6') ? 'ipv6' : 'ipv4', 'contents' => $contents);
+}
+
+/*
+ * Save the remote logging settings (the local log settings are not
+ * touched) and restart syslogd. Returns array('input_errors' => [...]);
+ * nothing is saved when there are errors.
+ */
+function syslog_remote_save(array $v) {
+	$errors = array();
+	$servers = is_array($v['servers'] ?? null) ? array_values(array_filter(array_map('trim', array_map('strval', $v['servers'])), 'strlen')) : null;
+	if (($servers === null) || (count($servers) > 3)) {
+		$errors[] = gettext('Give a list of up to 3 remote log servers.');
+	} else {
+		foreach ($servers as $s) {
+			if (!syslog_remote_target_valid($s)) {
+				$errors[] = sprintf(gettext('"%s" is not a valid remote log server (an address or host name, optionally :port).'), $s);
+			}
+		}
+	}
+	$enable = filter_var($v['enable'] ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+	if ($enable === null) {
+		$errors[] = gettext('Remote logging is on or off (true or false).');
+	} elseif ($enable && empty($servers)) {
+		$errors[] = gettext('Remote logging needs at least one server.');
+	}
+	$ipproto = (string)($v['ipproto'] ?? 'ipv4');
+	if (!in_array($ipproto, array('ipv4', 'ipv6'), true)) {
+		$errors[] = gettext('The IP protocol is ipv4 or ipv6.');
+	}
+	$sourceip = (string)($v['sourceip'] ?? '');
+	if (($sourceip !== '') && !array_key_exists($sourceip, get_possible_listen_ips())) {
+		$errors[] = gettext('The source address is not an interface or address of this firewall.');
+	}
+	$contents = $v['contents'] ?? 'all';
+	if (($contents !== 'all') && (!is_array($contents) || !empty(array_diff($contents, SYSLOG_REMOTE_CONTENTS)))) {
+		$errors[] = gettext('The logs to send are "all" or a list of known log kinds.');
+	}
+	if (!empty($errors)) {
+		return array('input_errors' => $errors);
+	}
+	foreach (array('remoteserver', 'remoteserver2', 'remoteserver3') as $i => $k) {
+		if ($enable && isset($servers[$i])) {
+			config_set_path("syslog/{$k}", $servers[$i]);
+		} else {
+			config_del_path("syslog/{$k}");
+		}
+	}
+	config_set_path('syslog/enable', $enable);
+	config_set_path('syslog/sourceip', $sourceip);
+	config_set_path('syslog/ipproto', $ipproto);
+	config_set_path('syslog/logall', $contents === 'all');
+	foreach (SYSLOG_REMOTE_CONTENTS as $c) {
+		config_set_path("syslog/{$c}", ($contents !== 'all') && in_array($c, $contents, true));
+	}
+	write_config(gettext('Changed remote logging.'));
+	system_syslogd_start();
+	return array('input_errors' => array());
+}
