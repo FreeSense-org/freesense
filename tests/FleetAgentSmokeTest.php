@@ -208,4 +208,21 @@ check((fleet_tunnel_mtu(array(array('endpoint' => '100.66.127.21:51830'))) === 1
     'a tunnel inside a tailnet uses a smaller MTU so its packets fit inside Tailscale (MTU 1280)');
 check(in_array(restapi_area_privilege('firewall.rules', 'write'), fleet_access_privs('managed'), true) && in_array(restapi_area_privilege('firewall.nat', 'write'), fleet_access_privs('managed'), true) &&
     !in_array(restapi_area_privilege('firewall.rules', 'write'), fleet_access_privs('monitor'), true), 'a managed firewall takes rule and NAT templates; a monitored one does not');
+$eps = array('ctl.example.org:51830', '198.51.100.9:51830');
+check((fleet_endpoints_valid($eps) === $eps) && (fleet_endpoints_valid(array('a:1', 'a:1')) === null) && (fleet_endpoints_valid(array()) === null) &&
+    (fleet_endpoints_valid(array('x:99999')) === null) && (fleet_endpoints_valid(array('a b:1')) === null) && (fleet_endpoints_valid(array('k' => 'a:1')) === null) &&
+    (fleet_endpoints_valid(array('[2001:db8::1]:51830')) !== null), 'controller endpoints: 1-4 different host:port values');
+check((fleet_endpoint_next($eps, $eps[0]) === $eps[1]) && (fleet_endpoint_next($eps, $eps[1]) === $eps[0]) && (fleet_endpoint_next($eps, 'gone:1') === $eps[0]),
+    'the next controller endpoint wraps around, and starts at the first');
+check((fleet_endpoint_decide($eps, $eps[0], 1000, 0, 1100) === array('good', $eps[0])) &&
+    (fleet_endpoint_decide($eps, $eps[0], 1000, 0, 1000 + FLEET_ENDPOINT_STALE + 1) === array('switch', $eps[1])) &&
+    (fleet_endpoint_decide($eps, $eps[1], 0, 5000, 5000 + 60) === array('keep', $eps[1])) &&
+    (fleet_endpoint_decide(array($eps[0]), $eps[0], 0, 0, 9999) === array('keep', $eps[0])),
+    'the tunnel tries the next controller endpoint only after no handshake for a while, and gives a new one time');
+$cps = array(array('public_key' => 'k1', 'endpoint' => '', 'allowed_ips' => array('fd00::/64')), array('public_key' => 'k2', 'endpoint' => $eps[0], 'allowed_ips' => array('fd00::1/128')));
+check((fleet_controller_peer($cps)['public_key'] === 'k2') && (fleet_peers_with_endpoint($cps, $eps[1])[1]['endpoint'] === $eps[1]) && (fleet_peers_with_endpoint($cps, $eps[1])[0]['endpoint'] === ''),
+    'the controller peer is the one with an endpoint; only its endpoint changes');
+$mg = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
+check((strpos($mg, "'/v1/management/controller-endpoints'") !== false) && (strpos($mg, "'controller_epoch' =>") !== false) && (strpos($mg, "'superseded'") !== false),
+    'the controller sets the endpoints (a replaced controller is refused) and the status reports them');
 echo "FleetAgentSmokeTest: OK\n";

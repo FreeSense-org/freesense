@@ -55,6 +55,10 @@ define('FLEET_WG_MTU', 1380);
 /* Inside a tailnet (MTU 1280) the tunnel's packets plus WireGuard's 80 bytes must still fit. */
 define('FLEET_WG_MTU_TAILNET', 1200);
 define('FLEET_WG_KEEPALIVE', 25);
+/* Where the controller can be reached (a standby controller adds a second endpoint), and when to try the next one. */
+define('FLEET_ENDPOINT_STATE', FLEET_NODE_DIR . '/endpoint.json');
+define('FLEET_ENDPOINT_STALE', 180);
+define('FLEET_ENDPOINT_CRON', '/usr/local/bin/php /usr/local/sbin/freesense-fleet-endpoints');
 define('FLEET_LISTENER_DESCR', 'FreeSense Fleet');
 /* Extra connection paths (fleet_paths.inc) are listeners described "FreeSense Fleet path: <method>". */
 define('FLEET_PATH_DESCR', 'FreeSense Fleet path: ');
@@ -443,6 +447,149 @@ function fleet_tunnel_up(array $m, array $peers): ?string {
 	return null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Controller endpoints (primary and standby controller)               */
+/* ------------------------------------------------------------------ */
+
+/* pure: a controller endpoint list as sent (1-4 host:port, no repeats), or null when it is not one. */
+function fleet_endpoints_valid($list): ?array {
+	if (!is_array($list) || empty($list) || (count($list) > 4) || (array_values($list) !== $list)) {
+		return null;
+	}
+	foreach ($list as $e) {
+		if (!is_string($e) || !preg_match('~^(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9][A-Za-z0-9.-]*):[0-9]{1,5}$~D', $e) || ((int)substr(strrchr($e, ':'), 1) > 65535)) {
+			return null;
+		}
+	}
+	return (count(array_unique($list)) === count($list)) ? $list : null;
+}
+
+/* pure: the endpoint after $current in $list (the first when $current is not in it). */
+function fleet_endpoint_next(array $list, string $current): string {
+	$i = array_search($current, $list, true);
+	return ($i === false) ? $list[0] : $list[($i + 1) % count($list)];
+}
+
+/*
+ * pure: what the endpoint check does with the controller's last handshake
+ * ($handshake, 0 = none) and the last switch: array('good'|'keep'|'switch',
+ * endpoint). A new endpoint gets FLEET_ENDPOINT_STALE seconds to answer.
+ */
+function fleet_endpoint_decide(array $list, string $current, int $handshake, int $last_switch, int $now): array {
+	if (($handshake > 0) && (($now - $handshake) <= FLEET_ENDPOINT_STALE)) {
+		return array('good', $current);
+	}
+	if ((count($list) < 2) || (($now - $last_switch) < FLEET_ENDPOINT_STALE)) {
+		return array('keep', $current);
+	}
+	return array('switch', fleet_endpoint_next($list, $current));
+}
+
+/* pure: the controller's peer (the one with an endpoint), or null. */
+function fleet_controller_peer(array $peers): ?array {
+	foreach ($peers as $p) {
+		if (!empty($p['endpoint'])) {
+			return $p;
+		}
+	}
+	return null;
+}
+
+/* pure: $peers with the controller peer's endpoint set to $endpoint. */
+function fleet_peers_with_endpoint(array $peers, string $endpoint): array {
+	foreach ($peers as $i => $p) {
+		if (!empty($p['endpoint'])) {
+			$peers[$i]['endpoint'] = $endpoint;
+			break;
+		}
+	}
+	return $peers;
+}
+
+/* The controller endpoints this firewall knows: the stored list, else the controller peer's endpoint. */
+function fleet_controller_endpoints(): array {
+	$list = fleet_endpoints_valid(array_values(array_filter(explode(',', (string)config_get_path('fleet/controller_endpoints', '')), 'strlen')));
+	if ($list !== null) {
+		return $list;
+	}
+	$peer = fleet_controller_peer(fleet_stored_peers());
+	return ($peer === null) ? array() : array($peer['endpoint']);
+}
+
+/* {endpoint, switched, good}: what the endpoint check last did. */
+function fleet_endpoint_state(): array {
+	$s = json_decode((string)@file_get_contents(FLEET_ENDPOINT_STATE), true);
+	return is_array($s) ? $s : array();
+}
+
+function fleet_endpoint_state_save(array $s): void {
+	@file_put_contents(FLEET_ENDPOINT_STATE, json_encode($s));
+}
+
+/* The endpoint the tunnel uses now: the last one the check set, if still in the list. */
+function fleet_endpoint_current(): string {
+	$list = fleet_controller_endpoints();
+	$cur = (string)(fleet_endpoint_state()['endpoint'] ?? '');
+	return in_array($cur, $list, true) ? $cur : (string)($list[0] ?? '');
+}
+
+/*
+ * Store the controller endpoints and the controller epoch. A lower epoch
+ * than the stored one comes from a controller that was replaced: refused
+ * (FLEET-E412). Runs the endpoint check every minute when there is more
+ * than one endpoint. Returns 'set' or 'unchanged'.
+ */
+function fleet_endpoints_set(array $list, int $epoch): string {
+	if (fleet_endpoints_valid($list) === null) {
+		throw new InvalidArgumentException('invalid_endpoints: endpoints must be 1-4 different host:port values');
+	}
+	$stored = (int)config_get_path('fleet/controller_epoch', 0);
+	if ($epoch < $stored) {
+		throw new DomainException(sprintf('FLEET-E412: A newer controller (epoch %d) manages this firewall; this controller (epoch %d) was replaced.', $stored, $epoch));
+	}
+	$joined = implode(',', $list);
+	if (($joined === (string)config_get_path('fleet/controller_endpoints', '')) && ($epoch === $stored)) {
+		return 'unchanged';
+	}
+	config_set_path('fleet/controller_endpoints', $joined);
+	config_set_path('fleet/controller_epoch', (string)$epoch);
+	install_cron_job(FLEET_ENDPOINT_CRON, count($list) > 1, '*', '*', '*', '*', '*', 'root', false);
+	write_config(sprintf('Fleet: the controller can be reached at %s', implode(', ', $list)));
+	return 'set';
+}
+
+/* Every minute (cron): when the controller has not answered for a while, try its next endpoint. Returns what was done. */
+function fleet_endpoint_check(int $now): string {
+	$m = fleet_node_membership();
+	$list = fleet_controller_endpoints();
+	if (!$m['enrolled'] || ($m['method'] !== 'wireguard') || (count($list) < 2)) {
+		install_cron_job(FLEET_ENDPOINT_CRON, false, '*', '*', '*', '*', '*', 'root');
+		return 'one endpoint';
+	}
+	$peer = fleet_controller_peer(fleet_stored_peers());
+	if ($peer === null) {
+		return 'no controller peer';
+	}
+	$st = fleet_endpoint_state();
+	$cur = fleet_endpoint_current();
+	$hs = 0;
+	foreach (fleet_exec(array('/usr/bin/wg', 'show', FLEET_WG_IF, 'latest-handshakes'))[1] as $line) {
+		$f = preg_split('/\s+/', trim($line));
+		if (($f[0] ?? '') === $peer['public_key']) {
+			$hs = (int)($f[1] ?? 0);
+		}
+	}
+	list($act, $ep) = fleet_endpoint_decide($list, $cur, $hs, (int)($st['switched'] ?? 0), $now);
+	if ($act === 'switch') {
+		fleet_exec(array('/usr/bin/wg', 'set', FLEET_WG_IF, 'peer', $peer['public_key'], 'endpoint', $ep));
+		fleet_endpoint_state_save(array('endpoint' => $ep, 'switched' => $now, 'good' => $st['good'] ?? ''));
+		logger(LOG_NOTICE, localize_text('Fleet: the controller did not answer at %s; trying %s', $cur, $ep));
+	} elseif (($act === 'good') && ((($st['good'] ?? '') !== $cur) || (($st['endpoint'] ?? '') !== $cur))) {
+		fleet_endpoint_state_save(array('endpoint' => $cur, 'switched' => (int)($st['switched'] ?? 0), 'good' => $cur));
+	}
+	return "{$act} {$ep}";
+}
+
 /* The peers stored in config.xml <fleet>. */
 function fleet_stored_peers(): array {
 	return fleet_peers_from_section((array)config_get_path('fleet/peer', []));
@@ -477,7 +624,13 @@ function fleet_boot(): void {
 	if (!$m['enrolled'] || ($m['method'] !== 'wireguard') || !is_file(FLEET_WG_KEY)) {
 		return;
 	}
-	$error = fleet_tunnel_up($m, fleet_stored_peers());
+	$peers = fleet_stored_peers();
+	$good = (string)(fleet_endpoint_state()['good'] ?? '');
+	if (in_array($good, fleet_controller_endpoints(), true)) {
+		$peers = fleet_peers_with_endpoint($peers, $good);
+	}
+	fleet_endpoint_state_save(array('endpoint' => $good ?: (string)(fleet_controller_peer($peers)['endpoint'] ?? ''), 'switched' => time(), 'good' => $good));
+	$error = fleet_tunnel_up($m, $peers);
 	if ($error !== null) {
 		logger(LOG_ERR, localize_text('Fleet: the management tunnel did not start: %s', $error));
 	}
