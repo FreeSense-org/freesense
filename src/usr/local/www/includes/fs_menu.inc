@@ -142,6 +142,19 @@ function fs_menu_item_current($url, $current) {
 	return (strpos($current, $stem . '_') === 0);
 }
 
+/*
+ * pure: how closely a menu link matches the page: 0 not at all, the
+ * length of its file stem for a sub-page (system.php for system_x.php),
+ * more for the page itself. Only the closest matches are current.
+ */
+function fs_menu_item_closeness($url, $current) {
+	if (!fs_menu_item_current($url, $current)) {
+		return 0;
+	}
+	$path = fs_menu_path($url);
+	return ($path === $current) ? 1000 + strlen((string)parse_url((string)$url, PHP_URL_QUERY)) : strlen($path);
+}
+
 /* Top-level menu a core page belongs to by its file name (highlight when no item matches). */
 function fs_menu_owns_page($name, $current) {
 	static $prefixes = [
@@ -182,9 +195,16 @@ function fs_menu_visible_items($name, $items, $target, $current) {
 			'target' => $target,
 			'post' => ($url == "/index.php?logout"),
 			'class' => $item['class'] ?? '',
-			'current' => ($url != "/index.php?logout") && fs_menu_item_current($url, $current),
+			'current' => ($url != "/index.php?logout") ? fs_menu_item_closeness($url, $current) : 0,
 			'group' => $item['group'] ?? null,
 		];
+	}
+	/* One page, one current item: the closest match (system.php does not light up on system_advanced_admin.php when Advanced does). */
+	$best = max(array_merge(array(0), array_map(function ($it) { return $it['current'] ?? 0; }, $out)));
+	foreach ($out as $k => $it) {
+		if (isset($it['current'])) {
+			$out[$k]['current'] = ($best > 0) && ($it['current'] === $best);
+		}
 	}
 	return $out;
 }
