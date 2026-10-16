@@ -281,7 +281,7 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 			'node_id' => (string)($done['node_id'] ?? ''), 'controller_url' => "https://{$link['authority']}",
 			'controller_fingerprint' => $link['cert_sha256'], 'controller_signing_key' => (string)($done['signing_key'] ?? ''),
 			'method' => (string)($done['method'] ?? 'wireguard'), 'overlay_address' => (string)($done['overlay_address'] ?? ''),
-			'role' => (string)($done['role'] ?? 'monitor'), 'hostname' => (string)($done['hostname'] ?? ''),
+			'role' => (string)($done['role'] ?? 'monitor'), 'hostname' => (string)($done['hostname'] ?? ''), 'domain' => (string)($done['domain'] ?? ''),
 			'peers' => (array)($done['peers'] ?? array()), 'wg_private' => $wg_private,
 			'listener_certref' => (string)($extra['certref'] ?? ''), 'controller_networks' => (array)($done['controller_networks'] ?? array()),
 		);
