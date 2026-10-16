@@ -354,8 +354,9 @@ function fleet_hasync_user_set(?string $bcrypt_hash): string {
 /* The SHA-256 fingerprint of this firewall's WebGUI certificate, or '' (an HA primary pins it for configuration sync). */
 function fleet_webgui_cert_sha256(): string {
 	require_once('certs.inc');
-	$cert = lookup_cert(config_get_path('system/webgui/ssl-certref'));
-	$der = is_array($cert) ? fleet_pem_der(base64_decode((string)($cert['crt'] ?? ''))) : '';
+	/* lookup_cert() answers {idx, item}. */
+	$cert = lookup_cert(config_get_path('system/webgui/ssl-certref'))['item'] ?? null;
+	$der = is_array($cert) ? fleet_pem_der((string)base64_decode((string)($cert['crt'] ?? ''))) : '';
 	return ($der === '') ? '' : hash('sha256', $der);
 }
 
