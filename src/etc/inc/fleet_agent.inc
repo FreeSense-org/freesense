@@ -67,12 +67,14 @@ define('FLEET_CERT_DESCR', 'FreeSense Fleet node API');
  */
 function fleet_access_privs(string $role): array {
 	$read = array('system', 'status', 'config', 'backup', 'packages', 'logs', 'management');
-	$write = array('management', 'config', 'backup', 'packages', 'operations', 'system.settings');
+	$write = array('management', 'config', 'backup', 'packages', 'operations', 'system.settings', 'firewall.aliases');
 	$privs = array('page-system-restapi-keys');
 	foreach ($read as $area) {
 		$privs[] = restapi_area_privilege($area, 'read');
 	}
 	if ($role === 'managed') {
+		/* Templates read what they push. */
+		$privs[] = restapi_area_privilege('firewall.aliases', 'read');
 		foreach ($write as $area) {
 			$privs[] = restapi_area_privilege($area, 'write');
 		}
@@ -429,6 +431,9 @@ function fleet_peers_from_section(array $section): array {
 /* At boot: bring the tunnel up for a managed box (rc.bootup, before the listeners start). */
 function fleet_boot(): void {
 	$m = fleet_node_membership();
+	if ($m['enrolled']) {
+		fleet_access_refresh($m['role']);
+	}
 	if (!$m['enrolled'] || ($m['method'] !== 'wireguard') || !is_file(FLEET_WG_KEY)) {
 		return;
 	}
@@ -436,6 +441,31 @@ function fleet_boot(): void {
 	if ($error !== null) {
 		logger(LOG_ERR, localize_text('Fleet: the management tunnel did not start: %s', $error));
 	}
+}
+
+/*
+ * After a System update a role may grant more (or less): bring the
+ * fleet-controller user's privileges in line with what this version gives
+ * its role. Saves only when they differ.
+ */
+function fleet_access_refresh(string $role): bool {
+	foreach (config_get_path('system/user', array()) as $i => $u) {
+		if (!is_array($u) || (($u['name'] ?? '') !== FLEET_USER)) {
+			continue;
+		}
+		$want = fleet_access_privs($role);
+		if ((array)($u['priv'] ?? array()) === $want) {
+			return false;
+		}
+		config_set_path("system/user/{$i}/priv", $want);
+		$was = fleet_lock_bypass();
+		fleet_lock_bypass(true);
+		write_config('Fleet: controller access updated for this version');
+		fleet_lock_bypass($was);
+		logger(LOG_NOTICE, 'Fleet: the controller access was updated for this version.');
+		return true;
+	}
+	return false;
 }
 
 /*

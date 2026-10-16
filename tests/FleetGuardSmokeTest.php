@@ -141,7 +141,7 @@ foreach (array("case 'breakglass'", 'fleet_breakglass_set(', 'fleet_breakglass_c
 }
 check(strpos(file_get_contents("{$root}/src/usr/local/sbin/freesense-fleet-watchdog"), 'fleet_confirm_watch($id)') !== false, 'the watchdog script');
 $agent = file_get_contents("{$root}/src/etc/inc/fleet_agent.inc");
-check(substr_count($agent, 'fleet_lock_bypass(true);') === 3 && substr_count($agent, 'fleet_lock_bypass(false);') === 3, 'joining and leaving are not blocked by Lock');
+check(substr_count($agent, 'fleet_lock_bypass(true);') === 4 && substr_count($agent, 'fleet_lock_bypass(false);') === 3 && substr_count($agent, 'fleet_lock_bypass($was);') === 1, 'joining, leaving and access updates are not blocked by Lock');
 require_once('restapi/routes_v1.inc');
 $have = array();
 foreach (restapi_routes_management() as $r) {
