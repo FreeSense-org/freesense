@@ -969,7 +969,8 @@ body.fs-width-full {
 		content: attr(data-fs-title); display: block; padding: .35rem 1rem .5rem; margin-bottom: .25rem;
 		font-weight: 600; color: var(--fs-text-strong); border-bottom: 1px solid var(--fs-border);
 	}
-	body.fs-menu-icons #topmenu .fs-megamenu[data-fs-title]::before { grid-column: 1 / -1; }
+	/* the grouped menus have their own title and filter */
+	body.fs-menu-icons #topmenu .fs-megamenu[data-fs-title]::before { content: none; display: none; }
 
 	body.fs-menu-icons #topmenu .navbar-nav > .nav-item > .nav-link .fs-menu-label {
 		position: absolute;
