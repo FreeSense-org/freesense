@@ -114,10 +114,11 @@ function restapi_listener_address_choices() {
 
 /* The IPv4 tailnet address of tailscale0, or null. */
 function restapi_listener_tailscale_address() {
-	if (!function_exists('pfSense_get_interface_addresses') || !does_interface_exist('tailscale0')) {
+	require_once('interfaces.inc');
+	if (!does_interface_exist('tailscale0')) {
 		return null;
 	}
-	$a = pfSense_get_interface_addresses('tailscale0');
+	$a = get_interface_addresses('tailscale0');
 	return (is_array($a) && is_ipaddrv4($a['ipaddr'] ?? '')) ? (string)$a['ipaddr'] : null;
 }
 
