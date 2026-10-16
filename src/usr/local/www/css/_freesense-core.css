@@ -944,3 +944,28 @@ ul.tree .tree-leaf {
 	background-color: var(--bs-body-bg);
 }
 .fs-infoblock-toggle i { font-size: .85rem; color: inherit; }
+
+/* Layout options (System > General Setup): page width and an icon-only top bar. */
+body.fs-width-classic {
+	--fs-page-max: 1200px;
+}
+
+body.fs-width-full {
+	--fs-page-max: none;
+}
+
+@media (min-width: 992px) {
+	body.fs-menu-icons #topmenu .navbar-nav > .nav-item > .nav-link .fs-menu-label {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+	}
+
+	body.fs-menu-icons #topmenu .navbar-nav > .nav-item > .nav-link .fs-menu-icon {
+		margin-right: 0;
+		font-size: 1.05rem;
+	}
+}

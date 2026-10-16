@@ -221,8 +221,8 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 	$html = '<li class="nav-item dropdown' . ($groups ? ' fs-mega' : '') . '">';
 	$html .= '<a href="#" class="nav-link dropdown-toggle' . ($active ? ' active' : '') . '" id="' . $id . '-toggle"'
 	    . ' data-bs-toggle="dropdown" data-bs-auto-close="outside" role="button" aria-expanded="false"'
-	    . ($active ? ' aria-current="true"' : '') . '>'
-	    . '<i class="fa-solid ' . fs_h($icon) . ' fs-menu-icon" aria-hidden="true"></i>' . $title . '</a>';
+	    . ($active ? ' aria-current="true"' : '') . ' title="' . fs_h(strip_tags($title)) . '">'
+	    . '<i class="fa-solid ' . fs_h($icon) . ' fs-menu-icon" aria-hidden="true"></i><span class="fs-menu-label">' . $title . '</span></a>';
 
 	if (!$groups) {
 		$html .= '<ul class="dropdown-menu' . $menuclass_dropdown . '" aria-labelledby="' . $id . '-toggle">';

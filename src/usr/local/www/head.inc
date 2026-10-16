@@ -600,7 +600,17 @@ if (are_notices_pending()) {
 	}
 }
 ?>
-<body id="<?=$numColumns?>">
+<?php
+/* Layout from System > General Setup: page width and an icon-only top bar. */
+$fs_body_class = array();
+if (in_array($user_settings['webgui']['webguipagewidth'] ?? '', array('classic', 'full'), true)) {
+	$fs_body_class[] = 'fs-width-' . $user_settings['webgui']['webguipagewidth'];
+}
+if (($user_settings['webgui']['webguimenuicons'] ?? '') === 'icons') {
+	$fs_body_class[] = 'fs-menu-icons';
+}
+?>
+<body id="<?=$numColumns?>"<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
 <nav id="topmenu" class="navbar navbar-expand-lg<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
 	<div class="container fs-page">
 		<a class="navbar-brand" href="/">
@@ -613,8 +623,8 @@ if (are_notices_pending()) {
 			<ul class="navbar-nav me-auto">
 			<?php if (isAllowedPage('index.php')): ?>
 				<li class="nav-item">
-					<a class="nav-link navlnk<?=($fs_current_page === 'index.php') ? ' active' : ''?>" href="/"<?=($fs_current_page === 'index.php') ? ' aria-current="page"' : ''?>>
-						<i class="fa-solid fa-house fs-menu-icon" aria-hidden="true"></i><?=gettext('Home')?>
+					<a class="nav-link navlnk<?=($fs_current_page === 'index.php') ? ' active' : ''?>" href="/" title="<?=gettext('Dashboard')?>"<?=($fs_current_page === 'index.php') ? ' aria-current="page"' : ''?>>
+						<i class="fa-solid fa-table-cells-large fs-menu-icon" aria-hidden="true"></i><span class="fs-menu-label"><?=gettext('Dashboard')?></span>
 					</a>
 				</li>
 			<?php endif; ?>

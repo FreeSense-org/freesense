@@ -2998,7 +2998,7 @@ $gv2 = restapi_sysgen_values($gp, true, array('gone.css' => 'gone'));
 check_api($gv2['dnsservers'][0]['gateway'] === 'WAN_DHCP' && $gv2['dnsservers'][1]['gateway'] === 'none' && $gv2['webguicss'] === 'gone.css',
     'general: gateways ("none" when unset) when the page offers them');
 check_api(array_keys(restapi_sysgen_types()) === array_merge(array('dnsservers', 'choices', 'applied', 'hostname', 'domain', 'dnslocalhost', 'timezone',
-    'timeservers', 'language', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'dashboardcolumns', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
+    'timeservers', 'language', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'dashboardcolumns', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
     !array_diff(array_keys($gv), array_keys(restapi_sysgen_types())), 'general: every returned field has a type');
 check_api(restapi_sysgen_dns_rows(array(array('address' => '192.0.2.53'), array('address' => '192.0.2.54', 'hostname' => 'h')), false) ===
     array('dns0' => '192.0.2.53', 'dnshost0' => '', 'dns1' => '192.0.2.54', 'dnshost1' => 'h'), 'general: DNS servers as the page\'s rows');

@@ -104,7 +104,7 @@ function restapi_routes_system() {
 
 	$gen_body = array('type' => 'object', 'description' => 'The General Setup form: hostname, domain, dnsservers (list of {address, ' .
 	    'hostname (for TLS verification), gateway (only with more than one gateway of an address family; "none")}), dnslocalhost, ' .
-	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, logincss (from the choices), timeservers (space ' .
+	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, webguipagewidth, webguimenuicons, logincss (from the choices), timeservers (space ' .
 	    'separated), dashboardcolumns (1-6), login_message, dnsallowoverride, interfacessort, dashboardavailablewidgetspanel, ' .
 	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
 	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost, loginhideversion (booleans). ' .
@@ -863,7 +863,7 @@ function restapi_sysgen_flags() {
 function restapi_sysgen_types() {
 	$types = array('dnsservers' => 'objects', 'choices' => 'ro', 'applied' => 'ro');
 	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language', 'webguicss', 'webguifixedmenu',
-	    'webguihostnamemenu', 'dashboardcolumns', 'logincss', 'login_message') as $field) {
+	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'dashboardcolumns', 'logincss', 'login_message') as $field) {
 		$types[$field] = 'string';
 	}
 	foreach (restapi_sysgen_flags() as $flag) {
@@ -898,6 +898,8 @@ function restapi_sysgen_choices() {
 		'webguifixedmenu' => array('' => gettext("Scrolls with page"), 'fixed' => gettext("Fixed (Remains visible at top of page)")),
 		'webguihostnamemenu' => array('' => gettext("Default (No hostname)"), 'hostonly' => gettext("Hostname only"),
 		    'fqdn' => gettext("Fully Qualified Domain Name")),
+		'webguipagewidth' => webgui_pagewidth_choices(),
+		'webguimenuicons' => webgui_menuicons_choices(),
 		'logincss' => array("1e3f75;" => gettext("Dark Blue"), "003300" => gettext("Dark green"), "770101" => gettext("Crimson red"),
 		    "4b1263" => gettext("Purple"), "424142" => gettext("Gray"), "333333" => gettext("Dark gray"), "000000" => gettext("Black"),
 		    "633215" => gettext("Dark brown"), "bf7703" => gettext("Brown"), "008000" => gettext("Green"),
@@ -937,6 +939,8 @@ function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
 		'webguicss' => isset($csslist[(string)$p['webguicss']]) ? (string)$p['webguicss'] : 'FreeSense.css',
 		'webguifixedmenu' => (string)$p['webguifixedmenu'],
 		'webguihostnamemenu' => (string)$p['webguihostnamemenu'],
+		'webguipagewidth' => (string)($p['webguipagewidth'] ?? ''),
+		'webguimenuicons' => (string)($p['webguimenuicons'] ?? ''),
 		'dashboardcolumns' => (string)$p['dashboardcolumns'],
 		'logincss' => (string)$p['logincss'],
 		/* The page shows the stored message HTML encoded; the API returns the text. */
@@ -1021,7 +1025,7 @@ function restapi_h_sysgen_set($req) {
 	$current = restapi_sysgen_settings();
 	$values = restapi_svc_merge($req['body'], $current, $types);
 	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language', 'webguicss',
-	    'webguifixedmenu', 'webguihostnamemenu', 'logincss'));
+	    'webguifixedmenu', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss'));
 	$rows = restapi_sysgen_dns_rows($values['dnsservers'], $with_gateways);
 	if ($with_gateways) {
 		foreach ($rows as $key => $gw) {
