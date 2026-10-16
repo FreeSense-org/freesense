@@ -70,21 +70,29 @@ function zfs_widget_render(array $data, bool $compact): string {
 				zfs_widget_notice('zfs-' . $pool['name'], null);
 			}
 		?>
-		<div class="panel panel-<?=$class?>">
-			<div class="panel-heading"><strong><?=htmlspecialchars($pool['name'])?></strong><span class="pull-right"><?=htmlspecialchars($health)?></span></div>
-			<div class="panel-body">
-				<div class="progress"><div class="progress-bar progress-bar-<?=$class?>" style="width:<?=min(100, (float)$pool['capacity_percent'])?>%"></div></div>
-				<div><?=sprintf(gettext('%1$s%% used — %2$s free — %3$s%% fragmented'), htmlspecialchars((string)$pool['capacity_percent']), htmlspecialchars(format_bytes($pool['free'])), htmlspecialchars((string)$pool['fragmentation']))?></div>
-				<?php if ($pool['scan']): ?><small><?=htmlspecialchars($pool['scan'])?></small><?php endif; ?>
-				<?php if (!$compact): ?><table class="table table-condensed table-sm"><thead><tr><th><?=gettext('Device')?></th><th><?=gettext('State')?></th><th>R/W/C</th></tr></thead><tbody>
-				<?php foreach ($pool['devices'] as $device): ?><tr><td><?=htmlspecialchars($device['name'])?></td><td><?=htmlspecialchars($device['state'])?></td><td><?=intval($device['read_errors'])?>/<?=intval($device['write_errors'])?>/<?=intval($device['checksum_errors'])?></td></tr><?php endforeach; ?>
-				</tbody></table><?php endif; ?>
+		<section class="fs-wzfs">
+			<div class="fs-wzfs-head">
+				<strong><?=htmlspecialchars($pool['name'])?></strong>
+				<?=fs_badge($healthy ? 'pass' : ($warning ? 'warn' : 'down'), $health)?>
+				<span class="fs-wzfs-size"><?=htmlspecialchars(sprintf(gettext('%s free'), format_bytes($pool['free'])))?></span>
 			</div>
-		</div>
+			<div class="progress" title="<?=htmlspecialchars(sprintf(gettext('%s%% used'), $pool['capacity_percent']))?>"><div class="progress-bar progress-bar-<?=$class?>" style="width:<?=min(100, (float)$pool['capacity_percent'])?>%"></div></div>
+			<div class="fs-wzfs-facts">
+				<span><strong><?=htmlspecialchars((string)$pool['capacity_percent'])?>%</strong> <?=gettext('used')?></span>
+				<span><strong><?=htmlspecialchars((string)$pool['fragmentation'])?>%</strong> <?=gettext('fragmented')?></span>
+				<span<?=($errorCount > 0) ? ' class="text-danger"' : ''?>><strong><?=$errorCount?></strong> <?=($errorCount === 1) ? gettext('error') : gettext('errors')?></span>
+			</div>
+			<?php if ($pool['scan']): ?><p class="fs-wzfs-scan"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><?=htmlspecialchars($pool['scan'])?></p><?php endif; ?>
+		</section>
+		<?php if (!$compact): ?><table class="table table-sm"><thead><tr><th><?=gettext('Device')?></th><th><?=gettext('State')?></th><th class="text-end" title="<?=gettext('Read, write and checksum errors')?>"><?=gettext('Errors')?></th></tr></thead><tbody>
+		<?php foreach ($pool['devices'] as $device): $dok = strtoupper($device['state']) === 'ONLINE'; ?><tr><td><?=htmlspecialchars($device['name'])?></td><td class="<?=$dok ? 'bg-success' : 'bg-danger'?>"><?=htmlspecialchars(ucfirst(strtolower($device['state'])))?></td><td class="text-end"><?=intval($device['read_errors'])?> / <?=intval($device['write_errors'])?> / <?=intval($device['checksum_errors'])?></td></tr><?php endforeach; ?>
+		</tbody></table><?php endif; ?>
 		<?php endforeach;
 		$be = $data['boot_environment'] ?? [];
 		if ($be['supported'] ?? false): ?>
-		<div><i class="fa-solid fa-box-archive"></i> <?=sprintf(gettext('Boot environment: %1$s (%2$d total)%3$s'), htmlspecialchars($be['current'] ?? '-'), intval($be['count']), !empty($be['pending']) ? ' — ' . gettext('verification pending') : '')?> — <a href="/system_boot_environments.php"><?=gettext('Manage')?></a></div>
+		<div class="fs-wfootline"><i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+			<span><?=htmlspecialchars(sprintf(gettext('Boot environment %1$s, %2$d in all'), $be['current'] ?? '-', intval($be['count'])))?><?=!empty($be['pending']) ? ', ' . gettext('verification pending') : ''?></span>
+			<a href="/system_boot_environments.php"><?=gettext('Manage')?></a></div>
 		<?php endif;
 	endif;
 	return ob_get_clean();
