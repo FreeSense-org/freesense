@@ -710,7 +710,7 @@ function fleet_inventory(): array {
 	$serial = trim((string)@shell_exec('/bin/kenv -q smbios.system.serial 2>/dev/null'));
 	return array('hostname' => config_get_path('system/hostname'), 'version' => trim((string)@file_get_contents('/etc/version')),
 	    'platform' => php_uname('m'), 'serial' => $serial, 'cpu' => get_single_sysctl('hw.model'),
-	    'memory_bytes' => (int)get_single_sysctl('hw.physmem'), 'instance_id' => (string)config_get_path('system/cloud_instance_id', ''));
+	    'memory_bytes' => (int)get_single_sysctl('hw.physmem'), 'instance_id' => (string)config_get_path('cloudinit/instance_id', ''));
 }
 
 /* The real $io for fleet_join_run(). */

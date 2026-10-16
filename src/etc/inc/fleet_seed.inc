@@ -133,6 +133,12 @@ function fleet_seed_tailscale_key(array $seed, string $secret): ?string {
  * configuration. Returns the address; throws FleetJoinError E133.
  */
 function fleet_seed_tailscale_up(string $authkey, callable $say): string {
+	/* Already in a tailnet (a retry after the one-time key was used): nothing to do. */
+	$out = array();
+	exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
+	if (is_executable('/usr/local/bin/tailscale') && ($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) {
+		return trim($out[0]);
+	}
 	if (!is_file('/usr/local/pkg/tailscale/tailscale.inc')) {
 		$say('Installing Tailscale (needs internet and the FreeSense package repository)');
 		require_once('pkg-utils.inc');
