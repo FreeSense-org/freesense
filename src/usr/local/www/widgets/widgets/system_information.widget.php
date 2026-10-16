@@ -108,16 +108,15 @@ if ($_REQUEST['getupdatestatus']) {
 	switch ($system_version['pkg_version_compare']) {
 	case '<':
 ?>
-		<div>
-			<?=gettext("Version ")?>
-			<span class="text-success" title="<?=htmlspecialchars($system_version['version'])?>"><?=htmlspecialchars(pkg_version_display($system_version['version'], $system_version['installed_version'] ?? ''))?></span> <?=gettext("is available.")?>
-			<a class="fa-solid fa-cloud-arrow-down fa-lg" href="/pkg_mgr_install.php?id=firmware"></a>
-		</div>
+		<a class="fs-wupdate" href="/pkg_mgr_install.php?id=firmware" title="<?=htmlspecialchars($system_version['version'])?>">
+			<i class="fa-solid fa-cloud-arrow-down" aria-hidden="true"></i>
+			<span><?=gettext("Update available")?> <strong><?=htmlspecialchars(pkg_version_display($system_version['version'], $system_version['installed_version'] ?? ''))?></strong></span>
+		</a>
 <?php
 		break;
 	case '=':
-		printf('<span class="text-success">%s</span>' . "\n",
-		    gettext("The system is on the latest version."));
+		printf('<span class="fs-wver-ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>%s</span>' . "\n",
+		    gettext("Up to date"));
 		break;
 	case '>':
 		printf("%s\n", gettext(
@@ -131,11 +130,9 @@ if ($_REQUEST['getupdatestatus']) {
 
 	if (file_exists($cache_file)):
 ?>
-	<div>
-		<?printf("%s %s", gettext("Version information updated at"),
-		    date("D M j G:i:s T Y", filemtime($cache_file)));?>
-		    &nbsp;
-		    <a id="updver" href="#" class="fa-solid fa-rotate"></a>
+	<div class="fs-wver-checked">
+		<?=htmlspecialchars(sprintf(gettext("Checked %s"), date("D M j G:i", filemtime($cache_file))))?>
+		<a id="updver" href="#" title="<?=gettext('Check now')?>" aria-label="<?=gettext('Check now')?>"><i class="fa-solid fa-rotate" aria-hidden="true"></i></a>
 	</div>
 <?php
 	endif;

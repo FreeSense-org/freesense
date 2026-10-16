@@ -1143,3 +1143,14 @@ body { --fs-navbar-h: 6.9rem; }
 /* A row label with its icon (System Information). */
 .fs-wrow-icon { width: 1.1rem; margin-right: var(--fs-sp-2); text-align: center; color: color-mix(in srgb, var(--fs-text-muted) 75%, transparent); }
 [id^="widgets-col"] .panel-body .table td b, [id^="widgets-col"] .panel-body .table td strong { font-weight: 600; }
+/* System Information: the update notice. */
+.fs-wupdate { display: inline-flex; align-items: center; gap: var(--fs-sp-2); margin: var(--fs-sp-2) 0 var(--fs-sp-1); padding: .3rem .65rem; border-radius: var(--fs-r-sm);
+	color: var(--fs-info); background: color-mix(in srgb, var(--fs-info) 12%, transparent); border: 1px solid color-mix(in srgb, var(--fs-info) 35%, transparent);
+	text-decoration: none; max-width: 100%; }
+.fs-wupdate span { overflow-wrap: anywhere; }
+.fs-wupdate strong { font-weight: 600; }
+.fs-wupdate:hover { background: color-mix(in srgb, var(--fs-info) 20%, transparent); color: var(--fs-info); }
+.fs-wver-ok { display: inline-flex; align-items: center; gap: var(--fs-sp-1); margin-top: var(--fs-sp-1); color: var(--fs-pass); }
+.fs-wver-checked { font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-wver-checked a { margin-left: var(--fs-sp-1); color: var(--fs-text-muted); }
+.fs-wver-checked a:hover { color: var(--fs-coral); }
