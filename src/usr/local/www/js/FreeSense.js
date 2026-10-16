@@ -313,19 +313,14 @@ $(function() {
 	 * so it holds for every page width, zoom level and language.
 	 */
 	(function () {
-		var body = document.body, bar = document.querySelector('#topmenu > .container');
-		if (!body.classList.contains('fs-menu-auto') || !bar) {
+		var body = document.body, bar = document.getElementById('pf-navbar');
+		var menu = bar && bar.querySelector('.fs-topbar-menu');
+		if (!body.classList.contains('fs-menu-auto') || !menu) {
 			return;
 		}
+		/* The menu has its own row: it fits when its items fit that row. */
 		var fits = function () {
-			var cs = getComputedStyle(bar), room = bar.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-			var need = 0;
-			bar.querySelectorAll(':scope > .navbar-brand, #pf-navbar > .navbar-nav').forEach(function (el) {
-				var ms = getComputedStyle(el);
-				/* the menus' auto margin is free space, not something they need */
-				need += el.scrollWidth + parseFloat(ms.marginLeft) + (el.classList.contains('me-auto') ? 0 : parseFloat(ms.marginRight));
-			});
-			return need + 16 <= room;
+			return menu.scrollWidth <= bar.clientWidth;
 		};
 		var fit = function () {
 			body.classList.remove('fs-menu-tight', 'fs-menu-icons');
