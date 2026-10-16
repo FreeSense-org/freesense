@@ -201,4 +201,7 @@ check($upd !== null && $upd['write'] && $upd['area'] === 'management' && functio
 
 check(fleet_boottime_parse('{ sec = 1792097681, usec = 168518 } Thu Oct 15 20:54:41 2026') === 1792097681 && fleet_boottime_parse('') === 0, 'the boot time from kern.boottime');
 
+check((fleet_tunnel_mtu(array(array('endpoint' => '100.66.127.21:51830'))) === 1200) && (fleet_tunnel_mtu(array(array('endpoint' => '[fd7a:115c:a1e0::1]:51830'))) === 1200) &&
+    (fleet_tunnel_mtu(array(array('endpoint' => '203.0.113.7:51830'))) === 1380) && (fleet_tunnel_mtu(array(array('endpoint' => '100.128.0.1:51830'))) === 1380),
+    'a tunnel inside a tailnet uses a smaller MTU so its packets fit inside Tailscale (MTU 1280)');
 echo "FleetAgentSmokeTest: OK\n";

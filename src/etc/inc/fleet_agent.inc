@@ -52,6 +52,8 @@ define('FLEET_ARCHIVE_DIR', FLEET_NODE_DIR . '/archive');
 define('FLEET_PROGRESS_FILE', '/var/run/fleet-join.json');
 define('FLEET_NODE_API_PORT', 8444);
 define('FLEET_WG_MTU', 1380);
+/* Inside a tailnet (MTU 1280) the tunnel's packets plus WireGuard's 80 bytes must still fit. */
+define('FLEET_WG_MTU_TAILNET', 1200);
 define('FLEET_WG_KEEPALIVE', 25);
 define('FLEET_LISTENER_DESCR', 'FreeSense Fleet');
 /* Extra connection paths (fleet_paths.inc) are listeners described "FreeSense Fleet path: <method>". */
@@ -154,6 +156,20 @@ function fleet_controller_networks(array $peers): array {
 	return array_values($nets);
 }
 
+/* pure: the tunnel's MTU: smaller when a peer's endpoint is a tailnet address (100.64.0.0/10 or fd7a:115c:a1e0::/48). */
+function fleet_tunnel_mtu(array $peers): int {
+	foreach ($peers as $peer) {
+		$host = trim((string)preg_replace('/:\d+$/', '', (string)($peer['endpoint'] ?? '')), '[]');
+		if ((ip2long($host) !== false) && ((ip2long($host) & 0xFFC00000) === (ip2long('100.64.0.0') & 0xFFC00000))) {
+			return FLEET_WG_MTU_TAILNET;
+		}
+		if (stripos($host, 'fd7a:115c:a1e0:') === 0) {
+			return FLEET_WG_MTU_TAILNET;
+		}
+	}
+	return FLEET_WG_MTU;
+}
+
 /*
  * pure: the commands that bring the tunnel up, as argument lists. The node
  * starts the connection (NAT safe); there is no listen port.
@@ -174,7 +190,7 @@ function fleet_tunnel_commands(string $overlay_address, array $peers): array {
 	}
 	$cmds[] = array('/sbin/ifconfig', FLEET_WG_IF, $v6 ? 'inet6' : 'inet', $overlay_address, $v6 ? 'prefixlen' : 'netmask',
 	    $v6 ? '128' : '255.255.255.255');
-	$cmds[] = array('/sbin/ifconfig', FLEET_WG_IF, 'mtu', (string)FLEET_WG_MTU, 'up');
+	$cmds[] = array('/sbin/ifconfig', FLEET_WG_IF, 'mtu', (string)fleet_tunnel_mtu($peers), 'up');
 	foreach (fleet_controller_networks($peers) as $cidr) {
 		$cmds[] = array('/sbin/route', '-n', 'add', (strpos($cidr, ':') !== false) ? '-inet6' : '-inet', $cidr, '-interface', FLEET_WG_IF);
 	}
