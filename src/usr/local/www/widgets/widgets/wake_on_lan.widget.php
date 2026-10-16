@@ -144,7 +144,7 @@ if (count($wolcomputers) > 0):
 	endif;
 else:
 ?>
-	<tr><td colspan="4" class="text-center"><?= gettext("No saved WoL addresses") ?></td></tr>
+	<tr><td colspan="4" class="p-0"><?=fs_widget_empty('fa-power-off', gettext('No devices saved yet.'), '<a href="services_wol.php">' . gettext('Add a device') . '</a>')?></td></tr>
 <?php
 endif;
 ?>

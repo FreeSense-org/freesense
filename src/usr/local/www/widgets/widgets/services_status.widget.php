@@ -135,7 +135,7 @@ if (count($services) > 0) {
 		echo "<tr><td colspan=\"4\" class=\"text-center\">" . gettext("All services are hidden") . ". </td></tr>\n";
 	}
 } else {
-	echo "<tr><td colspan=\"4\" class=\"text-center\">" . gettext("No services found") . ". </td></tr>\n";
+	echo '<tr><td colspan="4" class="p-0">' . fs_widget_empty('fa-gears', gettext('No services found.')) . "</td></tr>\n";
 }
 ?>
 		</tbody>

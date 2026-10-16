@@ -105,7 +105,10 @@ foreach (config_get_path('captiveportal', []) as $cpzone => $cp) {
 		</tr>
 	<?php
 	endforeach;
+	if (empty($cpdb_all)):
 	?>
+		<tr><td colspan="6" class="p-0"><?=fs_widget_empty('fa-wifi', gettext('Nobody is logged in to the captive portal.'))?></td></tr>
+	<?php endif; ?>
 		</tbody>
 	</table>
 </div>

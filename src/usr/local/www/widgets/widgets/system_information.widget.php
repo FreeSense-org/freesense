@@ -177,7 +177,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("Name");?></th>
+			<th><i class="fa-solid fa-server fs-wrow-icon" aria-hidden="true"></i><?=gettext("Name");?></th>
 			<td><?php echo htmlspecialchars(config_get_path('system/hostname') . "." . config_get_path('system/domain')); ?></td>
 		</tr>
 <?php
@@ -186,7 +186,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("User");?></th>
+			<th><i class="fa-solid fa-user fs-wrow-icon" aria-hidden="true"></i><?=gettext("User");?></th>
 			<td><?php echo htmlspecialchars(get_config_user()); ?></td>
 <?php
 	endif;
@@ -194,7 +194,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("System");?></th>
+			<th><i class="fa-solid fa-desktop fs-wrow-icon" aria-hidden="true"></i><?=gettext("System");?></th>
 			<td>
 <?php
 				$platform = system_identify_specific_platform();
@@ -238,7 +238,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		if (!empty($biosvendor[0]) || !empty($biosversion[0]) || !empty($biosdate[0])):
 ?>
 		<tr>
-			<th><?=gettext("BIOS");?></th>
+			<th><i class="fa-solid fa-microchip fs-wrow-icon" aria-hidden="true"></i><?=gettext("BIOS");?></th>
 			<td>
 			<?php if (!empty($biosvendor[0])): ?>
 				<?=gettext("Vendor: ");?><strong><?=$biosvendor[0];?></strong><br/>
@@ -282,7 +282,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		}
 ?>
 		<tr>
-			<th><?=gettext("Version");?></th>
+			<th><i class="fa-solid fa-code-branch fs-wrow-icon" aria-hidden="true"></i><?=gettext("Version");?></th>
 			<td>
 				<strong><?=g_get('product_version_string')?></strong>
 				(<?php echo php_uname("m"); ?>)
@@ -304,7 +304,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("CPU Type");?></th>
+			<th><i class="fa-solid fa-microchip fs-wrow-icon" aria-hidden="true"></i><?=gettext("CPU Type");?></th>
 			<td><?=htmlspecialchars(get_single_sysctl("hw.model"))?>
 				<div id="cpufreq"><?= get_cpufreq(); ?></div>
 		<?php
@@ -332,7 +332,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 ?>
 		<?php if ($hwcrypto): ?>
 		<tr>
-			<th><?=gettext("Hardware crypto");?></th>
+			<th><i class="fa-solid fa-key fs-wrow-icon" aria-hidden="true"></i><?=gettext("Hardware crypto");?></th>
 			<td><?=htmlspecialchars(crypto_accel_get_algs($hwcrypto));?></td>
 		</tr>
 		<?php endif; ?>
@@ -343,7 +343,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("Kernel PTI");?></th>
+			<th><i class="fa-solid fa-shield-halved fs-wrow-icon" aria-hidden="true"></i><?=gettext("Kernel PTI");?></th>
 			<td><?=($pti == 0) ? gettext("Disabled") : gettext("Enabled");?></td>
 		</tr>
 <?php
@@ -353,7 +353,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("MDS Mitigation");?></th>
+			<th><i class="fa-solid fa-shield-halved fs-wrow-icon" aria-hidden="true"></i><?=gettext("MDS Mitigation");?></th>
 			<td><?=ucwords(htmlspecialchars($mds));?></td>
 		</tr>
 <?php
@@ -362,7 +362,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("Uptime");?></th>
+			<th><i class="fa-solid fa-clock fs-wrow-icon" aria-hidden="true"></i><?=gettext("Uptime");?></th>
 			<td id="uptime"><?= htmlspecialchars(get_uptime()); ?></td>
 		</tr>
 <?php
@@ -371,7 +371,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("Current date/time");?></th>
+			<th><i class="fa-solid fa-calendar-day fs-wrow-icon" aria-hidden="true"></i><?=gettext("Current date/time");?></th>
 			<td><div id="datetime"><?= date("D M j G:i:s T Y"); ?></div></td>
 		</tr>
 <?php
@@ -380,7 +380,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("DNS server(s)");?></th>
+			<th><i class="fa-solid fa-globe fs-wrow-icon" aria-hidden="true"></i><?=gettext("DNS server(s)");?></th>
 			<td>
 				<ul style="margin-bottom:0px">
 				<?php
@@ -399,7 +399,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 ?>
 		<?php if (config_get_path('revision')): ?>
 		<tr>
-			<th><?=gettext("Last config change");?></th>
+			<th><i class="fa-solid fa-pen-to-square fs-wrow-icon" aria-hidden="true"></i><?=gettext("Last config change");?></th>
 			<td><?= htmlspecialchars(date("D M j G:i:s T Y", intval(config_get_path('revision/time'))));?></td>
 		</tr>
 		<?php endif; ?>
@@ -426,7 +426,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		}
 ?>
 		<tr>
-			<th>
+			<th><i class="fa-solid fa-table-list fs-wrow-icon" aria-hidden="true"></i>
 <?php
 				print(gettext("State table size"));
 				// If adaptive state handling is enabled, display the % and provide a tooltip with more details
@@ -452,7 +452,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("MBUF Usage");?></th>
+			<th><i class="fa-solid fa-layer-group fs-wrow-icon" aria-hidden="true"></i><?=gettext("MBUF Usage");?></th>
 			<td>
 				<?php
 					get_mbuf();
@@ -471,7 +471,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 ?>
 		<?php if ($temp_deg_c = get_temp()): ?>
 		<tr>
-			<th><?=gettext("Temperature");?></th>
+			<th><i class="fa-solid fa-temperature-half fs-wrow-icon" aria-hidden="true"></i><?=gettext("Temperature");?></th>
 			<td>
 				<?php $display_temp = ($temp_use_f) ? $temp_deg_c * 1.8 + 32 : $temp_deg_c; ?>
 				<div class="progress">
@@ -488,7 +488,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("Load average");?></th>
+			<th><i class="fa-solid fa-gauge fs-wrow-icon" aria-hidden="true"></i><?=gettext("Load average");?></th>
 			<td>
 				<div id="load_average" title="<?=gettext('Last 1, 5 and 15 minutes')?>"><?= get_load_average(); ?></div>
 			</td>
@@ -499,7 +499,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("CPU usage");?></th>
+			<th><i class="fa-solid fa-gauge-high fs-wrow-icon" aria-hidden="true"></i><?=gettext("CPU usage");?></th>
 			<td>
 				<div class="progress">
 					<div id="cpuPB" class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%">
@@ -514,7 +514,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 		$rows_displayed = true;
 ?>
 		<tr>
-			<th><?=gettext("Memory usage");?></th>
+			<th><i class="fa-solid fa-memory fs-wrow-icon" aria-hidden="true"></i><?=gettext("Memory usage");?></th>
 			<td>
 				<?php $memUsage = mem_usage(); ?>
 
@@ -532,7 +532,7 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 ?>
 		<?php if ($showswap == true): ?>
 		<tr>
-			<th><?=gettext("SWAP usage");?></th>
+			<th><i class="fa-solid fa-hard-drive fs-wrow-icon" aria-hidden="true"></i><?=gettext("SWAP usage");?></th>
 			<td>
 				<?php $swapusage = swap_usage(); ?>
 				<div class="progress">

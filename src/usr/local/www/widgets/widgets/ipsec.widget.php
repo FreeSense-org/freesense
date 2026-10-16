@@ -335,8 +335,7 @@ if (ipsec_enabled()): ?>
 
 <?php else: ?>
 	<div>
-		<h5 style="padding-left:10px;"><?= htmlspecialchars(gettext("There are no configured or enabled IPsec Tunnels")) ?></h5>
-		<p  style="padding-left:10px;"><?= sprintf(htmlspecialchars(gettext('IPsec can be configured %shere.%s')), '<a href="vpn_ipsec.php">', '</a>') ?></p>
+		<?=fs_widget_empty('fa-lock', gettext('No IPsec tunnels are set up.'), '<a href="vpn_ipsec.php">' . gettext('Set up IPsec') . '</a>')?>
 	</div>
 <?php endif;
 

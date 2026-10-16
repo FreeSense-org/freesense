@@ -394,6 +394,16 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 <div class="row">
 <?php
 	$columnWidth = (int) (12 / $numColumns);
+	/* Title icons of the built-in widgets: icon and tone (a series number 1-8 or a state token). */
+	$widget_icons = array(
+		'system_information' => array('fa-microchip', '1'), 'interfaces' => array('fa-network-wired', '6'), 'gateways' => array('fa-route', '3'),
+		'services_status' => array('fa-gears', '7'), 'traffic_graphs' => array('fa-chart-area', '1'), 'disks' => array('fa-hard-drive', '4'),
+		'thermal_sensors' => array('fa-temperature-half', '8'), 'interface_statistics' => array('fa-table-list', '6'), 'carp_status' => array('fa-clone', '3'),
+		'openvpn' => array('fa-shield-halved', '5'), 'ipsec' => array('fa-lock', '5'), 'ntp_status' => array('fa-clock', '7'),
+		'installed_packages' => array('fa-box-open', '2'), 'log' => array('fa-scroll', 'neutral'), 'smart_status' => array('fa-heart-pulse', '8'),
+		'zfs_storage' => array('fa-database', '4'), 'gmirror_status' => array('fa-copy', '4'), 'dyn_dns_status' => array('fa-globe', '3'),
+		'captive_portal_status' => array('fa-wifi', '2'), 'wake_on_lan' => array('fa-power-off', '6'), 'picture' => array('fa-image', '5'), 'rss' => array('fa-rss', '2'),
+	);
 
 	for ($currentColumnNumber = 1; $currentColumnNumber <= $numColumns; $currentColumnNumber++) {
 
@@ -412,11 +422,15 @@ foreach ($widgets as $widgetkey => $widgetconfig) {
 
 				// Compose the widget title and include the title link if available
 				$widgetlink = ${$widgetconfig['basename'] . '_title_link'};
+				// The title icon: the widget's own ($<basename>_icon, from its include file) or the built-in one, in a tinted square.
+				list($wicon, $wtone) = ${$widgetconfig['basename'] . '_icon'} ?? $widget_icons[$widgetconfig['basename']] ?? array('fa-puzzle-piece', 'neutral');
+				$wiconhtml = '<span class="fs-wicon" style="--fc: var(--fs-' . (ctype_digit((string)$wtone) ? 'series-' . $wtone : $wtone) . ')"><i class="fa-solid ' .
+				    htmlspecialchars($wicon) . '" aria-hidden="true"></i></span>';
 
 				if ((strlen($widgetlink) > 0)) {
-					$wtitle = '<a href="' . $widgetlink . '"> ' . $widgetconfig['title'] . '</a>';
+					$wtitle = $wiconhtml . '<a href="' . $widgetlink . '">' . $widgetconfig['title'] . '</a>';
 				} else {
-					$wtitle = $widgetconfig['title'];
+					$wtitle = $wiconhtml . '<span>' . $widgetconfig['title'] . '</span>';
 				}
 				?>
 				<div class="panel panel-default" id="widget-<?=$widgetkey?>">

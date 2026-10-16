@@ -55,7 +55,7 @@ function zfs_widget_notice(string $id, ?string $message): void {
 function zfs_widget_render(array $data, bool $compact): string {
 	ob_start();
 	if (!$data['zfs_active']): ?>
-		<div class="alert alert-info"><?=gettext('ZFS is not active on this system.')?></div>
+		<?=fs_widget_empty('fa-database', gettext('This system does not use ZFS.'))?>
 	<?php else:
 		foreach ($data['pools'] as $pool):
 			$health = strtoupper($pool['health']);
@@ -105,7 +105,6 @@ if (isset($_POST['ajax'])) {
 		<div class="checkbox"><label><input type="checkbox" name="compact" <?=$widget_config['compact']?'checked':''?>> <?=gettext('Compact view')?></label></div>
 		<button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk icon-embed-btn"></i><?=gettext('Save')?></button>
 	</form>
-</div>
 <script>
 events.push(function() {
 	var obj = {name: 'zfs_storage', url: '/widgets/widgets/zfs_storage.widget.php', parms: {ajax: '1', widgetkey: <?=json_encode($widgetkey)?>}, freq: <?=intval($widget_config['refreshinterval'])?>};

@@ -409,6 +409,15 @@ function fs_row_actions(array $actions) {
 
 /* ---------------------------------------------------------------------- badges */
 
+/*
+ * A widget's empty state: an icon in a faint circle and one short line,
+ * with an optional link (HTML) after it. Used by the dashboard widgets.
+ */
+function fs_widget_empty($icon, $text, $link = '') {
+	return '<div class="fs-wempty"><span class="fs-wempty-icon"><i class="fa-solid ' . fs_h($icon) . '" aria-hidden="true"></i></span><span>' . fs_h($text) .
+	    (($link !== '') ? ' ' . $link : '') . '</span></div>';
+}
+
 function fs_badge($state, $label = null, $title = null) {
 	static $map = null;
 

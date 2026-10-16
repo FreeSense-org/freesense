@@ -27,6 +27,12 @@ var widgetUnit = 'C';
 var firstTime = true;
 
 function buildThermalSensorsData(thermalSensorsData, widgetKey, tsParams) {
+	/* No sensor on this system: say so instead of "Updating". */
+	if (!thermalSensorsData || $.trim(thermalSensorsData) === "") {
+		$('#thermalSensorsContainer-' + widgetKey).html('<div class="fs-wempty"><span class="fs-wempty-icon"><i class="fa-solid fa-temperature-half" aria-hidden="true"></i></span>' +
+		    '<span>' + (tsParams.noSensorsText || 'This system reports no temperature sensors.') + '</span></div>');
+		return;
+	}
 	if (tsParams.showRawOutput) {
 		buildThermalSensorsDataRaw(thermalSensorsData, widgetKey);
 	} else {
@@ -58,7 +64,7 @@ function loadThermalSensorsContainer (thermalSensorsContent, widgetKey) {
 		//load generated graph (or raw data) into thermalSensorsContainer (thermalSensorsContainer DIV defined in "thermal_sensors.widget.php")
 		$('#thermalSensorsContainer-' + widgetKey).html(thermalSensorsContent);
 	} else {
-		$('#thermalSensorsContainer-' + widgetKey).html("No Thermal Sensors data available.");
+		$('#thermalSensorsContainer-' + widgetKey).html("This system reports no temperature sensors.");
 	}
 }
 

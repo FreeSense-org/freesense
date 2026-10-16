@@ -130,7 +130,7 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 }
 
 ?>
-<div class="list-group" style="height: <?=$rsswidgetheight?>px; overflow:scroll;">
+<div class="list-group fs-wrss" style="height: <?=$rsswidgetheight?>px; overflow-y: auto;">
 <?php
 	if (!is_dir("/tmp/simplepie")) {
 		mkdir("/tmp/simplepie");
