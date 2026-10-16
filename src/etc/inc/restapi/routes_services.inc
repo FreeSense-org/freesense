@@ -360,7 +360,7 @@ function restapi_upnp_acl_rows(array $acl) {
  */
 function restapi_svc_rows_out(array $values, array $keys) {
 	foreach ($keys as $key) {
-		if (array_key_exists($key, $values) && is_array($values[$key])) {
+		if (array_key_exists((string) $key, $values) && is_array($values[$key])) {
 			$values[$key] = array_values(array_map(function ($a) {
 				return array('address' => (string)$a);
 			}, $values[$key]));

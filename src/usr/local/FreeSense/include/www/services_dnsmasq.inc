@@ -203,7 +203,7 @@ function saveDNSMasqConfig($post, $json=false) {
 	if (is_array($post['interface'])) {
 		$listen_ips = get_possible_listen_ips(true);
 		foreach ($post['interface'] as $laddr) {
-			if (($laddr !== '') && !array_key_exists($laddr, $listen_ips)) {
+			if (($laddr !== '') && !array_key_exists((string) $laddr, $listen_ips)) {
 				$input_errors[] = sprintf(gettext("%s is not an interface the DNS Forwarder can listen on."), $laddr);
 			}
 		}

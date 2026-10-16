@@ -152,7 +152,7 @@ function interfaces_lagg_save(array $post, $id) {
 	$ports = interfaces_lagg_port_list($id);
 	if (is_array($post['members'] ?? null)) {
 		foreach ($post['members'] as $member) {
-			if (!does_interface_exist($member) || !array_key_exists($member, $ports)) {
+			if (!does_interface_exist($member) || !array_key_exists((string) $member, $ports)) {
 				$input_errors[] = sprintf(gettext("Interface supplied as member (%s) is invalid"), $member);
 			}
 		}
@@ -503,7 +503,7 @@ function interfaces_group_valid_members(array $members) {
 	$interface_list = interfaces_group_member_list();
 	$validmembers = array();
 	foreach ($members as $ifname) {
-		if (array_key_exists($ifname, $interface_list)) {
+		if (array_key_exists((string) $ifname, $interface_list)) {
 			$validmembers[] = $ifname;
 		}
 	}
@@ -625,7 +625,7 @@ function interfaces_group_save(array $post, $id) {
 	 * upstream issue 15778 */
 	$validmembers = [];
 	foreach ((array)($post['members'] ?? []) as $ifname) {
-		if (array_key_exists($ifname, $interface_list)) {
+		if (array_key_exists((string) $ifname, $interface_list)) {
 			$validmembers[] = $ifname;
 		} else {
 			$input_errors[] = gettext("Submission contained an invalid interface");

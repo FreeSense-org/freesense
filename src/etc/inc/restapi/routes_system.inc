@@ -221,7 +221,7 @@ function restapi_sysadv_timeout_keys(array $pftimeouts) {
 /* Replace secret values with "(set)" (or "" when empty). */
 function restapi_sysadv_mask(array $values, array $secrets) {
 	foreach ($secrets as $secret) {
-		if (array_key_exists($secret, $values)) {
+		if (array_key_exists((string) $secret, $values)) {
 			$values[$secret] = ((string)$values[$secret] !== '') ? '(set)' : '';
 		}
 	}
@@ -243,7 +243,7 @@ function restapi_sysadv_keep_secrets(array $body, array $secrets) {
  * password posts the page's placeholder, a new one is posted twice.
  */
 function restapi_sysadv_password_post($field, $current, array $body) {
-	if (array_key_exists($field, $body)) {
+	if (array_key_exists((string) $field, $body)) {
 		$value = (string)$body[$field];
 	} else {
 		$value = ((string)$current !== '') ? DMYPWD : '';
@@ -258,7 +258,7 @@ function restapi_sysadv_password_post($field, $current, array $body) {
 function restapi_sysadv_check_choices(array $values, array $choices, array $fields) {
 	$errors = array();
 	foreach ($fields as $field) {
-		if (!array_key_exists($field, $values) || !isset($choices[$field])) {
+		if (!array_key_exists((string) $field, $values) || !isset($choices[$field])) {
 			continue;
 		}
 		$keys = array_map('strval', array_keys($choices[$field]));
@@ -989,7 +989,7 @@ function restapi_sysgen_dns_rows($servers, $with_gateways) {
 function restapi_settings_check_changed_choices(array $values, array $current, array $choices, array $fields) {
 	$changed = array();
 	foreach ($fields as $field) {
-		if (array_key_exists($field, $values) && ((string)$values[$field] !== (string)($current[$field] ?? ''))) {
+		if (array_key_exists((string) $field, $values) && ((string)$values[$field] !== (string)($current[$field] ?? ''))) {
 			$changed[$field] = $values[$field];
 		}
 	}
@@ -1016,7 +1016,7 @@ function restapi_h_sysgen_set($req) {
 	$rows = restapi_sysgen_dns_rows($values['dnsservers'], $with_gateways);
 	if ($with_gateways) {
 		foreach ($rows as $key => $gw) {
-			if ((strpos($key, 'dnsgw') === 0) && !array_key_exists($gw, $choices['dnsgw'])) {
+			if ((strpos($key, 'dnsgw') === 0) && !array_key_exists((string) $gw, $choices['dnsgw'])) {
 				throw restapi_validation_error(array(sprintf('"%s" is not a valid choice for the DNS server gateway.', $gw)));
 			}
 		}
@@ -1197,7 +1197,7 @@ function restapi_admin_lockout_fields() {
 function restapi_admin_lockout_changes(array $current, array $values) {
 	$changes = array();
 	foreach (restapi_admin_lockout_fields() as $field => $when) {
-		if (!array_key_exists($field, $values) || ($values[$field] === ($current[$field] ?? null))) {
+		if (!array_key_exists((string) $field, $values) || ($values[$field] === ($current[$field] ?? null))) {
 			continue;
 		}
 		if (($when === 'any') || ($values[$field] === $when)) {

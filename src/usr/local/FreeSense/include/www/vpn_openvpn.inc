@@ -479,7 +479,7 @@ function openvpn_server_save(array &$pconfig, $id, $act, $user_can_edit_advanced
 			$input_errors[] = gettext("The Backend for Authentication list is not valid.");
 		} else {
 			foreach ($pconfig['authmode'] as $authmode) {
-				if (!array_key_exists($authmode, auth_get_authserver_list())) {
+				if (!array_key_exists((string) $authmode, auth_get_authserver_list())) {
 					$input_errors[] = gettext("A valid Backend for Authentication must be selected.");
 					break;
 				}

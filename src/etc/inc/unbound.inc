@@ -503,7 +503,7 @@ EOD;
 				if (is_ipaddr($dnsserver) && !ip_in_subnet($dnsserver, "127.0.0.0/8") && !ip_in_subnet($dnsserver, "::1/128")) {
 					if (isset($unboundcfg['forward_tls_upstream'])) {
 						$fwdport = "@853";
-						if (array_key_exists($dnsserver, $dns_hostnames)) {
+						if (array_key_exists((string) $dnsserver, $dns_hostnames)) {
 							$fwdhost = "#{$dns_hostnames[$dnsserver]}";
 						}
 					}
@@ -812,7 +812,7 @@ function unbound_add_domain_overrides($pvt_rev="", $cfgsubdir = "") {
 				if (strstr($ip, '@') !== false) {
 					$fwdport = "";
 				}
-				if ($use_tls && array_key_exists($ip, $tls_hostnames)) {
+				if ($use_tls && array_key_exists((string) $ip, $tls_hostnames)) {
 					$fwdhost = "#{$tls_hostnames[$ip]}";
 				}
 				$domain_entries .= "\tforward-addr: {$ip}{$fwdport}{$fwdhost}\n";

@@ -1750,7 +1750,7 @@ function cert_renew(& $cert_config, $reusekey = true, $strictsecurity = false, $
 	/* This is necessary to ensure the order of subject components is
 	 * identical on the old and new certificate. */
 	foreach ($cert_details['subject'] as $p => $v) {
-		if (array_key_exists($p, $subject_map)) {
+		if (array_key_exists((string) $p, $subject_map)) {
 			$dn[$subject_map[$p]] = $v;
 		}
 	}
@@ -2757,7 +2757,7 @@ function cert_build_curve_list() {
 			/* If the valid curve is present in the curve list, add
 			 * a note with the consumer name to the value visible to
 			 * the user. */
-			if (array_key_exists($vc, $curvelist)) {
+			if (array_key_exists((string) $vc, $curvelist)) {
 				$curvelist[$vc] .= " [{$consumer}]";
 			}
 		}
@@ -2790,7 +2790,7 @@ function cert_check_pkey_compatibility($pkey, $consumer) {
 	 *  * There are no restrictions
 	 *  * The requested curve is compatible */
 	return (($curve === false) ||
-		!array_key_exists($consumer, $cert_curve_compatible) ||
+		!array_key_exists((string) $consumer, $cert_curve_compatible) ||
 		in_array($curve, $cert_curve_compatible[$consumer]));
 }
 

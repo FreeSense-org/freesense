@@ -497,7 +497,7 @@ function openvpn_get_curvelist() {
 
 function openvpn_validate_curve($curve) {
 	$curves = openvpn_get_curvelist();
-	return array_key_exists($curve, $curves);
+	return array_key_exists((string) $curve, $curves);
 }
 
 /* Obtain the list of digest algorithms supported by openssl and their alternate names */
@@ -538,7 +538,7 @@ function openvpn_get_digestlist() {
  */
 function openvpn_remap_digest($digest) {
 	$openssl_digest_mappings = openvpn_get_openssldigestmappings();
-	if (array_key_exists($digest, $openssl_digest_mappings)) {
+	if (array_key_exists((string) $digest, $openssl_digest_mappings)) {
 		/* Some mappings point to other mappings, keep going until we find the actual digest algorithm */
 		if (array_key_exists($openssl_digest_mappings[$digest], $openssl_digest_mappings)) {
 			return openvpn_remap_digest($openssl_digest_mappings[$digest]);

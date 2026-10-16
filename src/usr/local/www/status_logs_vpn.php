@@ -57,7 +57,7 @@ if (!$_REQUEST['logfile']) {
 } else {
 	$logfile = $_REQUEST['logfile'];
 	$vpntype = $_REQUEST['vpntype'];
-	if (!array_key_exists($logfile, $allowed_logs)) {
+	if (!array_key_exists((string) $logfile, $allowed_logs)) {
 		/* Do not let someone attempt to load an unauthorized log. */
 		$logfile = 'vpn';
 		$vpntype = "poes";

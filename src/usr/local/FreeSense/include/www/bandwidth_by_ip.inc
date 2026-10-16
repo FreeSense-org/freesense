@@ -27,7 +27,7 @@ require_once('freesense-utils.inc');
 require_once('util.inc');
 
 function printBandwidth($interface, $filter, $sort, $hostipformat, $mode) {
-	$listedIPs = "";
+	$listedIPs = array();
 
 	//get interface IP and break up into an array
 	$real_interface = get_real_interface($interface);
