@@ -385,3 +385,93 @@ function fs_nav_toasts($raw): array {
 	}
 	return $out;
 }
+
+
+/*
+ * pure: one notice for the notifications panel: the text decoded, a short
+ * title, a detail line, a tone and icon, and for a PHP error a GitHub issue
+ * link with the error filled in (the person reviews it before submitting).
+ */
+function fs_notice_view($time, array $n, $version = '') {
+	$text = htmlspecialchars_decode(htmlspecialchars_decode((string)($n['notice'] ?? '')));
+	$category = htmlspecialchars_decode((string)($n['category'] ?? ''));
+	$prio = (int)($n['priority'] ?? 1);
+	$php = (stripos($category, 'php') !== false) || (strpos($text, 'PHP ERROR') === 0);
+	$title = trim(strtok($text, "\n"));
+	$where = '';
+	if ($php && preg_match('/Message:\s*(.+?)(?:\s+in\s+(\/\S+?:\d+))?\s*(?:\n|Stack trace|$)/s', $text, $m)) {
+		$title = trim(preg_replace('/^Uncaught\s+/', '', $m[1]));
+		$where = $m[2] ?? '';
+		if (($where === '') && preg_match('/File:\s*(\S+?),\s*Line:\s*(\d+)/', $text, $f)) {
+			$where = $f[1] . ':' . $f[2];
+		}
+	}
+	if (mb_strlen($title) > 140) {
+		$title = mb_substr($title, 0, 137) . '...';
+	}
+	$v = array(
+		'time' => (int)$time,
+		'title' => $title,
+		'where' => $where,
+		'category' => $category,
+		'text' => $text,
+		'url' => htmlspecialchars_decode((string)($n['url'] ?? '')),
+		'tone' => $php ? 'block' : (($prio >= 2) ? 'block' : (($prio === 1) ? 'warn' : 'info')),
+		'icon' => $php ? 'fa-bug' : (($prio >= 2) ? 'fa-circle-exclamation' : (($prio === 1) ? 'fa-triangle-exclamation' : 'fa-circle-info')),
+		'report' => '',
+	);
+	if ($php) {
+		$body = "**FreeSense version:** " . (($version !== '') ? $version : 'unknown') . "\n" .
+		    "**Where:** " . (($where !== '') ? '`' . $where . '`' : 'unknown') . "\n" .
+		    "**When:** " . date('Y-m-d H:i:s T', (int)$time) . "\n\n" .
+		    "**What I was doing:**\n\n\n**The error:**\n```\n" . mb_substr($text, 0, 5000) . "\n```\n";
+		$v['report'] = 'https://github.com/FreeSense-org/freesense/issues/new?' . http_build_query(array(
+		    'title' => 'PHP error: ' . mb_substr($title, 0, 120), 'body' => $body, 'labels' => 'bug'));
+	}
+	return $v;
+}
+
+/*
+ * The notifications panel under the bell: newest first, each notice with
+ * its icon, title, time and the full text behind Details; a PHP error can
+ * be reported on GitHub. $notices is get_notices() (time => notice).
+ */
+function fs_notices_panel($notices, $can_clear) {
+	$version = trim((string)@file_get_contents('/etc/version'));
+	$items = is_array($notices) ? $notices : array();
+	krsort($items);
+	$h = '<div class="dropdown-menu dropdown-menu-end fs-notif" aria-labelledby="fs-notif-toggle" data-empty="' . fs_h(gettext('No notifications. Everything is quiet.')) . '">';
+	$h .= '<div class="fs-notif-head"><strong>' . fs_h(gettext('Notifications')) . '</strong>';
+	if (!empty($items) && $can_clear) {
+		$h .= '<button type="button" class="btn btn-sm btn-link fs-notif-clear" data-fs-notice-close="all">' . fs_h(gettext('Mark all as read')) . '</button>';
+	}
+	$h .= '</div>';
+	if (empty($items)) {
+		return $h . '<div class="fs-notif-empty"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>' .
+		    fs_h(gettext('No notifications. Everything is quiet.')) . '</span></div></div>';
+	}
+	$h .= '<ul class="fs-notif-list">';
+	foreach ($items as $time => $n) {
+		$v = fs_notice_view($time, $n, $version);
+		$h .= '<li class="fs-notif-item" data-time="' . $v['time'] . '">';
+		$h .= '<span class="fs-notif-icon fs-tone-' . $v['tone'] . '"><i class="fa-solid ' . $v['icon'] . '" aria-hidden="true"></i></span><div class="fs-notif-body">';
+		$h .= '<div class="fs-notif-title">' . (($v['url'] !== '') ? '<a href="' . fs_h($v['url']) . '">' . fs_h($v['title']) . '</a>' : fs_h($v['title'])) . '</div>';
+		$h .= '<div class="fs-notif-meta">' . fs_h($v['category']) . ', <time datetime="' . date('c', $v['time']) . '" title="' . date('Y-m-d H:i:s', $v['time']) . '">' .
+		    fs_h(date((date('Y-m-d', $v['time']) === date('Y-m-d')) ? 'H:i' : 'M j, H:i', $v['time'])) . '</time>' .
+		    (($v['where'] !== '') ? '<span class="fs-notif-where">' . fs_h($v['where']) . '</span>' : '') . '</div>';
+		if ($v['text'] !== $v['title']) {
+			$h .= '<details class="fs-notif-details"><summary>' . fs_h(gettext('Details')) . '</summary><pre>' . fs_h($v['text']) . '</pre></details>';
+		}
+		$h .= '<div class="fs-notif-actions">';
+		if ($v['report'] !== '') {
+			$h .= '<a class="btn btn-sm btn-outline-secondary" href="' . fs_h($v['report']) . '" target="_blank" rel="noopener"><i class="fa-brands fa-github" aria-hidden="true"></i>' .
+			    fs_h(gettext('Report on GitHub')) . '</a>';
+		}
+		if ($can_clear) {
+			$h .= '<button type="button" class="btn btn-sm btn-link" data-fs-notice-close="' . $v['time'] . '">' . fs_h(gettext('Dismiss')) . '</button>';
+		}
+		$h .= '</div></div></li>';
+	}
+	return $h . '</ul></div>';
+}
+
