@@ -124,6 +124,12 @@ function restapi_routes_management() {
 			    'endpoints' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Where the controller can be reached, host:port, first the primary (1-4)'),
 			    'epoch' => array('type' => 'integer', 'description' => 'The controller epoch; a lower one than the stored epoch is refused (FLEET-E412)'))),
 			'summary' => 'The controller endpoints (primary and standby controller); the tunnel moves to the next one when the controller stops answering')),
+		restapi_route('POST', '/v1/management/probe', 'restapi_h_mgmt_probe', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('host', 'port'), 'properties' => array(
+			    'host' => array('type' => 'string', 'description' => 'An IP address or DNS name'),
+			    'port' => array('type' => 'integer', 'description' => 'A TCP port'))),
+			'summary' => 'Does a TCP port answer, seen from this firewall? (The controller checks its public ports from outside.)')),
 		restapi_route('GET', '/v1/management/accounts', 'restapi_h_mgmt_accounts_get', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'The users and groups Fleet manages here, the local names, and the privileges this version knows')),
@@ -443,6 +449,36 @@ function restapi_h_mgmt_endpoints_put($req) {
 	} catch (DomainException $e) {
 		throw new RestApiError(409, 'superseded', $e->getMessage());
 	}
+}
+
+/* pure: a host the probe may connect to (IP address or DNS name), as a stream address with $port; null when it is not one. */
+function restapi_probe_address(string $host, int $port): ?string {
+	if (($port < 1) || ($port > 65535)) {
+		return null;
+	}
+	if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+		return "tcp://[{$host}]:{$port}";
+	}
+	if (filter_var($host, FILTER_VALIDATE_IP) || preg_match('/^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/D', $host)) {
+		return "tcp://{$host}:{$port}";
+	}
+	return null;
+}
+
+function restapi_h_mgmt_probe($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('host', 'port'));
+	$address = restapi_probe_address((string)($req['body']['host'] ?? ''), is_int($req['body']['port'] ?? null) ? $req['body']['port'] : 0);
+	if ($address === null) {
+		throw new RestApiError(422, 'invalid_target', 'host must be an IP address or DNS name and port a TCP port.');
+	}
+	$start = microtime(true);
+	$fp = @stream_socket_client($address, $errno, $errstr, 5);
+	$open = ($fp !== false);
+	if ($open) {
+		fclose($fp);
+	}
+	return array('data' => array('open' => $open, 'ms' => (int)round((microtime(true) - $start) * 1000), 'error' => $open ? '' : ($errstr ?: "error {$errno}")));
 }
 
 function restapi_h_mgmt_accounts_get($req) {
