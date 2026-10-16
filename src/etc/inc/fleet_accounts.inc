@@ -37,7 +37,7 @@
 require_once('fleet_node.inc');
 
 define('FLEET_ACCOUNTS_FORMAT', 'fleet-users-v1');
-define('FLEET_ACCOUNTS_RESERVED_USERS', array('root', 'admin', 'fleet-controller', 'nobody', 'toor', 'daemon', 'operator', 'www', 'sshd', 'uucp', 'unbound', 'dhcpd'));
+define('FLEET_ACCOUNTS_RESERVED_USERS', array('root', 'admin', 'fleet-controller', 'fleet-hasync', 'nobody', 'toor', 'daemon', 'operator', 'www', 'sshd', 'uucp', 'unbound', 'dhcpd'));
 define('FLEET_ACCOUNTS_RESERVED_GROUPS', array('admins', 'all', 'wheel', 'nobody', 'nogroup', 'operator'));
 define('FLEET_ACCOUNTS_MAX', 500);
 

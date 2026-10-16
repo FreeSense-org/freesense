@@ -110,6 +110,14 @@ function restapi_routes_management() {
 			    'bundle' => array('type' => 'string', 'description' => 'The bundle JSON as text: {version, node_id ("*" or this box), rules: [...]}'),
 			    'signature' => array('type' => 'string', 'description' => 'base64 ECDSA P-256 / SHA-256 signature of the bundle text by the controller'))),
 			'summary' => 'Replace the policy bundle; refused unless signed by this box\'s controller and at least as new as the one held')),
+		restapi_route('PUT', '/v1/management/ha-sync-user', 'restapi_h_mgmt_hasync_user_put', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('bcrypt_hash'), 'properties' => array(
+			    'bcrypt_hash' => array('type' => 'string', 'description' => 'The bcrypt hash of the password the HA primary syncs with'))),
+			'summary' => 'Create or update the fleet-hasync user (only the HA node sync privilege) that an HA primary set up by Fleet logs in as')),
+		restapi_route('DELETE', '/v1/management/ha-sync-user', 'restapi_h_mgmt_hasync_user_delete', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'Remove the fleet-hasync user')),
 		restapi_route('GET', '/v1/management/accounts', 'restapi_h_mgmt_accounts_get', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'The users and groups Fleet manages here, the local names, and the privileges this version knows')),
@@ -394,6 +402,21 @@ function restapi_mgmt_error(InvalidArgumentException $e, $status, $default_code)
 		return new RestApiError($status, $m[1], $m[2]);
 	}
 	return new RestApiError($status, $default_code, $e->getMessage());
+}
+
+function restapi_h_mgmt_hasync_user_put($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('bcrypt_hash'));
+	try {
+		return array('data' => array('user' => FLEET_HASYNC_USER, 'result' => fleet_hasync_user_set((string)($req['body']['bcrypt_hash'] ?? ''))));
+	} catch (InvalidArgumentException $e) {
+		throw restapi_mgmt_error($e, 422, 'invalid_hash');
+	}
+}
+
+function restapi_h_mgmt_hasync_user_delete($req) {
+	restapi_mgmt_enrolled();
+	return array('data' => array('user' => FLEET_HASYNC_USER, 'result' => fleet_hasync_user_set(null)));
 }
 
 function restapi_h_mgmt_accounts_get($req) {
