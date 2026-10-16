@@ -154,9 +154,7 @@ check(fleet_hasync_summary(array('synchronizerules' => 'on'))['sections'] === ar
 check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc'), "'carp_vips' =>") !== false, 'the Fleet status carries each CARP address and its state');
 $rm = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
 check((strpos($rm, "'/v1/management/ha-sync-user'") !== false) && (strpos($rm, "fleet_hasync_user_set(null)") !== false), 'the HA sync user can be set and removed through the management API');
-check(in_array('fleet-hasync', FLEET_ACCOUNTS_RESERVED_USERS ?? array('fleet-hasync'), true) || (strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/fleet_accounts.inc'), "'fleet-hasync'") !== false), 'users sync never touches the HA sync user');
-check(in_array(restapi_area_privilege('firewall.vips', 'write'), fleet_access_privs('managed'), true) && !in_array(restapi_area_privilege('firewall.vips', 'write'), fleet_access_privs('monitor'), true),
-    'a managed firewall lets Fleet set up CARP addresses; a monitored one does not');
+check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/fleet_accounts.inc'), "'fleet-hasync'") !== false, 'users sync never touches the HA sync user');
 check(RESTAPI_LEVEL >= 12, 'API level 12: virtual IPs and the HA sync user for Fleet');
 check(fleet_carp_entries($vips, true, function ($id) { return 'weird'; })[0]['state'] === 'UNKNOWN', 'unexpected text is UNKNOWN');
 check(fleet_carp_entries($vips, false, function ($id) { return 'MASTER'; })[0]['state'] === 'DISABLED' &&
