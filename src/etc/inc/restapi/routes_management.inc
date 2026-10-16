@@ -118,6 +118,12 @@ function restapi_routes_management() {
 		restapi_route('DELETE', '/v1/management/ha-sync-user', 'restapi_h_mgmt_hasync_user_delete', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'summary' => 'Remove the fleet-hasync user')),
+		restapi_route('PUT', '/v1/management/controller-endpoints', 'restapi_h_mgmt_endpoints_put', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('endpoints', 'epoch'), 'properties' => array(
+			    'endpoints' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Where the controller can be reached, host:port, first the primary (1-4)'),
+			    'epoch' => array('type' => 'integer', 'description' => 'The controller epoch; a lower one than the stored epoch is refused (FLEET-E412)'))),
+			'summary' => 'The controller endpoints (primary and standby controller); the tunnel moves to the next one when the controller stops answering')),
 		restapi_route('GET', '/v1/management/accounts', 'restapi_h_mgmt_accounts_get', array(
 			'page' => 'system_fleet.php', 'area' => 'management',
 			'summary' => 'The users and groups Fleet manages here, the local names, and the privileges this version knows')),
@@ -211,6 +217,10 @@ function restapi_h_mgmt_status($req) {
 		'carp_maintenance' => $carp['maintenance'],
 		'hasync' => fleet_hasync_summary((array)config_get_path('hasync', [])),
 		'webgui_cert_sha256' => fleet_webgui_cert_sha256(),
+		/* Where this firewall reaches the controller (more than one with a standby controller), and the newest controller epoch it has seen. */
+		'controller_endpoints' => fleet_controller_endpoints(),
+		'controller_endpoint' => fleet_endpoint_current(),
+		'controller_epoch' => (int)config_get_path('fleet/controller_epoch', 0),
 		'api_level' => RESTAPI_LEVEL,
 		'paths' => array_map(function ($p) { return array('key' => $p['key'], 'addresses' => $p['addresses']); }, fleet_paths()),
 	) + fleet_handoff_offer());
@@ -418,6 +428,21 @@ function restapi_h_mgmt_hasync_user_put($req) {
 function restapi_h_mgmt_hasync_user_delete($req) {
 	restapi_mgmt_enrolled();
 	return array('data' => array('user' => FLEET_HASYNC_USER, 'result' => fleet_hasync_user_set(null)));
+}
+
+function restapi_h_mgmt_endpoints_put($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('endpoints', 'epoch'));
+	if (!is_int($req['body']['epoch'] ?? null) || ($req['body']['epoch'] < 0)) {
+		throw new RestApiError(422, 'invalid_epoch', 'epoch must be a whole number, 0 or more.');
+	}
+	try {
+		return array('data' => array('result' => fleet_endpoints_set((array)($req['body']['endpoints'] ?? array()), $req['body']['epoch'])));
+	} catch (InvalidArgumentException $e) {
+		throw restapi_mgmt_error($e, 422, 'invalid_endpoints');
+	} catch (DomainException $e) {
+		throw new RestApiError(409, 'superseded', $e->getMessage());
+	}
 }
 
 function restapi_h_mgmt_accounts_get($req) {
