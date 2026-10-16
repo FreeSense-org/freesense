@@ -1003,7 +1003,7 @@ body { --fs-navbar-h: 6.9rem; }
 .fs-topbar .navbar-toggler { margin-left: var(--fs-sp-1); }
 @media (min-width: 992px) {
 	.fs-topbar #pf-navbar { border-bottom: 1px solid var(--fs-chrome-border); }
-	.fs-topbar .fs-topbar-menu { flex-wrap: nowrap; margin-left: calc(-1 * .8rem); }
+	.fs-topbar .fs-topbar-menu { flex-wrap: nowrap; }
 	.fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-top: .8rem; padding-bottom: .7rem; margin-bottom: -1px; white-space: nowrap; }
 }
 @media (max-width: 991.98px) {
