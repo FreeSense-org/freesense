@@ -105,7 +105,20 @@ function restapi_listener_address_choices() {
 	if ((string)config_get_path('fleet/overlay_address', '') !== '') {
 		$choices['fleet'] = gettext('FreeSense Fleet tunnel');
 	}
+	/* The tailnet address while Tailscale runs (it is not an assigned interface). */
+	if (restapi_listener_tailscale_address() !== null) {
+		$choices['tailscale'] = gettext('Tailscale (tailnet address)');
+	}
 	return $choices;
+}
+
+/* The IPv4 tailnet address of tailscale0, or null. */
+function restapi_listener_tailscale_address() {
+	if (!function_exists('pfSense_get_interface_addresses') || !does_interface_exist('tailscale0')) {
+		return null;
+	}
+	$a = pfSense_get_interface_addresses('tailscale0');
+	return (is_array($a) && is_ipaddrv4($a['ipaddr'] ?? '')) ? (string)$a['ipaddr'] : null;
 }
 
 /* The certificates a listener can use (with a private key), refid => name. */
@@ -131,6 +144,13 @@ function restapi_listener_resolve(array $l) {
 	$out = array('addresses' => array(), 'realif' => '', 'to' => '');
 	if ($key === 'lo0') {
 		$out['addresses'] = array('127.0.0.1', '::1');
+		return $out;
+	}
+	if ($key === 'tailscale') {
+		$ts = restapi_listener_tailscale_address();
+		if ($ts !== null) {
+			$out = array('addresses' => array($ts), 'realif' => 'tailscale0', 'to' => $ts);
+		}
 		return $out;
 	}
 	if ($key === 'fleet') {

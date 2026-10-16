@@ -119,6 +119,7 @@ require_once('webui_prefs.inc');
 require_once('restapi_listener.inc');
 require_once('fleet_node.inc');
 require_once('fleet_agent.inc');
+require_once('fleet_paths.inc');
 require_once('fleet_guard.inc');
 require_once('fleet_handoff.inc');
 require_once('restapi_log.inc');

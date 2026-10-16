@@ -102,6 +102,7 @@ jobs:
               FleetAgentSmokeTest \
               FleetGuardSmokeTest \
               FleetAccountsSmokeTest \
+              FleetPathsSmokeTest \
               FleetHandoffSeedSmokeTest \
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest \
