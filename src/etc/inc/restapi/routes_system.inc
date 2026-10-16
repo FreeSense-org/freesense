@@ -111,7 +111,8 @@ function restapi_routes_system() {
 	    'Omitted fields keep their value. Applied at once (hostname, DNS, timezone, NTP, filter).');
 	$hasync_body = array('type' => 'object', 'description' => 'The High Availability form: pfsyncenabled, synctlsinsecure, adminsync ' .
 	    'and the synchronize* options (booleans; synchronizekea6 only with the Kea DHCP backend), pfsyncinterface (from the ' .
-	    'choices), pfhostid (hex, up to 8 digits), pfsyncpeerip, synchronizetoip, username, password ("(set)" or leaving it ' .
+	    'choices), pfhostid (hex, up to 8 digits), pfsyncpeerip, synchronizetoip, syncpeerpin (the peer WebGUI certificate\'s SHA-256, 64 hex digits: ' .
+	    'sync then trusts exactly that certificate), username, password ("(set)" or leaving it ' .
 	    'out keeps it). Omitted fields keep their value. Applied at once.');
 	$update_body = array('type' => 'object', 'properties' => array(
 	    'fwbranch' => array('type' => 'string', 'description' => 'Firmware branch, one of choices.fwbranch (switches the package repository)'),
@@ -1055,7 +1056,7 @@ function restapi_hasync_flags($kea) {
 }
 
 function restapi_hasync_types($kea) {
-	$types = array('pfhostid' => 'string', 'pfsyncpeerip' => 'string', 'pfsyncinterface' => 'string', 'synchronizetoip' => 'string',
+	$types = array('pfhostid' => 'string', 'pfsyncpeerip' => 'string', 'pfsyncinterface' => 'string', 'synchronizetoip' => 'string', 'syncpeerpin' => 'string',
 	    'username' => 'string', 'password' => 'string', 'choices' => 'ro');
 	foreach (restapi_hasync_flags($kea) as $flag) {
 		$types[$flag] = 'bool';
@@ -1076,7 +1077,7 @@ function restapi_hasync_values(array $h, $kea) {
 		/* The page ticks "TLS verification" when it is set at all, the others when they are "on". */
 		$out[$flag] = ($flag === 'synctlsinsecure') ? !empty($h[$flag]) : (($h[$flag] ?? null) === 'on');
 	}
-	foreach (array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'username', 'password') as $field) {
+	foreach (array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'syncpeerpin', 'username', 'password') as $field) {
 		$out[$field] = (string)($h[$field] ?? '');
 	}
 	return $out;
@@ -1094,7 +1095,7 @@ function restapi_hasync_post(array $values, $kea, $current_password, array $body
 			$post[$flag] = ($flag === 'synctlsinsecure') ? 'yes' : 'on';
 		}
 	}
-	foreach (array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'username') as $field) {
+	foreach (array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'syncpeerpin', 'username') as $field) {
 		$post[$field] = (string)$values[$field];
 	}
 	if (array_key_exists('password', $body)) {

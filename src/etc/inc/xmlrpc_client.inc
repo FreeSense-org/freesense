@@ -92,6 +92,13 @@ class freesense_xmlrpc_client {
 			'sslverify' => !config_path_enabled('hasync', 'synctlsinsecure'),
 			'connectionTimeout' => $timeout
 		);
+		/* A pinned peer certificate: trust exactly that one (checked on the connection itself), not the CA list. */
+		$pin = (string)config_get_path('hasync/syncpeerpin', '');
+		if (preg_match('/^[0-9a-f]{64}$/D', $pin)) {
+			require_once('xmlrpc_pinned_request.inc');
+			$options['sslverify'] = false;
+			$options['httpRequest'] = new FreeSensePinnedRequest($pin);
+		}
 
 		$max_attempts = 4;
 		$numberofruns = 0;

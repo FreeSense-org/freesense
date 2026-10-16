@@ -55,6 +55,7 @@ $pconfig['pfhostid']	= $a_hasync['pfhostid'];
 $pconfig['pfsyncpeerip']	= $a_hasync['pfsyncpeerip'];
 $pconfig['pfsyncinterface'] = $a_hasync['pfsyncinterface'];
 $pconfig['synchronizetoip'] = $a_hasync['synchronizetoip'];
+$pconfig['syncpeerpin'] = $a_hasync['syncpeerpin'] ?? '';
 $pconfig['username']		= $a_hasync['username'];
 $pconfig['passwordfld']	 = $a_hasync['password'];
 
@@ -138,6 +139,13 @@ $section->addInput(new Form_Checkbox(
 	gettext('Disable XMLRPC peer certificate verification (unsafe; temporary migration option only).'),
 	!empty($pconfig['synctlsinsecure'])
 ))->setHelp(gettext('Certificate verification is enabled by default. Import the issuing CA into both nodes instead of disabling verification.'));
+
+$section->addInput(new Form_Input(
+	'syncpeerpin',
+	gettext('Peer certificate fingerprint'),
+	'text',
+	$pconfig['syncpeerpin'] ?? ''
+))->setHelp(gettext('Optional. The SHA-256 fingerprint of the other node\'s WebGUI certificate. When set, synchronization trusts exactly that certificate, also a self-signed one, and nothing else. FreeSense Fleet fills it in for pairs it sets up.'));
 
 $section->addInput(new Form_Input(
 	'username',
