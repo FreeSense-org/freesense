@@ -1169,3 +1169,18 @@ body { --fs-navbar-h: 6.9rem; }
 .fs-wfootline a { margin-left: auto; }
 [id^="widgets-col"] > .panel > .panel-body .fs-wfootline, [id^="widgets-col"] > .panel > .panel-body > div > .fs-wzfs { margin: 0; }
 [id^="widgets-col"] > .panel > .panel-body > [id^="zfs_storage"] { margin-left: 0; margin-right: 0; }
+/*
+ * Widget settings (the wrench): one column, the list full width, the
+ * buttons small and side by side under it; "All / None" is secondary.
+ */
+[id^="widgets-col"] .panel-footer .form-horizontal .panel.col-sm-10 { width: 100%; float: none; padding: 0; margin: 0 0 var(--fs-sp-3); border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); }
+[id^="widgets-col"] .panel-footer .form-horizontal .panel > .panel-body { padding: 0; }
+[id^="widgets-col"] .panel-footer .form-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); margin: 0 0 var(--fs-sp-3); }
+[id^="widgets-col"] .panel-footer .form-group > [class*="col-sm-"] { flex: 1 1 auto; width: auto; max-width: none; margin-left: 0; padding: 0; }
+[id^="widgets-col"] .panel-footer .form-group > .control-label { flex: 0 0 8rem; text-align: left; padding: 0; font-weight: 500; color: var(--fs-text-muted); }
+[id^="widgets-col"] .panel-footer .form-group:last-child { margin-bottom: 0; }
+[id^="widgets-col"] .panel-footer .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem; font-size: var(--fs-fs-sm); margin: 0 var(--fs-sp-1) 0 0; }
+[id^="widgets-col"] .panel-footer .btn .icon-embed-btn { display: inline; margin: 0; font-size: .85em; }
+[id^="widgets-col"] .panel-footer .btn-info { background: transparent; color: var(--fs-text); border: 1px solid var(--fs-border); }
+[id^="widgets-col"] .panel-footer .btn-info:hover { background: color-mix(in srgb, var(--fs-text) 6%, transparent); color: var(--fs-text-strong); }
+[id^="widgets-col"] .panel-footer .table td, [id^="widgets-col"] .panel-footer .table th { padding: .35rem var(--fs-sp-3); }
