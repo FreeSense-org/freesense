@@ -351,6 +351,22 @@ function fleet_hasync_user_set(?string $bcrypt_hash): string {
 	return 'created';
 }
 
+/* The SHA-256 fingerprint of this firewall's WebGUI certificate, or '' (an HA primary pins it for configuration sync). */
+function fleet_webgui_cert_sha256(): string {
+	require_once('certs.inc');
+	$cert = lookup_cert(config_get_path('system/webgui/ssl-certref'));
+	$der = is_array($cert) ? fleet_pem_der(base64_decode((string)($cert['crt'] ?? ''))) : '';
+	return ($der === '') ? '' : hash('sha256', $der);
+}
+
+/* pure: the DER bytes of the first PEM certificate in $pem, or ''. */
+function fleet_pem_der(string $pem): string {
+	if (!preg_match('/-----BEGIN CERTIFICATE-----(.+?)-----END CERTIFICATE-----/s', $pem, $m)) {
+		return '';
+	}
+	return (string)base64_decode(preg_replace('/\s+/', '', $m[1]), true);
+}
+
 /* The policy bundle this box holds, or null. */
 function fleet_policy_bundle_read(): ?array {
 	$stored = @json_decode((string)@file_get_contents(FLEET_POLICY_BUNDLE), true);

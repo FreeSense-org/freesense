@@ -3041,7 +3041,7 @@ check_api(restapi_hasync_post($hv, false, '', array())['passwordfld'] === '' && 
     restapi_sysadv_keep_secrets(array('password' => '(set)', 'username' => 'u'), array('password')) === array('username' => 'u'),
     'hasync: a new or empty password is posted twice; "(set)" keeps it');
 check_api(array_keys(array_filter(restapi_hasync_types(false), function ($t) { return $t === 'string'; })) ===
-    array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'username', 'password'), 'hasync: the text fields');
+    array('pfhostid', 'pfsyncpeerip', 'pfsyncinterface', 'synchronizetoip', 'syncpeerpin', 'username', 'password'), 'hasync: the text fields (with the pinned peer certificate)');
 $routes_system = file_get_contents("{$root}/src/etc/inc/restapi/routes_system.inc");
 check_api(strpos($fn_body($routes_system, 'restapi_hasync_out'), "restapi_sysadv_mask(\$values, array('password'))") !== false &&
     strpos($fn_body($routes_system, 'restapi_h_hasync_set'), "restapi_sysadv_keep_secrets(\$req['body'], array('password'))") !== false,

@@ -210,6 +210,7 @@ function restapi_h_mgmt_status($req) {
 		}, $carp['vips']),
 		'carp_maintenance' => $carp['maintenance'],
 		'hasync' => fleet_hasync_summary((array)config_get_path('hasync', [])),
+		'webgui_cert_sha256' => fleet_webgui_cert_sha256(),
 		'api_level' => RESTAPI_LEVEL,
 		'paths' => array_map(function ($p) { return array('key' => $p['key'], 'addresses' => $p['addresses']); }, fleet_paths()),
 	) + fleet_handoff_offer());

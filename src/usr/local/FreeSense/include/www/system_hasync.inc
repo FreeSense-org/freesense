@@ -78,6 +78,9 @@ function system_hasync_save(array $post) {
 	$a_hasync['pfsyncinterface'] = $pconfig['pfsyncinterface'];
 	$a_hasync['synchronizetoip'] = $pconfig['synchronizetoip'];
 	$a_hasync['username'] = $pconfig['username'];
+	/* The peer's WebGUI certificate (SHA-256 of its DER form): sync then trusts exactly that certificate, also a self-signed one. */
+	$pin = strtolower(str_replace(':', '', trim((string)($pconfig['syncpeerpin'] ?? ''))));
+	$a_hasync['syncpeerpin'] = $pin;
 
 	if ($pconfig['passwordfld'] == $pconfig['passwordfld_confirm']) {
 		if ($pconfig['passwordfld'] != DMYPWD) {
@@ -96,6 +99,10 @@ function system_hasync_save(array $post) {
 
 	if (!empty($pconfig['pfsyncpeerip']) && !is_ipaddrv4($pconfig['pfsyncpeerip'])) {
 		$input_errors[] = gettext("pfsync Synchronize Peer IP must be an IPv4 IP.");
+	}
+
+	if (($pin !== '') && !preg_match('/^[0-9a-f]{64}$/D', $pin)) {
+		$input_errors[] = gettext("The peer certificate fingerprint must be a SHA-256 fingerprint (64 hexadecimal digits).");
 	}
 
 	if (!empty($pconfig['synchronizetoip']) && !is_ipaddr($pconfig['synchronizetoip'])) {

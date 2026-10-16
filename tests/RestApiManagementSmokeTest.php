@@ -155,6 +155,13 @@ check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes
 $rm = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
 check((strpos($rm, "'/v1/management/ha-sync-user'") !== false) && (strpos($rm, "fleet_hasync_user_set(null)") !== false), 'the HA sync user can be set and removed through the management API');
 check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/fleet_accounts.inc'), "'fleet-hasync'") !== false, 'users sync never touches the HA sync user');
+$pk = openssl_pkey_new(array('private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1'));
+openssl_x509_export(openssl_csr_sign(openssl_csr_new(array('commonName' => 'pin-test'), $pk), null, $pk, 1), $pem);
+openssl_x509_export(openssl_x509_read($pem), $pem2);
+check((hash('sha256', fleet_pem_der($pem)) === openssl_x509_fingerprint($pem, 'sha256')) && (fleet_pem_der('junk') === ''),
+    'the WebGUI certificate fingerprint is SHA-256 over its DER form (what TLS peer_fingerprint checks)');
+$xc = (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_client.inc') . (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_pinned_request.inc');
+check((strpos($xc, "'ssl_peer_fingerprint'") !== false) && (strpos($xc, "config_get_path('hasync/syncpeerpin'") !== false), 'HA sync pins the peer certificate when a fingerprint is set');
 check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 12);") !== false, 'API level 12: virtual IPs and the HA sync user for Fleet');
 check(fleet_carp_entries($vips, true, function ($id) { return 'weird'; })[0]['state'] === 'UNKNOWN', 'unexpected text is UNKNOWN');
 check(fleet_carp_entries($vips, false, function ($id) { return 'MASTER'; })[0]['state'] === 'DISABLED' &&
