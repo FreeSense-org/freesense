@@ -82,7 +82,8 @@ function progress($name, $state, $text) {
 	}
 }
 
-function do_join($link, $key) {
+/* Join; with a seed that holds a Tailscale key, Tailscale comes up first ($secret: the PIN of a PIN seed). */
+function do_join($link, $key, ?array $seed = null, string $secret = '') {
 	if ($key === '') {
 		$key = ask('Join key: ', true);
 	}
@@ -95,6 +96,17 @@ function do_join($link, $key) {
 	$norm = fleet_join_key_normalize($key);
 	if ($norm === null) {
 		throw new FleetJoinError('E103', 'The join key is not valid. Check it for typing mistakes.');
+	}
+	if (($seed !== null) && isset($seed['tailscale'])) {
+		require_once('fleet_seed.inc');
+		$ts_key = fleet_seed_tailscale_key($seed, ($seed['mode'] === 'attended') ? $norm : $secret);
+		if ($ts_key === null) {
+			throw new FleetJoinError('E131', 'The seed\'s Tailscale key could not be opened.');
+		}
+		$ip = fleet_seed_tailscale_up($ts_key, function ($text) {
+			fwrite(STDOUT, "...     {$text}\n");
+		});
+		fwrite(STDOUT, "OK      In the tailnet as {$ip}\n");
 	}
 	@unlink(FLEET_PROGRESS_FILE);
 	$m = fleet_join_run($parsed, $norm, $io);
@@ -175,7 +187,7 @@ try {
 			fwrite(STDERR, "No unattended join seed is waiting.\n");
 			exit(1);
 		}
-		do_join($seed['link'], (string)$seed['key']);
+		do_join($seed['link'], (string)$seed['key'], $seed);
 		break;
 	case 'menu':
 		if (show_status()) {
@@ -188,14 +200,15 @@ try {
 			$seed = fleet_seed_pending();
 			if (($seed !== null) && ($seed['mode'] === 'pin')) {
 				fwrite(STDOUT, "A join seed is waiting for its PIN.\n");
-				$key = fleet_seed_open_key($seed['sealed_key'], ask('PIN: ', true));
+				$pin = ask('PIN: ', true);
+				$key = fleet_seed_open_key($seed['sealed_key'], $pin);
 				if ($key === null) {
 					throw new FleetJoinError('E103', 'The PIN is wrong.');
 				}
-				do_join($seed['link'], $key);
+				do_join($seed['link'], $key, $seed, $pin);
 			} elseif ($seed !== null) {
 				fwrite(STDOUT, "A join seed is waiting for its join key.\n");
-				do_join($seed['link'], '');
+				do_join($seed['link'], '', $seed);
 			} else {
 				$link = ask('Join link (https://.../fleet/join#...): ');
 				if ($link !== '') {

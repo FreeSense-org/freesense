@@ -110,4 +110,27 @@ check(fleet_webgui_endpoints(array('protocol' => 'https', 'port' => '8443'), arr
     fleet_webgui_endpoints(array('protocol' => 'http', 'port' => '80'), array($ips[1]))[0]['url'] === 'http://192.168.1.1', 'protocol and port');
 check(fleet_webgui_endpoints(array(), array(array('name' => 'X', 'ip' => 'evil.example/'))) === array(), 'only IP addresses become URLs');
 
+
+/* A seed may carry a one-time Tailscale key: plain only when unattended, otherwise sealed to the PIN or the join key. */
+list($tshown, $tdata) = fleet_join_key_generate();
+$tlink = 'https://100.64.0.1:8443/fleet/join#abcdef012345.' . str_repeat('A', 43) . '.' . str_repeat('a', 64);
+$tsk = 'tskey-auth-kTEST123CNTRL-abcdefghijkl';
+$tseed = function (array $s) {
+	try {
+		return fleet_seed_parse(json_encode($s));
+	} catch (FleetJoinError $e) {
+		return null;
+	}
+};
+$tu = $tseed(array('version' => 1, 'link' => $tlink, 'mode' => 'unattended', 'key' => $tshown, 'tailscale' => array('key' => $tsk)));
+$ta = $tseed(array('version' => 1, 'link' => $tlink, 'mode' => 'attended', 'tailscale' => array('sealed' => fleet_seed_seal_key($tsk, $tdata))));
+$tp = $tseed(array('version' => 1, 'link' => $tlink, 'mode' => 'pin', 'sealed_key' => fleet_seed_seal_key($tshown, '123456'), 'tailscale' => array('sealed' => fleet_seed_seal_key($tsk, '123456'))));
+check(($tu !== null) && ($ta !== null) && ($tp !== null) &&
+    (fleet_seed_tailscale_key($tu, '') === $tsk) && (fleet_seed_tailscale_key($ta, fleet_join_key_normalize($tshown)) === $tsk) &&
+    (fleet_seed_tailscale_key($ta, 'WRONGWRONGWRONGWRON') === null) && (fleet_seed_tailscale_key($tp, '123456') === $tsk) && (fleet_seed_tailscale_key($tp, '654321') === null),
+    'the Tailscale key opens with the join key (attended) or the PIN, and is plain only in unattended seeds');
+check(($tseed(array('version' => 1, 'link' => $tlink, 'mode' => 'attended', 'tailscale' => array('key' => $tsk))) === null) &&
+    ($tseed(array('version' => 1, 'link' => $tlink, 'mode' => 'unattended', 'key' => $tshown, 'tailscale' => array('key' => 'tskey-api-x1234567890'))) === null) &&
+    ($tseed(array('version' => 1, 'link' => $tlink, 'mode' => 'unattended', 'key' => $tshown, 'tailscale' => 'x')) === null),
+    'a plain Tailscale key outside an unattended seed, or a wrong one, makes the seed invalid');
 echo "FleetHandoffSeedSmokeTest: OK\n";
