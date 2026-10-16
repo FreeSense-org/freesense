@@ -133,13 +133,16 @@ function fleet_paths(): array {
 /* Add or change a path. Returns the path, or throws InvalidArgumentException with the reason. */
 function fleet_path_set(string $method, string $key, array $allowed, bool $wan_ok): array {
 	require_once('restapi_listener.inc');
-	$m = fleet_node_membership();
+	$certref = (string)config_get_path('fleet/listener_certref', '');
+	if (!fleet_node_membership()['enrolled'] || ($certref === '')) {
+		throw new InvalidArgumentException('This firewall has no Fleet certificate for its listener; join the fleet again.');
+	}
 	$problem = fleet_path_problem($method, $key, fleet_path_choices(), array_values($allowed), $wan_ok);
 	if ($problem !== null) {
 		throw new InvalidArgumentException($problem);
 	}
 	$current = fleet_paths()[$method] ?? null;
-	$saved = restapi_listener_save(fleet_path_post($method, $key, array_values($allowed), (string)$m['listener_certref']), ($current === null) ? null : $current['id']);
+	$saved = restapi_listener_save(fleet_path_post($method, $key, array_values($allowed), $certref), ($current === null) ? null : $current['id']);
 	if (!empty($saved['input_errors'])) {
 		throw new InvalidArgumentException(implode(' ', $saved['input_errors']));
 	}
