@@ -615,16 +615,50 @@ if ($fs_menu_mode === 'icons') {
 }
 ?>
 <body id="<?=$numColumns?>"<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
-<nav id="topmenu" class="navbar navbar-expand-lg<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
+<nav id="topmenu" class="navbar navbar-expand-lg fs-topbar<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
 	<div class="container fs-page">
-		<a class="navbar-brand" href="/">
-			<?php include("/usr/local/www/header-logo.svg"); ?>
-		</a>
-		<button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#pf-navbar" aria-controls="pf-navbar" aria-expanded="false" aria-label="<?=gettext('Toggle navigation')?>">
-			<span class="navbar-toggler-icon"></span>
-		</button>
+		<div class="fs-topbar-row">
+			<a class="navbar-brand" href="/">
+				<?php include("/usr/local/www/header-logo.svg"); ?>
+			</a>
+			<ul class="navbar-nav fs-topbar-tools">
+				<li class="nav-item">
+					<button type="button" class="nav-link fs-nav-search" data-fs-palette-open
+					    data-fs-palette-empty="<?=gettext('No matching pages.')?>"
+					    aria-label="<?=gettext('Search menus')?>" title="<?=gettext('Search menus')?> (Ctrl+K)">
+						<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+						<span class="fs-nav-search-label"><?=gettext('Search')?></span>
+						<kbd class="fs-nav-search-kbd">Ctrl K</kbd>
+					</button>
+				</li>
+				<?php foreach (fs_nav_plugin_items() as $fs_nav_item) {
+					echo fs_nav_plugin_html($fs_nav_item);
+				} ?>
+				<?php if ($display_notices):?>
+					<?php $notices = get_notices()?>
+					<li class="nav-item">
+						<a class="nav-link fs-nav-notices" href="#" data-bs-toggle="modal" data-bs-target="#notices" role="button" aria-expanded="false">
+							<i class="fa-solid fa-bell text-danger" title="<?=gettext("Notices")?>"></i>
+							<span class="badge bg-danger"><?=count($notices)?></span>
+						</a>
+					</li>
+				<?php else: ?>
+					<li class="nav-item">
+						<span class="nav-link fs-nav-notices is-clear" title="<?=gettext("No notices")?>"><i class="fa-solid fa-bell" aria-hidden="true"></i><span class="visually-hidden"><?=gettext("No notices")?></span></span>
+					</li>
+				<?php endif; ?>
+					<li class="nav-item">
+						<a class="nav-link" href="/index.php?logout" usepost>
+							<i class="fa-solid fa-right-from-bracket" title="<?=gettext("Logout") . " (" . $_SESSION['Username'] . "@" . htmlspecialchars($system_url) . ")"?>"></i>
+						</a>
+					</li>
+			</ul>
+			<button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#pf-navbar" aria-controls="pf-navbar" aria-expanded="false" aria-label="<?=gettext('Toggle navigation')?>">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+		</div>
 		<div class="collapse navbar-collapse" id="pf-navbar">
-			<ul class="navbar-nav me-auto">
+			<ul class="navbar-nav fs-topbar-menu">
 			<?php if (isAllowedPage('index.php')): ?>
 				<li class="nav-item">
 					<a class="nav-link navlnk<?=($fs_current_page === 'index.php') ? ' active' : ''?>" href="/" title="<?=gettext('Dashboard')?>"<?=($fs_current_page === 'index.php') ? ' aria-current="page"' : ''?>>
@@ -661,36 +695,6 @@ if ($fs_menu_mode === 'icons') {
 					    ($item['key'] == 'Help') ? $item['name'] : gettext($item['name']),
 					    $item['icon'], $item['menu'], $item['href'], $fs_current_page, $menuclass_dropdown);
 			 	endforeach?>
-			</ul>
-			<ul class="navbar-nav">
-				<li class="nav-item">
-					<button type="button" class="nav-link fs-nav-search" data-fs-palette-open
-					    data-fs-palette-empty="<?=gettext('No matching pages.')?>"
-					    aria-label="<?=gettext('Search menus')?>" title="<?=gettext('Search menus')?> (Ctrl+K)">
-						<i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-						<span class="fs-nav-search-label"><?=gettext('Search')?></span>
-						<kbd class="fs-nav-search-kbd">Ctrl K</kbd>
-					</button>
-				</li>
-				<?php foreach (fs_nav_plugin_items() as $fs_nav_item) {
-					echo fs_nav_plugin_html($fs_nav_item);
-				} ?>
-				<?php if ($display_notices):?>
-					<?php $notices = get_notices()?>
-					<li class="nav-item">
-						<a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#notices" role="button" aria-expanded="false">
-							<i class="fa-solid fa-bell text-danger" title="<?=gettext("Notices")?>"></i>
-							<span class="badge bg-danger"><?=count($notices)?></span>
-						</a>
-					</li>
-				<?php
-					endif;
-				?>
-					<li class="nav-item">
-						<a class="nav-link" href="/index.php?logout" usepost>
-							<i class="fa-solid fa-right-from-bracket" title="<?=gettext("Logout") . " (" . $_SESSION['Username'] . "@" . htmlspecialchars($system_url) . ")"?>"></i>
-						</a>
-					</li>
 			</ul>
 		</div>
 	</div>
