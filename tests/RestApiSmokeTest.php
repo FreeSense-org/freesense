@@ -3737,5 +3737,5 @@ check_api(strpos($status_page, "if (\$can_manage && restapi_reqlog_clear())") !=
     'clearing the log needs the REST API settings page');
 $fwsrc = file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_firewall.inc');
 check_api((substr_count($fwsrc, 'restapi_rule_interfaces_check($post);') === 2), 'creating or changing a rule checks its interface exists');
-check_api(strpos($fwsrc, 'saveNATrule($post, $id, false, true)') !== false, 'a port forward from the API may use any interface (the area privilege decides, not the GUI's per-interface pages)');
+check_api(strpos($fwsrc, 'saveNATrule($post, $id, false, true)') !== false, 'a port forward from the API may use any interface (the area privilege decides, not the per-interface GUI pages)');
 echo "REST API smoke test passed.\n";
