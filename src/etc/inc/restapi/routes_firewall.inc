@@ -1016,7 +1016,7 @@ function restapi_rule_display(array $rule) {
 	if ($specialnets === null) {
 		$specialnets = function_exists('get_specialnet') ? (array)get_specialnet('', (array)$filter_srcdsttype_flags) : array();
 		/* The rule tabs' names: interfaces, groups, IPsec, OpenVPN… */
-		$ifnames = function_exists('filter_get_interface_list') ? (array)filter_get_interface_list() : array();
+		$ifnames = function_exists('filter_get_interface_list') ? (array)filter_get_interface_list(true) : array();
 		$ifnames += (array)get_configured_interface_with_descr();
 	}
 	$addr = function ($a) use ($specialnets) {
@@ -1081,11 +1081,11 @@ function restapi_rule_result($result, $req, $status = 200) {
 
 /*
  * A rule's interface(s) must exist (the edit page only offers those, the
- * API has to check): a rules tab of filter_get_interface_list(), or for a
+ * API has to check): a rules tab of filter_get_interface_list(true), or for a
  * floating rule each of its interfaces.
  */
 function restapi_rule_interfaces_check(array $post) {
-	$known = array_change_key_case((array)filter_get_interface_list() + (array)get_configured_interface_with_descr(), CASE_LOWER);
+	$known = array_change_key_case((array)filter_get_interface_list(true), CASE_LOWER);
 	$want = isset($post['floating']) ? (array)($post['interface'] ?? array()) : array((string)($post['interface'] ?? ''));
 	foreach ($want as $if) {
 		if (!isset($known[strtolower((string)$if)])) {
@@ -1180,7 +1180,7 @@ function restapi_h_rule_list($req) {
 	return array('data' => $out);
 }
 
-/* The 1.x rule list tabs: Floating, then filter_get_interface_list(), as [{id, label, count}]. */
+/* The 1.x rule list tabs: Floating, then filter_get_interface_list(true), as [{id, label, count}]. */
 function restapi_h_rule_tabs($req) {
 	$counts = array();
 	foreach (restapi_rules() as $rule) {
@@ -1188,7 +1188,7 @@ function restapi_h_rule_tabs($req) {
 		$counts[$tab] = ($counts[$tab] ?? 0) + 1;
 	}
 	$tabs = array(array('id' => 'floating', 'label' => gettext('Floating'), 'count' => $counts['floating'] ?? 0));
-	foreach (filter_get_interface_list() as $id => $label) {
+	foreach (filter_get_interface_list(true) as $id => $label) {
 		$tabs[] = array('id' => (string)$id, 'label' => (string)$label, 'count' => $counts[$id] ?? 0);
 	}
 	return array('data' => $tabs);
