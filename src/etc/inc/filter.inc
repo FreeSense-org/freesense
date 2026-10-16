@@ -6378,9 +6378,10 @@ function shift_separators(array &$separators, ?int $index, bool $shiftup = false
 	return $changed;
 }
 
-function filter_get_interface_list() {
+/* $open: every interface, not only those the logged-in user's rule pages allow (the REST API decides by area). */
+function filter_get_interface_list($open = false) {
 	global $filter_interface_remove;
-	$iflist = create_interface_list();
+	$iflist = create_interface_list($open);
 	$filter_ifs = array();
 	foreach ($iflist as $ifent => $ifname) {
 		$realifname = get_real_interface($ifent);
