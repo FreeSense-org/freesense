@@ -1079,9 +1079,25 @@ function restapi_rule_result($result, $req, $status = 200) {
 	    restapi_rule_out($id, $rules[$id]) : array('id' => $id)) + $extra);
 }
 
+/*
+ * A rule's interface(s) must exist (the edit page only offers those, the
+ * API has to check): a rules tab of filter_get_interface_list(), or for a
+ * floating rule each of its interfaces.
+ */
+function restapi_rule_interfaces_check(array $post) {
+	$known = array_change_key_case((array)filter_get_interface_list() + (array)get_configured_interface_with_descr(), CASE_LOWER);
+	$want = isset($post['floating']) ? (array)($post['interface'] ?? array()) : array((string)($post['interface'] ?? ''));
+	foreach ($want as $if) {
+		if (!isset($known[strtolower((string)$if)])) {
+			throw new RestApiError(400, 'invalid_field', '"interface": this firewall has no interface "' . (string)$if . '".');
+		}
+	}
+}
+
 function restapi_h_rule_create($req) {
 	restapi_rules();
 	$post = restapi_body_as_post($req['body']);
+	restapi_rule_interfaces_check($post);
 	$after = $post['after'] ?? null;
 	unset($post['after']);
 	if (($after !== null) && !is_numericint($after) && ($after !== '-1')) {
@@ -1096,6 +1112,7 @@ function restapi_h_rule_update($req) {
 	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
 	$post = restapi_body_over($req['body'], filter_rule_form_fields(getFilterRule($id)));
 	unset($post['after']);
+	restapi_rule_interfaces_check($post);
 	return restapi_rule_result(saveFilterRule($post, $id), $req);
 }
 

@@ -3735,4 +3735,6 @@ check_api(strpos($status_page, "##|*IDENT=page-status-restapi\n") !== false && s
 check_api(!preg_match('/\$g\b(?!\[)/', $status_page), 'the status page never assigns the GUI\'s global $g (foot.inc needs it)');
 check_api(strpos($status_page, "if (\$can_manage && restapi_reqlog_clear())") !== false && strpos($status_page, "\$can_manage = isAllowedPage('system_restapi.php');") !== false,
     'clearing the log needs the REST API settings page');
+$fwsrc = file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_firewall.inc');
+check_api((substr_count($fwsrc, 'restapi_rule_interfaces_check($post);') === 2), 'creating or changing a rule checks its interface exists');
 echo "REST API smoke test passed.\n";
