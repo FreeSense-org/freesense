@@ -30,6 +30,8 @@ check(!in_array('api-users-write', $man, true) && !in_array('api-pki-write', $ma
     !in_array('user-shell-access', $man, true), 'the controller never gets users, certificates, a shell or all pages');
 check(in_array('api-firewall-aliases-read', $man, true) && in_array('api-firewall-aliases-write', $man, true) &&
     !in_array('api-firewall-aliases-read', $mon, true) && !in_array('api-firewall-rules-write', $man, true), 'templates may push aliases to a managed box, nothing more of the firewall');
+check(in_array('api-services-misc-write', $man, true) && !in_array('api-services-misc-write', $mon, true) && !in_array('api-services-dns-write', $man, true),
+    'templates may set SNMP on a managed box (services.misc), not DNS services');
 $all_areas = array_keys(restapi_areas());
 foreach ($man as $p) {
 	check($p === 'page-system-restapi-keys' || preg_match('/^api-[a-z-]+-(read|write)$/D', $p) === 1, "{$p} is a known kind of privilege");

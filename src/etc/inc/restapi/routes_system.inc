@@ -138,6 +138,14 @@ function restapi_routes_system() {
 			'summary' => 'High Availability sync settings (password as "(set)")')),
 		restapi_route('PUT', '/v1/system/hasync', 'restapi_h_hasync_set',
 			$w('system_hasync.php', 'Change High Availability sync settings (applied at once; omitted fields keep their value)', $hasync_body)),
+		restapi_route('GET', '/v1/system/syslog-remote', 'restapi_h_syslog_remote_get', array(
+			'page' => 'status_logs_settings.php', 'area' => $area,
+			'summary' => 'Remote logging: whether logs go to remote syslog servers, which servers and which logs')),
+		restapi_route('PUT', '/v1/system/syslog-remote', 'restapi_h_syslog_remote_set',
+			$w('status_logs_settings.php', 'Change remote logging (applied at once; omitted fields keep their value)', array('type' => 'object',
+			    'description' => 'enable (boolean); servers (list of up to 3 "host" or "host:port"); sourceip (an interface or address from ' .
+			    'sourceip_choices, "" for any); ipproto (ipv4|ipv6); contents ("all", or a list from contents_choices). The local log ' .
+			    'settings are not changed. Applied at once (syslogd restarts).'))),
 		restapi_route('GET', '/v1/system/update-settings', 'restapi_h_update_settings_get', array(
 			'page' => 'system_update_settings.php', 'area' => $area,
 			'summary' => 'Firmware branch and dashboard update check (GitSync is not available through the API)')),
@@ -1448,4 +1456,22 @@ function restapi_h_admin_set($req) {
 		    'after_seconds' => ($webgui || $sshd) ? RESTAPI_ADMIN_RESTART_DELAY : 0,
 		    'webgui_url' => $settings['webgui_url'], 'api_url' => "{$settings['webgui_url']}api/v1"),
 		'lockout_fields_changed' => $lockout));
+}
+
+/* ------------------------------------------------------------------ */
+/* Remote logging                                                      */
+/* ------------------------------------------------------------------ */
+
+function restapi_h_syslog_remote_get($req) {
+	return array('data' => syslog_remote_values() + array('sourceip_choices' => array_keys(get_possible_listen_ips()),
+	    'contents_choices' => SYSLOG_REMOTE_CONTENTS));
+}
+
+function restapi_h_syslog_remote_set($req) {
+	$body = is_array($req['body']) ? $req['body'] : array();
+	$rv = syslog_remote_save(array_merge(syslog_remote_values(), array_intersect_key($body, array_flip(array('enable', 'servers', 'sourceip', 'ipproto', 'contents')))));
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => syslog_remote_values() + array('applied' => true));
 }
