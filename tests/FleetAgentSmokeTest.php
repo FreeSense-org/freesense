@@ -38,6 +38,13 @@ $entry = fleet_access_user_entry(2001, '$2y$10$hash', 'monitor');
 check($entry['name'] === 'fleet-controller' && $entry['uid'] === '2001' && $entry['bcrypt-hash'] === '$2y$10$hash' &&
     $entry['priv'] === $mon && !isset($entry['password']) && !isset($entry['disabled']), 'the user entry: API only, hash only');
 
+/* ---- the name the controller gives ---- */
+check(fleet_join_names(array('hostname' => 'CPH-fw01', 'domain' => 'Shops.Example.local'), 'FreeSense', 'home.arpa') === array('cph-fw01', 'shops.example.local'),
+    'the naming group hostname and domain are taken (lower case)');
+check(fleet_join_names(array('hostname' => '', 'domain' => ''), 'FreeSense', 'home.arpa') === array(null, null) &&
+    fleet_join_names(array('hostname' => 'bad_name!', 'domain' => '-x.local'), 'a', 'b') === array(null, null) &&
+    fleet_join_names(array('hostname' => 'fw1', 'domain' => 'home.arpa'), 'FW1', 'home.arpa') === array(null, null), 'nothing sent, invalid or already set: nothing changes');
+
 /* ---- peers and networks ---- */
 check(fleet_valid_peer($peer) && fleet_valid_peer(array('endpoint' => '') + $peer) && fleet_valid_peer(array('endpoint' => '[2001:db8::1]:443') + $peer),
     'valid peers');

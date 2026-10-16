@@ -173,6 +173,19 @@ function fleet_tunnel_commands(string $overlay_address, array $peers): array {
 	return $cmds;
 }
 
+/*
+ * pure: the hostname and domain the controller named this box (its naming
+ * group's pattern and domain), each null when not sent, not valid, or
+ * already set.
+ */
+function fleet_join_names(array $m, string $hostname, string $domain): array {
+	$host = strtolower(trim((string)($m['hostname'] ?? '')));
+	$dom = strtolower(trim((string)($m['domain'] ?? '')));
+	$host = (preg_match('/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/D', $host) && ($host !== strtolower($hostname))) ? $host : null;
+	$dom = (preg_match('/^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/D', $dom) && ($dom !== strtolower($domain))) ? $dom : null;
+	return array($host, $dom);
+}
+
 /* pure: the <fleet> section for a membership the controller granted. */
 function fleet_membership_section(array $m, int $now, array $restapi_before): array {
 	return array(
@@ -185,6 +198,7 @@ function fleet_membership_section(array $m, int $now, array $restapi_before): ar
 		'overlay_address' => $m['overlay_address'],
 		'role' => $m['role'],
 		'hostname' => $m['hostname'],
+		'domain' => (string)($m['domain'] ?? ''),
 		'joined' => (string)$now,
 		'listener_certref' => $m['listener_certref'],
 		/* config.xml keeps a list under a wrapper element: <peer><item>...</item></peer>. */
@@ -587,6 +601,14 @@ function fleet_apply_unlocked(array $m): callable {
 			throw new RuntimeException('The tunnel key could not be saved.');
 		}
 		config_set_path('fleet', fleet_membership_section($m, time(), $restapi_before));
+		/* The name the controller gave this box (its naming group). */
+		list($new_host, $new_domain) = fleet_join_names($m, (string)config_get_path('system/hostname', ''), (string)config_get_path('system/domain', ''));
+		if ($new_host !== null) {
+			config_set_path('system/hostname', $new_host);
+		}
+		if ($new_domain !== null) {
+			config_set_path('system/domain', $new_domain);
+		}
 		if (empty($restapi_before['enable'])) {
 			/* On for the listener only: nothing new on the WebGUI port. */
 			config_set_path('restapi/enable', true);
@@ -602,6 +624,11 @@ function fleet_apply_unlocked(array $m): callable {
 		$saved = restapi_listener_save(fleet_listener_post($m));
 		if (!empty($saved['input_errors'])) {
 			throw new RuntimeException('The management API listener could not be set up: ' . implode(' ', $saved['input_errors']));
+		}
+		if (($new_host !== null) || ($new_domain !== null)) {
+			system_hostname_configure();
+			system_hosts_generate();
+			system_resolvconf_generate();
 		}
 		logger(LOG_NOTICE, localize_text('Fleet: this firewall is now managed by %s.', $m['controller_url']));
 		return $undo;
