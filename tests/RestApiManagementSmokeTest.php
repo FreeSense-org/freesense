@@ -162,7 +162,10 @@ check((hash('sha256', fleet_pem_der($pem)) === openssl_x509_fingerprint($pem, 's
     'the WebGUI certificate fingerprint is SHA-256 over its DER form (what TLS peer_fingerprint checks)');
 $xc = (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_client.inc') . (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_pinned_request.inc');
 check((strpos($xc, "'ssl_peer_fingerprint'") !== false) && (strpos($xc, "config_get_path('hasync/syncpeerpin'") !== false), 'HA sync pins the peer certificate when a fingerprint is set');
-check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 13);") !== false, 'API level 13: controller endpoints for a standby controller (12: virtual IPs and the HA sync user)');
+check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 14);") !== false, 'API level 14: the port probe (13: controller endpoints, 12: virtual IPs and the HA sync user)');
+check((restapi_probe_address('203.0.113.5', 8443) === 'tcp://203.0.113.5:8443') && (restapi_probe_address('2001:db8::1', 8443) === 'tcp://[2001:db8::1]:8443') &&
+    (restapi_probe_address('fleet.example.net', 443) === 'tcp://fleet.example.net:443') && (restapi_probe_address('a b', 1) === null) && (restapi_probe_address('x;rm', 1) === null) &&
+    (restapi_probe_address('203.0.113.5', 70000) === null), 'the port probe connects only to an IP address or DNS name and a valid port');
 check(fleet_carp_entries($vips, true, function ($id) { return 'weird'; })[0]['state'] === 'UNKNOWN', 'unexpected text is UNKNOWN');
 check(fleet_carp_entries($vips, false, function ($id) { return 'MASTER'; })[0]['state'] === 'DISABLED' &&
     fleet_carp_summary($entries, false) === 'disabled', 'CARP disabled');
