@@ -130,7 +130,7 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 }
 
 ?>
-<div class="list-group fs-wrss" style="height: <?=(int)$rsswidgetheight?>px; overflow-y: auto;">
+<div class="list-group fs-wrss" style="height: <?=htmlspecialchars((string)(int)$rsswidgetheight)?>px; overflow-y: auto;">
 <?php
 	if (!is_dir("/tmp/simplepie")) {
 		mkdir("/tmp/simplepie");
@@ -206,7 +206,7 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 	<div class="form-group">
 		<label for="rsswidgetheight" class="col-sm-4 control-label"><?=gettext('Widget height')?></label>
 		<div class="col-sm-6">
-			<input type="number" id="rsswidgetheight" name="rsswidgetheight" value="<?=$rsswidgetheight?>" min="100" max="2500" step="100" class="form-control" />
+			<input type="number" id="rsswidgetheight" name="rsswidgetheight" value="<?=htmlspecialchars((string)(int)$rsswidgetheight)?>" min="100" max="2500" step="100" class="form-control" />
 		</div>
 	</div>
 
