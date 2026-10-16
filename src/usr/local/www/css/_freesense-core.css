@@ -1154,3 +1154,18 @@ body { --fs-navbar-h: 6.9rem; }
 .fs-wver-checked { font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
 .fs-wver-checked a { margin-left: var(--fs-sp-1); color: var(--fs-text-muted); }
 .fs-wver-checked a:hover { color: var(--fs-coral); }
+/* ZFS pools: name, health and free space, a meter, three figures; a quiet footer line. */
+.fs-wzfs { padding: var(--fs-sp-3); }
+.fs-wzfs + .table { border-top: 1px solid var(--fs-border); }
+.fs-wzfs-head { display: flex; align-items: center; gap: var(--fs-sp-2); margin-bottom: var(--fs-sp-2); }
+.fs-wzfs-head strong { font-size: var(--fs-fs-md); color: var(--fs-text-strong); }
+.fs-wzfs-size { margin-left: auto; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-wzfs-facts { display: flex; flex-wrap: wrap; gap: var(--fs-sp-1) var(--fs-sp-4); margin-top: var(--fs-sp-2); font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-wzfs-facts strong { color: var(--fs-text-strong); font-variant-numeric: tabular-nums; }
+.fs-wzfs-scan { margin: var(--fs-sp-2) 0 0; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-wzfs-scan i { margin-right: var(--fs-sp-1); }
+.fs-wfootline { display: flex; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-2) var(--fs-sp-3); border-top: 1px solid var(--fs-border);
+	font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-wfootline a { margin-left: auto; }
+[id^="widgets-col"] > .panel > .panel-body .fs-wfootline, [id^="widgets-col"] > .panel > .panel-body > div > .fs-wzfs { margin: 0; }
+[id^="widgets-col"] > .panel > .panel-body > [id^="zfs_storage"] { margin-left: 0; margin-right: 0; }

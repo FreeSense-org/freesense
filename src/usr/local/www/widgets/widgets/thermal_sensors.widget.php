@@ -43,19 +43,22 @@ if ($_POST['widgetkey'] || $_GET['widgetkey']) {
 
 //=========================================================================
 //called by showThermalSensorsData() (jQuery Ajax call) in thermal_sensors.js
-if (isset($_REQUEST["getThermalSensorsData"])) {
-
+/* The sensors' readings, "name: value" joined by "|"; empty when the system has none. */
+function thermal_sensors_read() {
+	$dfout = array();
 	$specplatform = system_identify_specific_platform();
 	if ($specplatform['name'] == '5100') {
-		$_gb = exec("/sbin/sysctl -q dev.cpu | /usr/bin/grep temperature | /usr/bin/sort", $dfout);
+		exec("/sbin/sysctl -q dev.cpu | /usr/bin/grep temperature | /usr/bin/sort", $dfout);
 	} else {
-		$_gb = exec("/sbin/sysctl -q hw.acpi.thermal dev.cpu dev.t5nex dev.armada_thermal dev.cordbuc dev.pchtherm | /usr/bin/grep 'temperature:' | /usr/bin/sort", $dfout);
+		exec("/sbin/sysctl -q hw.acpi.thermal dev.cpu dev.t5nex dev.armada_thermal dev.cordbuc dev.pchtherm | /usr/bin/grep 'temperature:' | /usr/bin/sort", $dfout);
 	}
-	$dfout_filtered = array_filter($dfout, function($v) {
+	return join("|", array_filter($dfout, function($v) {
 		return strpos($v, ' -') === false;
-	});
+	}));
+}
 
-	print(join("|", $dfout_filtered));
+if (isset($_REQUEST["getThermalSensorsData"])) {
+	print(thermal_sensors_read());
 	exit;
 }
 //=========================================================================
@@ -258,9 +261,9 @@ if ($thermal_sensors_widget_showFahrenheit) {
 	$thermal_sensors_widget_pchCriticalTempThreshold = ceil($thermal_sensors_widget_pchCriticalTempThreshold * 1.8 + 32);
 }
 ?>
-<div style="padding: 5px">
+<div>
 	<div id="thermalSensorsContainer-<?=htmlspecialchars($widgetkey)?>" class="listr">
-		<?=gettext('(Updating...)')?><br /><br />
+		<?=(thermal_sensors_read() === '') ? fs_widget_empty('fa-temperature-half', gettext('This system reports no temperature sensors.')) : gettext('Reading the sensors...')?>
 	</div>
 </div>
 </div>
