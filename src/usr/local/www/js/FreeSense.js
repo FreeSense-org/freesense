@@ -340,6 +340,25 @@ $(function() {
 		}
 	}());
 
+	/* Notifications panel: dismiss one, or all; the bell turns green when nothing is left. */
+	$(document).on('click', '[data-fs-notice-close]', function (ev) {
+		ev.preventDefault();
+		var btn = $(this), id = String(btn.attr('data-fs-notice-close')), panel = btn.closest('.fs-notif');
+		btn.prop('disabled', true);
+		$.post('/index.php', {closenotice: id}).done(function () {
+			var items = (id === 'all') ? panel.find('.fs-notif-item') : btn.closest('.fs-notif-item');
+			items.remove();
+			var left = panel.find('.fs-notif-item').length, toggle = $('#fs-notif-toggle');
+			toggle.find('.badge').text(left).prop('hidden', left === 0);
+			if (left === 0) {
+				toggle.addClass('is-clear');
+				panel.find('.fs-notif-list, .fs-notif-clear').remove();
+				panel.append('<div class="fs-notif-empty"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span>' +
+				    (panel.attr('data-empty') || 'No notifications.') + '</span></div>');
+			}
+		}).fail(function () { btn.prop('disabled', false); });
+	});
+
 	$(".resizable").each(function() {
 		$(this).css('height', 80).resizable({minHeight: 80, minWidth: 200}).parent().css('padding-bottom', 0);
 		$(this).css('height', 78);
