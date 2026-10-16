@@ -305,6 +305,52 @@ function fleet_hasync_summary(array $hasync): array {
 	return array('peer' => $peer, 'sections' => ($peer === '') ? array() : $sections);
 }
 
+/* The local user an HA peer's configuration sync logs in as when Fleet set up the pair. */
+define('FLEET_HASYNC_USER', 'fleet-hasync');
+
+/*
+ * Create, update ($bcrypt_hash) or remove (null) the fleet-hasync user: a
+ * local user with only "System - HA node sync", which the pair's primary
+ * logs in as to push its configuration here. Not a Fleet-managed account
+ * (users sync never touches it). Returns what was done.
+ */
+function fleet_hasync_user_set(?string $bcrypt_hash): string {
+	require_once('auth.inc');
+	if (($bcrypt_hash !== null) && !preg_match('/^\$2[aby]\$\d{2}\$[.\/A-Za-z0-9]{53}$/D', $bcrypt_hash)) {
+		throw new InvalidArgumentException('invalid_hash: bcrypt_hash must be a bcrypt hash');
+	}
+	foreach (config_get_path('system/user', []) as $idx => $u) {
+		if (!is_array($u) || (($u['name'] ?? '') !== FLEET_HASYNC_USER)) {
+			continue;
+		}
+		if ($bcrypt_hash === null) {
+			local_user_del($u);
+			config_del_path("system/user/{$idx}");
+			config_set_path('system/user', array_values(config_get_path('system/user', [])));
+			write_config('Fleet: HA sync user removed.');
+			$GLOBALS['userindex'] = index_users();
+			return 'removed';
+		}
+		config_set_path("system/user/{$idx}/bcrypt-hash", $bcrypt_hash);
+		config_set_path("system/user/{$idx}/priv", array('system-xmlrpc-ha-sync'));
+		write_config('Fleet: HA sync user updated.');
+		local_user_set(config_get_path("system/user/{$idx}"));
+		return 'updated';
+	}
+	if ($bcrypt_hash === null) {
+		return 'absent';
+	}
+	$uid = (int)config_get_path('system/nextuid');
+	config_set_path('system/nextuid', $uid + 1);
+	$entry = array('name' => FLEET_HASYNC_USER, 'descr' => 'HA configuration sync (set up by FreeSense Fleet)', 'scope' => 'user',
+	    'uid' => (string)$uid, 'bcrypt-hash' => $bcrypt_hash, 'priv' => array('system-xmlrpc-ha-sync'), 'expires' => '', 'authorizedkeys' => '', 'ipsecpsk' => '');
+	config_set_path('system/user/', $entry);
+	write_config('Fleet: HA sync user created.');
+	$GLOBALS['userindex'] = index_users();
+	local_user_set($entry);
+	return 'created';
+}
+
 /* The policy bundle this box holds, or null. */
 function fleet_policy_bundle_read(): ?array {
 	$stored = @json_decode((string)@file_get_contents(FLEET_POLICY_BUNDLE), true);
