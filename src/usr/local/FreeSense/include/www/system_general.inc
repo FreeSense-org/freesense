@@ -91,6 +91,8 @@ function system_general_settings() {
 	$pconfig['systemlogsmanagelogpanel'] = config_path_enabled('system/webgui', 'systemlogsmanagelogpanel');
 	$pconfig['statusmonitoringsettingspanel'] = config_path_enabled('system/webgui', 'statusmonitoringsettingspanel');
 	$pconfig['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
+	$pconfig['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
+	$pconfig['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
 	$pconfig['dnslocalhost'] = config_get_path('system/dnslocalhost');
 	//$pconfig['dashboardperiod'] = isset($config['widgets']['period']) ? $config['widgets']['period']:"10";
 	$pconfig['roworderdragging'] = config_path_enabled('system/webgui', 'roworderdragging');
@@ -193,6 +195,8 @@ function system_general_save(array $post) {
 	validate_webguicss_field($input_errors, $post['webguicss']);
 	validate_webguifixedmenu_field($input_errors, $post['webguifixedmenu']);
 	validate_webguihostnamemenu_field($input_errors, $post['webguihostnamemenu']);
+	validate_webguipagewidth_field($input_errors, $post['webguipagewidth'] ?? '');
+	validate_webguimenuicons_field($input_errors, $post['webguimenuicons'] ?? '');
 	validate_dashboardcolumns_field($input_errors, $post['dashboardcolumns']);
 
 	$dnslist = $ignore_posted_dnsgw = array();
@@ -357,6 +361,14 @@ function system_general_save(array $post) {
 			config_set_path('system/webgui/webguihostnamemenu', $post['webguihostnamemenu']);
 		} else {
 			config_del_path('system/webgui/webguihostnamemenu');
+		}
+
+		foreach (array('webguipagewidth', 'webguimenuicons') as $layout) {
+			if (!empty($post[$layout])) {
+				config_set_path("system/webgui/{$layout}", $post[$layout]);
+			} else {
+				config_del_path("system/webgui/{$layout}");
+			}
 		}
 
 		if ($post['dashboardcolumns']) {
