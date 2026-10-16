@@ -466,7 +466,7 @@ check_api(strpos($lagg_inuse, "config_get_path('qinqs/qinqentry'") !== false && 
 check_api(strpos($l2_inc, "\$lagg['laggif'] = \$this_lagg_config['laggif'] ?? '';") !== false &&
     strpos($l2_inc, "\$bridgeif = \$this_bridge_config['bridgeif'] ?? '';") !== false,
     'LAGGs and bridges keep the stored interface name instead of taking it from the form');
-check_api(strpos($l2_inc, 'array_key_exists($member, $ports)') !== false,
+check_api(strpos($l2_inc, 'array_key_exists((string) $member, $ports)') !== false,
     'LAGG members must be ports the edit page offers (never an assigned interface)');
 check_api(strpos($l2_inc, 'array_key_exists($post[\'if\'], interfaces_vlan_parent_list())') !== false,
     'a new QinQ needs a parent the edit page offers');

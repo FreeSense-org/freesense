@@ -224,7 +224,7 @@ function ntpd_save_settings($post, $leapfile = null) {
 	if (is_array($post['interface'])) {
 		$ifoptions = ntpd_build_interface_list(array())['options'];
 		foreach ($post['interface'] as $if) {
-			if (!array_key_exists($if, $ifoptions)) {
+			if (!array_key_exists((string) $if, $ifoptions)) {
 				$input_errors[] = sprintf(gettext("%s is not an interface NTP can listen on."), $if);
 			}
 		}

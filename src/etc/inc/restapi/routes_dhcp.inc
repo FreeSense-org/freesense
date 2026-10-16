@@ -1469,7 +1469,7 @@ function restapi_dhcp_stored($conf, array $drop, array $secrets) {
 		unset($out[$key]);
 	}
 	foreach ($secrets as $key) {
-		if (array_key_exists($key, $out)) {
+		if (array_key_exists((string) $key, $out)) {
 			$out[$key] = restapi_svc_mask(is_scalar($out[$key]) ? $out[$key] : '');
 		}
 	}

@@ -167,7 +167,7 @@ function dhcp_relay_save($post, $v6) {
 	if (isset($post['interface']) && is_array($post['interface'])) {
 		$iflist = dhcp_relay_interface_list($v6);
 		foreach ($post['interface'] as $if) {
-			if (!array_key_exists($if, $iflist)) {
+			if (!array_key_exists((string) $if, $iflist)) {
 				$input_errors[] = sprintf(gettext('%s is not an interface the relay can use.'), $if);
 			}
 		}

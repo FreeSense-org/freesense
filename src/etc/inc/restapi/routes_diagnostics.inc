@@ -120,7 +120,7 @@ function restapi_diag_fields(array $body, array $known) {
 
 /* A string field (trimmed of nothing); $default when absent. 400 when it is not a string or too long. */
 function restapi_diag_string(array $body, $field, $default = null, $max = 253) {
-	if (!array_key_exists($field, $body) || ($body[$field] === null)) {
+	if (!array_key_exists((string) $field, $body) || ($body[$field] === null)) {
 		if ($default === null) {
 			throw new RestApiError(400, 'invalid_field', "Field \"{$field}\" is required.");
 		}
@@ -135,7 +135,7 @@ function restapi_diag_string(array $body, $field, $default = null, $max = 253) {
 
 /* An integer field between $min and $max (numeric strings of digits are accepted); $default when absent. */
 function restapi_diag_int(array $body, $field, $min, $max, $default) {
-	if (!array_key_exists($field, $body) || ($body[$field] === null)) {
+	if (!array_key_exists((string) $field, $body) || ($body[$field] === null)) {
 		return $default;
 	}
 	$value = $body[$field];

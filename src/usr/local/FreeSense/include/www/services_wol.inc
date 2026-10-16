@@ -84,7 +84,7 @@ function wol_wake_device($mac, $if, & $savemsg, & $class) {
 		$input_errors[] = gettext("A valid MAC address must be specified.");
 	}
 
-	if (!$if || !array_key_exists($if, get_configured_interface_with_descr())) {
+	if (!$if || !array_key_exists((string) $if, get_configured_interface_with_descr())) {
 		$input_errors[] = gettext("A valid interface must be specified.");
 	}
 
