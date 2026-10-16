@@ -1654,7 +1654,7 @@
 (function () {
 	'use strict';
 
-	var KINDS = ['info', 'warn', 'block', 'neutral'];
+	var KINDS = ['info', 'pass', 'warn', 'block', 'neutral'];
 	var TOAST_KINDS = { info: 'fa-circle-info', pass: 'fa-circle-check', warn: 'fa-triangle-exclamation', block: 'fa-circle-xmark' };
 	var LOCAL = /^\/(?!\/)[A-Za-z0-9_.\/?=&%-]*$/;
 
@@ -1725,6 +1725,7 @@
 		badge.hidden = n === 0;
 		var kind = KINDS.indexOf(d.kind) >= 0 ? d.kind : 'info';
 		badge.className = 'badge fs-nav-badge fs-nav-badge--' + kind;
+		link.setAttribute('data-kind', kind);
 		if (typeof d.label === 'string' && d.label !== '') {
 			link.title = d.label;
 			link.setAttribute('aria-label', d.label);
@@ -1759,6 +1760,19 @@
 		/* The first poll at once: it only sets the cursor, so old news never pops up. */
 		setTimeout(poll, store(key) === null ? 0 : 15000);
 	}
+
+	/* A package item with a panel: its page fills the dropdown each time it opens. */
+	document.addEventListener('show.bs.dropdown', function (ev) {
+		var link = ev.target, url = link && link.getAttribute && link.getAttribute('data-fs-nav-panel');
+		var body = url && link.parentNode.querySelector('.fs-navpanel-body');
+		if (!body) {
+			return;
+		}
+		fetch(url, { credentials: 'same-origin', cache: 'no-store' })
+			.then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+			.then(function (html) { body.innerHTML = html; })
+			.catch(function () { body.innerHTML = '<p class="fs-navpanel-wait">' + (link.getAttribute('aria-label') || '') + '</p>'; });
+	});
 
 	function init() {
 		Array.prototype.forEach.call(document.querySelectorAll('.fs-nav-plugin[data-fs-nav-poll]'), watch);

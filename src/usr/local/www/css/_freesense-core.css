@@ -1042,3 +1042,36 @@ body { --fs-navbar-h: 6.9rem; }
 @media (prefers-reduced-motion: reduce) {
 	.modal.fade .modal-dialog { transform: none; transition: opacity .1s linear; }
 }
+
+/* A package item in the top bar: the icon carries its state; with a panel it opens a short summary. */
+.navbar .fs-nav-plugin[data-kind="pass"] > i { color: var(--fs-pass); }
+.navbar .fs-nav-plugin[data-kind="warn"] > i { color: var(--fs-warn); }
+.navbar .fs-nav-plugin[data-kind="block"] > i { color: var(--fs-block); }
+.fs-nav-badge--pass { background: var(--fs-pass); }
+.fs-navpanel { width: min(24rem, calc(100vw - 2rem)); padding: 0; overflow: hidden; border-radius: var(--fs-r-md); }
+.fs-navpanel-wait { margin: 0; padding: 1rem; color: var(--fs-text-muted); }
+/* Building blocks for a package's top-bar panel: a head, counts, short sections, links. */
+.fs-navpanel-head { display: flex; align-items: center; gap: var(--fs-sp-2); padding: .75rem .9rem; border-bottom: 1px solid var(--fs-border); }
+.fs-navpanel-head strong { display: block; color: var(--fs-text-strong); }
+.fs-navpanel-head span:not(.fs-navpanel-state) { font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-navpanel-state { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 50%; color: var(--fc); background: color-mix(in srgb, var(--fc) 15%, transparent); }
+.fs-navpanel-counts { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--fs-border); }
+.fs-navpanel-counts a { display: grid; padding: .55rem .9rem; color: var(--fs-text-muted); text-decoration: none; font-size: var(--fs-fs-sm); }
+.fs-navpanel-counts a + a { border-left: 1px solid var(--fs-border); }
+.fs-navpanel-counts a:hover { background: color-mix(in srgb, var(--fs-text) 5%, transparent); }
+.fs-navpanel-counts strong { font-size: var(--fs-fs-lg); line-height: 1.2; color: var(--fs-text-strong); font-variant-numeric: tabular-nums; }
+.fs-navpanel-counts .fs-tone-warn strong, .fs-navpanel-counts .fs-tone-block strong { color: var(--fc); }
+.fs-navpanel-sec { padding: .6rem .9rem; border-bottom: 1px solid var(--fs-border); }
+.fs-navpanel-sec-title { display: flex; align-items: center; gap: var(--fs-sp-2); margin-bottom: .35rem; font-size: var(--fs-fs-xs); font-weight: 600; color: var(--fs-text-muted); }
+.fs-navpanel-sec ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.fs-navpanel-sec li a { display: flex; justify-content: space-between; gap: var(--fs-sp-2); padding: .25rem .35rem; margin: 0 -.35rem; border-radius: var(--fs-r-sm);
+	color: var(--fs-text); text-decoration: none; font-size: var(--fs-fs-sm); }
+.fs-navpanel-sec li a:hover { background: color-mix(in srgb, var(--fs-text) 6%, transparent); }
+.fs-navpanel-sec li a > span { min-width: 0; }
+.fs-navpanel-sec li small { display: block; color: var(--fs-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-navpanel-sec li.is-failed a > span::before { content: ""; display: inline-block; width: .45rem; height: .45rem; margin-right: .4rem; border-radius: 50%; background: var(--fs-block); vertical-align: .1rem; }
+.fs-navpanel-sec time { flex: none; color: var(--fs-text-muted); font-size: var(--fs-fs-xs); }
+.fs-navpanel-none { margin: 0; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
+.fs-navpanel-foot { display: flex; gap: var(--fs-sp-4); padding: .6rem .9rem; font-size: var(--fs-fs-sm); }
+.fs-navpanel-foot a { display: inline-flex; align-items: center; gap: .35rem; text-decoration: none; }
+.fs-tone-neutral { --fc: var(--fs-neutral); }
