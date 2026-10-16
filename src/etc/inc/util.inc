@@ -5603,7 +5603,7 @@ function get_specialnet(?string $net = '', array $flags = [], ?string $if = ''):
 					if (($sn['mode'] == "proxyarp" || $sn['mode'] == "other") && $sn['type'] == "network") {
 						$specialnet[$vipsn] = 'Subnet: ' . $sn['subnet'] . '/' . $sn['subnet_bits'] . ' (' . $sn['descr'] . ')';
 						// Skip expanding IPv4 VIPs with the option, as well as any IPv6 network
-						if (isset($sn['noexpand']) || strstr($sn['subnet'], ':' !== false)) {
+						if (isset($sn['noexpand']) || (strstr($sn['subnet'], ':') !== false)) {
 							continue;
 						}
 						$start = ip2long32(gen_subnet($sn['subnet'], $sn['subnet_bits']));

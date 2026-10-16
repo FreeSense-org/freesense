@@ -342,7 +342,7 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 							<a href="/firewall_aliases_edit.php?id=<?=$alias['targetport']?>" data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('Alias details')?>" data-bs-content="<?=alias_info_popup($alias['targetport'])?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($localport)))?>
 							</a>
-						<?php elseif ($show_system_alias_popup && array_key_exists($localport, $system_aliases_ports)): ?>
+						<?php elseif ($show_system_alias_popup && array_key_exists((string) $localport, $system_aliases_ports)): ?>
 							<a data-bs-toggle="popover" data-bs-trigger="hover focus" title="<?=gettext('System alias details')?>" data-bs-content="<?=alias_info_popup(strtolower($localport), true)?>" data-bs-html="true">
 								<?=str_replace('_', '_<wbr>', htmlspecialchars(pprint_port($localport)))?>
 							</a>

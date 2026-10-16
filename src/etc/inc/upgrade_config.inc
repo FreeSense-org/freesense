@@ -3433,7 +3433,7 @@ function upgrade_103_to_104() {
 			continue;
 		}
 		foreach ($user['priv'] as & $priv) {
-			if (array_key_exists($priv, $changed_privs)) {
+			if (array_key_exists((string) $priv, $changed_privs)) {
 				$priv = $changed_privs[$priv];
 			}
 		}
@@ -3445,7 +3445,7 @@ function upgrade_103_to_104() {
 			continue;
 		}
 		foreach ($group['priv'] as & $priv) {
-			if (array_key_exists($priv, $changed_privs)) {
+			if (array_key_exists((string) $priv, $changed_privs)) {
 				$priv = $changed_privs[$priv];
 			}
 		}

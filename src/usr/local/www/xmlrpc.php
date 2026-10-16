@@ -95,7 +95,7 @@ class freesense_xmlrpc_server {
 
 	private function array_overlay($a1, $a2) {
 		foreach ($a1 as $k => $v) {
-			if (!array_key_exists($k, $a2)) {
+			if (!array_key_exists((string) $k, $a2)) {
 				continue;
 			}
 			if (is_array($v) && is_array($a2[$k])) {

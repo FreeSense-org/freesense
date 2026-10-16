@@ -177,7 +177,7 @@ function restapi_ovpn_secrets($mode) {
 /* $entry with its secret fields read as "(set)" (or "" when empty). */
 function restapi_ovpn_mask(array $entry, array $secrets) {
 	foreach ($secrets as $secret) {
-		if (array_key_exists($secret, $entry)) {
+		if (array_key_exists((string) $secret, $entry)) {
 			$entry[$secret] = restapi_svc_mask(is_scalar($entry[$secret]) ? $entry[$secret] : '');
 		}
 	}

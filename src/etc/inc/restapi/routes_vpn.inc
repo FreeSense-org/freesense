@@ -198,7 +198,7 @@ function restapi_ipsec_p1_secrets() {
 /* A stored phase 1 or phase 2 entry for the API: flags as booleans, secrets masked. */
 function restapi_ipsec_entry_out(array $entry, array $secrets = array()) {
 	foreach ($secrets as $secret) {
-		if (array_key_exists($secret, $entry)) {
+		if (array_key_exists((string) $secret, $entry)) {
 			$entry[$secret] = restapi_svc_mask(is_scalar($entry[$secret]) ? $entry[$secret] : '');
 		}
 	}
@@ -217,7 +217,7 @@ function restapi_ipsec_button_post($button, $pos) {
 
 /* A user or key secret from the body: "(set)" keeps the current one (null). */
 function restapi_vpn_secret_body(array $body, $field) {
-	if (array_key_exists($field, $body) && ($body[$field] === '(set)')) {
+	if (array_key_exists((string) $field, $body) && ($body[$field] === '(set)')) {
 		unset($body[$field]);
 	}
 	return $body;
@@ -1163,7 +1163,7 @@ function restapi_ipsec_p1_form_fields(array $form) {
 
 function restapi_ipsec_mask_fields(array $fields, array $secrets) {
 	foreach ($secrets as $secret) {
-		if (array_key_exists($secret, $fields)) {
+		if (array_key_exists((string) $secret, $fields)) {
 			$fields[$secret] = restapi_svc_mask($fields[$secret]);
 		}
 	}

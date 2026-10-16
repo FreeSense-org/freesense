@@ -59,7 +59,7 @@ if ($_POST) {
 		return;
 	}
 
-	$input_errors = "";
+	$input_errors = array();
 
 	if (($_POST['action'] != "clear") && !is_valid_mirror($_POST['mirror'])) {
 		$input_errors[] = gettext("A valid mirror name must be supplied.");

@@ -115,7 +115,7 @@ function restapi_ddns_cached($file) {
 
 /* A secret for a form post: "(set)" keeps the stored one. */
 function restapi_ddns_secret_body(array $body, $field) {
-	if (array_key_exists($field, $body) && ($body[$field] === '(set)')) {
+	if (array_key_exists((string) $field, $body) && ($body[$field] === '(set)')) {
 		unset($body[$field]);
 	}
 	return $body;
@@ -127,7 +127,7 @@ function restapi_ddns_secret_body(array $body, $field) {
  */
 function restapi_ddns_keep_secret(array $body, $field) {
 	$body = restapi_ddns_secret_body($body, $field);
-	if (array_key_exists($field, $body) && (is_null($body[$field]) || ((string)$body[$field] === ''))) {
+	if (array_key_exists((string) $field, $body) && (is_null($body[$field]) || ((string)$body[$field] === ''))) {
 		unset($body[$field]);
 	}
 	return $body;
