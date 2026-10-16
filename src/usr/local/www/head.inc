@@ -606,8 +606,12 @@ $fs_body_class = array();
 if (in_array($user_settings['webgui']['webguipagewidth'] ?? '', array('classic', 'full'), true)) {
 	$fs_body_class[] = 'fs-width-' . $user_settings['webgui']['webguipagewidth'];
 }
-if (($user_settings['webgui']['webguimenuicons'] ?? '') === 'icons') {
+$fs_menu_mode = (string)($user_settings['webgui']['webguimenuicons'] ?? '');
+if ($fs_menu_mode === 'icons') {
 	$fs_body_class[] = 'fs-menu-icons';
+} elseif ($fs_menu_mode !== 'text') {
+	/* Automatic: js/FreeSense.js adds fs-menu-tight, then fs-menu-icons, while the bar does not fit. */
+	$fs_body_class[] = 'fs-menu-auto';
 }
 ?>
 <body id="<?=$numColumns?>"<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
