@@ -603,13 +603,18 @@ if (are_notices_pending()) {
 <?php
 /* Layout from System > General Setup: page width and an icon-only top bar. */
 $fs_body_class = array();
-if (in_array($user_settings['webgui']['webguipagewidth'] ?? '', array('classic', 'full'), true)) {
-	$fs_body_class[] = 'fs-width-' . $user_settings['webgui']['webguipagewidth'];
+/* Classic (1200 px) is the default ('' or the older 'classic'); Wide is the token's 1680 px. */
+$fs_width = (string)($user_settings['webgui']['webguipagewidth'] ?? '');
+if ($fs_width === 'full') {
+	$fs_body_class[] = 'fs-width-full';
+} elseif ($fs_width !== 'wide') {
+	$fs_body_class[] = 'fs-width-classic';
 }
+/* Icons only is the default ('' or the older 'icons'). */
 $fs_menu_mode = (string)($user_settings['webgui']['webguimenuicons'] ?? '');
-if ($fs_menu_mode === 'icons') {
+if (($fs_menu_mode === '') || ($fs_menu_mode === 'icons')) {
 	$fs_body_class[] = 'fs-menu-icons';
-} elseif ($fs_menu_mode !== 'text') {
+} elseif ($fs_menu_mode === 'auto') {
 	/* Automatic: js/FreeSense.js adds fs-menu-tight, then fs-menu-icons, while the bar does not fit. */
 	$fs_body_class[] = 'fs-menu-auto';
 }
