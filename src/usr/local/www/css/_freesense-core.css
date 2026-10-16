@@ -992,7 +992,8 @@ body.fs-width-full {
  * follow the page width (Classic, Wide, Full), centred like the content.
  */
 body { --fs-navbar-h: 6.9rem; }
-.navbar.fs-topbar { border-bottom: 0; padding-bottom: var(--fs-sp-1); }
+/* The line under the menu runs the full width of the window; the one above it follows the page. */
+.navbar.fs-topbar { border-bottom: 1px solid var(--fs-chrome-border); padding-bottom: 0; }
 .navbar.fs-topbar > .container { flex-direction: column; align-items: stretch; flex-wrap: nowrap; }
 .fs-topbar-row { display: flex; align-items: center; gap: var(--fs-sp-2); min-height: 3.6rem; border-bottom: 1px solid var(--fs-chrome-border); }
 .fs-topbar-row .navbar-brand { padding-left: 0; margin-right: auto; }
@@ -1002,9 +1003,8 @@ body { --fs-navbar-h: 6.9rem; }
 .fs-topbar .fs-nav-notices.is-clear i { filter: drop-shadow(0 0 4px color-mix(in srgb, var(--fs-pass) 45%, transparent)); }
 .fs-topbar .navbar-toggler { margin-left: var(--fs-sp-1); }
 @media (min-width: 992px) {
-	.fs-topbar #pf-navbar { border-bottom: 1px solid var(--fs-chrome-border); }
 	.fs-topbar .fs-topbar-menu { flex-wrap: nowrap; }
-	.fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-top: .8rem; padding-bottom: .7rem; margin-bottom: -1px; white-space: nowrap; }
+	.fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-top: .8rem; padding-bottom: .7rem; margin-bottom: -1px; white-space: nowrap; position: relative; top: 1px; }
 }
 @media (max-width: 991.98px) {
 	body { --fs-navbar-h: 3.6rem; }
