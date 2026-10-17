@@ -1517,6 +1517,16 @@ function captiveportal_write_db($queries) {
 	}
 }
 
+/*
+ * A captive portal element is stored and served under its own name, so the
+ * name must be a plain file name: no directory part, no '..', no NUL.
+ */
+function captiveportal_element_name_valid($name): bool {
+	return is_string($name) && (strlen($name) <= 255) &&
+	    (preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/D', $name) === 1) &&
+	    (strpos($name, '..') === false);
+}
+
 function captiveportal_write_elements() {
 	global $g, $cpzone;
 
@@ -1528,6 +1538,11 @@ function captiveportal_write_elements() {
 
 	if (is_array($cpcfg['element'])) {
 		foreach ($cpcfg['element'] as $data) {
+			if (!captiveportal_element_name_valid($data['name'] ?? null)) {
+				logger(LOG_WARNING, localize_text("Skipping captive portal element with an invalid file name: %s",
+				    json_encode($data['name'] ?? null)), LOG_PREFIX_CAPTIVEPORTAL);
+				continue;
+			}
 			/* Do not attempt to decode or write out empty files. */
 			if (isset($data['nocontent'])) {
 					continue;
@@ -2068,7 +2083,7 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $redir
 		} else {
 			/* generate unique session ID */
 			$tod = gettimeofday();
-			$sessionid = substr(md5(mt_rand() . $tod['sec'] . $tod['usec'] . $clientip . $clientmac), 0, 16);
+			$sessionid = bin2hex(random_bytes(8));
 		}
 
 		$cpzone_config = config_get_path("captiveportal/{$cpzone}", []);
