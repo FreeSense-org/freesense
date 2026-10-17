@@ -74,13 +74,6 @@ body#login, body#error {
 	color: var(--fs-text);
 }
 .fs-login__tag-accent { color: var(--fs-coral); }
-.fs-login__sub2 {
-	margin: 1.4rem 0 0;
-	font-family: ui-monospace, 'JetBrains Mono', monospace;
-	font-size: .78rem;
-	letter-spacing: .3em;
-	color: var(--fs-muted);
-}
 
 /* ----- right form panel ----- */
 .fs-login__panel {

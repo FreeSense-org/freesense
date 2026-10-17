@@ -311,7 +311,6 @@ function display_login_form() {
 				<div class="fs-login__brand-inner">
 					<div class="fs-login__logo"><?php include("/usr/local/www/logo.svg"); ?></div>
 					<p class="fs-login__tag"><?=gettext('The open-source firewall,')?> <span class="fs-login__tag-accent"><?=gettext('rebuilt in the open.')?></span></p>
-					<p class="fs-login__sub2">OPEN FIREWALL DISTRO</p>
 				</div>
 			</aside>
 
