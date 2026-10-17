@@ -355,7 +355,7 @@ function owned_routes(string $cachePath): array
         while (true) {
             try {
                 /* This will throw an error on failure */
-                $routes = \unserialize(\file_get_contents($cachePath));
+                $routes = \unserialize(\file_get_contents($cachePath), ['allowed_classes' => false]);
                 if (\is_array($routes)) {
                     return ($routes);
                 }

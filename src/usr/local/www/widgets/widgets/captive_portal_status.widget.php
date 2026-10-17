@@ -43,8 +43,9 @@ if (isset($cpzone) && !empty($cpzone)) {
 	$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");
 }
 
-if (($_GET['act'] == "del") && !empty($cpzone) && isset($cpzoneid)) {
-	captiveportal_disconnect_client($_GET['id'], 6);
+/* Disconnecting changes state, so it is a CSRF-checked POST, never a link. */
+if ((($_POST['act'] ?? '') === "del") && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id'])) {
+	captiveportal_disconnect_client($_POST['id'], 6);
 }
 unset($cpzone);
 
@@ -98,9 +99,14 @@ foreach (config_get_path('captiveportal', []) as $cpzone => $cp) {
 ?>
 			</td>
 			<td>
-				<a href="?order=<?=htmlspecialchars($_GET['order']);?>&amp;showact=<?=htmlspecialchars($showact);?>&amp;act=del&amp;zone=<?=urlencode($cpent[10]);?>&amp;id=<?=urlencode($cpent[5]);?>">
-					<i class="fa-solid fa-trash-can" title="<?=gettext("delete");?>"></i>
-				</a>
+				<form method="post" class="d-inline">
+					<input type="hidden" name="act" value="del" />
+					<input type="hidden" name="zone" value="<?=htmlspecialchars($cpent[10]);?>" />
+					<input type="hidden" name="id" value="<?=htmlspecialchars($cpent[5]);?>" />
+					<button type="submit" class="btn btn-link p-0" title="<?=gettext("delete");?>">
+						<i class="fa-solid fa-trash-can"></i>
+					</button>
+				</form>
 			</td>
 		</tr>
 	<?php
