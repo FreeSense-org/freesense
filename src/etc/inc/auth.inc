@@ -2429,6 +2429,8 @@ function session_auth() {
 	if (isset($_POST['login']) && !empty($_POST['usernamefld'])) {
 		if (webgui_session_signin($_POST['usernamefld'], $_POST['passwordfld'])) {
 			if (isset($_POST['postafterlogin'])) {
+				/* Pages that skip the CSRF check for postafterlogin require this. */
+				$GLOBALS['webgui_postafterlogin_signin'] = true;
 				return true;
 			} else {
 				if (empty($page)) {
