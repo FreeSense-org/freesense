@@ -41,29 +41,18 @@ require_once('fleet_join.inc');
 define('FLEET_SEED_FILE', FLEET_NODE_DIR . '/seed.json');
 define('FLEET_SEED_NAME', 'fleet-join.conf');
 define('FLEET_SEED_MODES', array('attended', 'pin', 'unattended'));
-define('FLEET_SEED_PBKDF2_ROUNDS', 200000);
-
-/* pure: the 32-byte key a PIN unlocks. */
-function fleet_seed_pin_key(string $pin, string $salt): string {
-	return hash_pbkdf2('sha256', $pin, $salt, FLEET_SEED_PBKDF2_ROUNDS, 32, true);
-}
-
 /* pure: a PIN is 6 to 8 digits. */
 function fleet_seed_pin_valid(string $pin): bool {
 	return (bool)preg_match('/^[0-9]{6,8}$/D', $pin);
 }
 
-/* pure: seal a join key to a PIN (AES-256-GCM); the Deployment Factory does the same. */
-function fleet_seed_seal_key(string $key_display, string $pin): array {
-	$salt = random_bytes(16);
-	$nonce = random_bytes(12);
-	$tag = '';
-	$data = openssl_encrypt($key_display, 'aes-256-gcm', fleet_seed_pin_key($pin, $salt), OPENSSL_RAW_DATA, $nonce, $tag, 'FreeSense-Fleet-Seed-v1');
-	return array('salt' => base64_encode($salt), 'nonce' => base64_encode($nonce), 'tag' => base64_encode($tag), 'data' => base64_encode((string)$data));
+/* pure: seal a secret to a PIN or a join key's data (fleet_seal_raw()); the Deployment Factory does the same. */
+function fleet_seed_seal_key(string $plain, string $secret): array {
+	return array_combine(array('salt', 'nonce', 'tag', 'data'), array_map('base64_encode', fleet_seal_raw($plain, $secret)));
 }
 
-/* pure: the join key a PIN unseals, or null for a wrong PIN or a damaged seed. */
-function fleet_seed_open_key(array $sealed, string $pin): ?string {
+/* pure: what fleet_seed_seal_key() sealed, or null for a wrong secret or a damaged seed. */
+function fleet_seed_open_key(array $sealed, string $secret): ?string {
 	$parts = array();
 	foreach (array('salt', 'nonce', 'tag', 'data') as $f) {
 		$parts[$f] = base64_decode((string)($sealed[$f] ?? ''), true);
@@ -71,9 +60,7 @@ function fleet_seed_open_key(array $sealed, string $pin): ?string {
 			return null;
 		}
 	}
-	$key = openssl_decrypt($parts['data'], 'aes-256-gcm', fleet_seed_pin_key($pin, $parts['salt']), OPENSSL_RAW_DATA, $parts['nonce'],
-	    $parts['tag'], 'FreeSense-Fleet-Seed-v1');
-	return ($key === false) ? null : $key;
+	return fleet_unseal_raw($parts['salt'], $parts['nonce'], $parts['tag'], $parts['data'], $secret);
 }
 
 /* pure: parse a seed; returns it checked, or throws FleetJoinError E122 (unusable seed). */
@@ -124,49 +111,6 @@ function fleet_seed_tailscale_key(array $seed, string $secret): ?string {
 	}
 	$key = isset($ts['key']) ? (string)$ts['key'] : fleet_seed_open_key((array)($ts['sealed'] ?? array()), $secret);
 	return (($key !== null) && fleet_seed_tailscale_key_valid($key)) ? $key : null;
-}
-
-/*
- * Bring Tailscale up with a one-time key before joining over the tailnet:
- * install the Tailscale package when it is missing, log in, wait for a
- * tailnet address. The key is used once and then cleared from the
- * configuration. Returns the address; throws FleetJoinError E133.
- */
-function fleet_seed_tailscale_up(string $authkey, callable $say): string {
-	/* Already in a tailnet (a retry after the one-time key was used): nothing to do. */
-	$out = array();
-	exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
-	if (is_executable('/usr/local/bin/tailscale') && ($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) {
-		return trim($out[0]);
-	}
-	if (!is_file('/usr/local/pkg/tailscale/tailscale.inc')) {
-		$say('Installing Tailscale (needs internet and the FreeSense package repository)');
-		require_once('pkg-utils.inc');
-		pkg_install('FreeSense-pkg-Tailscale');
-		if (!is_file('/usr/local/pkg/tailscale/tailscale.inc')) {
-			throw new FleetJoinError('E133', 'Tailscale could not be installed. The firewall needs internet and the FreeSense package repository; check its WAN and DNS, then try again.');
-		}
-	}
-	$say('Logging in to Tailscale');
-	config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', $authkey);
-	config_set_path('installedpackages/tailscale/config/0/enable', 'on');
-	write_config('Fleet: Tailscale logged in with the join seed\'s one-time key.');
-	require_once('/usr/local/pkg/tailscale/tailscale.inc');
-	tailscale_resync_config_hook();
-	$ip = '';
-	for ($i = 0; ($i < 45) && ($ip === ''); $i++) {
-		sleep(2);
-		$out = array();
-		exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
-		$ip = (($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) ? trim($out[0]) : '';
-	}
-	/* Used once: it must not stay in config.xml or its backups. */
-	config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
-	write_config('Fleet: the one-time Tailscale key was used and removed.');
-	if ($ip === '') {
-		throw new FleetJoinError('E133', 'Tailscale did not come up within 90 seconds. The key may be used up or expired, or the firewall cannot reach the Tailscale control plane (HTTPS 443).');
-	}
-	return $ip;
 }
 
 /* Called by rc.ecl for each mounted medium: keep a seed found there. */

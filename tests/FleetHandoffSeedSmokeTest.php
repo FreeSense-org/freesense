@@ -91,7 +91,8 @@ check(strpos(file_get_contents("{$root}/src/etc/rc.ecl"), "fleet_seed_capture('/
 $boot = file_get_contents("{$root}/src/etc/rc.bootup");
 check(strpos($boot, 'fleet_seed_boot();') > strpos($boot, 'restapi_listeners_configure();'), 'the seed is used at the end of boot, when the network is up');
 $cli = file_get_contents("{$root}/src/usr/local/sbin/freesense-join");
-check(strpos($cli, "case 'seed'") !== false && strpos($cli, 'fleet_seed_open_key(') !== false && strpos($cli, 'fleet_seed_clear();') !== false,
+$agent = file_get_contents("{$root}/src/etc/inc/fleet_agent.inc");
+check(strpos($cli, "case 'seed'") !== false && strpos($cli, 'fleet_seed_open_key(') !== false && strpos($agent, 'fleet_seed_clear();') !== false,
     'the CLI joins from a seed, asks for a PIN, and forgets the seed afterwards');
 ob_start();
 $captured = fleet_seed_capture($tmp);
@@ -113,7 +114,7 @@ check(fleet_webgui_endpoints(array(), array(array('name' => 'X', 'ip' => 'evil.e
 
 /* A seed may carry a one-time Tailscale key: plain only when unattended, otherwise sealed to the PIN or the join key. */
 list($tshown, $tdata) = fleet_join_key_generate();
-$tlink = 'https://100.64.0.1:8443/fleet/join#abcdef012345.' . str_repeat('A', 43) . '.' . str_repeat('a', 64);
+$tlink = 'https://100.64.0.1:8443/fleet/join#abcdef012345.' . str_repeat('A', 43) . '.' . str_repeat('a', 64) . '.s';
 $tsk = 'tskey-auth-kTEST123CNTRL-abcdefghijkl';
 $tseed = function (array $s) {
 	try {
