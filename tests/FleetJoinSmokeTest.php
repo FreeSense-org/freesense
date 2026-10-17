@@ -322,4 +322,13 @@ check(fleet_join_paste_parse("{$plink}\nK7Q2M9XH4T1RZ8VB3NCS")['key'] === null, 
 check(join_error_of(function () { fleet_join_paste_parse('hello'); }) === 'E102', 'no link: E102');
 check(join_error_of(function () use ($plink) { fleet_join_paste_parse("{$plink}\nKey: FLT-K7Q2-M9XH-4T1R-Z8VB-3NCT"); }) === 'E103', 'a wrong key in the text: E103');
 
+$bdir = sys_get_temp_dir() . '/fjbak' . getmypid();
+@mkdir($bdir);
+file_put_contents("$bdir/config-1.xml", '<preauthkey>tskey-auth-kX-secret</preauthkey>');
+file_put_contents("$bdir/config-2.xml", '<preauthkey></preauthkey>');
+check(fleet_files_containing(array("$bdir/config-1.xml", "$bdir/config-2.xml", "$bdir/none.xml"), 'tskey-auth-kX-secret') === array("$bdir/config-1.xml") &&
+    fleet_files_containing(array("$bdir/config-1.xml"), '') === array(), 'configuration backups that still hold the one-time Tailscale key are found');
+array_map('unlink', glob("$bdir/*"));
+rmdir($bdir);
+
 echo "FleetJoinSmokeTest: OK\n";

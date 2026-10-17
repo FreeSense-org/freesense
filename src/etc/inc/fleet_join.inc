@@ -520,6 +520,13 @@ function fleet_join_probe(array $link): void {
 	}
 }
 
+/* The files among $files that contain $needle (a secret that must not stay in configuration backups). */
+function fleet_files_containing(array $files, string $needle): array {
+	return ($needle === '') ? array() : array_values(array_filter($files, function ($f) use ($needle) {
+		return is_file($f) && (strpos((string)file_get_contents($f), $needle) !== false);
+	}));
+}
+
 /*
  * Bring Tailscale up with a one-time key before joining over the tailnet:
  * install the Tailscale package when it is missing, log in, wait for a
@@ -557,6 +564,10 @@ function fleet_tailscale_up(string $authkey, callable $say): string {
 	/* Used once: it must not stay in config.xml or its backups. */
 	config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
 	write_config('Fleet: the one-time Tailscale key was used and removed.');
+	foreach (fleet_files_containing(glob(g_get('cf_conf_path') . '/backup/config-*.xml') ?: array(), $authkey) as $f) {
+		@unlink($f);
+	}
+	cleanup_backupcache();
 	if ($ip === '') {
 		throw new FleetJoinError('E133', 'Tailscale did not come up within 90 seconds. The key may be used up or expired, or the firewall cannot reach the Tailscale control plane (HTTPS 443).');
 	}
