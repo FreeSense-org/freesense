@@ -174,7 +174,9 @@ check(fleet_remediate_plan($rm(array('path' => 'system/timezone', 'op' => 'equal
 check(fleet_remediate_plan($rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Mars/Base')), 'Etc/UTC') === null, 'an unknown time zone is never written');
 check(fleet_remediate_plan($rm(array('path' => 'system/timeservers', 'op' => 'regex', 'value' => '.', 'fix' => 'pool.ntp.org')), null) === array('set', 'pool.ntp.org') &&
     fleet_remediate_plan($rm(array('path' => 'system/timeservers', 'op' => 'regex', 'value' => '.')), null) === null, '"set and not empty" needs a fix value');
-check(fleet_remediate_plan($rm(array('path' => 'system/webgui/noantilockout', 'op' => 'absent')), '') === array('unset'), 'absent rules remove the setting');
+check(fleet_remediate_plan($rm(array('path' => 'system/domain', 'op' => 'absent')), 'x.net') === array('unset'), 'absent rules remove the setting');
+check(fleet_remediate_plan($rm(array('path' => 'system/webgui/noantilockout', 'op' => 'absent')), '') === null &&
+    fleet_remediate_plan($rm(array('path' => 'system/webgui/noantilockout', 'op' => 'present')), null) === null, 'the anti-lockout rule is never changed from afar');
 check(fleet_remediate_plan($rm(array('path' => 'system/ssh/port', 'op' => 'equals', 'value' => '22')), '2222') === null &&
     fleet_remediate_plan($rm(array('path' => 'system/webgui/protocol', 'op' => 'equals', 'value' => 'https')), 'http') === null, 'paths off the allow-list are never changed');
 check(fleet_remediate_plan(array('mode' => 'lock') + $rm(array('path' => 'system/timezone', 'op' => 'equals', 'value' => 'Etc/UTC')), 'Europe/Oslo') === null,
