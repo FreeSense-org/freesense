@@ -329,7 +329,7 @@
 		var items = root.querySelectorAll('.fs-stepper [data-step]');
 		var back = document.createElement('button');
 		back.type = 'button';
-		back.className = 'btn btn-outline-secondary';
+		back.className = 'btn btn-outline-secondary fs-step-back';
 		back.innerHTML = '<i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i>';
 		back.appendChild(document.createTextNode(T.back || 'Back'));
 		var next = document.createElement('button');

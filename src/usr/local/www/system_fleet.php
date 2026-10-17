@@ -245,7 +245,7 @@ $hidden = function (array $fields) {
 };
 $carry = array('invitation' => $invitation) + (($key_typed !== '') ? array('join_key' => $key_typed) : array());
 $nav_back = function (string $to) {
-	return '<button class="btn btn-outline-secondary" type="submit" name="step_go" value="' . htmlspecialchars($to) . '" formnovalidate>' .
+	return '<button class="btn btn-outline-secondary fs-step-back" type="submit" name="step_go" value="' . htmlspecialchars($to) . '" formnovalidate>' .
 	    '<i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i>' . gettext('Back') . '</button>';
 };
 $nav_next = function (string $to, string $label, string $icon = 'fa-arrow-right') {
@@ -309,7 +309,7 @@ if ($advice !== null) {
 				<input class="form-control fs-mono" id="manual_key" name="join_key" required autocomplete="off" spellcheck="false" placeholder="FLT-XXXX-XXXX-XXXX-XXXX-XXXX"/></div>
 			<p class="fs-muted small"><?=gettext('On the console the same is option 17, or: freesense-join join \'<link>\'')?></p>
 		</div>
-		<div class="panel-footer"><button class="btn btn-primary" type="submit" name="join_start" value="1"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Join')?></button></div>
+		<div class="panel-footer fs-step-nav"><button class="btn btn-primary" type="submit" name="join_start" value="1"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Join')?></button></div>
 	</form>
 <?php elseif ($step === 'paste'): ?>
 	<form method="post" class="panel panel-default">
@@ -386,8 +386,8 @@ if ($advice !== null) {
 			</ol>
 		</div>
 		<div class="panel-footer fs-step-nav"><?=$nav_back(in_array('key', $skipped, true) ? 'check' : 'key')?>
-			<button class="btn btn-primary" type="submit" name="join_start" value="1"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Join')?></button>
-			<span class="fs-muted small"><?=gettext('If any step fails, everything is undone.')?></span></div>
+			<span class="fs-step-note"><?=gettext('If any step fails, everything is undone.')?></span>
+			<button class="btn btn-primary" type="submit" name="join_start" value="1"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Join')?></button></div>
 	</form>
 <?php endif; ?>
 </section>
