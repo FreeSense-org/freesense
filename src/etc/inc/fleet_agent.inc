@@ -993,3 +993,43 @@ function fleet_join_advice(string $code): array {
 	);
 	return $map[$code] ?? array('Joining failed', 'See the message for details.');
 }
+
+/* The join guide's steps in order, with their words (the console prints the same ones). */
+define('FLEET_JOIN_GUIDE_STEPS', array(
+	'tailscale' => 'Installing and starting Tailscale', 'connect' => 'Connecting to the controller',
+	'verify' => 'Checking the controller\'s certificate', 'prove' => 'Proving the join key', 'approval' => 'Waiting for approval',
+	'tunnel' => 'Setting up the connection', 'heartbeat' => 'First heartbeat',
+));
+
+/*
+ * pure: the join guide's progress from the progress file: array(state
+ * (idle, running, waiting, done, failed), steps [name, label, state], code
+ * (the approval code while waiting), error [code, text, title, cause],
+ * say (the latest words)). $mode: the link's mode (Tailscale adds a step);
+ * $requested: the background job has not picked up its request yet.
+ */
+function fleet_join_guide_state(array $steps, string $mode, bool $requested): array {
+	$out = array('state' => 'idle', 'steps' => array(), 'code' => '', 'error' => null, 'say' => (string)($steps['say']['text'] ?? ''));
+	foreach (FLEET_JOIN_GUIDE_STEPS as $name => $label) {
+		if (($name === 'tailscale') && ($mode !== 'tailscale') && !isset($steps['tailscale'])) {
+			continue;
+		}
+		$st = (string)($steps[$name]['state'] ?? 'todo');
+		$out['steps'][] = array('name' => $name, 'label' => $label, 'state' => ($st === 'start') ? 'running' : $st);
+	}
+	if (isset($steps['fail'])) {
+		$text = (string)$steps['fail']['text'];
+		$code = preg_match('/^(E\d{3}):\s*/', $text, $m) ? $m[1] : 'E110';
+		list($title, $cause) = fleet_join_advice($code);
+		$out['state'] = 'failed';
+		$out['error'] = array('code' => $code, 'text' => (string)preg_replace('/^E\d{3}:\s*/', '', $text), 'title' => $title, 'cause' => $cause);
+	} elseif (isset($steps['done']) || (($steps['heartbeat']['state'] ?? '') === 'done')) {
+		$out['state'] = 'done';
+	} elseif (($steps['approval']['state'] ?? '') === 'wait') {
+		$out['state'] = 'waiting';
+		$out['code'] = (string)$steps['approval']['text'];
+	} elseif ($requested || !empty($steps)) {
+		$out['state'] = 'running';
+	}
+	return $out;
+}

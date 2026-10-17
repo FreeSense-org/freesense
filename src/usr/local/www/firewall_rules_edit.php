@@ -171,6 +171,9 @@ include("head.inc");
 if ($input_errors) {
 	print_input_errors($input_errors);
 }
+if (isset($id) && is_numericint($id) && fleet_auto_entry(config_get_path("filter/rule/{$id}"))) {
+	print_callout(htmlspecialchars(gettext(FLEET_AUTO_LOCKED_TEXT)), 'info', gettext('This entry is managed by FreeSense Fleet'));
+}
 
 $form = new Form;
 $section = new Form_Section('Edit Firewall Rule');

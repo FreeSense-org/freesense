@@ -225,4 +225,32 @@ check((fleet_controller_peer($cps)['public_key'] === 'k2') && (fleet_peers_with_
 $mg = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
 check((strpos($mg, "'/v1/management/controller-endpoints'") !== false) && (strpos($mg, "'controller_epoch' =>") !== false) && (strpos($mg, "'superseded'") !== false),
     'the controller sets the endpoints (a replaced controller is refused) and the status reports them');
+/* ---- the WebUI "Add to fleet" guide ---- */
+$g = fleet_join_guide_state(array(), 'tunnel', false);
+check(($g['state'] === 'idle') && (array_column($g['steps'], 'name') === array('connect', 'verify', 'prove', 'approval', 'tunnel', 'heartbeat')),
+    'guide: nothing started; a tunnel join has no Tailscale step');
+check(fleet_join_guide_state(array(), 'tunnel', true)['state'] === 'running', 'guide: a request waiting for the job counts as running');
+$g = fleet_join_guide_state(array('tailscale' => array('state' => 'done', 'text' => '100.64.0.9'), 'connect' => array('state' => 'done', 'text' => ''),
+    'verify' => array('state' => 'start', 'text' => '')), 'tailscale', false);
+check(($g['state'] === 'running') && ($g['steps'][0]['name'] === 'tailscale') && ($g['steps'][0]['state'] === 'done') && ($g['steps'][2]['state'] === 'running'),
+    'guide: Tailscale first, then the handshake steps as they run');
+$g = fleet_join_guide_state(array('approval' => array('state' => 'wait', 'text' => '634403')), 'tunnel', false);
+check(($g['state'] === 'waiting') && ($g['code'] === '634403'), 'guide: the approval code to compare');
+$g = fleet_join_guide_state(array('connect' => array('state' => 'fail', 'text' => ''), 'fail' => array('state' => 'fail', 'text' => 'E105: hq is unreachable')), 'tunnel', false);
+check(($g['state'] === 'failed') && ($g['error']['code'] === 'E105') && ($g['error']['text'] === 'hq is unreachable') &&
+    ($g['error']['title'] === fleet_join_advice('E105')[0]), 'guide: a failure in plain words, with its likely cause');
+check(fleet_join_guide_state(array('heartbeat' => array('state' => 'done', 'text' => '')), 'tunnel', false)['state'] === 'done', 'guide: joined');
+foreach (array('E101', 'E102', 'E103', 'E104', 'E105', 'E108', 'E109', 'E110', 'E111', 'E121', 'E131', 'E133') as $code) {
+	list($title, $cause) = fleet_join_advice($code);
+	check(($title !== 'Joining failed') && ($cause !== ''), "advice for {$code}");
+}
+$cli = file_get_contents("{$root}/src/usr/local/sbin/freesense-join");
+check((strpos($cli, "case 'webjob'") !== false) && (strpos($cli, '@unlink(FLEET_JOIN_REQUEST_FILE);') < strpos($cli, 'fleet_join($req[')) &&
+    (substr_count($cli, 'fleet_join(') >= 2) && (strpos($cli, 'fleet_join_run(') === false),
+    'console and WebUI share fleet_join(); the WebUI request (with the key) is deleted before joining');
+$page = file_get_contents("{$root}/src/usr/local/www/system_fleet.php");
+check((strpos($page, "mwexec_bg('/usr/local/bin/php /usr/local/sbin/freesense-join webjob')") !== false) && (strpos($page, 'chmod(FLEET_JOIN_REQUEST_FILE, 0600)') !== false) &&
+    (strpos($page, '<script>') === false) && (strpos($page, 'onclick') === false),
+    'the guide joins in the background, keeps the key out of the process list, and has no inline script');
+
 echo "FleetAgentSmokeTest: OK\n";
