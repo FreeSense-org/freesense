@@ -185,4 +185,23 @@ check(fleet_remediate_plan($rm(array('path' => 'system/domain', 'op' => 'equals'
     fleet_remediate_plan($rm(array('path' => 'system/hostname', 'op' => 'equals', 'value' => 'fw-01')), 'old') === array('set', 'fw-01'), 'names are checked before they are written');
 check(isset($have['POST /v1/management/remediate']) && $have['POST /v1/management/remediate']['write'] && function_exists($have['POST /v1/management/remediate']['handler']),
     'route POST /v1/management/remediate (write)');
+/* ---- rules and port forwards Fleet manages are locked everywhere ---- */
+$filter_src = file_get_contents("{$root}/src/etc/inc/filter.inc");
+$from = strpos($filter_src, "define('FLEET_AUTO_LOCKED_TEXT'");
+check($from !== false, 'filter.inc defines the Fleet lock');
+eval(substr($filter_src, $from));
+check(fleet_auto_entry(array('fleet_auto' => '1')) && !fleet_auto_entry(array('descr' => 'x')) && !fleet_auto_entry(null), 'a Fleet entry is recognised');
+check(fleet_auto_unlocked(array(0, 1, 2, 7), array(0 => array(), 1 => array('fleet_auto' => '1'), 2 => array('descr' => 'x'))) === array(0, 2, 7),
+    'bulk changes leave Fleet entries out');
+$rules_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/firewall_rules.inc");
+$nat_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/firewall_nat.inc");
+check(substr_count($rules_inc, 'fleet_auto_') >= 5 && substr_count($nat_inc, 'fleet_auto_') >= 3,
+    'save, delete, bulk delete and toggle refuse Fleet entries (rules and NAT)');
+$api = file_get_contents("{$root}/src/etc/inc/restapi/routes_firewall.inc");
+check(substr_count($api, 'restapi_not_fleet_auto(') >= 6, 'the REST API answers 409 for Fleet entries');
+foreach (array('firewall_rules.php', 'firewall_nat.php') as $pg) {
+	$src = file_get_contents("{$root}/src/usr/local/www/{$pg}");
+	check((strpos($src, "items: '> tr:not([data-fs-locked])'") !== false) && (strpos($src, 'FLEET_AUTO_LOCKED_TEXT') !== false), "{$pg} shows Fleet entries locked and never drags them");
+}
+
 echo "FleetGuardSmokeTest: OK\n";

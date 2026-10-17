@@ -208,24 +208,29 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 		$localport
 	);
 
+	$fleet_locked = fleet_auto_entry($natent);
 	if (isset($natent['disabled'])) {
 		$iconfn = "pass_d";
-		$trclass = 'class="disabled"';
+		$trclass = 'class="disabled' . ($fleet_locked ? ' fs-locked' : '') . '"';
 	} else {
 		$iconfn = "pass";
-		$trclass = '';
+		$trclass = $fleet_locked ? 'class="fs-locked"' : '';
 	}
+	/* Fleet's port forwards are shown locked: Fleet > Settings changes them. */
+	$row_access = have_natpfruleint_access($natent['interface']) && !$fleet_locked;
 
 ?>
 
-					<tr id="fr<?=$nnats;?>" <?=$trclass?>>
+					<tr id="fr<?=$nnats;?>" <?=$trclass?><?=$fleet_locked ? ' data-fs-locked' : ''?>>
 						<td >
-<?php	if (have_natpfruleint_access($natent['interface'])): ?>
+<?php	if ($row_access): ?>
 							<input type="checkbox" id="frc<?=$nnats;?>" name="rule[]" value="<?=$i;?>"/>
+<?php	elseif ($fleet_locked): ?>
+							<input type="checkbox" id="frc<?=$nnats;?>" name="rule[]" value="<?=$i;?>" class="visually-hidden" tabindex="-1" aria-hidden="true"/>
 <?php	endif; ?>
 						</td>
 						<td>
-<?php	if (have_natpfruleint_access($natent['interface'])): ?>
+<?php	if ($row_access): ?>
 							<a href="?act=toggle&amp;id=<?=$i?>" usepost>
 								<i class="fa-solid fa-check" title="<?=gettext("click to toggle enabled/disabled status")?>"></i>
 							</a>
@@ -352,10 +357,12 @@ foreach (get_anynat_rules_list('rdr') as $natent):
 						</td>
 
 						<td>
-							<?=htmlspecialchars($natent['descr'])?>
+							<?php if ($fleet_locked): ?><i class="fa-solid fa-lock fs-muted" aria-hidden="true"></i> <?php endif; ?><?=htmlspecialchars($natent['descr'])?>
 						</td>
 						<td>
-<?php	if (have_natpfruleint_access($natent['interface'])): ?>
+<?php	if ($fleet_locked): ?>
+							<a href="/fleet/fleet.php?tab=settings" class="fs-locked-link" title="<?=gettext(FLEET_AUTO_LOCKED_TEXT)?>" aria-label="<?=gettext(FLEET_AUTO_LOCKED_TEXT)?>"><i class="fa-solid fa-lock" aria-hidden="true"></i></a>
+<?php	elseif ($row_access): ?>
 							<?=fs_row_actions([
 								['edit', "firewall_nat_edit.php?id={$i}", $natent['descr'] ?: sprintf(gettext('rule %d'), $i + 1)],
 								['copy', "firewall_nat_edit.php?dup={$i}", $natent['descr'] ?: sprintf(gettext('rule %d'), $i + 1)],
@@ -399,6 +406,7 @@ events.push(function() {
 <?php if(!config_path_enabled('system/webgui', 'roworderdragging')): ?>
 	// Make rules sortable
 	$('table tbody.user-entries').sortable({
+		items: '> tr:not([data-fs-locked])',
 		cursor: 'grabbing',
 		start: function(event, ui) {
 			// Below 992 px the table scrolls inside its card; scroll the page while dragging

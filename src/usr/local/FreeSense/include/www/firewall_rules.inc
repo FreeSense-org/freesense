@@ -600,6 +600,10 @@ function saveFilterRule($post, $id = null, $after = null, $if = null) {
 	if (isset($id) && !$a_filter[$id]) {
 		$id = null;
 	}
+	if (isset($id) && fleet_auto_entry($a_filter[$id])) {
+		return array('input_errors' => array(gettext(FLEET_AUTO_LOCKED_TEXT)), 'pconfig' => getFilterRule($id), 'id' => $id,
+		    'interface' => $a_filter[$id]['interface'] ?? $if);
+	}
 	if (isset($id)) {
 		$pconfig = getFilterRule($id);
 		/* Allow the FloatingRules to work */
@@ -1444,7 +1448,7 @@ function applyFilterRules() {
 /* Delete one rule ($id) from rules tab $if. Returns false when there is no such rule. */
 function deleteFilterRule($id, $if) {
 	$rule = is_numericint($id) ? config_get_path("filter/rule/{$id}") : null;
-	if (!isset($rule)) {
+	if (!isset($rule) || fleet_auto_entry($rule)) {
 		return false;
 	}
 	remove_filter_rules($id, $if);
@@ -1457,6 +1461,7 @@ function deleteFilterRule($id, $if) {
 
 /* Delete several rules (indexes) from rules tab $if. */
 function deleteFilterRules(array $ids, $if) {
+	$ids = fleet_auto_unlocked($ids, config_get_path('filter/rule', []));
 	$changes = [];
 	remove_filter_rules($ids, $if, true, $changes);
 	if (isset($changes['filter_rules']) && write_config(gettext("Firewall: Rules - deleted selected firewall rules."))) {
@@ -1466,7 +1471,7 @@ function deleteFilterRules(array $ids, $if) {
 
 /* Enable or disable one rule. Returns "enabled", "disabled", or false when there is no such rule. */
 function toggleFilterRule($id) {
-	if (!config_get_path("filter/rule/{$id}")) {
+	if (!config_get_path("filter/rule/{$id}") || fleet_auto_entry(config_get_path("filter/rule/{$id}"))) {
 		return false;
 	}
 	if (config_path_enabled("filter/rule/{$id}", 'disabled')) {
@@ -1486,7 +1491,7 @@ function toggleFilterRule($id) {
 
 /* Enable or disable several rules (each one flips). */
 function toggleFilterRules(array $ids) {
-	foreach ($ids as $rulei) {
+	foreach (fleet_auto_unlocked($ids, config_get_path('filter/rule', [])) as $rulei) {
 		if (config_path_enabled("filter/rule/{$rulei}", 'disabled')) {
 			config_del_path("filter/rule/{$rulei}/disabled");
 		} else {

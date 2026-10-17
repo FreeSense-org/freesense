@@ -206,7 +206,7 @@ if (isset($_POST['del_x'])) {
 	 * upstream issue 13507 */
 	$tracker = (int)microtime(true);
 	$new_rules = [];
-	foreach ($_POST['rule'] as $rulei) {
+	foreach (fleet_auto_unlocked($_POST['rule'], config_get_path('filter/rule', [])) as $rulei) {
 		$filterent = config_get_path("filter/rule/{$rulei}");
 		$filterent['tracker'] = $tracker++;
 		$filterent['interface'] = $_POST['dstif'];
@@ -500,9 +500,11 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 			display_separator($separators, $nrules, $columns_in_table);
 		}
 ?>
-					<tr id="fr<?=$nrules;?>" <?=(isset($filterent['disabled']) ? ' class="disabled"' : '')?>>
+<?php $fleet_locked = fleet_auto_entry($filterent); ?>
+					<tr id="fr<?=$nrules;?>"<?=$fleet_locked ? ' data-fs-locked' : ''?> class="<?=isset($filterent['disabled']) ? 'disabled' : ''?><?=$fleet_locked ? ' fs-locked' : ''?>">
 						<td>
-							<input type="checkbox" id="frc<?=$nrules;?>" name="rule[]" value="<?=$filteri;?>"/>
+<?php /* A Fleet rule keeps its place when the order is stored, but it is never selected for changes. */ ?>
+							<input type="checkbox" id="frc<?=$nrules;?>" name="rule[]" value="<?=$filteri;?>"<?=$fleet_locked ? ' class="visually-hidden" tabindex="-1" aria-hidden="true"' : ''?>/>
 						</td>
 
 	<?php
@@ -909,9 +911,18 @@ foreach (get_filter_rules_list() as $filteri => $filterent):
 							<?=$schedule_span_begin;?><?=str_replace('_', '_<wbr>', htmlspecialchars($filterent['sched']));?>&nbsp;<?=$schedule_span_end;?>
 						</td>
 						<td>
-							<?=htmlspecialchars($filterent['descr']);?>
+							<?php if ($fleet_locked): ?><i class="fa-solid fa-lock fs-muted" aria-hidden="true"></i> <?php endif; ?><?=htmlspecialchars($filterent['descr']);?>
 						</td>
 						<td class="action-icons fs-col-actions">
+<?php if ($fleet_locked): ?>
+							<a href="/fleet/fleet.php?tab=settings" class="fs-locked-link" title="<?=gettext(FLEET_AUTO_LOCKED_TEXT)?>" aria-label="<?=gettext(FLEET_AUTO_LOCKED_TEXT)?>"><i class="fa-solid fa-lock" aria-hidden="true"></i></a>
+						</td>
+					</tr>
+<?php
+		$nrules++;
+		continue;
+	endif;
+?>
 						<!-- <?=(isset($filterent['disabled']) ? 'enable' : 'disable')?> -->
 							<a	class="fa-solid fa-anchor icon-pointer" id="Xmove_<?=$filteri?>" title="<?=$XmoveTitle?>"></a>
 <?php
@@ -1124,6 +1135,7 @@ events.push(function() {
 	$('table tbody.user-entries').hide();
 
 	$('table tbody.user-entries').sortable({
+		items: '> tr:not([data-fs-locked])',
 		cursor: 'grabbing',
 		scroll: true,
 		overflow: 'scroll',

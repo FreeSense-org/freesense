@@ -857,3 +857,29 @@ a.fs-toast-text:hover { text-decoration: underline; }
 	content: "\2713"; position: absolute; inset-inline-start: .75rem; color: var(--fs-coral);
 }
 .fs-multiselect-empty { padding: .4rem .8rem; font-size: .85rem; color: var(--bs-secondary-color); }
+
+/* ============================ Fleet: Add to fleet guide (system_fleet.php) ============================ */
+.fs-fleet-guide-head { display: flex; gap: var(--fs-sp-3); align-items: flex-start; margin-bottom: var(--fs-sp-4); }
+.fs-fleet-guide-head > i { font-size: var(--fs-fs-xl); color: var(--fs-coral); margin-top: .2rem; }
+.fs-fleet-guide-head h2 { margin: 0 0 var(--fs-sp-1); font-size: var(--fs-fs-lg); }
+.fs-fleet-guide-head p { margin: 0; max-width: 46rem; color: var(--fs-text-muted); }
+.fs-fleet-guide .fs-viewswitch { margin-bottom: var(--fs-sp-3); }
+.fs-fleet-subhead { margin: 0 0 var(--fs-sp-2); font-size: var(--fs-fs-md); }
+.fs-fleet-checks { display: grid; grid-template-columns: max-content 1fr; gap: var(--fs-sp-2) var(--fs-sp-4); margin: 0; }
+.fs-fleet-checks dt { color: var(--fs-text-muted); font-weight: 500; }
+.fs-fleet-checks dd { margin: 0; }
+.fs-fleet-steps { list-style: none; margin: 0 0 var(--fs-sp-3); padding: 0; display: grid; gap: var(--fs-sp-2); }
+.fs-fleet-step { display: flex; gap: var(--fs-sp-2); align-items: center; color: var(--fs-text-muted); }
+.fs-fleet-step > i { width: 1.1em; text-align: center; }
+.fs-fleet-step-done { color: inherit; }
+.fs-fleet-step-done > i { color: var(--fs-pass); }
+.fs-fleet-step-running, .fs-fleet-step-wait { color: inherit; font-weight: 600; }
+.fs-fleet-step-fail { color: var(--fs-block); font-weight: 600; }
+.fs-fleet-code { margin: var(--fs-sp-4) 0; padding: var(--fs-sp-4); border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); text-align: center; }
+.fs-fleet-code p { margin: 0 0 var(--fs-sp-2); }
+.fs-fleet-code-digits { display: block; font-family: var(--fs-font-mono); font-size: 2.5rem; font-weight: 700; letter-spacing: .15em; }
+@media (max-width: 575px) { .fs-fleet-checks { grid-template-columns: 1fr; } .fs-fleet-code-digits { font-size: 2rem; } }
+
+/* Rules and port forwards FreeSense Fleet manages: shown, not changed here (like the anti-lockout rule). */
+tr.fs-locked > td { background: var(--fs-accent-tint); }
+.fs-locked-link { color: var(--fs-text-muted); }

@@ -265,6 +265,13 @@ function restapi_index_param($value, array $list, $what) {
 	return (int)$value;
 }
 
+/* A rule or port forward FreeSense Fleet manages is never changed through the API (409). */
+function restapi_not_fleet_auto($entry) {
+	if (fleet_auto_entry($entry)) {
+		throw new RestApiError(409, 'fleet_managed', FLEET_AUTO_LOCKED_TEXT);
+	}
+}
+
 /* The body as a flat post array (scalars and lists only, like a form). */
 function restapi_body_as_post(array $body) {
 	$post = array();
@@ -591,6 +598,7 @@ function restapi_h_natpf_order($req) {
 
 function restapi_h_natpf_toggle($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_natpf_rules(), 'port forward');
+	restapi_not_fleet_auto(config_get_path("nat/rule/{$id}"));
 	$action = toggleNATrule(array('id' => $id), true);
 	mark_subsystem_dirty('natconf');
 	mark_subsystem_dirty('filter');
@@ -600,6 +608,7 @@ function restapi_h_natpf_toggle($req) {
 
 function restapi_h_natpf_delete($req) {
 	$id = restapi_index_param($req['params']['id'], restapi_natpf_rules(), 'port forward');
+	restapi_not_fleet_auto(config_get_path("nat/rule/{$id}"));
 	deleteNATrule(array('id' => $id), true);
 	return array('data' => array('deleted' => $id));
 }
@@ -1110,6 +1119,7 @@ function restapi_h_rule_create($req) {
 function restapi_h_rule_update($req) {
 	$rules = restapi_rules();
 	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
+	restapi_not_fleet_auto($rules[$id]);
 	$post = restapi_body_over($req['body'], filter_rule_form_fields(getFilterRule($id)));
 	unset($post['after']);
 	restapi_rule_interfaces_check($post);
@@ -1119,6 +1129,7 @@ function restapi_h_rule_update($req) {
 function restapi_h_rule_toggle($req) {
 	$rules = restapi_rules();
 	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
+	restapi_not_fleet_auto($rules[$id]);
 	$state = toggleFilterRule($id);
 	$extra = restapi_want_apply($req) ? array('apply' => restapi_fw_apply(array('filter'))) : array();
 	return array('data' => array('id' => $id, 'state' => $state, 'pending' => restapi_fw_pending_list()) + $extra);
@@ -1127,6 +1138,7 @@ function restapi_h_rule_toggle($req) {
 function restapi_h_rule_delete($req) {
 	$rules = restapi_rules();
 	$id = restapi_index_param($req['params']['id'], $rules, 'filter rule');
+	restapi_not_fleet_auto($rules[$id]);
 	deleteFilterRule($id, filter_rule_tab($rules[$id]));
 	$extra = restapi_want_apply($req) ? array('apply' => restapi_fw_apply(array('filter'))) : array();
 	return array('data' => array('deleted' => $id, 'pending' => restapi_fw_pending_list()) + $extra);

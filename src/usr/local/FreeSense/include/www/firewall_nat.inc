@@ -218,6 +218,9 @@ function saveNATrule($post, $id, $json = false, $all_ifaces = false) {
 	$a_nat = get_anynat_rules_list('rdr');
 
 	$input_errors = array();
+	if (is_numericint($id) && fleet_auto_entry(config_get_path("nat/rule/{$id}"))) {
+		return array('input_errors' => array(gettext(FLEET_AUTO_LOCKED_TEXT)), 'pconfig' => $post);
+	}
 
 	if (isset($post['after'])) {
 		$after = $post['after'];
@@ -774,6 +777,14 @@ function toggleNATrule($post, $json = false) {
 	if (!(is_array($post['rule']) && count($post['rule']))) {
 		$post['rule'] = [ $post['id'] ];
 	}
+	$post['rule'] = fleet_auto_unlocked($post['rule'], config_get_path('nat/rule', []));
+	if (empty($post['rule'])) {
+		if (!$json) {
+			header("Location: firewall_nat.php");
+			exit;
+		}
+		return false;
+	}
 
 	$changes = [];
 	foreach ($post['rule'] as $rulei) {
@@ -824,6 +835,7 @@ function deleteNATrule($post, $json = false) {
 	if (!(is_array($post['rule']) && count($post['rule']))) {
 		$post['rule'] = array( $post['id'] => $post['id'] );
 	}
+	$post['rule'] = fleet_auto_unlocked(array_values($post['rule']), config_get_path('nat/rule', []));
 
 	$changes = [];
 	remove_rdr_rules($post['rule'], $changes);

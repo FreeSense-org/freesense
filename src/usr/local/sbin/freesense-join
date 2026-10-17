@@ -70,9 +70,7 @@ function ask($prompt, $secret = false) {
 
 /* The steps as they happen, in plain words. */
 function progress($name, $state, $text) {
-	static $labels = array('connect' => 'Connecting to the controller', 'verify' => 'Checking the controller\'s certificate',
-	    'prove' => 'Proving the join key', 'approval' => 'Waiting for approval', 'tunnel' => 'Setting up the tunnel',
-	    'heartbeat' => 'First heartbeat');
+	$labels = FLEET_JOIN_GUIDE_STEPS;
 	fleet_progress_write($name, $state, $text);
 	if ($name === 'fail') {
 		fwrite(STDERR, "FAILED  {$text}\n");
@@ -112,7 +110,7 @@ function do_webjob() {
 		});
 		fleet_progress_write('done', 'done', '');
 	} catch (FleetJoinError $e) {
-		/* fleet_join_run() and fleet_join() wrote the failing step already. */
+		/* The join wrote its failing step already. */
 		$steps = @json_decode((string)@file_get_contents(FLEET_PROGRESS_FILE), true);
 		if (!isset($steps['fail'])) {
 			fleet_progress_write('fail', 'fail', $e->fleet_code . ': ' . $e->getMessage());

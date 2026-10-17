@@ -6590,3 +6590,24 @@ function remove_filter_rules(int|array $search_index, string $filter_interface =
 }
 
 ?>
+
+/*
+ * Rules and NAT port forwards that FreeSense Fleet manages carry
+ * <fleet_auto>1</fleet_auto>: Fleet creates them from Fleet > Settings and
+ * removes them again. The WebUI and the REST API show them locked and never
+ * edit, toggle or delete them.
+ */
+define('FLEET_AUTO_LOCKED_TEXT', 'Managed by Fleet - change it in Fleet > Settings.');
+
+/* pure: an entry Fleet manages. */
+function fleet_auto_entry($entry): bool {
+	return is_array($entry) && !empty($entry['fleet_auto']);
+}
+
+/* pure: the indexes in $ids that are not Fleet's; $entries: index => entry (filter/rule or nat/rule). */
+function fleet_auto_unlocked(array $ids, array $entries): array {
+	return array_values(array_filter($ids, function ($i) use ($entries) {
+		return !fleet_auto_entry($entries[$i] ?? null);
+	}));
+}
+

@@ -55,6 +55,18 @@ if (isset($_POST['closenotice'])) {
 	exit;
 }
 
+/* "Add to fleet" hint dismissed: remembered for this user (in the session for users without a local account). */
+if (($_POST['fleet_hint'] ?? '') === 'dismiss') {
+	$_SESSION['fleet_hint_dismissed'] = true;
+	$fleet_user = getUserEntry($_SESSION['Username'] ?? '');
+	if (isset($fleet_user['idx'])) {
+		config_set_path("system/user/{$fleet_user['idx']}/fleet_hint_dismissed", '');
+		write_config(sprintf(gettext('Dashboard: the Add to fleet hint was dismissed by %s.'), $_SESSION['Username']));
+	}
+	header('Location: /index.php');
+	exit;
+}
+
 if (isset($_REQUEST['closenotice'])) {
 	close_notice($_REQUEST['closenotice']);
 	sleep(1);
@@ -332,6 +344,16 @@ include("head.inc");
 
 if ($savemsg) {
 	print_info_box($savemsg, $class);
+}
+
+/* A firewall in no fleet: point once to System > Central Management > Add to fleet. */
+$fleet_user = getUserEntry($_SESSION['Username'] ?? '');
+if ((config_get_path('fleet/node_id', '') === '') && isAllowedPage('system_fleet.php') && empty($_SESSION['fleet_hint_dismissed']) &&
+    !isset($fleet_user['item']['fleet_hint_dismissed'])) {
+	print_callout('<p>' . htmlspecialchars(gettext('A FreeSense Fleet controller can monitor, back up and update this firewall together with others. Paste an invitation from the controller and the guide does the rest.')) .
+	    '</p><form method="post" class="d-flex flex-wrap gap-2"><a class="btn btn-sm btn-primary" href="/system_fleet.php"><i class="fa-solid fa-network-wired icon-embed-btn" aria-hidden="true"></i>' .
+	    htmlspecialchars(gettext('Add to fleet')) . '</a><button class="btn btn-sm btn-outline-secondary" type="submit" name="fleet_hint" value="dismiss">' .
+	    htmlspecialchars(gettext('Not now')) . '</button></form>', 'info', gettext('Not in a fleet'));
 }
 
 FreeSense_handle_custom_code("/usr/local/pkg/dashboard/pre_dashboard");
