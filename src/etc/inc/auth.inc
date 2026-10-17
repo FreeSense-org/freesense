@@ -458,20 +458,28 @@ function local_backed($username, $passwd) {
 		}
 	}
 
-	// FreeSense < 2.3 password hashing, see upstream issue 4120
-	if ($user['password']) {
-		if (hash_equals($user['password'], crypt($passwd, $user['password']))) {
-			return true;
-		}
-	}
-
-	if ($user['md5-hash']) {
-		if (hash_equals($user['md5-hash'], md5($passwd))) {
-			return true;
-		}
+	/*
+	 * Legacy hashes: FreeSense < 2.3 crypt() (upstream issue 4120) and
+	 * unsalted MD5. A successful login replaces them with the current hash.
+	 */
+	if (($user['password'] && hash_equals($user['password'], crypt($passwd, $user['password']))) ||
+	    ($user['md5-hash'] && hash_equals($user['md5-hash'], md5($passwd)))) {
+		local_user_upgrade_legacy_hash($username, $passwd);
+		return true;
 	}
 
 	return false;
+}
+
+/* Store a legacy-hashed user's password with the current algorithm (bcrypt by default). */
+function local_user_upgrade_legacy_hash(string $username, string $passwd): void {
+	$entry = getUserEntry($username);
+	if (!isset($entry['idx']) || !is_array($entry['item'])) {
+		return;
+	}
+	local_user_set_password($entry, $passwd);
+	local_user_set($entry['item']);
+	write_config(sprintf(gettext('Replaced the legacy password hash of user %s.'), $username));
 }
 
 function local_sync_accounts($u2add, $u2del, $g2add, $g2del) {
