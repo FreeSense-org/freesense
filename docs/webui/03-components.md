@@ -336,6 +336,51 @@ fs_modal_form_begin('sysctl-edit', gettext('Add tunable'), '', [], $input_errors
 When adding or editing has its own privilege (e.g. `services_wol_edit.php`), render the modal and
 accept its POST only when `isAllowedPage()` allows that page.
 
+## Step-by-step guide
+
+Every guide or wizard is step by step: a numbered stepper, **one step at a time**, Back and Next, plain
+help per step (a one-line lead), a **review** step before anything changes, and a finish. A manual or
+advanced path stays available next to it (a view switch). Short guides (2–4 steps, nothing running in
+the background) live in a **modal**; guides that check things on the server between steps or start
+work in the background are a **page**.
+
+A guide in one form (often a modal) wraps its steps; `freesense-ui.js` shows one step, adds Back and
+Next (in a modal: in the footer), checks the step's own fields before Next (`required`, `pattern` …),
+moves Enter to Next, lets a done step in the stepper be clicked to go back, and shows the submit button
+only on the last step:
+
+```php
+fs_modal_form_begin('pair-add', gettext('Pair two firewalls'));
+fs_steps_begin(['pick' => gettext('Firewalls'), 'addr' => gettext('Shared address'), 'review' => gettext('Review')]);
+fs_step_begin('pick', gettext('Choose the primary and the secondary.'));
+	/* fields */
+fs_step_end();
+fs_step_begin('addr');
+	/* fields */
+fs_step_end();
+fs_step_begin('review', gettext('Nothing changes until you select Pair.'));
+	/* a <dl class="fs-review"> of what will happen */
+fs_step_end();
+fs_steps_end();
+fs_modal_form_end(gettext('Pair'), 'action', 'pair', 'fa-clone');
+```
+
+On a page, mark the guide's own submit button `data-fs-step-submit`. `fs_steps_begin($steps, $start)`
+starts at another step, e.g. the review after a failed save (the modal reopens there). A step that
+needs its own check before Next listens for the cancelable `fs:step-next` event (`detail.step` is the
+step's key) and calls `preventDefault()`.
+
+A guide that posts between steps draws only the header with
+`fs_stepper($steps, $current, $skipped, $label)` and renders the current step as one panel whose
+footer (`class="panel-footer fs-step-nav"`) has Back (`formnovalidate`, it never checks) and Next
+buttons. Steps in `$skipped` show as "not needed" (e.g. a key the invitation already brought).
+Example: System > Central Management > Add to fleet (`system_fleet.php`).
+
+The review is a `<dl class="fs-review">` (label, value) plus, where useful, an ordered list of what
+will happen. The stepper is an `<ol>` with `aria-current="step"`; each item has a hidden status
+("done", "current step", "to do", "not needed") for screen readers. On small screens only the
+current step's name shows next to the numbers.
+
 ## Empty state
 
 `fs_empty_row(int $colspan, string $message, ?string $add_href = null, ?string $add_label = null)` renders a centered

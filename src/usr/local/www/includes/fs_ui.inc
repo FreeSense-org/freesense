@@ -599,6 +599,82 @@ function fs_modal_form_end($submit_label, $submit_name = '', $submit_value = '',
 	    . '</div></form></div></div></div>';
 }
 
+/* --------------------------------------------------------- step-by-step guides */
+
+/*
+ * Every guide is step by step: a numbered stepper, one step at a time, Back
+ * and Next, a review before anything changes, and a finish.
+ *
+ * A guide that posts between steps (it checks something on the server, or
+ * starts work in the background) draws the header with fs_stepper() and
+ * shows only the current step.
+ *
+ * A guide that lives in one form (often a modal) wraps its steps:
+ *
+ *   fs_steps_begin(['pick' => gettext('Firewalls'), 'review' => gettext('Review')]);
+ *   fs_step_begin('pick', gettext('Choose the two firewalls.')); ... fs_step_end();
+ *   fs_step_begin('review'); ... fs_step_end();
+ *   fs_steps_end();
+ *
+ * freesense-ui.js then shows one step, adds Back and Next, checks the step's
+ * fields before Next, and shows the submit buttons (those marked
+ * data-fs-step-submit, or a modal's footer button) on the last step only.
+ */
+
+/*
+ * The stepper: $steps is key => label, $current the step shown. Steps before
+ * it are done; keys in $skipped are shown as skipped (e.g. the join key when
+ * the invitation brought it).
+ */
+function fs_stepper(array $steps, $current, array $skipped = [], $label = null) {
+	$keys = array_keys($steps);
+	$at = array_search($current, $keys, true);
+	echo '<ol class="fs-stepper" aria-label="' . fs_h($label ?? gettext('Steps')) . '">';
+	$n = 0;
+	foreach ($steps as $key => $text) {
+		$i = array_search($key, $keys, true);
+		$state = in_array($key, $skipped, true) ? 'skipped' : (($i < $at) ? 'done' : (($i === $at) ? 'current' : 'todo'));
+		$n++;
+		$status = ['done' => gettext('done'), 'current' => gettext('current step'), 'todo' => gettext('to do'), 'skipped' => gettext('not needed')][$state];
+		echo '<li class="fs-step is-' . $state . '" data-step="' . fs_h($key) . '"' . (($state === 'current') ? ' aria-current="step"' : '') . '>'
+		    . '<span class="fs-step-num" aria-hidden="true">' . (($state === 'done') ? '<i class="fa-solid fa-check"></i>' : $n) . '</span>'
+		    . '<span class="fs-step-label">' . fs_h($text) . '</span>'
+		    . '<span class="visually-hidden" data-step-status> (' . fs_h($status) . ')</span></li>';
+	}
+	echo '</ol>';
+}
+
+/* A guide in one form: $start is the step shown first (default the first; e.g. the review after a failed save). */
+function fs_steps_begin(array $steps, $start = null, $label = null) {
+	$GLOBALS['fs_steps_open'] = $steps;
+	$start = $start ?? array_key_first($steps);
+	echo '<div class="fs-steps" data-fs-steps data-fs-steps-start="' . fs_h($start) . '" data-strings="'
+	    . fs_h(json_encode(['back' => gettext('Back'), 'next' => gettext('Next'), 'done' => gettext('done'), 'current' => gettext('current step'),
+	    'todo' => gettext('to do'), 'skipped' => gettext('not needed')])) . '">';
+	fs_stepper($steps, $start, [], $label);
+}
+
+/* One step: its numbered title and an optional lead (plain text). */
+function fs_step_begin($key, $lead = '') {
+	$steps = $GLOBALS['fs_steps_open'] ?? [];
+	$n = array_search($key, array_keys($steps), true);
+	echo '<section class="fs-step-panel" data-fs-step="' . fs_h($key) . '" aria-labelledby="fs-step-' . fs_h($key) . '">'
+	    . '<h3 class="fs-step-title" id="fs-step-' . fs_h($key) . '" tabindex="-1">' . fs_h((($n === false) ? '' : ($n + 1) . '. ') . ($steps[$key] ?? '')) . '</h3>';
+	if ($lead !== '') {
+		echo '<p class="fs-step-lead">' . fs_h($lead) . '</p>';
+	}
+}
+
+function fs_step_end() {
+	echo '</section>';
+}
+
+/* Back and Next go here (a modal puts them in its footer instead). */
+function fs_steps_end() {
+	unset($GLOBALS['fs_steps_open']);
+	echo '<div class="fs-step-nav" data-fs-step-nav></div></div>';
+}
+
 /* ----------------------------------------------------------------- empty state */
 
 function fs_empty_row($colspan, $message, $add_href = null, $add_label = null) {

@@ -89,6 +89,7 @@ jobs:
               StatusMetricsSmokeTest \
               RestApiLogCursorSmokeTest \
               WebUiPrefsSmokeTest \
+              WebUiStepperSmokeTest \
               RestApiSchemaSmokeTest \
               RestApiInterfacesConfigSmokeTest \
               RestApiUpdateCenterSmokeTest \

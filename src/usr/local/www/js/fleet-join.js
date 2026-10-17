@@ -55,11 +55,41 @@
 		});
 	}
 
+	/* The guide's stepper (fs_stepper): Join while working, Approve while the code waits, then Done. */
+	var stepper = document.querySelector('.fs-stepper');
+	function stepTo(key) {
+		if (!stepper) {
+			return;
+		}
+		var items = stepper.querySelectorAll('[data-step]');
+		var seen = false;
+		Array.prototype.forEach.call(items, function (li, j) {
+			var k = li.getAttribute('data-step');
+			var state = (key === 'done') ? 'done' : ((k === key) ? 'current' : (seen ? 'todo' : (li.classList.contains('is-skipped') ? 'skipped' : 'done')));
+			if (k === key) {
+				seen = true;
+			}
+			li.className = 'fs-step is-' + state;
+			if (state === 'current') {
+				li.setAttribute('aria-current', 'step');
+			} else {
+				li.removeAttribute('aria-current');
+			}
+			var num = li.querySelector('.fs-step-num');
+			num.innerHTML = (state === 'done') ? '<i class="fa-solid fa-check"></i>' : String(j + 1);
+			var st = li.querySelector('[data-step-status]');
+			if (st) {
+				st.textContent = ' (' + (T['step_' + state] || state) + ')';
+			}
+		});
+	}
+
 	function poll() {
 		fetch(root.getAttribute('data-poll'), { credentials: 'same-origin', cache: 'no-store' })
 		    .then(function (r) { return r.json(); })
 		    .then(function (d) {
 			steps(d.steps || []);
+			stepTo((d.state === 'done' || d.enrolled) ? 'done' : ((d.state === 'waiting') ? 'code' : 'join'));
 			q('say').textContent = (d.state === 'running') ? (d.say || '') : '';
 			var code = q('code');
 			code.hidden = (d.state !== 'waiting');
