@@ -64,10 +64,19 @@ check($p['host'] === 'hq.example.net' && $p['port'] === 8443 && $p['token_id'] =
 check(fleet_join_link_parse(fleet_join_link_build('[fd12:3456:789a:f1::1]:8443', 'a1b2c3d4e5f6', $secret, $cert))['host'] === 'fd12:3456:789a:f1::1',
     'an IPv6 controller');
 check(fleet_join_link_parse(fleet_join_link_build('10.0.0.5', 'a1b2c3d4e5f6', $secret, $cert))['port'] === 443, 'the default port');
-$frag = '#a1b2c3d4e5f6.' . $secret . '.' . $cert;
+check(($p['mode'] === 'tunnel') && ($p['ts_sealed'] === '') && (substr($link, -2) === '.t'), 'a link says how the box connects (tunnel by default)');
+check(fleet_join_link_parse(fleet_join_link_build('hq:8443', 'a1b2c3d4e5f6', $secret, $cert, 'd'))['mode'] === 'direct', 'direct');
+$sealed_ts = fleet_seal_with_key('tskey-auth-kTEST123CNTRL-abcdefghijkl', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS');
+$ts = fleet_join_link_parse(fleet_join_link_build('100.64.0.1:8443', 'a1b2c3d4e5f6', $secret, $cert, 's', $sealed_ts));
+check(($ts['mode'] === 'tailscale') && ($ts['ts_sealed'] === $sealed_ts) && ($ts['host'] === '100.64.0.1'), 'a Tailscale link carries the sealed key');
+check(fleet_join_link_parse(fleet_join_link_build('100.64.0.1:8443', 'a1b2c3d4e5f6', $secret, $cert, 's'))['ts_sealed'] === '',
+    'a Tailscale link without a key (the box is already in the tailnet)');
+$frag = '#a1b2c3d4e5f6.' . $secret . '.' . $cert . '.t';
 foreach (array('http://hq/fleet/join' . $frag, 'https://hq/fleet/join', 'https://hq/other' . $frag,
-    'https://hq/fleet/join#short.' . $secret . '.' . $cert, 'https://hq:99999/fleet/join' . $frag,
-    'https://u@hq/fleet/join' . $frag, 'https://hq/fleet/join#a1b2c3d4e5f6.' . $secret . '.xyz') as $bad) {
+    'https://hq/fleet/join#short.' . $secret . '.' . $cert . '.t', 'https://hq:99999/fleet/join' . $frag,
+    'https://u@hq/fleet/join' . $frag, 'https://hq/fleet/join#a1b2c3d4e5f6.' . $secret . '.xyz.t',
+    'https://hq/fleet/join#a1b2c3d4e5f6.' . $secret . '.' . $cert, 'https://hq/fleet/join#a1b2c3d4e5f6.' . $secret . '.' . $cert . '.x',
+    'https://hq/fleet/join#a1b2c3d4e5f6.' . $secret . '.' . $cert . '.t.' . $sealed_ts) as $bad) {
 	check(join_error_of(function () use ($bad) { fleet_join_link_parse($bad); }) === 'E102', "refused link: {$bad}");
 }
 
@@ -285,5 +294,27 @@ $undone = array();
 check(join_error_of(function () use ($parsed, $data, $c, &$events, &$undone) { run_join($parsed, $data, $c, $events, $undone); }) === 'E105',
     'an invalid node id is E105');
 check($undone === array('access'), 'and the access is removed');
+
+/* ---- sealing (the controller seals the same bytes; vector) ---- */
+check(fleet_seal_with_key('tskey-auth-kTEST123CNTRL-abcdefghijkl', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS', str_repeat("\x01", 16), str_repeat("\x02", 12)) ===
+    'AQEBAQEBAQEBAQEBAQEBAQICAgICAgICAgICAr-g3Ds2_eN0xsrUOeQK-xhC8-p2a0RcH6tbYPWvCDHj_MYKyrKrIjAvXCn_lO4kwTiP64jI',
+    'seal vector: base64url(salt || nonce || tag || AES-256-GCM data), PBKDF2-SHA256 200000 of the key data');
+check(fleet_unseal_with_key($sealed_ts, 'flt k7q2 m9xh 4t1r z8vb 3ncs') === 'tskey-auth-kTEST123CNTRL-abcdefghijkl', 'the join key (as typed) opens it');
+check(fleet_unseal_with_key($sealed_ts, 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCT') === null && fleet_unseal_with_key($sealed_ts, 'K7Q2M9XH4T1RZ8VB3ND') === null &&
+    fleet_unseal_with_key(substr($sealed_ts, 0, -2) . 'AA', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS') === null && fleet_unseal_with_key('!!', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS') === null,
+    'a wrong key or damaged data opens nothing');
+check(fleet_seal_with_key('x', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS') !== fleet_seal_with_key('x', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS'), 'every seal is salted');
+check(join_error_of(function () { fleet_seal_with_key('x', 'nope'); }) === 'E103', 'sealing needs a valid key');
+
+/* ---- the invitation text (one paste) ---- */
+$plink = fleet_join_link_build('hq.example.net:8443', 'a1b2c3d4e5f6', $secret, $cert, 's', $sealed_ts);
+$pt = fleet_join_paste_parse(fleet_join_paste_text($plink, 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS'));
+check(($pt['link_text'] === $plink) && ($pt['key'] === $data) && ($pt['link']['mode'] === 'tailscale'), 'the invitation text gives link and key');
+$messy = "  Key:   flt-k7q2-m9xh-4t1r-z8vb-3ncs\r\n\r\nsome words\n  " . $plink . "  \n";
+check(fleet_join_paste_parse($messy)['key'] === $data, 'any order, case and whitespace');
+check(fleet_join_paste_parse($plink)['key'] === null && fleet_join_paste_parse("Join here: {$plink}")['link_text'] === $plink, 'a bare link (the key is typed)');
+check(fleet_join_paste_parse("{$plink}\nK7Q2M9XH4T1RZ8VB3NCS")['key'] === null, 'a key without FLT or Key: is not guessed');
+check(join_error_of(function () { fleet_join_paste_parse('hello'); }) === 'E102', 'no link: E102');
+check(join_error_of(function () use ($plink) { fleet_join_paste_parse("{$plink}\nKey: FLT-K7Q2-M9XH-4T1R-Z8VB-3NCT"); }) === 'E103', 'a wrong key in the text: E103');
 
 echo "FleetJoinSmokeTest: OK\n";

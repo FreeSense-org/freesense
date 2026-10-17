@@ -899,19 +899,97 @@ function fleet_join_io(array $link): array {
 	);
 }
 
+/* The WebUI's join request: link text and key, read and deleted by the background job (never on a command line). */
+define('FLEET_JOIN_REQUEST_FILE', '/var/run/fleet-join-request.json');
+
 /*
- * Join with a link and the key as typed. Refuses a box that is already
- * managed (E109). Returns the membership; throws FleetJoinError.
+ * Join with a link (or the controller's invitation text) and the key as
+ * typed: Tailscale first when the link says so (installed and logged in
+ * with the one-time key the link carries, or a seed's), then the
+ * handshake. $seed / $secret: a join seed and its PIN. $say: progress in
+ * words; $step: each handshake step (fleet_progress_write by default).
+ * Refuses a box that is already managed (E109). Returns the membership;
+ * throws FleetJoinError and leaves nothing half done.
  */
-function fleet_join(string $link_text, string $key_typed): array {
+function fleet_join(string $text, string $key_typed, ?array $seed = null, string $secret = '', ?callable $say = null, ?callable $step = null): array {
+	require_once('fleet_seed.inc');
+	$say = $say ?? function ($t) { };
 	if (fleet_node_membership()['enrolled']) {
 		throw new FleetJoinError('E109', 'This firewall is already managed. Leave its fleet first.');
 	}
-	$link = fleet_join_link_parse($link_text);
-	$key = fleet_join_key_normalize($key_typed);
+	$paste = fleet_join_paste_parse($text);
+	$link = $paste['link'];
+	$key = ($key_typed !== '') ? fleet_join_key_normalize($key_typed) : $paste['key'];
 	if ($key === null) {
 		throw new FleetJoinError('E103', 'The join key is not valid. Check it for typing mistakes.');
 	}
 	@unlink(FLEET_PROGRESS_FILE);
-	return fleet_join_run($link, $key, fleet_join_io($link));
+	$ts_key = null;
+	if (($seed !== null) && isset($seed['tailscale'])) {
+		$ts_key = fleet_seed_tailscale_key($seed, ($seed['mode'] === 'attended') ? $key : $secret);
+		if ($ts_key === null) {
+			throw new FleetJoinError('E131', 'The seed\'s Tailscale key could not be opened.');
+		}
+	} elseif ($link['ts_sealed'] !== '') {
+		$ts_key = fleet_unseal_with_key($link['ts_sealed'], $key);
+		if (($ts_key === null) || !fleet_seed_tailscale_key_valid($ts_key)) {
+			throw new FleetJoinError('E131', 'The Tailscale key in the link could not be opened with this join key.');
+		}
+	}
+	if ($link['mode'] === 'tailscale') {
+		fleet_progress_write('tailscale', 'start', '');
+		try {
+			if ($ts_key !== null) {
+				$ip = fleet_tailscale_up($ts_key, $say);
+			} else {
+				exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
+				$ip = (($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) ? trim($out[0]) : '';
+				if ($ip === '') {
+					throw new FleetJoinError('E133', 'The link joins over Tailscale, but this firewall is not in a tailnet and the link carries no Tailscale key. Ask for an invitation over Tailscale with a key, or log Tailscale in first.');
+				}
+			}
+		} catch (FleetJoinError $e) {
+			fleet_progress_write('tailscale', 'fail', $e->fleet_code . ': ' . $e->getMessage());
+			fleet_progress_write('fail', 'fail', $e->fleet_code . ': ' . $e->getMessage());
+			throw $e;
+		}
+		fleet_progress_write('tailscale', 'done', $ip);
+		$say("In the tailnet as {$ip}");
+	}
+	$say('Checking the controller');
+	try {
+		fleet_join_probe($link);
+	} catch (FleetJoinError $e) {
+		fleet_progress_write('fail', 'fail', $e->fleet_code . ': ' . $e->getMessage());
+		throw $e;
+	}
+	$io = fleet_join_io($link);
+	if ($step !== null) {
+		$io['step'] = $step;
+	}
+	$m = fleet_join_run($link, $key, $io);
+	fleet_seed_clear();
+	return $m;
+}
+
+/*
+ * pure: a FleetJoinError in plain words for the guide: what happened, the
+ * likely cause and what to do. $code: E101...; returns array(title, cause).
+ */
+function fleet_join_advice(string $code): array {
+	$map = array(
+		'E101' => array('The controller is not the one in the invitation', 'Its certificate differs from the link. Someone may be in between, or the controller got a new certificate: ask for a new invitation and do not continue with this one.'),
+		'E102' => array('The invitation does not work', 'It expired, was already used, or the text was cut when copying. Ask the controller\'s administrator for a new invitation.'),
+		'E103' => array('The join key is wrong', 'Check the key for typing mistakes (O and 0, I and 1 count as the same). After several wrong keys the invitation stops working.'),
+		'E104' => array('Too many wrong keys', 'The invitation was blocked. Ask for a new one.'),
+		'E105' => array('The controller cannot be reached', 'Check this firewall\'s internet (WAN, DNS), that the controller\'s address in the link is right, and that the controller allows its join port from here (Fleet > Settings > Access).'),
+		'E108' => array('The clocks differ', 'This firewall\'s time is more than 5 minutes off. Check System > General Setup > time servers, wait for NTP, then try again.'),
+		'E109' => array('Already in a fleet', 'Leave the current fleet first.'),
+		'E110' => array('Joining failed part-way', 'Everything was undone. Try again; if it fails at the same step, the message shows why.'),
+		'E111' => array('The invitation is for another machine', 'It is bound to another cloud instance.'),
+		'E121' => array('The invitation is for another machine', 'It is bound to another serial number or MAC address.'),
+		'E131' => array('The Tailscale key could not be opened', 'The join key does not match the invitation, or the text was cut when copying.'),
+		'E133' => array('Tailscale did not come up', 'The firewall needs internet and the FreeSense package repository to install Tailscale, and HTTPS to the Tailscale control plane. The one-time key may also be used up or expired.'),
+	);
+	return $map[$code] ?? array('Joining failed', 'See the message for details.');
 }

@@ -24,8 +24,14 @@
  * proofs both sides compute, and the client that runs the handshake with
  * a rollback if any step fails.
  *
- *   link   https://<controller>:<port>/fleet/join#<token-id>.<token-secret>.<cert-sha256>
+ *   link   https://<controller>:<port>/fleet/join#<token-id>.<token-secret>.<cert-sha256>.<m>[.<ts>]
  *          (single use; the fragment never leaves the box and is the pin)
+ *          m: how the box reaches the controller - t the Fleet WireGuard tunnel,
+ *          s Tailscale, d direct (the tunnel is still built as the fallback)
+ *          ts: with s only, the one-time Tailscale auth key sealed with the
+ *          join key (fleet_seal_with_key), so link and key are all it takes
+ *   paste  "FreeSense Fleet invitation", the link and "Key: FLT-..." in one
+ *          text the controller hands out (fleet_join_paste_parse)
  *   key    FLT-XXXX-XXXX-XXXX-XXXX-XXXX (95 bits + a check character), sent by
  *          another channel, never in the link, logs or user data afterwards
  *
@@ -47,6 +53,11 @@ define('FLEET_JOIN_ALPHABET', '0123456789ABCDEFGHJKMNPQRSTVWXYZ');
 define('FLEET_JOIN_KEY_DATA_CHARS', 19);
 /* The steps both screens show, in order (the Activity Center step ids). */
 define('FLEET_JOIN_STEPS', array('connect', 'verify', 'prove', 'approval', 'tunnel', 'heartbeat'));
+/* The link's connection letter -> the method's name. */
+define('FLEET_JOIN_LINK_MODES', array('t' => 'tunnel', 's' => 'tailscale', 'd' => 'direct'));
+/* Sealing (PIN seeds, Tailscale keys): AES-256-GCM, key = PBKDF2-SHA256(secret, salt, rounds, 32 bytes). */
+define('FLEET_SEAL_ROUNDS', 200000);
+define('FLEET_SEAL_AAD', 'FreeSense-Fleet-Seed-v1');
 
 class FleetJoinError extends Exception {
 	/** @var string FLEET-E code, e.g. "E101" */
@@ -105,21 +116,123 @@ function fleet_join_valid_authority(string $authority): bool {
 	return !isset($m[4]) || (((int)$m[4] >= 1) && ((int)$m[4] <= 65535));
 }
 
-/* pure: build a join link. */
-function fleet_join_link_build(string $authority, string $token_id, string $token_secret, string $cert_sha256): string {
-	return "https://{$authority}/fleet/join#{$token_id}.{$token_secret}." . strtolower($cert_sha256);
+/* pure: build a join link; $mode t, s or d; $ts_sealed (Tailscale only) from fleet_seal_with_key(). */
+function fleet_join_link_build(string $authority, string $token_id, string $token_secret, string $cert_sha256, string $mode = 't',
+    string $ts_sealed = ''): string {
+	return "https://{$authority}/fleet/join#{$token_id}.{$token_secret}." . strtolower($cert_sha256) . ".{$mode}" .
+	    ((($mode === 's') && ($ts_sealed !== '')) ? ".{$ts_sealed}" : '');
 }
 
-/* pure: parse a join link; returns array(authority, host, port, token_id, token_secret, cert_sha256) or throws E102. */
+/*
+ * pure: parse a join link; returns array(authority, host, port, token_id,
+ * token_secret, cert_sha256, mode (tunnel|tailscale|direct), ts_sealed)
+ * or throws E102.
+ */
 function fleet_join_link_parse(string $link): array {
 	$link = trim($link);
-	if (!preg_match('~^https://([^/#?\s]+)/fleet/join#([0-9a-f]{12})\.([A-Za-z0-9_-]{43})\.([0-9a-f]{64})$~D', $link, $m) ||
-	    !fleet_join_valid_authority($m[1])) {
+	if (!preg_match('~^https://([^/#?\s]+)/fleet/join#([0-9a-f]{12})\.([A-Za-z0-9_-]{43})\.([0-9a-f]{64})\.([tsd])(?:\.([A-Za-z0-9_-]{60,800}))?$~D', $link, $m) ||
+	    !fleet_join_valid_authority($m[1]) || (isset($m[6]) && ($m[5] !== 's'))) {
 		throw new FleetJoinError('E102', 'This is not a FreeSense Fleet join link.');
 	}
 	preg_match('/^(\[[^\]]+\]|[^:]+)(?::([0-9]+))?$/D', $m[1], $a);
 	return array('authority' => $m[1], 'host' => trim($a[1], '[]'), 'port' => (int)($a[2] ?? 443),
-	    'token_id' => $m[2], 'token_secret' => $m[3], 'cert_sha256' => $m[4]);
+	    'token_id' => $m[2], 'token_secret' => $m[3], 'cert_sha256' => $m[4], 'mode' => FLEET_JOIN_LINK_MODES[$m[5]],
+	    'ts_sealed' => (string)($m[6] ?? ''));
+}
+
+/*
+ * pure: what an admin pasted - the controller's invitation text, or just a
+ * link - as array(link (parsed), link_text, key (19 data characters) or
+ * null). The key may be anywhere ("Key: FLT-..." or on its own); throws
+ * E102 without a link, E103 for a key that is there but wrong.
+ */
+function fleet_join_paste_parse(string $text): array {
+	if (!preg_match('~https://[^\s#]+/fleet/join#[A-Za-z0-9_.-]+~', $text, $l)) {
+		throw new FleetJoinError('E102', 'No FreeSense Fleet join link was found in the text.');
+	}
+	$link = fleet_join_link_parse($l[0]);
+	$key = null;
+	$rest = str_replace($l[0], ' ', $text);
+	if (preg_match('/FLT(?:[ \t-]*[0-9A-Za-z]{4}){5}/i', $rest, $k) || preg_match('/key[ \t]*:?[ \t]*([0-9A-Za-z][0-9A-Za-z \t-]{18,40})/i', $rest, $k)) {
+		$key = fleet_join_key_normalize(trim(end($k)));
+		if ($key === null) {
+			throw new FleetJoinError('E103', 'The join key in the text is not valid. Check it for typing mistakes.');
+		}
+	}
+	return array('link' => $link, 'link_text' => $l[0], 'key' => $key);
+}
+
+/* pure: the invitation text the controller hands out (one paste on the new firewall). */
+function fleet_join_paste_text(string $link, string $key_display): string {
+	return "FreeSense Fleet invitation\n{$link}\nKey: {$key_display}\n";
+}
+
+/* ------------------------------------------------------------------ */
+/* Sealing                                                             */
+/* ------------------------------------------------------------------ */
+
+/* pure: base64url without padding. */
+function fleet_b64url(string $raw): string {
+	return rtrim(strtr(base64_encode($raw), '+/', '-_'), '=');
+}
+
+/* pure: the inverse of fleet_b64url(), or null. */
+function fleet_b64url_decode(string $text): ?string {
+	if (!preg_match('/^[A-Za-z0-9_-]*$/D', $text)) {
+		return null;
+	}
+	$raw = base64_decode(strtr($text, '-_', '+/'), true);
+	return ($raw === false) ? null : $raw;
+}
+
+/*
+ * pure: seal $plain to a secret (a PIN, or a join key's 19 data characters):
+ *   key  = PBKDF2-HMAC-SHA256(secret, salt, 200000 rounds, 32 bytes)
+ *   data = AES-256-GCM(plain, key, nonce, AAD "FreeSense-Fleet-Seed-v1"), 16-byte tag
+ * returns array(salt 16, nonce 12, tag 16, data) as raw bytes. $salt and
+ * $nonce are for test vectors only.
+ */
+function fleet_seal_raw(string $plain, string $secret, ?string $salt = null, ?string $nonce = null): array {
+	$salt = $salt ?? random_bytes(16);
+	$nonce = $nonce ?? random_bytes(12);
+	$tag = '';
+	$data = openssl_encrypt($plain, 'aes-256-gcm', hash_pbkdf2('sha256', $secret, $salt, FLEET_SEAL_ROUNDS, 32, true), OPENSSL_RAW_DATA,
+	    $nonce, $tag, FLEET_SEAL_AAD);
+	return array($salt, $nonce, $tag, (string)$data);
+}
+
+/* pure: what fleet_seal_raw() sealed, or null for a wrong secret or damaged data. */
+function fleet_unseal_raw(string $salt, string $nonce, string $tag, string $data, string $secret): ?string {
+	if ((strlen($salt) !== 16) || (strlen($nonce) !== 12) || (strlen($tag) !== 16) || ($data === '')) {
+		return null;
+	}
+	$plain = openssl_decrypt($data, 'aes-256-gcm', hash_pbkdf2('sha256', $secret, $salt, FLEET_SEAL_ROUNDS, 32, true), OPENSSL_RAW_DATA,
+	    $nonce, $tag, FLEET_SEAL_AAD);
+	return ($plain === false) ? null : $plain;
+}
+
+/*
+ * pure: seal to a join key (as shown, or its 19 data characters), as one
+ * base64url string (no padding) of salt || nonce || tag || data, sealed
+ * with the key's 19 data characters as the secret. The controller seals a
+ * one-time Tailscale key this way into a link. Throws E103 for a bad key.
+ */
+function fleet_seal_with_key(string $plain, string $join_key, ?string $salt = null, ?string $nonce = null): string {
+	$data = fleet_join_key_normalize($join_key);
+	if ($data === null) {
+		throw new FleetJoinError('E103', 'The join key is not valid.');
+	}
+	return fleet_b64url(implode('', fleet_seal_raw($plain, $data, $salt, $nonce)));
+}
+
+/* pure: the inverse of fleet_seal_with_key(), or null (wrong key, damaged). */
+function fleet_unseal_with_key(string $blob, string $join_key): ?string {
+	$raw = fleet_b64url_decode($blob);
+	$data = fleet_join_key_normalize($join_key);
+	if (($raw === null) || ($data === null) || (strlen($raw) < 45)) {
+		return null;
+	}
+	return fleet_unseal_raw(substr($raw, 0, 16), substr($raw, 16, 12), substr($raw, 28, 16), substr($raw, 44), $data);
 }
 
 /* ------------------------------------------------------------------ */
@@ -378,6 +491,76 @@ function fleet_http_pinned(array $link, string $method, string $path, ?array $bo
 		fclose($fp);
 	}
 	return fleet_http_parse_response((string)$raw);
+}
+
+/*
+ * Before joining: is the controller reachable and is its certificate the
+ * one the link pins? Opens a TLS connection and sends nothing. Throws
+ * FleetJoinError E105 (unreachable) or E101 (another certificate).
+ */
+function fleet_join_probe(array $link): void {
+	$ctx = stream_context_create(array('ssl' => array(
+		'verify_peer' => false, 'verify_peer_name' => false, 'capture_peer_cert' => true,
+		'peer_name' => $link['host'], 'SNI_enabled' => true)));
+	$host = (strpos($link['host'], ':') !== false) ? "[{$link['host']}]" : $link['host'];
+	$errno = 0;
+	$errstr = '';
+	$fp = @stream_socket_client("ssl://{$host}:{$link['port']}", $errno, $errstr, 5, STREAM_CLIENT_CONNECT, $ctx);
+	if ($fp === false) {
+		throw new FleetJoinError('E105', "{$link['authority']} is unreachable ({$errstr}). Check the address, DNS, the tunnel and that TCP port {$link['port']} is open.");
+	}
+	$cert = stream_context_get_params($fp)['options']['ssl']['peer_certificate'] ?? null;
+	fclose($fp);
+	$pem = '';
+	if ($cert !== null) {
+		openssl_x509_export($cert, $pem);
+	}
+	if (!fleet_pin_matches($pem, $link['cert_sha256'])) {
+		throw new FleetJoinError('E101', 'The controller\'s certificate does not match the join link. Possible interception: do not continue.');
+	}
+}
+
+/*
+ * Bring Tailscale up with a one-time key before joining over the tailnet:
+ * install the Tailscale package when it is missing, log in, wait for a
+ * tailnet address. The key is used once and then cleared from the
+ * configuration. Returns the address; throws FleetJoinError E133.
+ */
+function fleet_tailscale_up(string $authkey, callable $say): string {
+	/* Already in a tailnet (a retry after the one-time key was used): nothing to do. */
+	$out = array();
+	exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
+	if (is_executable('/usr/local/bin/tailscale') && ($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) {
+		return trim($out[0]);
+	}
+	if (!is_file('/usr/local/pkg/tailscale/tailscale.inc')) {
+		$say('Installing Tailscale (needs internet and the FreeSense package repository)');
+		require_once('pkg-utils.inc');
+		pkg_install('FreeSense-pkg-Tailscale');
+		if (!is_file('/usr/local/pkg/tailscale/tailscale.inc')) {
+			throw new FleetJoinError('E133', 'Tailscale could not be installed. The firewall needs internet and the FreeSense package repository; check its WAN and DNS, then try again.');
+		}
+	}
+	$say('Logging in to Tailscale');
+	config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', $authkey);
+	config_set_path('installedpackages/tailscale/config/0/enable', 'on');
+	write_config('Fleet: Tailscale logged in with the invitation\'s one-time key.');
+	require_once('/usr/local/pkg/tailscale/tailscale.inc');
+	tailscale_resync_config_hook();
+	$ip = '';
+	for ($i = 0; ($i < 45) && ($ip === ''); $i++) {
+		sleep(2);
+		$out = array();
+		exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
+		$ip = (($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) ? trim($out[0]) : '';
+	}
+	/* Used once: it must not stay in config.xml or its backups. */
+	config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
+	write_config('Fleet: the one-time Tailscale key was used and removed.');
+	if ($ip === '') {
+		throw new FleetJoinError('E133', 'Tailscale did not come up within 90 seconds. The key may be used up or expired, or the firewall cannot reach the Tailscale control plane (HTTPS 443).');
+	}
+	return $ip;
 }
 
 /* A new WireGuard key pair: array(private key as text, public key as 32 raw bytes). */

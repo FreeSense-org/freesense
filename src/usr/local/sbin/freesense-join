@@ -24,6 +24,7 @@
  * Join this firewall to a FreeSense Fleet controller, or leave it.
  *
  *   freesense-join join '<link>' [--key <join key>]   the key is asked for when omitted
+ *   freesense-join webjob                             the WebUI guide's join (reads its request file)
  *   freesense-join status
  *   freesense-join leave                              tell the controller, then leave
  *   freesense-join detach                             Emergency Detach: leave without the controller
@@ -82,37 +83,42 @@ function progress($name, $state, $text) {
 	}
 }
 
-/* Join; with a seed that holds a Tailscale key, Tailscale comes up first ($secret: the PIN of a PIN seed). */
-function do_join($link, $key, ?array $seed = null, string $secret = '') {
-	if ($key === '') {
+/*
+ * Join with a link or the controller's invitation text (the key is asked
+ * for when neither gives it); Tailscale comes up first when the link or
+ * the seed says so ($secret: the PIN of a PIN seed).
+ */
+function do_join($text, $key, ?array $seed = null, string $secret = '') {
+	if (($key === '') && (fleet_join_paste_parse($text)['key'] === null)) {
 		$key = ask('Join key: ', true);
 	}
-	$parsed = fleet_join_link_parse($link);
-	$io = fleet_join_io($parsed);
-	$io['step'] = 'progress';
-	if (fleet_node_membership()['enrolled']) {
-		throw new FleetJoinError('E109', 'This firewall is already managed. Leave its fleet first.');
-	}
-	$norm = fleet_join_key_normalize($key);
-	if ($norm === null) {
-		throw new FleetJoinError('E103', 'The join key is not valid. Check it for typing mistakes.');
-	}
-	if (($seed !== null) && isset($seed['tailscale'])) {
-		require_once('fleet_seed.inc');
-		$ts_key = fleet_seed_tailscale_key($seed, ($seed['mode'] === 'attended') ? $norm : $secret);
-		if ($ts_key === null) {
-			throw new FleetJoinError('E131', 'The seed\'s Tailscale key could not be opened.');
-		}
-		$ip = fleet_seed_tailscale_up($ts_key, function ($text) {
-			fwrite(STDOUT, "...     {$text}\n");
-		});
-		fwrite(STDOUT, "OK      In the tailnet as {$ip}\n");
-	}
-	@unlink(FLEET_PROGRESS_FILE);
-	$m = fleet_join_run($parsed, $norm, $io);
-	require_once('fleet_seed.inc');
-	fleet_seed_clear();
+	$m = fleet_join($text, $key, $seed, $secret, function ($t) {
+		fwrite(STDOUT, "...     {$t}\n");
+	}, 'progress');
 	fwrite(STDOUT, "\nJoined {$m['controller_url']} as {$m['node_id']} ({$m['role']}).\n");
+}
+
+/* The WebUI's guide: the request file holds the link and key; it is deleted before anything else. */
+function do_webjob() {
+	$req = @json_decode((string)@file_get_contents(FLEET_JOIN_REQUEST_FILE), true);
+	@unlink(FLEET_JOIN_REQUEST_FILE);
+	if (!is_array($req) || !is_string($req['text'] ?? null)) {
+		fleet_progress_write('fail', 'fail', 'E110: The join request was missing.');
+		exit(1);
+	}
+	try {
+		fleet_join($req['text'], (string)($req['key'] ?? ''), null, '', function ($t) {
+			fleet_progress_write('say', 'start', $t);
+		});
+		fleet_progress_write('done', 'done', '');
+	} catch (FleetJoinError $e) {
+		/* fleet_join_run() and fleet_join() wrote the failing step already. */
+		$steps = @json_decode((string)@file_get_contents(FLEET_PROGRESS_FILE), true);
+		if (!isset($steps['fail'])) {
+			fleet_progress_write('fail', 'fail', $e->fleet_code . ': ' . $e->getMessage());
+		}
+		exit(1);
+	}
 }
 
 function show_status() {
@@ -179,6 +185,9 @@ try {
 		write_config(empty($users) ? 'Fleet: WebUI handoff turned off.' : 'Fleet: WebUI handoff allowed for ' . implode(', ', $users) . '.');
 		fwrite(STDOUT, empty($users) ? "WebUI handoff is off.\n" : 'WebUI handoff allowed for: ' . implode(', ', $users) . "\n");
 		break;
+	case 'webjob':
+		do_webjob();
+		break;
 	case 'seed':
 		/* An unattended seed, started at the end of boot. */
 		require_once('fleet_seed.inc');
@@ -210,7 +219,7 @@ try {
 				fwrite(STDOUT, "A join seed is waiting for its join key.\n");
 				do_join($seed['link'], '', $seed);
 			} else {
-				$link = ask('Join link (https://.../fleet/join#...): ');
+				$link = ask('Join link or invitation text (https://.../fleet/join#...): ');
 				if ($link !== '') {
 					do_join($link, '');
 				}
