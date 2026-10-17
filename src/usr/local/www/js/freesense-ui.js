@@ -247,6 +247,12 @@
 				}
 			});
 		}
+		/* a step-by-step guide in the modal starts at its first (or chosen) step */
+		modal.querySelectorAll('[data-fs-steps]').forEach(function (s) {
+			if (s._fsSteps) {
+				s._fsSteps.reset();
+			}
+		});
 		var title = trigger.getAttribute('data-fs-modal-title');
 		var titleEl = modal.querySelector('.modal-title');
 		if (title && titleEl) {
@@ -295,6 +301,129 @@
 		document.addEventListener('DOMContentLoaded', reopenModalForm);
 	} else {
 		setTimeout(reopenModalForm, 0);
+	}
+
+	/* ------------------------------------------------------- step-by-step guides */
+
+	/*
+	 * A guide in one form (fs_steps_begin): one step at a time with Back and
+	 * Next. Next checks the step's own fields first; the submit buttons
+	 * (data-fs-step-submit, or the modal footer's) show on the last step only.
+	 * A done step in the stepper can be clicked to go back to it.
+	 */
+	function initSteps(root) {
+		var panels = Array.prototype.slice.call(root.querySelectorAll('[data-fs-step]'));
+		if (!panels.length) {
+			return;
+		}
+		var T = {};
+		try {
+			T = JSON.parse(root.getAttribute('data-strings') || '{}');
+		} catch (err) {
+			T = {};
+		}
+		var form = root.closest('form');
+		var footer = root.closest('.modal-content') ? root.closest('.modal-content').querySelector('.modal-footer') : null;
+		var nav = footer || root.querySelector('[data-fs-step-nav]');
+		var submits = form ? form.querySelectorAll('[data-fs-step-submit]' + (footer ? ', .modal-footer [type=submit]' : '')) : [];
+		var items = root.querySelectorAll('.fs-stepper [data-step]');
+		var back = document.createElement('button');
+		back.type = 'button';
+		back.className = 'btn btn-outline-secondary';
+		back.innerHTML = '<i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i>';
+		back.appendChild(document.createTextNode(T.back || 'Back'));
+		var next = document.createElement('button');
+		next.type = 'button';
+		next.className = 'btn btn-primary';
+		next.appendChild(document.createTextNode(T.next || 'Next'));
+		next.insertAdjacentHTML('beforeend', '<i class="fa-solid fa-arrow-right ms-2" aria-hidden="true"></i>');
+		if (nav) {
+			nav.insertBefore(next, footer ? nav.querySelector('[type=submit]') : null);
+			nav.insertBefore(back, next);
+		}
+		var cur = 0;
+
+		function show(i, focus) {
+			cur = Math.max(0, Math.min(panels.length - 1, i));
+			panels.forEach(function (p, j) {
+				p.hidden = (j !== cur);
+			});
+			var key = panels[cur].getAttribute('data-fs-step');
+			var seen = false;
+			Array.prototype.forEach.call(items, function (li) {
+				var k = li.getAttribute('data-step');
+				var state = (k === key) ? 'current' : (seen ? 'todo' : 'done');
+				if (k === key) {
+					seen = true;
+				}
+				li.className = 'fs-step is-' + state;
+				if (state === 'current') {
+					li.setAttribute('aria-current', 'step');
+				} else {
+					li.removeAttribute('aria-current');
+				}
+				var num = li.querySelector('.fs-step-num');
+				num.innerHTML = (state === 'done') ? '<i class="fa-solid fa-check"></i>' : String(Array.prototype.indexOf.call(items, li) + 1);
+				var st = li.querySelector('[data-step-status]');
+				if (st) {
+					st.textContent = ' (' + (T[state] || state) + ')';
+				}
+			});
+			back.hidden = (cur === 0);
+			next.hidden = (cur === panels.length - 1);
+			Array.prototype.forEach.call(submits, function (b) {
+				b.hidden = (cur !== panels.length - 1);
+			});
+			if (focus) {
+				var title = panels[cur].querySelector('.fs-step-title');
+				if (title) {
+					title.focus();
+				}
+			}
+		}
+
+		function valid() {
+			var fields = panels[cur].querySelectorAll('input, select, textarea');
+			for (var k = 0; k < fields.length; k++) {
+				if (!fields[k].disabled && !fields[k].checkValidity()) {
+					fields[k].reportValidity();
+					return false;
+				}
+			}
+			var ev = new CustomEvent('fs:step-next', {bubbles: true, cancelable: true, detail: {step: panels[cur].getAttribute('data-fs-step')}});
+			return root.dispatchEvent(ev);
+		}
+
+		next.addEventListener('click', function () {
+			if (valid()) {
+				show(cur + 1, true);
+			}
+		});
+		back.addEventListener('click', function () {
+			show(cur - 1, true);
+		});
+		Array.prototype.forEach.call(items, function (li, j) {
+			li.addEventListener('click', function () {
+				if (li.classList.contains('is-done')) {
+					show(j, true);
+				}
+			});
+		});
+		/* Enter in a field moves on, it does not submit half a guide. */
+		root.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' && e.target.tagName === 'INPUT' && cur < panels.length - 1) {
+				e.preventDefault();
+				next.click();
+			}
+		});
+
+		function reset() {
+			var start = root.getAttribute('data-fs-steps-start');
+			var at = panels.findIndex(function (p) { return p.getAttribute('data-fs-step') === start; });
+			show(at < 0 ? 0 : at, false);
+		}
+		root._fsSteps = {show: show, reset: reset};
+		reset();
 	}
 
 	/* --------------------------------------------------------------------- tabs */
@@ -1528,6 +1657,7 @@
 		initNavigation();
 		initEntryGrid();
 		initAdvancedToggles();
+		document.querySelectorAll('[data-fs-steps]').forEach(initSteps);
 
 		// a field the browser rejects inside a closed section: open the section so it can be shown
 		document.addEventListener('invalid', function (e) {

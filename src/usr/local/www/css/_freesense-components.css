@@ -885,3 +885,30 @@ a.fs-toast-text:hover { text-decoration: underline; }
 /* Locked (managed by Fleet): quiet, not a warning. */
 tr.fs-locked > td { background: var(--bs-tertiary-bg); }
 .fs-locked-link { color: var(--fs-text-muted); }
+
+/* ============================ Step-by-step guides (fs_stepper, fs_steps_begin) ============================ */
+.fs-stepper { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2) 0; list-style: none; margin: 0 0 var(--fs-sp-4); padding: 0; counter-reset: none; }
+.fs-step { display: flex; align-items: center; gap: var(--fs-sp-2); color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-step + .fs-step::before { content: ""; width: 2rem; height: 1px; margin: 0 var(--fs-sp-2); background: var(--fs-border); }
+.fs-step-num { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border: 1px solid var(--fs-border); border-radius: 50%; font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
+.fs-step.is-current { color: var(--bs-body-color); font-weight: 600; }
+.fs-step.is-current .fs-step-num { border: 2px solid var(--fs-coral); background: var(--fs-accent-tint); color: var(--fs-coral-text); }
+.fs-step.is-done { color: var(--bs-body-color); }
+.fs-step.is-done .fs-step-num { border-color: var(--fs-pass); color: var(--fs-pass); }
+.fs-steps .fs-step.is-done { cursor: pointer; }
+.fs-step.is-skipped { opacity: .55; text-decoration: line-through; }
+.fs-step-title { margin: 0 0 var(--fs-sp-2); font-size: var(--fs-fs-md); }
+.fs-step-title:focus { outline: none; }
+.fs-step-lead, .panel-body > .fs-step-lead { margin: 0 0 var(--fs-sp-3); padding: 0; max-width: 46rem; color: var(--fs-text-muted); }
+.fs-field-md { max-width: 28rem; }
+.fs-step-nav { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); align-items: center; margin-top: var(--fs-sp-3); }
+.fs-step-nav:empty { display: none; }
+.fs-review { display: grid; grid-template-columns: max-content 1fr; gap: var(--fs-sp-2) var(--fs-sp-4); margin: 0 0 var(--fs-sp-3); }
+.fs-review dt { color: var(--fs-text-muted); font-weight: 500; }
+.fs-review dd { margin: 0; }
+@media (max-width: 575px) {
+	/* small screens: the numbers, and the current step's name */
+	.fs-step:not(.is-current) .fs-step-label { display: none; }
+	.fs-step + .fs-step::before { width: .75rem; }
+	.fs-review { grid-template-columns: 1fr; }
+}

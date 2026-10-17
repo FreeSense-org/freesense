@@ -39,6 +39,7 @@
 require_once("guiconfig.inc");
 require_once("fleet_agent.inc");
 require_once("fleet_node.inc");
+require_once("pkg-utils.inc");
 require_once("system_boot_environments.inc");
 
 $pgtitle = array(gettext("System"), gettext("Central Management"));
@@ -78,30 +79,52 @@ if ($m['enrolled'] && (($_POST['leave'] ?? '') === 'leave')) {
 	exit;
 }
 
-if (!$m['enrolled'] && (isset($_POST['join_check']) || isset($_POST['join_start']))) {
+/*
+ * The guide, one step at a time: Paste -> Check -> Join key (not needed when
+ * the invitation brought it) -> Review -> Join -> Approve -> Done. Each step
+ * posts where it goes in step_go; the invitation and a typed key travel along
+ * in hidden fields, so Back keeps them.
+ */
+$steps = array('paste' => gettext('Paste'), 'check' => gettext('Check'), 'key' => gettext('Join key'), 'review' => gettext('Review'),
+    'join' => gettext('Join'), 'code' => gettext('Approve'), 'done' => gettext('Done'));
+$step = 'paste';
+$skipped = array();
+$go = (string)($_POST['step_go'] ?? '');
+if (!$m['enrolled'] && ((($go !== '') && ($go !== 'paste')) || isset($_POST['join_start']))) {
 	/* Manual: link and key in their own fields. */
 	if (($_POST['view'] ?? '') === 'manual') {
 		$invitation = trim((string)($_POST['manual_link'] ?? ''));
 	}
 	try {
 		$paste = fleet_join_paste_parse($invitation);
-		$key = ($key_typed !== '') ? fleet_join_key_normalize($key_typed) : $paste['key'];
-		if (($key_typed !== '') && ($key === null)) {
-			throw new FleetJoinError('E103', 'The join key is not valid. Check it for typing mistakes.');
-		}
 		$link = $paste['link'];
-		$checked = array('link' => $link, 'key' => $key, 'reach' => null);
+		$checked = array('link' => $link, 'key' => $paste['key'], 'reach' => null);
+		$step = 'check';
 		/* Over Tailscale the controller answers only once this firewall is in the tailnet: checked while joining. */
 		if ($link['mode'] !== 'tailscale') {
-			fleet_join_probe($link);
+			if (($go === 'check') || isset($_POST['join_start'])) {
+				fleet_join_probe($link);
+			}
 			$checked['reach'] = true;
 		}
-		if (isset($_POST['join_start'])) {
+		if (($paste['key'] !== null) && ($key_typed === '')) {
+			$skipped[] = 'key';
+		}
+		$key = ($key_typed !== '') ? fleet_join_key_normalize($key_typed) : $paste['key'];
+		if ($go === 'key') {
+			$step = in_array('key', $skipped, true) ? 'review' : 'key';
+		}
+		if (($go === 'review') || isset($_POST['join_start'])) {
+			$step = 'key';
 			if ($key === null) {
-				throw new FleetJoinError('E103', 'Enter the join key.');
+				throw new FleetJoinError('E103', ($key_typed === '') ? 'Enter the join key.' : 'The join key is not valid. Check it for typing mistakes.');
 			}
+			$step = 'review';
+		}
+		if (isset($_POST['join_start'])) {
 			@unlink(FLEET_PROGRESS_FILE);
-			file_put_contents(FLEET_JOIN_REQUEST_FILE, json_encode(array('text' => $paste['link_text'], 'key' => $key)), LOCK_EX);
+			/* $key is the normalised data; with its check character fleet_join() takes it like a typed key. */
+			file_put_contents(FLEET_JOIN_REQUEST_FILE, json_encode(array('text' => $paste['link_text'], 'key' => $key . fleet_join_key_check($key))), LOCK_EX);
 			chmod(FLEET_JOIN_REQUEST_FILE, 0600);
 			$_SESSION['fleet_join_mode'] = $link['mode'];
 			mwexec_bg('/usr/local/bin/php /usr/local/sbin/freesense-join webjob');
@@ -111,7 +134,12 @@ if (!$m['enrolled'] && (isset($_POST['join_check']) || isset($_POST['join_start'
 	} catch (FleetJoinError $e) {
 		list($title, $cause) = fleet_join_advice($e->fleet_code);
 		$advice = array('code' => $e->fleet_code, 'text' => $e->getMessage(), 'title' => $title, 'cause' => $cause);
-		if (($checked !== null) && ($e->fleet_code !== 'E103')) {
+		if ($checked === null) {
+			$step = 'paste';
+		} elseif ($e->fleet_code === 'E103') {
+			$step = 'key';
+		} else {
+			$step = 'check';
 			$checked['reach'] = false;
 		}
 	}
@@ -210,16 +238,31 @@ if (!empty(config_get_path('installedpackages/fleet/config/0/enable'))):
 endif;
 
 /* ---- not in a fleet: the guide ---- */
+$hidden = function (array $fields) {
+	foreach ($fields as $n => $v) {
+		echo '<input type="hidden" name="' . htmlspecialchars($n) . '" value="' . htmlspecialchars($v) . '"/>';
+	}
+};
+$carry = array('invitation' => $invitation) + (($key_typed !== '') ? array('join_key' => $key_typed) : array());
+$nav_back = function (string $to) {
+	return '<button class="btn btn-outline-secondary" type="submit" name="step_go" value="' . htmlspecialchars($to) . '" formnovalidate>' .
+	    '<i class="fa-solid fa-arrow-left icon-embed-btn" aria-hidden="true"></i>' . gettext('Back') . '</button>';
+};
+$nav_next = function (string $to, string $label, string $icon = 'fa-arrow-right') {
+	return '<button class="btn btn-primary" type="submit" name="step_go" value="' . htmlspecialchars($to) . '">' .
+	    '<i class="fa-solid ' . $icon . ' icon-embed-btn" aria-hidden="true"></i>' . htmlspecialchars($label) . '</button>';
+};
 ?>
 <section class="fs-fleet-guide">
 	<header class="fs-fleet-guide-head">
 		<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
 		<div>
 			<h2><?=gettext('Add to fleet')?></h2>
-			<p><?=gettext('A FreeSense Fleet controller can monitor and manage this firewall. Ask its administrator for an invitation (Fleet > Firewalls > Add and approve), paste it here and follow the steps. Nothing changes on this firewall until you select Join.')?></p>
+			<p><?=gettext('A FreeSense Fleet controller can monitor and manage this firewall. Ask its administrator for an invitation (Fleet > Firewalls > Add and approve) and follow the steps. Nothing changes on this firewall until you select Join on the review.')?></p>
 		</div>
 	</header>
 <?php if ($view !== 'progress') { fs_view_switch(array('guide' => gettext('Guided'), 'manual' => gettext('Manual')), $view); } ?>
+<?php if ($view !== 'manual') { fs_stepper($steps, ($view === 'progress') ? 'join' : $step, $skipped, gettext('Add to fleet')); } ?>
 <?php
 if ($advice !== null) {
 	print_callout('<p>' . htmlspecialchars($advice['cause']) . '</p><p class="fs-muted small mb-0">FLEET-' . htmlspecialchars($advice['code']) . ': ' .
@@ -229,9 +272,11 @@ if ($advice !== null) {
 <?php if ($view === 'progress'): ?>
 	<div class="panel panel-default" id="fs-fleet-join" data-poll="/system_fleet.php?progress=1"
 	    data-strings="<?=htmlspecialchars(json_encode(array('done' => gettext('Done'), 'running' => gettext('Working'), 'todo' => gettext('Waiting'),
-	    'fail' => gettext('Failed'), 'wait' => gettext('Waiting for approval'))))?>">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Joining the fleet')?></h2></div>
+	    'fail' => gettext('Failed'), 'wait' => gettext('Waiting for approval'), 'step_done' => gettext('done'), 'step_current' => gettext('current step'),
+	    'step_todo' => gettext('to do'), 'step_skipped' => gettext('not needed'))))?>">
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('5. Join')?></h2></div>
 		<div class="panel-body">
+			<p class="fs-step-lead"><?=gettext('This runs in the background; you can leave this page and come back. If any step fails, everything is undone.')?></p>
 			<ol class="fs-fleet-steps" data-join-steps></ol>
 			<p class="fs-muted small" data-join-say aria-live="polite"></p>
 			<div class="fs-fleet-code" data-join-code hidden>
@@ -266,43 +311,83 @@ if ($advice !== null) {
 		</div>
 		<div class="panel-footer"><button class="btn btn-primary" type="submit" name="join_start" value="1"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Join')?></button></div>
 	</form>
-<?php else: ?>
+<?php elseif ($step === 'paste'): ?>
 	<form method="post" class="panel panel-default">
 		<div class="panel-heading"><h2 class="panel-title"><?=gettext('1. Paste the invitation')?></h2></div>
 		<div class="panel-body">
+			<p class="fs-step-lead"><?=gettext('On the controller, create an invitation and select "Copy for the firewall". Paste all of it here. A link alone works too; you then type the key in a later step.')?></p>
 			<label class="form-label" for="invitation"><?=gettext('Invitation')?></label>
 			<textarea class="form-control fs-mono" id="invitation" name="invitation" rows="4" required autocomplete="off" spellcheck="false"
 			    placeholder="FreeSense Fleet invitation&#10;https://fleet.example.net:8443/fleet/join#...&#10;Key: FLT-XXXX-XXXX-XXXX-XXXX-XXXX"><?=htmlspecialchars($invitation)?></textarea>
-			<div class="form-text"><?=gettext('Copy it from the controller with "Copy for the firewall". A link alone works too; you then type the key.')?></div>
 		</div>
-<?php if ($checked === null): ?>
-		<div class="panel-footer"><button class="btn btn-primary" type="submit" name="join_check" value="1"><i class="fa-solid fa-magnifying-glass icon-embed-btn" aria-hidden="true"></i><?=gettext('Check')?></button></div>
-<?php else: list($mname, $mtext) = $link_methods[$checked['link']['mode']]; ?>
-		<div class="panel-body border-top">
-			<h3 class="fs-fleet-subhead"><?=gettext('2. Check')?></h3>
-			<dl class="fs-fleet-checks">
+		<div class="panel-footer fs-step-nav"><?=$nav_next('check', gettext('Next: check it'))?></div>
+	</form>
+<?php elseif ($step === 'check'): list($mname, $mtext) = $link_methods[$checked['link']['mode']]; ?>
+	<form method="post" class="panel panel-default">
+		<?php $hidden($carry); ?>
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('2. Check')?></h2></div>
+		<div class="panel-body">
+			<p class="fs-step-lead"><?=gettext('This firewall asked the controller for its certificate and compared it with the one the invitation names. Nothing was changed.')?></p>
+			<dl class="fs-review">
 				<dt><?=gettext('Controller')?></dt><dd class="fs-mono"><?=htmlspecialchars($checked['link']['authority'])?></dd>
-				<dt><?=gettext('Reachable')?></dt><dd><?=($checked['reach'] === null) ? fs_badge('neutral', gettext('After Tailscale is up')) :
+				<dt><?=gettext('Reachable')?></dt><dd><?=($checked['reach'] === null) ? fs_badge('neutral', gettext('Checked after Tailscale is up')) :
 				    ($checked['reach'] ? fs_badge('online', gettext('Yes, certificate as in the invitation')) : fs_badge('offline', gettext('No')))?></dd>
 				<dt><?=gettext('Connection')?></dt><dd><strong><?=htmlspecialchars($mname)?></strong><br/><span class="fs-muted small"><?=htmlspecialchars($mtext)?></span></dd>
+				<dt><?=gettext('Join key')?></dt><dd><?=in_array('key', $skipped, true) ? fs_badge('online', gettext('In the invitation')) : htmlspecialchars(gettext('Typed in the next step'))?></dd>
 			</dl>
 		</div>
-		<div class="panel-body border-top">
-			<h3 class="fs-fleet-subhead"><?=gettext('3. Join key')?></h3>
-<?php if ($checked['key'] !== null && $key_typed === ''): ?>
-			<p><?=fs_badge('online', gettext('Included in the invitation'))?></p>
+		<div class="panel-footer fs-step-nav"><?=$nav_back('paste')?>
+<?php if ($checked['reach'] === false): ?>
+			<?=$nav_next('check', gettext('Check again'), 'fa-rotate')?>
 <?php else: ?>
-			<input class="form-control fs-mono" id="join_key" name="join_key" autocomplete="off" spellcheck="false" placeholder="FLT-XXXX-XXXX-XXXX-XXXX-XXXX"
-			    value="<?=htmlspecialchars($key_typed)?>" aria-label="<?=gettext('Join key')?>"/>
-			<div class="form-text"><?=gettext('Sent to you separately from the link.')?></div>
+			<?=$nav_next('key', gettext('Next'))?>
 <?php endif; ?>
 		</div>
-		<div class="panel-footer">
-			<button class="btn btn-primary" type="submit" name="join_start" value="1"<?=($checked['reach'] === false) ? ' disabled' : ''?>><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('4. Join')?></button>
-			<button class="btn btn-outline-secondary" type="submit" name="join_check" value="1"><?=gettext('Check again')?></button>
-			<span class="fs-muted small ms-2"><?=gettext('Joining runs in the background; you can leave this page. If any step fails, everything is undone.')?></span>
+	</form>
+<?php elseif ($step === 'key'): ?>
+	<form method="post" class="panel panel-default">
+		<?php $hidden(array('invitation' => $invitation)); ?>
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('3. Join key')?></h2></div>
+		<div class="panel-body">
+			<p class="fs-step-lead"><?=gettext('The controller\'s administrator gives you the join key separately from the link, so the link alone cannot add a firewall.')?></p>
+			<label class="form-label" for="join_key"><?=gettext('Join key')?></label>
+			<input class="form-control fs-mono fs-field-md" id="join_key" name="join_key" required autocomplete="off" spellcheck="false" placeholder="FLT-XXXX-XXXX-XXXX-XXXX-XXXX"
+			    value="<?=htmlspecialchars($key_typed)?>"/>
 		</div>
+		<div class="panel-footer fs-step-nav"><?=$nav_back('check')?><?=$nav_next('review', gettext('Next: review'))?></div>
+	</form>
+<?php else:
+	list($mname, $mtext) = $link_methods[$checked['link']['mode']];
+	$ts_needed = ($checked['link']['mode'] === 'tailscale');
+	$ts_have = $ts_needed && is_pkg_installed('FreeSense-pkg-Tailscale');
+?>
+	<form method="post" class="panel panel-default">
+		<?php $hidden($carry); ?>
+		<div class="panel-heading"><h2 class="panel-title"><?=gettext('4. Review')?></h2></div>
+		<div class="panel-body">
+			<p class="fs-step-lead"><?=gettext('This is what happens when you select Join.')?></p>
+			<dl class="fs-review">
+				<dt><?=gettext('Controller')?></dt><dd class="fs-mono"><?=htmlspecialchars($checked['link']['authority'])?></dd>
+				<dt><?=gettext('Connection')?></dt><dd><strong><?=htmlspecialchars($mname)?></strong><br/><span class="fs-muted small"><?=htmlspecialchars($mtext)?></span></dd>
+<?php if ($ts_needed): ?>
+				<dt><?=gettext('Tailscale')?></dt><dd><?=htmlspecialchars($ts_have ? gettext('Installed; it logs in with the invitation\'s one-time key.') :
+				    gettext('Installed now (package FreeSense-pkg-Tailscale), then logged in with the invitation\'s one-time key.'))?></dd>
 <?php endif; ?>
+				<dt><?=gettext('Join key')?></dt><dd><?=htmlspecialchars(in_array('key', $skipped, true) ? gettext('From the invitation') : gettext('As typed'))?></dd>
+				<dt><?=gettext('Name and group')?></dt><dd><?=gettext('Set by the controller when it approves this firewall.')?></dd>
+			</dl>
+			<ol class="mb-0">
+<?php if ($ts_needed): ?>
+				<li><?=htmlspecialchars($ts_have ? gettext('Tailscale logs in to the controller\'s tailnet.') : gettext('Tailscale is installed and logs in to the controller\'s tailnet.'))?></li>
+<?php endif; ?>
+				<li><?=gettext('This firewall makes a WireGuard key and asks the controller to join.')?></li>
+				<li><?=gettext('A 6-digit approval code is shown here and on the controller; the administrator approves when they match.')?></li>
+				<li><?=gettext('The controller gets access to this firewall and takes its first backup.')?></li>
+			</ol>
+		</div>
+		<div class="panel-footer fs-step-nav"><?=$nav_back(in_array('key', $skipped, true) ? 'check' : 'key')?>
+			<button class="btn btn-primary" type="submit" name="join_start" value="1"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Join')?></button>
+			<span class="fs-muted small"><?=gettext('If any step fails, everything is undone.')?></span></div>
 	</form>
 <?php endif; ?>
 </section>
