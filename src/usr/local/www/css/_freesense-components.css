@@ -901,7 +901,16 @@ tr.fs-locked > td { background: var(--bs-tertiary-bg); }
 .fs-step-title:focus { outline: none; }
 .fs-step-lead, .panel-body > .fs-step-lead { margin: 0 0 var(--fs-sp-3); padding: 0; max-width: 46rem; color: var(--fs-text-muted); }
 .fs-field-md { max-width: 28rem; }
-.fs-step-nav { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); align-items: center; margin-top: var(--fs-sp-3); }
+.fs-step-nav { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); align-items: center; justify-content: flex-end; margin-top: var(--fs-sp-3); }
+/* One row, never stacked: Back on the left, Cancel and the way forward on the right (primary last). */
+.fs-step-nav > .fs-step-back { margin-right: auto; }
+.fs-step-nav > .fs-step-note { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+/* Any form's action row: one right-aligned row, Cancel before the primary button. */
+.fs-form-actions { display: flex; flex-wrap: wrap; gap: var(--fs-sp-2); align-items: center; justify-content: flex-end; margin-top: var(--fs-sp-3); }
+.fs-form-actions > .fs-step-back { margin-right: auto; }
+.modal-footer { gap: var(--fs-sp-2); }
+.modal-footer > * { margin: 0; }
+.modal-footer > .fs-step-back { margin-right: auto; }
 .fs-step-nav:empty { display: none; }
 .fs-review { display: grid; grid-template-columns: max-content 1fr; gap: var(--fs-sp-2) var(--fs-sp-4); margin: 0 0 var(--fs-sp-3); }
 .fs-review dt { color: var(--fs-text-muted); font-weight: 500; }

@@ -381,6 +381,17 @@ will happen. The stepper is an `<ol>` with `aria-current="step"`; each item has 
 ("done", "current step", "to do", "not needed") for screen readers. On small screens only the
 current step's name shows next to the numbers.
 
+## Button rows (modals, guides, forms)
+
+Action buttons are always one horizontal row, never stacked:
+
+- Right-aligned; Cancel before the primary button; the primary button is last (far right).
+- In a guide, Back sits at the far left (`.fs-step-back`); Cancel and the way forward stay right.
+- A short note about what the primary button does goes between them (`.fs-step-note`).
+- Modal footers (`fs_modal_form_end()`), guide navigation (`.fs-step-nav`) and other forms
+  (`<div class="fs-form-actions">`) all follow this. Never wrap a submit button in its own paragraph
+  under the fields: put it in the row (a guide moves `data-fs-step-submit` buttons there itself).
+
 ## Empty state
 
 `fs_empty_row(int $colspan, string $message, ?string $add_href = null, ?string $add_label = null)` renders a centered
