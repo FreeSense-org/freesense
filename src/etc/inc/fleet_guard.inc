@@ -57,9 +57,13 @@ define('FLEET_CONFIRM_MIN', 30);
 define('FLEET_CONFIRM_MAX', 3600);
 define('FLEET_BREAKGLASS_MAX_HOURS', 24);
 define('FLEET_ACTIVITY_MAX_SECONDS', 3600);
-/* What remediation may change, and what has to reload after. */
+/*
+ * What remediation may change, and what has to reload after. Never the
+ * anti-lockout rule: setting or clearing it from afar can lock the
+ * administrator out or open the WebUI and SSH on a WAN-only box.
+ */
 define('FLEET_REMEDIATE_PATHS', array('system/timeservers' => 'ntp', 'system/timezone' => 'timezone', 'system/domain' => 'hostname',
-    'system/hostname' => 'hostname', 'system/webgui/noantilockout' => 'filter'));
+    'system/hostname' => 'hostname'));
 define('FLEET_REMEDIATE_MAX', 50);
 
 /* ------------------------------------------------------------------ */
@@ -219,7 +223,7 @@ function fleet_remediate_plan(array $rule, ?string $current): ?array {
 		return array('unset');
 	}
 	if ($rule['op'] === 'present') {
-		return ($rule['path'] === 'system/webgui/noantilockout') ? array('set', '') : null;
+		return null;
 	}
 	$value = ($rule['op'] === 'equals') ? (string)$rule['value'] : (is_string($rule['fix'] ?? null) ? $rule['fix'] : null);
 	if (($value === null) || !fleet_remediate_value_ok($rule['path'], $value) ||
