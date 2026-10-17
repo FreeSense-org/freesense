@@ -931,7 +931,8 @@ function fleet_join(string $text, string $key_typed, ?array $seed = null, string
 			throw new FleetJoinError('E131', 'The seed\'s Tailscale key could not be opened.');
 		}
 	} elseif ($link['ts_sealed'] !== '') {
-		$ts_key = fleet_unseal_with_key($link['ts_sealed'], $key);
+		/* $key is the normalised data: give it back its check character, as the seal functions take a key as shown. */
+		$ts_key = fleet_unseal_with_key($link['ts_sealed'], $key . fleet_join_key_check($key));
 		if (($ts_key === null) || !fleet_seed_tailscale_key_valid($ts_key)) {
 			throw new FleetJoinError('E131', 'The Tailscale key in the link could not be opened with this join key.');
 		}
