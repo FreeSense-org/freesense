@@ -340,6 +340,14 @@
 		if (nav) {
 			nav.insertBefore(next, footer ? nav.querySelector('[type=submit]') : null);
 			nav.insertBefore(back, next);
+			/* On a page the last step's button joins Back in the same row (it is in the same form). */
+			if (!footer) {
+				Array.prototype.forEach.call(submits, function (b) {
+					if (!nav.contains(b)) {
+						nav.appendChild(b);
+					}
+				});
+			}
 		}
 		var cur = 0;
 
