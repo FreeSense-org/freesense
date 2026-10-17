@@ -52,9 +52,8 @@
 	<footer class="footer">
 		<div class="container fs-page">
 			<p class="text-muted">
-				<a id="tpl" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up float-start"></i></a>
 				<?=print_credit();?>
-				<a id="tpr" style="display: none;" href="#" title="<?=gettext('Top of page')?>"><i class="fa-regular fa-square-caret-up float-end"></i></a>
+				<a class="fs-top-link" id="fs-top" hidden href="#"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> <?=gettext('Top')?></a>
 			</p>
 		</div>
 	</footer>
@@ -77,10 +76,8 @@
 
 	<script type="text/javascript">
 	//<![CDATA[
-		// Un-hide the "Top of page" icons if the page is larger than the window
-		if ($(document).height() > $(window).height()) {
-		    $('[id^=tp]').show();
-		}
+		// A "Top" link only on pages taller than the window.
+		document.getElementById('fs-top').hidden = (document.documentElement.scrollHeight <= window.innerHeight);
 	//]]>
 	</script>
 </body>
