@@ -32,6 +32,8 @@ check(fleet_join_key_normalize('FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS') === $data, 'a key
 check(fleet_join_key_normalize('flt k7q2 m9xh 4t1r z8vb 3ncs') === $data && fleet_join_key_normalize('K7Q2M9XH4T1RZ8VB3NCS') === $data,
     'case, spaces, dashes and the FLT prefix do not matter');
 check(fleet_join_key_normalize('FLT-K7Q2-M9XH-4TlR-Z8VB-3NCS') === $data, 'l reads as 1');
+check(fleet_join_key_normalize($data . fleet_join_key_check($data)) === $data && fleet_join_key_normalize($data) === null,
+    'the WebUI hands the join a normalised key with its check character (the bare data is refused)');
 check(fleet_join_key_normalize('FLT-K7Q2-M9XH-4T1R-Z8VB-3NCT') === null, 'a wrong check character');
 check(fleet_join_key_normalize('FLT-K7Q2-M9XH-4T1R-Z8VB') === null && fleet_join_key_normalize('') === null &&
     fleet_join_key_normalize('FLT-K7Q2-M9XH-4T1R-Z8VB-3NC!') === null, 'wrong length and characters');
@@ -300,6 +302,9 @@ check(fleet_seal_with_key('tskey-auth-kTEST123CNTRL-abcdefghijkl', 'FLT-K7Q2-M9X
     'AQEBAQEBAQEBAQEBAQEBAQICAgICAgICAgICAr-g3Ds2_eN0xsrUOeQK-xhC8-p2a0RcH6tbYPWvCDHj_MYKyrKrIjAvXCn_lO4kwTiP64jI',
     'seal vector: base64url(salt || nonce || tag || AES-256-GCM data), PBKDF2-SHA256 200000 of the key data');
 check(fleet_unseal_with_key($sealed_ts, 'flt k7q2 m9xh 4t1r z8vb 3ncs') === 'tskey-auth-kTEST123CNTRL-abcdefghijkl', 'the join key (as typed) opens it');
+$kd = fleet_join_key_normalize('FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS');
+check(fleet_unseal_with_key($sealed_ts, $kd . fleet_join_key_check($kd)) === 'tskey-auth-kTEST123CNTRL-abcdefghijkl' && fleet_unseal_with_key($sealed_ts, $kd) === null,
+    'fleet_join() opens it with the normalised key plus its check character (the bare data is refused)');
 check(fleet_unseal_with_key($sealed_ts, 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCT') === null && fleet_unseal_with_key($sealed_ts, 'K7Q2M9XH4T1RZ8VB3ND') === null &&
     fleet_unseal_with_key(substr($sealed_ts, 0, -2) . 'AA', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS') === null && fleet_unseal_with_key('!!', 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS') === null,
     'a wrong key or damaged data opens nothing');
