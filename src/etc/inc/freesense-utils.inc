@@ -318,9 +318,9 @@ function validate_webguipagewidth_field(&$input_errors, $value) {
 	}
 }
 
-/* The top bar: icons with their names (default), or icons only (the names show as tooltips). */
+/* The top bar: icons with their names (default), automatic, or icons only (the names show as tooltips). */
 function webgui_menuicons_choices() {
-	return array('' => gettext('Icons only'), 'auto' => gettext('Automatic'), 'text' => gettext('Icons and text'));
+	return array('' => gettext('Icons and text'), 'auto' => gettext('Automatic'), 'icons' => gettext('Icons only'));
 }
 
 function gen_webguimenuicons_field(&$section, $value) {
@@ -329,12 +329,13 @@ function gen_webguimenuicons_field(&$section, $value) {
 		'Top bar menu',
 		$value,
 		webgui_menuicons_choices()
-	))->setHelp('Icons only keeps the bar calm; hover a menu for its name. Automatic shows the names when they fit, a tighter bar when room is short and icons when even that does not fit. ' .
-	    'With icons, hover a menu for its name. On small screens the menu always shows names.');
+	))->setHelp('Icons and text shows every menu with its name. Automatic shows the names when they fit, a tighter bar when room is short and icons when even that does not fit. ' .
+	    'Icons only keeps the bar calm; hover a menu for its name. On small screens the menu always shows names.');
 }
 
 function validate_webguimenuicons_field(&$input_errors, $value) {
-	if (!array_key_exists((string)$value, webgui_menuicons_choices())) {
+	/* 'text' is the older spelling of the default. */
+	if (!array_key_exists((string)$value, webgui_menuicons_choices()) && ((string)$value !== 'text')) {
 		$input_errors[] = gettext("The submitted Top bar menu value is invalid.");
 	}
 }

@@ -610,9 +610,9 @@ if ($fs_width === 'full') {
 } elseif ($fs_width !== 'wide') {
 	$fs_body_class[] = 'fs-width-classic';
 }
-/* Icons only is the default ('' or the older 'icons'). */
+/* Icons and text is the default ('' or the older 'text'). */
 $fs_menu_mode = (string)($user_settings['webgui']['webguimenuicons'] ?? '');
-if (($fs_menu_mode === '') || ($fs_menu_mode === 'icons')) {
+if ($fs_menu_mode === 'icons') {
 	$fs_body_class[] = 'fs-menu-icons';
 } elseif ($fs_menu_mode === 'auto') {
 	/* Automatic: js/FreeSense.js adds fs-menu-tight, then fs-menu-icons, while the bar does not fit. */
