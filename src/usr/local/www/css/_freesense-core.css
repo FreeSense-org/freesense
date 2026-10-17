@@ -797,6 +797,8 @@ a:focus-visible, [tabindex]:focus-visible {
 		display: flex;
 		align-items: center;
 		height: auto;
+		/* The picker icon sits inside the box; the 2.25rem kept free for the old background chevron left a gap right of it. */
+		padding-inline-end: .75rem;
 	}
 	select:where(.form-control, .form-select):not([multiple]):not([size])::picker-icon {
 		margin-inline-start: auto;
