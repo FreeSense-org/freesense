@@ -439,6 +439,8 @@ tr.disabled a { opacity: .5; }
 }
 .footer, .footer a, .footer .text-muted, .footer p { color: var(--fs-chrome-fg) !important; }
 .footer a:hover { color: var(--fs-coral-hi) !important; }
+.footer p { position: relative; }
+.footer .fs-top-link { position: absolute; right: 0; top: 50%; transform: translateY(-50%); text-decoration: none; font-size: var(--fs-fs-sm, .8125rem); }
 
 /* ============================ Misc =================================== */
 .popover { max-width: none; }
