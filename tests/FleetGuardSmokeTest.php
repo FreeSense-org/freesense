@@ -188,7 +188,7 @@ check(isset($have['POST /v1/management/remediate']) && $have['POST /v1/managemen
 /* ---- rules and port forwards Fleet manages are locked everywhere ---- */
 $filter_src = file_get_contents("{$root}/src/etc/inc/filter.inc");
 $from = strpos($filter_src, "define('FLEET_AUTO_LOCKED_TEXT'");
-check($from !== false, 'filter.inc defines the Fleet lock');
+check(($from !== false) && (strpos(substr($filter_src, 0, $from), '?>') === false), 'filter.inc defines the Fleet lock (inside PHP, not after a closing tag)');
 eval(substr($filter_src, $from));
 check(fleet_auto_entry(array('fleet_auto' => '1')) && !fleet_auto_entry(array('descr' => 'x')) && !fleet_auto_entry(null), 'a Fleet entry is recognised');
 check(fleet_auto_unlocked(array(0, 1, 2, 7), array(0 => array(), 1 => array('fleet_auto' => '1'), 2 => array('descr' => 'x'))) === array(0, 2, 7),

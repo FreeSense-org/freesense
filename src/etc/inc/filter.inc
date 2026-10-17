@@ -6589,7 +6589,6 @@ function remove_filter_rules(int|array $search_index, string $filter_interface =
 	}
 }
 
-?>
 
 /*
  * Rules and NAT port forwards that FreeSense Fleet manages carry
@@ -6611,3 +6610,4 @@ function fleet_auto_unlocked(array $ids, array $entries): array {
 	}));
 }
 
+?>
