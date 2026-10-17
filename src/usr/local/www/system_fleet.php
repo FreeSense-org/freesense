@@ -193,6 +193,22 @@ if ($m['enrolled']):
 	exit;
 endif;
 
+/* ---- the fleet controller itself joins no fleet ---- */
+if (!empty(config_get_path('installedpackages/fleet/config/0/enable'))):
+?>
+<section class="fs-fleet-guide">
+	<header class="fs-fleet-guide-head">
+		<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
+		<div><h2><?=gettext('This firewall is the fleet controller')?></h2>
+			<p><?=gettext('It manages the fleet and is not managed by one. Add other firewalls from Fleet > Firewalls > Add and approve.')?></p></div>
+	</header>
+	<p><a class="btn btn-primary" href="/fleet/fleet_dashboard.php"><i class="fa-solid fa-arrow-right icon-embed-btn" aria-hidden="true"></i><?=gettext('Open Fleet')?></a></p>
+</section>
+<?php
+	include("foot.inc");
+	exit;
+endif;
+
 /* ---- not in a fleet: the guide ---- */
 ?>
 <section class="fs-fleet-guide">

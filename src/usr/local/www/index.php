@@ -348,7 +348,7 @@ if ($savemsg) {
 
 /* A firewall in no fleet: point once to System > Central Management > Add to fleet. */
 $fleet_user = getUserEntry($_SESSION['Username'] ?? '');
-if ((config_get_path('fleet/node_id', '') === '') && isAllowedPage('system_fleet.php') && empty($_SESSION['fleet_hint_dismissed']) &&
+if ((config_get_path('fleet/node_id', '') === '') && empty(config_get_path('installedpackages/fleet/config/0/enable')) && isAllowedPage('system_fleet.php') && empty($_SESSION['fleet_hint_dismissed']) &&
     !isset($fleet_user['item']['fleet_hint_dismissed'])) {
 	print_callout('<p>' . htmlspecialchars(gettext('A FreeSense Fleet controller can monitor, back up and update this firewall together with others. Paste an invitation from the controller and the guide does the rest.')) .
 	    '</p><form method="post" class="d-flex flex-wrap gap-2"><a class="btn btn-sm btn-primary" href="/system_fleet.php"><i class="fa-solid fa-network-wired icon-embed-btn" aria-hidden="true"></i>' .

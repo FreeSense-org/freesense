@@ -863,6 +863,7 @@ a.fs-toast-text:hover { text-decoration: underline; }
 .fs-fleet-guide-head > i { font-size: var(--fs-fs-xl); color: var(--fs-coral); margin-top: .2rem; }
 .fs-fleet-guide-head h2 { margin: 0 0 var(--fs-sp-1); font-size: var(--fs-fs-lg); }
 .fs-fleet-guide-head p { margin: 0; max-width: 46rem; color: var(--fs-text-muted); }
+.fs-fleet-guide .panel-body { padding: var(--fs-sp-3); }
 .fs-fleet-guide .fs-viewswitch { margin-bottom: var(--fs-sp-3); }
 .fs-fleet-subhead { margin: 0 0 var(--fs-sp-2); font-size: var(--fs-fs-md); }
 .fs-fleet-checks { display: grid; grid-template-columns: max-content 1fr; gap: var(--fs-sp-2) var(--fs-sp-4); margin: 0; }
@@ -881,5 +882,6 @@ a.fs-toast-text:hover { text-decoration: underline; }
 @media (max-width: 575px) { .fs-fleet-checks { grid-template-columns: 1fr; } .fs-fleet-code-digits { font-size: 2rem; } }
 
 /* Rules and port forwards FreeSense Fleet manages: shown, not changed here (like the anti-lockout rule). */
-tr.fs-locked > td { background: var(--fs-accent-tint); }
+/* Locked (managed by Fleet): quiet, not a warning. */
+tr.fs-locked > td { background: var(--bs-tertiary-bg); }
 .fs-locked-link { color: var(--fs-text-muted); }
