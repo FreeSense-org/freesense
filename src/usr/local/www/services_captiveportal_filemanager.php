@@ -98,6 +98,10 @@ if ($_POST['Submit']) {
 		}
 		$size = filesize($_FILES['new']['tmp_name']);
 
+		if (!captiveportal_element_name_valid($name)) {
+			$input_errors[] = gettext("The file name may contain only letters, digits, '.', '_' and '-', and must start with a letter or digit.");
+		}
+
 		// is there already a file with that name?
 		foreach (config_get_path("captiveportal/{$cpzone}/element", []) as $element) {
 			if ($element['name'] == $name) {
@@ -128,8 +132,11 @@ if ($_POST['Submit']) {
 		}
 	}
 } else if (($_POST['act'] == "del") && !empty($cpzone) && is_numericint($_POST['id']) && config_get_path("captiveportal/{$cpzone}/element/{$_POST['id']}")) {
-	@unlink("{$g['captiveportal_element_path']}/" . config_get_path("captiveportal/{$cpzone}/element/{$_POST['id']}/name"));
-	@unlink("{$g['captiveportal_path']}/" . config_get_path("captiveportal/{$cpzone}/element/{$_POST['id']}/name"));
+	$element_name = config_get_path("captiveportal/{$cpzone}/element/{$_POST['id']}/name");
+	if (captiveportal_element_name_valid($element_name)) {
+		@unlink("{$g['captiveportal_element_path']}/{$element_name}");
+		@unlink("{$g['captiveportal_path']}/{$element_name}");
+	}
 	config_del_path("captiveportal/{$cpzone}/element/{$_POST['id']}");
 	write_config("Captive portal file manager: file deleted");
 	header("Location: services_captiveportal_filemanager.php?zone={$cpzone}");

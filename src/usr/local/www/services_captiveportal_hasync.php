@@ -29,11 +29,17 @@
 ##|*MATCH=services_captiveportal_hasync.php*
 ##|-PRIV
 
-if ($_POST['postafterlogin']) {
+/* As on the vouchers page: no CSRF token only for a request that signed in itself. */
+if (!empty($_POST['postafterlogin'])) {
 	$nocsrf = true;
 }
 
 require_once("guiconfig.inc");
+
+if (!empty($_POST['postafterlogin']) && empty($GLOBALS['webgui_postafterlogin_signin'])) {
+	http_response_code(403);
+	exit;
+}
 require_once("functions.inc");
 require_once("captiveportal.inc");
 require_once("xmlrpc_client.inc");

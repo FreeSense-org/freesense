@@ -39,7 +39,8 @@ require_once("shaper.inc");
 require_once("captiveportal.inc");
 
 $act = array_get_path($_REQUEST, 'act');
-if (!empty($act) && substr($act, 0, 3) == "get") {
+/* Only the read-only "get" downloads, which are plain links, skip the CSRF check. */
+if (!empty($act) && (substr($act, 0, 3) == "get") && ($_SERVER['REQUEST_METHOD'] === 'GET')) {
 	$nocsrf = true;
 }
 

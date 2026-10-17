@@ -99,15 +99,19 @@ $input_error = [];
 
 /* Actions taken on form button click */
 if ($_POST) {
-	if (isset($_POST['start_button'])) {
+	/*
+	 * A download skips the CSRF check (see $nocsrf above), so it must be the
+	 * only action such a request can take.
+	 */
+	if (isset($_POST['download_button'])) {
+		$action = 'download';
+	} elseif (isset($_POST['start_button'])) {
 		$action = 'start';
 		$run_capture = true;
 	} elseif (isset($_POST['stop_button'])) {
 		$action = 'stop';
 	} elseif (isset($_POST['view_button'])) {
 		$action = 'view';
-	} elseif (isset($_POST['download_button'])) {
-		$action = 'download';
 	} elseif (isset($_POST['clear_button'])) {
 		$action = 'clear';
 	}

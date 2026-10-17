@@ -30,11 +30,21 @@
 ##|*MATCH=services_captiveportal_vouchers.php*
 ##|-PRIV
 
-if ($_POST['postafterlogin']) {
-	$nocsrf= true;
+/*
+ * A peer expiring vouchers posts its credentials together with
+ * postafterlogin, so that request has no CSRF token. It is accepted only when
+ * this same request signed in with those credentials (see session_auth()).
+ */
+if (!empty($_POST['postafterlogin'])) {
+	$nocsrf = true;
 }
 
 require_once("guiconfig.inc");
+
+if (!empty($_POST['postafterlogin']) && empty($GLOBALS['webgui_postafterlogin_signin'])) {
+	http_response_code(403);
+	exit;
+}
 require_once("functions.inc");
 require_once("filter.inc");
 require_once("shaper.inc");
@@ -86,11 +96,11 @@ if (!isset($voucher_config['checksumbits'])) {
 	$voucher_config['checksumbits'] = 5;
 }
 if (!isset($voucher_config['magic'])) {
-	$voucher_config['magic'] = rand();	 // anything slightly random will do
+	$voucher_config['magic'] = random_int(0, mt_getrandmax());
 }
 if (!isset($voucher_config['exponent'])) {
 	while (true) {
-		while (($exponent = rand()) % 30000 < 5000) {
+		while (($exponent = random_int(0, mt_getrandmax())) % 30000 < 5000) {
 			continue;
 		}
 		$exponent = ($exponent * 2) + 1; // Make it odd number
