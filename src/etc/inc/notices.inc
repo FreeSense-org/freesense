@@ -167,7 +167,7 @@ function get_notices($category = "all") {
 	notices_setup();
 
 	if (file_exists($notice_path)) {
-		$queue = unserialize(file_get_contents($notice_path));
+		$queue = unserialize(file_get_contents($notice_path), ['allowed_classes' => false]);
 		if (!$queue) {
 			return false;
 		}
@@ -267,7 +267,7 @@ function notices_sendqueue() {
 		if (is_file($notice_queue) &&
 		    is_writable($notice_queue)) {
 			$notifyqueue_lck = lock("notifyqueue", LOCK_EX);
-			$messages = unserialize(file_get_contents($notice_queue));
+			$messages = unserialize(file_get_contents($notice_queue), ['allowed_classes' => false]);
 			if ($messages &&
 			    is_array($messages) &&
 			    !empty($messages)) {
@@ -342,7 +342,7 @@ function notify_via_queue_add($message, $type='mail') {
 			logger(LOG_ERR, localize_text("Cannot write to the notify queue."), LOG_PREFIX_NOTICE);
 			return;
 		}
-		$queue = unserialize(file_get_contents($notice_queue));
+		$queue = unserialize(file_get_contents($notice_queue), ['allowed_classes' => false]);
 		if ($queue) {
 			$messages = $queue;
 		}

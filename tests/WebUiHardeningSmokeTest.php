@@ -59,4 +59,29 @@ if ($download === false || $start === false || $download > $start) {
 	$fail('A packet capture download request (no CSRF check) must not be able to start, stop or clear a capture.');
 }
 
+/* The captive portal status widget disconnects only through a POST. */
+$widget = file_get_contents($www . '/widgets/widgets/captive_portal_status.widget.php');
+if (strpos($widget, "\$_GET['act']") !== false || strpos($widget, '&amp;act=del') !== false ||
+    strpos($widget, "captiveportal_disconnect_client(\$_POST['id'], 6);") === false) {
+	$fail('The captive portal status widget must disconnect clients through a POST form.');
+}
+
+/* unserialize() never instantiates objects. */
+foreach (['/src/etc/inc/notices.inc', '/src/usr/local/bin/kea2fib6'] as $file) {
+	$source = file_get_contents($root . $file);
+	if (substr_count($source, 'unserialize(') !== substr_count($source, "'allowed_classes' => false])")) {
+		$fail("{$file} calls unserialize() without allowed_classes => false.");
+	}
+}
+if (strpos(file_get_contents($root . '/src/etc/inc/util.inc'), "?array \$options = ['allowed_classes' => false]):mixed {") === false) {
+	$fail('unserialize_data() must default to allowed_classes => false.');
+}
+
+/* Legacy password hashes are replaced at login. */
+$auth = file_get_contents($root . '/src/etc/inc/auth.inc');
+if (strpos($auth, 'function local_user_upgrade_legacy_hash(') === false ||
+    strpos($auth, 'local_user_upgrade_legacy_hash($username, $passwd);') === false) {
+	$fail('A login with a legacy (crypt or MD5) hash must store the current hash.');
+}
+
 echo "WebUI hardening smoke test passed\n";

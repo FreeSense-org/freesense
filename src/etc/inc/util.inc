@@ -6022,7 +6022,7 @@ function compare_files($f1, $f2) {
  * 
  * @return mixed $data The unserialized data
  */
-function unserialize_data(?string $path, mixed $default = null, ?array $options = []):mixed {
+function unserialize_data(?string $path, mixed $default = null, ?array $options = ['allowed_classes' => false]):mixed {
 	if (empty($path) || !isset($options)) {
 		return $default;
 	}
