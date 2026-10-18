@@ -15,7 +15,7 @@ in [SECURITY.md](../../.github/SECURITY.md).
 | jquery.cookie (in `jquery-treegrid/js/`) | 1.3.1 | **Removed.** CVE-2022-23395 (prototype pollution leading to DOM XSS) affects 1.3.1, but no page loaded the file: `foot.inc` loads js-cookie 3.0.8 and `js/jquery-cookie-shim.js`, which gives jquery-treegrid the `$.cookie` calls it needs. The unused file is removed from the package and from installed systems (`FreeSense.obsoletedfiles`). |
 | js-cookie | 3.0.8 | Current. No known CVE. |
 | d3 | 3.5.17 | Unmaintained major version (v3). No known CVE. |
-| d3pie | 0.1.6 | Unmaintained. No known CVE. |
+| d3pie | 0.1.8 | Unmaintained. No known CVE. |
 | nvd3 | 1.8.6 | Unmaintained. No known CVE. |
 
 ## Upstream pfSense advisories (2026)

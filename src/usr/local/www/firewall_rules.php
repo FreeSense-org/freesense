@@ -154,7 +154,7 @@ if (!empty($_POST['apply'])) {
 
 if (($_POST['act'] ?? null) == "del") {
 	if (deleteFilterRule($_POST['id'], $if)) {
-		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
+		header("Location: firewall_rules.php?if=" . rawurlencode($if));
 		exit;
 	}
 }
@@ -163,7 +163,7 @@ if ((($_POST['act'] ?? null) == 'killid') &&
     (!empty($_POST['tracker'])) &&
     (!empty($if))) {
 	mwexec("/sbin/pfctl -k label -k " . escapeshellarg(make_rule_label_string($_POST['tracker'], RULE_LABEL_KEY_IDENTIFIER, false)));
-	header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
+	header("Location: firewall_rules.php?if=" . rawurlencode($if));
 	exit;
 }
 
@@ -177,25 +177,25 @@ if (isset($_POST['del_x'])) {
 	if (is_array($_POST['rule']) && count($_POST['rule'])) {
 		deleteFilterRules($_POST['rule'], $if);
 
-		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
+		header("Location: firewall_rules.php?if=" . rawurlencode($if));
 		exit;
 	}
 } elseif (isset($_POST['toggle_x'])) {
 	if (is_array($_POST['rule']) && count($_POST['rule'])) {
 		toggleFilterRules($_POST['rule']);
 
-		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
+		header("Location: firewall_rules.php?if=" . rawurlencode($if));
 		exit;
 	}
 } else if (($_POST['act'] ?? null) == "toggle") {
 	if (toggleFilterRule($_POST['id']) !== false) {
-		header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
+		header("Location: firewall_rules.php?if=" . rawurlencode($if));
 		exit;
 	}
 } else if (!empty($_POST['order-store'])) {
 	reorderFilterRules($_POST['rule'], $_POST['separator'], $if);
 
-	header("Location: firewall_rules.php?if=" . htmlspecialchars($if));
+	header("Location: firewall_rules.php?if=" . rawurlencode($if));
 	exit;
 } elseif (isset($_POST['dstif']) && !empty($_POST['dstif']) &&
     isset($iflist[$_POST['dstif']]) && have_ruleint_access($_POST['dstif']) &&
@@ -236,7 +236,7 @@ if (isset($_POST['del_x'])) {
 		mark_subsystem_dirty('filter');
 	}
 
-	header("Location: firewall_rules.php?if=" . htmlspecialchars($_POST['dstif']));
+	header("Location: firewall_rules.php?if=" . rawurlencode($_POST['dstif']));
 	exit;
 }
 
