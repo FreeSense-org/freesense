@@ -46,7 +46,11 @@ class freesense_xmlrpc_server {
 	private $loop_detected = false;
 	private $remote_addr;
 
-	private function auth() {
+	/*
+	 * $root_only: the method runs arbitrary code, so the HA sync privilege is
+	 * not enough; only admin (uid = 0) may call it.
+	 */
+	private function auth($root_only = false) {
 		global $userindex;
 		$userindex = index_users();
 
@@ -80,8 +84,9 @@ class freesense_xmlrpc_server {
 		 * admin (uid = 0) is allowed
 		 * or regular user with necessary privilege
 		 */
-		if (isset($user_entry['uid']) && $user_entry['uid'] != '0' &&
-		    !userHasPrivilege($user_entry, 'system-xmlrpc-ha-sync')) {
+		if (($root_only && (($user_entry['uid'] ?? null) !== '0')) ||
+		    (isset($user_entry['uid']) && $user_entry['uid'] != '0' &&
+		    !userHasPrivilege($user_entry, 'system-xmlrpc-ha-sync'))) {
 			log_auth_event(LOG_AUTH_EVENT_ERROR, $username, $this->remote_addr, 'not enough privileges');
 
 			require_once("XML/RPC2/Exception.php");
@@ -137,7 +142,7 @@ class freesense_xmlrpc_server {
 	 * @return bool
 	 */
 	public function exec_php($code) {
-		$this->auth();
+		$this->auth(true);
 
 		$toreturn = null;
 		eval($code);
@@ -156,7 +161,7 @@ class freesense_xmlrpc_server {
 	 * @return bool
 	 */
 	public function exec_shell($code) {
-		$this->auth();
+		$this->auth(true);
 
 		mwexec($code);
 		return true;
