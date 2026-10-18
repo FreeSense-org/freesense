@@ -183,6 +183,11 @@ check((fleet_halink_free_opt(array('wan', 'lan')) === 'opt1') && (fleet_halink_f
 KEY2	1700000000
 ") === 1700000000) && (fleet_halink_handshake('') === 0),
     'the HA link takes the next free optN and reads the latest handshake');
+check((fleet_halink_endpoint_hosts("KEY1	203.0.113.5:51831
+KEY2	(none)
+KEY3	198.51.100.7:40000
+") === array('203.0.113.5', '198.51.100.7')) && (fleet_halink_endpoint_hosts('') === array()),
+    'the hosts the HA link talks to are read from wg show endpoints (so their states can be dropped when the link goes)');
 $rmh = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
 check((strpos($rmh, "'/v1/management/ha-link/prepare'") !== false) && (strpos($rmh, "restapi_route('PUT', '/v1/management/ha-link'") !== false) && (strpos($rmh, "restapi_route('DELETE', '/v1/management/ha-link'") !== false) &&
     (strpos($restapi_src, "'ha-link'") !== false), 'the HA link can be prepared, made, read and removed through the management API');

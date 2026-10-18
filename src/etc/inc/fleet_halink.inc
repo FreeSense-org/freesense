@@ -129,9 +129,57 @@ function fleet_halink_handshake(string $out): int {
 	return $latest;
 }
 
+/* pure: the IPv4 addresses in "wg show <if> endpoints" output ("key<TAB>host:port" lines). */
+function fleet_halink_endpoint_hosts(string $out): array {
+	$hosts = array();
+	foreach (preg_split('/\R/', trim($out)) as $line) {
+		$f = preg_split('/\s+/', trim($line));
+		if ((count($f) === 2) && preg_match('/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/D', $f[1], $m)) {
+			$hosts[$m[1]] = true;
+		}
+	}
+	return array_keys($hosts);
+}
+
 /* ------------------------------------------------------------------ */
 /* The box                                                             */
 /* ------------------------------------------------------------------ */
+
+/*
+ * Drop the pf states to and from these hosts. The link's own packets (pfsync
+ * over the tunnel, and the tunnel's packets on the WAN) make states that
+ * pfsync syncs: left from an earlier link, a state is never made again
+ * under the rules that keep it out of pfsync, and the two firewalls keep
+ * refreshing it for each other (a storm of packets).
+ */
+function fleet_halink_kill_states(array $hosts): void {
+	foreach ($hosts as $h) {
+		if (filter_var($h, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+			mwexec('/sbin/pfctl -k ' . escapeshellarg($h) . ' -k 0.0.0.0/0');
+			mwexec('/sbin/pfctl -k 0.0.0.0/0 -k ' . escapeshellarg($h));
+		}
+	}
+}
+
+/* The hosts this firewall's link talks to now: the peer's link address and the address the peer's packets come from. */
+function fleet_halink_hosts(string $tun, array $cfg): array {
+	$hosts = array();
+	foreach ((array)($cfg['addresses']['row'] ?? array()) as $r) {
+		$hosts[] = (string)($r['address'] ?? '');
+	}
+	foreach (config_get_path('installedpackages/wireguard/peers/item', array()) as $p) {
+		if (is_array($p) && (($p['tun'] ?? '') === $tun)) {
+			foreach ((array)($p['allowedips']['row'] ?? array()) as $r) {
+				$hosts[] = (string)($r['address'] ?? '');
+			}
+			$hosts[] = gethostbyname((string)($p['endpoint'] ?? ''));
+		}
+	}
+	$out = array();
+	exec('/usr/bin/wg show ' . escapeshellarg($tun) . ' endpoints 2>/dev/null', $out);
+	return array_values(array_unique(array_filter(array_merge($hosts, fleet_halink_endpoint_hosts(implode("
+", $out))))));
+}
 
 define('FLEET_HALINK_LOCK', '/var/run/fleet-halink-install.lock');
 
@@ -262,6 +310,7 @@ function fleet_halink_set(array $b): array {
 	write_config('Fleet: HA link ' . $tun . ' assigned as ' . $opt . '.');
 	interface_configure($opt, true);
 	filter_configure();
+	fleet_halink_kill_states(array($b['address'], $b['peer_address'], gethostbyname((string)(fleet_halink_endpoint((string)($b['peer_endpoint'] ?? '')) ?? array(''))[0])));
 	@unlink(FLEET_HALINK_KEY);
 	return array($opt, $tun);
 }
@@ -296,6 +345,7 @@ function fleet_halink_delete(): string {
 		return 'absent';
 	}
 	list($tun, $cfg, $if) = $found;
+	$hosts = fleet_halink_hosts($tun, $cfg);
 	if ($if !== '') {
 		$errors = array();
 		if (!interfaces_assign_delete($if, $errors)) {
@@ -317,6 +367,7 @@ function fleet_halink_delete(): string {
 	}
 	wg_delete_tunnel($tun);
 	wg_tunnel_sync(array($tun));
+	fleet_halink_kill_states($hosts);
 	/* HA sync, switched off by Fleet before, may still name the interface; it must not name one that is gone. */
 	if (($if !== '') && (config_get_path('hasync/pfsyncinterface') === $if)) {
 		config_del_path('hasync/pfsyncinterface');
