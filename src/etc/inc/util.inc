@@ -955,7 +955,7 @@ function is_module_available(string $module_name, string ...$add_dirs): bool
 function is_module_loaded(string $module_name): bool
 {
 	/* sanitize input */
-	$module_name = escapeshellarg(rtrim($module_name, '.ko'));
+	$module_name = escapeshellarg(preg_replace('/\.ko$/', '', $module_name));
 
 	$base_cmd = ['/sbin/kldstat', '-q'];
 
@@ -2737,7 +2737,7 @@ function get_interface_list($mode = "active", $keyby = "physical", $vfaces = fal
 					$toput['friendly'] = $friendly;
 				}
 				$dmesg_arr = array();
-				exec("/sbin/dmesg |grep $ifname | head -n1", $dmesg_arr);
+				exec("/sbin/dmesg |grep " . escapeshellarg($ifname) . " | head -n1", $dmesg_arr);
 				preg_match_all("/<(.*?)>/i", $dmesg_arr[0], $dmesg);
 				$toput['dmesg'] = $dmesg[1][0];
 				$iflist[$ifname] = $toput;
