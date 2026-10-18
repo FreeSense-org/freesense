@@ -162,7 +162,30 @@ check((hash('sha256', fleet_pem_der($pem)) === openssl_x509_fingerprint($pem, 's
     'the WebGUI certificate fingerprint is SHA-256 over its DER form (what TLS peer_fingerprint checks)');
 $xc = (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_client.inc') . (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_pinned_request.inc');
 check((strpos($xc, "'ssl_peer_fingerprint'") !== false) && (strpos($xc, "config_get_path('hasync/syncpeerpin'") !== false), 'HA sync pins the peer certificate when a fingerprint is set');
-check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 14);") !== false, 'API level 14: the port probe (13: controller endpoints, 12: virtual IPs and the HA sync user)');
+check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 15);") !== false, 'API level 15: the encrypted HA link (14: the port probe, 13: controller endpoints, 12: virtual IPs and the HA sync user)');
+require_once(__DIR__ . '/../src/etc/inc/fleet_halink.inc');
+$hl = array('address' => '10.254.7.1', 'bits' => 30, 'peer_address' => '10.254.7.2', 'peer_public_key' => str_repeat('A', 43) . '=', 'peer_endpoint' => '', 'keepalive' => 0);
+check(fleet_halink_errors($hl) === array() && fleet_halink_errors(array('peer_endpoint' => 'fw.example.net:51831', 'keepalive' => 25) + $hl) === array(),
+    'an HA link request: a /30, both addresses in it, a public key, an optional endpoint');
+check(count(fleet_halink_errors(array('bits' => 24) + $hl)) === 1 && count(fleet_halink_errors(array('peer_address' => '10.254.8.2') + $hl)) === 1 &&
+    count(fleet_halink_errors(array('peer_address' => '10.254.7.1') + $hl)) === 1 && count(fleet_halink_errors(array('peer_public_key' => 'short') + $hl)) === 1 &&
+    count(fleet_halink_errors(array('peer_endpoint' => 'fw.example.net') + $hl)) === 1 && count(fleet_halink_errors(array('peer_endpoint' => 'a b:1') + $hl)) === 1 &&
+    count(fleet_halink_errors(array('keepalive' => -1) + $hl)) === 1, 'an HA link request is refused for a wrong prefix, another network, the same address, a bad key, a bad endpoint or keepalive');
+check((fleet_halink_endpoint('') === array('', 0)) && (fleet_halink_endpoint('203.0.113.5:51831') === array('203.0.113.5', 51831)) && (fleet_halink_endpoint('x:70000') === null),
+    'the HA link endpoint is host:port or empty');
+$pp = fleet_halink_peer_post('tun_wg0', $hl['peer_public_key'], '10.254.7.2', 'fw.example.net:51831', 25);
+check(($pp['endpoint'] === 'fw.example.net') && ($pp['port'] === '51831') && ($pp['persistentkeepalive'] === '25') && ($pp['address0'] === '10.254.7.2') && ($pp['address_subnet0'] === '32') &&
+    (strpos($pp['descr'], FLEET_HALINK_MARK) === 0) && (fleet_halink_peer_post('tun_wg0', $hl['peer_public_key'], '10.254.7.2', '', 0)['endpoint'] === ''),
+    'the HA link peer is reached only at its own address and carries the Fleet mark');
+$tp = fleet_halink_tunnel_post('KEY', 51831, '10.254.7.1', 30);
+check(($tp['listenport'] === '51831') && ($tp['address0'] === '10.254.7.1') && ($tp['address_subnet0'] === '30') && (strpos($tp['descr'], FLEET_HALINK_MARK) === 0), 'the HA link tunnel post');
+check((fleet_halink_free_opt(array('wan', 'lan')) === 'opt1') && (fleet_halink_free_opt(array('wan', 'opt1', 'opt3')) === 'opt2') && (fleet_halink_handshake("KEY1	0
+KEY2	1700000000
+") === 1700000000) && (fleet_halink_handshake('') === 0),
+    'the HA link takes the next free optN and reads the latest handshake');
+$rmh = (string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_management.inc');
+check((strpos($rmh, "'/v1/management/ha-link/prepare'") !== false) && (strpos($rmh, "restapi_route('PUT', '/v1/management/ha-link'") !== false) && (strpos($rmh, "restapi_route('DELETE', '/v1/management/ha-link'") !== false) &&
+    (strpos($restapi_src, "'ha-link'") !== false), 'the HA link can be prepared, made, read and removed through the management API');
 check((restapi_probe_address('203.0.113.5', 8443) === 'tcp://203.0.113.5:8443') && (restapi_probe_address('2001:db8::1', 8443) === 'tcp://[2001:db8::1]:8443') &&
     (restapi_probe_address('fleet.example.net', 443) === 'tcp://fleet.example.net:443') && (restapi_probe_address('a b', 1) === null) && (restapi_probe_address('x;rm', 1) === null) &&
     (restapi_probe_address('203.0.113.5', 70000) === null), 'the port probe connects only to an IP address or DNS name and a valid port');

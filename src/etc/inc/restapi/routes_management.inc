@@ -118,6 +118,27 @@ function restapi_routes_management() {
 		restapi_route('DELETE', '/v1/management/ha-sync-user', 'restapi_h_mgmt_hasync_user_delete', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'summary' => 'Remove the fleet-hasync user')),
+		restapi_route('POST', '/v1/management/ha-link/prepare', 'restapi_h_mgmt_halink_prepare', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('listen_port'), 'properties' => array(
+			    'listen_port' => array('type' => 'integer', 'description' => 'The UDP port this firewall listens on for the HA link'))),
+			'summary' => 'First step of the encrypted HA link: make the key pair of this firewall and return its public key. Answers 202 while the WireGuard package is being installed; ask again')),
+		restapi_route('GET', '/v1/management/ha-link', 'restapi_h_mgmt_halink_get', array(
+			'page' => 'system_fleet.php', 'area' => 'management',
+			'summary' => 'The encrypted HA link: present, its interface, address, public key and the time of the latest handshake')),
+		restapi_route('PUT', '/v1/management/ha-link', 'restapi_h_mgmt_halink_put', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'body' => array('type' => 'object', 'required' => array('address', 'bits', 'peer_address', 'peer_public_key'), 'properties' => array(
+			    'address' => array('type' => 'string', 'description' => 'The address of this firewall on the link (IPv4)'),
+			    'bits' => array('type' => 'integer', 'description' => 'The prefix length; always 30'),
+			    'peer_address' => array('type' => 'string', 'description' => 'The address of the other firewall on the link, in the same /30'),
+			    'peer_public_key' => array('type' => 'string', 'description' => 'The WireGuard public key of the other firewall'),
+			    'peer_endpoint' => array('type' => 'string', 'description' => 'host:port of the other firewall, or empty when this one waits for it to connect'),
+			    'keepalive' => array('type' => 'integer', 'description' => 'Persistent keepalive in seconds, 0 to 3600 (default 0)'))),
+			'summary' => 'Second step of the encrypted HA link: make the WireGuard tunnel to the other firewall and assign it as the next free optN interface')),
+		restapi_route('DELETE', '/v1/management/ha-link', 'restapi_h_mgmt_halink_delete', array(
+			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
+			'summary' => 'Remove the encrypted HA link (its interface, peer and tunnel); refused while the interface is in use')),
 		restapi_route('PUT', '/v1/management/controller-endpoints', 'restapi_h_mgmt_endpoints_put', array(
 			'page' => 'system_fleet.php', 'area' => 'management', 'write' => true,
 			'body' => array('type' => 'object', 'required' => array('endpoints', 'epoch'), 'properties' => array(
@@ -434,6 +455,73 @@ function restapi_h_mgmt_hasync_user_put($req) {
 function restapi_h_mgmt_hasync_user_delete($req) {
 	restapi_mgmt_enrolled();
 	return array('data' => array('user' => FLEET_HASYNC_USER, 'result' => fleet_hasync_user_set(null)));
+}
+
+/* The HA link steps run the package install and the service start: they may take a minute. */
+function restapi_h_mgmt_halink_prepare($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('listen_port'));
+	require_once('fleet_halink.inc');
+	$port = $req['body']['listen_port'] ?? null;
+	if (!is_int($port)) {
+		throw new RestApiError(422, 'invalid_port', 'listen_port must be a UDP port.');
+	}
+	/* The package install takes longer than a request may: it runs after the answer, and the caller asks again until it gets the key. */
+	if (!fleet_halink_installed()) {
+		if (!fleet_halink_installing()) {
+			restapi_ops_after_response(1, function () {
+				try {
+					fleet_halink_install();
+				} catch (RuntimeException $e) {
+					log_error('Fleet HA link: ' . $e->getMessage());
+				}
+			});
+		}
+		return array('status' => 202, 'data' => array('installing' => true));
+	}
+	set_time_limit(300);
+	try {
+		list($public, $port) = fleet_halink_prepare($port);
+	} catch (InvalidArgumentException $e) {
+		throw new RestApiError(422, 'invalid_port', $e->getMessage());
+	} catch (RuntimeException $e) {
+		throw new RestApiError(500, 'halink_failed', $e->getMessage());
+	}
+	return array('data' => array('public_key' => $public, 'listen_port' => $port));
+}
+
+function restapi_h_mgmt_halink_get($req) {
+	restapi_mgmt_enrolled();
+	require_once('fleet_halink.inc');
+	return array('data' => fleet_halink_status());
+}
+
+function restapi_h_mgmt_halink_put($req) {
+	restapi_mgmt_enrolled();
+	restapi_reject_unknown_fields($req['body'], array('address', 'bits', 'peer_address', 'peer_public_key', 'peer_endpoint', 'keepalive'));
+	require_once('fleet_halink.inc');
+	$b = (array)$req['body'] + array('peer_endpoint' => '', 'keepalive' => 0);
+	set_time_limit(300);
+	try {
+		list($interface, $tunnel) = fleet_halink_set($b);
+	} catch (InvalidArgumentException $e) {
+		throw new RestApiError(422, 'invalid_link', $e->getMessage());
+	} catch (DomainException $e) {
+		throw new RestApiError(409, 'not_prepared', $e->getMessage());
+	} catch (RuntimeException $e) {
+		throw new RestApiError(500, 'halink_failed', $e->getMessage());
+	}
+	return array('data' => array('interface' => $interface, 'tunnel' => $tunnel));
+}
+
+function restapi_h_mgmt_halink_delete($req) {
+	restapi_mgmt_enrolled();
+	require_once('fleet_halink.inc');
+	try {
+		return array('data' => array('result' => fleet_halink_delete()));
+	} catch (RuntimeException $e) {
+		throw new RestApiError(409, 'in_use', $e->getMessage());
+	}
 }
 
 function restapi_h_mgmt_endpoints_put($req) {
