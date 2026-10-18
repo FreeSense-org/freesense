@@ -4,6 +4,7 @@
 # + optional dependency closure.
 dns/%%PRODUCT_NAME%%-pkg-bind
 emulators/%%PRODUCT_NAME%%-pkg-Open-VM-Tools
+emulators/%%PRODUCT_NAME%%-pkg-Qemu-Guest-Agent
 ftp/%%PRODUCT_NAME%%-pkg-tftpd
 net-mgmt/%%PRODUCT_NAME%%-pkg-ANDwatch
 net-mgmt/%%PRODUCT_NAME%%-pkg-lldpd

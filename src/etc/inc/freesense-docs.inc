@@ -83,6 +83,7 @@ function freesense_docs_topic_path($page) {
 		'/^nut(_|$)/' => '/packages/nut/',
 		'/^diagnostics(\/|$)/' => '/packages/diagnostics/',
 		'/^open-vm-tools/' => '/packages/open-vm-tools/',
+		'/^qemu-guest-agent/' => '/packages/qemu-guest-agent/',
 		'/^(system|status)_restapi/' => '/api/overview/',
 		'/^system_(gateways?|routing|staticroutes)/' => '/base-os/routing-and-high-availability/',
 		'/^(interfaces|vlan|bridge|lagg|wireless|assign)/' => '/base-os/interfaces-and-networking/',

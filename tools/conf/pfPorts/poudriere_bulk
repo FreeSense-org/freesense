@@ -11,6 +11,7 @@ dns/dnstop
 editors/nano
 editors/vim
 emulators/%%PRODUCT_NAME%%-pkg-Open-VM-Tools
+emulators/%%PRODUCT_NAME%%-pkg-Qemu-Guest-Agent
 emulators/qemu@guestagent
 ftp/%%PRODUCT_NAME%%-pkg-tftpd
 # graphics/drm-61-kmod - out-of-tree kmod fails vs the pinned 16-CURRENT snapshot
