@@ -197,7 +197,7 @@ if ($m['enrolled']):
 </div>
 <?php if ($vault['replicas'] > 0): ?>
 <div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Fleet backup copies')?></h2></div>
+	<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-box-archive icon-embed-btn" aria-hidden="true"></i><?=gettext('Fleet backup copies')?></h2></div>
 	<div class="panel-body">
 		<p><?=sprintf(gettext('This firewall keeps %1$d encrypted backup copies for its fleet (%2$s). It cannot read them. If the controller is lost, download them here and use Recover fleet on a new controller with the fleet\'s recovery key.'),
 		    $vault['replicas'], format_bytes($vault['used_bytes']))?></p>
@@ -208,7 +208,7 @@ if ($m['enrolled']):
 </div>
 <?php endif; ?>
 <div class="panel panel-default">
-	<div class="panel-heading"><h2 class="panel-title"><?=gettext('Leave the fleet')?></h2></div>
+	<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-right-from-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('Leave the fleet')?></h2></div>
 	<div class="panel-body">
 		<p><?=gettext('The controller is told, the Fleet connection and access are removed, and this firewall keeps its configuration. Its last configuration from the fleet stays in the archive.')?></p>
 		<form method="post">
@@ -226,9 +226,11 @@ if (!empty(config_get_path('installedpackages/fleet/config/0/enable'))):
 ?>
 <section class="fs-fleet-guide">
 	<header class="fs-fleet-guide-head">
-		<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
-		<div><h2><?=gettext('This firewall is the fleet controller')?></h2>
-			<p><?=gettext('It manages the fleet and is not managed by one. Add other firewalls from Fleet > Firewalls > Add and approve.')?></p></div>
+		<div class="fs-fleet-guide-title">
+			<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
+			<h2><?=gettext('This firewall is the fleet controller')?></h2>
+		</div>
+		<p><?=gettext('It manages the fleet and is not managed by one. Add other firewalls from Fleet > Firewalls > Add and approve.')?></p>
 	</header>
 	<p><a class="btn btn-primary" href="/fleet/fleet_dashboard.php"><i class="fa-solid fa-arrow-right icon-embed-btn" aria-hidden="true"></i><?=gettext('Open Fleet')?></a></p>
 </section>
@@ -255,11 +257,11 @@ $nav_next = function (string $to, string $label, string $icon = 'fa-arrow-right'
 ?>
 <section class="fs-fleet-guide">
 	<header class="fs-fleet-guide-head">
-		<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
-		<div>
+		<div class="fs-fleet-guide-title">
+			<i class="fa-solid fa-network-wired" aria-hidden="true"></i>
 			<h2><?=gettext('Add to fleet')?></h2>
-			<p><?=gettext('A FreeSense Fleet controller can monitor and manage this firewall. Ask its administrator for an invitation (Fleet > Firewalls > Add and approve) and follow the steps. Nothing changes on this firewall until you select Join on the review.')?></p>
 		</div>
+		<p><?=gettext('A FreeSense Fleet controller can monitor and manage this firewall. Ask its administrator for an invitation (Fleet > Firewalls > Add and approve) and follow the steps. Nothing changes on this firewall until you select Join on the review.')?></p>
 	</header>
 <?php if ($view !== 'progress') { fs_view_switch(array('guide' => gettext('Guided'), 'manual' => gettext('Manual')), $view); } ?>
 <?php if ($view !== 'manual') { fs_stepper($steps, ($view === 'progress') ? 'join' : $step, $skipped, gettext('Add to fleet')); } ?>
@@ -274,7 +276,7 @@ if ($advice !== null) {
 	    data-strings="<?=htmlspecialchars(json_encode(array('done' => gettext('Done'), 'running' => gettext('Working'), 'todo' => gettext('Waiting'),
 	    'fail' => gettext('Failed'), 'wait' => gettext('Waiting for approval'), 'step_done' => gettext('done'), 'step_current' => gettext('current step'),
 	    'step_todo' => gettext('to do'), 'step_skipped' => gettext('not needed'))))?>">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('5. Join')?></h2></div>
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-right-to-bracket icon-embed-btn" aria-hidden="true"></i><?=gettext('5. Join')?></h2></div>
 		<div class="panel-body">
 			<p class="fs-step-lead"><?=gettext('This runs in the background; you can leave this page and come back. If any step fails, everything is undone.')?></p>
 			<ol class="fs-fleet-steps" data-join-steps></ol>
@@ -299,7 +301,7 @@ if ($advice !== null) {
 <?php elseif ($view === 'manual'): ?>
 	<form method="post" class="panel panel-default">
 		<input type="hidden" name="view" value="manual"/>
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('Join with a link and a key')?></h2></div>
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-link icon-embed-btn" aria-hidden="true"></i><?=gettext('Join with a link and a key')?></h2></div>
 		<div class="panel-body">
 			<div class="mb-3"><label class="form-label" for="manual_link"><?=gettext('Join link')?></label>
 				<input class="form-control fs-mono" id="manual_link" name="manual_link" required autocomplete="off" spellcheck="false"
@@ -313,7 +315,7 @@ if ($advice !== null) {
 	</form>
 <?php elseif ($step === 'paste'): ?>
 	<form method="post" class="panel panel-default">
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('1. Paste the invitation')?></h2></div>
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-paste icon-embed-btn" aria-hidden="true"></i><?=gettext('1. Paste the invitation')?></h2></div>
 		<div class="panel-body">
 			<p class="fs-step-lead"><?=gettext('On the controller, create an invitation and select "Copy for the firewall". Paste all of it here. A link alone works too; you then type the key in a later step.')?></p>
 			<label class="form-label" for="invitation"><?=gettext('Invitation')?></label>
@@ -325,7 +327,7 @@ if ($advice !== null) {
 <?php elseif ($step === 'check'): list($mname, $mtext) = $link_methods[$checked['link']['mode']]; ?>
 	<form method="post" class="panel panel-default">
 		<?php $hidden($carry); ?>
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('2. Check')?></h2></div>
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-clipboard-check icon-embed-btn" aria-hidden="true"></i><?=gettext('2. Check')?></h2></div>
 		<div class="panel-body">
 			<p class="fs-step-lead"><?=gettext('This firewall asked the controller for its certificate and compared it with the one the invitation names. Nothing was changed.')?></p>
 			<dl class="fs-review">
@@ -347,7 +349,7 @@ if ($advice !== null) {
 <?php elseif ($step === 'key'): ?>
 	<form method="post" class="panel panel-default">
 		<?php $hidden(array('invitation' => $invitation)); ?>
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('3. Join key')?></h2></div>
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-key icon-embed-btn" aria-hidden="true"></i><?=gettext('3. Join key')?></h2></div>
 		<div class="panel-body">
 			<p class="fs-step-lead"><?=gettext('The controller\'s administrator gives you the join key separately from the link, so the link alone cannot add a firewall.')?></p>
 			<label class="form-label" for="join_key"><?=gettext('Join key')?></label>
@@ -363,7 +365,7 @@ if ($advice !== null) {
 ?>
 	<form method="post" class="panel panel-default">
 		<?php $hidden($carry); ?>
-		<div class="panel-heading"><h2 class="panel-title"><?=gettext('4. Review')?></h2></div>
+		<div class="panel-heading"><h2 class="panel-title"><i class="fa-solid fa-list-check icon-embed-btn" aria-hidden="true"></i><?=gettext('4. Review')?></h2></div>
 		<div class="panel-body">
 			<p class="fs-step-lead"><?=gettext('This is what happens when you select Join.')?></p>
 			<dl class="fs-review">

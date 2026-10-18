@@ -859,9 +859,10 @@ a.fs-toast-text:hover { text-decoration: underline; }
 .fs-multiselect-empty { padding: .4rem .8rem; font-size: .85rem; color: var(--bs-secondary-color); }
 
 /* ============================ Fleet: Add to fleet guide (system_fleet.php) ============================ */
-.fs-fleet-guide-head { display: flex; gap: var(--fs-sp-3); align-items: flex-start; margin-bottom: var(--fs-sp-4); }
-.fs-fleet-guide-head > i { font-size: var(--fs-fs-xl); color: var(--fs-coral); margin-top: .2rem; }
-.fs-fleet-guide-head h2 { margin: 0 0 var(--fs-sp-1); font-size: var(--fs-fs-lg); }
+.fs-fleet-guide-head { margin-bottom: var(--fs-sp-4); }
+.fs-fleet-guide-title { display: flex; align-items: center; gap: var(--fs-sp-2); padding-bottom: var(--fs-sp-2); margin-bottom: var(--fs-sp-2); border-bottom: 1px solid var(--fs-border); }
+.fs-fleet-guide-title > i { font-size: var(--fs-fs-lg); color: var(--fs-coral); }
+.fs-fleet-guide-title h2 { margin: 0; font-size: var(--fs-fs-lg); font-weight: 600; color: var(--fs-text-strong); }
 .fs-fleet-guide-head p { margin: 0; max-width: 46rem; color: var(--fs-text-muted); }
 .fs-fleet-guide .panel-body { padding: var(--fs-sp-3); }
 .fs-fleet-guide .fs-viewswitch { margin-bottom: var(--fs-sp-3); }
