@@ -84,4 +84,24 @@ if (strpos($auth, 'function local_user_upgrade_legacy_hash(') === false ||
 	$fail('A login with a legacy (crypt or MD5) hash must store the current hash.');
 }
 
+/* The XML-RPC methods that run code are for admin (uid 0) only, not for the HA sync privilege. */
+$xmlrpc = file_get_contents($www . '/xmlrpc.php');
+foreach (['exec_php', 'exec_shell'] as $method) {
+	if (!preg_match('/function ' . $method . '\(\$code\) \{\s+\$this->auth\(true\);/', $xmlrpc)) {
+		$fail("XML-RPC {$method}() must call auth(true) (uid 0 only).");
+	}
+}
+if (strpos($xmlrpc, "(\$root_only && ((\$user_entry['uid'] ?? null) !== '0'))") === false) {
+	$fail('XML-RPC auth(true) must reject every account except uid 0.');
+}
+
+/* Redirect query values are URL-encoded, shell arguments are escaped, and ".ko" is a suffix. */
+if (preg_match('/Location: [^"]*\?[^"]*" \. htmlspecialchars\(/', file_get_contents($www . '/firewall_rules.php'))) {
+	$fail('firewall_rules.php redirects must use rawurlencode(), not htmlspecialchars().');
+}
+$util = file_get_contents($root . '/src/etc/inc/util.inc');
+if (strpos($util, "rtrim(\$module_name, '.ko')") !== false || strpos($util, 'dmesg |grep $ifname') !== false) {
+	$fail('util.inc: is_module_loaded() must strip the ".ko" suffix, and dmesg must get an escaped interface name.');
+}
+
 echo "WebUI hardening smoke test passed\n";
