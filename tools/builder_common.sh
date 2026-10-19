@@ -2745,55 +2745,6 @@ aws_exec() {
 	return $?
 }
 
-# The Go toolchain of an emulated (qemu-user) jail dies with SIGILL while
-# "go mod download" runs, which failed every Go port built from source after a
-# pin bump (tailscale, node_exporter: "Failed: fetch"). The modules are plain
-# files, so fetch them on the host with its native Go into the module cache
-# under DISTDIR, which the jail mounts: the port's own go-post-fetch then finds
-# everything in the cache. Best effort: a port that cannot be prefetched keeps
-# the old behaviour and fails in the jail with its own log.
-# $1 = file listing the bulk roots
-poudriere_prefetch_go_modules() {
-	local _roots=$1
-	local _tree="/usr/local/poudriere/ports/${POUDRIERE_PORTS_NAME}"
-	local _makeconf="/usr/local/etc/poudriere.d/${POUDRIERE_PORTS_NAME}-make.conf"
-	local _distdir=/usr/ports/distfiles
-	local _list=${SCRATCHDIR}/go_prefetch_ports.$$
-	local _root _port _dir _origin _gocmd _goport
-
-	: > "${_list}"
-	while read -r _root; do
-		_port=${_root%%@*}
-		[ -f "${_tree}/${_port}/Makefile" ] || continue
-		echo "${_tree}/${_port}" >> "${_list}"
-		make -C "${_tree}/${_port}" PORTSDIR="${_tree}" \
-		    __MAKE_CONF="${_makeconf}" IGNORE_OSVERSION=yes \
-		    all-depends-list 2>/dev/null >> "${_list}" || true
-	done < "${_roots}"
-	sort -u "${_list}" -o "${_list}"
-
-	while read -r _dir; do
-		[ -d "${_dir}" ] || continue
-		set -- PORTSDIR="${_tree}" __MAKE_CONF="${_makeconf}" \
-		    IGNORE_OSVERSION=yes DISTDIR="${_distdir}"
-		[ -n "$(make -C "${_dir}" "$@" -V GO_MODULE 2>/dev/null)" ] || continue
-		_origin=${_dir#${_tree}/}
-		_gocmd=$(make -C "${_dir}" "$@" -V GO_CMD 2>/dev/null)
-		_goport=$(make -C "${_dir}" "$@" -V GO_PORT 2>/dev/null)
-		if [ ! -x "${_gocmd}" ]; then
-			if ! pkg install -y "${_goport}" >> ${LOGFILE} 2>&1; then
-				echo ">>> WARNING: no host Go (${_goport}) to prefetch modules of ${_origin}" | tee -a ${LOGFILE}
-				continue
-			fi
-		fi
-		echo ">>> Prefetching Go modules of ${_origin} on the host" | tee -a ${LOGFILE}
-		if ! make -C "${_dir}" "$@" NO_DEPENDS=yes fetch >> ${LOGFILE} 2>&1; then
-			echo ">>> WARNING: Go module prefetch of ${_origin} failed" | tee -a ${LOGFILE}
-		fi
-	done < "${_list}"
-	rm -f "${_list}"
-}
-
 poudriere_bulk() {
 	local _archs=$(poudriere_possible_archs)
 	local _makeconf
@@ -2960,9 +2911,6 @@ EOF
 		if [ -n "${FREESENSE_PORT_TESTS:-}" ]; then
 			_poudriere_test_flag="-t"
 			echo ">>> FreeSense port test mode enabled (Poudriere bulk -t)" | tee -a ${LOGFILE}
-		fi
-		if [ "${jail_arch#*.}" = aarch64 ] && [ "$(uname -p)" != aarch64 ]; then
-			poudriere_prefetch_go_modules "${_bulk}"
 		fi
 		if ! poudriere bulk ${_poudriere_test_flag} \
 			-f ${_bulk} -j ${jail_name} -p ${POUDRIERE_PORTS_NAME}; then
