@@ -16,6 +16,7 @@ require_once('restapi/framework.inc');
 require_once('restapi/schema.inc');
 require_once('restapi/routes_firewall.inc');
 require_once('restapi/routes_unbound.inc');
+require_once('validate.inc');
 
 /* The GUI save code reads optional form fields without isset(); that is all it may warn about. */
 set_error_handler(function ($no, $msg, $file, $line) {

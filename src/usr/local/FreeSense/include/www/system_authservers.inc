@@ -402,7 +402,7 @@ function authsrv_save(array $post, $id, $caller) {
 
 	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
-	if (preg_match("/[^a-zA-Z0-9\.\-_]/", $post['host'])) {
+	if (!validate_name_chars($post['host'] ?? '')) {
 		$input_errors[] = gettext("The host name contains invalid characters.");
 	}
 

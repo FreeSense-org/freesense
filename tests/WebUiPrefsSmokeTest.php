@@ -7,6 +7,7 @@
 
 $root = dirname(__DIR__);
 $src = file_get_contents("{$root}/src/etc/inc/webui_prefs.inc");
+require_once("{$root}/src/etc/inc/validate.inc");
 
 function check($condition, $message) {
 	if (!$condition) {

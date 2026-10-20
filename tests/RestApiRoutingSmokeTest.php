@@ -259,7 +259,8 @@ function restapi_radvd_types_test() {
 $gwlb = file_get_contents("{$root}/src/etc/inc/gwlb.inc");
 $util = file_get_contents("{$root}/src/etc/inc/util.inc");
 $sources = array('gwlb.inc' => $gwlb, 'system_routing.inc' => $routing_inc, 'services_dyndns.inc' => $ddns_inc, 'services_dhcp.inc' => $dhcp_inc,
-    'routes_routing.inc' => file_get_contents("{$root}/src/etc/inc/restapi/routes_routing.inc"), 'util.inc' => $util);
+    'routes_routing.inc' => file_get_contents("{$root}/src/etc/inc/restapi/routes_routing.inc"),
+    'util.inc' => $util . file_get_contents("{$root}/src/etc/inc/validate.inc"));
 $cases = array(
 	'routing/gateways' => array('gwlb.inc', array(
 		array('The field %s is required.', array('Name'), 'name', 'util.inc'),

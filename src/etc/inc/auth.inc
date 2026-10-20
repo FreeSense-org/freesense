@@ -30,6 +30,7 @@
  * file courtesy of Michael Retterklieber.
  */
 require_once("config.lib.inc");
+require_once("validate.inc");
 include_once('phpsessionmanager.inc');
 if (empty($do_not_include_config_gui_inc)) {
 	require_once("config.gui.inc");
@@ -2381,7 +2382,7 @@ function webgui_session_signin($username, $password) {
 	$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];
 	/* Shown in the WebUI's session list (Profile > Sessions). */
 	$_SESSION['login_time'] = time();
-	$_SESSION['user_agent'] = substr(preg_replace('/[\x00-\x1f\x7f]/', '', (string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 200);
+	$_SESSION['user_agent'] = substr(validate_strip_control_chars($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 200);
 	phpsession_end(true);
 	log_auth_event(LOG_AUTH_EVENT_LOGIN, $username, get_user_remote_address() . get_user_remote_authsource());
 	return true;

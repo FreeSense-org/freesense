@@ -30,6 +30,8 @@
  * administrators set defaults for preferences in system/webui/defaults.
  */
 
+require_once('validate.inc');
+
 define('WEBUI_PREFS_DIR', '/conf/webui');
 define('WEBUI_LAYOUT_MAX_BYTES', 65536);
 
@@ -183,7 +185,7 @@ function webui_profile_validate(array $in) {
 	$errors = array();
 	foreach ($in as $k => $v) {
 		if ($k === 'name') {
-			if (!is_string($v) || (mb_strlen(trim($v)) > 64) || preg_match('/[\x00-\x1f\x7f]/', $v)) {
+			if (!is_string($v) || (mb_strlen(trim($v)) > 64) || validate_has_control_chars($v)) {
 				$errors['name'] = 'A name of at most 64 characters.';
 			} else {
 				$out['name'] = trim($v);

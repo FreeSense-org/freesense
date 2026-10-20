@@ -47,6 +47,7 @@
  */
 
 require_once('fleet_node.inc');
+require_once('validate.inc');
 
 define('FLEET_LOCK_BREAKGLASS', FLEET_NODE_DIR . '/breakglass.json');
 define('FLEET_CONFIRM_DIR', FLEET_NODE_DIR . '/confirm');
@@ -320,7 +321,7 @@ function fleet_breakglass_record(int $hours, string $reason, int $now, string $w
 		throw new InvalidArgumentException('Break-glass lasts from 1 to ' . FLEET_BREAKGLASS_MAX_HOURS . ' hours.');
 	}
 	$reason = trim($reason);
-	if ((strlen($reason) < 3) || (strlen($reason) > 200) || preg_match('/[\x00-\x1f\x7f]/', $reason)) {
+	if (!validate_text($reason, 200, 3)) {
 		throw new InvalidArgumentException('Give a reason of 3 to 200 characters.');
 	}
 	return array('since' => $now, 'until' => $now + $hours * 3600, 'reason' => $reason, 'by' => $who);
@@ -348,7 +349,7 @@ function fleet_confirm_record(string $id, int $seconds, string $label, int $now,
 	if (($seconds < FLEET_CONFIRM_MIN) || ($seconds > FLEET_CONFIRM_MAX)) {
 		throw new InvalidArgumentException('seconds: from ' . FLEET_CONFIRM_MIN . ' to ' . FLEET_CONFIRM_MAX);
 	}
-	if ((strlen($label) > 120) || preg_match('/[\x00-\x1f\x7f]/', $label)) {
+	if (!validate_text($label, 120)) {
 		throw new InvalidArgumentException('label: up to 120 characters and no control characters');
 	}
 	return array('id' => $id, 'label' => $label, 'started' => $now, 'deadline' => $now + $seconds, 'by' => $who);
@@ -399,10 +400,10 @@ function fleet_activity_record(array $body, int $now): array {
 	}
 	$text = (string)($body['text'] ?? '');
 	$by = (string)($body['by'] ?? '');
-	if (($text === '') || (strlen($text) > 160) || preg_match('/[\x00-\x1f\x7f]/', $text)) {
+	if (!validate_text($text, 160, 1)) {
 		throw new InvalidArgumentException('text: 1 to 160 characters and no control characters');
 	}
-	if ((strlen($by) > 80) || preg_match('/[\x00-\x1f\x7f]/', $by)) {
+	if (!validate_text($by, 80)) {
 		throw new InvalidArgumentException('by: up to 80 characters and no control characters');
 	}
 	foreach (array('step', 'steps') as $f) {

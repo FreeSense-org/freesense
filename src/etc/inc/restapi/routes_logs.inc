@@ -42,6 +42,7 @@
  */
 
 require_once('restapi/framework.inc');
+require_once('validate.inc');
 
 define('RESTAPI_LOG_LINES_DEFAULT', 50);
 define('RESTAPI_LOG_LINES_MAX', 2000);
@@ -170,7 +171,7 @@ function restapi_log_format(array $query, array $entry) {
 /* A text query parameter: a string of at most 200 printable characters ("" when absent). */
 function restapi_log_text(array $query, $name) {
 	$value = $query[$name] ?? '';
-	if (!is_string($value) || (strlen($value) > 200) || preg_match('/[\x00-\x1f\x7f]/', $value)) {
+	if (!validate_text($value, 200)) {
 		throw new RestApiError(400, 'invalid_parameter', "\"{$name}\" must be text of at most 200 characters.");
 	}
 	return $value;

@@ -32,6 +32,8 @@
  * grows past the size limit, the oldest entries are dropped right away.
  */
 
+require_once('validate.inc');
+
 define('RESTAPI_REQLOG_FILE', '/var/log/restapi.log');
 define('RESTAPI_REQLOG_LOCK', '/var/run/restapi_log.lock');
 define('RESTAPI_REQLOG_CLI', '/usr/local/sbin/freesense-restapi-log');
@@ -76,7 +78,7 @@ function restapi_reqlog_wanted($level, $status, $write) {
 /* One log line (no trailing newline) for an entry; long or odd text is cut and cleaned. */
 function restapi_reqlog_line(array $e) {
 	$text = function ($v, $max) {
-		$v = preg_replace('/[\x00-\x1f\x7f]/', '', (string)$v);
+		$v = validate_strip_control_chars($v);
 		return (strlen($v) > $max) ? substr($v, 0, $max) : $v;
 	};
 	return json_encode(array(

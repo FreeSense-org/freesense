@@ -109,7 +109,8 @@ jobs:
               GlobalsRegistrySmokeTest \
               XmlNumericKeySmokeTest \
               XmlLineBreakSmokeTest \
-              RadiusChapSmokeTest; do
+              RadiusChapSmokeTest \
+              ValidateSmokeTest; do
               php -d error_reporting=E_ALL "tests/$t.php"
             done
           '

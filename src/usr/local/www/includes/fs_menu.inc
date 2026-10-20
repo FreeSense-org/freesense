@@ -33,6 +33,8 @@
  * unknown lands in "other".
  */
 
+require_once('validate.inc');
+
 /* group id => [label, icon], in display order, per grouped menu */
 function fs_menu_groups() {
 	static $groups = null;
@@ -340,7 +342,7 @@ function fs_nav_plugin_item(string $pkg, $raw): ?array {
 		return (bool)preg_match('#^/(?!/)[A-Za-z0-9_./?=&%-]*$#D', $url);
 	};
 	if (!preg_match('/^[a-z0-9-]{1,32}$/D', $id) || !preg_match('/^fa-[a-z0-9-]{1,40}$/D', $icon) ||
-	    ($label === '') || (strlen($label) > 80) || preg_match('/[\x00-\x1f\x7f]/', $label) || !$local($href)) {
+	    !validate_text($label, 80, 1) || !$local($href)) {
 		return null;
 	}
 	$poll = (string)($raw['poll'] ?? '');
@@ -401,7 +403,7 @@ function fs_nav_toasts($raw): array {
 	$out = array();
 	foreach (is_array($raw) ? array_slice($raw, 0, 5) : array() as $t) {
 		$text = is_array($t) ? trim((string)($t['text'] ?? '')) : '';
-		if (($text === '') || (strlen($text) > 200) || preg_match('/[\x00-\x1f\x7f]/', $text)) {
+		if (!validate_text($text, 200, 1)) {
 			continue;
 		}
 		$href = (string)($t['href'] ?? '');

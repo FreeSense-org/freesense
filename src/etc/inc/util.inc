@@ -28,6 +28,7 @@
 
 //require_once('interfaces.inc');
 require_once('Net/IPv6.php');
+require_once('validate.inc');
 define('VIP_ALL', 1);
 define('VIP_CARP', 2);
 define('VIP_IPALIAS', 3);
@@ -1023,20 +1024,20 @@ function update_if_changed($varname, & $orig, $new) {
  * REST API through the same save functions (moved here from guiconfig.inc).
  */
 function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_errors) {
+	if (!is_array($input_errors)) {
+		$input_errors = array();
+	}
+	$postdata = is_array($postdata) ? $postdata : array();
 
 	/* check for bad control characters */
-	foreach ($postdata as $pn => $pd) {
-		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
-			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
-		}
-	}
+	$input_errors = array_merge($input_errors, validate_post_control_chars($postdata));
 
 	if (is_array($reqdfields)) {
-		for ($i = 0; $i < count($reqdfields); $i++) {
-			if ($postdata[$reqdfields[$i]] == "") {
-				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
-			}
+		$fields = array();
+		foreach (array_values($reqdfields) as $i => $name) {
+			$fields[$name] = $reqdfieldsn[$i] ?? $name;
 		}
+		$input_errors = array_merge($input_errors, validate_required($postdata, $fields));
 	}
 }
 
@@ -1517,7 +1518,7 @@ function is_ipaddrv6($ipaddr) {
 function is_ipaddrv6_v4map($ipaddr) {
 	/* check RFC4291 par 2.2.2 format, ex: fd00::1.2.3.4
 	 * see upstream issue 11446 */
-	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/i', $ipaddr)) {
+	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/iD', $ipaddr)) {
 		return true;
 	}
 	return false;
@@ -1561,14 +1562,14 @@ function is_mcast($ipaddr) {
 
 function is_mcastv4($ipaddr) {
 	if (!is_ipaddrv4($ipaddr) ||
-	    !preg_match('/^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$/', $ipaddr)) {
+	    !preg_match('/^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$/D', $ipaddr)) {
 		return false;
 	}
 	return true;
 }
 
 function is_mcastv6($ipaddr) {
-	if (!is_ipaddrv6($ipaddr) || !preg_match('/^ff.+$/', $ipaddr)) {
+	if (!is_ipaddrv6($ipaddr) || !preg_match('/^ff.+$/D', $ipaddr)) {
 		return false;
 	}
 	return true;
@@ -1751,7 +1752,7 @@ function is_ipaddroralias($ipaddr) {
 	false - if not a valid subnet
 	true (numeric 4 or 6) - if valid, gives type of subnet */
 function is_subnet($subnet) {
-	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}|[0-9a-f:]{2,30}[0-9.]{7,15}))\/(\d{1,3})$/i', $subnet, $parts)) {
+	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}|[0-9a-f:]{2,30}[0-9.]{7,15}))\/(\d{1,3})$/iD', $subnet, $parts)) {
 		if (is_ipaddrv4($parts[1]) && $parts[3] <= 32) {
 			return 4;
 		}
@@ -1990,7 +1991,7 @@ function is_unqualified_hostname($hostname) {
 		return false;
 	}
 
-	if (preg_match('/^(?:[a-z0-9_]|[a-z0-9_][a-z0-9_\-]*[a-z0-9_])$/i', $hostname)) {
+	if (preg_match('/^(?:[a-z0-9_]|[a-z0-9_][a-z0-9_\-]*[a-z0-9_])$/iD', $hostname)) {
 		return true;
 	} else {
 		return false;
@@ -2024,9 +2025,9 @@ function is_domain($domain, $allow_wildcard=false, $trailing_dot=true) {
 		return false;
 	}
 	if ($allow_wildcard) {
-		$domain_regex = '/^(?:(?:[a-z_0-9\*]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/i';
+		$domain_regex = '/^(?:(?:[a-z_0-9\*]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/iD';
 	} else {
-		$domain_regex = '/^(?:(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/i';
+		$domain_regex = '/^(?:(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/iD';
 	}
 
 	if (preg_match($domain_regex, $domain)) {
@@ -2276,7 +2277,7 @@ function group_ports($ports, $kflc = false) {
 
 /* returns true if $val is a valid shaper bandwidth value */
 function is_valid_shaperbw($val) {
-	return (preg_match("/^(\d+(?:\.\d+)?)([MKG]?b|%)$/", $val));
+	return (preg_match("/^(\d+(?:\.\d+)?)([MKG]?b|%)$/D", $val));
 }
 
 /* returns true if $test is in the range between $start and $end */

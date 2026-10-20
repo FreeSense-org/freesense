@@ -75,7 +75,7 @@ if (!empty($_POST['action'])) {
 }
 if (!empty($_POST['action'])) {
 	if (($_POST['action'] == "showrule") && is_numeric($_POST['vpnid']) &&
-	    !preg_match("/[^a-zA-Z0-9\.\-_]/", $_POST['username']) && is_port($_POST['port'])) {
+	    validate_name_chars($_POST['username'] ?? '') && is_port($_POST['port'])) {
 		$rulesfile = "{$g['tmp_path']}/ovpn_ovpns{$_POST['vpnid']}_{$_POST['username']}_{$_POST['port']}.rules";
 		if (file_exists($rulesfile)) {
 			$rule_text = base64_encode(file_get_contents($rulesfile));

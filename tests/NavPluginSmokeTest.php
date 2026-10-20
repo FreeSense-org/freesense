@@ -7,6 +7,7 @@
 
 $root = dirname(__DIR__);
 $src = file_get_contents("{$root}/src/usr/local/www/includes/fs_menu.inc");
+require_once("{$root}/src/etc/inc/validate.inc");
 
 if (!function_exists('gettext')) { function gettext($s) { return $s; } }
 function check($condition, $message) {

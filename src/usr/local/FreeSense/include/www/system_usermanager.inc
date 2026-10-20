@@ -461,7 +461,7 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 
 	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
-	if (preg_match("/[^a-zA-Z0-9\.\-_]/", $post['usernamefld'])) {
+	if (!validate_name_chars($post['usernamefld'] ?? '')) {
 		$input_errors[] = gettext("The username contains invalid characters.");
 	}
 
@@ -1139,7 +1139,7 @@ function usermgr_group_save(array $post, $id, $caller, &$pconfig = null, &$savem
 	}
 
 	if ($post['gtype'] != "remote") {
-		if (preg_match("/[^a-zA-Z0-9\.\-_]/", $post['groupname'])) {
+		if (!validate_name_chars($post['groupname'] ?? '')) {
 			$input_errors[] = sprintf(gettext(
 			    "The (%s) group name contains invalid characters."),
 			    $post['gtype']);

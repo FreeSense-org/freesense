@@ -47,7 +47,7 @@ function l2tp_paporchap_values() {
 
 /* True when $text contains a control character (it would end the line of an mpd configuration file). */
 function l2tp_has_control_chars($text) {
-	return (preg_match('/[\x00-\x1f\x7f]/', (string)$text) === 1);
+	return validate_has_control_chars($text);
 }
 
 /* The settings page's form, read from the configuration. */

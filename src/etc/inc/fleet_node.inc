@@ -36,6 +36,8 @@
  * read them. Functions marked "pure" touch neither the system nor config.xml.
  */
 
+require_once('validate.inc');
+
 define('FLEET_NODE_DIR', '/cf/conf/fleet');
 define('FLEET_VAULT_DIR', FLEET_NODE_DIR . '/vault');
 define('FLEET_POLICY_BUNDLE', FLEET_NODE_DIR . '/policy-bundle.json');
@@ -146,7 +148,7 @@ function fleet_vault_parse_upload(array $body): array {
 		throw new InvalidArgumentException('created: the backup time as a UNIX timestamp is required');
 	}
 	$label = (string)($body['label'] ?? '');
-	if ((strlen($label) > 120) || preg_match('/[\x00-\x1f\x7f]/', $label)) {
+	if (!validate_text($label, 120)) {
 		throw new InvalidArgumentException('label: up to 120 characters and no control characters');
 	}
 	return array($bytes, array('sha256' => $sha, 'size' => strlen($bytes), 'owner' => $owner, 'kind' => $kind,

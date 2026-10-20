@@ -44,6 +44,7 @@
  */
 
 require_once('restapi/framework.inc');
+require_once('validate.inc');
 
 define('RESTAPI_PING_MAX_SECONDS', 30);
 /* Ping waits up to 10 s after the last ping for late replies. */
@@ -127,7 +128,7 @@ function restapi_diag_string(array $body, $field, $default = null, $max = 253) {
 		return $default;
 	}
 	$value = $body[$field];
-	if (!is_string($value) || (strlen($value) > $max) || preg_match('/[\x00-\x1f\x7f]/', $value)) {
+	if (!validate_text($value, $max)) {
 		throw new RestApiError(400, 'invalid_field', "Field \"{$field}\" must be a string of at most {$max} printable characters.");
 	}
 	return $value;

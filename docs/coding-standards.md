@@ -131,7 +131,11 @@ Rules for new classes:
 - **Commands:** pass every argument through `escapeshellarg()`. Prefer a fixed
   absolute path to the binary.
 - **Input:** validate against an allowlist with an anchored regex (`/^…$/D`), so an
-  identifier never reaches a path, command or config key unchecked.
+  identifier never reaches a path, command or config key unchecked. Use the
+  shared checks in `src/etc/inc/validate.inc` (`validate_text()`,
+  `validate_name_chars()`, `validate_int()`, `validate_in_list()`,
+  `validate_required()`, …) before writing a new regex; see
+  [`docs/validation.md`](validation.md).
 - **Secrets:**
   - compare them with `hash_equals()`
   - generate them with `random_bytes()`

@@ -38,6 +38,7 @@
  */
 
 require_once('restapi/framework.inc');
+require_once('validate.inc');
 
 /* Release documents, one per channel (stable, devel); arm64 has its own. */
 define('RESTAPI_RELEASES_URL', 'https://pkg.freesense.org/v1/releases/');
@@ -112,7 +113,7 @@ function restapi_field_error($field, $message) {
 
 /* A boot environment description (freesense-be refuses control characters and more than 256 bytes). */
 function restapi_be_check_description($description) {
-	if (!is_string($description) || (strlen($description) > BOOTENV_DESCRIPTION_MAX) || preg_match('/[\x00-\x1f\x7f]/', $description)) {
+	if (!validate_text($description, BOOTENV_DESCRIPTION_MAX)) {
 		throw restapi_field_error('description', sprintf(gettext('The description may hold up to %d characters and no control characters.'),
 		    BOOTENV_DESCRIPTION_MAX));
 	}

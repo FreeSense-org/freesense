@@ -298,7 +298,7 @@ check(restapi_schema_get('services/dhcpv6_server', array('interface' => 'lan'))[
 
 /* $cases: message => field; each message (or its sprintf template) is a real one of the save functions. */
 $relay_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/services_dhcp_relay.inc");
-$util_inc = file_get_contents("{$root}/src/etc/inc/util.inc");
+$util_inc = file_get_contents("{$root}/src/etc/inc/util.inc") . file_get_contents("{$root}/src/etc/inc/validate.inc");
 $routes_dhcp = file_get_contents("{$root}/src/etc/inc/restapi/routes_dhcp.inc");
 $source = $dhcp_inc . $relay_inc . $util_inc . $routes_dhcp;
 $mapped = function ($schema, array $cases, array $body = array()) use ($source) {

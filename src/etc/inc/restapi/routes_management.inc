@@ -27,6 +27,8 @@
  * fleet_node.inc; the front controller loads it.
  */
 
+require_once('validate.inc');
+
 function restapi_routes_management() {
 	$vault_body = array('type' => 'object', 'required' => array('data', 'sha256', 'owner', 'created'), 'properties' => array(
 		'data' => array('type' => 'string', 'description' => 'The encrypted backup, base64-encoded (opaque to this box)'),
@@ -301,7 +303,7 @@ function restapi_h_mgmt_update($req) {
 		throw restapi_field_error('confirm', 'Updating requires {"confirm": true}.');
 	}
 	$operator = (string)($req['body']['operator'] ?? '');
-	if (($operator === '') || (strlen($operator) > 80) || preg_match('/[\x00-\x1f\x7f]/', $operator)) {
+	if (!validate_text($operator, 80, 1)) {
 		throw restapi_field_error('operator', 'Who asks for the update, 1 to 80 characters.');
 	}
 	/* routes_operations.inc is loaded by api/index.php. */
@@ -326,7 +328,7 @@ function restapi_h_mgmt_reboot($req) {
 		throw restapi_field_error('confirm', 'Rebooting requires {"confirm": true}.');
 	}
 	$operator = (string)($req['body']['operator'] ?? '');
-	if (($operator === '') || (strlen($operator) > 80) || preg_match('/[\x00-\x1f\x7f]/', $operator)) {
+	if (!validate_text($operator, 80, 1)) {
 		throw restapi_field_error('operator', 'Who asks for the reboot, 1 to 80 characters.');
 	}
 	logger(LOG_NOTICE, localize_text('Fleet: reboot requested by %s.', $operator));
@@ -358,7 +360,7 @@ function restapi_h_mgmt_restore($req) {
 		throw restapi_field_error('config', 'The whole config.xml is required.');
 	}
 	$description = trim((string)($req['body']['description'] ?? ''));
-	if (($description === '') || (strlen($description) > 200) || preg_match('/[\x00-\x1f\x7f]/', $description)) {
+	if (!validate_text($description, 200, 1)) {
 		$description = 'Restored by FreeSense Fleet';
 	}
 	try {

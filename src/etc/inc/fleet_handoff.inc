@@ -32,6 +32,8 @@
  * neither the system nor config.xml.
  */
 
+require_once('validate.inc');
+
 define('FLEET_HANDOFF_DIR', '/var/run/fleet-handoff');
 define('FLEET_HANDOFF_MAX_SECONDS', 120);
 
@@ -61,7 +63,7 @@ function fleet_handoff_request(array $body, array $allowed): array {
 		throw new InvalidArgumentException('user: not one of the users this firewall allows a handoff for');
 	}
 	$operator = (string)($body['operator'] ?? '');
-	if (($operator === '') || (strlen($operator) > 80) || preg_match('/[\x00-\x1f\x7f]/', $operator)) {
+	if (!validate_text($operator, 80, 1)) {
 		throw new InvalidArgumentException('operator: who opens the WebUI (shown in the log), 1 to 80 characters');
 	}
 	$seconds = $body['seconds'] ?? 60;
@@ -140,7 +142,7 @@ function fleet_handoff_signin(string $token): bool {
 	$_SESSION['protocol'] = webgui_request_protocol();
 	$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];
 	$_SESSION['login_time'] = time();
-	$_SESSION['user_agent'] = substr(preg_replace('/[\x00-\x1f\x7f]/', '', (string)($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 200);
+	$_SESSION['user_agent'] = substr(validate_strip_control_chars($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 200);
 	phpsession_end(true);
 	log_auth_event(LOG_AUTH_EVENT_LOGIN, $user['name'], get_user_remote_address() . get_user_remote_authsource());
 	return true;

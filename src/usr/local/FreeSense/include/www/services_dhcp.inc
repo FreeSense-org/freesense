@@ -1106,7 +1106,7 @@ function dhcp_staticmap_save(string $if, $id, array $post): array {
 		if (!$post['ddnsdomainkeyname'] || !$post['ddnsdomainkeyalgorithm'] || !$post['ddnsdomainkey']) {
 			$input_errors[] = gettext("A valid domain key name, algorithm and secret must be specified.");
 		}
-		if (preg_match('/[^A-Za-z0-9\.\-\_]/', $post['ddnsdomainkeyname'])) {
+		if (!validate_name_chars($post['ddnsdomainkeyname'] ?? '')) {
 			$input_errors[] = gettext("The domain key name may only contain the characters a-z, A-Z, 0-9, '-', '_' and '.'");
 		}
 		if ($post['ddnsdomainkey'] && !base64_decode($post['ddnsdomainkey'], true)) {
@@ -1681,7 +1681,7 @@ function dhcp_server_save(string $if, $pool, $act, array $post): array {
 				$input_errors[] = gettext("A valid domain key algorithm and secret must be specified.");
 			}
 		}
-		if (preg_match('/[^A-Za-z0-9\.\-\_]/', $post['ddnsdomainkeyname'])) {
+		if (!validate_name_chars($post['ddnsdomainkeyname'] ?? '')) {
 			$input_errors[] = gettext("The domain key name may only contain the characters a-z, A-Z, 0-9, '-', '_' and '.'");
 		}
 		if ($post['ddnsdomainkey'] && !base64_decode($post['ddnsdomainkey'], true)) {
@@ -2676,7 +2676,7 @@ function dhcp6_server_save(string $if, $pool, $act, array $post): array {
 		if (!$post['ddnsdomainkeyname'] || !$post['ddnsdomainkeyalgorithm'] || !$post['ddnsdomainkey']) {
 			$input_errors[] = gettext("A valid domain key name, algorithm and secret must be specified.");
 		}
-		if (preg_match('/[^A-Za-z0-9\.\-\_]/', $post['ddnsdomainkeyname'])) {
+		if (!validate_name_chars($post['ddnsdomainkeyname'] ?? '')) {
 			$input_errors[] = gettext("The domain key name may only contain the characters a-z, A-Z, 0-9, '-', '_' and '.'");
 		}
 		if ($post['ddnsdomainkey'] && !base64_decode($post['ddnsdomainkey'], true)) {
