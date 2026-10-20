@@ -121,7 +121,7 @@ $section->addInput(new Form_Input(
 	'number',
 	$pconfig['remoteport'],
 	['min' => 1, 'max' => 65535, 'placeholder' => VXLAN_DEFAULT_PORT]
-))->setHelp('UDP port of the remote VTEP. Default %1$d; use 8472 for a default Linux peer.', VXLAN_DEFAULT_PORT);
+))->setHelp('UDP port of the remote VTEP, or of the multicast group. Default %1$d (in multicast mode, the local port); use 8472 for a default Linux peer.', VXLAN_DEFAULT_PORT);
 
 $section->addInput(new Form_Input(
 	'ttl',
