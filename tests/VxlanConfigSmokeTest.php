@@ -39,6 +39,13 @@ $args = vxlan_ifconfig_args($multicast, '10.0.0.1', 'vtnet1.10');
 check_vxlan($args === ['vxlanid', '200', 'vxlanlocal', '10.0.0.1', 'vxlangroup', '239.1.1.1', 'vxlandev', 'vtnet1.10'],
     'multicast arguments must set vxlanlocal, vxlangroup and vxlandev: ' . implode(' ', $args));
 
+$mcport = vxlan_ifconfig_args($multicast + ['localport' => '4790'], '10.0.0.1', 'vtnet1.10');
+check_vxlan($mcport === ['vxlanid', '200', 'vxlanlocal', '10.0.0.1', 'vxlangroup', '239.1.1.1', 'vxlandev', 'vtnet1.10',
+    'vxlanlocalport', '4790', 'vxlanremoteport', '4790'],
+    'a multicast group port must follow the local port: ' . implode(' ', $mcport));
+$mcexplicit = vxlan_ifconfig_args($multicast + ['localport' => '4790', 'remoteport' => '4791'], '10.0.0.1', 'vtnet1.10');
+check_vxlan(in_array('4791', $mcexplicit, true), 'an explicit remote port must be kept in multicast mode');
+
 $v6 = ['vxlanif' => 'vxlan2', 'if' => 'wan', 'ipproto' => 'inet6', 'mode' => 'unicast',
 	'vni' => '5', 'remote-addr' => '2001:db8::2'];
 $args = vxlan_ifconfig_args($v6, '2001:db8::1', 'em0');
