@@ -105,8 +105,17 @@ function vxlan_localport($vxlan) {
 	return !empty($vxlan['localport']) ? (int)$vxlan['localport'] : VXLAN_DEFAULT_PORT;
 }
 
+/*
+ * Port the outer packets are sent to. In multicast mode this is the port of
+ * the group, and every member listens on its local port, so it follows the
+ * local port unless set; sending to 4789 while listening on another port
+ * would deliver nothing.
+ */
 function vxlan_remoteport($vxlan) {
-	return !empty($vxlan['remoteport']) ? (int)$vxlan['remoteport'] : VXLAN_DEFAULT_PORT;
+	if (!empty($vxlan['remoteport'])) {
+		return (int)$vxlan['remoteport'];
+	}
+	return (($vxlan['mode'] ?? 'unicast') == 'multicast') ? vxlan_localport($vxlan) : VXLAN_DEFAULT_PORT;
 }
 
 function vxlan_ttl($vxlan) {
