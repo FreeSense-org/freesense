@@ -16,6 +16,7 @@ dns/coredns
 dns/dnstop
 editors/nano
 editors/vim
+emulators/open-vm-tools@nox11
 emulators/qemu@guestagent
 emulators/qemu@tools
 net-mgmt/dhcp_probe
