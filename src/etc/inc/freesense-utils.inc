@@ -2208,21 +2208,66 @@ function compare_hostname_to_dnscache($hostname) {
 }
 
 /*
+ * crypto_module_available() - True when the kernel package ships the module
+ * (or it is already loaded). The accelerator choices offer only these, so a
+ * System image without, say, ipsecmb.ko never shows that choice.
+ */
+function crypto_module_available(string $module): bool {
+	if (!preg_match('/^[a-z0-9]+$/', $module)) {
+		return false;
+	}
+	return is_module_loaded($module) || file_exists("/boot/kernel/{$module}.ko");
+}
+
+/*
+ * The Intel QAT drivers: qat for C3000, C62x, 200xx, 4xxx and DH895xCC, and
+ * qat_c2xxx for the Atom C2000. Each attaches only when its device is present
+ * and loads its firmware module itself. FreeBSD builds them for amd64 only.
+ */
+function crypto_qat_modules(): array {
+	return ['qat', 'qat_c2xxx'];
+}
+
+function crypto_qat_available(): bool {
+	foreach (crypto_qat_modules() as $module) {
+		if (is_module_loaded($module) || file_exists("/boot/kernel/{$module}.ko")) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
  * load_crypto() - Load crypto modules if enabled in config.
+ *
+ * system/crypto_hardware holds one software accelerator (aesni, ossl or
+ * ipsecmb), optionally joined with "_cryptodev"; module names there must not
+ * contain "_". QAT is hardware and can run next to them, so it has its own
+ * flag, system/crypto_qat.
  */
 function load_crypto() {
 	$crypto_modules = [
 		'aesni',
+		'ossl',
+		'ipsecmb',
 		'cryptodev'
 	];
 
-	$enabled_modules = explode('_', config_get_path('system/crypto_hardware'));
+	$enabled_modules = explode('_', (string)config_get_path('system/crypto_hardware'));
+	if (config_path_enabled('system', 'crypto_qat')) {
+		$enabled_modules = array_merge($enabled_modules, crypto_qat_modules());
+		$crypto_modules = array_merge($crypto_modules, crypto_qat_modules());
+	}
 
 	foreach ($enabled_modules as $enmod) {
 		if (empty($enmod) || !in_array($enmod, $crypto_modules)) {
 			continue;
 		}
 		if (!is_module_loaded($enmod)) {
+			if (!file_exists("/boot/kernel/{$enmod}.ko")) {
+				logger(LOG_WARNING, localize_text("The %s cryptographic accelerator module is not part of this kernel.", $enmod));
+				continue;
+			}
 			logger(LOG_INFO, localize_text("Loading %s cryptographic accelerator module.", $enmod));
 			mute_kernel_msgs();
 			mwexec("/sbin/kldload " . escapeshellarg($enmod));

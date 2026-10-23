@@ -272,12 +272,25 @@ $section->addInput(new Form_Select(
 	'Cryptographic Hardware',
 	$pconfig['crypto_hardware'],
 	['' => gettext('None')] + $crypto_modules
-))->setHelp('A cryptographic accelerator module will use hardware support to speed up some cryptographic '.
-	'functions on systems which have the chip. '.
-	'Loading the BSD Crypto Device module will allow access to acceleration devices using drivers '.
-	'built into the kernel, such as Hifn or ubsec chipsets. '.
-	'If the firewall does not contain a crypto chip, this option will have no effect. '.
-	'To unload the selected module, set this option to "none" and then reboot.');
+))->setHelp('A cryptographic accelerator speeds up the kernel cryptography used by IPsec and OpenVPN DCO. '.
+	'AES-NI uses the CPU\'s AES instructions. OpenSSL (ossl) uses OpenSSL\'s optimized routines for AES-GCM, '.
+	'AES-CBC, ChaCha20-Poly1305 and SHA, and works on amd64 and arm64. '.
+	'Intel IPsec-MB, where offered (amd64), processes several packets at once and is experimental. '.
+	'Loading the BSD Crypto Device module allows access to acceleration devices using drivers built into the kernel. '.
+	'If the CPU does not support the chosen accelerator, it has no effect. '.
+	'Choose one accelerator; a module stays loaded until the next reboot, so reboot after changing it.');
+
+if (crypto_qat_available()) {
+	$section->addInput(new Form_Checkbox(
+		'crypto_qat',
+		'Intel QAT',
+		'Load the Intel QuickAssist (QAT) drivers (experimental)',
+		$pconfig['crypto_qat']
+	))->setHelp('Offloads IPsec and OpenVPN DCO cryptography to an Intel QuickAssist device, as found on Atom C2000 and '.
+		'C3000, Xeon D and C62x chipsets and QAT add-in cards. The drivers attach only when such a device is present, '.
+		'and can run next to the accelerator above. Experimental: not yet tested on QAT hardware. '.
+		'To unload the drivers, clear this option and reboot.');
+}
 
 $section->addInput(new Form_Select(
 	'thermal_hardware',

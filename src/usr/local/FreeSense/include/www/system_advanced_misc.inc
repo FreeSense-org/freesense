@@ -89,6 +89,7 @@ function getSystemAdvancedMisc($json = false) {
 	$pconfig['srctrack'] = config_get_path('system/srctrack');
 	$pconfig['powerd_enable'] = config_path_enabled('system', 'powerd_enable');
 	$pconfig['crypto_hardware'] = config_get_path('system/crypto_hardware');
+	$pconfig['crypto_qat'] = config_path_enabled('system', 'crypto_qat');
 	$pconfig['thermal_hardware'] = config_get_path('system/thermal_hardware');
 	$pconfig['pti_disabled'] = config_path_enabled('system', 'pti_disabled');
 	/*
@@ -138,16 +139,31 @@ function getSystemAdvancedMisc($json = false) {
 	return $json ? json_encode($pconfig) : $pconfig;
 }
 
+/*
+ * The software accelerator choices for system/crypto_hardware. A choice is
+ * offered only when the running kernel package ships its module: aesni and
+ * ipsecmb are amd64-only, and ipsecmb.ko exists only on builds that carry
+ * the experimental IPsec-MB driver. QAT is a separate setting (crypto_qat).
+ */
 function getSystemAdvancedMiscCryptoModules() {
-	$platform = system_identify_specific_platform();
-	switch ($platform['name']) {
-		default:
-			$crypto_modules = array(
-				'aesni' => gettext("AES-NI CPU-based Acceleration"),
-				'aesni_cryptodev' => gettext("AES-NI and BSD Crypto Device (aesni, cryptodev)"),
-				'cryptodev' => gettext("BSD Crypto Device (cryptodev)")
-			);
+	$accelerators = array(
+		'aesni' => array(gettext("AES-NI CPU-based Acceleration"),
+		    gettext("AES-NI and BSD Crypto Device (aesni, cryptodev)")),
+		'ossl' => array(gettext("OpenSSL CPU-based Acceleration (ossl)"),
+		    gettext("OpenSSL and BSD Crypto Device (ossl, cryptodev)")),
+		'ipsecmb' => array(gettext("Intel IPsec-MB multi-buffer (ipsecmb, experimental)"),
+		    gettext("Intel IPsec-MB and BSD Crypto Device (ipsecmb, cryptodev, experimental)")),
+	);
+
+	$crypto_modules = array();
+	foreach ($accelerators as $module => $labels) {
+		if (!crypto_module_available($module)) {
+			continue;
+		}
+		$crypto_modules[$module] = $labels[0];
+		$crypto_modules["{$module}_cryptodev"] = $labels[1];
 	}
+	$crypto_modules['cryptodev'] = gettext("BSD Crypto Device (cryptodev)");
 
 	return $crypto_modules;
 }
@@ -170,12 +186,6 @@ function saveSystemAdvancedMisc($post, $json = false) {
 		1 => gettext('VERW instruction (microcode) mitigation enabled'),
 		2 => gettext('Software sequence mitigation enabled (not recommended)'),
 		3 => gettext('Automatic VERW or Software selection'),
-	);
-
-	$crypto_modules = array(
-		'aesni' => gettext("AES-NI CPU-based Acceleration"),
-		'cryptodev' => gettext("BSD Crypto Device (cryptodev)"),
-		'aesni_cryptodev' => gettext("AES-NI and BSD Crypto Device (aesni, cryptodev)"),
 	);
 
 	$thermal_hardware_modules = array(
@@ -363,6 +373,12 @@ function saveSystemAdvancedMisc($post, $json = false) {
 			config_set_path('system/crypto_hardware', $post['crypto_hardware']);
 		} else {
 			config_del_path('system/crypto_hardware');
+		}
+
+		if (($post['crypto_qat'] == "yes") && crypto_qat_available()) {
+			config_set_path('system/crypto_qat', true);
+		} else {
+			config_del_path('system/crypto_qat');
 		}
 
 		if ($post['thermal_hardware']) {

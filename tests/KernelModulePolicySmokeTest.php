@@ -18,26 +18,30 @@ if (!preg_match('/^\texport MODULES_OVERRIDE_arm64="([^"]+)"/m', $defaults, $mat
 	exit(1);
 }
 
-foreach (['aesni', 'amdsmn', 'amdtemp', 'coretemp', 'cpuctl', 'vmm'] as $module) {
+foreach (['aesni', 'amdsmn', 'amdtemp', 'coretemp', 'cpuctl', 'qat', 'qat_c2xxx', 'qatfw', 'vmm'] as $module) {
 	if (preg_match('/(^| )' . preg_quote($module, '/') . '( |$)/', $matches[1])) {
 		fwrite(STDERR, "ARM64 kernel modules include x86-only module {$module}\n");
 		exit(1);
 	}
 }
 
-/* Optional packages load these at runtime, so every target must ship them. */
+/*
+ * Optional packages load if_wg at runtime, and ossl is a crypto accelerator
+ * offered under System > Advanced > Miscellaneous, so every target ships them.
+ */
 if (!preg_match('/^\texport MODULES_OVERRIDE_base="([^"]+)"/m', $defaults, $base)) {
 	fwrite(STDERR, "Base kernel module policy is missing\n");
 	exit(1);
 }
-foreach (['if_wg'] as $module) {
+foreach (['if_wg', 'ossl'] as $module) {
 	if (!preg_match('/(^| )' . preg_quote($module, '/') . '( |$)/', $base[1])) {
 		fwrite(STDERR, "Base kernel modules must include {$module}\n");
 		exit(1);
 	}
 }
 
-$amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom if_vxlan ipmi ix ixv nmdm qlnx sfxge vmm';
+/* QAT (qat, qat_c2xxx) and its firmware (qatfw, qat_c2xxxfw) are amd64-only FreeBSD modules. */
+$amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom if_vxlan ipmi ix ixv nmdm qat qat_c2xxx qat_c2xxxfw qatfw qlnx sfxge vmm';
 if (strpos($defaults, 'MODULES_OVERRIDE_amd64="' . $amd64 . '"') === false) {
 	fwrite(STDERR, "amd64 kernel module policy changed unexpectedly\n");
 	exit(1);
@@ -59,8 +63,10 @@ foreach ([$base[1], $matches[1]] as $list) {
 $common = file_get_contents(__DIR__ . '/../tools/builder_common.sh');
 if ($common === false ||
     !preg_match('/^\t\tensure_kernel_drivers \$KERNEL_DESTDIR$/m', $common) ||
-    !preg_match('/for _driver in if_wg: if_vxlan:vxlan; do/', $common)) {
-	fwrite(STDERR, "builder_common.sh must verify if_wg and if_vxlan/vxlan in every kernel package\n");
+    !preg_match('/_drivers="if_wg: if_vxlan:vxlan ossl:ossl"/', $common) ||
+    !preg_match('/_drivers="\$\{_drivers\} qat: qat_c2xxx:"/', $common) ||
+    !preg_match('/for _driver in \$\{_drivers\}; do/', $common)) {
+	fwrite(STDERR, "builder_common.sh must verify if_wg, if_vxlan/vxlan, ossl and (amd64) qat in every kernel package\n");
 	exit(1);
 }
 

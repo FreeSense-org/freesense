@@ -232,10 +232,16 @@ get_pkg_name() {
 ensure_kernel_drivers() {
 	local _kerneldir="$1/boot/kernel"
 	local _kernconf_file="${FREEBSD_SRC_DIR}/sys/${TARGET}/conf/${KERNCONF}"
-	local _driver _device
+	local _driver _device _drivers
 
-	# <module>:<config device>; the device is empty when it must be a module
-	for _driver in if_wg: if_vxlan:vxlan; do
+	# <module>:<config device>; the device is empty when it must be a module.
+	# The crypto accelerators are offered under System > Advanced >
+	# Miscellaneous; QAT exists only on amd64.
+	_drivers="if_wg: if_vxlan:vxlan ossl:ossl"
+	if [ "${TARGET}" = "amd64" ]; then
+		_drivers="${_drivers} qat: qat_c2xxx:"
+	fi
+	for _driver in ${_drivers}; do
 		_device=${_driver#*:}
 		_driver=${_driver%%:*}
 		[ -f "${_kerneldir}/${_driver}.ko" ] && continue
