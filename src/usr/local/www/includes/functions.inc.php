@@ -256,6 +256,8 @@ define("INTEL_401XX_QAT_VF", "0x49438086");
 define("AESNI_ALGS", "AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS");
 define("AESNI_ALGS_SHA", "SHA1,SHA256");
 define("QAT_ALGS", "AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS,SHA1,SHA256,SHA384,SHA512");
+define("OSSL_ALGS", "AES-CBC,AES-GCM,CHACHA20-POLY1305,SHA1,SHA256,SHA384,SHA512");
+define("IPSECMB_ALGS", "AES-CBC,AES-GCM,CHACHA20-POLY1305,SHA1,SHA256,SHA384,SHA512");
 
 function crypto_accel_new($name = "", $algs = "") {
 	return (array("name" => $name, "present" => false, "enabled" => false, "algs" => explode(",", $algs)));
@@ -271,11 +273,33 @@ function crypto_accel_init() {
 	switch ($machine) {
 	case 'amd64':
 		$crypto["accel"][] = crypto_accel_new("AESNI", AESNI_ALGS);
+		$crypto["accel"][] = crypto_accel_new("OSSL", OSSL_ALGS);
+		$crypto["accel"][] = crypto_accel_new("IPSECMB", IPSECMB_ALGS);
 		$crypto["accel"][] = crypto_accel_new("QAT", QAT_ALGS);
+		break;
+	case 'arm64':
+		$crypto["accel"][] = crypto_accel_new("OSSL", OSSL_ALGS);
 		break;
 	}
 
 	return ($crypto);
+}
+
+/* A software accelerator module: present when the kernel ships it, active while it is loaded. */
+function crypto_accel_set_module_flags($crypto, $name, $module) {
+	return (crypto_accel_set_flags($crypto, $name, crypto_module_available($module), is_module_loaded($module)));
+}
+
+/* One "Name: Yes (active)" line of the System Information widget. */
+function crypto_accel_status_line($crypto, $name, $label) {
+	$line = "{$label}: ";
+	if ($crypto && crypto_accel_get($crypto, $name, 'present')) {
+		$line .= 'Yes ';
+		$line .= crypto_accel_get($crypto, $name, 'enabled') ? '(active)' : '(inactive)';
+	} else {
+		$line .= 'No';
+	}
+	return ($line);
 }
 
 function crypto_accel_set_flags($crypto, $name, $present = false, $enabled = false) {
@@ -371,18 +395,24 @@ function get_cpu_crypto_support() {
 		if ($fd) {
 			fclose($fd);
 		}
+		$crypto = crypto_accel_set_module_flags($crypto, "OSSL", 'ossl');
+		$crypto = crypto_accel_set_module_flags($crypto, "IPSECMB", 'ipsecmb');
 		exec("/usr/sbin/pciconf -l -l | /usr/bin/awk '{ printf \"%s|0x%s%s\\n\", $1, $6, $5 }'", $pciids);
 		if (isset($pciids) && is_array($pciids)) {
 			foreach ($pciids as $pciid) {
 				list($devid, $pid) = explode('|', $pciid, 2);
 				if (in_array($pid, $QATIDS)) {
 					list($devname, $busloc) = explode('@', $devid);
-					$active = ((substr($devname, 0, 3) == 'qat') && is_module_loaded('qat'));
+					$active = ((substr($devname, 0, 3) == 'qat') &&
+					    (is_module_loaded('qat') || is_module_loaded('qat_c2xxx')));
 					$crypto = crypto_accel_set_flags($crypto, "QAT", true, $active);
 					break;
 				}
 			}
 		}
+		break;
+	case 'arm64':
+		$crypto = crypto_accel_set_module_flags($crypto, "OSSL", 'ossl');
 		break;
 	}
 
@@ -395,21 +425,19 @@ function get_cpu_crypto_string($crypto) {
 
 	switch ($machine) {
 	case 'amd64':
-		$string = 'AES-NI CPU Crypto: ';
-		if ($crypto && crypto_accel_get($crypto, 'AESNI', 'present')) {
-			$string .= 'Yes ';
-			$string .= crypto_accel_get($crypto, 'AESNI', 'enabled') ? '(active)' : '(inactive)';
-		} else {
-			$string .= 'No';
+		$lines = [
+			crypto_accel_status_line($crypto, 'AESNI', 'AES-NI CPU Crypto'),
+			crypto_accel_status_line($crypto, 'OSSL', 'OpenSSL Crypto (ossl)'),
+		];
+		/* The experimental IPsec-MB driver is listed only on builds that carry it. */
+		if ($crypto && crypto_accel_get($crypto, 'IPSECMB', 'present')) {
+			$lines[] = crypto_accel_status_line($crypto, 'IPSECMB', 'Intel IPsec-MB');
 		}
-		$string .= "<br>\n";
-		$string .= 'QAT Crypto: ';
-		if ($crypto && crypto_accel_get($crypto, 'QAT', 'present')) {
-			$string .= 'Yes ';
-			$string .= crypto_accel_get($crypto, 'QAT', 'enabled') ? '(active)' : '(inactive)';
-		} else {
-			$string .= 'No';
-		}
+		$lines[] = crypto_accel_status_line($crypto, 'QAT', 'QAT Crypto');
+		$string = implode("<br>\n", $lines);
+		break;
+	case 'arm64':
+		$string = crypto_accel_status_line($crypto, 'OSSL', 'OpenSSL Crypto (ossl)');
 		break;
 	}
 

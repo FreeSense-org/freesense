@@ -194,8 +194,8 @@ export KERNEL_BUILD_PATH=${KERNEL_BUILD_PATH:-"${SCRATCHDIR}/kernels"}
 export MAKEOBJDIRPREFIX=${MAKEOBJDIRPREFIX:-"${SCRATCHDIR}/obj"}
 
 if [ -z "${MODULES_OVERRIDE}" ]; then
-	export MODULES_OVERRIDE_base="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc/cc_htcp cc/cc_vegas cryptodev dummynet fdescfs hwpmc i2c if_stf if_wg ipdivert ipfw ipfw_nat64 opensolaris usb/cdce usb/ipheth usb/ure usb/urndis zfs"
-	export MODULES_OVERRIDE_amd64="${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom if_vxlan ipmi ix ixv nmdm qlnx sfxge vmm"
+	export MODULES_OVERRIDE_base="cc/cc_cdg cc/cc_chd cc/cc_cubic cc/cc_dctcp cc/cc_hd cc/cc_htcp cc/cc_vegas cryptodev dummynet fdescfs hwpmc i2c if_stf if_wg ipdivert ipfw ipfw_nat64 opensolaris ossl usb/cdce usb/ipheth usb/ure usb/urndis zfs"
+	export MODULES_OVERRIDE_amd64="${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom if_vxlan ipmi ix ixv nmdm qat qat_c2xxx qat_c2xxxfw qatfw qlnx sfxge vmm"
 	export MODULES_OVERRIDE_arm64="${MODULES_OVERRIDE_base}"
 	case "${TARGET}.${TARGET_ARCH}" in
 		amd64.amd64) export MODULES_OVERRIDE="${MODULES_OVERRIDE_amd64}" ;;

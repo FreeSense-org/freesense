@@ -79,6 +79,7 @@ jobs:
               Arm64CrossCompilerSmokeTest \
               KernelConfigPreflightSmokeTest \
               KernelModulePolicySmokeTest \
+              CryptoAcceleratorSmokeTest \
               VxlanConfigSmokeTest \
               WebUiHardeningSmokeTest \
               RemoteBackupSmokeTest \
