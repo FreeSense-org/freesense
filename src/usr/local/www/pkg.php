@@ -118,7 +118,8 @@ if ($_POST['act'] == "update") {
 	// function called via jquery, no need to continue after save changes.
 	exit;
 }
-if ($_REQUEST['act'] == "del") {
+/* Deleting changes the configuration, so it only comes as a POST (usepost link) */
+if ($_POST['act'] == "del") {
 	// loop through our fieldnames and automatically setup the fieldnames
 	// in the environment.	ie: a fieldname of username with a value of
 	// testuser would automatically eval $username = "testuser";
@@ -130,8 +131,8 @@ if ($_REQUEST['act'] == "del") {
 		}
 	}
 
-	if (config_get_path("{$pkg_config_path}/config/{$_REQUEST['id']}")) {
-		config_del_path("{$pkg_config_path}/config/{$_REQUEST['id']}");
+	if (config_get_path("{$pkg_config_path}/config/{$_POST['id']}")) {
+		config_del_path("{$pkg_config_path}/config/{$_POST['id']}");
 		write_config(gettext("Package configuration item deleted from package settings page."));
 		if ($pkg['custom_delete_php_command'] != "") {
 			if ($pkg['custom_php_command_before_form'] != "") {

@@ -775,7 +775,7 @@ function local_user_set($user) {
 	}
 
 	/* read from pw db */
-	$fd = popen("/usr/sbin/pw usershow -n {$user_name} 2>&1", "r");
+	$fd = popen('/usr/sbin/pw usershow -n ' . escapeshellarg($user_name) . ' 2>&1', "r");
 	$pwread = fgets($fd);
 	pclose($fd);
 	$userattrs = explode(":", trim($pwread));
@@ -857,7 +857,7 @@ function local_user_del($user) {
 	}
 
 	/* read from pw db */
-	$fd = popen("/usr/sbin/pw usershow -n {$user['name']} 2>&1", "r");
+	$fd = popen('/usr/sbin/pw usershow -n ' . escapeshellarg($user['name']) . ' 2>&1', "r");
 	$pwread = fgets($fd);
 	pclose($fd);
 	$userattrs = explode(":", trim($pwread));
