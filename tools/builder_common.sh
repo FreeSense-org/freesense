@@ -236,10 +236,10 @@ ensure_kernel_drivers() {
 
 	# <module>:<config device>; the device is empty when it must be a module.
 	# The crypto accelerators are offered under System > Advanced >
-	# Miscellaneous; QAT and IPsec-MB exist only on amd64.
+	# Miscellaneous; QAT, IPsec-MB, AMD CCP and Chelsio ccr exist only on amd64.
 	_drivers="if_wg: if_vxlan:vxlan ossl:ossl"
 	if [ "${TARGET}" = "amd64" ]; then
-		_drivers="${_drivers} qat: qat_c2xxx: ipsecmb:"
+		_drivers="${_drivers} qat: qat_c2xxx: ipsecmb: ccp: ccr:"
 	fi
 	for _driver in ${_drivers}; do
 		_device=${_driver#*:}

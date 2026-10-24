@@ -84,7 +84,8 @@ function restapi_routes_system() {
 	$misc_body = array('type' => 'object', 'description' => 'The Miscellaneous form: proxyurl, proxyport, proxyuser, proxypass ' .
 	    '("(set)" keeps it), lb_use_sticky (boolean), srctrack, hwpstate (boolean), hwpstate_control_level, hwpstate_epp (Speed Shift, ' .
 	    'only on supported hardware), powerd_enable (boolean), powerd_ac_mode, powerd_battery_mode, powerd_normal_mode, ' .
-	    'crypto_hardware, crypto_qat (boolean, when the kernel ships the Intel QAT drivers; experimental), thermal_hardware, ' .
+	    'crypto_hardware, crypto_qat, crypto_ccp, crypto_ccr (booleans, each only when the kernel ships the Intel QAT, AMD CCP or ' .
+	    'Chelsio T6 crypto driver; experimental), thermal_hardware, ' .
 	    'pti_disabled (boolean, when the kernel has PTI), mds_disable (when the kernel has MDS ' .
 	    'mitigation), schedule_states, keep_failover_states, skip_rules_gw_down, dpinger_dont_add_static_routes, use_mfs_tmpvar ' .
 	    '(booleans), remove_failover_states_default, gw_down_kill_states, php_memory_limit, use_mfs_tmp_size, ' .
@@ -524,8 +525,10 @@ function restapi_sysadv_misc_types() {
 	if (isset($choices['hwpstate_control_level'])) {
 		$types += array('hwpstate' => 'bool', 'hwpstate_control_level' => 'string', 'hwpstate_epp' => 'string');
 	}
-	if (crypto_qat_available()) {
-		$types['crypto_qat'] = 'bool';
+	foreach (array_keys(crypto_offload_drivers()) as $key) {
+		if (crypto_offload_available($key)) {
+			$types["crypto_{$key}"] = 'bool';
+		}
 	}
 	if (strlen((string)get_single_sysctl('vm.pmap.pti')) > 0) {
 		$types['pti_disabled'] = 'bool';
@@ -576,8 +579,10 @@ function restapi_sysadv_misc_settings() {
 		$out['hwpstate_control_level'] = restapi_select_choice($p['hwpstate_control_level'], $choices['hwpstate_control_level']);
 		$out['hwpstate_epp'] = (string)$p['hwpstate_epp'];
 	}
-	if (isset($types['crypto_qat'])) {
-		$out['crypto_qat'] = (bool)$p['crypto_qat'];
+	foreach (array_keys(crypto_offload_drivers()) as $key) {
+		if (isset($types["crypto_{$key}"])) {
+			$out["crypto_{$key}"] = (bool)$p["crypto_{$key}"];
+		}
 	}
 	if (isset($types['pti_disabled'])) {
 		$out['pti_disabled'] = (bool)$p['pti_disabled'];

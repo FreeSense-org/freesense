@@ -89,7 +89,9 @@ function getSystemAdvancedMisc($json = false) {
 	$pconfig['srctrack'] = config_get_path('system/srctrack');
 	$pconfig['powerd_enable'] = config_path_enabled('system', 'powerd_enable');
 	$pconfig['crypto_hardware'] = config_get_path('system/crypto_hardware');
-	$pconfig['crypto_qat'] = config_path_enabled('system', 'crypto_qat');
+	foreach (array_keys(crypto_offload_drivers()) as $key) {
+		$pconfig["crypto_{$key}"] = config_path_enabled('system', "crypto_{$key}");
+	}
 	$pconfig['thermal_hardware'] = config_get_path('system/thermal_hardware');
 	$pconfig['pti_disabled'] = config_path_enabled('system', 'pti_disabled');
 	/*
@@ -375,10 +377,12 @@ function saveSystemAdvancedMisc($post, $json = false) {
 			config_del_path('system/crypto_hardware');
 		}
 
-		if (($post['crypto_qat'] == "yes") && crypto_qat_available()) {
-			config_set_path('system/crypto_qat', true);
-		} else {
-			config_del_path('system/crypto_qat');
+		foreach (array_keys(crypto_offload_drivers()) as $key) {
+			if (($post["crypto_{$key}"] == "yes") && crypto_offload_available($key)) {
+				config_set_path("system/crypto_{$key}", true);
+			} else {
+				config_del_path("system/crypto_{$key}");
+			}
 		}
 
 		if ($post['thermal_hardware']) {
