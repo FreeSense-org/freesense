@@ -1427,6 +1427,9 @@ function load_loader_conf($loader_conf = NULL, $local = false) {
 		    "hint.uart.1.flags",
 		    "net.link.ifqmaxlen",
 		    "hint.hwpstate_intel.0.disabled",
+		    "machdep.hwpstate_amd_cppc_enable",
+		    "cpu_microcode_load",
+		    "cpu_microcode_name",
 		    "loader_conf_files",
 		    "machdep.hwpstate_pkg_ctrl",
 		    "net.pf.states_hashsize"
@@ -1450,6 +1453,129 @@ function load_loader_conf($loader_conf = NULL, $local = false) {
 	}
 
 	return ($data);
+}
+
+/*
+ * cpu_vendor() - "intel", "amd" or null, from the CPUID vendor the kernel
+ * printed at boot (Origin="GenuineIntel"), falling back to hw.model.
+ */
+function cpu_vendor() {
+	global $g;
+	$dmesg = @file_get_contents("{$g['varlog_path']}/dmesg.boot");
+	if (is_string($dmesg) && preg_match('/Origin="(GenuineIntel|AuthenticAMD|HygonGenuine)"/', $dmesg, $m)) {
+		return ($m[1] == 'GenuineIntel') ? 'intel' : 'amd';
+	}
+	$model = (string)get_single_sysctl('hw.model');
+	if (stripos($model, 'Intel') !== false) {
+		return 'intel';
+	}
+	if ((stripos($model, 'AMD') !== false) || (stripos($model, 'Hygon') !== false)) {
+		return 'amd';
+	}
+	return null;
+}
+
+/*
+ * cpu_microcode_file() - The microcode file the loader should apply early, or
+ * null: on amd64 bare metal with a known vendor whose file is installed, unless
+ * System > Advanced > Miscellaneous turns early loading off. Virtual machines
+ * get their microcode from the host, so they are skipped. The late update at
+ * the end of boot (cpu-microcode-rc) still runs as a fallback.
+ */
+function cpu_microcode_file($path = "") {
+	if (config_path_enabled('system', 'microcode_early_disable')) {
+		return null;
+	}
+	if ((get_single_sysctl('hw.machine') != 'amd64') ||
+	    !in_array((string)get_single_sysctl('kern.vm_guest'), ['', 'none'], true)) {
+		return null;
+	}
+	$files = ['intel' => '/boot/firmware/intel-ucode.bin', 'amd' => '/boot/firmware/amd-ucode.bin'];
+	$vendor = cpu_vendor();
+	if (($vendor === null) || !file_exists($path . $files[$vendor])) {
+		return null;
+	}
+	return $files[$vendor];
+}
+
+/*
+ * cpu_microcode_parse() - What the kernel reported about the early microcode
+ * update in the boot messages (sys/x86/x86/ucode.c), or null when it said
+ * nothing (early loading off, no file, arm64).
+ */
+function cpu_microcode_parse(array $lines): ?array {
+	$result = null;
+	foreach ($lines as $line) {
+		if (preg_match('/^CPU microcode: updated from (0x[0-9a-f]+) to (0x[0-9a-f]+)/i', $line, $m)) {
+			$result = ['state' => 'updated', 'from' => strtolower($m[1]), 'to' => strtolower($m[2])];
+		} elseif (preg_match('/^CPU microcode: no matching update found/', $line)) {
+			$result = ['state' => 'current'];
+		} elseif (preg_match('/^CPU microcode: microcode verification failed/', $line)) {
+			$result = ['state' => 'failed', 'reason' => 'verification'];
+		} elseif (preg_match('/^CPU microcode load failed/', $line)) {
+			$result = ['state' => 'failed', 'reason' => 'bios'];
+		}
+	}
+	return $result;
+}
+
+/* One line for the dashboard and the REST API about CPU microcode, or null where it does not apply. */
+function cpu_microcode_status(): ?string {
+	global $g;
+	if (get_single_sysctl('hw.machine') != 'amd64') {
+		return null;
+	}
+	if (!in_array((string)get_single_sysctl('kern.vm_guest'), ['', 'none'], true)) {
+		return gettext('Provided by the hypervisor');
+	}
+	$lines = @file("{$g['varlog_path']}/dmesg.boot", FILE_IGNORE_NEW_LINES) ?: [];
+	$report = cpu_microcode_parse($lines);
+	if ($report === null) {
+		return config_path_enabled('system', 'microcode_early_disable') ?
+		    gettext('Early loading off; updated near the end of boot when a newer update exists') :
+		    gettext('No early update this boot; updated near the end of boot when a newer update exists');
+	}
+	switch ($report['state']) {
+	case 'updated':
+		return sprintf(gettext('Updated at boot from %1$s to %2$s'), $report['from'], $report['to']);
+	case 'current':
+		return gettext('Up to date: this release has no newer update for this CPU');
+	default:
+		return ($report['reason'] == 'bios') ?
+		    gettext('The update failed to load; a BIOS update is advised') :
+		    gettext('The update was rejected (verification failed)');
+	}
+}
+
+/*
+ * cpu_crypto_features_parse() - The CPU instructions that crypto drivers
+ * (aesni, ossl, ipsecmb, armv8crypto) use, from the boot messages: the x86
+ * feature lists and the arm64 "Instruction Set Attributes".
+ */
+function cpu_crypto_features_parse(array $lines): array {
+	$map = [
+		'AESNI' => 'AES-NI', 'SHA' => 'SHA', 'AVX2' => 'AVX2', 'AVX512F' => 'AVX-512', 'VAES' => 'VAES',
+		'AES' => 'AES', 'AES+PMULL' => 'AES', 'SHA1' => 'SHA', 'SHA2' => 'SHA', 'SHA2+SHA512' => 'SHA', 'SHA512' => 'SHA',
+	];
+	$found = [];
+	foreach ($lines as $line) {
+		if (!preg_match('/^\s*(Features2|Structured Extended Features2?|Instruction Set Attributes 0)\s*=\s*(?:0x[0-9a-f]+)?<([^>]*)>/i', $line, $m)) {
+			continue;
+		}
+		foreach (explode(',', $m[2]) as $token) {
+			$token = trim($token);
+			if (isset($map[$token])) {
+				$found[$map[$token]] = true;
+			}
+		}
+	}
+	/* fixed order, strongest last */
+	return array_values(array_filter(['AES-NI', 'AES', 'SHA', 'AVX2', 'AVX-512', 'VAES'], fn($f) => isset($found[$f])));
+}
+
+function cpu_crypto_features(): array {
+	global $g;
+	return cpu_crypto_features_parse(@file("{$g['varlog_path']}/dmesg.boot", FILE_IGNORE_NEW_LINES) ?: []);
 }
 
 function setup_loader_settings($path = "", $upgrade = false) {
@@ -1572,9 +1698,21 @@ function setup_loader_settings($path = "", $upgrade = false) {
 	/* Set maximum send queue length. */
 	$data[] = 'net.link.ifqmaxlen="128"';
 
-	/* Speed Shift / hwpstate */
+	/* Speed Shift (Intel) / CPPC (AMD): "disabled" turns off whichever the CPU has */
 	if (config_get_path('system/hwpstate', 'enabled') == 'disabled') {
 		$data[] = 'hint.hwpstate_intel.0.disabled="1"';
+		$data[] = 'machdep.hwpstate_amd_cppc_enable="0"';
+	}
+
+	/*
+	 * CPU microcode: the loader applies it before the kernel starts, so the
+	 * kernel chooses its CPU vulnerability mitigations with the updated
+	 * microcode. The cpu-microcode packages install one file per vendor.
+	 */
+	$microcode = cpu_microcode_file($path);
+	if ($microcode !== null) {
+		$data[] = 'cpu_microcode_load="YES"';
+		$data[] = 'cpu_microcode_name="' . $microcode . '"';
 	}
 	$data[] = 'machdep.hwpstate_pkg_ctrl="' . config_get_path('system/hwpstate_control_level', get_single_sysctl('machdep.hwpstate_pkg_ctrl')) . '"';
 
@@ -2327,11 +2465,26 @@ function crypto_qat_available(): bool {
 }
 
 /*
+ * crypto_auto_modules() - What "Automatic" (an empty system/crypto_hardware)
+ * loads: ossl, which picks the CPU's AES-NI/VAES, SHA or ARMv8 crypto
+ * instructions itself and falls back to its own code, on every platform that
+ * ships it; otherwise aesni. A build with neither loads nothing.
+ */
+function crypto_auto_modules(): array {
+	foreach (['ossl', 'aesni'] as $module) {
+		if (crypto_module_available($module)) {
+			return [$module];
+		}
+	}
+	return [];
+}
+
+/*
  * load_crypto() - Load crypto modules if enabled in config.
  *
  * system/crypto_hardware holds one software accelerator (aesni, ossl or
  * ipsecmb), optionally joined with "_cryptodev"; module names there must not
- * contain "_". The offload hardware (crypto_offload_drivers) has one flag per
+ * contain "_". Empty means Automatic (crypto_auto_modules()); "none" loads none. The offload hardware (crypto_offload_drivers) has one flag per
  * driver, system/crypto_<key>.
  */
 function load_crypto() {
@@ -2342,7 +2495,8 @@ function load_crypto() {
 		'cryptodev'
 	];
 
-	$enabled_modules = explode('_', (string)config_get_path('system/crypto_hardware'));
+	$setting = (string)config_get_path('system/crypto_hardware');
+	$enabled_modules = ($setting === '') ? crypto_auto_modules() : explode('_', $setting);
 	foreach (array_keys(crypto_offload_drivers()) as $key) {
 		if (config_path_enabled('system', "crypto_{$key}")) {
 			$enabled_modules = array_merge($enabled_modules, crypto_offload_modules($key));

@@ -30,22 +30,62 @@ require_once('config.lib.inc');
 require_once('services_dhcp.inc');
 require_once('syslog.inc');
 
+/*
+ * Hardware-controlled performance states: Intel Speed Shift (hwpstate_intel)
+ * or AMD CPPC (hwpstate with CPPC). Both expose a per-CPU "epp" sysctl;
+ * Intel's runs 0-100, AMD's 0-255 (0 = most performant in both).
+ */
+function system_hwpstate_vendor() {
+	$driver = (string)get_single_sysctl('dev.cpufreq.0.freq_driver');
+	if ($driver == 'hwpstate_intel0') {
+		return 'intel';
+	}
+	/* AMD's hwpstate driver uses CPPC (and adds "epp") only on CPUs that support it */
+	if (($driver == 'hwpstate0') && (strlen((string)get_single_sysctl('dev.hwpstate.0.epp')) > 0)) {
+		return 'amd';
+	}
+	return null;
+}
+
 function system_hwpstate_active() {
-	return (get_single_sysctl('dev.cpufreq.0.freq_driver') == 'hwpstate_intel0');
+	return (system_hwpstate_vendor() !== null);
+}
+
+/* The read-back value of a loader tunable, or null when it is not set. */
+function system_kenv_value($name) {
+	$out = [];
+	exec('/bin/kenv -q ' . escapeshellarg($name) . ' 2>/dev/null', $out);
+	return (empty($out) || !is_array($out)) ? null : (string)array_shift($out);
 }
 
 function system_hwpstate_disabled() {
-	/* Is hwpstate disabled? */
-	$hwpstate_disabled_kenv = [];
-	exec('/bin/kenv -q hint.hwpstate_intel.0.disabled 2>/dev/null', $hwpstate_disabled_kenv);
-	if (empty($hwpstate_disabled_kenv) || !is_array($hwpstate_disabled_kenv)) {
-		/* Invalid result, so assume not explicitly disabled */
-		$hwpstate_disabled = false;
-	} else {
-		/* Compare value of kenv variable to 1 (disabled) */
-		$hwpstate_disabled = (array_shift($hwpstate_disabled_kenv) == '1');
+	/* Disabled through the loader: hint.hwpstate_intel.0.disabled=1 (Intel) or machdep.hwpstate_amd_cppc_enable=0 (AMD) */
+	return ((system_kenv_value('hint.hwpstate_intel.0.disabled') === '1') ||
+	    (system_kenv_value('machdep.hwpstate_amd_cppc_enable') === '0'));
+}
+
+/* The sysctl tree and scale of the epp knob for the active driver. */
+function system_hwpstate_epp_node() {
+	switch (system_hwpstate_vendor()) {
+	case 'intel':
+		return ['node' => 'dev.hwpstate_intel', 'max' => 100];
+	case 'amd':
+		return ['node' => 'dev.hwpstate', 'max' => 255];
 	}
-	return $hwpstate_disabled;
+	return null;
+}
+
+/* The current power preference of CPU 0 on the page's 0-100 scale, or null. */
+function system_hwpstate_getepp() {
+	$epp = system_hwpstate_epp_node();
+	if ($epp === null) {
+		return null;
+	}
+	$value = get_single_sysctl("{$epp['node']}.0.epp");
+	if (!is_numeric($value)) {
+		return null;
+	}
+	return (int)round(((int)$value * 100) / $epp['max']);
 }
 
 /*
@@ -66,13 +106,17 @@ function system_has_hwpstate() {
 	}
 }
 
+/* Apply the power preference (0-100, stored in system/hwpstate_epp) to every CPU. */
 function system_hwpstate_setepp() {
 	$epp = config_get_path('system/hwpstate_epp', -1);
+	$node = system_hwpstate_epp_node();
+	if (($node === null) || !is_numeric($epp) || ($epp < 0) || ($epp > 100)) {
+		return;
+	}
+	$value = (int)round(((int)$epp * $node['max']) / 100);
 	$cpu_count = get_single_sysctl('hw.ncpu');
-	if (($epp >= 0) && ($epp <= 100)) {
-		for ($cpu=0; $cpu < $cpu_count; $cpu++) {
-			set_single_sysctl("dev.hwpstate_intel.{$cpu}.epp", $epp);
-		}
+	for ($cpu=0; $cpu < $cpu_count; $cpu++) {
+		set_single_sysctl("{$node['node']}.{$cpu}.epp", $value);
 	}
 }
 

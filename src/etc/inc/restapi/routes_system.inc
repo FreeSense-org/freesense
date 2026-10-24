@@ -85,7 +85,8 @@ function restapi_routes_system() {
 	    '("(set)" keeps it), lb_use_sticky (boolean), srctrack, hwpstate (boolean), hwpstate_control_level, hwpstate_epp (Speed Shift, ' .
 	    'only on supported hardware), powerd_enable (boolean), powerd_ac_mode, powerd_battery_mode, powerd_normal_mode, ' .
 	    'crypto_hardware, crypto_qat, crypto_ccp, crypto_ccr (booleans, each only when the kernel ships the Intel QAT, AMD CCP or ' .
-	    'Chelsio T6 crypto driver; experimental), thermal_hardware, ' .
+	    'Chelsio T6 crypto driver; experimental), thermal_hardware, microcode_early (boolean, amd64: load CPU microcode ' .
+	    'from the boot loader), ' .
 	    'pti_disabled (boolean, when the kernel has PTI), mds_disable (when the kernel has MDS ' .
 	    'mitigation), schedule_states, keep_failover_states, skip_rules_gw_down, dpinger_dont_add_static_routes, use_mfs_tmpvar ' .
 	    '(booleans), remove_failover_states_default, gw_down_kill_states, php_memory_limit, use_mfs_tmp_size, ' .
@@ -485,9 +486,9 @@ function restapi_sysadv_misc_choices() {
 		'powerd_ac_mode' => $powerd_modes,
 		'powerd_battery_mode' => $powerd_modes,
 		'powerd_normal_mode' => $powerd_modes,
-		'crypto_hardware' => array('' => gettext('None')) + getSystemAdvancedMiscCryptoModules(),
+		'crypto_hardware' => array('' => gettext('Automatic (recommended)')) + getSystemAdvancedMiscCryptoModules(),
 		'thermal_hardware' => array('' => 'None/ACPI', 'coretemp' => gettext("Intel Core* CPU on-die thermal sensor"),
-		    'amdtemp' => gettext("AMD K8, K10 and K11 CPU on-die thermal sensor")),
+		    'amdtemp' => gettext("AMD CPU on-die thermal sensor (K8 to Zen)")),
 		'remove_failover_states_default' => array('' => 'Don\'t kill states from the firewall itself',
 		    'all' => 'Kill all states for lower-priority gateways',
 		    'policy' => 'Only kill policy routing states for lower-priority gateways',
@@ -529,6 +530,9 @@ function restapi_sysadv_misc_types() {
 		if (crypto_offload_available($key)) {
 			$types["crypto_{$key}"] = 'bool';
 		}
+	}
+	if (get_single_sysctl('hw.machine') == 'amd64') {
+		$types['microcode_early'] = 'bool';
 	}
 	if (strlen((string)get_single_sysctl('vm.pmap.pti')) > 0) {
 		$types['pti_disabled'] = 'bool';
@@ -579,6 +583,9 @@ function restapi_sysadv_misc_settings() {
 		$out['hwpstate_control_level'] = restapi_select_choice($p['hwpstate_control_level'], $choices['hwpstate_control_level']);
 		$out['hwpstate_epp'] = (string)$p['hwpstate_epp'];
 	}
+	if (isset($types['microcode_early'])) {
+		$out['microcode_early'] = (bool)$p['microcode_early'];
+	}
 	foreach (array_keys(crypto_offload_drivers()) as $key) {
 		if (isset($types["crypto_{$key}"])) {
 			$out["crypto_{$key}"] = (bool)$p["crypto_{$key}"];
@@ -602,6 +609,8 @@ function restapi_sysadv_misc_out(array $settings) {
 		'pti' => (string)get_single_sysctl('vm.pmap.pti'),
 		'mds' => (string)get_single_sysctl('hw.mds_disable_state'),
 		'speed_shift' => ($hwpstate === false) ? null : ($hwpstate_status_descr[$hwpstate] ?? null),
+		'power_control' => system_hwpstate_vendor(),
+		'microcode' => cpu_microcode_status(),
 	);
 	$settings['choices'] = array_map('restapi_svc_choices', restapi_sysadv_misc_choices());
 	return $settings;
@@ -629,6 +638,9 @@ function restapi_h_sysadv_misc_set($req) {
 	}
 	if (!empty($rv['reboot-hwpstate'])) {
 		$reboot[] = 'speed_shift';
+	}
+	if (!empty($rv['reboot-microcode'])) {
+		$reboot[] = 'microcode';
 	}
 	return array('data' => restapi_sysadv_misc_out(restapi_sysadv_misc_settings()) +
 	    array('applied' => ($rv['retval'] == 0), 'reboot_required' => $reboot));

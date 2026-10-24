@@ -80,6 +80,7 @@ jobs:
               KernelConfigPreflightSmokeTest \
               KernelModulePolicySmokeTest \
               CryptoAcceleratorSmokeTest \
+              CpuFeaturesSmokeTest \
               VxlanConfigSmokeTest \
               WebUiHardeningSmokeTest \
               RemoteBackupSmokeTest \

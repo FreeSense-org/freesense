@@ -57,6 +57,7 @@ $sysinfo_items = array(
 	'version' => gettext('Version'),
 	'cpu_type' => gettext('CPU Type'),
 	'hwcrypto' => gettext('Hardware Crypto'),
+	'microcode' => gettext('CPU Microcode'),
 	'pti' => gettext('Kernel PTI'),
 	'mds' => gettext('MDS Mitigation'),
 	'uptime' => gettext('Uptime'),
@@ -320,6 +321,12 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 				<div id="cpucrypto">
 					<?= get_cpu_crypto_string($hwcrypto); ?>
 				</div>
+<?php
+			/* the CPU instructions the crypto drivers can use */
+			$cpu_features = cpu_crypto_features();
+			if (!empty($cpu_features)): ?>
+				<div id="cpufeatures"><?=gettext('Crypto instructions')?>: <?=htmlspecialchars(implode(', ', $cpu_features))?></div>
+<?php		endif; ?>
 			</td>
 		</tr>
 <?php
@@ -333,6 +340,16 @@ $temp_use_f = (isset($user_settings['widgets']['thermal_sensors-0']) && !empty($
 			<td><?=htmlspecialchars(crypto_accel_get_algs($hwcrypto));?></td>
 		</tr>
 		<?php endif; ?>
+<?php
+	endif;
+	$microcode = cpu_microcode_status();
+	if (($microcode !== null) && !in_array('microcode', $skipsysinfoitems)):
+		$rows_displayed = true;
+?>
+		<tr>
+			<th><i class="fa-solid fa-microchip fs-wrow-icon" aria-hidden="true"></i><?=gettext("CPU Microcode");?></th>
+			<td><?=htmlspecialchars($microcode);?></td>
+		</tr>
 <?php
 	endif;
 	$pti = get_single_sysctl('vm.pmap.pti');

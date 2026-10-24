@@ -69,13 +69,14 @@ $crypto_modules = getSystemAdvancedMiscCryptoModules();
 
 $thermal_hardware_modules = array(
 	'coretemp' => gettext("Intel Core* CPU on-die thermal sensor"),
-	'amdtemp' => gettext("AMD K8, K10 and K11 CPU on-die thermal sensor")
+	'amdtemp' => gettext("AMD CPU on-die thermal sensor (K8 to Zen)")
 );
 
 global $global_gateway_state_kill_modes;
 
 $rebootneeded_ramdisks = false;
 $rebootneeded_hwpstate = false;
+$rebootneeded_microcode = false;
 
 if ($_POST) {
 	ob_flush();
@@ -89,6 +90,7 @@ if ($_POST) {
 	$changes_applied = $rv['changes_applied'];
 	$rebootneeded_ramdisks = $rv['reboot-ramdisks'];
 	$rebootneeded_hwpstate = $rv['reboot-hwpstate'];
+	$rebootneeded_microcode = $rv['reboot-microcode'];
 } else {
 	$pconfig = getSystemAdvancedMisc();
 }
@@ -174,20 +176,24 @@ $section->add($group);
 $form->add($section);
 
 if ($hwpstate_status !== false) {
-	$section = new Form_Section('Power Savings - Intel Speed Shift');
+	/* Intel Speed Shift or AMD CPPC: the same settings, named after the CPU's own feature */
+	$hwpstate_amd = (system_hwpstate_vendor() === 'amd') || (cpu_vendor() === 'amd');
+	$hwpstate_name = $hwpstate_amd ? 'AMD CPPC' : 'Intel Speed Shift';
+	$section = new Form_Section('Power Savings - ' . $hwpstate_name);
 	$section->addInput(new Form_Checkbox(
 		'hwpstate',
-		'Speed Shift',
-		'Enable Speed Shift',
+		$hwpstate_amd ? 'CPPC' : 'Speed Shift',
+		$hwpstate_amd ? 'Enable AMD CPPC' : 'Enable Speed Shift',
 		$pconfig['hwpstate']
-	))->setHelp('Intel Speed Shift configures hardware-controlled performance states '.
+	))->setHelp('%3$s configures hardware-controlled performance states '.
 		'on systems with compatible hardware. This can allow the system to consume ' .
 		'less power and generate less heat when it is lightly loaded, and increase ' .
 		'power as needed. Changing this setting requires a reboot.%1$s%1$s' .
-		'Speed Shift takes precedence over Speed Step (BIOS and/or PowerD) so the best ' .
+		'It takes precedence over Speed Step and Cool\'n\'Quiet (BIOS and/or PowerD) so the best ' .
 		'practice is to only enable one or the other.' .
-		'%1$s%1$sCurrent State: %2$s', '<br/>', $hwpstate_status_descr);
+		'%1$s%1$sCurrent State: %2$s', '<br/>', $hwpstate_status_descr, $hwpstate_name);
 
+	if (!$hwpstate_amd) {
 	$section->addInput(new Form_Select(
 		'hwpstate_control_level',
 		'Control Level',
@@ -202,6 +208,7 @@ if ($hwpstate_status !== false) {
 		'Changing this setting requires a reboot.' .
 		'%1$s%1$sCurrent Active Level: %2$s',
 		'<br/>', ((get_single_sysctl('machdep.hwpstate_pkg_ctrl') == '0') ? 'Core' : 'Package'));
+	}
 
 	$section->addInput(new Form_Input(
 		'hwpstate_epp',
@@ -271,8 +278,9 @@ $section->addInput(new Form_Select(
 	'crypto_hardware',
 	'Cryptographic Hardware',
 	$pconfig['crypto_hardware'],
-	['' => gettext('None')] + $crypto_modules
+	['' => gettext('Automatic (recommended)')] + $crypto_modules
 ))->setHelp('A cryptographic accelerator speeds up the kernel cryptography used by IPsec and OpenVPN DCO. '.
+	'Automatic loads OpenSSL (ossl), which uses the CPU\'s AES and SHA instructions where present; choose None to use none. '.
 	'AES-NI uses the CPU\'s AES instructions. OpenSSL (ossl) uses OpenSSL\'s optimized routines for AES-GCM, '.
 	'AES-CBC, ChaCha20-Poly1305 and SHA, and works on amd64 and arm64. '.
 	'Intel IPsec-MB, where offered (amd64), processes several packets at once and is experimental. '.
@@ -327,6 +335,18 @@ $section->addInput(new Form_Select(
 	'present. If there is not a supported thermal sensor chip in the system, this '.
 	'option will have no effect. To unload the selected module, set this option to '.
 	'"none" and then reboot.');
+
+if (get_single_sysctl('hw.machine') == 'amd64') {
+	$section->addInput(new Form_Checkbox(
+		'microcode_early',
+		'CPU Microcode',
+		'Load CPU microcode updates early in boot (recommended)',
+		$pconfig['microcode_early']
+	))->setHelp('Applies the Intel or AMD microcode update from the boot loader, before the kernel starts, so the kernel ' .
+		'chooses its CPU vulnerability mitigations with the updated microcode. When it is off, or the loader finds no ' .
+		'newer update, the microcode is still updated near the end of boot. Virtual machines are skipped: their microcode ' .
+		'comes from the host. The dashboard shows the result. Takes effect at the next reboot.');
+}
 
 $form->add($section);
 
@@ -559,7 +579,10 @@ if ($rebootneeded_ramdisks) {
 	$reboot_msg[] = gettext('The \"Use RAM Disks\" setting has been changed.\nThis requires the firewall to reboot.');
 }
 if ($rebootneeded_hwpstate) {
-	$reboot_msg[] = gettext('The Intel Speed Shift configuration has changed in a way which requires the firewall to reboot.');
+	$reboot_msg[] = gettext('The Speed Shift / CPPC configuration has changed in a way which requires the firewall to reboot.');
+}
+if ($rebootneeded_microcode) {
+	$reboot_msg[] = gettext('The CPU microcode loading setting takes effect at the next reboot.');
 }
 if (!empty($reboot_msg)) {
 	$reboot_msg[] = gettext('Reboot now?');
