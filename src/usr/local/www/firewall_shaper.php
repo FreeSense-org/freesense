@@ -46,19 +46,30 @@ read_altq_config();
  * If you find a better way contact me :).
  */
 
-if ($_GET) {
-	if ($_GET['queue']) {
-		$qname = htmlspecialchars(trim($_GET['queue']));
+/* Actions that change the configuration only come as a POST (usepost links) */
+$post_actions = ['delete', 'resetall', 'enable', 'disable'];
+$post_action = in_array($_POST['action'] ?? '', $post_actions, true);
+if ($post_action) {
+	$req = $_POST;
+} elseif (!in_array($_GET['action'] ?? '', $post_actions, true)) {
+	$req = $_GET;
+} else {
+	$req = [];
+}
+
+if ($req) {
+	if ($req['queue']) {
+		$qname = htmlspecialchars(trim($req['queue']));
 	}
-	if ($_GET['interface']) {
-		$interface = htmlspecialchars(trim($_GET['interface']));
+	if ($req['interface']) {
+		$interface = htmlspecialchars(trim($req['interface']));
 	}
-	if ($_GET['action']) {
-		$action = htmlspecialchars($_GET['action']);
+	if ($req['action']) {
+		$action = htmlspecialchars($req['action']);
 	}
 }
 
-if ($_POST) {
+if ($_POST && !$post_action) {
 	if ($_POST['name']) {
 		$qname = htmlspecialchars(trim($_POST['name']));
 	}
@@ -84,7 +95,7 @@ $dontshow = false;
 $newqueue = false;
 $dfltmsg = false;
 
-if ($_GET) {
+if ($req) {
 	switch ($action) {
 	case "delete":
 		if (!empty($queue)) {
@@ -212,7 +223,7 @@ if ($_GET) {
 	}
 }
 
-if ($_POST) {
+if ($_POST && !$post_action) {
 	unset($input_errors);
 
 	if ($addnewaltq) {
@@ -310,7 +321,7 @@ if ($_POST) {
 	mwexec("/usr/bin/killall -q qstats");
 }
 
-if (!$_POST && !$_GET) {
+if (!$_POST && !$req) {
 	$dfltmsg = true;
 	$dontshow = true;
 }
@@ -441,7 +452,7 @@ $ifdescr = $shaperIFlist[$interface ?? ''] ?? ($interface ?? null);
 		</div>
 <?php if (count($altq_list_queues) > 0): ?>
 		<div class="panel-footer">
-			<a href="firewall_shaper.php?action=resetall" class="btn btn-sm btn-outline-danger"
+			<a href="firewall_shaper.php?action=resetall" usepost class="btn btn-sm btn-outline-danger"
 			   data-fs-confirm="<?=fs_h(gettext('Remove the traffic shaper?'))?>"
 			   data-fs-confirm-detail="<?=fs_h(gettext('All queues on every interface are deleted, together with the firewall rules a shaper wizard created. The firewall rules are reloaded right away.'))?>"
 			   data-fs-confirm-action="<?=fs_h(gettext('Remove shaper'))?>">
@@ -560,6 +571,7 @@ if ($show_form) {
 			'fa-solid fa-trash-can'
 		);
 		$delete->removeClass('btn-secondary')->addClass('btn-outline-danger', 'nowarn');
+		$delete->setAttribute('usepost', true);
 		$delete->setAttribute('data-fs-confirm', $is_root_delete
 		    ? gettext('Remove the shaper from this interface?')
 		    : gettext('Delete this queue?'));

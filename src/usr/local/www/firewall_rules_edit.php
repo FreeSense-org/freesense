@@ -99,7 +99,7 @@ if ($_POST['save']) {
 		if ($result['interface'] === 'FloatingRules') {
 			header('Location: firewall_rules.php?if=FloatingRules');
 		} else {
-			header('Location: firewall_rules.php?if=' . htmlspecialchars($result['interface']));
+			header('Location: firewall_rules.php?if=' . rawurlencode($result['interface']));
 		}
 		exit;
 	}

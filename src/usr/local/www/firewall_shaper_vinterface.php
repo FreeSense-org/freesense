@@ -45,20 +45,31 @@ read_dummynet_config();
  * If you find a better way contact me :).
  */
 
-if ($_GET) {
-	if ($_GET['queue']) {
-		$qname = htmlspecialchars(trim($_GET['queue']));
+/* Actions that change the configuration only come as a POST (usepost links) */
+$post_actions = ['delete', 'resetall', 'enable', 'disable'];
+$post_action = in_array($_POST['action'] ?? '', $post_actions, true);
+if ($post_action) {
+	$req = $_POST;
+} elseif (!in_array($_GET['action'] ?? '', $post_actions, true)) {
+	$req = $_GET;
+} else {
+	$req = [];
+}
+
+if ($req) {
+	if ($req['queue']) {
+		$qname = htmlspecialchars(trim($req['queue']));
 	}
-	if ($_GET['pipe']) {
-		$pipe = htmlspecialchars(trim($_GET['pipe']));
+	if ($req['pipe']) {
+		$pipe = htmlspecialchars(trim($req['pipe']));
 	}
-	if ($_GET['action']) {
-		$action = htmlspecialchars($_GET['action']);
+	if ($req['action']) {
+		$action = htmlspecialchars($req['action']);
 		$addnewpipe = ($action == 'add');
 	}
 }
 
-if ($_POST) {
+if ($_POST && !$post_action) {
 	if ($_POST['name']) {
 		$qname = htmlspecialchars(trim($_POST['name']));
 	}
@@ -92,7 +103,7 @@ $dontshow = false;
 $newqueue = false;
 $output_form = "";
 
-if ($_GET) {
+if ($req) {
 	switch ($action) {
 		case "delete":
 			if ($queue) {
@@ -204,7 +215,7 @@ if ($_GET) {
 	}
 }
 
-if ($_POST) {
+if ($_POST && !$post_action) {
 	unset($input_errors);
 
 	if ($addnewpipe) {
@@ -327,7 +338,7 @@ if ($_POST) {
 	}
 }
 
-if (!$_POST && !$_GET) {
+if (!$_POST && !$req) {
 	$dfltmsg = true;
 	$dontshow = true;
 }
@@ -566,6 +577,7 @@ if ($show_form) {
 				'fa-solid fa-trash-can'
 			);
 			$delete->removeClass('btn-secondary')->addClass('btn-outline-danger', 'nowarn');
+			$delete->setAttribute('usepost', true);
 			$delete->setAttribute('data-fs-confirm', $is_queue
 			    ? gettext('Delete this queue?')
 			    : gettext('Delete this limiter?'));
