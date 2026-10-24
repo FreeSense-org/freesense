@@ -55,24 +55,25 @@ if (!empty($_POST['apply'])) {
 
 $a_gateways = get_gateways(GW_CACHE_INDEXED);
 
-if (($_REQUEST['act'] ?? null) == "del") {
-	if (routing_delete_gateway($a_gateways, $_REQUEST['id'], $input_errors)) {
+/* Delete and toggle change the configuration, so they only come as a POST (usepost links) */
+if (($_POST['act'] ?? null) == "del") {
+	if (routing_delete_gateway($a_gateways, $_POST['id'], $input_errors)) {
 		header("Location: system_gateways.php");
 		exit;
 	}
 }
 
-if (isset($_REQUEST['del_x'])) {
+if (isset($_POST['del_x'])) {
 	/* delete selected items */
-	if (is_array($_REQUEST['rule']) && count($_REQUEST['rule'])) {
-		if (routing_delete_gateways($a_gateways, $_REQUEST['rule'], $input_errors)) {
+	if (is_array($_POST['rule']) && count($_POST['rule'])) {
+		if (routing_delete_gateways($a_gateways, $_POST['rule'], $input_errors)) {
 			header("Location: system_gateways.php");
 			exit;
 		}
 	}
 
-} else if (($_REQUEST['act'] ?? null) == "toggle" && $a_gateways[$_REQUEST['id']]) {
-	if (routing_toggle_gateway($a_gateways, $_REQUEST['id'], $input_errors)) {
+} else if (($_POST['act'] ?? null) == "toggle" && $a_gateways[$_POST['id']]) {
+	if (routing_toggle_gateway($a_gateways, $_POST['id'], $input_errors)) {
 		header("Location: system_gateways.php");
 		exit;
 	}

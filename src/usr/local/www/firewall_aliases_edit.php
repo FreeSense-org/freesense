@@ -145,7 +145,7 @@ if ($_POST['save']) {
 		mark_subsystem_dirty('aliases');
 
 		if (!empty($tab)) {
-			header("Location: firewall_aliases.php?tab=" . htmlspecialchars ($tab));
+			header("Location: firewall_aliases.php?tab=" . rawurlencode($tab));
 		} else {
 			header("Location: firewall_aliases.php");
 		}
