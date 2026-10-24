@@ -173,7 +173,7 @@ if ($_POST) {
 		}
 
 		if (!empty($tab)) {
-			header("Location: firewall_aliases.php?tab=" . htmlspecialchars ($tab));
+			header("Location: firewall_aliases.php?tab=" . rawurlencode($tab));
 		} else {
 			header("Location: firewall_aliases.php");
 		}

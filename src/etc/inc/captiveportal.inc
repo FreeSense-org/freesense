@@ -2982,7 +2982,7 @@ function captiveportal_load_pfctl($anchor, $host, $rules) {
 	global $g, $cpzone;
 
 	if (!empty($rules)) {
-		mwexec("/usr/bin/printf \"{$rules}\" | /sbin/pfctl -a {$anchor}/{$host} -f-");
+		mwexec('/usr/bin/printf %s ' . escapeshellarg($rules) . ' | /sbin/pfctl -a ' . escapeshellarg("{$anchor}/{$host}") . ' -f-');
 	} else {
 		logger(LOG_INFO, localize_text("CP zone %s: %s rules are empty for %s", $cpzone, $anchor, $host), LOG_PREFIX_CAPTIVEPORTAL);
 	}

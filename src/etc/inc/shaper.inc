@@ -1109,7 +1109,7 @@ class altq_root_queue {
 		$form .= '	<dt>';
 		$form .= '	<dd>';
 
-		$form .= '<a class="btn btn-danger btn-sm" href="firewall_shaper_queues.php?interface=';
+		$form .= '<a class="btn btn-danger btn-sm" usepost href="firewall_shaper_queues.php?interface=';
 		$form .= $this->GetInterface() . '&amp;queue=';
 		$form .= $this->GetQname() . '&amp;action=delete">';
 		$form .= '<i class="fa-solid fa-trash-can icon-embed-btn"></i>';
@@ -1947,7 +1947,7 @@ class priq_queue {
 			$form .= '	<dt>';
 			$form .= '	<dd>';
 
-			$form .= '<a class="btn btn-danger btn-sm" href="firewall_shaper_queues.php?interface=';
+			$form .= '<a class="btn btn-danger btn-sm" usepost href="firewall_shaper_queues.php?interface=';
 			$form .= $this->GetInterface() . '&amp;queue=';
 			$form .= $this->GetQname() . '&amp;action=delete">';
 			$form .= '<i class="fa-solid fa-trash-can icon-embed-btn"></i>';
