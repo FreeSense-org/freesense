@@ -49,7 +49,7 @@ if (!defined('LOG_WARNING')) { define('LOG_WARNING', 4); }
 $kernel = sys_get_temp_dir() . '/crypto-smoke-' . getmypid();
 @mkdir($kernel, 0700, true);
 $code = '';
-foreach (['crypto_module_available', 'crypto_offload_drivers', 'crypto_offload_modules', 'crypto_offload_available',
+foreach (['crypto_module_available', 'crypto_auto_modules', 'crypto_offload_drivers', 'crypto_offload_modules', 'crypto_offload_available',
     'crypto_qat_modules', 'crypto_qat_available', 'load_crypto'] as $fn) {
 	$code .= crypto_extract_function('src/etc/inc/freesense-utils.inc', $fn);
 }
@@ -66,12 +66,12 @@ function crypto_kernel(array $modules) {
 /* amd64 build with Part A: aesni, ossl and QAT, no IPsec-MB driver yet. */
 crypto_kernel(['aesni', 'ossl', 'cryptodev', 'qat', 'qat_c2xxx']);
 $choices = getSystemAdvancedMiscCryptoModules();
-check_crypto(array_keys($choices) === ['aesni', 'aesni_cryptodev', 'ossl', 'ossl_cryptodev', 'cryptodev'],
+check_crypto(array_keys($choices) === ['aesni', 'aesni_cryptodev', 'ossl', 'ossl_cryptodev', 'cryptodev', 'none'],
     'amd64 choices: ' . implode(',', array_keys($choices)));
 check_crypto(crypto_qat_available(), 'QAT is offered when the kernel ships qat.ko');
 
 /* Every stored value must split on "_" into loadable module names. */
-foreach (array_keys($choices) as $value) {
+foreach (array_diff(array_keys($choices), ['none']) as $value) {
 	foreach (explode('_', $value) as $module) {
 		check_crypto(in_array($module, ['aesni', 'ossl', 'ipsecmb', 'cryptodev'], true), "choice {$value} splits into {$module}");
 	}
@@ -83,7 +83,7 @@ check_crypto(isset(getSystemAdvancedMiscCryptoModules()['ipsecmb_cryptodev']), '
 
 /* arm64: only ossl and cryptodev, no QAT. */
 crypto_kernel(['ossl', 'cryptodev']);
-check_crypto(array_keys(getSystemAdvancedMiscCryptoModules()) === ['ossl', 'ossl_cryptodev', 'cryptodev'],
+check_crypto(array_keys(getSystemAdvancedMiscCryptoModules()) === ['ossl', 'ossl_cryptodev', 'cryptodev', 'none'],
     'arm64 choices: ' . implode(',', array_keys(getSystemAdvancedMiscCryptoModules())));
 check_crypto(!crypto_qat_available(), 'QAT is not offered without qat.ko');
 
@@ -111,6 +111,25 @@ $GLOBALS['loaded'] = [];
 $GLOBALS['kldload'] = [];
 load_crypto();
 check_crypto($GLOBALS['kldload'] === ['cryptodev'], 'missing ipsecmb.ko: ' . implode(',', $GLOBALS['kldload']));
+
+/* Automatic (no value stored, which is every install that never chose): ossl, else aesni, else nothing. */
+crypto_kernel(['aesni', 'ossl', 'cryptodev']);
+$GLOBALS['cfg'] = [];
+$GLOBALS['loaded'] = [];
+$GLOBALS['kldload'] = [];
+load_crypto();
+check_crypto($GLOBALS['kldload'] === ['ossl'], 'automatic: ' . implode(',', $GLOBALS['kldload']));
+crypto_kernel(['aesni', 'cryptodev']);
+check_crypto(crypto_auto_modules() === ['aesni'], 'automatic without ossl.ko falls back to aesni');
+crypto_kernel(['cryptodev']);
+check_crypto(crypto_auto_modules() === [], 'automatic with neither module loads nothing');
+
+/* "None" is stored explicitly and loads nothing, offload flags still apply. */
+crypto_kernel(['aesni', 'ossl', 'cryptodev', 'ccp']);
+$GLOBALS['cfg'] = ['system/crypto_hardware' => 'none', 'system/crypto_ccp' => true];
+$GLOBALS['kldload'] = [];
+load_crypto();
+check_crypto($GLOBALS['kldload'] === ['ccp'], 'none: ' . implode(',', $GLOBALS['kldload']));
 
 /* An unknown stored value loads nothing. */
 $GLOBALS['cfg'] = ['system/crypto_hardware' => 'hifn_ubsec'];
@@ -147,6 +166,8 @@ crypto_kernel([]);
 
 /* The page, the REST API and the dashboard know the new settings. */
 $page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_misc.php');
+check_crypto(strpos($page, "['' => gettext('Automatic (recommended)')] + \$crypto_modules") !== false,
+    'the Miscellaneous page offers Automatic as the empty value');
 check_crypto(strpos($page, "if (crypto_qat_available()) {") !== false && strpos($page, "'crypto_qat',") !== false,
     'the Miscellaneous page shows the QAT checkbox only when the drivers exist');
 $misc = file_get_contents(__DIR__ . '/../src/usr/local/FreeSense/include/www/system_advanced_misc.inc');

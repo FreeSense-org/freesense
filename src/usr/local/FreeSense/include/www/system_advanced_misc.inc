@@ -93,6 +93,7 @@ function getSystemAdvancedMisc($json = false) {
 		$pconfig["crypto_{$key}"] = config_path_enabled('system', "crypto_{$key}");
 	}
 	$pconfig['thermal_hardware'] = config_get_path('system/thermal_hardware');
+	$pconfig['microcode_early'] = !config_path_enabled('system', 'microcode_early_disable');
 	$pconfig['pti_disabled'] = config_path_enabled('system', 'pti_disabled');
 	/*
 	 * "" when unset: the page's MDS select compared null loosely with both
@@ -115,7 +116,8 @@ function getSystemAdvancedMisc($json = false) {
 
 	$pconfig['hwpstate'] = (config_get_path('system/hwpstate', 'enabled') == 'enabled');
 	$pconfig['hwpstate_control_level'] = config_get_path('system/hwpstate_control_level', get_single_sysctl('machdep.hwpstate_pkg_ctrl'));
-	$hwpstate_epp_default = get_single_sysctl('dev.hwpstate_intel.0.epp');
+	/* Intel Speed Shift or AMD CPPC, read back on the page's 0-100 scale */
+	$hwpstate_epp_default = system_hwpstate_getepp();
 	if (!is_numericint($hwpstate_epp_default) ||
 	    ($hwpstate_epp_default < 0) ||
 	    ($hwpstate_epp_default > 100)) {
@@ -145,7 +147,9 @@ function getSystemAdvancedMisc($json = false) {
  * The software accelerator choices for system/crypto_hardware. A choice is
  * offered only when the running kernel package ships its module: aesni and
  * ipsecmb are amd64-only, and ipsecmb.ko exists only on builds that carry
- * the experimental IPsec-MB driver. QAT is a separate setting (crypto_qat).
+ * the experimental IPsec-MB driver. The offload hardware (QAT, CCP, ccr) has
+ * separate settings. An empty value means Automatic (crypto_auto_modules()),
+ * so "none" is stored when the administrator turns acceleration off.
  */
 function getSystemAdvancedMiscCryptoModules() {
 	$accelerators = array(
@@ -166,6 +170,7 @@ function getSystemAdvancedMiscCryptoModules() {
 		$crypto_modules["{$module}_cryptodev"] = $labels[1];
 	}
 	$crypto_modules['cryptodev'] = gettext("BSD Crypto Device (cryptodev)");
+	$crypto_modules['none'] = gettext("None");
 
 	return $crypto_modules;
 }
@@ -355,13 +360,17 @@ function saveSystemAdvancedMisc($post, $json = false) {
 			$old_hwpstate = config_get_path('system/hwpstate', 'enabled');
 			$new_hwpstate = ($post['hwpstate'] == 'yes') ? 'enabled' : 'disabled';
 			config_set_path('system/hwpstate', $new_hwpstate);
-			$old_hwpstate_control_level = get_single_sysctl('machdep.hwpstate_pkg_ctrl');
-			config_set_path('system/hwpstate_control_level', $post['hwpstate_control_level']);
+			/* Package or core control exists only for Intel Speed Shift; AMD CPPC has no such knob. */
+			$control_level_changed = false;
+			if (system_hwpstate_vendor() !== 'amd') {
+				$old_hwpstate_control_level = get_single_sysctl('machdep.hwpstate_pkg_ctrl');
+				config_set_path('system/hwpstate_control_level', $post['hwpstate_control_level']);
+				$control_level_changed = ($old_hwpstate_control_level != $post['hwpstate_control_level']);
+			}
 			config_set_path('system/hwpstate_epp', $post['hwpstate_epp']);
 
 			/* Check if reboot is needed */
-			if (($old_hwpstate != $new_hwpstate) ||
-			    ($old_hwpstate_control_level != $post['hwpstate_control_level'])) {
+			if (($old_hwpstate != $new_hwpstate) || $control_level_changed) {
 				$rv['reboot-hwpstate'] = true;
 			}
 			system_hwpstate_setepp();
@@ -383,6 +392,17 @@ function saveSystemAdvancedMisc($post, $json = false) {
 			} else {
 				config_del_path("system/crypto_{$key}");
 			}
+		}
+
+		/* Early microcode loading (amd64 only) is on unless turned off; it takes effect at the next boot. */
+		if (get_single_sysctl('hw.machine') == 'amd64') {
+			$old_microcode_early = !config_path_enabled('system', 'microcode_early_disable');
+			if ($post['microcode_early'] == 'yes') {
+				config_del_path('system/microcode_early_disable');
+			} else {
+				config_set_path('system/microcode_early_disable', true);
+			}
+			$rv['reboot-microcode'] = ($old_microcode_early != ($post['microcode_early'] == 'yes'));
 		}
 
 		if ($post['thermal_hardware']) {
@@ -525,7 +545,7 @@ function saveSystemAdvancedMisc($post, $json = false) {
 		system_resolvconf_generate(true);
 		$retval |= filter_configure();
 
-		if (($rv['reboot-hwpstate']) ||
+		if (($rv['reboot-hwpstate']) || ($rv['reboot-microcode']) ||
 		    ($old_pti_state != config_path_enabled('system', 'pti_disabled'))) {
 			setup_loader_settings();
 		}
