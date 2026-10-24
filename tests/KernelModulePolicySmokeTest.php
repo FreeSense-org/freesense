@@ -18,7 +18,7 @@ if (!preg_match('/^\texport MODULES_OVERRIDE_arm64="([^"]+)"/m', $defaults, $mat
 	exit(1);
 }
 
-foreach (['aesni', 'amdsmn', 'amdtemp', 'coretemp', 'cpuctl', 'ipsecmb', 'qat', 'qat_c2xxx', 'qatfw', 'vmm'] as $module) {
+foreach (['aesni', 'amdsmn', 'amdtemp', 'ccp', 'coretemp', 'cpuctl', 'cxgbe/ccr', 'ipsecmb', 'qat', 'qat_c2xxx', 'qatfw', 'vmm'] as $module) {
 	if (preg_match('/(^| )' . preg_quote($module, '/') . '( |$)/', $matches[1])) {
 		fwrite(STDERR, "ARM64 kernel modules include x86-only module {$module}\n");
 		exit(1);
@@ -43,8 +43,9 @@ foreach (['if_wg', 'ossl'] as $module) {
 /*
  * QAT (qat, qat_c2xxx) and its firmware (qatfw, qat_c2xxxfw) are amd64-only FreeBSD modules.
  * ipsecmb (Intel IPsec-MB) is amd64-only and built from freesense-os-base patch 0010.
+ * ccp (AMD Crypto Co-Processor) and cxgbe/ccr (Chelsio T6 crypto) are amd64-only crypto offload drivers.
  */
-$amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 coretemp cpuctl cxgbe/tom if_vxlan ipmi ipsecmb ix ixv nmdm qat qat_c2xxx qat_c2xxxfw qatfw qlnx sfxge vmm';
+$amd64 = '${MODULES_OVERRIDE_base} aesni amdsmn amdtemp blake2 ccp coretemp cpuctl cxgbe/ccr cxgbe/tom if_vxlan ipmi ipsecmb ix ixv nmdm qat qat_c2xxx qat_c2xxxfw qatfw qlnx sfxge vmm';
 if (strpos($defaults, 'MODULES_OVERRIDE_amd64="' . $amd64 . '"') === false) {
 	fwrite(STDERR, "amd64 kernel module policy changed unexpectedly\n");
 	exit(1);
@@ -67,9 +68,9 @@ $common = file_get_contents(__DIR__ . '/../tools/builder_common.sh');
 if ($common === false ||
     !preg_match('/^\t\tensure_kernel_drivers \$KERNEL_DESTDIR$/m', $common) ||
     !preg_match('/_drivers="if_wg: if_vxlan:vxlan ossl:ossl"/', $common) ||
-    !preg_match('/_drivers="\$\{_drivers\} qat: qat_c2xxx: ipsecmb:"/', $common) ||
+    !preg_match('/_drivers="\$\{_drivers\} qat: qat_c2xxx: ipsecmb: ccp: ccr:"/', $common) ||
     !preg_match('/for _driver in \$\{_drivers\}; do/', $common)) {
-	fwrite(STDERR, "builder_common.sh must verify if_wg, if_vxlan/vxlan, ossl and (amd64) qat and ipsecmb in every kernel package\n");
+	fwrite(STDERR, "builder_common.sh must verify if_wg, if_vxlan/vxlan, ossl and (amd64) qat, ipsecmb, ccp and ccr in every kernel package\n");
 	exit(1);
 }
 

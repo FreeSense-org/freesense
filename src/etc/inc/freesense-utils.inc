@@ -638,13 +638,64 @@ function nic_settings_saved($id) {
 	return $saved;
 }
 
+/* Inline IPsec offload is experimental, so no profile turns it on; an adapter opts in itself. */
 function nic_settings_profiles() {
 	return [
-		'firewall' => ['checksum' => 'on', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'on', 'wol' => 'off'],
-		'throughput' => ['checksum' => 'on', 'tso' => 'on', 'lro' => 'on', 'vlan' => 'on', 'wol' => 'off'],
-		'latency' => ['checksum' => 'on', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'on', 'wol' => 'off'],
-		'capture' => ['checksum' => 'off', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'off', 'wol' => 'off'],
+		'firewall' => ['checksum' => 'on', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'on', 'wol' => 'off', 'ipsec' => 'off'],
+		'throughput' => ['checksum' => 'on', 'tso' => 'on', 'lro' => 'on', 'vlan' => 'on', 'wol' => 'off', 'ipsec' => 'off'],
+		'latency' => ['checksum' => 'on', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'on', 'wol' => 'off', 'ipsec' => 'off'],
+		'capture' => ['checksum' => 'off', 'tso' => 'off', 'lro' => 'off', 'vlan' => 'off', 'wol' => 'off', 'ipsec' => 'off'],
 	];
+}
+
+/*
+ * interface_ipsec_offload_parse() - The inline IPsec offload state from
+ * `ifconfig -m` output: null when the adapter cannot offload IPsec, otherwise
+ * whether it is on. The capability (IFCAP2_IPSEC_OFFLOAD, "IPSEC") lives in
+ * the second capability word, which the PHP extension does not read; ifconfig
+ * prints it as "options=...,IPSEC" and "capabilities=...,IPSEC".
+ */
+function interface_ipsec_offload_parse(array $lines): ?bool {
+	$supported = false;
+	$enabled = false;
+	foreach ($lines as $line) {
+		if (!preg_match('/^\s*(options|capabilities)=(.*)$/', $line, $m)) {
+			continue;
+		}
+		$tokens = preg_split('/[<>,\s]+/', $m[2], -1, PREG_SPLIT_NO_EMPTY);
+		if (!in_array('IPSEC', $tokens, true)) {
+			continue;
+		}
+		if ($m[1] === 'capabilities') {
+			$supported = true;
+		} else {
+			$enabled = true;
+		}
+	}
+	if (!$supported && !$enabled) {
+		return null;
+	}
+	return $enabled;
+}
+
+function interface_ipsec_offload_state(string $iface): ?bool {
+	if (!preg_match('/^[a-zA-Z0-9_.]+$/', $iface)) {
+		return null;
+	}
+	$lines = [];
+	exec('/sbin/ifconfig -m ' . escapeshellarg($iface) . ' 2>/dev/null', $lines);
+	return interface_ipsec_offload_parse($lines);
+}
+
+/* Interfaces with inline IPsec offload switched on, for the dashboard. */
+function interfaces_with_ipsec_offload(): array {
+	$result = [];
+	foreach (get_interface_list('all', 'physical') ?: [] as $device => $info) {
+		if (interface_ipsec_offload_state((string)$device) === true) {
+			$result[] = (string)$device;
+		}
+	}
+	return $result;
 }
 
 function nic_settings_effective($iface, $options = null) {
@@ -738,6 +789,19 @@ function hardware_offloading_applyflags($iface) {
 
 	FreeSense_interface_capabilities($iface, -$flags_off);
 	FreeSense_interface_capabilities($iface, $flags_on);
+
+	/*
+	 * Inline IPsec offload (experimental): the kernel installs every new SA on
+	 * each interface where it is on; the extension cannot set this capability.
+	 */
+	$ipsec = interface_ipsec_offload_state($iface);
+	if ($ipsec !== null) {
+		$want = ($nic_settings['ipsec'] ?? 'off') === 'on';
+		if ($want !== $ipsec) {
+			mwexec('/sbin/ifconfig ' . escapeshellarg($iface) . ($want ? ' ipsec' : ' -ipsec'));
+		}
+	}
+
 	$mtu = nic_settings_saved($nic_settings['id'])['mtu'] ?? null;
 	if (is_numeric($mtu)) {
 		FreeSense_interface_mtu($iface, (int)$mtu);
@@ -2220,16 +2284,33 @@ function crypto_module_available(string $module): bool {
 }
 
 /*
- * The Intel QAT drivers: qat for C3000, C62x, 200xx, 4xxx and DH895xCC, and
- * qat_c2xxx for the Atom C2000. Each attaches only when its device is present
- * and loads its firmware module itself. FreeBSD builds them for amd64 only.
+ * crypto_offload_drivers() - Crypto offload hardware. Each driver attaches only
+ * when its device is present and can run next to the software accelerator in
+ * system/crypto_hardware, so each has its own flag, system/crypto_<key>.
+ * FreeBSD builds all of them for amd64 only.
+ *
+ *   qat  Intel QuickAssist: qat for C3000, C62x, 200xx, 4xxx and DH895xCC,
+ *        qat_c2xxx for the Atom C2000; both load their firmware themselves.
+ *   ccp  AMD Crypto Co-Processor (EPYC, Ryzen Embedded); also feeds the
+ *        kernel random number generator.
+ *   ccr  Chelsio T6 crypto engine, on top of the cxgbe network driver.
  */
-function crypto_qat_modules(): array {
-	return ['qat', 'qat_c2xxx'];
+function crypto_offload_drivers(): array {
+	return [
+		'qat' => ['label' => 'Intel QAT', 'modules' => ['qat', 'qat_c2xxx']],
+		'ccp' => ['label' => 'AMD CCP', 'modules' => ['ccp']],
+		'ccr' => ['label' => 'Chelsio crypto', 'modules' => ['ccr']],
+	];
 }
 
-function crypto_qat_available(): bool {
-	foreach (crypto_qat_modules() as $module) {
+/* The modules of one offload driver; an unknown key has none. */
+function crypto_offload_modules(string $key): array {
+	return crypto_offload_drivers()[$key]['modules'] ?? [];
+}
+
+/* True when the kernel package ships (or has loaded) one of the driver's modules. */
+function crypto_offload_available(string $key): bool {
+	foreach (crypto_offload_modules($key) as $module) {
 		if (is_module_loaded($module) || file_exists("/boot/kernel/{$module}.ko")) {
 			return true;
 		}
@@ -2237,13 +2318,21 @@ function crypto_qat_available(): bool {
 	return false;
 }
 
+function crypto_qat_modules(): array {
+	return crypto_offload_modules('qat');
+}
+
+function crypto_qat_available(): bool {
+	return crypto_offload_available('qat');
+}
+
 /*
  * load_crypto() - Load crypto modules if enabled in config.
  *
  * system/crypto_hardware holds one software accelerator (aesni, ossl or
  * ipsecmb), optionally joined with "_cryptodev"; module names there must not
- * contain "_". QAT is hardware and can run next to them, so it has its own
- * flag, system/crypto_qat.
+ * contain "_". The offload hardware (crypto_offload_drivers) has one flag per
+ * driver, system/crypto_<key>.
  */
 function load_crypto() {
 	$crypto_modules = [
@@ -2254,9 +2343,11 @@ function load_crypto() {
 	];
 
 	$enabled_modules = explode('_', (string)config_get_path('system/crypto_hardware'));
-	if (config_path_enabled('system', 'crypto_qat')) {
-		$enabled_modules = array_merge($enabled_modules, crypto_qat_modules());
-		$crypto_modules = array_merge($crypto_modules, crypto_qat_modules());
+	foreach (array_keys(crypto_offload_drivers()) as $key) {
+		if (config_path_enabled('system', "crypto_{$key}")) {
+			$enabled_modules = array_merge($enabled_modules, crypto_offload_modules($key));
+			$crypto_modules = array_merge($crypto_modules, crypto_offload_modules($key));
+		}
 	}
 
 	foreach ($enabled_modules as $enmod) {

@@ -162,7 +162,7 @@ check((hash('sha256', fleet_pem_der($pem)) === openssl_x509_fingerprint($pem, 's
     'the WebGUI certificate fingerprint is SHA-256 over its DER form (what TLS peer_fingerprint checks)');
 $xc = (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_client.inc') . (string)file_get_contents(__DIR__ . '/../src/etc/inc/xmlrpc_pinned_request.inc');
 check((strpos($xc, "'ssl_peer_fingerprint'") !== false) && (strpos($xc, "config_get_path('hasync/syncpeerpin'") !== false), 'HA sync pins the peer certificate when a fingerprint is set');
-check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 16);") !== false, 'API level 16: the crypto_qat setting (15: the encrypted HA link, 14: the port probe, 13: controller endpoints, 12: virtual IPs and the HA sync user)');
+check(strpos((string)file_get_contents(__DIR__ . '/../src/etc/inc/restapi.inc'), "define('RESTAPI_LEVEL', 17);") !== false, 'API level 17: the crypto_ccp and crypto_ccr settings (16: the crypto_qat setting, 15: the encrypted HA link, 14: the port probe, 13: controller endpoints, 12: virtual IPs and the HA sync user)');
 require_once(__DIR__ . '/../src/etc/inc/fleet_halink.inc');
 $hl = array('address' => '10.254.7.1', 'bits' => 30, 'peer_address' => '10.254.7.2', 'peer_public_key' => str_repeat('A', 43) . '=', 'peer_endpoint' => '', 'keepalive' => 0);
 check(fleet_halink_errors($hl) === array() && fleet_halink_errors(array('peer_endpoint' => 'fw.example.net:51831', 'keepalive' => 25) + $hl) === array(),

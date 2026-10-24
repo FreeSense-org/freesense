@@ -253,11 +253,19 @@ define("INTEL_4XXX_QAT", "0x49408086");
 define("INTEL_4XXX_QAT_VF", "0x49418086");
 define("INTEL_401XX_QAT", "0x49428086");
 define("INTEL_401XX_QAT_VF", "0x49438086");
+/* AMD Crypto Co-Processor PCI IDs, as matched by FreeBSD's ccp(4) driver */
+define("AMD_CCP_5A", "0x14561022");
+define("AMD_CCP_5B", "0x14681022");
+define("AMD_CCP_5A_RAVEN", "0x15df1022");
 define("AESNI_ALGS", "AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS");
 define("AESNI_ALGS_SHA", "SHA1,SHA256");
 define("QAT_ALGS", "AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS,SHA1,SHA256,SHA384,SHA512");
 define("OSSL_ALGS", "AES-CBC,AES-GCM,CHACHA20-POLY1305,SHA1,SHA256,SHA384,SHA512");
 define("IPSECMB_ALGS", "AES-CBC,AES-GCM,CHACHA20-POLY1305,SHA1,SHA256,SHA384,SHA512");
+define("CCP_ALGS", "AES-CBC,AES-GCM,AES-ICM,AES-XTS,SHA1,SHA256,SHA384,SHA512");
+define("CCR_ALGS", "AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS,SHA1,SHA256,SHA384,SHA512");
+define("ARMV8_ALGS", "AES-CBC,AES-GCM,AES-XTS");
+define("SAFEXCEL_ALGS", "AES-CBC,AES-CCM,AES-GCM,AES-ICM,AES-XTS,SHA1,SHA256,SHA384,SHA512");
 
 function crypto_accel_new($name = "", $algs = "") {
 	return (array("name" => $name, "present" => false, "enabled" => false, "algs" => explode(",", $algs)));
@@ -276,9 +284,13 @@ function crypto_accel_init() {
 		$crypto["accel"][] = crypto_accel_new("OSSL", OSSL_ALGS);
 		$crypto["accel"][] = crypto_accel_new("IPSECMB", IPSECMB_ALGS);
 		$crypto["accel"][] = crypto_accel_new("QAT", QAT_ALGS);
+		$crypto["accel"][] = crypto_accel_new("CCP", CCP_ALGS);
+		$crypto["accel"][] = crypto_accel_new("CCR", CCR_ALGS);
 		break;
 	case 'arm64':
+		$crypto["accel"][] = crypto_accel_new("ARMV8", ARMV8_ALGS);
 		$crypto["accel"][] = crypto_accel_new("OSSL", OSSL_ALGS);
+		$crypto["accel"][] = crypto_accel_new("SAFEXCEL", SAFEXCEL_ALGS);
 		break;
 	}
 
@@ -300,6 +312,16 @@ function crypto_accel_status_line($crypto, $name, $label) {
 		$line .= 'No';
 	}
 	return ($line);
+}
+
+/* True when a driver has attached to at least one device (its dev.<driver>.0 node exists). */
+function crypto_device_attached($driver) {
+	if (!preg_match('/^[a-z0-9]+$/', $driver)) {
+		return (false);
+	}
+	$out = [];
+	exec('/sbin/sysctl -n ' . escapeshellarg("dev.{$driver}.0.%desc") . ' 2>/dev/null', $out, $rc);
+	return ($rc == 0 && isset($out[0]) && strlen(trim($out[0])) > 0);
 }
 
 function crypto_accel_set_flags($crypto, $name, $present = false, $enabled = false) {
@@ -401,18 +423,31 @@ function get_cpu_crypto_support() {
 		if (isset($pciids) && is_array($pciids)) {
 			foreach ($pciids as $pciid) {
 				list($devid, $pid) = explode('|', $pciid, 2);
-				if (in_array($pid, $QATIDS)) {
-					list($devname, $busloc) = explode('@', $devid);
+				list($devname, $busloc) = explode('@', $devid);
+				if (in_array($pid, $QATIDS) && !crypto_accel_get($crypto, "QAT", 'present')) {
 					$active = ((substr($devname, 0, 3) == 'qat') &&
 					    (is_module_loaded('qat') || is_module_loaded('qat_c2xxx')));
 					$crypto = crypto_accel_set_flags($crypto, "QAT", true, $active);
-					break;
+				}
+				if (in_array($pid, [AMD_CCP_5A, AMD_CCP_5B, AMD_CCP_5A_RAVEN]) &&
+				    !crypto_accel_get($crypto, "CCP", 'enabled')) {
+					/* the device carries a ccp* name once the driver has attached */
+					$active = ((substr($devname, 0, 3) == 'ccp') && is_module_loaded('ccp'));
+					$crypto = crypto_accel_set_flags($crypto, "CCP", true, $active);
 				}
 			}
 		}
+		/* Chelsio crypto: a T6 adapter (t6nex) is present; ccr attaches on top of it. */
+		$crypto = crypto_accel_set_flags($crypto, "CCR", crypto_device_attached('t6nex'),
+		    crypto_device_attached('ccr'));
 		break;
 	case 'arm64':
+		/* armv8crypto and safexcel are compiled into the arm64 kernel and attach by themselves. */
+		$armv8 = crypto_device_attached('armv8crypto');
+		$crypto = crypto_accel_set_flags($crypto, "ARMV8", $armv8, $armv8);
 		$crypto = crypto_accel_set_module_flags($crypto, "OSSL", 'ossl');
+		$safexcel = crypto_device_attached('safexcel');
+		$crypto = crypto_accel_set_flags($crypto, "SAFEXCEL", $safexcel, $safexcel);
 		break;
 	}
 
@@ -434,11 +469,30 @@ function get_cpu_crypto_string($crypto) {
 			$lines[] = crypto_accel_status_line($crypto, 'IPSECMB', 'Intel IPsec-MB');
 		}
 		$lines[] = crypto_accel_status_line($crypto, 'QAT', 'QAT Crypto');
-		$string = implode("<br>\n", $lines);
+		/* Device-bound offload engines are listed only when the device is there. */
+		if ($crypto && crypto_accel_get($crypto, 'CCP', 'present')) {
+			$lines[] = crypto_accel_status_line($crypto, 'CCP', 'AMD CCP Crypto');
+		}
+		if ($crypto && crypto_accel_get($crypto, 'CCR', 'present')) {
+			$lines[] = crypto_accel_status_line($crypto, 'CCR', 'Chelsio Crypto');
+		}
 		break;
 	case 'arm64':
-		$string = crypto_accel_status_line($crypto, 'OSSL', 'OpenSSL Crypto (ossl)');
+		$lines = [
+			crypto_accel_status_line($crypto, 'ARMV8', 'ARMv8 CPU Crypto'),
+			crypto_accel_status_line($crypto, 'OSSL', 'OpenSSL Crypto (ossl)'),
+		];
+		if ($crypto && crypto_accel_get($crypto, 'SAFEXCEL', 'present')) {
+			$lines[] = crypto_accel_status_line($crypto, 'SAFEXCEL', 'SafeXcel Crypto');
+		}
 		break;
+	}
+	if (isset($lines)) {
+		$offload = interfaces_with_ipsec_offload();
+		if ($offload) {
+			$lines[] = 'Inline IPsec offload: ' . htmlspecialchars(implode(', ', $offload));
+		}
+		$string = implode("<br>\n", $lines);
 	}
 
 	if (strlen($string) == 0) {

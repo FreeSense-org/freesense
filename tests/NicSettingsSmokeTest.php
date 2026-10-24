@@ -38,4 +38,67 @@ if (strpos($menu, '/interfaces_nic_settings.php') === false) {
 	exit(1);
 }
 
+/* Inline IPsec offload: the parser and the profiles run as written in freesense-utils.inc. */
+function nic_fail($message) {
+	fwrite(STDERR, "{$message}\n");
+	exit(1);
+}
+$code = '';
+foreach (['nic_settings_profiles', 'interface_ipsec_offload_parse'] as $fn) {
+	if (!preg_match('/^function ' . $fn . '\(.*?^}\n/ms', $utils, $m)) {
+		nic_fail("freesense-utils.inc must define {$fn}().");
+	}
+	$code .= $m[0];
+}
+eval($code);
+
+foreach (nic_settings_profiles() as $name => $profile) {
+	if (($profile['ipsec'] ?? null) !== 'off') {
+		nic_fail("The {$name} profile must leave inline IPsec offload off.");
+	}
+}
+
+/* ifconfig -m on FreeBSD 16 prints the nvlist capability names without a hex mask. */
+$mlx5_off = [
+	"mce0: flags=1008843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST,LOWER_UP> metric 0 mtu 1500",
+	"\toptions=RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,LRO,VLAN_HWFILTER,VLAN_HWTSO,LINKSTATE,RXCSUM_IPV6,TXCSUM_IPV6,TXRTLMT,HWRXTSTMP,VXLAN_HWCSUM,VXLAN_HWTSO",
+	"\tcapabilities=RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,LRO,VLAN_HWFILTER,VLAN_HWTSO,LINKSTATE,RXCSUM_IPV6,TXCSUM_IPV6,TXRTLMT,HWRXTSTMP,VXLAN_HWCSUM,VXLAN_HWTSO,IPSEC",
+	"\tether 0c:42:a1:00:00:01",
+];
+$mlx5_on = $mlx5_off;
+$mlx5_on[1] .= ',IPSEC';
+/* the older format with a hex mask, and an adapter without the capability */
+$vmx = [
+	"vmx0: flags=1008843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST,LOWER_UP> metric 0 mtu 1500",
+	"\toptions=e403bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,VLAN_HWTSO,RXCSUM_IPV6,TXCSUM_IPV6>",
+	"\tcapabilities=f507bb<RXCSUM,TXCSUM,VLAN_MTU,VLAN_HWTAGGING,JUMBO_MTU,VLAN_HWCSUM,TSO4,TSO6,LRO,VLAN_HWFILTER,VLAN_HWTSO,RXCSUM_IPV6,TXCSUM_IPV6>",
+];
+/* "IPSEC" must be a whole token: an interface named ipsec1 or a description must not count */
+$lookalike = ["ipsec1: flags=8051<UP,POINTOPOINT,RUNNING,MULTICAST> metric 0 mtu 1400", "\tdescription: IPSEC_TUNNEL", "\toptions=0"];
+
+if (interface_ipsec_offload_parse($mlx5_off) !== false) {
+	nic_fail('A capable adapter with offload off must parse as false.');
+}
+if (interface_ipsec_offload_parse($mlx5_on) !== true) {
+	nic_fail('A capable adapter with offload on must parse as true.');
+}
+if (interface_ipsec_offload_parse($vmx) !== null || interface_ipsec_offload_parse($lookalike) !== null ||
+    interface_ipsec_offload_parse([]) !== null) {
+	nic_fail('An adapter without the IPSEC capability must parse as unsupported (null).');
+}
+
+/* Applying: only capable adapters, only on a change, and the interface name is escaped. */
+foreach (["\$ipsec = interface_ipsec_offload_state(\$iface);", "if (\$want !== \$ipsec) {",
+    "mwexec('/sbin/ifconfig ' . escapeshellarg(\$iface) . (\$want ? ' ipsec' : ' -ipsec'));"] as $required) {
+	if (strpos($utils, $required) === false) {
+		nic_fail("hardware_offloading_applyflags() is missing: {$required}");
+	}
+}
+foreach (["'ipsec' => ['ipsec']", "'ipsec' => gettext('Inline IPsec offload (experimental)')",
+    "if (\$setting === 'ipsec' && !\$supported) {", "\$info['caps']['ipsec'] = true;"] as $required) {
+	if (strpos($page, $required) === false) {
+		nic_fail("NIC Settings page is missing: {$required}");
+	}
+}
+
 echo "NIC Settings smoke test passed.\n";

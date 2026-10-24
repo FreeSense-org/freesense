@@ -292,6 +292,29 @@ if (crypto_qat_available()) {
 		'To unload the drivers, clear this option and reboot.');
 }
 
+if (crypto_offload_available('ccp')) {
+	$section->addInput(new Form_Checkbox(
+		'crypto_ccp',
+		'AMD CCP',
+		'Load the AMD Crypto Co-Processor driver (experimental)',
+		$pconfig['crypto_ccp']
+	))->setHelp('Offloads IPsec and OpenVPN DCO cryptography to the AMD Crypto Co-Processor found on EPYC and Ryzen Embedded '.
+		'processors, and adds it as a hardware random number source. The driver attaches only when the device is present, '.
+		'and can run next to the accelerator above. For small packets it is often slower than the CPU\'s AES instructions, '.
+		'but it frees the CPU. Experimental: not yet tested on CCP hardware. To unload the driver, clear this option and reboot.');
+}
+
+if (crypto_offload_available('ccr')) {
+	$section->addInput(new Form_Checkbox(
+		'crypto_ccr',
+		'Chelsio crypto',
+		'Load the Chelsio T6 crypto driver (experimental)',
+		$pconfig['crypto_ccr']
+	))->setHelp('Offloads IPsec and OpenVPN DCO cryptography to the crypto engine of a Chelsio T6 network adapter. '.
+		'The driver attaches only when such an adapter is present, and can run next to the accelerator above. '.
+		'Experimental: not yet tested on Chelsio hardware. To unload the driver, clear this option and reboot.');
+}
+
 $section->addInput(new Form_Select(
 	'thermal_hardware',
 	'Thermal Sensors',

@@ -46,6 +46,14 @@ function nic_ui_inventory() {
 	$result = [];
 	foreach ($devices as $device => $basic) {
 		$info = get_interface_addresses($device) ?: [];
+		/* inline IPsec offload is a second-word capability the extension does not report */
+		$ipsec = interface_ipsec_offload_state((string)$device);
+		if ($ipsec !== null) {
+			$info['caps']['ipsec'] = true;
+			if ($ipsec) {
+				$info['encaps']['ipsec'] = true;
+			}
+		}
 		$effective = nic_settings_effective($device, $info);
 		$result[$device] = array_merge($basic, $info, [
 			'device' => $device,
@@ -85,6 +93,7 @@ function nic_ui_supported($nic, $setting) {
 		'lro' => ['lro'],
 		'vlan' => ['vlanhwtag'],
 		'wol' => ['wolmagic'],
+		'ipsec' => ['ipsec'],
 	];
 	foreach ($need[$setting] ?? [] as $cap) {
 		if (isset($caps[$cap])) {
@@ -128,8 +137,8 @@ function nic_ui_driver_controls($nic) {
 	return $found;
 }
 
-$settings = ['checksum' => gettext('Checksum offload'), 'tso' => gettext('TCP segmentation offload (TSO)'), 'lro' => gettext('Large receive offload (LRO)'), 'vlan' => gettext('VLAN hardware acceleration'), 'wol' => gettext('Wake-on-LAN magic packet')];
-$short = ['checksum' => gettext('Checksum'), 'tso' => 'TSO', 'lro' => 'LRO', 'vlan' => 'VLAN', 'wol' => 'WoL'];
+$settings = ['checksum' => gettext('Checksum offload'), 'tso' => gettext('TCP segmentation offload (TSO)'), 'lro' => gettext('Large receive offload (LRO)'), 'vlan' => gettext('VLAN hardware acceleration'), 'wol' => gettext('Wake-on-LAN magic packet'), 'ipsec' => gettext('Inline IPsec offload (experimental)')];
+$short = ['checksum' => gettext('Checksum'), 'tso' => 'TSO', 'lro' => 'LRO', 'vlan' => 'VLAN', 'wol' => 'WoL', 'ipsec' => 'IPsec'];
 $profile_labels = ['firewall' => gettext('Firewall Balanced'), 'throughput' => gettext('Maximum Throughput'), 'latency' => gettext('Low Latency'), 'capture' => gettext('Packet Capture / Troubleshooting')];
 $profile_help = [
 	'firewall' => gettext('LRO and TSO stay off so the firewall sees every packet as it was sent; checksum and VLAN acceleration stay on where the driver supports them.'),
@@ -325,7 +334,7 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 						<?php if (isset($saved['mtu'])): ?><span class="fs-nic-custom" title="<?=gettext('Set on this adapter')?>"><?=gettext('custom')?></span><?php endif; ?>
 					</td>
 					<td><div class="fs-chips">
-<?php foreach (['checksum', 'tso', 'lro', 'vlan'] as $setting):
+<?php foreach (array_merge(['checksum', 'tso', 'lro', 'vlan'], nic_ui_supported($nic, 'ipsec') ? ['ipsec'] : []) as $setting):
 	$supported = nic_ui_supported($nic, $setting);
 	$on = $supported && ($nic['effective'][$setting] === 'on');
 	$custom = isset($saved[$setting]) && $saved[$setting] !== 'inherit';
@@ -371,6 +380,9 @@ foreach ($inventory as $nic):
 	<div class="fs-nic-form">
 <?php foreach ($settings as $setting => $label):
 	$supported = nic_ui_supported($nic, $setting);
+	if ($setting === 'ipsec' && !$supported) {
+		continue;
+	}
 	$field = "{$nic['id']}_{$setting}";
 	$current = $saved[$setting] ?? 'inherit';
 ?>
@@ -384,6 +396,7 @@ foreach ($inventory as $nic):
 				<?php endif; ?>
 			</select>
 			<?php if (!$supported): ?><div class="form-text"><?=gettext('Not supported by this adapter.')?></div><?php endif; ?>
+			<?php if ($setting === 'ipsec'): ?><div class="form-text"><?=gettext('The adapter encrypts and decrypts IPsec itself. Only AES-GCM security associations are offloaded; others stay in software. Applies to tunnels that come up after saving. Experimental: not yet tested on this hardware.')?></div><?php endif; ?>
 		</div>
 <?php endforeach; ?>
 		<label class="form-label" for="<?=htmlspecialchars($nic['id'])?>_mtu"><?=gettext('MTU')?></label>

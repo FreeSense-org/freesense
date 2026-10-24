@@ -49,7 +49,8 @@ if (!defined('LOG_WARNING')) { define('LOG_WARNING', 4); }
 $kernel = sys_get_temp_dir() . '/crypto-smoke-' . getmypid();
 @mkdir($kernel, 0700, true);
 $code = '';
-foreach (['crypto_module_available', 'crypto_qat_modules', 'crypto_qat_available', 'load_crypto'] as $fn) {
+foreach (['crypto_module_available', 'crypto_offload_drivers', 'crypto_offload_modules', 'crypto_offload_available',
+    'crypto_qat_modules', 'crypto_qat_available', 'load_crypto'] as $fn) {
 	$code .= crypto_extract_function('src/etc/inc/freesense-utils.inc', $fn);
 }
 $code .= crypto_extract_function('src/usr/local/FreeSense/include/www/system_advanced_misc.inc', 'getSystemAdvancedMiscCryptoModules');
@@ -117,6 +118,30 @@ $GLOBALS['kldload'] = [];
 load_crypto();
 check_crypto($GLOBALS['kldload'] === [], 'unknown value: ' . implode(',', $GLOBALS['kldload']));
 
+/* AMD CCP and Chelsio ccr: offered only when the kernel ships them, loaded only when their flag is set. */
+crypto_kernel(['aesni', 'ossl', 'cryptodev', 'qat', 'qat_c2xxx', 'ccp', 'ccr']);
+check_crypto(crypto_offload_available('ccp') && crypto_offload_available('ccr'), 'CCP and ccr are offered when their .ko files exist');
+check_crypto(!crypto_offload_available('hifn') && crypto_offload_modules('hifn') === [], 'an unknown offload driver has no modules');
+$GLOBALS['cfg'] = ['system/crypto_hardware' => 'aesni', 'system/crypto_ccp' => true, 'system/crypto_ccr' => true];
+$GLOBALS['loaded'] = [];
+$GLOBALS['kldload'] = [];
+load_crypto();
+check_crypto($GLOBALS['kldload'] === ['aesni', 'ccp', 'ccr'], 'CCP and ccr flags: ' . implode(',', $GLOBALS['kldload']));
+
+/* All three offload flags together, next to the software accelerator. */
+$GLOBALS['cfg'] = ['system/crypto_hardware' => 'ossl', 'system/crypto_qat' => true, 'system/crypto_ccp' => true, 'system/crypto_ccr' => true];
+$GLOBALS['kldload'] = [];
+load_crypto();
+check_crypto($GLOBALS['kldload'] === ['ossl', 'qat', 'qat_c2xxx', 'ccp', 'ccr'], 'all offload flags: ' . implode(',', $GLOBALS['kldload']));
+
+/* A flag for a driver this kernel lacks (arm64) is skipped. */
+crypto_kernel(['ossl', 'cryptodev']);
+check_crypto(!crypto_offload_available('ccp') && !crypto_offload_available('ccr'), 'no CCP or ccr without their .ko files');
+$GLOBALS['cfg'] = ['system/crypto_hardware' => 'ossl', 'system/crypto_ccp' => true];
+$GLOBALS['kldload'] = [];
+load_crypto();
+check_crypto($GLOBALS['kldload'] === ['ossl'], 'missing ccp.ko: ' . implode(',', $GLOBALS['kldload']));
+
 crypto_kernel([]);
 @rmdir($kernel);
 
@@ -125,14 +150,19 @@ $page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_misc.
 check_crypto(strpos($page, "if (crypto_qat_available()) {") !== false && strpos($page, "'crypto_qat',") !== false,
     'the Miscellaneous page shows the QAT checkbox only when the drivers exist');
 $misc = file_get_contents(__DIR__ . '/../src/usr/local/FreeSense/include/www/system_advanced_misc.inc');
-check_crypto(strpos($misc, "\$pconfig['crypto_qat'] = config_path_enabled('system', 'crypto_qat');") !== false &&
-    strpos($misc, "if ((\$post['crypto_qat'] == \"yes\") && crypto_qat_available()) {") !== false,
-    'crypto_qat is read and saved');
+foreach (["'crypto_ccp',", "'crypto_ccr',", "crypto_offload_available('ccp')", "crypto_offload_available('ccr')"] as $needle) {
+	check_crypto(strpos($page, $needle) !== false, "the Miscellaneous page has {$needle}");
+}
+check_crypto(strpos($misc, "\$pconfig[\"crypto_{\$key}\"] = config_path_enabled('system', \"crypto_{\$key}\");") !== false &&
+    strpos($misc, "if ((\$post[\"crypto_{\$key}\"] == \"yes\") && crypto_offload_available(\$key)) {") !== false,
+    'every offload flag is read and saved');
 $routes = file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_system.inc');
-check_crypto(strpos($routes, "\$types['crypto_qat'] = 'bool';") !== false && strpos($routes, "\$out['crypto_qat'] = (bool)\$p['crypto_qat'];") !== false,
-    'the REST API exposes crypto_qat');
+check_crypto(strpos($routes, "\$types[\"crypto_{\$key}\"] = 'bool';") !== false &&
+    strpos($routes, "\$out[\"crypto_{\$key}\"] = (bool)\$p[\"crypto_{\$key}\"];") !== false,
+    'the REST API exposes every offload flag');
 $dash = file_get_contents(__DIR__ . '/../src/usr/local/www/includes/functions.inc.php');
-foreach (['"OSSL"', '"IPSECMB"', "is_module_loaded('qat_c2xxx')"] as $needle) {
+foreach (['"OSSL"', '"IPSECMB"', "is_module_loaded('qat_c2xxx')", '"CCP"', '"CCR"', '"ARMV8"', '"SAFEXCEL"',
+    "crypto_device_attached('t6nex')", 'interfaces_with_ipsec_offload()'] as $needle) {
 	check_crypto(strpos($dash, $needle) !== false, "the dashboard crypto status knows {$needle}");
 }
 
