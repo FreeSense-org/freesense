@@ -49,17 +49,27 @@ if (!is_array($qlist)) {
 $rows = [];
 $selected = '';
 
-if ($_GET) {
-	if ($_GET['queue']) {
-		$qname = htmlspecialchars(trim($_GET['queue']));
+/* Delete and clone (add) change the configuration, so they only come as a POST (usepost links) */
+$post_actions = ['delete', 'add'];
+if (in_array($_POST['action'] ?? '', $post_actions, true)) {
+	$req = $_POST;
+} elseif (!in_array($_GET['action'] ?? '', $post_actions, true)) {
+	$req = $_GET;
+} else {
+	$req = [];
+}
+
+if ($req) {
+	if ($req['queue']) {
+		$qname = htmlspecialchars(trim($req['queue']));
 	}
 
-	if ($_GET['interface']) {
-		$interface = htmlspecialchars(trim($_GET['interface']));
+	if ($req['interface']) {
+		$interface = htmlspecialchars(trim($req['interface']));
 	}
 
-	if ($_GET['action']) {
-		$action = htmlspecialchars($_GET['action']);
+	if ($req['action']) {
+		$action = htmlspecialchars($req['action']);
 	}
 
 	switch ($action) {
@@ -287,6 +297,7 @@ if ($selected !== '') {
 					'confirm' => $is_root ? sprintf(gettext('Remove the shaper from %s?'), $ifname) : sprintf(gettext('Delete queue “%1$s” from %2$s?'), $q->GetQname(), $ifname),
 					'detail' => $is_root ? gettext('All queues on this interface are deleted.') : gettext('Its child queues on this interface are deleted too.'),
 					'confirm_action' => $is_root ? gettext('Remove') : gettext('Delete'),
+					'post' => true,
 					'attrs' => ['class' => 'fs-action fs-action--delete'],
 				]],
 			];
@@ -296,6 +307,7 @@ if ($selected !== '') {
 				['custom', 'firewall_shaper_queues.php?interface=' . $if . '&queue=' . $selected . '&action=add', $selected, [
 					'icon' => 'fa-clone',
 					'label' => sprintf(gettext('Clone the queue to %s'), $ifname),
+					'post' => true,
 				]],
 			];
 		}

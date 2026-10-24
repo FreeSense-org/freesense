@@ -66,8 +66,28 @@ if (strpos($widget, "\$_GET['act']") !== false || strpos($widget, '&amp;act=del'
 	$fail('The captive portal status widget must disconnect clients through a POST form.');
 }
 
+/* Actions that change the configuration only run on a POST (csrf-magic checks POST only). */
+foreach (['system_gateways.php', 'pkg.php'] as $page) {
+	if (strpos(file_get_contents($www . '/' . $page), "\$_REQUEST['act']") !== false) {
+		$fail("{$page} must read act from \$_POST, not \$_REQUEST.");
+	}
+}
+foreach (['firewall_shaper.php', 'firewall_shaper_queues.php', 'firewall_shaper_vinterface.php'] as $page) {
+	$source = file_get_contents($www . '/' . $page);
+	if (strpos($source, '$post_actions = [') === false || preg_match('/if \(\$_GET\) \{\s+switch/', $source) ||
+	    preg_match('/\$_GET\[\'action\'\]\) \{/', $source)) {
+		$fail("{$page} must take delete and other changing actions from a POST only.");
+	}
+}
+$shaper = file_get_contents($www . '/firewall_shaper.php');
+if (strpos($shaper, 'action=resetall" usepost') === false || substr_count($shaper, "setAttribute('usepost', true)") !== 1 ||
+    substr_count(file_get_contents($www . '/firewall_shaper_vinterface.php'), "setAttribute('usepost', true)") !== 1 ||
+    substr_count(file_get_contents($www . '/firewall_shaper_queues.php'), "'post' => true") !== 2) {
+	$fail('The traffic shaper delete, reset and clone links must post (usepost).');
+}
+
 /* unserialize() never instantiates objects. */
-foreach (['/src/etc/inc/notices.inc', '/src/usr/local/bin/kea2fib6'] as $file) {
+foreach (['/src/etc/inc/notices.inc', '/src/usr/local/bin/kea2fib6', '/src/etc/inc/xmlparse_attr.inc'] as $file) {
 	$source = file_get_contents($root . $file);
 	if (substr_count($source, 'unserialize(') !== substr_count($source, "'allowed_classes' => false])")) {
 		$fail("{$file} calls unserialize() without allowed_classes => false.");
@@ -96,8 +116,16 @@ if (strpos($xmlrpc, "(\$root_only && ((\$user_entry['uid'] ?? null) !== '0'))") 
 }
 
 /* Redirect query values are URL-encoded, shell arguments are escaped, and ".ko" is a suffix. */
-if (preg_match('/Location: [^"]*\?[^"]*" \. htmlspecialchars\(/', file_get_contents($www . '/firewall_rules.php'))) {
-	$fail('firewall_rules.php redirects must use rawurlencode(), not htmlspecialchars().');
+foreach (['firewall_rules.php', 'firewall_rules_edit.php', 'firewall_aliases_edit.php', 'firewall_aliases_import.php'] as $page) {
+	if (preg_match('/Location: [^\'"]*\?[^\'"]*[\'"] \. htmlspecialchars ?\(/', file_get_contents($www . '/' . $page))) {
+		$fail("{$page} redirects must use rawurlencode(), not htmlspecialchars().");
+	}
+}
+if (strpos($cp, '/usr/bin/printf \"{$rules}\"') !== false) {
+	$fail('captiveportal_load_pfctl() must pass the rules and anchor through escapeshellarg().');
+}
+if (strpos($auth, 'pw usershow -n {$') !== false) {
+	$fail('auth.inc must escape the user name passed to pw usershow.');
 }
 $util = file_get_contents($root . '/src/etc/inc/util.inc');
 if (strpos($util, "rtrim(\$module_name, '.ko')") !== false || strpos($util, 'dmesg |grep $ifname') !== false) {
