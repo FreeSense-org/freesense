@@ -3818,8 +3818,8 @@ class dnpipe_class extends dummynet_class {
 			$q->delete_queue();
 		}
 		shaper_dn_config_del($this->GetLink());
-		mwexec("/sbin/dnctl pipe delete " . $this->GetNumber());
-		mwexec("/sbin/dnctl sched delete " . $this->GetNumber());
+		mwexec("/sbin/dnctl pipe delete " . (int)$this->GetNumber());
+		mwexec("/sbin/dnctl sched delete " . (int)$this->GetNumber());
 	}
 	function GetBandwidth() {
 		return $this->qbandwidth;
@@ -4733,7 +4733,7 @@ class dnqueue_class extends dummynet_class {
 	function delete_queue() {
 		cleanup_dnqueue_from_rules($this->GetQname());
 		shaper_dn_config_del($this->GetLink());
-		mwexec("/sbin/dnctl queue delete " . $this->GetNumber());
+		mwexec("/sbin/dnctl queue delete " . (int)$this->GetNumber());
 	}
 
 	function validate_input($data, &$input_errors) {
