@@ -67,10 +67,11 @@ if (($tablename == "bogons") || ($tablename == "bogonsv6")) {
 	$bogons = $urltable = false;
 }
 
-if (!empty($_REQUEST['delete'])) {
-	if (is_ipaddr($_REQUEST['delete']) || is_subnet($_REQUEST['delete'])) {
-		exec("/sbin/pfctl -t " . escapeshellarg($_REQUEST['type']) . " -T delete " . escapeshellarg($_REQUEST['delete']), $delete);
-		echo htmlentities($_REQUEST['delete']);
+/* Deleting an entry changes a table, so it takes a CSRF-checked POST only. */
+if (!empty($_POST['delete'])) {
+	if (is_ipaddr($_POST['delete']) || is_subnet($_POST['delete'])) {
+		exec("/sbin/pfctl -t " . escapeshellarg($_POST['type']) . " -T delete " . escapeshellarg($_POST['delete']), $delete);
+		echo htmlentities($_POST['delete']);
 	}
 	exit;
 }

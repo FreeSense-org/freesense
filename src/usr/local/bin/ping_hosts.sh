@@ -59,7 +59,11 @@ fi
 
 # Make sure at least one of these has contents, otherwise cat will be stuck waiting on input
 if [ -n "${PKGHOSTS}" ] || [ -n "${HOSTS}" ] || [ -n "${CURRENTIPSECHOSTS}" ]; then
-	eval cat "$PKGHOSTS" "$HOSTS" "$CURRENTIPSECHOSTS" >/tmp/tmpHOSTS
+	# Root runs the scripts named in this list: a fixed name in /tmp could
+	# be a file another user planted, so it is a private temporary file.
+	TMPHOSTS=$(/usr/bin/mktemp /var/run/pinghosts.XXXXXX) || exit 1
+	trap '/bin/rm -f "${TMPHOSTS}"' EXIT
+	eval cat "$PKGHOSTS" "$HOSTS" "$CURRENTIPSECHOSTS" >"${TMPHOSTS}"
 else
 	# Nothing to do!
 	exit
@@ -73,9 +77,9 @@ if [ ! -d /var/db/pingmsstatus ]; then
 	/bin/mkdir -p /var/db/pingmsstatus
 fi
 
-PINGHOSTS=`cat /tmp/tmpHOSTS`
+PINGHOSTS=`cat "${TMPHOSTS}"`
 
-if [ "$( wc -l /tmp/tmpHOSTS )" -lt "1" ]; then
+if [ "$( wc -l < "${TMPHOSTS}" )" -lt "1" ]; then
 	exit
 fi
 

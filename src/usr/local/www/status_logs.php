@@ -75,11 +75,14 @@ $allowed_logs = array(
 		    "shortcut" => ""),
 );
 
-// The logs to display are specified in a REQUEST argument. Default to 'system' logs
-if (empty($_REQUEST['logfile'])) {
+/*
+ * The log to display comes from the query string only: the per-log
+ * privileges match the request URI, so a POST body value would bypass them.
+ */
+if (empty($_GET['logfile'])) {
 	$logfile = 'system';
 } else {
-	$logfile = $_REQUEST['logfile'];
+	$logfile = $_GET['logfile'];
 	if (!array_key_exists((string) $logfile, $allowed_logs)) {
 		/* Do not let someone attempt to load an unauthorized log. */
 		$logfile = 'system';

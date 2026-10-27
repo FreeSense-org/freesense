@@ -2160,12 +2160,12 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $redir
 				$attributes['session_timeout'] = $remaining_time;
 			}
 
-			/* handle empty attributes */
-			$session_timeout = (!empty($attributes['session_timeout'])) ? $attributes['session_timeout'] : 'NULL';
-			$idle_timeout = (!empty($attributes['idle_timeout'])) ? $attributes['idle_timeout'] : 'NULL';
-			$session_terminate_time = (!empty($attributes['session_terminate_time'])) ? $attributes['session_terminate_time'] : 'NULL';
-			$interim_interval = (!empty($attributes['interim_interval'])) ? $attributes['interim_interval'] : 'NULL';
-			$traffic_quota = (!empty($attributes['maxbytes'])) ? $attributes['maxbytes'] : 'NULL';
+			/* handle empty attributes; they come from the RADIUS server and go into SQL as numbers */
+			$session_timeout = (!empty($attributes['session_timeout'])) ? (int)$attributes['session_timeout'] : 'NULL';
+			$idle_timeout = (!empty($attributes['idle_timeout'])) ? (int)$attributes['idle_timeout'] : 'NULL';
+			$session_terminate_time = (!empty($attributes['session_terminate_time'])) ? (int)$attributes['session_terminate_time'] : 'NULL';
+			$interim_interval = (!empty($attributes['interim_interval'])) ? (int)$attributes['interim_interval'] : 'NULL';
+			$traffic_quota = (!empty($attributes['maxbytes'])) ? (int)$attributes['maxbytes'] : 'NULL';
 
 			/* escape username */
 			$safe_username = SQLite3::escapeString($username);

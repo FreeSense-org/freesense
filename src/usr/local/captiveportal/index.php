@@ -37,8 +37,12 @@ header("Connection: close");
 
 global $cpzone, $cpzoneid, $cpzoneprefix;
 
-$cpzone = strtolower($_REQUEST['zone']);
-$cpcfg = config_get_path("captiveportal/{$cpzone}", []);
+/* The zone comes from the client; zone names are letters, digits and underscores. */
+$cpzone = strtolower((string)($_REQUEST['zone'] ?? ''));
+if (!preg_match('/^[a-z0-9_]+$/D', $cpzone)) {
+	$cpzone = '';
+}
+$cpcfg = ($cpzone === '') ? [] : config_get_path("captiveportal/{$cpzone}", []);
 
 /* NOTE: IE 8/9 is buggy and that is why this is needed */
 $orig_request = trim($_REQUEST['redirurl'], " /");
@@ -194,7 +198,7 @@ if ($_POST['logout_id']) {
 	captiveportal_logportalauth("unauthenticated", $clientmac, $clientip, "ACCEPT");
 	portal_allow($clientip, $clientmac, "unauthenticated", null, $redirurl);
 
-} elseif (config_path_enabled("voucher/{$cpzone}") && ($_POST['accept'] && $_POST['auth_voucher']) || $_GET['voucher']) {
+} elseif (config_path_enabled("voucher/{$cpzone}") && (($_POST['accept'] && $_POST['auth_voucher']) || $_GET['voucher'])) {
 	if (isset($_POST['auth_voucher'])) {
 		$voucher = trim($_POST['auth_voucher']);
 	} else {

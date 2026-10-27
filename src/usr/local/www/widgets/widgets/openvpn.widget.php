@@ -301,7 +301,8 @@ if (!function_exists('printPanel')) {
 
 /* Handle AJAX */
 if ($_POST['action']) {
-	if ($_POST['action'] == "kill") {
+	/* The dashboard privilege alone does not allow it: the OpenVPN status page has the same action. */
+	if (($_POST['action'] == "kill") && isAllowedPage('status_openvpn.php')) {
 		$servers = openvpn_get_active_servers();
 
 		$port      = $_POST['port'];
