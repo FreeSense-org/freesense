@@ -133,7 +133,7 @@ function voucher_expire($voucher_received, $carp_loop = false) {
 				captiveportal_syslog("{$voucher} ({$roll}/{$nr}) forced to expire");
 
 				/* Check if this voucher has any active sessions */
-				$cpentry = captiveportal_read_db("WHERE username = '{$voucher}'");
+				$cpentry = captiveportal_read_db("WHERE username = '" . SQLite3::escapeString($voucher) . "'");
 				if (!empty($cpentry) && !empty($cpentry[0])) {
 					if (empty($cpzoneid) && !empty(config_get_path("captiveportal/{$cpzone}"))) {
 						$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");
@@ -249,7 +249,8 @@ function voucher_auth($voucher_received, $test = 0, $carp_loop = false) {
 			continue;   // seems too short to be a voucher!
 		}
 
-		$result = exec("/usr/local/bin/voucher -c {$g['varetc_path']}/voucher_{$cpzone}.cfg -k {$g['varetc_path']}/voucher_{$cpzone}.public -- $v");
+		$result = exec("/usr/local/bin/voucher -c " . escapeshellarg("{$g['varetc_path']}/voucher_{$cpzone}.cfg") .
+		    " -k " . escapeshellarg("{$g['varetc_path']}/voucher_{$cpzone}.public") . " -- $v");
 		list($status, $roll, $nr) = explode(" ", $result);
 		if ($status == "OK") {
 			if (!$first_voucher) {
