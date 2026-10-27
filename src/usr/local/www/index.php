@@ -49,15 +49,15 @@ require_once('functions.inc');
 require_once('notices.inc');
 require_once("pkg-utils.inc");
 
+/* Clearing notices needs the same privilege that shows the button (head.inc). */
 if (isset($_POST['closenotice'])) {
-	close_notice($_POST['closenotice']);
-	sleep(1);
+	$notice_user = getUserEntry($_SESSION['Username'])['item'] ?? null;
+	if (isAdminUID($_SESSION['Username']) || (is_array($notice_user) &&
+	    (userHasPrivilege($notice_user, "user-view-clear-notices") || userHasPrivilege($notice_user, "page-all")))) {
+		close_notice($_POST['closenotice']);
+		sleep(1);
+	}
 	exit;
-}
-
-if (isset($_REQUEST['closenotice'])) {
-	close_notice($_REQUEST['closenotice']);
-	sleep(1);
 }
 
 if ((g_get('disablecrashreporter') != true) && (system_has_crash_data() || system_has_php_errors())) {

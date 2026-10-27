@@ -99,10 +99,10 @@ function restapi_routes_v1() {
 			'page' => 'diag_confbak.php', 'area' => 'config',
 			'summary' => 'Configuration history (newest first)')),
 		restapi_route('GET', '/v1/config/revisions/{time}', 'restapi_h_revision_get', array(
-			'page' => 'diag_confbak.php', 'area' => 'config', 'produces' => 'application/xml',
+			'page' => 'diag_confbak.php', 'area' => 'config', 'secrets' => true, 'produces' => 'application/xml',
 			'summary' => 'Download a configuration revision as XML ("current" for the running one)')),
 		restapi_route('GET', '/v1/config/revisions/{time}/diff', 'restapi_h_revision_diff', array(
-			'page' => 'diag_confbak.php', 'area' => 'config', 'produces' => 'text/plain',
+			'page' => 'diag_confbak.php', 'area' => 'config', 'secrets' => true, 'produces' => 'text/plain',
 			'query' => array('against' => 'Revision time to compare with, or "current" (default)'),
 			'summary' => 'Unified diff between a revision and another revision')),
 		restapi_route('POST', '/v1/config/revisions/{time}/restore', 'restapi_h_revision_restore', array(

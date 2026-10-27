@@ -26,6 +26,7 @@
 ##|*IDENT=page-freesensewizardsubsystem
 ##|*NAME=Wizard Subsystem
 ##|*DESCR=Allow access to the Wizard Subsystem (e.g. Setup Wizard, OpenVPN Wizard).
+##|*WARN=standard-warning-root
 ##|*MATCH=wizard.php*
 ##|-PRIV
 
