@@ -31,6 +31,7 @@
 ##|*IDENT=page-hidden-uploadconfiguration
 ##|*NAME=Hidden: Upload Configuration
 ##|*DESCR=Allow access to the 'Hidden: Upload Configuration' page.
+##|*WARN=standard-warning-root
 ##|*MATCH=uploadconfig.php*
 ##|-PRIV
 
@@ -39,16 +40,24 @@ require_once("guiconfig.inc");
 
 header("Content-Type: text/plain");
 
+/* config_install() replaces config.xml without the "Deny Config Write" check write_config() makes. */
+$guiuser = getUserEntry($_SESSION['Username'])['item'] ?? null;
+if (is_array($guiuser) && userHasPrivilege($guiuser, 'user-config-readonly')) {
+	echo gettext("ERR Permission denied.")."\n";
+	exit(0);
+}
+
 /* get config.xml in POST variable "config" */
 if ($_POST['config']) {
-	$fd = @fopen("{$g['tmp_path']}/config.xml", "w");
-	if (!$fd) {
+	/* A root-only directory: a fixed name in /tmp could be a planted link. */
+	$upload = tempnam(g_get('varrun_path'), 'uploadconfig.');
+	if (($upload === false) || (@file_put_contents($upload, $_POST['config']) === false)) {
 		echo gettext("ERR Could not save configuration.")."\n";
 		exit(0);
 	}
-	fwrite($fd, $_POST['config']);
-	fclose($fd);
-	if (config_install("{$g['tmp_path']}/config.xml") == 0) {
+	$installed = config_install($upload);
+	@unlink($upload);
+	if ($installed == 0) {
 		echo gettext("OK")."\n";
 		system_reboot();
 	} else {

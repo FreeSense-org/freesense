@@ -43,8 +43,13 @@ if (isset($cpzone) && !empty($cpzone)) {
 	$cpzoneid = config_get_path("captiveportal/{$cpzone}/zoneid");
 }
 
-/* Disconnecting changes state, so it is a CSRF-checked POST, never a link. */
-if ((($_POST['act'] ?? '') === "del") && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id'])) {
+/*
+ * Disconnecting changes state, so it is a CSRF-checked POST, never a link.
+ * The dashboard privilege alone does not allow it: the user needs the
+ * Captive Portal status page, which has the same action.
+ */
+if ((($_POST['act'] ?? '') === "del") && !empty($cpzone) && isset($cpzoneid) && isset($_POST['id']) &&
+    isAllowedPage('status_captiveportal.php')) {
 	captiveportal_disconnect_client($_POST['id'], 6);
 }
 unset($cpzone);

@@ -78,14 +78,14 @@ class freesense_xmlrpc_server {
 			    -1);
 		}
 
-		$user_entry = getUserEntry($username);
-		$user_entry = $user_entry['item'];
+		$user_entry = getUserEntry($username)['item'] ?? null;
 		/*
-		 * admin (uid = 0) is allowed
-		 * or regular user with necessary privilege
+		 * admin (uid = 0) is allowed, or a regular user with the necessary
+		 * privilege. A user from an LDAP or RADIUS server has no uid, so the
+		 * privilege check must not depend on one being set.
 		 */
-		if (($root_only && (($user_entry['uid'] ?? null) !== '0')) ||
-		    (isset($user_entry['uid']) && $user_entry['uid'] != '0' &&
+		$is_root = (is_array($user_entry) && (($user_entry['uid'] ?? null) === '0'));
+		if (!$is_root && ($root_only || !is_array($user_entry) ||
 		    !userHasPrivilege($user_entry, 'system-xmlrpc-ha-sync'))) {
 			log_auth_event(LOG_AUTH_EVENT_ERROR, $username, $this->remote_addr, 'not enough privileges');
 

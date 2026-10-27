@@ -57,6 +57,22 @@ try {
 check_api($rejected, 'a route without a privilege page is rejected');
 
 check_api($route['scope'] === 'status:write' && $routes[0]['scope'] === 'status:read', 'route scope is <area>:<action>');
+$secret_route = restapi_route('GET', '/v1/things/{id}/raw', 'h_raw', array('page' => 'things.php', 'area' => 'status', 'secrets' => true));
+check_api($secret_route['secrets'] && !$secret_route['write'] && $secret_route['scope'] === 'status:write',
+    'a read that returns secrets needs the write scope');
+$secret_routes = array();
+foreach (restapi_routes_v1() as $r) {
+	if (!empty($r['secrets'])) {
+		$secret_routes[] = $r['method'] . ' ' . $r['path'];
+	}
+}
+check_api(in_array('GET /v1/config/revisions/{time}', $secret_routes, true) &&
+    in_array('GET /v1/config/revisions/{time}/diff', $secret_routes, true),
+    'raw configuration revisions and their diffs are secret reads');
+$restapi_src = file_get_contents($root . '/src/etc/inc/restapi.inc');
+check_api(strpos($restapi_src, "return !\$route['write'] && empty(\$route['secrets']) &&") !== false &&
+    strpos($restapi_src, "if (!empty(\$route['secrets']) && !empty(\$ctx['token']['readonly'])) {") !== false,
+    'a read privilege or a read-only key never opens a secret read');
 $rejected = false;
 try {
 	restapi_route('GET', '/v1/x', 'h', array('page' => 'x.php', 'area' => 'nope'));
