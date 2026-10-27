@@ -424,9 +424,10 @@ for EXT in $PHPMODULESLC; do
 	if [ "$SHOULDREMOVE" = "true" ]; then
 		if [ -f "${EXTENSIONSDIR}${EXT}.so" ]; then
 			echo ">>> ${EXT} did not load correctly.  Removing from php.ini..." >> /var/run/php_modules_load_errors.txt
-			/usr/bin/grep -iv "^extension=${EXT}\.so$" /usr/local/etc/php.ini > /tmp/php.ini
-			/bin/rm -f /usr/local/etc/php.ini
-			/bin/mv /tmp/php.ini /usr/local/etc/php.ini
+			TMPINI=$(/usr/bin/mktemp /usr/local/etc/php.ini.XXXXXX) &&
+			/usr/bin/grep -iv "^extension=${EXT}\.so$" /usr/local/etc/php.ini > "${TMPINI}" &&
+			/bin/chmod 644 "${TMPINI}" &&
+			/bin/mv "${TMPINI}" /usr/local/etc/php.ini
 		fi
 	fi
 done

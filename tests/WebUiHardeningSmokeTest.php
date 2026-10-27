@@ -219,4 +219,51 @@ if (strpos(file_get_contents($root . '/src/etc/inc/restapi/routes_me.inc'), "ses
 	$fail('restapi_h_me_signout() must open the real session before signing out.');
 }
 
+/* OpenVPN: the client-chosen user name never reaches eval, and odd names are refused. */
+$connect = file_get_contents($root . '/src/usr/local/sbin/openvpn.connect_async.sh');
+if (strpos($connect, 'eval ') !== false || strpos($connect, '.*|*[!A-Za-z0-9._@+-]*)') === false) {
+	$fail('openvpn.connect_async.sh must not eval, and must refuse user names outside the allowed characters.');
+}
+if (strpos(file_get_contents($root . '/src/etc/inc/openvpn.auth-user.php'), "preg_match('/^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*\$/D', (string)\$username)") === false) {
+	$fail('openvpn.auth-user.php must refuse user names outside the allowed characters.');
+}
+$learn = file_get_contents($root . '/src/usr/local/sbin/openvpn.learn-address.sh');
+if (strpos($learn, "''|[.-]*|*[!A-Za-z0-9.-]*)") === false || strpos($learn, 'local_data ${CN}') !== false) {
+	$fail('openvpn.learn-address.sh must register host names only and pass them as arguments.');
+}
+/* Root never runs or loads a script from a fixed name in /tmp. */
+$services = file_get_contents($root . '/src/etc/inc/services.inc');
+$filter = file_get_contents($root . '/src/etc/inc/filter.inc');
+if (strpos($services, "{\$g['tmp_path']}/dhcpd.sh") !== false || strpos($filter, "{\$g['tmp_path']}/commands.txt") !== false ||
+    strpos(file_get_contents($root . '/src/usr/local/bin/ping_hosts.sh'), '/tmp/tmpHOSTS') !== false ||
+    strpos(file_get_contents($root . '/src/etc/rc.php_ini_setup'), '> /tmp/php.ini') !== false) {
+	$fail('dhcpd.sh, commands.txt, ping_hosts.sh and php.ini must use private temporary files.');
+}
+/* Daemon configurations that hold secrets are readable by root only. */
+$ipsec = file_get_contents($root . '/src/etc/inc/ipsec.inc');
+if (strpos($util, 'function file_put_contents_private(') === false ||
+    strpos($ipsec, 'file_put_contents_private("{$g[\'varetc_path\']}/ipsec/swanctl.conf"') === false ||
+    strpos($ipsec, 'file_put_contents_private("{$g[\'varetc_path\']}/ipsec/strongswan.conf"') === false ||
+    substr_count(file_get_contents($root . '/src/etc/inc/interfaces.inc'), 'file_put_contents_private(') !== 2 ||
+    strpos($services, '@chmod("{$g[\'varetc_path\']}/snmpd.conf", 0600);') === false) {
+	$fail('IPsec, wireless, PPP and SNMP configurations must be written 0600.');
+}
+/* Dynamic DNS requests that carry credentials verify the server. */
+if (preg_match('/(duiadns\.net|dyn\.dns\.he\.net)[^\n]*\n[^\n]*\n?[^\n]*SSL_VERIFYPEER, FALSE/', file_get_contents($root . '/src/etc/inc/dyndns.class'))) {
+	$fail('duiadns and he-net updates must verify TLS.');
+}
+/* The PKCS#12 export never writes into a directory it did not create. */
+if (strpos(file_get_contents($root . '/src/etc/inc/certs.inc'), "if ((\$workdir === false) || !@mkdir(\$workdir, 0700)) {") === false) {
+	$fail('cert_pkcs12_export() must stop when it cannot create its work directory.');
+}
+/* DHCP client host names are plain labels before they reach unbound. */
+if (strpos(file_get_contents($root . '/src/usr/local/bin/kea2unbound'), "preg_match('/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\$/D', \$hostname)") === false) {
+	$fail('kea2unbound must only write plain DNS labels.');
+}
+/* Captive portal: the client-supplied zone is a plain name, and RADIUS numbers go into SQL as numbers. */
+if (strpos(file_get_contents($root . '/src/usr/local/captiveportal/index.php'), "if (!preg_match('/^[a-z0-9_]+\$/D', \$cpzone)) {") === false ||
+    strpos($cp, "? (int)\$attributes['session_timeout'] : 'NULL';") === false) {
+	$fail('The captive portal must validate the zone and cast RADIUS numbers.');
+}
+
 echo "WebUI hardening smoke test passed\n";

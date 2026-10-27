@@ -10,6 +10,18 @@ CN="${4}"
 # Trim domain off to avoid duplication if the CN is an FQDN
 CN=${CN%%.${DOMAIN}}
 
+# The CN (the login name with username-as-common-name) is client-controlled
+# and becomes a DNS name: register host names only.
+case "${OP}" in
+add|update)
+	case "${CN}" in
+	''|[.-]*|*[!A-Za-z0-9.-]*)
+		exit 0
+		;;
+	esac
+	;;
+esac
+
 DIR="/var/unbound"
 PIDFILE="/var/run/unbound.pid"
 IPV4REGEX='^[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}$'
@@ -57,9 +69,9 @@ if [ -n "${IP}" ] && [ "$(/usr/bin/basename ${IP})" = "${IP}" ]; then
 				) && /bin/mv "${TMPCONF}" "${CONF}"
 
 				# do not restart unbound on connect, see upstream issue 11129
-				/usr/bin/su -m unbound -c "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data ${CN}.${DOMAIN} ${ARECORD} ${IP}"
-				/usr/bin/su -m unbound -c "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data ${CN} ${ARECORD} ${IP}"
-				/usr/bin/su -m unbound -c "/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data ${PTRRECORD} PTR ${CN}.${DOMAIN}"
+				/usr/bin/su -m unbound -c '/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data "$1"' sh "${CN}.${DOMAIN} ${ARECORD} ${IP}"
+				/usr/bin/su -m unbound -c '/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data "$1"' sh "${CN} ${ARECORD} ${IP}"
+				/usr/bin/su -m unbound -c '/usr/local/sbin/unbound-control -c /var/unbound/unbound.conf local_data "$1"' sh "${PTRRECORD} PTR ${CN}.${DOMAIN}"
 
 			fi
 
