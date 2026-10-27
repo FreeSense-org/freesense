@@ -3672,7 +3672,7 @@ function interface_wireless_clone($realif, $wlcfg) {
 		logger(LOG_INFO, localize_text("Cloning new wireless interface %s", $realif));
 		// Create the new wlan interface. FreeBSD returns the new interface name.
 		// example:  wlan2
-		exec("/sbin/ifconfig wlan create wlandev {$baseif} {$mode} bssid 2>&1", $out, $ret);
+		exec("/sbin/ifconfig wlan create wlandev " . escapeshellarg($baseif) . " {$mode} bssid 2>&1", $out, $ret);
 		if ($ret <> 0) {
 			logger(LOG_ERR, localize_text('Failed to clone interface %1$s with error code %2$s, output %3$s', $baseif, $ret, $out[0]));
 			return false;
