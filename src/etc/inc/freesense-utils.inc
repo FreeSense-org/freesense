@@ -298,7 +298,7 @@ function validate_webguihostnamemenu_field(&$input_errors, $value) {
 	}
 }
 
-/* The page width choices: wide (default), the classic 1200 px, or the whole window. */
+/* The page width choices: the classic 1200 px (default), wide, or the whole window. */
 function webgui_pagewidth_choices() {
 	return array('' => gettext('Classic (1200 px)'), 'wide' => gettext('Wide (1680 px)'), 'full' => gettext('Full window width'));
 }
