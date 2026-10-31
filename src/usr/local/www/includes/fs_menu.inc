@@ -393,4 +393,3 @@ function fs_notices_panel($notices, $can_clear) {
 	}
 	return $h . '</ul></div>';
 }
-
