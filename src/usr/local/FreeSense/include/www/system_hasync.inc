@@ -66,6 +66,7 @@ function system_hasync_checkbox_names() {
  */
 function system_hasync_save(array $post) {
 	$a_hasync = config_get_path('hasync', []);
+	$old_hasync = $a_hasync;
 	$input_errors = array();
 
 	$pconfig = $post;
@@ -82,6 +83,12 @@ function system_hasync_save(array $post) {
 	if ($pconfig['passwordfld'] == $pconfig['passwordfld_confirm']) {
 		if ($pconfig['passwordfld'] != DMYPWD) {
 				$a_hasync['password'] = $pconfig['passwordfld'];
+		} elseif (((string)($old_hasync['password'] ?? '') !== '') &&
+		    (((string)($old_hasync['synchronizetoip'] ?? '') !== (string)$a_hasync['synchronizetoip']) ||
+		    ((string)($old_hasync['username'] ?? '') !== (string)$a_hasync['username']) ||
+		    ((string)($old_hasync['syncpeerpin'] ?? '') !== (string)$a_hasync['syncpeerpin']))) {
+			/* The stored password is only ever sent to the peer it was entered for. */
+			$input_errors[] = gettext("Enter the remote system password again when changing the peer address, user name or certificate fingerprint.");
 		}
 	} else {
 		$input_errors[] = gettext("Password and confirmation must match.");
