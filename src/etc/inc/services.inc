@@ -5489,7 +5489,8 @@ key "{$keyname}" {
 };
 
 EOD;
-		@file_put_contents("{$g['varetc_path']}/nsupdatekey{$i}", $upkey);
+		/* It holds the TSIG key. */
+		file_put_contents_private("{$g['varetc_path']}/nsupdatekey{$i}", $upkey);
 
 		/* generate update instructions */
 		$upinst = "";
@@ -5660,6 +5661,13 @@ function configure_cron() {
 		}
 
 		foreach (config_get_path('cron/item', []) as $item) {
+			/* One bad value must not add a line or a command to root's crontab. */
+			$cron_time = array($item['minute'] ?? '', $item['hour'] ?? '', $item['mday'] ?? '', $item['month'] ?? '', $item['wday'] ?? '');
+			if ((count(preg_grep('/^[A-Za-z0-9*,\/@-]+$/D', array_map('strval', $cron_time))) !== 5) ||
+			    !preg_match('/^[a-z0-9_-]+$/D', (string)($item['who'] ?? '')) || cfg_has_ctl($item['command'] ?? '')) {
+				logger(LOG_ERR, localize_text('Skipping an invalid cron item: %s', substr((string)preg_replace('/[\x00-\x1f\x7f]/', ' ', (string)($item['command'] ?? '')), 0, 120)));
+				continue;
+			}
 			$crontab_contents .= "\n{$item['minute']}\t";
 			$crontab_contents .= "{$item['hour']}\t";
 			$crontab_contents .= "{$item['mday']}\t";

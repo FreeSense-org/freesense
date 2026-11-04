@@ -1370,8 +1370,8 @@ check_api(strpos($user_save, 'The password cannot contain control characters.') 
     'an L2TP user password has no line breaks; a rename to an existing name is refused');
 $vpn_inc = file_get_contents("{$root}/src/etc/inc/vpn.inc");
 $l2_conf = $fn_body($vpn_inc, 'vpn_l2tp_configure');
-check_api(strpos($l2_conf, "\$radiussecret = str_replace('\"', '\\\"', array_get_path(\$l2tpcfg, 'radius/secret', ''));") !== false,
-    'the RADIUS secret is escaped in mpd.conf like the L2TP secret');
+check_api(strpos($l2_conf, "\$radiussecret = get_mpd_str(array_get_path(\$l2tpcfg, 'radius/secret', ''));") !== false,
+    'the RADIUS secret goes through get_mpd_str in mpd.conf');
 check_api(strpos($l2_conf, "\t\treturn true;\n") === false, 'stopping a disabled L2TP server reports success (the page showed a failure)');
 check_api(substr_count($routes_vpn, 'write_config(') === 0 && substr_count($routes_vpn, 'config_set_path(') === 0 && substr_count($routes_vpn, 'config_del_path(') === 0,
     'VPN API writes only through the GUI functions');

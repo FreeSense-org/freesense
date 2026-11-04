@@ -311,4 +311,41 @@ if (strpos($authinc, 'authenticate_identity($username, $password, $attributes);'
 	$fail('The WebGUI sign-in and XML-RPC must authenticate through authenticate_identity().');
 }
 
+/* Input scan 2026-11-04: the CVE batch and where each value is used. */
+$src = fn($f) => file_get_contents($root . '/src/' . $f);
+$must = [
+	'etc/inc/util.inc' => ["'/^[A-Za-z0-9_.-]{1,32}\$/D', explode('%', \$ipaddr, 2)[1]", 'function cfg_has_ctl('],
+	'etc/inc/interfaces.inc' => ["\$text = preg_replace('/[\\x00-\\x1f\\x7f]/', '', \$text);", "if (!preg_match('/^[a-z0-9]+\$/D', \$pppif)) {"],
+	'etc/inc/services.inc' => ['Skipping an invalid cron item', 'file_put_contents_private("{$g[\'varetc_path\']}/nsupdatekey'],
+	'etc/inc/system.inc' => ['file_put_contents_private("{$g[\'varetc_path\']}/ntp.keys"'],
+	'etc/inc/vpn.inc' => ["get_mpd_str(ltrim(base64_decode(\$data[1]), '!'))", "'radius/server2/secret2'"],
+	'etc/inc/ipsec.inc' => ['Skipping an invalid IPsec setting', "if (is_ipaddr(\$ph2ent['pinghost'] ?? '')) {"],
+	'etc/inc/dyndns.class' => ['CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS'],
+	'etc/inc/config.lib.inc' => ['if (config_write_denied() || !file_exists($path)', 'if (config_write_denied() || !file_exists($conffile))', "in_array((string)\$file['path'], array_map('dirname', \$paths), true)"],
+	'etc/inc/freesense-utils.inc' => ["\$vhid = (int)\$vip['vhid'];"],
+	'etc/inc/filter.inc' => ["'/^[A-Za-z0-9 _-]{1,64}\$/D'"],
+	'usr/local/FreeSense/include/www/firewall_virtual_ip.inc' => ['The VHID must be a number between 1 and 255.'],
+	'usr/local/FreeSense/include/www/services_dyndns.inc' => ['The Update URL must start with http:// or https://.'],
+	'usr/local/FreeSense/include/www/vpn_ipsec.inc' => ['Automatically ping host must be an IP address.', 'The Login Banner must be one line'],
+	'usr/local/www/services_pppoe_edit.php' => ['The user name %s contains characters that are not allowed.'],
+	'usr/local/www/services_captiveportal_hasync.php' => ["!is_ipaddr(\$user['ip'] ?? '')"],
+];
+foreach ($must as $file => $needles) {
+	foreach ($needles as $needle) {
+		if (strpos($src($file), $needle) === false) {
+			$fail("{$file} must contain: {$needle}");
+		}
+	}
+}
+$vpnipsec = $src('usr/local/FreeSense/include/www/vpn_ipsec.inc');
+if (strpos($vpnipsec, 'Automatically ping host must be an IP address.') < strpos($vpnipsec, 'function ipsec_p2_save(')) {
+	$fail('The IPsec ping host check belongs to the phase 2 save.');
+}
+if (strpos($src('usr/local/www/interfaces_ppps_edit.php'), "handle_pppoe_reset(\$_POST);") !== false) {
+	$fail('interfaces_ppps_edit.php must not take the PPP id for the cron job from the form.');
+}
+if (strpos($src('etc/inc/config.lib.inc'), "\$dirname = \$file['path'];\n\t\t} else {") !== false) {
+	$fail('restore_xmldatafile() must not write to a path named in the backup.');
+}
+
 echo "WebUI hardening smoke test passed\n";
