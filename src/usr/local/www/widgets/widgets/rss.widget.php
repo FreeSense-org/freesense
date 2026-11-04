@@ -213,7 +213,7 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 			$link = '#';
 		}
 ?>
-	<a href="<?=$link?>" target="_blank" rel="noopener noreferrer" class="list-group-item">
+	<a href="<?=htmlspecialchars($link, ENT_QUOTES, 'UTF-8', false)?>" target="_blank" rel="noopener noreferrer" class="list-group-item">
 		<h4 class="list-group-item-heading">
 			<?=htmlspecialchars(strip_tags($item->get_title()))?>
 		</h4>

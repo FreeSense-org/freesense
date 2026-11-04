@@ -11,11 +11,12 @@ CN="${4}"
 CN=${CN%%.${DOMAIN}}
 
 # The CN (the login name with username-as-common-name) is client-controlled
-# and becomes a DNS name: register host names only.
+# and becomes a DNS name: only the characters a login name may hold, none of
+# which mean anything to the shell or to an unbound include.
 case "${OP}" in
 add|update)
 	case "${CN}" in
-	''|[.-]*|*[!A-Za-z0-9.-]*)
+	''|[.-]*|*[!A-Za-z0-9._@+-]*)
 		exit 0
 		;;
 	esac

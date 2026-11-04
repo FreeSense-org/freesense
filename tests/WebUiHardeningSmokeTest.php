@@ -148,6 +148,12 @@ foreach (['pkg.php', 'pkg_edit.php'] as $page) {
 		$fail("{$page} must load only the package named in the query string the user may open.");
 	}
 }
+/* The list page's own POSTs keep the package in the URI, or the check above refuses them. */
+$pkg_list = file_get_contents($www . '/pkg.php');
+if (strpos($pkg_list, "['usepost' => '?xml=' . \$xml_url]") === false ||
+    strpos($pkg_list, "json_encode(\$_SERVER['SCRIPT_NAME'] . '?xml=' . \$xml_url)") === false) {
+	$fail('pkg.php must send its delete and save-order POSTs to a URI that names the package.');
+}
 /* State changes on these pages need a CSRF-checked POST. */
 if (strpos(file_get_contents($www . '/diag_tables.php'), "\$_REQUEST['delete']") !== false) {
 	$fail('diag_tables.php must delete table entries on POST only.');
@@ -232,8 +238,8 @@ if (strpos(file_get_contents($root . '/src/etc/inc/openvpn.auth-user.php'), "pre
 	$fail('openvpn.auth-user.php must refuse user names outside the allowed characters.');
 }
 $learn = file_get_contents($root . '/src/usr/local/sbin/openvpn.learn-address.sh');
-if (strpos($learn, "''|[.-]*|*[!A-Za-z0-9.-]*)") === false || strpos($learn, 'local_data ${CN}') !== false) {
-	$fail('openvpn.learn-address.sh must register host names only and pass them as arguments.');
+if (strpos($learn, "''|[.-]*|*[!A-Za-z0-9._@+-]*)") === false || strpos($learn, 'local_data ${CN}') !== false) {
+	$fail('openvpn.learn-address.sh must register safe names only and pass them as arguments.');
 }
 /* Root never runs or loads a script from a fixed name in /tmp. */
 $services = file_get_contents($root . '/src/etc/inc/services.inc');
@@ -249,8 +255,9 @@ if (strpos($util, 'function file_put_contents_private(') === false ||
     strpos($ipsec, 'file_put_contents_private("{$g[\'varetc_path\']}/ipsec/swanctl.conf"') === false ||
     strpos($ipsec, 'file_put_contents_private("{$g[\'varetc_path\']}/ipsec/strongswan.conf"') === false ||
     substr_count(file_get_contents($root . '/src/etc/inc/interfaces.inc'), 'file_put_contents_private(') !== 2 ||
-    strpos($services, '@chmod("{$g[\'varetc_path\']}/snmpd.conf", 0600);') === false) {
-	$fail('IPsec, wireless, PPP and SNMP configurations must be written 0600.');
+    strpos($services, '@chmod("{$g[\'varetc_path\']}/snmpd.conf", 0600);') === false ||
+    strpos(file_get_contents($root . '/src/etc/inc/auth.inc'), 'file_put_contents_private("/etc/radius.conf"') === false) {
+	$fail('IPsec, wireless, PPP, SNMP and RADIUS configurations must be written 0600.');
 }
 /* Dynamic DNS requests that carry credentials verify the server. */
 if (preg_match('/(duiadns\.net|dyn\.dns\.he\.net)[^\n]*\n[^\n]*\n?[^\n]*SSL_VERIFYPEER, FALSE/', file_get_contents($root . '/src/etc/inc/dyndns.class'))) {

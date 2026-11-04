@@ -457,8 +457,9 @@ foreach ($rows as $i => $ip):
 	$actions = [
 		['edit', 'pkg_edit.php?xml=' . $xml_url . '&act=edit&id=' . $i, $name,
 		    $edit_msg ? ['attrs' => ['title' => $edit_msg]] : []],
+		/* usepost drops the href's query from the POST action; the package must stay in the URI. */
 		['delete', 'pkg.php?xml=' . $xml_url . '&act=del&id=' . $i, $name,
-		    $delete_msg ? ['attrs' => ['title' => $delete_msg]] : []],
+		    ['attrs' => array_merge(['usepost' => '?xml=' . $xml_url], $delete_msg ? ['title' => $delete_msg] : [])]],
 	];
 ?>
 					<tr<?=$movable ? ' class="sortable" id="id_' . (int)$i . '"' : ''?>>
@@ -584,7 +585,7 @@ function save_changes_to_xml(xml) {
 	$.ajax({
 		type: 'post',
 		cache: false,
-		url: <?=json_encode($_SERVER['SCRIPT_NAME'])?>,
+		url: <?=json_encode($_SERVER['SCRIPT_NAME'] . '?xml=' . $xml_url)?>,
 		data: {xml: <?=json_encode((string)$xml)?>, act: 'update', ids: ids},
 		beforeSend: function() {
 			$('#savemsg').text(<?=json_encode(gettext('Saving changes...'))?>);
