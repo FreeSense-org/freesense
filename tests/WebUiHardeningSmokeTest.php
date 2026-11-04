@@ -293,4 +293,22 @@ if (strpos($rss, 'CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS') 
 	$fail('The RSS widget must fetch feeds itself over http(s) and give SimplePie raw data only.');
 }
 
+/* Input scan 2026-11-04: the auth boundary. */
+$authinc = file_get_contents($root . '/src/etc/inc/auth.inc');
+$authgui = file_get_contents($root . '/src/etc/inc/authgui.inc');
+if (strpos(file_get_contents($root . '/src/etc/inc/auth_func.inc'), "explode('?', \$page, 2)") === false) {
+	$fail('cmp_page_matches() must treat everything after the first ? as the query.');
+}
+/* The guard must not depend on include order, as it did when it ran at include time. */
+if (strpos($authinc, 'function_exists("display_error_form")') !== false || strpos($authinc, 'function webgui_request_guard() {') === false ||
+    strpos($authgui, "webgui_request_guard();") === false) {
+	$fail('The rebind, Referer and lockout checks must run from authgui.inc through webgui_request_guard().');
+}
+/* A directory login never takes on a root-equivalent local account's rights, in either entry point. */
+if (strpos($authinc, 'authenticate_identity($username, $password, $attributes);') === false ||
+    strpos($xmlrpc, 'authenticate_identity($username, $password, $attributes)') === false ||
+    strpos($xmlrpc, 'authenticate_user(') !== false) {
+	$fail('The WebGUI sign-in and XML-RPC must authenticate through authenticate_identity().');
+}
+
 echo "WebUI hardening smoke test passed\n";
