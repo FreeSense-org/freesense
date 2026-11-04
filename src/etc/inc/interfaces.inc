@@ -3175,6 +3175,8 @@ EOD;
 			logger(LOG_ERR, localize_text('Cannot open %1$s in %2$s.', "mpd_{$interface}.conf", "interface_ppps_configure()"));
 			return 0;
 		}
+		/* It holds the PPP password; readable by root only. */
+		@chmod("{$g['varetc_path']}/mpd_{$interface}.conf", 0600);
 		// Write out mpd_ppp.conf
 		fwrite($fd, $mpdconf);
 		fclose($fd);
@@ -3996,7 +3998,7 @@ EOD;
 				}
 				$wpa .= "}\n";
 
-				@file_put_contents($wpa_supplicant_file . "conf", $wpa);
+				file_put_contents_private($wpa_supplicant_file . "conf", $wpa);
 				unset($wpa);
 			}
 			break;
@@ -4071,7 +4073,7 @@ EOD;
 					}
 				}
 
-				@file_put_contents($hostapd_conf, $wpa);
+				file_put_contents_private($hostapd_conf, $wpa);
 				unset($wpa);
 			}
 			break;

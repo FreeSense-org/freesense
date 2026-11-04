@@ -1276,8 +1276,12 @@ function reload_filterdns() {
 
 function filter_run_commands_late() {
 	global $g, $after_filter_configure_run;
-	/* run items scheduled for after filter configure run */
-	$fda = fopen("{$g['tmp_path']}/commands.txt", "w");
+	/*
+	 * run items scheduled for after filter configure run. Root runs this
+	 * file, so it is a private temporary file, not a fixed name in /tmp.
+	 */
+	$commands = tempnam(g_get('varrun_path'), 'filter_commands.');
+	$fda = ($commands === false) ? false : fopen($commands, "w");
 	if ($fda) {
 		if ($after_filter_configure_run) {
 			foreach ($after_filter_configure_run as $afcr) {
@@ -1298,9 +1302,9 @@ function filter_run_commands_late() {
 		fclose($fda);
 	}
 
-	if (file_exists("{$g['tmp_path']}/commands.txt")) {
-		mwexec("sh {$g['tmp_path']}/commands.txt &");
-		unlink("{$g['tmp_path']}/commands.txt");
+	if (($commands !== false) && file_exists($commands)) {
+		/* The background shell removes the file once it has run it. */
+		mwexec('/bin/sh -c ' . escapeshellarg('/bin/sh ' . escapeshellarg($commands) . '; /bin/rm -f ' . escapeshellarg($commands)) . ' &');
 	}
 }
 

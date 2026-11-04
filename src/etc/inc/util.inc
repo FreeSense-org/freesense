@@ -3467,6 +3467,21 @@ function run_plugins($directory) {
  *    safe_mkdir($path, $mode = 0755)
  *    create directory if it doesn't already exist and isn't a file!
  */
+/*
+ * Write $data to $path readable by root only, for daemon configurations that
+ * hold secrets (PSKs, passwords). Returns what file_put_contents() returns.
+ */
+function file_put_contents_private($path, $data) {
+	if (file_exists($path)) {
+		@chmod($path, 0600);
+	}
+	$old_umask = umask(0077);
+	$result = @file_put_contents($path, $data);
+	umask($old_umask);
+	@chmod($path, 0600);
+	return $result;
+}
+
 function safe_mkdir($path, $mode = 0755) {
 	if (!is_file($path) && !is_dir($path)) {
 		return @mkdir($path, $mode, true);
