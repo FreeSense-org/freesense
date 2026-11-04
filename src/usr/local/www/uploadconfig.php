@@ -49,7 +49,7 @@ if (is_array($guiuser) && userHasPrivilege($guiuser, 'user-config-readonly')) {
 
 /* get config.xml in POST variable "config" */
 if ($_POST['config']) {
-	/* A root-only directory: a fixed name in /tmp could be a planted link. */
+	/* A private file with a random name: a fixed name in /tmp could be a planted link. */
 	$upload = tempnam(g_get('varrun_path'), 'uploadconfig.');
 	if (($upload === false) || (@file_put_contents($upload, $_POST['config']) === false)) {
 		echo gettext("ERR Could not save configuration.")."\n";

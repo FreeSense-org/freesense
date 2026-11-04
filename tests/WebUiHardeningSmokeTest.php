@@ -178,7 +178,7 @@ if (strpos($pkginstall, 'function pkg_mgr_install_readonly_user()') === false ||
 }
 /* The RSS cache (unserialized by root) is not world-writable, and feed links are web links. */
 $rss = file_get_contents($www . '/widgets/widgets/rss.widget.php');
-if (strpos($rss, '/tmp/simplepie') !== false || strpos($rss, 'chmod a+rw') !== false ||
+if (strpos($rss, "\$rss_cache_dir = '/var/db/simplepie';") === false || strpos($rss, 'chmod a+rw') !== false ||
     strpos($rss, "['http', 'https']") === false) {
 	$fail('The RSS widget must cache in a root-only directory and only link http(s) URLs.');
 }

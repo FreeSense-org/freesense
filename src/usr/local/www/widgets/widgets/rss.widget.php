@@ -137,9 +137,10 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 	 * the text: SimplePie through 1.9.0 can be redirected or autodiscover its
 	 * way to a file:// URL and read local files (CVE-2026-111234), and this
 	 * page runs as root. The cache holds plain feed text (nothing is
-	 * unserialized) in a directory only root can write.
+	 * unserialized) in a directory only root can write; /tmp and /var/run are
+	 * writable by everyone, so another user could create the name there first.
 	 */
-	$rss_cache_dir = '/var/run/simplepie';
+	$rss_cache_dir = '/var/db/simplepie';
 	if (!is_dir($rss_cache_dir)) {
 		@mkdir($rss_cache_dir, 0700);
 	}
