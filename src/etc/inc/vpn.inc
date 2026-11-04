@@ -288,7 +288,7 @@ function vpn_pppoe_updatesecret(&$pppoecfg) {
 			foreach ($item as $userdata) {
 				$data = explode(":", $userdata);
 				/* A saved name or address must stay one token of one line. */
-				if (!preg_match('/^[^\s"\\\\#:!\x00-\x1f\x7f]{1,128}$/D', (string)$data[0]) ||
+				if (!cfg_value_valid('login', $data[0]) ||
 				    (!empty($data[2]) && !is_ipaddr($data[2]))) {
 					continue;
 				}

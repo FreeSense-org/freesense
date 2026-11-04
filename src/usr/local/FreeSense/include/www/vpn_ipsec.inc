@@ -2086,7 +2086,7 @@ function ipsec_mobile_save(array &$pconfig) {
 	if ($pconfig['login_banner_enable']) {
 		if (!strlen($pconfig['login_banner'])) {
 			$input_errors[] = gettext("A valid value for 'Login Banner' must be specified.");
-		} elseif (preg_match('/[\x00-\x1f\x7f{}"\\\\]/', $pconfig['login_banner'])) {
+		} elseif (!strongswan_text_valid($pconfig['login_banner'])) {
 			$input_errors[] = gettext("The Login Banner must be one line without braces, quotes or backslashes.");
 		}
 	}

@@ -490,7 +490,7 @@ EOD;
 		// Ensure that the log directory exists
 		$logpath = dirname($log_socket);
 		safe_mkdir($logpath);
-		$syslogd_sockets .= " -l {$log_socket}";
+		$syslogd_sockets .= " -l " . escapeshellarg($log_socket);
 	}
 
 	/* Setup log rotation */

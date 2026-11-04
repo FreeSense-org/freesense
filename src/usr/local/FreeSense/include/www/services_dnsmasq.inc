@@ -447,7 +447,7 @@ function saveDomainOverride($post, $id, $json=false) {
 
     do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
-    if (str_starts_with($post['domain'], '_msdcs')) {
+    if (($post['domain'] === '_msdcs') || str_starts_with($post['domain'], '_msdcs.')) {
         $subdomainstr = substr($post['domain'], 7);
 
         if ($subdomainstr && !is_domain($subdomainstr)) {

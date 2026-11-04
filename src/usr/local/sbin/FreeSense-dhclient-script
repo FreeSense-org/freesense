@@ -99,7 +99,7 @@ arp_flush() {
 
 delete_old_address() {
 	/bin/rm -f "/var/db/${interface}_ip"
-	eval $IFCONFIG "$interface" inet -alias "$old_ip_address" "$medium"
+	$IFCONFIG "$interface" inet -alias "$old_ip_address" $medium
 }
 
 add_new_address() {
@@ -108,11 +108,11 @@ add_new_address() {
 
 	_logger "LOG_NOTICE" "ifconfig ${interface} inet ${new_ip_address} netmask ${new_subnet_mask} broadcast ${new_broadcast_address} ${medium}"
 
-	eval $IFCONFIG "$interface" \
+	$IFCONFIG "$interface" \
 		inet "$new_ip_address" \
 		netmask "$new_subnet_mask" \
 		broadcast "$new_broadcast_address" \
-		"$medium"
+		$medium
 
 	_logger "LOG_NOTICE" "New IP Address (${interface}): ${new_ip_address}"
 	_logger "LOG_NOTICE" "New Subnet Mask (${interface}): ${new_subnet_mask}"
@@ -363,15 +363,25 @@ if [ -f /etc/dhclient-enter-hooks ]; then
 fi
 
 _logger "LOG_NOTICE" "${reason}"
+
+# $medium is left unquoted so that it can be several ifconfig words, and comes
+# from dhclient.conf: only plain words.
+case "${medium}" in
+*[!A-Za-z0-9\ ._:-]*)
+	_logger "LOG_WARNING" "ignoring an invalid medium"
+	medium=""
+	;;
+esac
+
 case $reason in
 MEDIUM)
-	eval "$IFCONFIG $interface $medium"
+	$IFCONFIG "$interface" $medium
 	/bin/sleep 1
 	;;
 
 PREINIT)
 	delete_old_alias
-	eval "$IFCONFIG $interface up"
+	$IFCONFIG "$interface" up
 	if [ -f "/tmp/${interface}_router" ]; then
 		/bin/mv "/tmp/${interface}_router" "/tmp/${interface}_router.last"
 	fi
@@ -444,7 +454,7 @@ TIMEOUT)
 		fi
 	fi
 	if [ "$exit_status" -ne 0 ]; then
-		eval "$IFCONFIG" "$interface" inet -alias "$new_ip_address" "$medium"
+		$IFCONFIG "$interface" inet -alias "$new_ip_address" $medium
 		delete_old_routes
 	fi
 	;;

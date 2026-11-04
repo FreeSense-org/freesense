@@ -4866,7 +4866,7 @@ function services_dnsmasq_configure($restart_dhcp = true) {
 			if ($override['ip'] == "!") {
 				$override['ip'] = "";
 			}
-			$args .= ' --server=/' . $override['domain'] . '/' . $override['ip'];
+			$args .= ' ' . escapeshellarg('--server=/' . $override['domain'] . '/' . $override['ip']);
 		}
 
 		/* avoid 127.0.0.1 dns loop,
@@ -4883,7 +4883,7 @@ function services_dnsmasq_configure($restart_dhcp = true) {
 		/* Allow DNS Rebind for forwarded domains */
 		if (!config_path_enabled('system/webgui','nodnsrebindcheck')) {
 			foreach (config_get_path('dnsmasq/domainoverrides', []) as $override) {
-				$args .= ' --rebind-domain-ok=/' . $override['domain'] . '/ ';
+				$args .= ' ' . escapeshellarg('--rebind-domain-ok=/' . $override['domain'] . '/') . ' ';
 			}
 		}
 
@@ -5662,10 +5662,8 @@ function configure_cron() {
 
 		foreach (config_get_path('cron/item', []) as $item) {
 			/* One bad value must not add a line or a command to root's crontab. */
-			$cron_time = array($item['minute'] ?? '', $item['hour'] ?? '', $item['mday'] ?? '', $item['month'] ?? '', $item['wday'] ?? '');
-			if ((count(preg_grep('/^[A-Za-z0-9*,\/@-]+$/D', array_map('strval', $cron_time))) !== 5) ||
-			    !preg_match('/^[a-z0-9_-]+$/D', (string)($item['who'] ?? '')) || cfg_has_ctl($item['command'] ?? '')) {
-				logger(LOG_ERR, localize_text('Skipping an invalid cron item: %s', substr((string)preg_replace('/[\x00-\x1f\x7f]/', ' ', (string)($item['command'] ?? '')), 0, 120)));
+			if (!cron_item_valid($item)) {
+				logger(LOG_ERR, localize_text('Skipping an invalid cron item: %s', substr(cfg_one_line($item['command'] ?? ''), 0, 120)));
 				continue;
 			}
 			$crontab_contents .= "\n{$item['minute']}\t";

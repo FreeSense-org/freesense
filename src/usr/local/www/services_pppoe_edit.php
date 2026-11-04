@@ -142,7 +142,7 @@ if ($_POST['save']) {
 		for ($x = 0; $x < 4999; $x++) {
 			if ($_POST["username{$x}"]) {
 				/* The name is written unquoted, one user per line, into mpd.secret. */
-				if (!preg_match('/^[^\s"\\\\#:!\x00-\x1f\x7f]{1,128}$/D', (string)$_POST["username{$x}"])) {
+				if (!cfg_value_valid('login', $_POST["username{$x}"])) {
 					$input_errors[] = sprintf(gettext("The user name %s contains characters that are not allowed."), htmlspecialchars((string)$_POST["username{$x}"]));
 				}
 				if (empty($_POST["password{$x}"])) {
