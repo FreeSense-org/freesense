@@ -2259,9 +2259,15 @@ EOD;
 		$nginx_config .= "\t\tlisten [::]:{$nginx_port};\n";
 	}
 
+	/*
+	 * Request bodies are read before anyone has signed in, so they are small
+	 * unless a page takes files. A portal only receives login forms.
+	 */
+	$body_limit = ($captive_portal !== false) ? '1m' : '8m';
+
 	$nginx_config .= <<<EOD
 
-		client_max_body_size 200m;
+		client_max_body_size {$body_limit};
 
 		gzip on;
 		gzip_vary on;
@@ -2294,6 +2300,7 @@ EOD;
 			fastcgi_param  HTTP_PROXY  "";
 			fastcgi_read_timeout 300;
 			fastcgi_hide_header X-Frame-Options;
+			client_max_body_size 64m;
 			include        /usr/local/etc/nginx/fastcgi_params;
 		}
 
@@ -2312,16 +2319,7 @@ EOD;
 		}
 	}
 
-	$nginx_config .= <<<EOD
-		root "{$document_root}";
-{$static_expires}{$api_location}		location / {
-			index  index.php index.html index.htm;
-		}
-		location ~ (\.inc$|\.orig$|\.pkgsave$) {
-			deny all;
-			return 403;
-		}
-		location ~ \.php$ {
+	$php_location = <<<EOD
 			try_files \$uri =404; #  This line closes a potential security hole
 			# ensuring users can't execute uploaded files
 			# see: https://forum.nginx.org/read.php?2,88845,page=3
@@ -2336,6 +2334,33 @@ EOD;
 			fastcgi_hide_header X-Frame-Options;
 {$fastcgi_buffers}{$intercept_errors}
 			include        /usr/local/etc/nginx/fastcgi_params;
+EOD;
+
+	/* The pages that take more than the default, core and optional packages alike. */
+	$body_locations = '';
+	if ($captive_portal === false) {
+		foreach ([
+			'200m' => 'diag_backup|tftp_files|fleet/fleet_backups',
+			'64m' => 'xmlrpc',
+			'33m' => 'diag_command|diag_edit|suricata/suricata_ip_list_mgmt|suricata/suricata_sid_mgmt',
+			'4m' => 'services_captiveportal|services_captiveportal_filemanager',
+			'3m' => 'widgets/widgets/picture\\.widget',
+		] as $limit => $pages) {
+			$body_locations .= "\t\tlocation ~ ^/({$pages})\\.php\$ {\n\t\t\tclient_max_body_size {$limit};\n{$php_location}\n\t\t}\n";
+		}
+	}
+
+	$nginx_config .= <<<EOD
+		root "{$document_root}";
+{$static_expires}{$api_location}		location / {
+			index  index.php index.html index.htm;
+		}
+		location ~ (\.inc$|\.orig$|\.pkgsave$) {
+			deny all;
+			return 403;
+		}
+{$body_locations}		location ~ \.php$ {
+{$php_location}
 		}
 		location ~ (^/status$) {
 			allow 127.0.0.1;

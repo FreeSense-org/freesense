@@ -153,6 +153,11 @@ function ntpd_save_settings($post, $leapfile = null) {
 	$min_candidate_peers = ntpd_candidate_peer_limits()['min'];
 	$max_candidate_peers = ntpd_candidate_peer_limits()['max'];
 	$input_errors = array();
+
+	/* The IETF list is about 10 KB, and this is stored in config.xml. */
+	if ((strlen((string)($post['leaptext'] ?? '')) > 65536) || (strlen((string)$leapfile) > 65536)) {
+		$input_errors[] = gettext("The leap second information is too large.");
+	}
 	$pconfig = $post;
 
 	if (!empty($post['ntpmaxpeers']) && (!is_numericint($post['ntpmaxpeers']) ||

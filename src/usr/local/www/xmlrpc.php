@@ -148,20 +148,6 @@ class freesense_xmlrpc_server {
 	}
 
 	/**
-	 * Executes shell commands
-	 *
-	 * @param string $code
-	 *
-	 * @return bool
-	 */
-	public function exec_shell($code) {
-		$this->auth(true);
-
-		mwexec($code);
-		return true;
-	}
-
-	/**
 	 * Backup chosen config sections
 	 *
 	 * @param array $section
@@ -748,31 +734,6 @@ class freesense_xmlrpc_server {
 
 		config_set_path('installedpackages', array_merge(
 		    config_get_path('installedpackages'), $section));
-		$mergedkeys = implode(", ", array_keys($section));
-		write_config(sprintf(gettext(
-		    "Merged in config (%s sections) from XMLRPC client."),
-		    $mergedkeys));
-
-		return true;
-	}
-
-	/**
-	 * Merge items into config
-	 *
-	 * @param array $section
-	 *
-	 * @return bool
-	 */
-	public function merge_config_section($section, $timeout) {
-		ini_set('default_socket_timeout', $timeout);
-		$this->auth();
-
-		if ($this->loop_detected) {
-			logger(LOG_ERR, localize_text("Disallowing CARP sync loop"), LOG_PREFIX_HA);
-			return true;
-		}
-
-		config_set_path('', $this->array_overlay(config_get_path(''), $section));
 		$mergedkeys = implode(", ", array_keys($section));
 		write_config(sprintf(gettext(
 		    "Merged in config (%s sections) from XMLRPC client."),
