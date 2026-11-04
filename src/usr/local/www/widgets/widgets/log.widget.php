@@ -74,7 +74,8 @@ $dateFormat     = "Ymd_H:i:s";
 $dateFormat_us  = "Ymd_H:i:s_u";
 $dateFormatDiff = "%s_%u";
 
-if ($_REQUEST['widgetkey'] && !$_REQUEST['ajax']) {
+/* Saving writes the configuration, so it takes a CSRF-checked POST only. */
+if (!empty($_POST['widgetkey']) && empty($_POST['ajax'])) {
 	set_customwidgettitle($user_settings);
 
 	if (is_numeric($_POST['filterlogentries'])) {

@@ -124,6 +124,17 @@ function restapi_h_me_signout($req) {
 	if (empty($req['session'])) {
 		throw new RestApiError(400, 'not_a_session', 'Only a WebUI session can sign out; API keys are revoked in System > REST API.');
 	}
+	/*
+	 * api/index.php holds the session counter at 1 so handlers never open a
+	 * PHP session; open this one for real, or session_destroy() has nothing
+	 * to destroy and the server-side session outlives the sign-out.
+	 */
+	global $session_opencounter;
+	if (session_status() === PHP_SESSION_ACTIVE) {
+		session_write_close();
+	}
+	$session_opencounter = 0;
+	session_id($req['session_id']);
 	webgui_session_signout(false);
 	return array('data' => array('signed_out' => true));
 }
