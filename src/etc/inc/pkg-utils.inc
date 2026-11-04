@@ -58,7 +58,7 @@ if (!function_exists("pkg_debug")) {
 function pkg_valid_name($pkgname) {
 	global $g;
 
-	$pattern = "/^{$g['pkg_prefix']}[a-zA-Z0-9\.\-_]+$/";
+	$pattern = "/^{$g['pkg_prefix']}[a-zA-Z0-9\.\-_]+$/D";
 	return preg_match($pattern, $pkgname);
 }
 

@@ -2787,7 +2787,7 @@ function system_ntp_configure() {
 		}
 		$ntpcfg .= "\n";
 		$ntpcfg .= 'fudge 127.127.22.0';
-		if (!empty(config_get_path('ntpd/pps/fudge1'))) {
+		if (cfg_value_valid('decimal', config_get_path('ntpd/pps/fudge1'))) {
 			$ntpcfg .= ' time1 ';
 			$ntpcfg .= config_get_path('ntpd/pps/fudge1');
 		}
@@ -2802,7 +2802,7 @@ function system_ntp_configure() {
 		if (!empty(config_get_path('ntpd/pps/flag4'))) {
 			$ntpcfg .= ' flag4 1';
 		}
-		if (!empty(config_get_path('ntpd/pps/refid'))) {
+		if (cfg_value_valid('ntp_refid', config_get_path('ntpd/pps/refid'))) {
 			$ntpcfg .= ' refid ';
 			$ntpcfg .= config_get_path('ntpd/pps/refid');
 		}
@@ -2844,11 +2844,11 @@ function system_ntp_configure() {
 		}
 		$ntpcfg .= "\n";
 		$ntpcfg .= 'fudge 127.127.20.0';
-		if (!empty(config_get_path('ntpd/gps/fudge1'))) {
+		if (cfg_value_valid('decimal', config_get_path('ntpd/gps/fudge1'))) {
 			$ntpcfg .= ' time1 ';
 			$ntpcfg .= config_get_path('ntpd/gps/fudge1');
 		}
-		if (!empty(config_get_path('ntpd/gps/fudge2'))) {
+		if (cfg_value_valid('decimal', config_get_path('ntpd/gps/fudge2'))) {
 			$ntpcfg .= ' time2 ';
 			$ntpcfg .= config_get_path('ntpd/gps/fudge2');
 		}
@@ -2868,11 +2868,11 @@ function system_ntp_configure() {
 		if (!empty(config_get_path('ntpd/gps/flag4'))) {
 			$ntpcfg .= ' flag4 1';
 		}
-		if (!empty(config_get_path('ntpd/gps/refid'))) {
+		if (cfg_value_valid('ntp_refid', config_get_path('ntpd/gps/refid'))) {
 			$ntpcfg .= ' refid ';
 			$ntpcfg .= config_get_path('ntpd/gps/refid');
 		}
-		if (!empty(config_get_path('ntpd/gps/stratum'))) {
+		if (cfg_value_valid('int', config_get_path('ntpd/gps/stratum'))) {
 			$ntpcfg .= ' stratum ';
 			$ntpcfg .= config_get_path('ntpd/gps/stratum');
 		}

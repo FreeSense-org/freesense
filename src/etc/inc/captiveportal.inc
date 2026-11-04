@@ -2920,6 +2920,9 @@ function captiveportal_pipe_configure($host, $type, $user_auth = true) {
 		$pipeup = captiveportal_get_next_dn_ruleno($type);
 	}
 
+	$pipeup = (int)$pipeup;
+	$bwUp = (int)$bwUp;
+	$bwDown = (int)$bwDown;
 	mwexec("/sbin/dnctl pipe {$pipeup} config bw {$bwUp}Kbit/s queue 100 buckets 16");
 	$pipedown = $pipeup + 1;
 	mwexec("/sbin/dnctl pipe {$pipedown} config bw {$bwDown}Kbit/s queue 100 buckets 16");

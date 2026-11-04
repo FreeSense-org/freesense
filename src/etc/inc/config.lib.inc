@@ -237,6 +237,10 @@ function restore_xmldatafile($type='voucher', $conf = false) {
 
 	foreach ($conf[$type]["{$type}data"]["xmldatafile"] as $file) {
 		$basename = basename($file['filename']);
+		if (!cfg_filename_valid($basename)) {
+			logger(LOG_ERR, localize_text('Skipping a file with an invalid name in the %s backup.', $type), LOG_PREFIX_CONFIG);
+			continue;
+		}
 		/*
 		 * A backup names the file, never where it goes: a path in the XML could
 		 * write anywhere as root. If several paths are known, use the first with
@@ -278,6 +282,11 @@ function restore_rrddata($conf = false) {
 	}
 
 	foreach ($conf['rrddata']['rrddatafile'] as $rrd) {
+		/* These names reach rrdtool commands, also in later upgrades. */
+		if (!cfg_filename_valid(basename((string)$rrd['filename']))) {
+			logger(LOG_ERR, localize_text('Skipping a graph with an invalid file name in the backup.'), LOG_PREFIX_CONFIG);
+			continue;
+		}
 		if ($rrd['xmldata']) {
 			$rrd_file = "{$g['vardb_path']}/rrd/" . basename($rrd['filename']);
 			$xml_file = preg_replace('/\.rrd$/', ".xml", $rrd_file);
@@ -740,7 +749,10 @@ function reset_factory_defaults($lock = false, $reboot_required = true) {
 		if (is_system_default_package($pkg['name'])) {
 			continue;
 		}
-		mwexec("/bin/sh /usr/local/sbin/{$g['product_name']}-upgrade -r {$pkg['name']} -f");
+		if (!pkg_valid_name($pkg['name'])) {
+			continue;
+		}
+		mwexec("/bin/sh /usr/local/sbin/{$g['product_name']}-upgrade -r " . escapeshellarg($pkg['name']) . " -f");
 	}
 
 	/*
