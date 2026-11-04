@@ -104,6 +104,11 @@ function restapi_route($method, $path, $handler, array $opts) {
 	}
 	list($regex, $params) = restapi_compile_path($path);
 	$write = !empty($opts['write']);
+	/*
+	 * A read that returns secrets (a raw config.xml) needs the area's write
+	 * access: a read privilege, read scope or read-only key never covers it.
+	 */
+	$secrets = !$write && !empty($opts['secrets']);
 	return array(
 		'method' => strtoupper($method),
 		'path' => $path,
@@ -113,8 +118,9 @@ function restapi_route($method, $path, $handler, array $opts) {
 		'page' => $opts['page'],
 		'area' => $area,
 		'write' => $write,
+		'secrets' => $secrets,
 		'safe' => !$write && !empty($opts['safe']),
-		'scope' => ($area === '') ? '' : restapi_scope($area, $write ? 'write' : 'read'),
+		'scope' => ($area === '') ? '' : restapi_scope($area, ($write || $secrets) ? 'write' : 'read'),
 		'summary' => $opts['summary'] ?? '',
 		'tag' => $opts['tag'] ?? (($area === '') ? 'meta' : $area),
 		'body' => $opts['body'] ?? null,

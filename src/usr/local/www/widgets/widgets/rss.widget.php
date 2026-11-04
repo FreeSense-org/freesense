@@ -132,12 +132,14 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 ?>
 <div class="list-group fs-wrss" style="height: <?=htmlspecialchars((string)(int)$rsswidgetheight)?>px; overflow-y: auto;">
 <?php
-	if (!is_dir("/tmp/simplepie")) {
-		mkdir("/tmp/simplepie");
-		mkdir("/tmp/simplepie/cache");
+	/*
+	 * The cache holds serialized PHP that this (root) process unserializes, so
+	 * it lives in a directory only root can write, never in /tmp.
+	 */
+	$rss_cache_dir = '/var/run/simplepie';
+	if (!is_dir($rss_cache_dir)) {
+		@mkdir($rss_cache_dir, 0700);
 	}
-	exec("/bin/chmod a+rw /tmp/simplepie/.");
-	exec("/bin/chmod a+rw /tmp/simplepie/cache/.");
 	if (!function_exists('textLimit')) {
 		function textLimit($string, $length, $replacer = '...') {
 			if (strlen($string) > $length) {
@@ -148,7 +150,7 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 	}
 
 	$feeds_cache = new \Symfony\Component\Cache\Psr16Cache(
-		new \Symfony\Component\Cache\Adapter\FilesystemAdapter('', 0, '/tmp/simplepie/')
+		new \Symfony\Component\Cache\Adapter\FilesystemAdapter('', 0, $rss_cache_dir)
 	);
 	$feed_objects = [];
 	foreach ($rss_feed_s as $feed_source) {
@@ -167,13 +169,18 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 		$feed->strip_htmltags();
 		$content = $item->get_content();
 		$content = strip_tags($content);
+		/* A feed can link anywhere, javascript: included; only web links are followed. */
+		$link = (string)$item->get_permalink();
+		if (!in_array(strtolower((string)parse_url(html_entity_decode($link), PHP_URL_SCHEME)), ['http', 'https'], true)) {
+			$link = '#';
+		}
 ?>
-	<a href="<?=$item->get_permalink()?>" target="_blank" class="list-group-item">
+	<a href="<?=$link?>" target="_blank" rel="noopener noreferrer" class="list-group-item">
 		<h4 class="list-group-item-heading">
 			<?=htmlspecialchars(strip_tags($item->get_title()))?>
 		</h4>
 		<p class="list-group-item-text">
-			<?=textLimit($content, $rsswidgettextlength)?>
+			<?=htmlspecialchars(textLimit($content, $rsswidgettextlength), ENT_QUOTES, 'UTF-8', false)?>
 			<br />
 		</p>
 	</a>

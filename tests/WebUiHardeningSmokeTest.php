@@ -111,8 +111,11 @@ foreach (['exec_php', 'exec_shell'] as $method) {
 		$fail("XML-RPC {$method}() must call auth(true) (uid 0 only).");
 	}
 }
-if (strpos($xmlrpc, "(\$root_only && ((\$user_entry['uid'] ?? null) !== '0'))") === false) {
-	$fail('XML-RPC auth(true) must reject every account except uid 0.');
+/* An LDAP or RADIUS user has no uid; the privilege check must not depend on one. */
+if (strpos($xmlrpc, "\$is_root = (is_array(\$user_entry) && ((\$user_entry['uid'] ?? null) === '0'));") === false ||
+    strpos($xmlrpc, "if (!\$is_root && (\$root_only || !is_array(\$user_entry) ||") === false ||
+    strpos($xmlrpc, "isset(\$user_entry['uid']) &&") !== false) {
+	$fail('XML-RPC auth() must allow uid 0 only, or a user that holds the HA sync privilege.');
 }
 
 /* Redirect query values are URL-encoded, shell arguments are escaped, and ".ko" is a suffix. */
@@ -130,6 +133,94 @@ if (strpos($auth, 'pw usershow -n {$') !== false) {
 $util = file_get_contents($root . '/src/etc/inc/util.inc');
 if (strpos($util, "rtrim(\$module_name, '.ko')") !== false || strpos($util, 'dmesg |grep $ifname') !== false) {
 	$fail('util.inc: is_module_loaded() must strip the ".ko" suffix, and dmesg must get an escaped interface name.');
+}
+
+/* Security audit 2026-10-27. */
+/* Pages whose privileges name a query value take that value from the query string only. */
+if (strpos(file_get_contents($www . '/status_logs.php'), "\$_REQUEST['logfile']") !== false) {
+	$fail('status_logs.php must read the log name from $_GET: its privileges match the request URI.');
+}
+foreach (['pkg.php', 'pkg_edit.php'] as $page) {
+	$source = file_get_contents($www . '/' . $page);
+	if (strpos($source, "\$xml_request = \$_GET['xml'] ?? '';") === false ||
+	    strpos($source, "(isset(\$_POST['xml']) && \$_POST['xml'] !== \$xml_request)") === false ||
+	    strpos($source, "!isAllowedPage(\"{$page}?xml=\" . \$xml_request)") === false) {
+		$fail("{$page} must load only the package named in the query string the user may open.");
+	}
+}
+/* State changes on these pages need a CSRF-checked POST. */
+if (strpos(file_get_contents($www . '/diag_tables.php'), "\$_REQUEST['delete']") !== false) {
+	$fail('diag_tables.php must delete table entries on POST only.');
+}
+if (strpos(file_get_contents($www . '/status_logs_common.inc'), "\$save_settings = (\$_SERVER['REQUEST_METHOD'] === 'POST') ?") === false) {
+	$fail('Log display settings must be saved on POST only.');
+}
+/* Privileges that amount to root say so. */
+$privdefs = file_get_contents($root . '/src/etc/inc/priv.defs.inc');
+foreach (['page-services-captiveportal', 'page-services-captiveportal-filemanager'] as $priv) {
+	if (strpos($privdefs, "\$priv_list['{$priv}']['warn'] = \"standard-warning-root\";") === false) {
+		$fail("{$priv} runs uploaded PHP as root and must carry the root warning.");
+	}
+}
+/* "Deny Config Write" also denies package and system updates. */
+$pkginstall = file_get_contents($root . '/src/usr/local/FreeSense/include/www/pkg_mgr_install.inc');
+$customrepos = file_get_contents($root . '/src/etc/inc/pkg_custom_repos.inc');
+if (strpos($pkginstall, 'function pkg_mgr_install_readonly_user()') === false ||
+    strpos($pkginstall, 'if (pkg_mgr_install_readonly_user()) {') === false ||
+    strpos($customrepos, 'if (pkg_mgr_install_readonly_user()) {') === false) {
+	$fail('Package operations must be refused for a user with "Deny Config Write".');
+}
+/* The RSS cache (unserialized by root) is not world-writable, and feed links are web links. */
+$rss = file_get_contents($www . '/widgets/widgets/rss.widget.php');
+if (strpos($rss, '/tmp/simplepie') !== false || strpos($rss, 'chmod a+rw') !== false ||
+    strpos($rss, "['http', 'https']") === false) {
+	$fail('The RSS widget must cache in a root-only directory and only link http(s) URLs.');
+}
+
+/* The dynamic firewall log never reads a path named in the request. */
+$syslog = file_get_contents($root . '/src/etc/inc/syslog.inc');
+if (strpos($syslog, "\$logfile = getGETPOSTsettingvalue('logfile', null);") !== false ||
+    strpos($syslog, "\$logfile = g_get('varlog_path') . '/filter.log';") === false) {
+	$fail('handle_ajax() must read the firewall log only.');
+}
+/* Dashboard widgets only act with the privilege of the status page that has the same action. */
+if (strpos(file_get_contents($www . '/widgets/widgets/captive_portal_status.widget.php'), "isAllowedPage('status_captiveportal.php')") === false ||
+    strpos(file_get_contents($www . '/widgets/widgets/openvpn.widget.php'), "isAllowedPage('status_openvpn.php')") === false) {
+	$fail('Widget disconnects need the Captive Portal or OpenVPN status page privilege.');
+}
+if (strpos(file_get_contents($www . '/widgets/widgets/log.widget.php'), "if (!empty(\$_POST['widgetkey']) && empty(\$_POST['ajax'])) {") === false) {
+	$fail('The firewall log widget must save its settings on POST only.');
+}
+$index = file_get_contents($www . '/index.php');
+if (strpos($index, "\$_REQUEST['closenotice']") !== false || strpos($index, 'userHasPrivilege($notice_user, "user-view-clear-notices")') === false) {
+	$fail('index.php must clear notices on POST only, for users who may clear them.');
+}
+/* Pages that replace the configuration carry the root warning and honour "Deny Config Write". */
+$upload = file_get_contents($www . '/uploadconfig.php');
+if (strpos($upload, "userHasPrivilege(\$guiuser, 'user-config-readonly')") === false ||
+    strpos($upload, '{$g[\'tmp_path\']}/config.xml') !== false ||
+    strpos($privdefs, "\$priv_list['page-hidden-uploadconfiguration']['warn'] = \"standard-warning-root\";") === false ||
+    strpos($privdefs, "\$priv_list['page-freesensewizardsubsystem']['warn'] = \"standard-warning-root\";") === false) {
+	$fail('uploadconfig.php and the wizard must be flagged as root, and uploadconfig must refuse read-only users.');
+}
+/* Plain-text replies holding user-controlled text are not rendered as HTML. */
+foreach (['status_logs_filter.php', 'bandwidth_by_ip.php'] as $page) {
+	if (strpos(file_get_contents($www . '/' . $page), "header('Content-Type: text/plain; charset=UTF-8');") === false) {
+		$fail("{$page} must answer its text replies as text/plain.");
+	}
+}
+/* The HA sync password is never sent to a peer it was not entered for. */
+$hasync = file_get_contents($root . '/src/usr/local/FreeSense/include/www/system_hasync.inc');
+if (strpos($hasync, "((string)(\$old_hasync['synchronizetoip'] ?? '') !== (string)\$a_hasync['synchronizetoip'])") === false) {
+	$fail('Changing the HA sync peer must require the sync password again.');
+}
+/* Signing out through the REST session bridge destroys the server-side session. */
+if (strpos(file_get_contents($root . '/src/etc/inc/restapi/routes_me.inc'), "session_id(\$req['session_id']);\n\twebgui_session_signout(false);") === false) {
+	$fail('restapi_h_me_signout() must open the real session before signing out.');
+}
+/* The Fleet join key file is never readable by others. */
+if (strpos(file_get_contents($www . '/system_fleet.php'), "\$old_umask = umask(0077);\n\t\t\tfile_put_contents(FLEET_JOIN_REQUEST_FILE") === false) {
+	$fail('system_fleet.php must create the join request file under umask 0077.');
 }
 
 echo "WebUI hardening smoke test passed\n";
