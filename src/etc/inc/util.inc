@@ -1501,6 +1501,11 @@ function is_ipaddrv6($ipaddr) {
 	if (strstr($ipaddr, "/")) {
 		return false;
 	}
+	/* A scope is an interface name. Callers pass "validated" addresses to shells and config files. */
+	if ((strpos($ipaddr, '%') !== false) &&
+	    !preg_match('/^[A-Za-z0-9_.-]{1,32}$/D', explode('%', $ipaddr, 2)[1])) {
+		return false;
+	}
 	if (strstr($ipaddr, "%") && is_linklocal($ipaddr)) {
 		$tmpip = explode("%", $ipaddr);
 		$ipaddr = $tmpip[0];
@@ -3473,6 +3478,11 @@ function run_plugins($directory) {
  *    safe_mkdir($path, $mode = 0755)
  *    create directory if it doesn't already exist and isn't a file!
  */
+/* True when $text holds a control character, which would end a line in a daemon configuration file. */
+function cfg_has_ctl($text) {
+	return (preg_match('/[\x00-\x1f\x7f]/', (string)$text) === 1);
+}
+
 /*
  * Write $data to $path readable by root only, for daemon configurations that
  * hold secrets (PSKs, passwords). Returns what file_put_contents() returns.

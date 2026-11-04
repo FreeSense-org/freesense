@@ -237,22 +237,24 @@ function restore_xmldatafile($type='voucher', $conf = false) {
 
 	foreach ($conf[$type]["{$type}data"]["xmldatafile"] as $file) {
 		$basename = basename($file['filename']);
-		$dirname = '';
-		if (isset($file['path'])) {
-			$dirname = $file['path'];
-		} else {
-			/* Handle restoring older backups without a path. If
-			   multiple paths are given, use the first path with a
-			   matching file name. If there are no matching names,
-			   default to the first path. */
-			$paths = explode(',', trim($g['backuppath'][$type], '{}'));
-			$dirname = dirname($paths[array_key_first($paths)]);
-			foreach ($paths as $path) {
-				if (basename($path) == $basename) {
-					$dirname = dirname($path);
-					break;
-				}
+		/*
+		 * A backup names the file, never where it goes: a path in the XML could
+		 * write anywhere as root. If several paths are known, use the first with
+		 * a matching file name, then the one the backup names if it is a known
+		 * directory for this data, then the first.
+		 */
+		$paths = explode(',', trim($g['backuppath'][$type], '{}'));
+		$dirname = dirname($paths[array_key_first($paths)]);
+		$matched = false;
+		foreach ($paths as $path) {
+			if (basename($path) == $basename) {
+				$dirname = dirname($path);
+				$matched = true;
+				break;
 			}
+		}
+		if (!$matched && isset($file['path']) && in_array((string)$file['path'], array_map('dirname', $paths), true)) {
+			$dirname = $file['path'];
 		}
 
 		$xmldata_file = "{$dirname}/{$basename}";
@@ -779,10 +781,29 @@ function reset_factory_defaults($lock = false, $reboot_required = true) {
 	return 0;
 }
 
+/* Whether the signed-in WebGUI user has "Deny Config Write". Never true outside a web request. */
+function config_write_denied(): bool {
+	if (empty($_SERVER['REMOTE_ADDR'])) {
+		return false;
+	}
+	@phpsession_begin();
+	$name = $_SESSION['Username'] ?? '';
+	phpsession_end(true);
+	if (($name === '') || ($name === 'admin')) {
+		return false;
+	}
+	$user = getUserEntry($name)['item'] ?? null;
+	if (is_array($user) && userHasPrivilege($user, 'user-config-readonly')) {
+		logger(LOG_EMERG, localize_text("Replacing the configuration denied by the 'User - Config: Deny Config Write' permission for user '%s'.", $name));
+		return true;
+	}
+	return false;
+}
+
 function config_restore(string $path, string $descr): bool {
 	global $config;
 
-	if (!file_exists($path) || !backup_config()) {
+	if (config_write_denied() || !file_exists($path) || !backup_config()) {
 		return false;
 	}
 	require_once('package_restore.inc');
@@ -820,7 +841,7 @@ function config_restore(string $path, string $descr): bool {
 function config_install($conffile) {
 	global $g;
 
-	if (!file_exists($conffile)) {
+	if (config_write_denied() || !file_exists($conffile)) {
 		return 1;
 	}
 

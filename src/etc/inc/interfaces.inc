@@ -2479,12 +2479,25 @@ function handle_pppoe_reset($post_array) {
 	global $g;
 
 	$pppif = "{$post_array['type']}{$post_array['ptpid']}";
+	/* These come from the form and become a file name and a line of /etc/crontab. */
+	if (!preg_match('/^[a-z0-9]+$/D', $pppif)) {
+		return;
+	}
+	foreach (['pppoe_resetminute', 'pppoe_resethour'] as $field) {
+		if (isset($post_array[$field]) && !preg_match('/^[0-9]{0,2}$/D', (string)$post_array[$field])) {
+			return;
+		}
+	}
+	if (isset($post_array['pppoe_resetdate']) && !preg_match('#^([0-9]{1,2}/[0-9]{1,2}(/[0-9]{1,4})?)?$#D', (string)$post_array['pppoe_resetdate'])) {
+		return;
+	}
 	$cron_cmd_file = "{$g['varetc_path']}/pppoe_restart_{$pppif}";
 
 	if (!is_array(config_get_path('cron/item'))) {
-		if (config_set_path('cron/item', array()) === null)
+		if (config_set_path('cron/item', array()) === null) {
 			logger(LOG_DEBUG, localize_text('Cron section in config root is invalid.'));
 			return;
+		}
 	}
 
 	$itemhash = getMPDCRONSettings($pppif);
@@ -2675,6 +2688,8 @@ function get_mpd_str(string|null $text) {
 	if (!isset($text) || (mb_strlen($text) < 1)) {
 		return '""';
 	}
+	/* A control character would end the line and start a new mpd command. */
+	$text = preg_replace('/[\x00-\x1f\x7f]/', '', $text);
 	return '"' . str_replace(['\\', '"', '$'], ['\\\\', '\"', '\$'], $text) . '"';
 }
 

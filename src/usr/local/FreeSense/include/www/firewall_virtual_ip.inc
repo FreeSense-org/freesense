@@ -160,6 +160,16 @@ function saveVIP($post, $json = false) {
 	 */
 	switch ($post['mode']) {
 		case 'carp':
+			/* These reach ifconfig and the CARP status check. */
+			if (!is_numericint($post['vhid']) || ($post['vhid'] < 1) || ($post['vhid'] > 255)) {
+				$input_errors[] = gettext("The VHID must be a number between 1 and 255.");
+			}
+			if (!is_numericint($post['advbase']) || ($post['advbase'] < 1) || ($post['advbase'] > 254)) {
+				$input_errors[] = gettext("The base advertising frequency must be a number between 1 and 254.");
+			}
+			if (!is_numericint($post['advskew']) || ($post['advskew'] < 0) || ($post['advskew'] > 254)) {
+				$input_errors[] = gettext("The advertising skew must be a number between 0 and 254.");
+			}
 			/* verify against reusage of vhids */
 			$idtracker = 0;
 			foreach (config_get_path('virtualip/vip', []) as $vip) {
