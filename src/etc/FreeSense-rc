@@ -424,6 +424,8 @@ chmod 0555 /var/empty
 chflags schg /var/empty
 
 /bin/rm -rf "${varrunpath:?}"/*
+# Nobody is signed in after a boot.
+/bin/rm -rf /var/db/php-sessions
 
 # Cleanup configuration files from previous instance
 /bin/rm -rf /var/etc/*
@@ -690,7 +692,9 @@ fi
 /etc/rc.update_pkg_metadata now
 
 # Reset the cache.  read-only requires this.
-/bin/rm -f /var/db/freesense/config.cache
+/bin/rm -f /var/db/freesense/config.cache /tmp/config.cache /tmp/config.extra.cache /var/db/config.cache /var/db/config.extra.cache
+# The configuration holds password hashes and private keys.
+/bin/chmod 0700 /cf/conf
 
 # Run /etc/rc.local
 if [ -f /etc/rc.local ]; then

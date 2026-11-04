@@ -1185,25 +1185,6 @@ function restore_config_section($section_name, $new_contents) {
 }
 
 /*
- *  merge_config_section($section_name, new_contents):   restore a configuration section,
- *                                                  and write the configuration out
- *                                                  to disk/cf.  But preserve the prior
- * 													structure if needed
- */
-function merge_config_section($section_name, $new_contents) {
-	$fname = get_tmp_file();
-	$fout = fopen($fname, "w");
-	fwrite($fout, $new_contents);
-	fclose($fout);
-	$section_xml = parse_xml_config($fname, $section_name);
-	config_set_path($section_name, $section_xml);
-	unlink($fname);
-	write_config(sprintf(gettext("Restored %s of config file (maybe from CARP partner)"), $section_name));
-	disable_security_checks();
-	return;
-}
-
-/*
  * rmdir_recursive($path, $follow_links=false)
  * Recursively remove a directory tree (rm -rf path)
  * This is for directories _only_
