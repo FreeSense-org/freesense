@@ -584,6 +584,8 @@
 			}
 
 			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+			curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 
 			curl_setopt($ch, CURLOPT_IPRESOLVE, (($this->_addressFamilyRequest == AF_INET6) ? CURL_IPRESOLVE_V6 : CURL_IPRESOLVE_V4));
 
@@ -1973,6 +1975,8 @@
 			}
 
 			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+			curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 
 			curl_setopt($ch, CURLOPT_USERAGENT, $this->_UserAgent);
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
@@ -2038,6 +2042,8 @@
 			}
 
 			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+			curl_setopt($ch, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 
 			curl_setopt($ch, CURLOPT_IPRESOLVE, (($this->_addressFamilyRequest == AF_INET6) ? CURL_IPRESOLVE_V6 : CURL_IPRESOLVE_V4));
 

@@ -2686,7 +2686,8 @@ function system_ntp_configure() {
 	/* set NTP server authentication key */
 	if (config_get_path('ntpd/serverauth') == 'yes') {
 		$ntpkeyscfg = "{$ntp_keyid} " . strtoupper(config_get_path('ntpd/serverauthalgo')) . " " . base64_decode(config_get_path('ntpd/serverauthkey')) . "\n";
-		if (!@file_put_contents("{$g['varetc_path']}/ntp.keys", $ntpkeyscfg)) {
+		/* It holds the NTP authentication key. */
+		if (!file_put_contents_private("{$g['varetc_path']}/ntp.keys", $ntpkeyscfg)) {
 			logger(LOG_ERR, localize_text("Could not open %s for writing", g_get('varetc_path') . '/ntp.keys'), LOG_PREFIX_NTP);
 			return;
 		}

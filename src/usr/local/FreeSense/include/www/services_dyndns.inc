@@ -310,6 +310,10 @@ function dyndns_save_client($post, $id, $dup = false) {
 
 	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
+	if (!empty($post['updateurl']) && !preg_match('#^https?://#i', (string)$post['updateurl'])) {
+		$input_errors[] = gettext("The Update URL must start with http:// or https://.");
+	}
+
 	if ($post['passwordfld'] != $post['passwordfld_confirm']) {
 		$input_errors[] = gettext("Password and confirmed password must match.");
 	}
