@@ -1246,13 +1246,6 @@ $priv_list['page-system-usermanager-settings']['warn'] = "standard-warning-root"
 $priv_list['page-system-usermanager-settings']['match'] = array();
 $priv_list['page-system-usermanager-settings']['match'][] = "system_usermanager_settings.php*";
 
-$priv_list['page-hidden-uploadconfiguration'] = array();
-$priv_list['page-hidden-uploadconfiguration']['name'] = gettext("WebCfg - Hidden: Upload Configuration");
-$priv_list['page-hidden-uploadconfiguration']['descr'] = gettext("Allow access to the 'Hidden: Upload Configuration' page.");
-$priv_list['page-hidden-uploadconfiguration']['warn'] = "standard-warning-root";
-$priv_list['page-hidden-uploadconfiguration']['match'] = array();
-$priv_list['page-hidden-uploadconfiguration']['match'][] = "uploadconfig.php*";
-
 $priv_list['page-vpn-ipsec'] = array();
 $priv_list['page-vpn-ipsec']['name'] = gettext("WebCfg - VPN: IPsec");
 $priv_list['page-vpn-ipsec']['descr'] = gettext("Allow access to the 'VPN: IPsec' page.");

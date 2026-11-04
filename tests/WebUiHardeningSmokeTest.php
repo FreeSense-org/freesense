@@ -106,7 +106,7 @@ if (strpos($auth, 'function local_user_upgrade_legacy_hash(') === false ||
 
 /* The XML-RPC methods that run code are for admin (uid 0) only, not for the HA sync privilege. */
 $xmlrpc = file_get_contents($www . '/xmlrpc.php');
-foreach (['exec_php', 'exec_shell'] as $method) {
+foreach (['exec_php'] as $method) {
 	if (!preg_match('/function ' . $method . '\(\$code\) \{\s+\$this->auth\(true\);/', $xmlrpc)) {
 		$fail("XML-RPC {$method}() must call auth(true) (uid 0 only).");
 	}
@@ -202,12 +202,11 @@ if (strpos($index, "\$_REQUEST['closenotice']") !== false || strpos($index, 'use
 	$fail('index.php must clear notices on POST only, for users who may clear them.');
 }
 /* Pages that replace the configuration carry the root warning and honour "Deny Config Write". */
-$upload = file_get_contents($www . '/uploadconfig.php');
-if (strpos($upload, "userHasPrivilege(\$guiuser, 'user-config-readonly')") === false ||
-    strpos($upload, '{$g[\'tmp_path\']}/config.xml') !== false ||
-    strpos($privdefs, "\$priv_list['page-hidden-uploadconfiguration']['warn'] = \"standard-warning-root\";") === false ||
-    strpos($privdefs, "\$priv_list['page-freesensewizardsubsystem']['warn'] = \"standard-warning-root\";") === false) {
-	$fail('uploadconfig.php and the wizard must be flagged as root, and uploadconfig must refuse read-only users.');
+if (file_exists($www . '/uploadconfig.php') || strpos($privdefs, 'page-hidden-uploadconfiguration') !== false) {
+	$fail('uploadconfig.php was removed: it could replace the configuration from one POST field.');
+}
+if (strpos($privdefs, "\$priv_list['page-freesensewizardsubsystem']['warn'] = \"standard-warning-root\";") === false) {
+	$fail('The wizard must be flagged as root.');
 }
 /* Plain-text replies holding user-controlled text are not rendered as HTML. */
 foreach (['status_logs_filter.php', 'bandwidth_by_ip.php'] as $page) {
@@ -354,6 +353,38 @@ if (strpos($src('usr/local/www/interfaces_ppps_edit.php'), "handle_pppoe_reset(\
 }
 if (strpos($src('etc/inc/config.lib.inc'), "\$dirname = \$file['path'];\n\t\t} else {") !== false) {
 	$fail('restore_xmldatafile() must not write to a path named in the backup.');
+}
+
+/* Input scan 2026-11-04: inputs removed, limits lowered. */
+if ((strpos($xmlrpc, 'exec_shell') !== false) || (strpos($xmlrpc, 'function merge_config_section') !== false)) {
+	$fail('XML-RPC must not offer exec_shell or merge_config_section: nothing calls them.');
+}
+$pinghosts = file_get_contents($root . '/src/usr/local/bin/ping_hosts.sh');
+if ((strpos($pinghosts, 'sh -c') !== false) || (strpos($pinghosts, 'FAILURESCRIPT') !== false)) {
+	$fail('ping_hosts.sh must not run commands from its host list.');
+}
+if (strpos(file_get_contents($root . '/src/usr/local/FreeSense/include/www/backup.inc'), '<path>') !== false) {
+	$fail('Backups must not carry a path to restore to.');
+}
+$ntpdpage = file_get_contents($www . '/services_ntpd.php');
+if (strpos($ntpdpage, '$_FILES') !== false || strpos($ntpdpage, 'leapfile') !== false) {
+	$fail('The NTP page takes its leap seconds as text only.');
+}
+$nginxgen = file_get_contents($root . '/src/etc/inc/system.inc');
+if ((strpos($nginxgen, 'client_max_body_size 200m;') !== false) || (strpos($nginxgen, "\$body_limit = (\$captive_portal !== false) ? '1m' : '8m';") === false)) {
+	$fail('Request bodies must be small unless a page takes files.');
+}
+$phpini = file_get_contents($root . '/src/etc/rc.php_ini_setup');
+foreach (['session.use_strict_mode = 1', 'session.save_path = "${SESSIONDIR}"', 'php_admin_flag[register_argc_argv] = off', 'allow_url_include = Off'] as $needle) {
+	if (strpos($phpini, $needle) === false) {
+		$fail("php.ini must have: {$needle}");
+	}
+}
+$configlib = file_get_contents($root . '/src/etc/inc/config.lib.inc');
+if ((strpos($configlib, "g_get('tmp_path') . '/config.cache") !== false) || (strpos($configlib, "g_get('tmp_path') . '/config.extra.cache") !== false) || (strpos($configlib, "@chmod(config_cache_path(), 0600);") === false) ||
+    (substr_count($configlib, 'config_cache_write(') !== 3) || (strpos($configlib, 'safe_write_file(config_cache_path()') === false) ||
+    (strpos(file_get_contents($root . '/src/etc/FreeSense-rc'), '/bin/chmod 0700 /cf/conf') === false)) {
+	$fail('The configuration and its cache must be readable by root only, and the cache must not be in /tmp.');
 }
 
 echo "WebUI hardening smoke test passed\n";

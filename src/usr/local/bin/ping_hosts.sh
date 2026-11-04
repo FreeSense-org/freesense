@@ -25,10 +25,7 @@
 #  Field 1:  Source IP
 #  Field 2:  Destination IP
 #  Field 3:  Ping count
-#  Field 4:  Script to run when service is down
-#  Field 5:  Script to run once service is restored
-#  Field 6:  Ping time threshold
-#  Field 7:  Wan ping time threshold
+#  Fields 4-7: no longer used; the field positions are kept
 #  Field 8:  Address family
 
 # Read in ipsec ping hosts and check the CARP status
@@ -59,8 +56,8 @@ fi
 
 # Make sure at least one of these has contents, otherwise cat will be stuck waiting on input
 if [ -n "${PKGHOSTS}" ] || [ -n "${HOSTS}" ] || [ -n "${CURRENTIPSECHOSTS}" ]; then
-	# Root runs the scripts named in this list: a fixed name in /tmp could
-	# be a file another user planted, so it is a private temporary file.
+	# A fixed name in /tmp could be a file another user planted, so this is a
+	# private temporary file.
 	TMPHOSTS=$(/usr/bin/mktemp /var/run/pinghosts.XXXXXX) || exit 1
 	trap '/bin/rm -f "${TMPHOSTS}"' EXIT
 	eval cat "$PKGHOSTS" "$HOSTS" "$CURRENTIPSECHOSTS" >"${TMPHOSTS}"
@@ -88,10 +85,6 @@ for TOPING in $PINGHOSTS ; do
 	SRCIP=`echo "$TOPING" | cut -d"|" -f1`
 	DSTIP=`echo "$TOPING" | cut -d"|" -f2`
 	COUNT=`echo "$TOPING" | cut -d"|" -f3`
-	FAILURESCRIPT=`echo "$TOPING" | cut -d"|" -f4`
-	SERVICERESTOREDSCRIPT=`echo "$TOPING" | cut -d"|" -f5`
-	THRESHOLD=`echo "$TOPING" | cut -d"|" -f6`
-	WANTHRESHOLD=`echo "$TOPING" | cut -d"|" -f7`
 	AF=`echo "$TOPING" | cut -d"|" -f8`
 	if [ "$AF" = "inet6" ]; then
 		PINGCMD=ping6
@@ -110,22 +103,12 @@ for TOPING in $PINGHOSTS ; do
 		if [ "$PREVIOUSSTATUS" != "UP" ]; then
 			# Service restored
 			echo "UP" > "/var/db/pingstatus/$DSTIP"
-			if [ -n "$SERVICERESTOREDSCRIPT" ]; then
-				echo "$DSTIP is UP, previous state was DOWN .. Running $SERVICERESTOREDSCRIPT"
-				echo "INFO $DSTIP is UP, previous state was DOWN .. Running $SERVICERESTOREDSCRIPT" | logger -p daemon.info -i -t PingMonitor
-				sh -c "$SERVICERESTOREDSCRIPT"
-			fi
 		fi
 	else
 		# Host is down
 		if [ "$PREVIOUSSTATUS" != "DOWN" ]; then
 			# Service is down
 			echo "DOWN" > "/var/db/pingstatus/$DSTIP"
-			if [ -n "$FAILURESCRIPT" ]; then
-				echo "$DSTIP is DOWN, previous state was UP ..  Running $FAILURESCRIPT"
-				echo "INFO $DSTIP is DOWN, previous state was UP ..  Running $FAILURESCRIPT" | logger -p daemon.info -i -t PingMonitor
-				sh -c "$FAILURESCRIPT"
-			fi
 		fi
 	fi
 	echo "Checking ping time $DSTIP"
@@ -133,24 +116,6 @@ for TOPING in $PINGHOSTS ; do
 	PINGTIME=`$PINGCMD -c 1 -S "$SRCIP" "$DSTIP" | awk '{ print $7 }' | grep time | cut -d "=" -f2`
 	echo "Ping returned $?"
 	echo "$PINGTIME" > "/var/db/pingmsstatus/$DSTIP"
-	if [ -n "$THRESHOLD" ]; then
-		if [ "$(echo "${PINGTIME} > ${THRESHOLD}" | /usr/bin/bc)" -eq 1 ]; then
-			echo "$DSTIP has exceeded ping threshold $PINGTIME / $THRESHOLD .. Running $FAILURESCRIPT"
-			echo "INFO $DSTIP has exceeded ping threshold $PINGTIME / $THRESHOLD .. Running $FAILURESCRIPT" | logger -p daemon.info -i -t PingMonitor
-			sh -c "$FAILURESCRIPT"
-		fi
-	fi
-	# Wan ping time threshold
-	#WANTIME=`rrdtool fetch /var/db/rrd/wan-quality.rrd AVERAGE -r 120 -s -1min -e -1min | grep ":" | cut -f3 -d" " | cut -d"e" -f1`
-	echo "Checking wan ping time $WANTIME"
-	echo "$WANTIME" > /var/db/wanaverage
-	if [ -n "$WANTHRESHOLD" ] && [ -n "$WANTIME" ]; then
-		if [ "$(echo "${WANTIME} > ${WANTHRESHOLD}" | /usr/bin/bc)" -eq 1 ]; then
-			echo "$DSTIP has exceeded wan ping threshold $WANTIME / $WANTHRESHOLD .. Running $FAILURESCRIPT"
-			echo "INFO $DSTIP has exceeded wan ping threshold $WANTIME / $WANTHRESHOLD .. Running $FAILURESCRIPT" | logger -p daemon.info -i -t PingMonitor
-			sh -c "$FAILURESCRIPT"
-		fi
-	fi
 	sleep 1
 done
 
