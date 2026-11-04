@@ -1322,7 +1322,9 @@ function services_dhcpd_configure($family = "all") {
 	services_dhcpd_kill_all($family);
 
 	if (dhcp_is_backend('isc')) {
-		$fd = fopen("{$g['tmp_path']}/dhcpd.sh", "w");
+		/* Root runs this script: never from a fixed name in /tmp, which another user could own. */
+		$dhcpd_script = tempnam(g_get('varrun_path'), 'dhcpd.sh.');
+		$fd = fopen($dhcpd_script, "w");
 		fwrite($fd, "/bin/mkdir -p {$g['dhcpd_chroot_path']}\n");
 		fwrite($fd, "/bin/mkdir -p {$g['dhcpd_chroot_path']}/dev\n");
 		fwrite($fd, "/bin/mkdir -p {$g['dhcpd_chroot_path']}/etc\n");
@@ -1334,7 +1336,8 @@ function services_dhcpd_configure($family = "all") {
 		fwrite($fd, "/bin/df {$g['dhcpd_chroot_path']}/dev | /usr/bin/grep -q {$g['dhcpd_chroot_path']}/dev || /sbin/mount -t devfs devfs {$g['dhcpd_chroot_path']}/dev\n");
 
 		fclose($fd);
-		mwexec("/bin/sh {$g['tmp_path']}/dhcpd.sh");
+		mwexec('/bin/sh ' . escapeshellarg($dhcpd_script));
+		@unlink($dhcpd_script);
 	}
 
 	if (($family === 'all') || ($family === 'inet')) {
@@ -5135,6 +5138,8 @@ function services_snmpd_configure($interface='') {
 			printf(gettext("Error: cannot open snmpd.conf in services_snmpd_configure().%s"), "\n");
 			return 1;
 		}
+		/* It holds the communities; readable by root only. */
+		@chmod("{$g['varetc_path']}/snmpd.conf", 0600);
 
 		$snmpdcfg = config_get_path('snmpd');
 		$snmpdconf = <<<EOD

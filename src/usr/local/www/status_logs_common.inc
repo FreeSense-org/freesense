@@ -705,7 +705,8 @@ function manage_log_code() {
 		$pconfig['filterdescriptions'] = isset($syslog_config['filterdescriptions']) ? $syslog_config['filterdescriptions'] : null;
 	}
 
-	$save_settings = getGETPOSTsettingvalue('save_settings', null);
+	/* Saving changes the configuration, so it takes a CSRF-checked POST only. */
+	$save_settings = ($_SERVER['REQUEST_METHOD'] === 'POST') ? getGETPOSTsettingvalue('save_settings', null) : null;
 
 	phpsession_begin();
 	$guiuser = getUserEntry($_SESSION['Username']);
@@ -755,6 +756,12 @@ function manage_log_code() {
 			} elseif ($logfilesize >= (2**32)/2) {
 				$input_errors[] = gettext("Log file size is too large. Set a smaller value.");
 			}
+		}
+		if (!in_array($cronorder ?? '', ['', 'reverse', 'forward'], true)) {
+			$input_errors[] = gettext("Invalid log message order.");
+		}
+		if (!in_array($format ?? '', ['', 'formatted', 'raw'], true)) {
+			$input_errors[] = gettext("Invalid log display format.");
 		}
 		if (isset($rotatecount) && (strlen($rotatecount) > 0)) {
 			if (!is_numericint($rotatecount) ||

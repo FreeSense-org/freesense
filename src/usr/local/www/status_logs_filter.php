@@ -87,6 +87,8 @@ if ($rulenum) {
 	list($rulenum, $subrulenum, $tracker, $type) = explode(',', $rulenum);
 	$rule = find_rule_by_number($rulenum, $subrulenum, $tracker, $type);
 	$rule = $rule['match'] ?? 'unavailable';
+	/* The rule text includes its (user-written) description; never let a browser render it as HTML. */
+	header('Content-Type: text/plain; charset=UTF-8');
 	echo gettext("The rule that triggered this action is") . ":\n\n{$rule}";
 	exit;
 }
