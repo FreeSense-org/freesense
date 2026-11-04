@@ -35,9 +35,6 @@ if (empty($do_not_include_config_gui_inc)) {
 	require_once("config.gui.inc");
 }
 
-// Will be changed to false if security checks fail
-$security_passed = true;
-
 /* Possible user password hash types.
  * See upstream issue 12855
  */
@@ -47,9 +44,18 @@ $auth_password_hash_types = array(
 	'sha512' => gettext('SHA-512 -- SHA-512-based crypt')
 );
 
-/* If this function doesn't exist, we're being called from Captive Portal or
-   another internal subsystem which does not include authgui.inc */
-if (function_exists("display_error_form")) {
+/*
+ * The checks every WebGUI request must pass before it is served: the lockout
+ * table, DNS rebinding and the HTTP Referer. authgui.inc calls this, so it runs
+ * whatever order a page loads its includes in. Exits with an error page on
+ * failure. The Captive Portal and other subsystems do not load authgui.inc.
+ */
+function webgui_request_guard() {
+	global $g;
+
+	// Will be changed to false if security checks fail
+	$security_passed = true;
+
 	/* Extra layer of lockout protection. Check if the user is in the GUI
 	 * lockout table before processing a request */
 
@@ -73,85 +79,84 @@ if (function_exists("display_error_form")) {
 		}
 		$security_passed = false;
 	}
-}
 
-if (function_exists("display_error_form") && !config_path_enabled('system/webgui', 'nodnsrebindcheck')) {
-	/* DNS ReBinding attack prevention.  upstream issue 708 */
-	$found_host = false;
+	if (!config_path_enabled('system/webgui', 'nodnsrebindcheck')) {
+		/* DNS ReBinding attack prevention.  upstream issue 708 */
+		$found_host = false;
 
-	/* Either a IPv6 address with or without a alternate port */
-	if (strstr($_SERVER['HTTP_HOST'], "]")) {
-		$http_host_port = explode("]", $_SERVER['HTTP_HOST']);
-		/* v6 address has more parts, drop the last part */
-		if (count($http_host_port) > 1) {
-			array_pop($http_host_port);
-			$http_host = str_replace(array("[", "]"), "", implode(":", $http_host_port));
+		/* Either a IPv6 address with or without a alternate port */
+		if (strstr($_SERVER['HTTP_HOST'], "]")) {
+			$http_host_port = explode("]", $_SERVER['HTTP_HOST']);
+			/* v6 address has more parts, drop the last part */
+			if (count($http_host_port) > 1) {
+				array_pop($http_host_port);
+				$http_host = str_replace(array("[", "]"), "", implode(":", $http_host_port));
+			} else {
+				$http_host = str_replace(array("[", "]"), "", implode(":", $http_host_port));
+			}
 		} else {
-			$http_host = str_replace(array("[", "]"), "", implode(":", $http_host_port));
+			$http_host = explode(":", $_SERVER['HTTP_HOST']);
+			$http_host = $http_host[0];
 		}
-	} else {
-		$http_host = explode(":", $_SERVER['HTTP_HOST']);
-		$http_host = $http_host[0];
-	}
-	if (is_ipaddr($http_host) or $_SERVER['SERVER_ADDR'] == "127.0.0.1" or
-		strcasecmp($http_host, "localhost") == 0 or $_SERVER['SERVER_ADDR'] == "::1") {
-		$found_host = true;
-	}
-	if (strcasecmp($http_host, config_get_path('system/hostname') . "." . config_get_path('system/domain')) == 0 or
-		strcasecmp($http_host, config_get_path('system/hostname')) == 0) {
-		$found_host = true;
-	}
+		if (is_ipaddr($http_host) or $_SERVER['SERVER_ADDR'] == "127.0.0.1" or
+			strcasecmp($http_host, "localhost") == 0 or $_SERVER['SERVER_ADDR'] == "::1") {
+			$found_host = true;
+		}
+		if (strcasecmp($http_host, config_get_path('system/hostname') . "." . config_get_path('system/domain')) == 0 or
+			strcasecmp($http_host, config_get_path('system/hostname')) == 0) {
+			$found_host = true;
+		}
 
-	if (!$found_host) {
-		foreach (config_get_path('dyndnses/dyndns', []) as $dyndns) {
-			if (!is_array($dyndns) || empty($dyndns)) {
-				continue;
-			}
-			if (strcasecmp($dyndns['host'], $http_host) == 0) {
-				$found_host = true;
-				break;
+		if (!$found_host) {
+			foreach (config_get_path('dyndnses/dyndns', []) as $dyndns) {
+				if (!is_array($dyndns) || empty($dyndns)) {
+					continue;
+				}
+				if (strcasecmp($dyndns['host'], $http_host) == 0) {
+					$found_host = true;
+					break;
+				}
 			}
 		}
-	}
 
-	if (!$found_host) {
-		foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136) {
-			if (!is_array($rfc2136) || empty($rfc2136)) {
-				continue;
+		if (!$found_host) {
+			foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136) {
+				if (!is_array($rfc2136) || empty($rfc2136)) {
+					continue;
+				}
+				if (strcasecmp($rfc2136['host'], $http_host) == 0) {
+					$found_host = true;
+					break;
+				}
 			}
-			if (strcasecmp($rfc2136['host'], $http_host) == 0) {
-				$found_host = true;
-				break;
+		}
+
+		if (!$found_host) {
+			$althosts = explode(" ", config_get_path('system/webgui/althostnames', ""));
+			foreach ($althosts as $ah) {
+				if (strcasecmp($ah, $http_host) == 0 or strcasecmp($ah, $_SERVER['SERVER_ADDR']) == 0) {
+					$found_host = true;
+					break;
+				}
 			}
+		}
+
+		if ($found_host == false) {
+			if (!security_checks_disabled()) {
+				display_error_form("501", gettext("Potential DNS Rebind attack detected, see https://en.wikipedia.org/wiki/DNS_rebinding<br />Try accessing the router by IP address instead of by hostname."));
+				exit;
+			}
+			$security_passed = false;
 		}
 	}
 
-	if (!$found_host) {
-		$althosts = explode(" ", config_get_path('system/webgui/althostnames', ""));
-		foreach ($althosts as $ah) {
-			if (strcasecmp($ah, $http_host) == 0 or strcasecmp($ah, $_SERVER['SERVER_ADDR']) == 0) {
-				$found_host = true;
-				break;
-			}
-		}
-	}
-
-	if ($found_host == false) {
-		if (!security_checks_disabled()) {
-			display_error_form("501", gettext("Potential DNS Rebind attack detected, see https://en.wikipedia.org/wiki/DNS_rebinding<br />Try accessing the router by IP address instead of by hostname."));
-			exit;
-		}
-		$security_passed = false;
-	}
-}
-
-// If the HTTP_REFERER is something other than ourselves then disallow.
-if (function_exists("display_error_form") && !config_path_enabled('system/webgui', 'nohttpreferercheck')) {
-	if (!empty($_SERVER['HTTP_REFERER'])) {
-		if (file_exists("{$g['tmp_path']}/setupwizard_lastreferrer")) {
-			if ($_SERVER['HTTP_REFERER'] == file_get_contents("{$g['tmp_path']}/setupwizard_lastreferrer")) {
-				unlink("{$g['tmp_path']}/setupwizard_lastreferrer");
-				header("Refresh: 1; url=index.php");
+	// If the HTTP_REFERER is something other than ourselves then disallow.
+	if (!config_path_enabled('system/webgui', 'nohttpreferercheck')) {
+		if (!empty($_SERVER['HTTP_REFERER'])) {
+			if (file_exists("{$g['tmp_path']}/setupwizard_lastreferrer")) {
+				if ($_SERVER['HTTP_REFERER'] == file_get_contents("{$g['tmp_path']}/setupwizard_lastreferrer")) {
+					unlink("{$g['tmp_path']}/setupwizard_lastreferrer");
+					header("Refresh: 1; url=index.php");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -171,107 +176,107 @@ if (function_exists("display_error_form") && !config_path_enabled('system/webgui
 </body>
 </html>
 <?php
-				exit;
-			}
-		}
-		$found_host = false;
-		$referrer_host = parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST);
-		$referrer_host = str_replace(array("[", "]"), "", $referrer_host);
-		if ($referrer_host) {
-			if (strcasecmp($referrer_host, config_get_path('system/hostname') . "." . config_get_path('system/domain')) == 0 ||
-			    strcasecmp($referrer_host, config_get_path('system/hostname')) == 0) {
-				$found_host = true;
-			}
-
-			if (!$found_host) {
-				$althosts = explode(" ", config_get_path('system/webgui/althostnames', ""));
-				foreach ($althosts as $ah) {
-					if (strcasecmp($referrer_host, $ah) == 0) {
-						$found_host = true;
-						break;
-					}
+					exit;
 				}
 			}
-
-			if (!$found_host) {
-				foreach (config_get_path('dyndnses/dyndns', []) as $dyndns) {
-					if (!is_array($dyndns) || empty($dyndns)) {
-						continue;
-					}
-					if (strcasecmp($dyndns['host'], $referrer_host) == 0) {
-						$found_host = true;
-						break;
-					}
-				}
-			}
-
-			if (!$found_host) {
-				foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136) {
-					if (!is_array($rfc2136) || empty($rfc2136)) {
-						continue;
-					}
-					if (strcasecmp($rfc2136['host'], $referrer_host) == 0) {
-						$found_host = true;
-						break;
-					}
-				}
-			}
-
-			if (!$found_host) {
-				$interface_list_ips = get_configured_ip_addresses();
-				foreach ($interface_list_ips as $ilips) {
-					if (strcasecmp($referrer_host, $ilips) == 0) {
-						$found_host = true;
-						break;
-					}
-				}
-				$interface_list_ipv6s = get_configured_ipv6_addresses(true);
-				foreach ($interface_list_ipv6s as $ilipv6s) {
-					$ilipv6s = explode('%', $ilipv6s)[0];
-					if (strcasecmp($referrer_host, $ilipv6s) == 0) {
-						$found_host = true;
-						break;
-					}
-				}
-				if ($referrer_host == "127.0.0.1" || $referrer_host == "localhost") {
-					// allow SSH port forwarded connections and links from localhost
+			$found_host = false;
+			$referrer_host = parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST);
+			$referrer_host = str_replace(array("[", "]"), "", $referrer_host);
+			if ($referrer_host) {
+				if (strcasecmp($referrer_host, config_get_path('system/hostname') . "." . config_get_path('system/domain')) == 0 ||
+				    strcasecmp($referrer_host, config_get_path('system/hostname')) == 0) {
 					$found_host = true;
 				}
-			}
 
-			/* Fall back to probing active interface addresses rather than config.xml to allow
-			 * changed addresses that have not yet been applied.
-			 * See upstream issue 8822
-			 */
-			if (!$found_host) {
-				$refifs = get_interface_arr();
-				foreach ($refifs as $rif) {
-					if (($referrer_host == find_interface_ip($rif)) ||
-					    ($referrer_host == find_interface_ipv6($rif)) ||
-					    ($referrer_host == find_interface_ipv6_ll($rif))) {
+				if (!$found_host) {
+					$althosts = explode(" ", config_get_path('system/webgui/althostnames', ""));
+					foreach ($althosts as $ah) {
+						if (strcasecmp($referrer_host, $ah) == 0) {
+							$found_host = true;
+							break;
+						}
+					}
+				}
+
+				if (!$found_host) {
+					foreach (config_get_path('dyndnses/dyndns', []) as $dyndns) {
+						if (!is_array($dyndns) || empty($dyndns)) {
+							continue;
+						}
+						if (strcasecmp($dyndns['host'], $referrer_host) == 0) {
+							$found_host = true;
+							break;
+						}
+					}
+				}
+
+				if (!$found_host) {
+					foreach (config_get_path('dnsupdates/dnsupdate', []) as $rfc2136) {
+						if (!is_array($rfc2136) || empty($rfc2136)) {
+							continue;
+						}
+						if (strcasecmp($rfc2136['host'], $referrer_host) == 0) {
+							$found_host = true;
+							break;
+						}
+					}
+				}
+
+				if (!$found_host) {
+					$interface_list_ips = get_configured_ip_addresses();
+					foreach ($interface_list_ips as $ilips) {
+						if (strcasecmp($referrer_host, $ilips) == 0) {
+							$found_host = true;
+							break;
+						}
+					}
+					$interface_list_ipv6s = get_configured_ipv6_addresses(true);
+					foreach ($interface_list_ipv6s as $ilipv6s) {
+						$ilipv6s = explode('%', $ilipv6s)[0];
+						if (strcasecmp($referrer_host, $ilipv6s) == 0) {
+							$found_host = true;
+							break;
+						}
+					}
+					if ($referrer_host == "127.0.0.1" || $referrer_host == "localhost") {
+						// allow SSH port forwarded connections and links from localhost
 						$found_host = true;
-						break;
+					}
+				}
+
+				/* Fall back to probing active interface addresses rather than config.xml to allow
+				 * changed addresses that have not yet been applied.
+				 * See upstream issue 8822
+				 */
+				if (!$found_host) {
+					$refifs = get_interface_arr();
+					foreach ($refifs as $rif) {
+						if (($referrer_host == find_interface_ip($rif)) ||
+						    ($referrer_host == find_interface_ipv6($rif)) ||
+						    ($referrer_host == find_interface_ipv6_ll($rif))) {
+							$found_host = true;
+							break;
+						}
 					}
 				}
 			}
-		}
-		if ($found_host == false) {
-			if (!security_checks_disabled()) {
-				display_error_form("501", "An HTTP_REFERER was detected other than what is defined in System > Advanced (" . htmlspecialchars($_SERVER['HTTP_REFERER']) . ").  If not needed, this check can be disabled in System > Advanced > Admin Access.");
-				exit;
+			if ($found_host == false) {
+				if (!security_checks_disabled()) {
+					display_error_form("501", "An HTTP_REFERER was detected other than what is defined in System > Advanced (" . htmlspecialchars($_SERVER['HTTP_REFERER']) . ").  If not needed, this check can be disabled in System > Advanced > Admin Access.");
+					exit;
+				}
+				$security_passed = false;
 			}
+		} else {
 			$security_passed = false;
 		}
-	} else {
-		$security_passed = false;
+	}
+
+	if ($security_passed) {
+		/* Security checks passed, so it should be OK to turn them back on */
+		restore_security_checks();
 	}
 }
-
-if (function_exists("display_error_form") && $security_passed) {
-	/* Security checks passed, so it should be OK to turn them back on */
-	restore_security_checks();
-}
-unset($security_passed);
 
 $groupindex = index_groups();
 $userindex = index_users();
@@ -2345,6 +2350,61 @@ function webgui_request_protocol() {
 }
 
 /*
+ * Whether the local account called $username is root-equivalent: uid 0, a
+ * member of admins, or holding (directly or through a group) a privilege marked
+ * standard-warning-root. An account that does not exist is not.
+ */
+function auth_local_user_is_privileged($username) {
+	/* Declared first: when priv.inc loads here, its list must still land in the global. */
+	global $priv_list;
+	require_once('priv.inc');
+
+	foreach (config_get_path('system/user', []) as $user) {
+		if (!is_array($user) || (($user['name'] ?? null) !== $username)) {
+			continue;
+		}
+		if ((string)($user['uid'] ?? '') === '0') {
+			return true;
+		}
+		$privs = (array)($user['priv'] ?? []);
+		foreach (local_user_get_groups($user, true) as $groupname) {
+			if ($groupname === 'admins') {
+				return true;
+			}
+			$privs = array_merge($privs, (array)(getGroupEntry($groupname)['item']['priv'] ?? []));
+		}
+		foreach ($privs as $priv) {
+			if (($priv_list[$priv]['warn'] ?? '') === 'standard-warning-root') {
+				return true;
+			}
+		}
+		return false;
+	}
+	return false;
+}
+
+/*
+ * Authenticate a login to the WebGUI or XML-RPC: the configured server first,
+ * then the local database. Returns 'server', 'local', or false.
+ *
+ * The rest of the system finds a user's rights by name, so an account on an LDAP
+ * or RADIUS server named like a root-equivalent local user would get its rights.
+ * The server's answer does not count for such a name; only the local password does.
+ */
+function authenticate_identity($username, $password, &$attributes = array()) {
+	$authcfg = auth_get_authserver(config_get_path('system/webgui/authmode'));
+	if (authenticate_user($username, $password, $authcfg, $attributes)) {
+		if (!in_array($authcfg['type'] ?? '', ['ldap', 'radius'], true) ||
+		    !auth_local_user_is_privileged($username)) {
+			return 'server';
+		}
+		log_auth_event(LOG_AUTH_EVENT_ERROR, cleanup_invalid_username($username), $_SERVER['REMOTE_ADDR'] ?? '',
+		    'a directory login may not use the name of a privileged local user');
+	}
+	return authenticate_user($username, $password) ? 'local' : false;
+}
+
+/*
  * Sign a user in to the WebGUI session that phpsession_begin() opened:
  * authenticate (configured server first, then the local database), start a
  * fresh session id, record who, from where and how, write and close the
@@ -2355,8 +2415,9 @@ function webgui_request_protocol() {
 function webgui_session_signin($username, $password) {
 	$attributes = array('nas_identifier' => 'webConfigurator-' . gethostname());
 	$authcfg = auth_get_authserver(config_get_path('system/webgui/authmode'));
-	$remoteauth = authenticate_user($username, $password, $authcfg, $attributes);
-	if (!$remoteauth && !authenticate_user($username, $password)) {
+	$identity = authenticate_identity($username, $password, $attributes);
+	$remoteauth = ($identity === 'server');
+	if ($identity === false) {
 		$_SESSION['Login_Error'] = gettext("Username or Password incorrect");
 		log_auth_event(LOG_AUTH_EVENT_ERROR, cleanup_invalid_username($username), get_user_remote_address(false));
 		return false;

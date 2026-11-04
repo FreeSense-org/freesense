@@ -34,6 +34,8 @@ if (!function_exists('is_platform_booting')) {
 }
 require_once('freesense-utils.inc');
 
+webgui_request_guard();
+
 /* Authenticate user - exit if failed */
 if (!session_auth()) {
 	display_login_form();
