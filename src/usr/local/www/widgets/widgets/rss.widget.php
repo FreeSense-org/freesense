@@ -133,8 +133,11 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 <div class="list-group fs-wrss" style="height: <?=htmlspecialchars((string)(int)$rsswidgetheight)?>px; overflow-y: auto;">
 <?php
 	/*
-	 * The cache holds serialized PHP that this (root) process unserializes, so
-	 * it lives in a directory only root can write, never in /tmp.
+	 * Feeds are fetched here, over http(s) only, and SimplePie only parses
+	 * the text: SimplePie through 1.9.0 can be redirected or autodiscover its
+	 * way to a file:// URL and read local files (CVE-2026-111234), and this
+	 * page runs as root. The cache holds plain feed text (nothing is
+	 * unserialized) in a directory only root can write.
 	 */
 	$rss_cache_dir = '/var/run/simplepie';
 	if (!is_dir($rss_cache_dir)) {
@@ -148,22 +151,57 @@ if ($user_settings['widgets'][$widgetkey]['rssfeed']) {
 			return $string;
 		}
 	}
+	if (!function_exists('rss_widget_fetch')) {
+		/* The feed text at an http(s) $url, from the cache when it is under an hour old; null on failure. */
+		function rss_widget_fetch($url, $cache_dir) {
+			if (!in_array(strtolower((string)parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+				return null;
+			}
+			$cache_file = $cache_dir . '/' . hash('sha256', $url) . '.feed';
+			if (is_file($cache_file) && (filemtime($cache_file) > (time() - 3600))) {
+				return (string)file_get_contents($cache_file);
+			}
+			$ch = curl_init($url);
+			curl_setopt_array($ch, [
+				CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+				CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+				CURLOPT_FOLLOWLOCATION => true,
+				CURLOPT_MAXREDIRS => 5,
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_CONNECTTIMEOUT => 5,
+				CURLOPT_TIMEOUT => 10,
+				CURLOPT_MAXFILESIZE => 4194304,
+				CURLOPT_USERAGENT => g_get('product_label') . ' RSS widget',
+			]);
+			set_curlproxy($ch);
+			$data = curl_exec($ch);
+			$status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+			curl_close($ch);
+			if (!is_string($data) || ($status < 200) || ($status >= 300) || (strlen($data) > 4194304)) {
+				return null;
+			}
+			$old_umask = umask(0077);
+			@file_put_contents($cache_file, $data);
+			umask($old_umask);
+			return $data;
+		}
+	}
 
-	$feeds_cache = new \Symfony\Component\Cache\Psr16Cache(
-		new \Symfony\Component\Cache\Adapter\FilesystemAdapter('', 0, $rss_cache_dir)
-	);
 	$feed_objects = [];
 	foreach ($rss_feed_s as $feed_source) {
+		$feed_data = rss_widget_fetch(html_entity_decode(trim($feed_source), ENT_QUOTES | ENT_HTML401), $rss_cache_dir);
+		if ($feed_data === null) {
+			continue;
+		}
 		$tmp_feed = new SimplePie();
-		$tmp_feed->set_feed_url($feed_source);
-		$tmp_feed->set_cache($feeds_cache);
-		$tmp_feed->set_cache_duration(3600);
+		$tmp_feed->set_raw_data($feed_data);
+		$tmp_feed->enable_cache(false);
+		$tmp_feed->set_autodiscovery_level(0);
 		$tmp_feed->init();
-		$tmp_feed->handle_content_type();
 		$feed_objects[] = $tmp_feed;
 	}
 
-	$feed_items = SimplePie::merge_items($feed_objects, 0, 0, $max_items);
+	$feed_items = empty($feed_objects) ? [] : SimplePie::merge_items($feed_objects, 0, 0, $max_items);
 	foreach ($feed_items as $item) {
 		$feed = $item->get_feed();
 		$feed->strip_htmltags();

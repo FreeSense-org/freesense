@@ -270,4 +270,20 @@ if (strpos(file_get_contents($root . '/src/usr/local/captiveportal/index.php'), 
 	$fail('The captive portal must validate the zone and cast RADIUS numbers.');
 }
 
+/* CVE-2026-111215: the wireless parent is a listed wireless device and is escaped. */
+if (strpos(file_get_contents($www . '/interfaces_wireless_edit.php'), "in_array((string)\$_POST['if'], array_column(interface_list_wireless(), 'if'), true)") === false ||
+    strpos(file_get_contents($root . '/src/etc/inc/interfaces.inc'), 'wlandev {$baseif}') !== false) {
+	$fail('The wireless parent interface must be validated and escaped.');
+}
+/* Limiter numbers reach dnctl as integers. */
+if (preg_match('/dnctl (pipe|sched|queue) delete " \. \$this->GetNumber\(\)/', file_get_contents($root . '/src/etc/inc/shaper.inc'))) {
+	$fail('shaper.inc must cast limiter numbers before dnctl.');
+}
+/* CVE-2026-111234: SimplePie never fetches; the widget fetches http(s) only and hands it the text. */
+if (strpos($rss, 'CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS') === false ||
+    strpos($rss, '$tmp_feed->set_raw_data($feed_data);') === false || strpos($rss, 'set_feed_url(') !== false ||
+    strpos($rss, 'FilesystemAdapter') !== false) {
+	$fail('The RSS widget must fetch feeds itself over http(s) and give SimplePie raw data only.');
+}
+
 echo "WebUI hardening smoke test passed\n";
