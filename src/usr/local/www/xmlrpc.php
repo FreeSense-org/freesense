@@ -60,13 +60,7 @@ class freesense_xmlrpc_server {
 		$login_ok = false;
 		if (!empty($username) && !empty($password)) {
 			$attributes = array();
-			$authcfg = auth_get_authserver(config_get_path('system/webgui/authmode'));
-
-			if (authenticate_user($username, $password,
-			    $authcfg, $attributes) ||
-			    authenticate_user($username, $password)) {
-				$login_ok = true;
-			}
+			$login_ok = (authenticate_identity($username, $password, $attributes) !== false);
 		}
 
 		if (!$login_ok) {
