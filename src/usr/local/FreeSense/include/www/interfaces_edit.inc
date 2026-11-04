@@ -673,6 +673,11 @@ function interfaces_edit_save($if, array $post, &$input_errors, ?array &$ctx = n
 	$reqdfieldsn = [gettext("Description")];
 	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
+	/* The same rules the DHCP client configuration writers apply. */
+	foreach (cfg_invalid_fields($post, cfg_dhcp_client_rules()) as $field) {
+		$input_errors[] = sprintf(gettext('The value of %s contains characters that are not allowed.'), htmlspecialchars($field));
+	}
+
 	if (!$input_errors) {
 		/* Reserved name? */
 		if (get_pf_reserved($post['descr'], false)) {
@@ -1265,6 +1270,12 @@ function interfaces_edit_save($if, array $post, &$input_errors, ?array &$ctx = n
 			$input_errors[] = gettext("Invalid option chosen for OFDM Protection Mode");
 		}
 
+		foreach (['ssid', 'passphrase', 'wpa_eap_inner_id', 'wpa_eap_inner_password', 'auth_server_shared_secret', 'auth_server_shared_secret2'] as $wpa_field) {
+			if (cfg_has_ctl($post[$wpa_field] ?? '')) {
+				$input_errors[] = gettext("Wireless settings cannot contain line breaks or control characters.");
+				break;
+			}
+		}
 		if ($post['passphrase']) {
 			$passlen = strlen($post['passphrase']);
 			if (($passlen < 8) ||

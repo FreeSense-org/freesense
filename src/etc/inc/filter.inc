@@ -2952,7 +2952,7 @@ function filter_nat_rules_generate_if ($if, $descr = "", $ipprotocol = "", $src 
 	global $FilterIflist;
 
 	if (!empty($descr)) {
-		$descr = " # {$descr}";
+		$descr = ' # ' . cfg_one_line($descr);
 	}
 	$src = trim($src); $dst = trim($dst);
 	if (empty($src) || empty($dst)) {

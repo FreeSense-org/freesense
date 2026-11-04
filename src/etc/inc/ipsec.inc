@@ -1381,7 +1381,7 @@ function ipsec_strongswan_confgen($confarr, $indent = "") {
 				 * description; a line break there would start a new setting.
 				 */
 				if (substr((string)$value, 0, 1) == '#') {
-					$value = preg_replace('/[\x00-\x1f\x7f]+/', ' ', (string)$value);
+					$value = cfg_one_line($value);
 				} elseif (cfg_has_ctl($value)) {
 					logger(LOG_ERR, localize_text('Skipping an invalid IPsec setting: %s', (string)$key), LOG_PREFIX_IPSEC);
 					continue;
@@ -1851,8 +1851,7 @@ function ipsec_setup_strongswan() {
 		}
 
 		/* Written unquoted: a brace would end the section and start another. */
-		if (!empty(config_get_path('ipsec/client/login_banner')) &&
-		    !preg_match('/[\x00-\x1f\x7f{}"\\\\]/', config_get_path('ipsec/client/login_banner'))) {
+		if (strongswan_text_valid(config_get_path('ipsec/client/login_banner'))) {
 			$ssconf['charon']['plugins']['attr'][] = "# Login Banner";
 			$ssconf['charon']['plugins']['attr']['28672'] = config_get_path('ipsec/client/login_banner');
 		}

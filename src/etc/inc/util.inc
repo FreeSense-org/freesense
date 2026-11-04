@@ -27,6 +27,7 @@
  */
 
 //require_once('interfaces.inc');
+require_once(__DIR__ . '/cfg_format.inc');
 require_once('Net/IPv6.php');
 define('VIP_ALL', 1);
 define('VIP_CARP', 2);
@@ -2040,9 +2041,9 @@ function is_domain($domain, $allow_wildcard=false, $trailing_dot=true) {
 		return false;
 	}
 	if ($allow_wildcard) {
-		$domain_regex = '/^(?:(?:[a-z_0-9\*]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/i';
+		$domain_regex = '/^(?:(?:[a-z_0-9\*]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/iD';
 	} else {
-		$domain_regex = '/^(?:(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/i';
+		$domain_regex = '/^(?:(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/iD';
 	}
 
 	if (preg_match($domain_regex, $domain)) {
@@ -3478,11 +3479,6 @@ function run_plugins($directory) {
  *    safe_mkdir($path, $mode = 0755)
  *    create directory if it doesn't already exist and isn't a file!
  */
-/* True when $text holds a control character, which would end a line in a daemon configuration file. */
-function cfg_has_ctl($text) {
-	return (preg_match('/[\x00-\x1f\x7f]/', (string)$text) === 1);
-}
-
 /*
  * Write $data to $path readable by root only, for daemon configurations that
  * hold secrets (PSKs, passwords). Returns what file_put_contents() returns.
@@ -4115,7 +4111,7 @@ function route_get($target, $ipprotocol = '', $useroute = false) {
 		} else {
 			$inet = '6';
 		}
-		$interface = exec("/sbin/route -n{$inet} get {$target} 2>/dev/null | /usr/bin/awk '/interface:/{print $2}'");
+		$interface = exec("/sbin/route -n{$inet} get " . escapeshellarg($target) . " 2>/dev/null | /usr/bin/awk '/interface:/{print $2}'");
 		if (empty($interface)) {
 			return array();
 		} elseif ($interface == 'lo0') {

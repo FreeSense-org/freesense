@@ -86,6 +86,7 @@ jobs:
               CpuFeaturesSmokeTest \
               VxlanConfigSmokeTest \
               WebUiHardeningSmokeTest \
+              CfgFormatSmokeTest \
               RemoteBackupSmokeTest \
               PackageRepositoriesSmokeTest \
               RestApiSmokeTest \

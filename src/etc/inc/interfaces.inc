@@ -2856,9 +2856,7 @@ function interface_ppps_configure($interface) {
 	} else {
 		$ondemand = "disable";
 	}
-	if (!isset($ppp['idletimeout'])) {
-		$ppp['idletimeout'] = 0;
-	}
+	$ppp['idletimeout'] = (int)($ppp['idletimeout'] ?? 0);
 
 	if (empty($ppp['username']) && $type == "modem") {
 		$ppp['username'] = "user";
@@ -2870,19 +2868,20 @@ function interface_ppps_configure($interface) {
 		$passwd = base64_decode($ppp['password']);
 	}
 
-	$bandwidths = explode(',', $ppp['bandwidth']);
+	/* Numbers per link, written unquoted into mpd.conf. */
+	$bandwidths = cfg_int_list($ppp['bandwidth']);
 	$defaultmtu = "1492";
 	if (!empty($ifcfg['mtu'])) {
 		$defaultmtu = intval($ifcfg['mtu']);
 	}
 	if (isset($ppp['mtu'])) {
-		$mtus = explode(',', $ppp['mtu']);
+		$mtus = cfg_int_list($ppp['mtu']);
 	}
 	if (isset($ppp['mru'])) {
-		$mrus = explode(',', $ppp['mru']);
+		$mrus = cfg_int_list($ppp['mru']);
 	}
 	if (isset($ppp['mrru'])) {
-		$mrrus = explode(',', $ppp['mrru']);
+		$mrrus = cfg_int_list($ppp['mrru']);
 	}
 	if (!empty($ifcfg['ipaddrv6'])) {
 		$ipv6cp = "set bundle enable ipv6cp";
@@ -3957,6 +3956,20 @@ function interface_wireless_configure($if, &$wl, &$wlcfg) {
 
 	unlink_if_exists("{$wpa_supplicant_file}*");
 	unlink_if_exists($hostapd_conf);
+
+	/*
+	 * One value per line. If one breaks that, do not configure WPA at all:
+	 * carrying on without it could bring up an open network.
+	 */
+	$wpa_values = [$wlcfg['ssid'] ?? '', $wlcfg['wpa']['passphrase'] ?? '', $wlcfg['wpa']['wpa_eap_inner_id'] ?? '',
+	    base64_decode((string)($wlcfg['wpa']['wpa_eap_inner_password'] ?? '')), $wlcfg['auth_server_shared_secret'] ?? '',
+	    $wlcfg['auth_server_shared_secret2'] ?? ''];
+	foreach ($wpa_values as $wpa_value) {
+		if (cfg_has_ctl($wpa_value)) {
+			logger(LOG_ERR, localize_text('Not configuring wireless on %s: a setting contains a line break or control character.', $if));
+			return 0;
+		}
+	}
 
 	/* generate wpa_supplicant/hostap config if wpa is enabled */
 	$wpa = "";
@@ -5339,6 +5352,7 @@ function interface_dhcpv6_configure($ifconf, $ifcfg, $destroy = false) {
 		logger(LOG_INFO, localize_text("Accept router advertisements on interface %s", $wanif));
 		mwexec("/sbin/ifconfig {$wanif} inet6 accept_rtadv");
 
+		$wancfg = dhcp_client_cfg($wancfg, $interface);
 		if ($wancfg['adv_dhcp6_config_file_override']) {
 			// DHCP6 Config File Override
 			$dhcp6cconf .= DHCP6_Config_File_Override($wancfg, $wanif);
@@ -5730,6 +5744,8 @@ EOD;
 function DHCP6_Config_File_Advanced($interface, $wancfg, $wanif) {
 	global $g;
 
+	$wancfg = dhcp_client_cfg($wancfg, $interface);
+
 	$send_options = "";
 	if ($wancfg['adv_dhcp6_interface_statement_send_options'] != '') {
 		$options = DHCP_Config_Option_Split($wancfg['adv_dhcp6_interface_statement_send_options']);
@@ -5910,6 +5926,7 @@ function interface_dhcp_configure($interface) {
 	if (empty($ifcfg)) {
 		$ifcfg = array();
 	}
+	$ifcfg = dhcp_client_cfg($ifcfg, $interface);
 
 	$dhclientconf_vlantag = "";
 	if (isset($ifcfg['dhcpvlanenable']) && isset($ifcfg['dhcpcvpt'])) {
@@ -5998,6 +6015,19 @@ EOD;
 	mwexec("/sbin/dhclient -c {$g['varetc_path']}/dhclient_{$interface}.conf -p {$g['varrun_path']}/dhclient.{$realif}.pid {$realif} > {$g['tmp_path']}/{$realif}_output 2> {$g['tmp_path']}/{$realif}_error_output");
 
 	return 0;
+}
+
+/*
+ * The interface settings without DHCP client values that do not fit their
+ * format. These files are read by daemons that run scripts, and a value that
+ * closes its statement could add a script or media line.
+ */
+function dhcp_client_cfg(array $ifcfg, $interface) {
+	list($ifcfg, $bad) = cfg_dhcp_client_clean($ifcfg);
+	if (!empty($bad)) {
+		logger(LOG_ERR, localize_text('Ignoring invalid DHCP client settings of %1$s: %2$s', $interface, implode(', ', $bad)));
+	}
+	return $ifcfg;
 }
 
 function DHCP_Config_File_Advanced($ifcfg, $realif) {
