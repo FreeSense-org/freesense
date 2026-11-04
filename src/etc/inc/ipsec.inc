@@ -1856,7 +1856,8 @@ function ipsec_setup_strongswan() {
 		}
 	}
 
-	@file_put_contents("{$g['varetc_path']}/ipsec/strongswan.conf", ipsec_strongswan_confgen($ssconf));
+	/* It can hold the RADIUS shared secret. */
+	file_put_contents_private("{$g['varetc_path']}/ipsec/strongswan.conf", ipsec_strongswan_confgen($ssconf));
 }
 
 /****f* ipsec/ipsec_setup_pools
@@ -3209,7 +3210,8 @@ function ipsec_configure($restart = false, $filterdns_restart = false) {
 	$scconf['secrets'] = array();
 	ipsec_setup_secrets();
 
-	@file_put_contents("{$g['varetc_path']}/ipsec/swanctl.conf", ipsec_strongswan_confgen($scconf));
+	/* It holds every PSK and EAP secret. */
+	file_put_contents_private("{$g['varetc_path']}/ipsec/swanctl.conf", ipsec_strongswan_confgen($scconf));
 
 	/* Clean up unused VTI interfaces */
 	foreach ($ipsec_vti_cleanup_ifs as $cleanif) {

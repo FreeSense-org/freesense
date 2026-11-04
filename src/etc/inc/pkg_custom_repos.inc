@@ -530,6 +530,11 @@ function pkgrepo_start($pkgmode, $pkgname) {
 		}
 		$action = 'delete -y';
 	}
+	if (pkg_mgr_install_readonly_user()) {
+		$result['reason'] = 'readonly';
+		$result['failmsg'] = pkg_mgr_install_readonly_message();
+		return $result;
+	}
 	if (isvalidpid($paths['gui_pidfile'])) {
 		$result['reason'] = 'another_instance';
 		$result['failmsg'] = gettext("Another update or package operation is running. Try again when it has finished.");

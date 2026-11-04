@@ -428,7 +428,8 @@ function restapi_user_holds_route($user, $route) {
 	if (userHasPrivilege($user, restapi_area_privilege($route['area'], 'write'))) {
 		return true;
 	}
-	return !$route['write'] && userHasPrivilege($user, restapi_area_privilege($route['area'], 'read'));
+	return !$route['write'] && empty($route['secrets']) &&
+	    userHasPrivilege($user, restapi_area_privilege($route['area'], 'read'));
 }
 
 /* The scopes a key is limited to; empty means not limited. */
@@ -438,16 +439,20 @@ function restapi_token_scopes($token) {
 
 /* Throws 403 unless the authenticated context may call $route. */
 function restapi_authorize($ctx, $route) {
+	$level = ($route['write'] || !empty($route['secrets'])) ? 'write' : 'read';
 	if (!restapi_user_holds_route($ctx['user'], $route)) {
 		throw new RestApiError(403, 'forbidden', sprintf(
 		    'User %1$s lacks the %2$s scope: it needs GUI access to %3$s or the "%4$s" privilege.',
 		    $ctx['user']['name'], $route['scope'], $route['page'],
-		    restapi_area_privilege($route['area'], $route['write'] ? 'write' : 'read')));
+		    restapi_area_privilege($route['area'], $level)));
 	}
 	if (($route['page'] !== '@authenticated') &&
-	    !restapi_scopes_allow(restapi_token_scopes($ctx['token']), $route['area'], $route['write'] ? 'write' : 'read')) {
+	    !restapi_scopes_allow(restapi_token_scopes($ctx['token']), $route['area'], $level)) {
 		throw new RestApiError(403, 'scope_not_granted', sprintf(
 		    'This API key is limited to other scopes and does not include %s.', $route['scope']));
+	}
+	if (!empty($route['secrets']) && !empty($ctx['token']['readonly'])) {
+		throw new RestApiError(403, 'read_only_key', 'This API key is read-only, and this request returns secrets.');
 	}
 	if ($route['write']) {
 		if (!empty($ctx['token']['readonly'])) {

@@ -561,12 +561,14 @@ $priv_list['page-system-packagemanager-repositories']['match'][] = "pkg_mgr_repo
 $priv_list['page-services-captiveportal'] = array();
 $priv_list['page-services-captiveportal']['name'] = gettext("WebCfg - Services: Captive Portal");
 $priv_list['page-services-captiveportal']['descr'] = gettext("Allow access to the 'Services: Captive Portal' page.");
+$priv_list['page-services-captiveportal']['warn'] = "standard-warning-root";
 $priv_list['page-services-captiveportal']['match'] = array();
 $priv_list['page-services-captiveportal']['match'][] = "services_captiveportal.php*";
 
 $priv_list['page-services-captiveportal-filemanager'] = array();
 $priv_list['page-services-captiveportal-filemanager']['name'] = gettext("WebCfg - Services: Captive Portal: File Manager");
 $priv_list['page-services-captiveportal-filemanager']['descr'] = gettext("Allow access to the 'Services: Captive Portal: File Manager' page.");
+$priv_list['page-services-captiveportal-filemanager']['warn'] = "standard-warning-root";
 $priv_list['page-services-captiveportal-filemanager']['match'] = array();
 $priv_list['page-services-captiveportal-filemanager']['match'][] = "services_captiveportal_filemanager.php*";
 
@@ -1247,6 +1249,7 @@ $priv_list['page-system-usermanager-settings']['match'][] = "system_usermanager_
 $priv_list['page-hidden-uploadconfiguration'] = array();
 $priv_list['page-hidden-uploadconfiguration']['name'] = gettext("WebCfg - Hidden: Upload Configuration");
 $priv_list['page-hidden-uploadconfiguration']['descr'] = gettext("Allow access to the 'Hidden: Upload Configuration' page.");
+$priv_list['page-hidden-uploadconfiguration']['warn'] = "standard-warning-root";
 $priv_list['page-hidden-uploadconfiguration']['match'] = array();
 $priv_list['page-hidden-uploadconfiguration']['match'][] = "uploadconfig.php*";
 
@@ -1331,6 +1334,7 @@ $priv_list['page-openvpn-server']['match'][] = "vpn_openvpn_server.php*";
 $priv_list['page-freesensewizardsubsystem'] = array();
 $priv_list['page-freesensewizardsubsystem']['name'] = gettext("WebCfg - Wizard Subsystem");
 $priv_list['page-freesensewizardsubsystem']['descr'] = gettext("Allow access to the Wizard Subsystem (e.g. Setup Wizard, OpenVPN Wizard).");
+$priv_list['page-freesensewizardsubsystem']['warn'] = "standard-warning-root";
 $priv_list['page-freesensewizardsubsystem']['match'] = array();
 $priv_list['page-freesensewizardsubsystem']['match'][] = "wizard.php*";
 
