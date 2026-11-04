@@ -40,6 +40,12 @@ $serialports = get_serial_ports(true);
 if ($_POST) {
 	unset($input_errors);
 
+	foreach (['ppsfudge1' => 'decimal', 'ppsfudge2' => 'decimal', 'ppsrefid' => 'ntp_refid', 'ppsstratum' => 'int'] as $ntp_field => $ntp_rule) {
+		if (!empty($_POST[$ntp_field]) && !cfg_value_valid($ntp_rule, $_POST[$ntp_field])) {
+			$input_errors[] = sprintf(gettext('The value of %s is not valid.'), $ntp_field);
+		}
+	}
+
 	if (!empty($_POST['ppsport']) && !array_key_exists($_POST['ppsport'], $serialports)) {
 		$input_errors[] = gettext("The selected PPS port does not exist.");
 	}

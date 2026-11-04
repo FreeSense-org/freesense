@@ -310,7 +310,8 @@ if (strpos($authinc, 'authenticate_identity($username, $password, $attributes);'
 /* Input scan 2026-11-04: the CVE batch and where each value is used. */
 $src = fn($f) => file_get_contents($root . '/src/' . $f);
 $must = [
-	'etc/inc/util.inc' => ["'/^[A-Za-z0-9_.-]{1,32}\$/D', explode('%', \$ipaddr, 2)[1]", 'function cfg_has_ctl('],
+	'etc/inc/util.inc' => ["'/^[A-Za-z0-9_.-]{1,32}\$/D', explode('%', \$ipaddr, 2)[1]", "require_once(__DIR__ . '/cfg_format.inc');"],
+	'usr/local/sbin/FreeSense-dhclient-script' => ['*[!A-Za-z0-9\\ ._:-]*)'],
 	'etc/inc/interfaces.inc' => ["\$text = preg_replace('/[\\x00-\\x1f\\x7f]/', '', \$text);", "if (!preg_match('/^[a-z0-9]+\$/D', \$pppif)) {"],
 	'etc/inc/services.inc' => ['Skipping an invalid cron item', 'file_put_contents_private("{$g[\'varetc_path\']}/nsupdatekey'],
 	'etc/inc/system.inc' => ['file_put_contents_private("{$g[\'varetc_path\']}/ntp.keys"'],
@@ -336,6 +337,17 @@ foreach ($must as $file => $needles) {
 $vpnipsec = $src('usr/local/FreeSense/include/www/vpn_ipsec.inc');
 if (strpos($vpnipsec, 'Automatically ping host must be an IP address.') < strpos($vpnipsec, 'function ipsec_p2_save(')) {
 	$fail('The IPsec ping host check belongs to the phase 2 save.');
+}
+if (strpos($src('usr/local/sbin/FreeSense-dhclient-script'), 'eval ') !== false) {
+	$fail('The dhclient script must not eval: its values come from configuration and the DHCP server.');
+}
+foreach (["function dhcp_client_cfg(", '$wancfg = dhcp_client_cfg($wancfg, $interface);', '$ifcfg = dhcp_client_cfg($ifcfg, $interface);', "\$mtus = cfg_int_list(\$ppp['mtu']);"] as $needle) {
+	if (strpos($src('etc/inc/interfaces.inc'), $needle) === false) {
+		$fail("interfaces.inc must contain: {$needle}");
+	}
+}
+if (strpos($src('etc/inc/system.inc'), "cfg_value_valid('ntp_refid', config_get_path('ntpd/gps/refid'))") === false) {
+	$fail('The NTP writer must check GPS and PPS values.');
 }
 if (strpos($src('usr/local/www/interfaces_ppps_edit.php'), "handle_pppoe_reset(\$_POST);") !== false) {
 	$fail('interfaces_ppps_edit.php must not take the PPP id for the cron job from the form.');

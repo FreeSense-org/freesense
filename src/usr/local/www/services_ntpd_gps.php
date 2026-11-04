@@ -155,6 +155,12 @@ if ($_POST) {
 		$input_errors[] = gettext("The submitted GPS type is invalid.");
 	}
 
+	foreach (['gpsfudge1' => 'decimal', 'gpsfudge2' => 'decimal', 'gpsrefid' => 'ntp_refid', 'gpsstratum' => 'int'] as $ntp_field => $ntp_rule) {
+		if (!empty($_POST[$ntp_field]) && !cfg_value_valid($ntp_rule, $_POST[$ntp_field])) {
+			$input_errors[] = sprintf(gettext('The value of %s is not valid.'), $ntp_field);
+		}
+	}
+
 	if (!empty($_POST['gpsport']) && !array_key_exists($_POST['gpsport'], $serialports)) {
 		$input_errors[] = gettext("The selected GPS port does not exist.");
 	}

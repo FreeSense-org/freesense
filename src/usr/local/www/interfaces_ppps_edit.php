@@ -311,6 +311,11 @@ if ($_POST['save']) {
 			if ($_POST['bandwidth'][$iface] && !is_numericint($_POST['bandwidth'][$iface])) {
 				$input_errors[] = sprintf(gettext("The bandwidth value for %s must be an integer."), $iface);
 			}
+			foreach (['mtu' => 'MTU', 'mru' => 'MRU', 'mrru' => 'MRRU'] as $ppp_size => $ppp_size_name) {
+				if (($_POST[$ppp_size][$iface] ?? '') && !is_numericint($_POST[$ppp_size][$iface])) {
+					$input_errors[] = sprintf(gettext('The %1$s for %2$s must be a whole number.'), $ppp_size_name, $iface);
+				}
+			}
 			if ($_POST['mtu'][$iface] && ($_POST['mtu'][$iface] < 576)) {
 				$input_errors[] = sprintf(gettext("The MTU for %s must be greater than 576 bytes."), $iface);
 			}
