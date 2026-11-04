@@ -73,6 +73,11 @@ if ($_POST['save']) {
 
 	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
 
+	/* The parent goes into an ifconfig command (CVE-2026-111215): only a listed wireless device. */
+	if (!in_array((string)$_POST['if'], array_column(interface_list_wireless(), 'if'), true)) {
+		$input_errors[] = gettext("The parent interface is not a wireless device of this system.");
+	}
+
 	if (!$input_errors) {
 		$clone = array();
 		$clone['if'] = $_POST['if'];

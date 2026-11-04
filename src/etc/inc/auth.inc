@@ -2673,7 +2673,8 @@ password	required	pam_unix.so		no_warn try_first_pass
 
 EOD;
 
-			@file_put_contents("/etc/radius.conf", $header . $radius_conf);
+			/* It holds the RADIUS shared secret. */
+			file_put_contents_private("/etc/radius.conf", $header . $radius_conf);
 		} elseif ((($authcfg['type'] ?? '') == "ldap") && !empty($authcfg['ldap_pam_groupdn'])) {
 			// do not try to reconnect
 			$ldapconf = "bind_policy soft\n";

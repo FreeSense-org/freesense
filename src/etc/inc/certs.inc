@@ -2901,10 +2901,15 @@ function cert_pkcs12_export($cert, $encryption = 'high', $passphrase = '', $add_
 			$hash = '-macalg sha256';
 	}
 
-	/* Make a secure temporary directory */
+	/*
+	 * Make a secure temporary directory. If another user recreated the name
+	 * after the unlink, mkdir() fails: never write the key into their directory.
+	 */
 	$workdir = tempnam("{$g['tmp_path']}/", "p12export");
 	@unlink_if_exists($workdir);
-	mkdir($workdir, 0600);
+	if (($workdir === false) || !@mkdir($workdir, 0700)) {
+		return false;
+	}
 
 	/* Set the friendly name to the certificate description, if available */
 	$descr = "";

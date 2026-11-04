@@ -81,6 +81,19 @@ log_session() {
 	/usr/bin/logger -p "user.${loglvl}" -t openvpn "${logpri} [${LOG_PREFIX_OPENVPN}] openvpn server '${dev}' ${hostuser} address '${hostaddress}'${logmsg}"
 }
 
+# The user name comes from the client (and the RADIUS or LDAP server that
+# accepted it) and goes into file names, pf anchor names and sed patterns:
+# openvpn.auth-user.php refuses anything else, and so does this script.
+case "${username}" in
+.*|*[!A-Za-z0-9._@+-]*)
+	log_session "LOG_WARNING" "user name contains characters that are not allowed"
+	if [ "${script_type}" = "client-connect" ]; then
+		/bin/echo 0 > "${client_connect_deferred_file}"
+	fi
+	exit 1
+	;;
+esac
+
 if [ -n "${username}" ]; then
 	lockfile="/tmp/ovpn_${dev}_${username}_${trusted_port}.lock"
 	rulesfile="/tmp/ovpn_${dev}_${username}_${trusted_port}.rules"
@@ -108,7 +121,7 @@ if [ "${script_type}" = "client-disconnect" ]; then
 			log_session "LOG_WARNING" "Timeout while waiting for lockfile"
 		else
 			/usr/bin/touch "${lockfile}"
-			eval "/sbin/pfctl -a '${anchorname}' -F rules"
+			/sbin/pfctl -a "${anchorname}" -F rules
 			/bin/rm "${lockfile}"
 
 			/bin/rm "${rulesfile}"
@@ -197,13 +210,13 @@ elif [ "${script_type}" = "client-connect" ]; then
 				session=$(/bin/echo "${anchor}" | /usr/bin/sed -r -e 's/.+'"${dev}_${username}"'/'"${dev}_\'${username}\'"'/')
 				# if no active session exists for the anchor, remove it from pf
 				if ! (/bin/echo "${active_sessions}" | /usr/bin/grep -q "${session}"); then
-					eval "/sbin/pfctl -a '${anchor}' -F rules"
+					/sbin/pfctl -a "${anchor}" -F rules
 				fi
 			done
 
 			if [ -f "${rulesfile}" ]; then
 				/bin/echo "$(/usr/bin/sed -e "s/{clientip}/${ifconfig_pool_remote_ip}/g;s/{clientipv6}/${ifconfig_pool_remote_ip6}/g" "${rulesfile}")" > "${rulesfile}"
-				eval "/sbin/pfctl -a '${anchorname}' -f '${rulesfile}'"
+				/sbin/pfctl -a "${anchorname}" -f "${rulesfile}"
 			fi
 
 			/bin/rm "${lockfile}"

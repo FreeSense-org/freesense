@@ -124,7 +124,11 @@ if (!$m['enrolled'] && ((($go !== '') && ($go !== 'paste')) || isset($_POST['joi
 		if (isset($_POST['join_start'])) {
 			@unlink(FLEET_PROGRESS_FILE);
 			/* $key is the normalised data; with its check character fleet_join() takes it like a typed key. */
+			/* Created 0600: the join key must never be readable, not even until a chmod. */
+			@unlink(FLEET_JOIN_REQUEST_FILE);
+			$old_umask = umask(0077);
 			file_put_contents(FLEET_JOIN_REQUEST_FILE, json_encode(array('text' => $paste['link_text'], 'key' => $key . fleet_join_key_check($key))), LOCK_EX);
+			umask($old_umask);
 			chmod(FLEET_JOIN_REQUEST_FILE, 0600);
 			$_SESSION['fleet_join_mode'] = $link['mode'];
 			mwexec_bg('/usr/local/bin/php /usr/local/sbin/freesense-join webjob');

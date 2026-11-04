@@ -30,6 +30,7 @@
 ##|*IDENT=page-services-captiveportal
 ##|*NAME=Services: Captive Portal
 ##|*DESCR=Allow access to the 'Services: Captive Portal' page.
+##|*WARN=standard-warning-root
 ##|*MATCH=services_captiveportal.php*
 ##|-PRIV
 

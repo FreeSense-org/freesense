@@ -32,6 +32,7 @@
 ##|*IDENT=page-services-captiveportal-filemanager
 ##|*NAME=Services: Captive Portal: File Manager
 ##|*DESCR=Allow access to the 'Services: Captive Portal: File Manager' page.
+##|*WARN=standard-warning-root
 ##|*MATCH=services_captiveportal_filemanager.php*
 ##|-PRIV
 

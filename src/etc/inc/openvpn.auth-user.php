@@ -70,6 +70,20 @@ if (!$username) {
 
 $authenticated = false;
 
+/*
+ * The user name goes into file names and into pf anchor names that
+ * openvpn.connect_async.sh handles as root; it refuses anything else too.
+ */
+if (!preg_match('/^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*$/D', (string)$username)) {
+	logger(LOG_WARNING, localize_text("User name contains characters that are not allowed, access denied."), LOG_PREFIX_OPENVPN, LOG_AUTH);
+	if (isset($_GET['username'])) {
+		echo "FAILED";
+		return;
+	} else {
+		return (-1);
+	}
+}
+
 if (($strictusercn === true) && (mb_strtolower($common_name) !== mb_strtolower($username))) {
 	logger(LOG_WARNING, localize_text("Username does not match certificate common name (\"%s\" != \"%s\"), access denied.", $username, $common_name), LOG_PREFIX_OPENVPN, LOG_AUTH);
 	if (isset($_GET['username'])) {
