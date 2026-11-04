@@ -175,6 +175,16 @@ fi
 # Populate a dummy php.ini to avoid
 # the file being clobbered and the firewall
 # not being able to boot back up.
+# Sessions decide who is signed in, so they do not live in /tmp. Not in /var/run
+# either: it is a 4 MB memory disk, and every visit to the login page makes a
+# session. Anything here not made by root is removed first.
+SESSIONDIR=/var/db/php-sessions
+if [ -L "${SESSIONDIR}" ] || { [ -e "${SESSIONDIR}" ] && [ "$(/usr/bin/stat -f %u "${SESSIONDIR}")" != "0" ]; }; then
+	/bin/rm -rf "${SESSIONDIR}"
+fi
+/bin/mkdir -p "${SESSIONDIR}"
+/bin/chmod 0700 "${SESSIONDIR}"
+
 /bin/cat >/usr/local/etc/php.ini <<EOF
 ; File generated from /etc/rc.php_ini_setup
 output_buffering = "0"
@@ -182,13 +192,15 @@ expose_php = Off
 implicit_flush = true
 magic_quotes_gpc = Off
 max_execution_time = 900
-max_input_time = 1800
+max_input_time = 300
 max_input_vars = 5000
 register_argc_argv = On
 register_long_arrays = Off
 variables_order = "GPCS"
 request_order = "GP"
 file_uploads = On
+max_file_uploads = 8
+allow_url_include = Off
 upload_tmp_dir = ${UPLOADTMPDIR}
 upload_max_filesize = 200M
 post_max_size = 200M
@@ -205,6 +217,8 @@ extension_dir=${EXTENSIONSDIR}
 date.timezone="${TIMEZONE}"
 session.hash_bits_per_character = 5
 session.hash_function = 1
+session.save_path = "${SESSIONDIR}"
+session.use_strict_mode = 1
 ${error_reporting}
 ${exception_ignore_args}
 
@@ -343,6 +357,9 @@ listen = /var/run/php-fpm.socket
 listen.owner = root
 listen.group = wheel
 listen.mode = 0600
+
+; A web request's query string must never become \$argv.
+php_admin_flag[register_argc_argv] = off
 
 security.limit_extensions =
 

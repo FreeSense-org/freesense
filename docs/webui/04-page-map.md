@@ -158,7 +158,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 ## Not pages (don't touch)
 
 `bandwidth_by_ip`, `getqueuestats`, `getserviceproviders`, `getstats`, `graph`, `ifstats`,
-`stats`, `xmlrpc`, `uploadconfig`, `csrf_error`, `crash_reporter` (gets tokens only; **done** in F: files list with downloads, report console with Copy, confirmed delete as header action, empty state), `help`, `status`
+`stats`, `xmlrpc`, `csrf_error`, `crash_reporter` (gets tokens only; **done** in F: files list with downloads, report console with Copy, confirmed delete as header action, empty state), `help`, `status`
 (support dump), `wizard` (Special, Phase F), `api/`.
 
 ---
