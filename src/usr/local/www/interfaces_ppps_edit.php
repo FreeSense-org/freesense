@@ -275,12 +275,12 @@ if ($_POST['save']) {
 	if (($_POST['idletimeout'] != "") && !is_numericint($_POST['idletimeout'])) {
 		$input_errors[] = gettext("The idle timeout value must be an integer.");
 	}
-	if ($_POST['pppoe-reset-type'] == "custom" && $_POST['pppoe_resethour'] <> "" && !is_numericint($_POST['pppoe_resethour']) &&
-	    $_POST['pppoe_resethour'] >= 0 && $_POST['pppoe_resethour'] <=23) {
+	if ($_POST['pppoe-reset-type'] == "custom" && $_POST['pppoe_resethour'] <> "" && (!is_numericint($_POST['pppoe_resethour']) ||
+	    $_POST['pppoe_resethour'] < 0 || $_POST['pppoe_resethour'] > 23)) {
 		$input_errors[] = gettext("A valid PPPoE reset hour must be specified (0-23).");
 	}
-	if ($_POST['pppoe-reset-type'] == "custom" && $_POST['pppoe_resetminute'] <> "" && !is_numericint($_POST['pppoe_resetminute']) &&
-	    $_POST['pppoe_resetminute'] >= 0 && $_POST['pppoe_resetminute'] <=59) {
+	if ($_POST['pppoe-reset-type'] == "custom" && $_POST['pppoe_resetminute'] <> "" && (!is_numericint($_POST['pppoe_resetminute']) ||
+	    $_POST['pppoe_resetminute'] < 0 || $_POST['pppoe_resetminute'] > 59)) {
 		$input_errors[] = gettext("A valid PPPoE reset minute must be specified (0-59).");
 	}
 	if ($_POST['pppoe-reset-type'] == "custom" && $_POST['pppoe_resetdate'] <> "" && !is_numeric(str_replace("/", "", $_POST['pppoe_resetdate']))) {
@@ -469,7 +469,7 @@ if ($_POST['save']) {
 		/* handle_pppoe_reset is called here because if user changes Link Type from PPPoE to another type we
 		must be able to clear the config data in the <cron> section of config.xml if it exists
 		*/
-		handle_pppoe_reset($_POST);
+		handle_pppoe_reset(array_merge($_POST, array('type' => $ppp['type'], 'ptpid' => $ppp['ptpid'])));
 
 		if ($this_ppp_config) {
 			$this_ppp_config = $ppp;

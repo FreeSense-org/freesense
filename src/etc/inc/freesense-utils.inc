@@ -978,9 +978,9 @@ function get_carp_interface_status($carpid) {
 	if ($vip == NULL || !isset($vip['vhid']))
 		return "";
 
-	$vhid = $vip['vhid'];
+	$vhid = (int)$vip['vhid'];
 	$carp_query = [];
-	exec("/sbin/ifconfig {$interface} | /usr/bin/grep \"carp:.* vhid {$vhid} \"", $carp_query);
+	exec("/sbin/ifconfig " . escapeshellarg($interface) . " | /usr/bin/grep \"carp:.* vhid {$vhid} \"", $carp_query);
 	foreach ($carp_query as $int) {
 		if (stripos($int, "MASTER"))
 			return "MASTER";
