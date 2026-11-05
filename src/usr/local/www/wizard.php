@@ -62,6 +62,7 @@ if (empty($xml)) {
 	}
 	if (file_exists($wizard_full_path)) {
 		$pkg = parse_xml_config_pkg($wizard_full_path, "freesensewizard");
+		input_gate_run_xml($pkg);
 	} else {
 		print_info_box(sprintf(gettext("Could not open %s."), $xml), 'danger');
 		die;

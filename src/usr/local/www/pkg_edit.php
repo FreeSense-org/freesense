@@ -64,6 +64,7 @@ if ($xml == "" || $xml_fullpath === false || substr($xml_fullpath, 0, strlen('/u
 } else {
 	$pkg = parse_xml_config_pkg($xml_fullpath, "packagegui");
 }
+input_gate_run_xml($pkg);
 
 if ($pkg['include_file'] != "") {
 	require_once($pkg['include_file']);

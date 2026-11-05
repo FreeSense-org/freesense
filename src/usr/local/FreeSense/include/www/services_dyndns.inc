@@ -270,12 +270,54 @@ function dyndns_provider_attributes() {
  * client $id) and update the client at once when it is enabled ("Save &
  * Force Update" posts "force"). Returns input_errors and the client's id.
  */
+/* Everything the Dynamic DNS saver reads. */
+function dyndns_input_rules(): array {
+	return [
+		'check_ip_mode' => ['token', 'label' => gettext('Check IP Mode')],
+		'curl_ipresolve_v4' => ['flag'],
+		'curl_proxy' => ['flag'],
+		'curl_ssl_verifypeer' => ['flag'],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'domainname' => ['line', 'label' => gettext('Domain name')],
+		'enable' => ['flag'],
+		'force' => ['flag'],
+		'host' => ['line', 'label' => gettext('Hostname')],
+		'interface' => ['token', 'label' => gettext('Interface to monitor')],
+		'keyalgorithm' => ['token', 'label' => gettext('Key algorithm')],
+		'keydata' => ['secret', 'label' => gettext('Key')],
+		'keyname' => ['line', 'label' => gettext('Key name')],
+		'maxcacheage' => ['int', 'label' => gettext('Max Cache Age')],
+		'mx' => ['line', 'label' => gettext('MX')],
+		'passwordfld' => ['secret', 'label' => gettext('Password'), 'max' => 8192],
+		'passwordfld_confirm' => ['secret', 'label' => gettext('Password'), 'max' => 8192],
+		'proxied' => ['flag'],
+		'recordtype' => ['token', 'label' => gettext('Record Type')],
+		'requestif' => ['token', 'label' => gettext('Interface to send update from')],
+		'resultmatch' => ['text', 'label' => gettext('Result Match')],
+		'server' => ['line', 'label' => gettext('Server')],
+		'ttl' => ['int', 'label' => gettext('TTL')],
+		'type' => ['token', 'label' => gettext('Service Type')],
+		'updatesource' => ['token', 'label' => gettext('Update Source')],
+		'updatesourcefamily' => ['token', 'label' => gettext('Update Source Family')],
+		'updateurl' => ['line', 'label' => gettext('Update URL'), 'max' => 8192],
+		'usepublicip' => ['flag'],
+		'username' => ['line', 'label' => gettext('Username')],
+		'usetcp' => ['flag'],
+		'verboselog' => ['flag'],
+		'wildcard' => ['flag'],
+		'zone' => ['line', 'label' => gettext('Zone')],
+		'zoneid' => ['line', 'label' => gettext('Zone ID')],
+	];
+}
+
 function dyndns_save_client($post, $id, $dup = false) {
 	global $dyndns_split_domain_types;
 
 	$this_dyndns_config = isset($id) ? config_get_path("dyndnses/dyndns/{$id}") : null;
-	$input_errors = array();
-	$pconfig = $post;
+	$submitted = $post;
+	list($post, $input_errors) = input_check($post, dyndns_input_rules());
+	/* A failed save shows what was typed, including what the check refused. */
+	$pconfig = array_merge($submitted, $post);
 
 	$ddns_attr = dyndns_provider_attributes();
 

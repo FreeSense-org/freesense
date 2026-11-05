@@ -87,6 +87,8 @@ jobs:
               VxlanConfigSmokeTest \
               WebUiHardeningSmokeTest \
               CfgFormatSmokeTest \
+              InputGateSmokeTest \
+              InputCheckSmokeTest \
               RemoteBackupSmokeTest \
               PackageRepositoriesSmokeTest \
               RestApiSmokeTest \

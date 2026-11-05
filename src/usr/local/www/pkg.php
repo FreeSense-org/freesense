@@ -75,6 +75,7 @@ if ($xml == "") {
 
 	if (file_exists($pkg_full_path)) {
 		$pkg = parse_xml_config_pkg($pkg_full_path, "packagegui");
+		input_gate_run_xml($pkg);
 	} else {
 		include("head.inc");
 		print_info_box(sprintf(gettext("File not found %s."), htmlspecialchars($xml)), 'danger', false);
@@ -115,6 +116,9 @@ if ($_POST['act'] == "update") {
 		parse_str($_POST['ids'], $update_list);
 		// sort ids to know what to change
 		// useful to do not lose data when using sorting and paging
+		$update_list['ids'] = array_values(array_filter((array)($update_list['ids'] ?? []), function ($v) use ($current_values) {
+			return is_scalar($v) && ctype_digit((string)$v) && array_key_exists((int)$v, $current_values);
+		}));
 		$sort_list=$update_list['ids'];
 		sort($sort_list);
 		// apply updates

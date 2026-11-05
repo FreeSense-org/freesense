@@ -291,13 +291,26 @@ function alias_same_type($name, $type) {
 	return true;
 }
 
+/* Every field saveAlias() reads. Checks between fields stay in the saver. */
+function alias_input_rules(): array {
+	return [
+		'address*' => ['line', 'label' => gettext('Address'), 'max' => 8192],
+		'address_subnet*' => ['int', 'label' => gettext('Address bit count')],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'detail*' => ['line', 'label' => gettext('Description')],
+		'name' => ['line', 'label' => gettext('Name')],
+		'origname' => ['line', 'label' => gettext('Name')],
+		'type' => ['enum', 'label' => gettext('Type'), 'values' => ['host', 'network', 'port', 'url', 'url_ports', 'urltable', 'urltable_ports']],
+	];
+}
+
 function saveAlias($post, $id) {
 	global $g, $pconfig, $aliastable, $singular_types;
 
 	$origname = $post['origname'];
 	$max_alias_addresses = 5000;
 
-	$data_errors = array();
+	$data_errors = input_check($post, alias_input_rules())[1];
 
 	$vertical_bar_err_text = gettext("Vertical bars (|) at start or end, or double in the middle of descriptions not allowed. Descriptions have been cleaned. Check and save again.");
 
@@ -381,7 +394,7 @@ function saveAlias($post, $id) {
 			$address[] = $post['address0'];
 			$alias['url'] = $post['address0'];
 			$alias['updatefreq'] = $post['address_subnet0'] ? $post['address_subnet0'] : 7;
-			if (!is_URL($alias['url']) || empty($alias['url'])) {
+			if (!is_URL($alias['url'], true) || empty($alias['url'])) {
 				$data_errors[] = gettext("A valid URL must be provided.");
 			} elseif (!process_alias_urltable($alias['name'], $alias['type'], $alias['url'], 0, true, true)) {
 				$data_errors[] = sprintf(gettext("Unable to fetch usable data from URL %s"), htmlspecialchars($alias['url']));
@@ -404,7 +417,7 @@ function saveAlias($post, $id) {
 
 		/* item is a url type */
 		for ($x = 0; $x < $max_alias_addresses - 1; $x++) {
-			if (is_URL($post['address' . $x])) {
+			if (is_URL($post['address' . $x], true)) {
 				/* fetch down and add in */
 				$temp_filename = tempnam($g['tmp_path'] . '/', "alias_import");
 				rmdir_recursive($temp_filename);

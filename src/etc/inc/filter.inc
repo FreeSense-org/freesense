@@ -982,6 +982,10 @@ function filter_configure_sync($delete_states_if_needed = true) {
 
 	if (config_get_path('system/optimization',"") <> "") {
 		$opt = config_get_path('system/optimization');
+		/* A stored value can come from a restored backup: it must not reach pf as syntax. */
+		if (!in_array($opt, ['normal', 'high-latency', 'aggressive', 'conservative'], true)) {
+			$opt = 'normal';
+		}
 		$limitrules .= "set optimization {$opt}\n";
 		if ($opt == "conservative") {
 			$limitrules .= "set timeout { udp.first 300, udp.single 150, udp.multiple 900 }\n";
@@ -2296,7 +2300,7 @@ function filter_generate_optcfg_array() {
 					}
 					$oic['vips'][$vipidx]['mode'] = $vip['mode'];
 					$oic['vips'][$vipidx]['ip'] = $vip['subnet'];
-					if (empty($vip['subnet_bits'])) {
+					if (empty($vip['subnet_bits']) || !is_numericint($vip['subnet_bits'])) {
 						$oic['vips'][$vipidx]['sn'] = 32;
 					} else {
 						$oic['vips'][$vipidx]['sn'] = $vip['subnet_bits'];
@@ -2307,7 +2311,7 @@ function filter_generate_optcfg_array() {
 					}
 					$oic['vips6'][$vipidx]['mode'] = $vip['mode'];
 					$oic['vips6'][$vipidx]['ip'] = $vip['subnet'];
-					if (empty($vip['subnet_bits'])) {
+					if (empty($vip['subnet_bits']) || !is_numericint($vip['subnet_bits'])) {
 						$oic['vips6'][$vipidx]['sn'] = 128;
 					} else {
 						$oic['vips6'][$vipidx]['sn'] = $vip['subnet_bits'];
@@ -3118,6 +3122,11 @@ EOD;
 	return $entry;
 }
 
+/* The pool options outbound NAT may write. */
+function filter_nat_poolopts(): array {
+	return ['', 'round-robin', 'round-robin sticky-address', 'random', 'random sticky-address', 'source-hash', 'bitmask'];
+}
+
 function filter_nat_rules_generate() {
 	global $PFConfig, $g, $FilterIflist;
 
@@ -3397,7 +3406,7 @@ function filter_nat_rules_generate() {
 
 			if (!$obent['interface'] || !isset($FilterIflist[$obent['interface']])) {
 				$error_text = sprintf(gettext("Missing interface '%1\$s' for rule '%2\$s'"), $obent['interface'], $descr);
-				$natrules .= "# {$error_text}\n";
+				$natrules .= "# " . cfg_one_line($error_text) . "\n";
 				continue;
 			}
 
@@ -3410,7 +3419,7 @@ function filter_nat_rules_generate() {
 					if (!is_platform_booting()) {
 						file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 					}
-					$natrules .= "# {$error_text}\n";
+					$natrules .= "# " . cfg_one_line($error_text) . "\n";
 					continue;
 				}
 			}
@@ -3426,7 +3435,7 @@ function filter_nat_rules_generate() {
 					if (!is_platform_booting()) {
 						file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 					}
-					$natrules .= "# {$error_text}\n";
+					$natrules .= "# " . cfg_one_line($error_text) . "\n";
 					continue;
 				}
 			}
@@ -3440,7 +3449,7 @@ function filter_nat_rules_generate() {
 					if (!is_platform_booting()) {
 						file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 					}
-					$natrules .= "# {$error_text}\n";
+					$natrules .= "# " . cfg_one_line($error_text) . "\n";
 					continue;
 				}
 			}
@@ -3456,7 +3465,7 @@ function filter_nat_rules_generate() {
 					if (!is_platform_booting()) {
 						file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 					}
-					$natrules .= "# {$error_text}\n";
+					$natrules .= "# " . cfg_one_line($error_text) . "\n";
 					continue;
 				}
 			}
@@ -3469,9 +3478,12 @@ function filter_nat_rules_generate() {
 
 			$obtarget = $obent['target'] . ((!is_alias($obent['target']) && !empty($obent['target_subnet'])) ? '/' . $obent['target_subnet'] : '');
 			$poolopts = (is_subnet($obtarget) || is_alias($obtarget)) ? $obent['poolopts'] : "";
+			if (!in_array($poolopts, filter_nat_poolopts(), true)) {
+				$poolopts = "";
+			}
 
 			/* pool option source-hash allows specification of an optional source-hash key */
-			if ($poolopts == "source-hash" && !empty($obent['source_hash_key'])) {
+			if ($poolopts == "source-hash" && preg_match('/^0x[0-9a-f]{32}$/iD', (string)($obent['source_hash_key'] ?? ''))) {
 				$poolopts = "source-hash ".$obent['source_hash_key'];
 			}
 
@@ -3636,6 +3648,12 @@ function filter_nat_rules_generate() {
 		update_filter_reload_status(sprintf(gettext("Creating NAT rule %s"), $rule['descr']));
 
 		if (isset($rule['disabled'])) {
+			continue;
+		}
+
+		/* A stored value can come from a restored backup: it must not reach pf as syntax. */
+		if (cfg_invalid_fields($rule, ['protocol' => 'token'])) {
+			log_error(sprintf(gettext('Port forward "%s" skipped: invalid protocol.'), $rule['descr']));
 			continue;
 		}
 
@@ -4292,6 +4310,16 @@ function filter_generate_user_rule($rule) {
 		$mt = microtime();
 		echo "filter_generate_user_rule() being called $mt\n";
 	}
+	$rule['descr'] = cfg_one_line($rule['descr'] ?? '');
+
+	/* These go into the rule as they are, so a bad one would change the ruleset. */
+	$bad_fields = cfg_invalid_fields($rule, ['protocol' => 'token', 'max' => 'int', 'max-src-nodes' => 'int', 'max-src-states' => 'int',
+	    'max-src-conn' => 'int', 'max-src-conn-rate' => 'int', 'max-src-conn-rates' => 'int', 'statetimeout' => 'int']);
+	if ($bad_fields) {
+		log_error(sprintf(gettext('Firewall rule "%1$s" skipped: invalid %2$s.'), $rule['descr'], implode(', ', $bad_fields)));
+		return "# rule " . $rule['descr'] . " skipped: invalid " . implode(', ', $bad_fields) . "\n";
+	}
+
 	/* don't include disabled rules */
 	if (isset($rule['disabled'])) {
 		return "# rule " . $rule['descr'] . " disabled \n";
@@ -4366,14 +4394,14 @@ function filter_generate_user_rule($rule) {
 		if (!is_platform_booting()) {
 			file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 		}
-		return "# {$error_text}";
+		return "# " . cfg_one_line($error_text);
 	}
 	if ($rule['destination']['address'] && !alias_expand($rule['destination']['address'])) {
 		$error_text = sprintf(gettext("Unresolvable destination alias '%1\$s' for rule '%2\$s'"), $rule['destination']['address'], $rule['descr']);
 		if (!is_platform_booting()) {
 			file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 		}
-		return "# {$error_text}";
+		return "# " . cfg_one_line($error_text);
 	}
 	if ($rule['source']['port'] &&
 	    array_key_exists(strtolower($rule['protocol']), get_ipprotocols('portsonly')) &&
@@ -4391,7 +4419,7 @@ function filter_generate_user_rule($rule) {
 			if (!is_platform_booting()) {
 				file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 			}
-			return "# {$error_text}";
+			return "# " . cfg_one_line($error_text);
 		}
 	}
 	if ($rule['destination']['port'] &&
@@ -4410,7 +4438,7 @@ function filter_generate_user_rule($rule) {
 			if (!is_platform_booting()) {
 				file_notice("Filter_Reload", gettext('Rule skipped: ') . $error_text);
 			}
-			return "# {$error_text}";
+			return "# " . cfg_one_line($error_text);
 		}
 	}
 	update_filter_reload_status(gettext("Setting up pass/block rules"));

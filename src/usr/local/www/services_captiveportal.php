@@ -100,6 +100,10 @@ switch ($action) {
 		}
 		break;
 	case 'del':
+		if (empty($_POST)) {
+			header("Location: services_captiveportal.php?zone={$cpzone}");
+			exit;
+		}
 		config_del_path("captiveportal/{$cpzone}/page/{$atype}text");
 		write_config(sprintf(gettext("Captive Portal: zone %s: Restore default {$atype} page"), $cpzone));
 		header("Location: services_captiveportal.php?zone={$cpzone}");
@@ -793,7 +797,7 @@ if ($pconfig['page']['htmltext']) {
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=delhtmlhtml',
 		'fa-solid fa-arrow-rotate-left'
-	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
+	))->addClass('btn btn-danger btn-sm')->setAttribute("usepost", "usepost");
 	$section->add($group);
 }
 
@@ -827,7 +831,7 @@ if ($pconfig['page']['errtext']) {
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=delerrhtml',
 		'fa-solid fa-arrow-rotate-left'
-	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
+	))->addClass('btn btn-danger btn-sm')->setAttribute("usepost", "usepost");
 	$section->add($group);
 }
 
@@ -859,7 +863,7 @@ if ($pconfig['page']['logouttext']) {
 		'Restore Default Page',
 		'?zone=' . $cpzone . '&act=dellogouthtml',
 		'fa-solid fa-arrow-rotate-left'
-	))->addClass('btn btn-danger btn-sm')->setAttribute("target", "_blank");
+	))->addClass('btn btn-danger btn-sm')->setAttribute("usepost", "usepost");
 	$section->add($group);
 }
 $form->addGlobal(new Form_Input(
