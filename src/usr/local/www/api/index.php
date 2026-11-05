@@ -35,6 +35,7 @@ require_once('config.inc');
 require_once('functions.inc');
 require_once('auth.inc');
 require_once('priv.inc');
+require_once('input_gate.inc');
 /* backup.inc must be loaded at file scope: rrd_data_xml() uses its globals. */
 require_once('backup.inc');
 require_once('remote_backup.inc');
@@ -235,6 +236,12 @@ try {
 		'session_id' => $ctx['session_id'] ?? null,
 		'login_time' => $ctx['login_time'] ?? null,
 	);
+
+	$gate_hits = input_gate_run_rest($path, $req['query'], $req['body']);
+	if ($gate_hits) {
+		throw new RestApiError(422, 'invalid_characters', 'The request has invalid characters.',
+		    array('fields' => array_values(array_unique(array_column($gate_hits, 0)))));
+	}
 
 	/* Lets restapi_validation_error() key messages by the route's resource schema. */
 	restapi_request_context(array('schema' => $route['schema'] ?? null, 'body' => $req['body']));

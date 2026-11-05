@@ -1859,7 +1859,7 @@ $pki_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system
 foreach (array('system_camanager.php' => array('pki_ca_methods()', 'pki_ca_delete($id)', "pki_ca_form('edit', \$thisca)", "pki_ca_form('new', null, \$_POST['method'])",
     'pki_ca_save($pconfig, $id ?? null, $act, $savemsg)', 'pki_ca_signing_list()', 'pki_key_lengths()', 'pki_key_types()'),
     'system_crlmanager.php' => array('pki_crl_methods()', 'pki_crl_cleanup()', 'pki_crl_delete($id)', "pki_crl_new_form(\$_REQUEST['method'], \$_REQUEST['caref'])",
-    'pki_crl_revoke($pconfig, $_POST)', "pki_crl_unrevoke(\$crl_item_config, \$_REQUEST['certref'])", 'pki_crl_export($crl_item_config)',
+    'pki_crl_revoke($pconfig, $_POST)', "pki_crl_unrevoke(\$crl_item_config, \$_POST['certref'])", 'pki_crl_export($crl_item_config)',
     'pki_crl_save($pconfig, $crl_item_config, $act)', 'pki_crl_method_list(', 'pki_crl_cert_list($crl, $id)', 'pki_crl_ca_list()')) as $page => $calls) {
 	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
 	foreach ($calls as $call) {

@@ -556,7 +556,7 @@ function interfaces_group_users($name) {
  * errors; empty on success.
  */
 function interfaces_group_save(array $post, $id) {
-	$input_errors = array();
+	$input_errors = input_check($post, ['descr' => ['line', 'label' => gettext('Description')]])[1];
 	$interface_list = interfaces_group_member_list();
 	$interface_list_disabled = get_configured_interface_with_descr(true);
 	$this_ifgroup_config = isset($id) ? config_get_path("ifgroups/ifgroupentry/{$id}") : null;

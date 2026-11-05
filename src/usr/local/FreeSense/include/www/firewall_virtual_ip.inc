@@ -52,6 +52,26 @@ function getVIPs($json = false) {
 }
 
 // Save virtual IP changes
+/* Every field saveVIP() reads. Checks between fields stay in the saver. */
+function firewall_virtual_ip_input_rules(): array {
+	return [
+		'advbase' => ['int', 'label' => gettext('Base advertising frequency'), 'max' => 254],
+		'advskew' => ['int', 'label' => gettext('Advertising skew'), 'max' => 254],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'id' => ['int'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'mode' => ['enum', 'label' => gettext('Type'), 'values' => ['proxyarp', 'carp', 'ipalias', 'other']],
+		'noexpand' => ['flag'],
+		'password' => ['secret', 'label' => gettext('Virtual IP Password')],
+		'password_confirm' => ['secret', 'label' => gettext('Virtual IP Password')],
+		'subnet' => ['line', 'label' => gettext('Address')],
+		'subnet_bits' => ['int', 'label' => gettext('Address bit count'), 'max' => 128],
+		'type' => ['enum', 'label' => gettext('Address type'), 'values' => ['single', 'network']],
+		'uniqid' => ['token'],
+		'vhid' => ['int', 'label' => gettext('VHID Group'), 'max' => 255],
+	];
+}
+
 function saveVIP($post, $json = false) {
 	global $g;
 
@@ -59,7 +79,7 @@ function saveVIP($post, $json = false) {
 	$rv = array();
 	$id = is_numericint($post['id']) ? $post['id'] : null;
 
-	$input_errors = array();
+	$input_errors = input_check($post, firewall_virtual_ip_input_rules())[1];
 
 	/* input validation */
 	$reqdfields = explode(" ", "mode");

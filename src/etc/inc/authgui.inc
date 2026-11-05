@@ -29,6 +29,7 @@ include_once("auth.inc");
 include_once("config.inc");
 include_once("config.lib.inc");
 include_once("priv.inc");
+require_once(__DIR__ . "/input_gate.inc");
 if (!function_exists('is_platform_booting')) {
 	require_once('globals.inc');
 }
@@ -101,6 +102,9 @@ if (!$_SESSION['Post_Login']) {
 
 	exit;
 }
+
+/* Signed in and allowed this page: check the request before the page runs. */
+input_gate_run();
 
 /*
  * Close session data to allow other scripts from same host to come in.

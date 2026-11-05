@@ -40,80 +40,74 @@ $serialports = get_serial_ports(true);
 if ($_POST) {
 	unset($input_errors);
 
-	foreach (['ppsfudge1' => 'decimal', 'ppsfudge2' => 'decimal', 'ppsrefid' => 'ntp_refid', 'ppsstratum' => 'int'] as $ntp_field => $ntp_rule) {
-		if (!empty($_POST[$ntp_field]) && !cfg_value_valid($ntp_rule, $_POST[$ntp_field])) {
-			$input_errors[] = sprintf(gettext('The value of %s is not valid.'), $ntp_field);
-		}
-	}
+	list($clean, $input_errors) = input_check($_POST, [
+		'ppsport' => ['enum', 'label' => gettext('Serial Port'), 'values' => array_keys($serialports)],
+		'ppsfudge1' => ['decimal', 'label' => gettext('Fudge Time')],
+		'ppsstratum' => ['int', 'label' => gettext('Stratum'), 'max' => 16],
+		'ppsrefid' => ['ntp_refid', 'label' => gettext('Clock ID')],
+		'ppsselect' => ['flag'],
+		'ppsflag2' => ['flag'],
+		'ppsflag3' => ['flag'],
+		'ppsflag4' => ['flag'],
+		'ppsminpoll' => ['enum', 'label' => gettext('Minimum Poll Interval'), 'values' => array_keys($ntp_poll_values)],
+		'ppsmaxpoll' => ['enum', 'label' => gettext('Maximum Poll Interval'), 'values' => array_keys($ntp_poll_values)],
+	]);
 
-	if (!empty($_POST['ppsport']) && !array_key_exists($_POST['ppsport'], $serialports)) {
-		$input_errors[] = gettext("The selected PPS port does not exist.");
-	}
-
-	if (!array_key_exists($pconfig['ppsminpoll'], $ntp_poll_values)) {
-		$input_errors[] = gettext("The supplied value for Minimum Poll Interval is invalid.");
-	}
-
-	if (!array_key_exists($pconfig['ppsmaxpoll'], $ntp_poll_values)) {
-		$input_errors[] = gettext("The supplied value for Maximum Poll Interval is invalid.");
-	}
-
-	if (is_numericint($pconfig['ppsminpoll']) &&
-	    is_numericint($pconfig['ppsmaxpoll']) ||
-	    ($pconfig['ppsmaxpoll'] < $pconfig['ppsminpoll'])) {
+	if (is_numericint($clean['ppsminpoll'] ?? '') && is_numericint($clean['ppsmaxpoll'] ?? '') &&
+	    ((int)$clean['ppsmaxpoll'] < (int)$clean['ppsminpoll'])) {
 		$input_errors[] = gettext("The supplied value for Minimum Poll Interval is higher than Maximum Poll Interval.");
 	}
 
 	if (!$input_errors) {
-		if (!empty($_POST['ppsport']) && array_key_exists($_POST['ppsport'], $serialports)) {
-			config_set_path('ntpd/pps/port', $_POST['ppsport']);
+		if (!empty($clean['ppsport']) && array_key_exists($clean['ppsport'], $serialports)) {
+			config_set_path('ntpd/pps/port', $clean['ppsport']);
 		} else {
 			config_del_path('ntpd/pps');
 		}
 
-		if (!empty($_POST['ppsfudge1'])) {
-			config_set_path('ntpd/pps/fudge1', $_POST['ppsfudge1']);
+		if (!empty($clean['ppsfudge1'])) {
+			config_set_path('ntpd/pps/fudge1', $clean['ppsfudge1']);
 		} else {
 			config_del_path('ntpd/pps/fudge1');
 		}
 
-		if (!empty($_POST['ppsstratum']) && ($_POST['ppsstratum']) < 17) {
-			config_set_path('ntpd/pps/stratum', $_POST['ppsstratum']);
+		if (!empty($clean['ppsstratum'])) {
+			config_set_path('ntpd/pps/stratum', $clean['ppsstratum']);
 		} else {
 			config_del_path('ntpd/pps/stratum');
 		}
 
-		if (!empty($_POST['ppsselect'])) {
-			config_set_path('ntpd/pps/noselect', $_POST['ppsselect']);
+		if (!empty($clean['ppsselect'])) {
+			config_set_path('ntpd/pps/noselect', $clean['ppsselect']);
 		} else {
 			config_del_path('ntpd/pps/noselect');
 		}
 
-		if (!empty($_POST['ppsflag2'])) {
-			config_set_path('ntpd/pps/flag2', $_POST['ppsflag2']);
+		if (!empty($clean['ppsflag2'])) {
+			config_set_path('ntpd/pps/flag2', $clean['ppsflag2']);
 		} else {
 			config_del_path('ntpd/pps/flag2');
 		}
 
-		if (!empty($_POST['ppsflag3'])) {
-			config_set_path('ntpd/pps/flag3', $_POST['ppsflag3']);
+		if (!empty($clean['ppsflag3'])) {
+			config_set_path('ntpd/pps/flag3', $clean['ppsflag3']);
 		} else {
 			config_del_path('ntpd/pps/flag3');
 		}
 
-		if (!empty($_POST['ppsflag4'])) {
-			config_set_path('ntpd/pps/flag4', $_POST['ppsflag4']);
+		if (!empty($clean['ppsflag4'])) {
+			config_set_path('ntpd/pps/flag4', $clean['ppsflag4']);
 		} else {
 			config_del_path('ntpd/pps/flag4');
 		}
 
-		if (!empty($_POST['ppsrefid'])) {
-			config_set_path('ntpd/pps/refid', $_POST['ppsrefid']);
+		if (!empty($clean['ppsrefid'])) {
+			config_set_path('ntpd/pps/refid', $clean['ppsrefid']);
 		} else {
 			config_del_path('ntpd/pps/refid');
 		}
-		config_set_path('ntpd/pps/ppsminpoll', $_POST['ppsminpoll']);
-		config_set_path('ntpd/pps/ppsmaxpoll', $_POST['ppsmaxpoll']);
+		config_set_path('ntpd/pps/ppsminpoll', $clean['ppsminpoll'] ?? '');
+		config_set_path('ntpd/pps/ppsmaxpoll', $clean['ppsmaxpoll'] ?? '');
 
 		write_config("Updated NTP PPS Settings");
 

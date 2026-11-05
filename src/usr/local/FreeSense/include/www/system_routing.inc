@@ -103,6 +103,29 @@ function routing_save_default_gateways($post) {
  * gateway's index in get_gateways(GW_CACHE_INDEXED), null for a new one.
  * Returns the input errors; empty when the gateway was saved.
  */
+/* Every field the gateway savers read. Checks between fields stay in validate_gateway(). */
+function routing_gateway_input_rules(): array {
+	$rules = [
+		'attribute' => ['token'],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'friendlyiface' => ['token', 'label' => gettext('Interface')],
+		'gateway' => ['line', 'label' => gettext('Gateway')],
+		'gw_down_kill_states' => ['token'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'ipprotocol' => ['enum', 'label' => gettext('Address family'), 'values' => ['inet', 'inet6']],
+		'monitor' => ['line', 'label' => gettext('Monitor IP')],
+		'name' => ['line', 'label' => gettext('Name')],
+		'weight' => ['int', 'label' => gettext('Weight'), 'min' => 1, 'max' => 30],
+	];
+	foreach (['alert_interval', 'data_payload', 'interval', 'latencyhigh', 'latencylow', 'loss_interval', 'losshigh', 'losslow', 'time_period'] as $field) {
+		$rules[$field] = ['int'];
+	}
+	foreach (['action_disable', 'defaultgw', 'disabled', 'dpinger_dont_add_static_route', 'force_down', 'monitor_disable', 'nonlocalgateway', 'skip_rules_gw_down'] as $field) {
+		$rules[$field] = ['flag'];
+	}
+	return $rules;
+}
+
 function routing_save_gateway($post, $id = null) {
 	refresh_gateways(); // make sure we're working on a current gateway list
 	$a_gateways = get_gateways(GW_CACHE_INDEXED);
@@ -111,7 +134,7 @@ function routing_save_gateway($post, $id = null) {
 		$realid = $a_gateways[$id]['attribute'];
 	}
 
-	$input_errors = validate_gateway($post, $id);
+	$input_errors = array_merge(input_check($post, routing_gateway_input_rules())[1], validate_gateway($post, $id));
 
 	if (count($input_errors) == 0) {
 		save_gateway($post, $realid);
@@ -311,7 +334,17 @@ function routing_gateway_group_keep_states() {
 function routing_save_gateway_group($post, $id = null) {
 	$a_gateways = get_gateways();
 	$this_gateway_group_config = isset($id) ? config_get_path("gateways/gateway_group/{$id}") : null;
-	$input_errors = array();
+	$group_rules = [
+		'descr' => ['line', 'label' => gettext('Description')],
+		'keep_failover_states' => ['token'],
+		'name' => ['line', 'label' => gettext('Group Name')],
+		'trigger' => ['token', 'label' => gettext('Trigger Level')],
+	];
+	foreach (array_keys($a_gateways) as $gwname) {
+		$group_rules[$gwname] = ['int', 'label' => $gwname, 'max' => 5];
+		$group_rules["{$gwname}_vip"] = ['token', 'label' => $gwname];
+	}
+	$input_errors = input_check($post, $group_rules)[1];
 	$pconfig = $post;
 
 	/* input validation */
@@ -467,7 +500,13 @@ function routing_save_static_route($post, $id = null) {
 
 	$a_gateways = get_gateways(GW_CACHE_DISABLED | GW_CACHE_LOCALHOST);
 	$this_routes_config = isset($id) ? config_get_path("staticroutes/route/{$id}") : null;
-	$input_errors = array();
+	$input_errors = input_check($post, [
+		'descr' => ['line', 'label' => gettext('Description')],
+		'disabled' => ['flag'],
+		'gateway' => ['token', 'label' => gettext('Gateway')],
+		'network' => ['line', 'label' => gettext('Destination network')],
+		'network_subnet' => ['int', 'label' => gettext('Destination network bit count'), 'max' => 128],
+	])[1];
 
 	/* input validation */
 	$reqdfields = explode(" ", "network network_subnet gateway");
