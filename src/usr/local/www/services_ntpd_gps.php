@@ -155,27 +155,34 @@ if ($_POST) {
 		$input_errors[] = gettext("The submitted GPS type is invalid.");
 	}
 
-	foreach (['gpsfudge1' => 'decimal', 'gpsfudge2' => 'decimal', 'gpsrefid' => 'ntp_refid', 'gpsstratum' => 'int'] as $ntp_field => $ntp_rule) {
-		if (!empty($_POST[$ntp_field]) && !cfg_value_valid($ntp_rule, $_POST[$ntp_field])) {
-			$input_errors[] = sprintf(gettext('The value of %s is not valid.'), $ntp_field);
-		}
-	}
+	list($clean, $check_errors) = input_check($_POST, [
+		'gpstype' => ['enum', 'label' => gettext('GPS Type'), 'values' => $gpstypes],
+		'gpsport' => ['enum', 'label' => gettext('Serial Port'), 'values' => array_keys($serialports)],
+		'gpsspeed' => ['token', 'label' => gettext('Serial Speed')],
+		'gpsnmea' => ['list', 'of' => 'int', 'label' => gettext('NMEA Sentences')],
+		'gpssubsec' => ['flag'],
+		'gpsfudge1' => ['decimal', 'label' => gettext('Fudge Time 1')],
+		'gpsfudge2' => ['decimal', 'label' => gettext('Fudge Time 2')],
+		'gpsstratum' => ['int', 'label' => gettext('Stratum'), 'max' => 16],
+		'gpsminpoll' => ['enum', 'label' => gettext('Minimum Poll Interval'), 'values' => array_keys($ntp_poll_values)],
+		'gpsmaxpoll' => ['enum', 'label' => gettext('Maximum Poll Interval'), 'values' => array_keys($ntp_poll_values)],
+		'gpsprefer' => ['flag'],
+		'gpsnoselect' => ['flag'],
+		'gpsflag1' => ['flag'],
+		'gpsflag2' => ['flag'],
+		'gpsflag3' => ['flag'],
+		'gpsflag4' => ['flag'],
+		'gpsrefid' => ['ntp_refid', 'label' => gettext('Clock ID')],
+		'gpsinitcmd' => ['text', 'label' => gettext('GPS Initialization')],
+		'extstatus' => ['flag'],
+		'processpgrmf' => ['flag'],
+		'autobaudinit' => ['flag'],
+		'autocorrect_initcmd' => ['flag'],
+	]);
+	$input_errors = array_merge($input_errors, $check_errors);
 
-	if (!empty($_POST['gpsport']) && !array_key_exists($_POST['gpsport'], $serialports)) {
-		$input_errors[] = gettext("The selected GPS port does not exist.");
-	}
-
-	if (!array_key_exists($pconfig['gpsminpoll'], $ntp_poll_values)) {
-		$input_errors[] = gettext("The supplied value for Minimum Poll Interval is invalid.");
-	}
-
-	if (!array_key_exists($pconfig['gpsmaxpoll'], $ntp_poll_values)) {
-		$input_errors[] = gettext("The supplied value for Maximum Poll Interval is invalid.");
-	}
-
-	if (is_numericint($pconfig['gpsminpoll']) &&
-	    is_numericint($pconfig['gpsmaxpoll']) ||
-	    ($pconfig['gpsmaxpoll'] < $pconfig['gpsminpoll'])) {
+	if (is_numericint($clean['gpsminpoll'] ?? '') && is_numericint($clean['gpsmaxpoll'] ?? '') &&
+	    ((int)$clean['gpsmaxpoll'] < (int)$clean['gpsminpoll'])) {
 		$input_errors[] = gettext("The supplied value for Minimum Poll Interval is higher than Maximum Poll Interval.");
 	}
 
@@ -190,125 +197,125 @@ if ($_POST) {
 
 if ($_POST && empty($input_errors)) {
 
-	if (!empty($_POST['gpsport']) && array_key_exists($_POST['gpsport'], $serialports)) {
-		config_set_path('ntpd/gps/port', $_POST['gpsport']);
+	if (!empty($clean['gpsport']) && array_key_exists($clean['gpsport'], $serialports)) {
+		config_set_path('ntpd/gps/port', $clean['gpsport']);
 	} else {
 		config_del_path('ntpd/gps');
 	}
 
-	if (!empty($_POST['gpstype'])) {
-		config_set_path('ntpd/gps/type', $_POST['gpstype']);
+	if (!empty($clean['gpstype'])) {
+		config_set_path('ntpd/gps/type', $clean['gpstype']);
 	} else {
 		config_del_path('ntpd/gps/type');
 	}
 
-	if (!empty($_POST['gpsspeed'])) {
-		config_set_path('ntpd/gps/speed', $_POST['gpsspeed']);
-		if ($_POST['gpsspeed'] == 'autoalways') {
+	if (!empty($clean['gpsspeed'])) {
+		config_set_path('ntpd/gps/speed', $clean['gpsspeed']);
+		if ($clean['gpsspeed'] == 'autoalways') {
 			$fixghost = true;
 		}
 	} elseif (config_path_enabled('ntpd/gps', 'speed')) {
 		config_del_path('ntpd/gps/speed');
 	}
 	
-	if (!empty($_POST['autobaudinit'])) {
-		config_set_path('ntpd/gps/autobaudinit', $_POST['autobaudinit']);
+	if (!empty($clean['autobaudinit'])) {
+		config_set_path('ntpd/gps/autobaudinit', $clean['autobaudinit']);
 	} else {
 		config_del_path('ntpd/gps/autobaudinit');
 	}
 
-	if (!empty($_POST['gpsnmea']) && ($_POST['gpsnmea'][0] === "0")) {
+	if (!empty($clean['gpsnmea']) && ($clean['gpsnmea'][0] === "0")) {
 		config_set_path('ntpd/gps/nmea', "0");
 	} else {
-		config_set_path('ntpd/gps/nmea', strval(array_sum((array) ($_POST['gpsnmea'] ?? []))));
+		config_set_path('ntpd/gps/nmea', strval(array_sum((array) ($clean['gpsnmea'] ?? []))));
 	}
 
-	if (!empty($_POST['processpgrmf'])) {
-		config_set_path('ntpd/gps/processpgrmf', $_POST['processpgrmf']);
+	if (!empty($clean['processpgrmf'])) {
+		config_set_path('ntpd/gps/processpgrmf', $clean['processpgrmf']);
 	} else {
 		config_del_path('ntpd/gps/processpgrmf');
 	}
 
-	if (!empty($_POST['gpsfudge1'])) {
-		config_set_path('ntpd/gps/fudge1', $_POST['gpsfudge1']);
+	if (!empty($clean['gpsfudge1'])) {
+		config_set_path('ntpd/gps/fudge1', $clean['gpsfudge1']);
 	} else {
 		config_del_path('ntpd/gps/fudge1');
 	}
 
-	if (!empty($_POST['gpsfudge2'])) {
-		config_set_path('ntpd/gps/fudge2', $_POST['gpsfudge2']);
+	if (!empty($clean['gpsfudge2'])) {
+		config_set_path('ntpd/gps/fudge2', $clean['gpsfudge2']);
 	} else {
 		config_del_path('ntpd/gps/fudge2');
 	}
 
-	if (!empty($_POST['gpsstratum']) && ($_POST['gpsstratum']) < 17) {
-		config_set_path('ntpd/gps/stratum', $_POST['gpsstratum']);
+	if (!empty($clean['gpsstratum'])) {
+		config_set_path('ntpd/gps/stratum', $clean['gpsstratum']);
 	} else {
 		config_del_path('ntpd/gps/stratum');
 	}
 
-	if (empty($_POST['gpsprefer'])) {
+	if (empty($clean['gpsprefer'])) {
 		config_set_path('ntpd/gps/prefer', 'on');
 	} else {
 		config_del_path('ntpd/gps/prefer');
 	}
 
-	if (!empty($_POST['gpsnoselect'])) {
-		config_set_path('ntpd/gps/noselect', $_POST['gpsnoselect']);
+	if (!empty($clean['gpsnoselect'])) {
+		config_set_path('ntpd/gps/noselect', $clean['gpsnoselect']);
 	} else {
 		config_del_path('ntpd/gps/noselect');
 	}
 
-	if (!empty($_POST['gpsflag1'])) {
-		config_set_path('ntpd/gps/flag1', $_POST['gpsflag1']);
+	if (!empty($clean['gpsflag1'])) {
+		config_set_path('ntpd/gps/flag1', $clean['gpsflag1']);
 	} else {
 		config_del_path('ntpd/gps/flag1');
 	}
 
-	if (!empty($_POST['gpsflag2'])) {
-		config_set_path('ntpd/gps/flag2', $_POST['gpsflag2']);
+	if (!empty($clean['gpsflag2'])) {
+		config_set_path('ntpd/gps/flag2', $clean['gpsflag2']);
 	} else {
 		config_del_path('ntpd/gps/flag2');
 	}
 
-	if (!empty($_POST['gpsflag3'])) {
-		config_set_path('ntpd/gps/flag3', $_POST['gpsflag3']);
+	if (!empty($clean['gpsflag3'])) {
+		config_set_path('ntpd/gps/flag3', $clean['gpsflag3']);
 	} else {
 		config_del_path('ntpd/gps/flag3');
 	}
 
-	if (!empty($_POST['gpsflag4'])) {
-		config_set_path('ntpd/gps/flag4', $_POST['gpsflag4']);
+	if (!empty($clean['gpsflag4'])) {
+		config_set_path('ntpd/gps/flag4', $clean['gpsflag4']);
 	} else {
 		config_del_path('ntpd/gps/flag4');
 	}
 
-	if (!empty($_POST['gpssubsec'])) {
-		config_set_path('ntpd/gps/subsec', $_POST['gpssubsec']);
+	if (!empty($clean['gpssubsec'])) {
+		config_set_path('ntpd/gps/subsec', $clean['gpssubsec']);
 	} else {
 		config_del_path('ntpd/gps/subsec');
 	}
 
-	if (!empty($_POST['gpsrefid'])) {
-		config_set_path('ntpd/gps/refid', $_POST['gpsrefid']);
+	if (!empty($clean['gpsrefid'])) {
+		config_set_path('ntpd/gps/refid', $clean['gpsrefid']);
 	} else {
 		config_del_path('ntpd/gps/refid');
 	}
 
-	if (!empty($_POST['extstatus'])) {
-		config_set_path('ntpd/gps/extstatus', $_POST['extstatus']);
+	if (!empty($clean['extstatus'])) {
+		config_set_path('ntpd/gps/extstatus', $clean['extstatus']);
 	} else {
 		config_del_path('ntpd/gps/extstatus');
 	}
 
-	if (!empty($_POST['autocorrect_initcmd'])) {
-		config_set_path('ntpd/gps/autocorrect_initcmd', $_POST['autocorrect_initcmd']);
+	if (!empty($clean['autocorrect_initcmd'])) {
+		config_set_path('ntpd/gps/autocorrect_initcmd', $clean['autocorrect_initcmd']);
 	} else {
 		config_del_path('ntpd/gps/autocorrect_initcmd');
 	}
 
-	if (!empty($_POST['gpsinitcmd'])) {
-		$initcmd = $_POST['gpsinitcmd'];
+	if (!empty($clean['gpsinitcmd'])) {
+		$initcmd = $clean['gpsinitcmd'];
 		if (config_get_path('ntpd/gps/autocorrect_initcmd')) {
 			$initcmd = autocorrect_initcmd($initcmd);
 		}
@@ -321,8 +328,8 @@ if ($_POST && empty($input_errors)) {
 		config_del_path('ntpd/gps/nmeaset');
 	}
 
-	config_set_path('ntpd/gps/gpsminpoll', $_POST['gpsminpoll']);
-	config_set_path('ntpd/gps/gpsmaxpoll', $_POST['gpsmaxpoll']);
+	config_set_path('ntpd/gps/gpsminpoll', $clean['gpsminpoll']);
+	config_set_path('ntpd/gps/gpsmaxpoll', $clean['gpsmaxpoll']);
 
 	write_config(gettext("Updated NTP GPS Settings"));
 

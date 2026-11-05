@@ -28,6 +28,7 @@
 
 //require_once('interfaces.inc');
 require_once(__DIR__ . '/cfg_format.inc');
+require_once(__DIR__ . '/input_check.inc');
 require_once('Net/IPv6.php');
 define('VIP_ALL', 1);
 define('VIP_CARP', 2);
@@ -342,7 +343,7 @@ function parse_rule_label_item(array $label): array|null {
 				$label_descr = implode(RULE_LABEL_TAG_DELIMITER, $label_tags);
 			}
 		} else {
-			$label_descr = str_replace('"', '', trim($label['descr']));
+			$label_descr = str_replace('"', '', trim(cfg_one_line($label['descr'])));
 		}
 	}
 	$label_descr_length = strlen($label_descr);
@@ -1038,14 +1039,20 @@ function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_error
 
 	/* check for bad control characters */
 	foreach ($postdata as $pn => $pd) {
-		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
+		$bad = false;
+		$values = is_array($pd) ? $pd : array($pd);
+		array_walk_recursive($values, function ($v) use (&$bad) {
+			$bad = $bad || (is_string($v) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $v));
+		});
+		if ($bad) {
 			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
 		}
 	}
 
 	if (is_array($reqdfields)) {
 		for ($i = 0; $i < count($reqdfields); $i++) {
-			if ($postdata[$reqdfields[$i]] == "") {
+			$value = $postdata[$reqdfields[$i]] ?? "";
+			if (($value === array()) || ($value == "")) {
 				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
 			}
 		}
@@ -1494,6 +1501,10 @@ function is_ipaddrv6($ipaddr) {
 	if (!is_string($ipaddr) || empty($ipaddr)) {
 		return false;
 	}
+	/* Net_IPv6 accepts a trailing line break. */
+	if (cfg_has_ctl($ipaddr)) {
+		return false;
+	}
 	/*
 	 * While Net_IPv6::checkIPv6() considers IPv6/mask a valid IPv6,
 	 * is_ipaddrv6() needs to be more strict to keep the compatibility
@@ -1534,7 +1545,7 @@ function is_ipaddrv6($ipaddr) {
 function is_ipaddrv6_v4map($ipaddr) {
 	/* check RFC4291 par 2.2.2 format, ex: fd00::1.2.3.4
 	 * see upstream issue 11446 */
-	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/i', $ipaddr)) {
+	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/iD', $ipaddr)) {
 		return true;
 	}
 	return false;
@@ -1578,14 +1589,14 @@ function is_mcast($ipaddr) {
 
 function is_mcastv4($ipaddr) {
 	if (!is_ipaddrv4($ipaddr) ||
-	    !preg_match('/^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$/', $ipaddr)) {
+	    !preg_match('/^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$/D', $ipaddr)) {
 		return false;
 	}
 	return true;
 }
 
 function is_mcastv6($ipaddr) {
-	if (!is_ipaddrv6($ipaddr) || !preg_match('/^ff.+$/', $ipaddr)) {
+	if (!is_ipaddrv6($ipaddr) || !preg_match('/^ff.+$/D', $ipaddr)) {
 		return false;
 	}
 	return true;
@@ -1768,7 +1779,7 @@ function is_ipaddroralias($ipaddr) {
 	false - if not a valid subnet
 	true (numeric 4 or 6) - if valid, gives type of subnet */
 function is_subnet($subnet) {
-	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}|[0-9a-f:]{2,30}[0-9.]{7,15}))\/(\d{1,3})$/i', $subnet, $parts)) {
+	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}|[0-9a-f:]{2,30}[0-9.]{7,15}))\/(\d{1,3})$/iD', $subnet, $parts)) {
 		if (is_ipaddrv4($parts[1]) && $parts[3] <= 32) {
 			return 4;
 		}
@@ -2007,7 +2018,7 @@ function is_unqualified_hostname($hostname) {
 		return false;
 	}
 
-	if (preg_match('/^(?:[a-z0-9_]|[a-z0-9_][a-z0-9_\-]*[a-z0-9_])$/i', $hostname)) {
+	if (preg_match('/^(?:[a-z0-9_]|[a-z0-9_][a-z0-9_\-]*[a-z0-9_])$/iD', $hostname)) {
 		return true;
 	} else {
 		return false;
@@ -2293,7 +2304,7 @@ function group_ports($ports, $kflc = false) {
 
 /* returns true if $val is a valid shaper bandwidth value */
 function is_valid_shaperbw($val) {
-	return (preg_match("/^(\d+(?:\.\d+)?)([MKG]?b|%)$/", $val));
+	return (preg_match("/^(\d+(?:\.\d+)?)([MKG]?b|%)$/D", $val));
 }
 
 /* returns true if $test is in the range between $start and $end */
