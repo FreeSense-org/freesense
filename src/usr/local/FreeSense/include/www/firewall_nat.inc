@@ -208,6 +208,44 @@ function build_srctype_list($json = false) {
 	}
 }
 
+/* Every field saveNATrule() reads. Checks between fields stay in the saver. */
+function firewall_nat_input_rules(): array {
+	return [
+		'after' => ['token'],
+		'associated-rule-id' => ['token'],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'disabled' => ['flag'],
+		'dst' => ['line', 'label' => gettext('Destination address')],
+		'dstbeginport' => ['token', 'label' => gettext('Destination port from')],
+		'dstbeginport_cust' => ['token', 'label' => gettext('Destination port from')],
+		'dstendport' => ['token', 'label' => gettext('Destination port to')],
+		'dstendport_cust' => ['token', 'label' => gettext('Destination port to')],
+		'dstmask' => ['int', 'label' => gettext('Destination bit count'), 'max' => 128],
+		'dstnot' => ['flag'],
+		'dsttype' => ['line', 'label' => gettext('Destination type')],
+		'filter-rule-association' => ['token', 'label' => gettext('Filter rule association')],
+		'id' => ['token'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'ipprotocol' => ['enum', 'label' => gettext('Address family'), 'values' => ['inet', 'inet6', 'inet46']],
+		'localbeginport' => ['token', 'label' => gettext('Redirect target port')],
+		'localbeginport_cust' => ['token', 'label' => gettext('Redirect target port')],
+		'localip' => ['line', 'label' => gettext('Redirect target IP')],
+		'localtype' => ['line', 'label' => gettext('Redirect target type')],
+		'natreflection' => ['token', 'label' => gettext('NAT reflection')],
+		'nordr' => ['flag'],
+		'nosync' => ['flag'],
+		'proto' => ['enum', 'label' => gettext('Protocol'), 'values' => array_keys(get_ipprotocols())],
+		'src' => ['line', 'label' => gettext('Source address')],
+		'srcbeginport' => ['token', 'label' => gettext('Source port from')],
+		'srcbeginport_cust' => ['token', 'label' => gettext('Source port from')],
+		'srcendport' => ['token', 'label' => gettext('Source port to')],
+		'srcendport_cust' => ['token', 'label' => gettext('Source port to')],
+		'srcmask' => ['int', 'label' => gettext('Source bit count'), 'max' => 128],
+		'srcnot' => ['flag'],
+		'srctype' => ['line', 'label' => gettext('Source type')],
+	];
+}
+
 /* $all_ifaces: accept any interface, not only those the logged-in user's rule pages allow (the REST API decides by area). */
 function saveNATrule($post, $id, $json = false, $all_ifaces = false) {
 	$rdr_lcltype_flags = [SPECIALNET_IFADDR];
@@ -217,7 +255,12 @@ function saveNATrule($post, $id, $json = false, $all_ifaces = false) {
 
 	$a_nat = get_anynat_rules_list('rdr');
 
-	$input_errors = array();
+	/* Old configurations may hold the protocol in capitals; the saver lowers it where it matters. */
+	$check = $post;
+	if (isset($check['proto']) && is_string($check['proto'])) {
+		$check['proto'] = strtolower($check['proto']);
+	}
+	$input_errors = input_check($check, firewall_nat_input_rules())[1];
 	if (is_numericint($id) && fleet_auto_entry(config_get_path("nat/rule/{$id}"))) {
 		return array('input_errors' => array(gettext(FLEET_AUTO_LOCKED_TEXT)), 'pconfig' => $post);
 	}

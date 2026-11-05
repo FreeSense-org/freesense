@@ -111,6 +111,18 @@ if ($_POST['save']) {
 		}
 
 		do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
+		$input_errors = array_merge((array)$input_errors, input_check($_POST, [
+			'mode' => ['token', 'label' => gettext('Server mode')],
+			'interface' => ['token', 'label' => gettext('Interface')],
+			'paporchap' => ['flag'],
+			'descr' => ['line', 'label' => gettext('Description')],
+			'pppoe_dns1' => ['ip', 'label' => gettext('DNS server')],
+			'pppoe_dns2' => ['ip', 'label' => gettext('DNS server')],
+			'radiusserver2' => ['ipv4', 'label' => gettext('Secondary RADIUS server')],
+			'radius_acct_update' => ['int', 'label' => gettext('Accounting update')],
+			'password*' => ['secret', 'label' => gettext('Password')],
+			'ip*' => ['ipv4', 'label' => gettext('IP address')],
+		])[1]);
 
 		if (($_POST['localip'] && !is_ipaddrv4($_POST['localip']))) {
 			$input_errors[] = gettext("A valid server address must be specified.");

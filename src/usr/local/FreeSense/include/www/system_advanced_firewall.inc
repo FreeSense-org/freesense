@@ -93,12 +93,36 @@ function getSystemAdvancedFirewall($json = false) {
 	return $json ? json_encode($pconfig) : $pconfig;
 }
 
+/* Every field saveSystemAdvancedFirewall() reads. Ranges and checks between fields stay in the saver. */
+function system_advanced_firewall_input_rules(): array {
+	$rules = [
+		'bogonsinterval' => ['enum', 'label' => gettext('Update Frequency'), 'values' => ['monthly', 'weekly', 'daily']],
+		'natreflection' => ['token', 'label' => gettext('NAT Reflection mode')],
+		'optimization' => ['enum', 'label' => gettext('Firewall Optimization Options'), 'values' => ['normal', 'high-latency', 'aggressive', 'conservative']],
+		'statepolicy' => ['token', 'label' => gettext('Firewall State Policy')],
+		'tftpinterface' => ['list', 'of' => 'token', 'label' => gettext('TFTP Proxy')],
+	];
+	foreach (['adaptiveend', 'adaptivestart', 'aliasesresolveinterval', 'maximumfrags', 'maximumstates', 'maximumtableentries', 'maxmss', 'reflectiontimeout',
+	    'icmperrortimeout', 'icmpfirsttimeout', 'otherfirsttimeout', 'othermultipletimeout', 'othersingletimeout', 'sctpclosedtimeout', 'sctpclosingtimeout',
+	    'sctpestablishedtimeout', 'sctpfirsttimeout', 'sctpopeningtimeout', 'tcpclosedtimeout', 'tcpclosingtimeout', 'tcpestablishedtimeout', 'tcpfinwaittimeout',
+	    'tcpfirsttimeout', 'tcpidletimeout', 'tcpopeningtimeout', 'tcptsdifftimeout', 'udpfirsttimeout', 'udpmultipletimeout', 'udpsingletimeout'] as $field) {
+		$rules[$field] = ['int', 'label' => $field];
+	}
+	foreach (['allow_nat64_prefix_override', 'bypassstaticroutes', 'checkaliasesurlcert', 'disable_auto_floating_states', 'disablefilter', 'disablenegate', 'disablereplyto',
+	    'disablescrub', 'disablevpnrules', 'enablebinatreflection', 'enablenatreflectionhelper', 'maxmss_enable', 'no_apipa_block', 'rfc959workaround', 'scrubnodf', 'scrubrnid',
+	    'vpn_fragment_reassemble', 'vpn_scrubnodf'] as $field) {
+		$rules[$field] = ['flag'];
+	}
+	return $rules;
+}
+
 function saveSystemAdvancedFirewall($post, $json = false) {
 	global $g, $state_policy_options;
 
 	$rv = array();
 
 	/* input validation */
+	$input_errors = input_check($post, system_advanced_firewall_input_rules())[1];
 
 	if (!empty($post['statepolicy']) &&
 	    !array_key_exists($post['statepolicy'], $state_policy_options)) {

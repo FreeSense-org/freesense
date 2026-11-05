@@ -473,6 +473,44 @@ function clean_child_queues($type, $mypath) {
 	config_set_path($ref_path, $ref);
 }
 
+/* The stored unit of a limiter's bandwidth, only ever one of these on a generated line. */
+function shaper_bwscale($scale): string {
+	return in_array($scale, ['b', 'Kb', 'Mb', 'Gb'], true) ? $scale : 'b';
+}
+
+/* The fields of every shaper and limiter form. Checks with meaning stay in validate_input(). */
+function shaper_input_errors(array $data): array {
+	$rules = [
+		'aqm' => ['enum', 'label' => gettext('Queue management'), 'values' => array_keys(getAQMs())],
+		'bandwidth*' => ['decimal', 'label' => gettext('Bandwidth')],
+		'bandwidth' => ['decimal', 'label' => gettext('Bandwidth')],
+		'bandwidthtype' => ['enum', 'label' => gettext('Bandwidth'), 'values' => ['b', 'Kb', 'Mb', 'Gb', '%']],
+		'burst*' => ['decimal', 'label' => gettext('Burst')],
+		'bwsched*' => ['token', 'label' => gettext('Schedule')],
+		'bwtype*' => ['enum', 'label' => gettext('Bandwidth'), 'values' => ['b', 'Kb', 'Mb', 'Gb']],
+		'description' => ['line', 'label' => gettext('Description')],
+		'enabled' => ['flag'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'mask' => ['enum', 'label' => gettext('Mask'), 'values' => ['none', 'srcaddress', 'dstaddress']],
+		'name' => ['token', 'label' => gettext('Name')],
+		'newname' => ['token', 'label' => gettext('Name')],
+		'parentqueue' => ['token'],
+		'pipe' => ['token'],
+		'sched' => ['enum', 'label' => gettext('Queue management'), 'values' => array_keys(getSchedulers())],
+		'scheduler' => ['enum', 'label' => gettext('Scheduler'), 'values' => ['HFSC', 'CBQ', 'FAIRQ', 'CODELQ', 'PRIQ']],
+	];
+	foreach (['buckets', 'delay', 'maskbits', 'maskbitsv6', 'priority', 'qlimit', 'tbrconfig', 'plr', 'weight'] as $field) {
+		$rules[$field] = ['decimal', 'label' => $field];
+	}
+	foreach (['upperlimit1', 'upperlimit2', 'upperlimit3', 'realtime1', 'realtime2', 'realtime3', 'linkshare1', 'linkshare2', 'linkshare3'] as $field) {
+		$rules[$field] = ['line', 'label' => $field];
+	}
+	foreach (['borrow', 'codel', 'default', 'ecn', 'hogs', 'linkshare', 'realtime', 'red', 'rio', 'upperlimit'] as $field) {
+		$rules[$field] = ['flag'];
+	}
+	return input_check($data, $rules)[1];
+}
+
 function get_bandwidthtype_scale($type) {
 	switch ($type) {
 		case "Gb":
@@ -777,6 +815,7 @@ class altq_root_queue {
 	}
 
 	function validate_input($data, &$input_errors) {
+		$input_errors = array_merge((array)$input_errors, shaper_input_errors($data));
 		if (!isset($data['bandwidth']) || ($data['bandwidth'] == '')) {
 			$input_errors[] = gettext("Bandwidth must be set.  This is usually the interface speed.");
 		} else {
@@ -1563,6 +1602,7 @@ class priq_queue {
 	function find_parentqueue($interface, $qname) { return; }
 
 	function validate_input($data, &$input_errors) {
+		$input_errors = array_merge((array)$input_errors, shaper_input_errors($data));
 		global $altq_list_queues;
 
 		$parent = $altq_list_queues[$this->GetInterface()];
@@ -3648,6 +3688,7 @@ class dummynet_class {
 	}
 
 	function validate_input($data, &$input_errors) {
+		$input_errors = array_merge((array)$input_errors, shaper_input_errors($data));
 		if ($data['plr'] && (!is_numeric($data['plr']) ||
 		    ($data['plr'] < 0) || ($data['plr'] > 1))) {
 			$input_errors[] = gettext("Packet Loss Rate must be a value between 0 and 1.");
@@ -4109,7 +4150,7 @@ class dnpipe_class extends dummynet_class {
 							if ($bw['bwsched'] == $schedule['name']) {
 								if (filter_get_time_based_rule_status($schedule)) {
 									/* pipe throughputs must always be an integer, enforce that restriction again here. */
-									$pfq_rule .= " bw ".round(trim($bw['bw']),0).$bw['bwscale'];
+									$pfq_rule .= " bw ".round(trim($bw['bw']),0).shaper_bwscale($bw['bwscale']);
 									if (is_numeric($bw['burst']) && ($bw['burst'] > 0)) {
 										$pfq_rule .= " burst ".trim($bw['burst']);
 									}
@@ -4125,7 +4166,7 @@ class dnpipe_class extends dummynet_class {
 					}
 				} else {
 					/* pipe throughputs must always be an integer, enforce that restriction again here. */
-					$pfq_rule .= " bw ".round(trim($bw['bw']), 0).$bw['bwscale'];
+					$pfq_rule .= " bw ".round(trim($bw['bw']), 0).shaper_bwscale($bw['bwscale']);
 					if (is_numeric($bw['burst']) && ($bw['burst'] > 0)) {
 						$pfq_rule .= " burst ".trim($bw['burst']);
 					}

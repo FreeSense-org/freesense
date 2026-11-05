@@ -107,8 +107,13 @@ function saveTunable($post, $id, $json = false) {
 
 	$tunableent = array();
 
-	if (!$post['tunable'] || !isset($post['value'])) {
+	$check_errors = input_check($post, ['descr' => ['line', 'label' => gettext('Description')]])[1];
+	if ($check_errors) {
+		$input_errors = $check_errors;
+	} else if (!$post['tunable'] || !isset($post['value'])) {
 		$input_errors[] = gettext("Both a name and a value must be specified.");
+	} else if (!is_string($post['tunable']) || !preg_match('/^[A-Za-z0-9._%-]+$/D', $post['tunable'])) {
+		$input_errors[] = gettext("The tunable name may only contain alphanumeric characters, ., -, _ and %.");
 	} else if (preg_match("/[^a-zA-Z0-9.\-_%\/]/", $post['value'])) {
 		$input_errors[] = gettext("The value may only contain alphanumeric characters, -, _, %, and /.");
 	} else if ((($dup = findTunable($post['tunable'])) !== null) && ((string)$dup !== (string)$id)) {

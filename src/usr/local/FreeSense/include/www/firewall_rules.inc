@@ -591,6 +591,20 @@ function filter_rule_tab($rule) {
  * Returns array('input_errors' => [...], 'pconfig' => fields to show again
  * after errors, 'id' => index of the saved rule, 'interface' => its tab).
  */
+/* The fields of a filter rule that end up in pf text. */
+function firewall_rules_input_rules(): array {
+	return [
+		'descr' => ['line', 'label' => gettext('Description')],
+		'proto' => ['enum', 'label' => gettext('Protocol'), 'values' => array_keys(get_ipprotocols())],
+		'ipprotocol' => ['enum', 'label' => gettext('Address family'), 'values' => ['inet', 'inet6', 'inet46']],
+		'direction' => ['enum', 'label' => gettext('Direction'), 'values' => ['', 'any', 'in', 'out']],
+		'interface' => ['list', 'of' => 'line', 'label' => gettext('Interface')],
+		'tracker' => ['int', 'label' => gettext('Tracking ID')],
+		'max-src-conn-rate' => ['int', 'label' => gettext('Max. src. conn. Rate')],
+		'max-src-conn-rates' => ['int', 'label' => gettext('Max. src. conn. Rates')],
+	];
+}
+
 function saveFilterRule($post, $id = null, $after = null, $if = null) {
 	global $icmplookup, $icmptypes4, $icmptypes6, $icmptypes46, $statepolicy_values,
 	    $statetype_values, $vlanprio, $filter_srcdsttype_flags,
@@ -687,9 +701,10 @@ function saveFilterRule($post, $id = null, $after = null, $if = null) {
 		}
 	}
 
-	if (strpos($post['descr'], "\\") !== false) {
+	if (strpos((string)$post['descr'], "\\") !== false) {
 		$input_errors[] = gettext("The '\' character is not allowed in the Description field.");
 	}
+	$input_errors = array_merge((array)$input_errors, input_check($post, firewall_rules_input_rules())[1]);
 
 	if (!array_key_exists(strtolower($post['proto']), get_ipprotocols('portsonly'))) {
 		$post['srcbeginport'] = 0;
