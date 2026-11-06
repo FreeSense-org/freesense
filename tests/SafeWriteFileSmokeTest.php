@@ -68,5 +68,9 @@ mkdir("{$dir}/isdir");
 check(@safe_write_file("{$dir}/isdir", 'x') === false, 'a directory in the way must fail');
 check(array_filter($listing(), fn($e) => $e[0] === '.') === [], 'a failure must leave no temporary file');
 
+// Debug logging must never record call arguments.
+$util = file_get_contents(__DIR__ . '/../src/etc/inc/util.inc');
+check(!str_contains($util, 'DEBUG_BACKTRACE_PROVIDE_OBJECT'), 'logger must not record call arguments');
+
 exec('rm -rf ' . escapeshellarg($work_dir));
 echo "SafeWriteFileSmokeTest OK\n";

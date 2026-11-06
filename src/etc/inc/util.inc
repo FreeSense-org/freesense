@@ -2883,13 +2883,8 @@ function logger(int $priority, mixed $message, string|null $prefix = null, int|n
 		$log_prefix = $log_prefix . ' [' . gettext($prefix) . ']';
 	}
 
-	if (g_get('debug')) {
-		$trace = DEBUG_BACKTRACE_PROVIDE_OBJECT;
-	} elseif ($priority == LOG_DEBUG) {
-		$trace = DEBUG_BACKTRACE_IGNORE_ARGS;
-	} else {
-		$trace = null;
-	}
+	// Never include call arguments in a backtrace: they can hold passwords and keys.
+	$trace = (g_get('debug') || ($priority == LOG_DEBUG)) ? DEBUG_BACKTRACE_IGNORE_ARGS : null;
 
 	if (isset($trace)) {
 		$log_string = json_encode(
