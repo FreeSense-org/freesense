@@ -95,13 +95,13 @@ function encrypted_configxml(?string $file_name = null) {
 function generate_config_cache($config) {
 	global $g, $config_extra;
 
-	if (!safe_write_file(g_get('tmp_path') . '/config.cache', serialize($config))) {
+	if (!safe_write_file(config_cache_path(), serialize($config))) {
 		return false;
 	}
 
 	/* Used for config.extra.xml */
-	if (file_exists(g_get('tmp_path') . '/config.extra.cache') && $config_extra) {
-		safe_write_file(g_get('tmp_path') . '/config.extra.cache', serialize($config_extra));
+	if (file_exists(private_state_dir() . '/config.extra.cache') && $config_extra) {
+		safe_write_file(private_state_dir() . '/config.extra.cache', serialize($config_extra));
 	}
 	return true;
 }
@@ -197,7 +197,7 @@ function restore_backup(string|array $backup) {
 		return false;
 	}
 	// Configuration file has been replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 	unlock($lockkey);
 
 	// Defence-in-depth: a restored config (especially one imported from another
@@ -508,53 +508,65 @@ function convert_config() {
  *   safe_write_file - Write a file out atomically
  * DESCRIPTION
  *   safe_write_file() Writes a file out atomically by first writing to a
- *   temporary file of the same name but ending with the pid of the current
- *   process, them renaming the temporary file over the original.
+ *   new temporary file in the same directory, then renaming it over the
+ *   original. An existing file keeps its permissions.
  * INPUTS
  *   $filename - string containing the filename of the file to write
  *   $content - string or array containing the file content to write to file
- *   $force_binary - boolean denoting whether we should force binary
- *   mode writing.
+ *   $force_binary - unused, kept for callers. Writes are always binary.
  * RESULT
  *   boolean - true if successful, false if not
  ******/
 function safe_write_file($file, $content, $force_binary = false) {
-	$tmp_file = $file . "." . getmypid();
-	$write_mode = $force_binary ? "wb" : "w";
-
-	$fd = fopen($tmp_file, $write_mode);
-	if (!$fd) {
-		// Unable to open temporary file for writing
+	$dir = realpath(dirname($file));
+	if ($dir === false) {
 		return false;
 	}
-	if (is_array($content)) {
-		foreach ($content as $line) {
-			if (!fwrite($fd, $line . "\n")) {
-				// Unable to write to temporary file
-				fclose($fd);
-				return false;
-			}
-		}
-	} elseif (!fwrite($fd, $content)) {
-		// Unable to write to temporary file
-		fclose($fd);
+
+	// tempnam() creates a new file at mode 0600 and never follows an existing path. It silently
+	// falls back to the system directory on failure, where the rename below wouldn't be atomic.
+	$tmp_file = @tempnam($dir, '.' . basename($file) . '.');
+	if ($tmp_file === false) {
 		return false;
+	}
+	if (dirname($tmp_file) !== $dir) {
+		@unlink($tmp_file);
+		return false;
+	}
+
+	$mode = is_file($file) ? (fileperms($file) & 0777) : (0666 & ~umask());
+	$data = is_array($content) ? implode("\n", $content) . (empty($content) ? '' : "\n") : (string)$content;
+
+	$fd = fopen($tmp_file, 'wb');
+	if (!$fd) {
+		@unlink($tmp_file);
+		return false;
+	}
+	$length = strlen($data);
+	for ($offset = 0; $offset < $length; $offset += $written) {
+		$written = fwrite($fd, substr($data, $offset));
+		if (!$written) {
+			fclose($fd);
+			@unlink($tmp_file);
+			return false;
+		}
 	}
 	// fsync implies fflush
 	if (!fsync($fd)) {
 		// Unable to sync temp file to storage
 		fclose($fd);
+		@unlink($tmp_file);
 		return false;
 	}
 	fclose($fd);
 
-	if (!rename($tmp_file, $file)) {
+	if (!chmod($tmp_file, $mode) || !rename($tmp_file, $file)) {
 		// Unable to move temporary file to original
 		@unlink($tmp_file);
 		return false;
 	}
 
-	$dir_fd = fopen(dirname($file), 'r');
+	$dir_fd = fopen($dir, 'r');
 	if (!$dir_fd) {
 		// Unable to open temporary file directory for sync
 		return false;
@@ -745,7 +757,7 @@ function reset_factory_defaults($lock = false, $reboot_required = true) {
 	}
 	closedir($dh);
 	// Configuration file is being replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 
 	/* copy default configuration */
 	copy("{$g['conf_default_path']}/config.xml", "{$g['cf_conf_path']}/config.xml");
@@ -782,7 +794,7 @@ function config_restore(string $path, string $descr): bool {
 		return false;
 	}
 	// Configuration file is being replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 	$copy_result = copy($path, g_get('cf_conf_path') . '/config.xml');
 	unlock($lockkey);
 
@@ -827,7 +839,7 @@ function config_install($conffile) {
 		return 1;
 	}
 	// Configuration file is being replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 	$copy_result = copy($conffile, "{$g['conf_path']}/config.xml");
 	unlock($lockkey);
 
@@ -1310,7 +1322,7 @@ function config_write_file() {
 		}
 
 		// Configuration file has been replaced, remove the config cache.
-		unlink_if_exists(g_get('tmp_path') . '/config.cache');
+		unlink_if_exists(config_cache_path());
 
 		// Release the config lock only after the cache is removed to
 		// indicate to parallel scripts that the cache, if read while
@@ -1322,20 +1334,23 @@ function config_write_file() {
 }
 
 /**
+ * Returns the path of the config cache. What this file holds becomes the running config, so it lives
+ * where only root can write. It must never be in a world-writable directory such as /tmp or /var/run.
+ */
+function config_cache_path(): string {
+	return private_state_dir() . '/config.cache';
+}
+
+/**
  * Takes a non-blocking shared lock on config.lock.
  *
  * @return resource|null The lock handle to pass to unlock(), or null when a
  *                       writer holds the exclusive config lock.
  */
 function config_cache_lock() {
-	$lock_file_path = g_get('tmp_path') . '/config.lock';
-	$created = !file_exists($lock_file_path);
-	$fp = @fopen($lock_file_path, 'c');
+	$fp = @fopen(lock_file_path('config'), 'c');
 	if ($fp === false) {
 		return null;
-	}
-	if ($created) {
-		@chmod($lock_file_path, 0666);
 	}
 	if (!flock($fp, LOCK_SH | LOCK_NB)) {
 		fclose($fp);
@@ -1360,7 +1375,7 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 	 * the config recovery. */
 
 	$config_read = function (bool $_use_cache = true): bool {
-		$cache_file_path = g_get('tmp_path') . '/config.cache';
+		$cache_file_path = config_cache_path();
 		$config_file_path = g_get('conf_path') . '/config.xml';
 
 		/* Writers replace config.xml and remove the cache while holding an
@@ -1375,7 +1390,9 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 			$_use_cache = false;
 		}
 
-		if ($_use_cache && file_exists($cache_file_path) && (filesize($cache_file_path) > 0)) {
+		// A cache this process doesn't own wasn't written by the system, so it can't be trusted.
+		if ($_use_cache && file_exists($cache_file_path) && (filesize($cache_file_path) > 0) &&
+		    (fileowner($cache_file_path) === posix_geteuid())) {
 			$cache_modified_time = filemtime($cache_file_path);
 			$config_modified_time = 0;
 			if (file_exists($config_file_path) && (filesize($config_file_path) > 0)) {
