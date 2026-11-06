@@ -784,35 +784,41 @@ function clear_filter_subsystems_dirty() {
 	clear_subsystem_dirty('shaper');
 }
 
+/*
+ * Returns the path of a named lock file. Locks live in a directory only root can write to: /tmp is
+ * world-writable, so a process running as another user could plant a link at a predictable name
+ * there, and opening it as root would follow that link.
+ */
+function lock_file_path(string $lock): string {
+	$dir = g_get('varrun_path') . '/locks';
+	if (!is_dir($dir)) {
+		@mkdir($dir, 0700, true);
+	}
+
+	return $dir . '/' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $lock) . '.lock';
+}
+
 /* lock configuration file */
 function lock($lock, $op = LOCK_SH) {
-	global $g;
 	if (!$lock) {
 		die(gettext("WARNING: A name must be given as parameter to lock() function."));
 	}
-	if (!file_exists("{$g['tmp_path']}/{$lock}.lock")) {
-		@touch("{$g['tmp_path']}/{$lock}.lock");
-		@chmod("{$g['tmp_path']}/{$lock}.lock", 0666);
-	}
-	if ($fp = fopen("{$g['tmp_path']}/{$lock}.lock", "w")) {
+	// Mode 'c' creates the file if needed and never truncates it.
+	if ($fp = @fopen(lock_file_path($lock), "c")) {
 		if (flock($fp, $op)) {
 			return $fp;
 		} else {
 			fclose($fp);
 		}
 	}
+	logger(LOG_ERR, localize_text("Could not take lock %s", $lock));
 }
 
 function try_lock($lock, $timeout = 5) {
-	global $g;
 	if (!$lock) {
 		die(gettext("WARNING: A name must be given as parameter to try_lock() function."));
 	}
-	if (!file_exists("{$g['tmp_path']}/{$lock}.lock")) {
-		@touch("{$g['tmp_path']}/{$lock}.lock");
-		@chmod("{$g['tmp_path']}/{$lock}.lock", 0666);
-	}
-	if ($fp = fopen("{$g['tmp_path']}/{$lock}.lock", "w")) {
+	if ($fp = @fopen(lock_file_path($lock), "c")) {
 		$trycounter = 0;
 		while (!flock($fp, LOCK_EX | LOCK_NB)) {
 			if ($trycounter >= $timeout) {
@@ -841,9 +847,7 @@ function unlock($cfglckkey = 0)
 
 /* unlock forcefully configuration file */
 function unlock_force($lock) {
-	global $g;
-
-	@unlink("{$g['tmp_path']}/{$lock}.lock");
+	@unlink(lock_file_path($lock));
 }
 
 function send_event($cmd) {

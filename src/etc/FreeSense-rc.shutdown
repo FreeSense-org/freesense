@@ -21,7 +21,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if ! /usr/bin/lockf -s -t 30 /tmp/config.lock /usr/bin/true; then
+/bin/mkdir -p -m 0700 /var/run/locks
+if ! /usr/bin/lockf -s -k -t 30 /var/run/locks/config.lock /usr/bin/true; then
 	echo "Cannot shutdown at this moment, a config write operation is in progress and 30 seconds have passed."
 	exit 1
 fi

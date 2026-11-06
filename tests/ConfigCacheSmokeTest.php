@@ -20,10 +20,11 @@ function check_cache($condition, $message) {
 }
 
 g_set('tmp_path', $work_dir, true);
+g_set('varrun_path', $work_dir, true);
 g_set('conf_path', $work_dir . '/conf', true);
 $root = g_get('xml_rootobj');
 $cache_file = $work_dir . '/config.cache';
-$lock_file = $work_dir . '/config.lock';
+$lock_file = $work_dir . '/locks/config.lock';
 
 file_put_contents($work_dir . '/conf/config.xml',
     "<?xml version=\"1.0\"?>\n<{$root}><version>1</version><marker>xml</marker></{$root}>\n");

@@ -1342,14 +1342,9 @@ function config_write_file() {
  *                       writer holds the exclusive config lock.
  */
 function config_cache_lock() {
-	$lock_file_path = g_get('tmp_path') . '/config.lock';
-	$created = !file_exists($lock_file_path);
-	$fp = @fopen($lock_file_path, 'c');
+	$fp = @fopen(lock_file_path('config'), 'c');
 	if ($fp === false) {
 		return null;
-	}
-	if ($created) {
-		@chmod($lock_file_path, 0666);
 	}
 	if (!flock($fp, LOCK_SH | LOCK_NB)) {
 		fclose($fp);
