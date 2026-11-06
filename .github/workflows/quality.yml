@@ -64,6 +64,8 @@ jobs:
               ConfigImportGuardSmokeTest \
               ConfigUpgradeSmokeTest \
               ConfigCacheSmokeTest \
+              LockSafetySmokeTest \
+              SafeWriteFileSmokeTest \
               WebGuiRestoreSmokeTest \
               InstallerRecoverySmokeTest \
               PackageCatalogSmokeTest \
