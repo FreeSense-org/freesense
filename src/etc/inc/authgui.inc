@@ -186,11 +186,6 @@ function display_login_form() {
 				isset($_SESSION['Login_Error']) ? $login_error = $_SESSION['Login_Error'] : $login_error = gettext("unknown reason");
 				printf("showajaxmessage('" . gettext("Invalid login (%s).") . "')", $login_error);
 			}
-			if (file_exists("{$g['tmp_path']}/webconfigurator.lock")) {
-				// TODO: add the IP from the user who did lock the device
-				$whom = file_get_contents("{$g['tmp_path']}/webconfigurator.lock");
-				printf("showajaxmessage('" . gettext("This device is currently being maintained by: %s.") . "');", $whom);
-			}
 		}
 		//If session ended
 		echo "SESSION_TIMEOUT";

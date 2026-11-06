@@ -37,10 +37,10 @@ sleep 2
 /etc/rc.php_ini_setup 2>/tmp/php_errors.txt
 /bin/rm -f /var/run/php-fpm.pid 2>/dev/null
 /bin/rm -f /var/run/php-fpm.socket 2>/dev/null
-if [ -f /tmp/xmlrpc.lock ]; then
+if [ -f /var/db/freesense/locks/xmlrpc.lock ]; then
 	echo ">>> Found XMLRPC lock. Removing."
 	echo "INFO >>> Found XMLRPC lock. Removing." | /usr/bin/logger -p daemon.info -i -t rc.php-fpm_restart
-	rm /tmp/xmlrpc.lock
+	rm /var/db/freesense/locks/xmlrpc.lock
 fi
 echo "INFO >>> Restarting php-fpm" | /usr/bin/logger -p daemon.info -i -t rc.php-fpm_restart
 echo ">>> Starting php-fpm"
