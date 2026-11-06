@@ -4881,7 +4881,8 @@ function array_set_path(array &$arr, string $path, $value, $default = null) {
 		if (mb_strlen($key) == 0) {
 			continue;
 		}
-		if (array_key_exists($key, $el) && !empty($el[$key])) {
+		// '0', 0 and false are real values, so only '', null and [] count as vacant.
+		if (array_key_exists($key, $el) && ($el[$key] !== '') && ($el[$key] !== null) && ($el[$key] !== [])) {
 			if (!is_array($el[$key])) {
 				return ($default);
 			}
