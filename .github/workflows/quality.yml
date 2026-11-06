@@ -67,6 +67,7 @@ jobs:
               ConfigCacheSmokeTest \
               LockSafetySmokeTest \
               SafeWriteFileSmokeTest \
+              ArraySetPathSmokeTest \
               WebGuiRestoreSmokeTest \
               InstallerRecoverySmokeTest \
               PackageCatalogSmokeTest \
