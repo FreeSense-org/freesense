@@ -785,15 +785,22 @@ function clear_filter_subsystems_dirty() {
 }
 
 /*
- * Returns the path of a named lock file. Locks live in a directory only root can write to: /tmp is
- * world-writable, so a process running as another user could plant a link at a predictable name
- * there, and opening it as root would follow that link.
+ * Returns a private directory for system state, creating it if needed. Its parent, /var/db, can only
+ * be written by root. /tmp and /var/run are both world-writable, so a process running as another
+ * user could plant a file, a link or this directory itself there before root creates it.
  */
-function lock_file_path(string $lock): string {
-	$dir = g_get('varrun_path') . '/locks';
+function private_state_dir(string $sub = ''): string {
+	$dir = g_get('vardb_path') . '/freesense' . (($sub === '') ? '' : "/{$sub}");
 	if (!is_dir($dir)) {
 		@mkdir($dir, 0700, true);
 	}
+
+	return $dir;
+}
+
+/* Returns the path of a named lock file. */
+function lock_file_path(string $lock): string {
+	$dir = private_state_dir('locks');
 
 	return $dir . '/' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $lock) . '.lock';
 }

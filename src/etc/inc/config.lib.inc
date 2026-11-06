@@ -100,8 +100,8 @@ function generate_config_cache($config) {
 	}
 
 	/* Used for config.extra.xml */
-	if (file_exists(g_get('varrun_path') . '/config.extra.cache') && $config_extra) {
-		safe_write_file(g_get('varrun_path') . '/config.extra.cache', serialize($config_extra));
+	if (file_exists(private_state_dir() . '/config.extra.cache') && $config_extra) {
+		safe_write_file(private_state_dir() . '/config.extra.cache', serialize($config_extra));
 	}
 	return true;
 }
@@ -1349,10 +1349,10 @@ function config_write_file() {
 
 /**
  * Returns the path of the config cache. What this file holds becomes the running config, so it lives
- * where only root can write. It must never be in a world-writable directory such as /tmp.
+ * where only root can write. It must never be in a world-writable directory such as /tmp or /var/run.
  */
 function config_cache_path(): string {
-	return g_get('varrun_path') . '/config.cache';
+	return private_state_dir() . '/config.cache';
 }
 
 /**

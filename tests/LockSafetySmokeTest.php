@@ -20,16 +20,20 @@ function check($condition, $message) {
 }
 
 $tmp = $work_dir . '/tmp';
+$db = $work_dir . '/db';
 $run = $work_dir . '/run';
 mkdir($tmp);
+mkdir($db);
 mkdir($run);
 g_set('tmp_path', $tmp, true);
+g_set('vardb_path', $db, true);
 g_set('varrun_path', $run, true);
 
 $held = lock('config', LOCK_EX);
 check(is_resource($held), 'lock must return a handle');
-check(file_exists($run . '/locks/config.lock'), 'lock files must live under varrun_path/locks');
-check((fileperms($run . '/locks') & 0777) === 0700, 'the lock directory must be private');
+check(file_exists($db . '/freesense/locks/config.lock'), 'lock files must live in the private state directory');
+check((fileperms($db . '/freesense/locks') & 0777) === 0700, 'the lock directory must be private');
+check((fileperms($db . '/freesense') & 0777) === 0700, 'the state directory must be private');
 check(try_lock('config', 0) === null, 'an exclusive lock must keep others out');
 unlock($held);
 $again = try_lock('config', 0);
@@ -47,7 +51,8 @@ $writer = lock('config', LOCK_EX);
 check(config_cache_lock() === null, 'the config cache must use the same lock file as writers');
 unlock($writer);
 
-// Nothing planted in the world-writable directory may be touched.
+// Nothing planted in a world-writable directory may be touched: neither /tmp nor /var/run.
+symlink($work_dir . '/from-var-run', $run . '/locks');
 $victim = $work_dir . '/victim';
 file_put_contents($victim, 'untouched');
 chmod($victim, 0600);
@@ -59,27 +64,28 @@ clearstatcache();
 check(file_get_contents($victim) === 'untouched', 'a link in the temporary directory must not be followed');
 check((fileperms($victim) & 0777) === 0600, 'a link target must keep its mode');
 check(!file_exists($work_dir . '/created-by-attack'), 'a dangling link must not create its target');
+check(!file_exists($work_dir . '/from-var-run'), 'a planted lock directory in varrun_path must not be used');
 
 // Opening a lock file must not truncate it, whatever it is.
-file_put_contents($run . '/locks/data.lock', 'content');
+file_put_contents($db . '/freesense/locks/data.lock', 'content');
 unlock(lock('data', LOCK_EX));
-check(file_get_contents($run . '/locks/data.lock') === 'content', 'taking a lock must not truncate its file');
+check(file_get_contents($db . '/freesense/locks/data.lock') === 'content', 'taking a lock must not truncate its file');
 
 // A name can't reach outside the directory, even with a zone name in it.
 unlock(lock('../../escape', LOCK_EX));
 check(!file_exists($work_dir . '/escape.lock'), 'a lock name must not leave the lock directory');
-check(file_exists($run . '/locks/.._.._escape.lock'), 'an unsafe name must stay inside the directory');
+check(file_exists($db . '/freesense/locks/.._.._escape.lock'), 'an unsafe name must stay inside the directory');
 unlock(lock('voucher-guest_zone.1', LOCK_EX));
-check(file_exists($run . '/locks/voucher-guest_zone.1.lock'), 'ordinary names must be kept as they are');
+check(file_exists($db . '/freesense/locks/voucher-guest_zone.1.lock'), 'ordinary names must be kept as they are');
 
 unlock_force('voucher-guest_zone.1');
-check(!file_exists($run . '/locks/voucher-guest_zone.1.lock'), 'unlock_force must remove the file');
+check(!file_exists($db . '/freesense/locks/voucher-guest_zone.1.lock'), 'unlock_force must remove the file');
 
 // The shell guards around shutdown must use the same file.
 foreach (['FreeSense-rc.shutdown', 'rc.halt', 'rc.reboot'] as $script) {
 	$text = file_get_contents(__DIR__ . '/../src/etc/' . $script);
-	check(str_contains($text, 'lockf -s -k -t 30 /var/run/locks/config.lock'), "{$script} must guard on the config lock");
-	check(str_contains($text, 'mkdir -p -m 0700 /var/run/locks'), "{$script} must create the directory first");
+	check(str_contains($text, 'lockf -s -k -t 30 /var/db/freesense/locks/config.lock'), "{$script} must guard on the config lock");
+	check(str_contains($text, 'mkdir -p -m 0700 /var/db/freesense/locks'), "{$script} must create the directory first");
 }
 
 exec('rm -rf ' . escapeshellarg($work_dir));

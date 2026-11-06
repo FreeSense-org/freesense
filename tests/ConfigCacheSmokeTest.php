@@ -20,11 +20,11 @@ function check_cache($condition, $message) {
 }
 
 g_set('tmp_path', $work_dir, true);
-g_set('varrun_path', $work_dir, true);
+g_set('vardb_path', $work_dir, true);
 g_set('conf_path', $work_dir . '/conf', true);
 $root = g_get('xml_rootobj');
-$cache_file = $work_dir . '/config.cache';
-$lock_file = $work_dir . '/locks/config.lock';
+$cache_file = $work_dir . '/freesense/config.cache';
+$lock_file = $work_dir . '/freesense/locks/config.lock';
 
 file_put_contents($work_dir . '/conf/config.xml',
     "<?xml version=\"1.0\"?>\n<{$root}><version>1</version><marker>xml</marker></{$root}>\n");
@@ -41,9 +41,10 @@ check_cache(config_read_file(false, true), 'cached config must be readable');
 check_cache(config_get_path('marker') === 'cache', 'cache must be used while config.lock is not held');
 
 // The cache must be somewhere only root can write, never in the temporary directory.
-check_cache(config_cache_path() === $work_dir . '/config.cache', 'the cache must follow varrun_path');
+check_cache(config_cache_path() === $cache_file, 'the cache must be in the private state directory');
 g_set('tmp_path', $work_dir . '/world-writable', true);
-check_cache(!str_contains(config_cache_path(), 'world-writable'), 'the cache must not be in tmp_path');
+g_set('varrun_path', $work_dir . '/world-writable', true);
+check_cache(!str_contains(config_cache_path(), 'world-writable'), 'the cache must not be in tmp_path or varrun_path');
 g_set('tmp_path', $work_dir, true);
 
 // A cache owned by anyone else must be ignored. This needs root, which CI's container has.
