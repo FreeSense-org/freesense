@@ -40,6 +40,22 @@ file_put_contents($cache_file, serialize(['version' => '1', 'marker' => 'cache']
 check_cache(config_read_file(false, true), 'cached config must be readable');
 check_cache(config_get_path('marker') === 'cache', 'cache must be used while config.lock is not held');
 
+// The cache must be somewhere only root can write, never in the temporary directory.
+check_cache(config_cache_path() === $work_dir . '/config.cache', 'the cache must follow varrun_path');
+g_set('tmp_path', $work_dir . '/world-writable', true);
+check_cache(!str_contains(config_cache_path(), 'world-writable'), 'the cache must not be in tmp_path');
+g_set('tmp_path', $work_dir, true);
+
+// A cache owned by anyone else must be ignored. This needs root, which CI's container has.
+if (posix_geteuid() === 0) {
+	file_put_contents($cache_file, serialize(['version' => '1', 'marker' => 'planted']));
+	chown($cache_file, 65534);
+	clearstatcache();
+	check_cache(config_read_file(false, true), 'config.xml must be readable past a planted cache');
+	check_cache(config_get_path('marker') === 'xml', 'a cache owned by another user must not be loaded');
+	unlink($cache_file);
+}
+
 // While a writer holds the exclusive lock the cache is neither read nor rewritten.
 $writer = fopen($lock_file, 'c');
 check_cache(flock($writer, LOCK_EX), 'test must take the writer lock');

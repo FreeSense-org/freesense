@@ -95,13 +95,13 @@ function encrypted_configxml(?string $file_name = null) {
 function generate_config_cache($config) {
 	global $g, $config_extra;
 
-	if (!safe_write_file(g_get('tmp_path') . '/config.cache', serialize($config))) {
+	if (!safe_write_file(config_cache_path(), serialize($config))) {
 		return false;
 	}
 
 	/* Used for config.extra.xml */
-	if (file_exists(g_get('tmp_path') . '/config.extra.cache') && $config_extra) {
-		safe_write_file(g_get('tmp_path') . '/config.extra.cache', serialize($config_extra));
+	if (file_exists(g_get('varrun_path') . '/config.extra.cache') && $config_extra) {
+		safe_write_file(g_get('varrun_path') . '/config.extra.cache', serialize($config_extra));
 	}
 	return true;
 }
@@ -197,7 +197,7 @@ function restore_backup(string|array $backup) {
 		return false;
 	}
 	// Configuration file has been replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 	unlock($lockkey);
 
 	// Defence-in-depth: a restored config (especially one imported from another
@@ -771,7 +771,7 @@ function reset_factory_defaults($lock = false, $reboot_required = true) {
 	}
 	closedir($dh);
 	// Configuration file is being replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 
 	/* copy default configuration */
 	copy("{$g['conf_default_path']}/config.xml", "{$g['cf_conf_path']}/config.xml");
@@ -808,7 +808,7 @@ function config_restore(string $path, string $descr): bool {
 		return false;
 	}
 	// Configuration file is being replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 	$copy_result = copy($path, g_get('cf_conf_path') . '/config.xml');
 	unlock($lockkey);
 
@@ -853,7 +853,7 @@ function config_install($conffile) {
 		return 1;
 	}
 	// Configuration file is being replaced, remove the config cache.
-	unlink_if_exists(g_get('tmp_path') . '/config.cache');
+	unlink_if_exists(config_cache_path());
 	$copy_result = copy($conffile, "{$g['conf_path']}/config.xml");
 	unlock($lockkey);
 
@@ -1336,7 +1336,7 @@ function config_write_file() {
 		}
 
 		// Configuration file has been replaced, remove the config cache.
-		unlink_if_exists(g_get('tmp_path') . '/config.cache');
+		unlink_if_exists(config_cache_path());
 
 		// Release the config lock only after the cache is removed to
 		// indicate to parallel scripts that the cache, if read while
@@ -1345,6 +1345,14 @@ function config_write_file() {
 
 		// success
 		return true;
+}
+
+/**
+ * Returns the path of the config cache. What this file holds becomes the running config, so it lives
+ * where only root can write. It must never be in a world-writable directory such as /tmp.
+ */
+function config_cache_path(): string {
+	return g_get('varrun_path') . '/config.cache';
 }
 
 /**
@@ -1381,7 +1389,7 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 	 * the config recovery. */
 
 	$config_read = function (bool $_use_cache = true): bool {
-		$cache_file_path = g_get('tmp_path') . '/config.cache';
+		$cache_file_path = config_cache_path();
 		$config_file_path = g_get('conf_path') . '/config.xml';
 
 		/* Writers replace config.xml and remove the cache while holding an
@@ -1396,7 +1404,9 @@ function config_read_file(bool $use_backup = false, bool $use_cache = true) {
 			$_use_cache = false;
 		}
 
-		if ($_use_cache && file_exists($cache_file_path) && (filesize($cache_file_path) > 0)) {
+		// A cache this process doesn't own wasn't written by the system, so it can't be trusted.
+		if ($_use_cache && file_exists($cache_file_path) && (filesize($cache_file_path) > 0) &&
+		    (fileowner($cache_file_path) === posix_geteuid())) {
 			$cache_modified_time = filemtime($cache_file_path);
 			$config_modified_time = 0;
 			if (file_exists($config_file_path) && (filesize($config_file_path) > 0)) {
