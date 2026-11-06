@@ -508,53 +508,65 @@ function convert_config() {
  *   safe_write_file - Write a file out atomically
  * DESCRIPTION
  *   safe_write_file() Writes a file out atomically by first writing to a
- *   temporary file of the same name but ending with the pid of the current
- *   process, them renaming the temporary file over the original.
+ *   new temporary file in the same directory, then renaming it over the
+ *   original. An existing file keeps its permissions.
  * INPUTS
  *   $filename - string containing the filename of the file to write
  *   $content - string or array containing the file content to write to file
- *   $force_binary - boolean denoting whether we should force binary
- *   mode writing.
+ *   $force_binary - unused, kept for callers. Writes are always binary.
  * RESULT
  *   boolean - true if successful, false if not
  ******/
 function safe_write_file($file, $content, $force_binary = false) {
-	$tmp_file = $file . "." . getmypid();
-	$write_mode = $force_binary ? "wb" : "w";
-
-	$fd = fopen($tmp_file, $write_mode);
-	if (!$fd) {
-		// Unable to open temporary file for writing
+	$dir = realpath(dirname($file));
+	if ($dir === false) {
 		return false;
 	}
-	if (is_array($content)) {
-		foreach ($content as $line) {
-			if (!fwrite($fd, $line . "\n")) {
-				// Unable to write to temporary file
-				fclose($fd);
-				return false;
-			}
-		}
-	} elseif (!fwrite($fd, $content)) {
-		// Unable to write to temporary file
-		fclose($fd);
+
+	// tempnam() creates a new file at mode 0600 and never follows an existing path. It silently
+	// falls back to the system directory on failure, where the rename below wouldn't be atomic.
+	$tmp_file = @tempnam($dir, '.' . basename($file) . '.');
+	if ($tmp_file === false) {
 		return false;
+	}
+	if (dirname($tmp_file) !== $dir) {
+		@unlink($tmp_file);
+		return false;
+	}
+
+	$mode = is_file($file) ? (fileperms($file) & 0777) : (0666 & ~umask());
+	$data = is_array($content) ? implode("\n", $content) . (empty($content) ? '' : "\n") : (string)$content;
+
+	$fd = fopen($tmp_file, 'wb');
+	if (!$fd) {
+		@unlink($tmp_file);
+		return false;
+	}
+	$length = strlen($data);
+	for ($offset = 0; $offset < $length; $offset += $written) {
+		$written = fwrite($fd, substr($data, $offset));
+		if (!$written) {
+			fclose($fd);
+			@unlink($tmp_file);
+			return false;
+		}
 	}
 	// fsync implies fflush
 	if (!fsync($fd)) {
 		// Unable to sync temp file to storage
 		fclose($fd);
+		@unlink($tmp_file);
 		return false;
 	}
 	fclose($fd);
 
-	if (!rename($tmp_file, $file)) {
+	if (!chmod($tmp_file, $mode) || !rename($tmp_file, $file)) {
 		// Unable to move temporary file to original
 		@unlink($tmp_file);
 		return false;
 	}
 
-	$dir_fd = fopen(dirname($file), 'r');
+	$dir_fd = fopen($dir, 'r');
 	if (!$dir_fd) {
 		// Unable to open temporary file directory for sync
 		return false;
