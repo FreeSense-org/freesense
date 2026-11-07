@@ -690,7 +690,7 @@ fi
 /etc/rc.update_pkg_metadata now
 
 # Reset the cache.  read-only requires this.
-/bin/rm -f /tmp/config.cache
+/bin/rm -f /var/db/freesense/config.cache
 
 # Run /etc/rc.local
 if [ -f /etc/rc.local ]; then

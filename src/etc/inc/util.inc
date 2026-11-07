@@ -784,35 +784,48 @@ function clear_filter_subsystems_dirty() {
 	clear_subsystem_dirty('shaper');
 }
 
+/*
+ * Returns a private directory for system state, creating it if needed. Its parent, /var/db, can only
+ * be written by root. /tmp and /var/run are both world-writable, so a process running as another
+ * user could plant a file, a link or this directory itself there before root creates it.
+ */
+function private_state_dir(string $sub = ''): string {
+	$dir = g_get('vardb_path') . '/freesense' . (($sub === '') ? '' : "/{$sub}");
+	if (!is_dir($dir)) {
+		@mkdir($dir, 0700, true);
+	}
+
+	return $dir;
+}
+
+/* Returns the path of a named lock file. */
+function lock_file_path(string $lock): string {
+	$dir = private_state_dir('locks');
+
+	return $dir . '/' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $lock) . '.lock';
+}
+
 /* lock configuration file */
 function lock($lock, $op = LOCK_SH) {
-	global $g;
 	if (!$lock) {
 		die(gettext("WARNING: A name must be given as parameter to lock() function."));
 	}
-	if (!file_exists("{$g['tmp_path']}/{$lock}.lock")) {
-		@touch("{$g['tmp_path']}/{$lock}.lock");
-		@chmod("{$g['tmp_path']}/{$lock}.lock", 0666);
-	}
-	if ($fp = fopen("{$g['tmp_path']}/{$lock}.lock", "w")) {
+	// Mode 'c' creates the file if needed and never truncates it.
+	if ($fp = @fopen(lock_file_path($lock), "c")) {
 		if (flock($fp, $op)) {
 			return $fp;
 		} else {
 			fclose($fp);
 		}
 	}
+	logger(LOG_ERR, localize_text("Could not take lock %s", $lock));
 }
 
 function try_lock($lock, $timeout = 5) {
-	global $g;
 	if (!$lock) {
 		die(gettext("WARNING: A name must be given as parameter to try_lock() function."));
 	}
-	if (!file_exists("{$g['tmp_path']}/{$lock}.lock")) {
-		@touch("{$g['tmp_path']}/{$lock}.lock");
-		@chmod("{$g['tmp_path']}/{$lock}.lock", 0666);
-	}
-	if ($fp = fopen("{$g['tmp_path']}/{$lock}.lock", "w")) {
+	if ($fp = @fopen(lock_file_path($lock), "c")) {
 		$trycounter = 0;
 		while (!flock($fp, LOCK_EX | LOCK_NB)) {
 			if ($trycounter >= $timeout) {
@@ -841,9 +854,7 @@ function unlock($cfglckkey = 0)
 
 /* unlock forcefully configuration file */
 function unlock_force($lock) {
-	global $g;
-
-	@unlink("{$g['tmp_path']}/{$lock}.lock");
+	@unlink(lock_file_path($lock));
 }
 
 function send_event($cmd) {
@@ -2879,13 +2890,8 @@ function logger(int $priority, mixed $message, string|null $prefix = null, int|n
 		$log_prefix = $log_prefix . ' [' . gettext($prefix) . ']';
 	}
 
-	if (g_get('debug')) {
-		$trace = DEBUG_BACKTRACE_PROVIDE_OBJECT;
-	} elseif ($priority == LOG_DEBUG) {
-		$trace = DEBUG_BACKTRACE_IGNORE_ARGS;
-	} else {
-		$trace = null;
-	}
+	// Never include call arguments in a backtrace: they can hold passwords and keys.
+	$trace = (g_get('debug') || ($priority == LOG_DEBUG)) ? DEBUG_BACKTRACE_IGNORE_ARGS : null;
 
 	if (isset($trace)) {
 		$log_string = json_encode(
@@ -4875,7 +4881,8 @@ function array_set_path(array &$arr, string $path, $value, $default = null) {
 		if (mb_strlen($key) == 0) {
 			continue;
 		}
-		if (array_key_exists($key, $el) && !empty($el[$key])) {
+		// '0', 0 and false are real values, so only '', null and [] count as vacant.
+		if (array_key_exists($key, $el) && ($el[$key] !== '') && ($el[$key] !== null) && ($el[$key] !== [])) {
 			if (!is_array($el[$key])) {
 				return ($default);
 			}

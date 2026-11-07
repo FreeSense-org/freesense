@@ -65,6 +65,9 @@ jobs:
               NavPluginSmokeTest \
               ConfigUpgradeSmokeTest \
               ConfigCacheSmokeTest \
+              LockSafetySmokeTest \
+              SafeWriteFileSmokeTest \
+              ArraySetPathSmokeTest \
               WebGuiRestoreSmokeTest \
               InstallerRecoverySmokeTest \
               PackageCatalogSmokeTest \
