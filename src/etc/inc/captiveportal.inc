@@ -1466,15 +1466,12 @@ function captiveportal_remove_entries($remove, $carp_loop = false) {
 		return;
 	}
 
-	$query = "DELETE FROM captiveportal WHERE sessionid in (";
-	foreach ($remove as $idx => $unindex) {
-		$query .= "'{$unindex}'";
-		if ($idx < (count($remove) - 1)) {
-			$query .= ",";
-		}
+	/* The session ids can come from the HA peer over XML-RPC. */
+	$ids = array();
+	foreach ($remove as $unindex) {
+		$ids[] = "'" . SQLite3::escapeString((string)$unindex) . "'";
 	}
-	$query .= ")";
-	captiveportal_write_db($query);
+	captiveportal_write_db("DELETE FROM captiveportal WHERE sessionid in (" . implode(",", $ids) . ")");
 
 	if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport, $syncuser, $syncpass, $carp_loop)) {
 		$rpc_client = new freesense_xmlrpc_client();
@@ -1930,9 +1927,16 @@ function captiveportal_reapply_attributes($cpentry, $attributes) {
 function captiveportal_update_entry($sessionid, $new_value, $field_to_update) {
 	global $cpzone;
 
-	if (!intval($new_value)) {
-		$new_value = "'{$new_value}'";
+	/* The bandwidth values come from RADIUS reply attributes. */
+	if (!in_array($field_to_update, array('authmethod', 'bw_up', 'bw_down'), true)) {
+		return;
 	}
+	if (is_numeric($new_value)) {
+		$new_value = (int)$new_value;
+	} else {
+		$new_value = "'" . SQLite3::escapeString((string)$new_value) . "'";
+	}
+	$sessionid = SQLite3::escapeString((string)$sessionid);
 	captiveportal_write_db("UPDATE captiveportal SET {$field_to_update} = {$new_value} WHERE sessionid = '{$sessionid}'");
 }
 
