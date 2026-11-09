@@ -54,6 +54,8 @@ require_once("voucher.inc");
 $cpzone = strtolower(htmlspecialchars($_REQUEST['zone']));
 
 if ($_POST['generatekey']) {
+	/* Without Random, BigInteger falls back to mt_rand() for the key. */
+	include_once("phpseclib/Crypt/Random.php");
 	include_once("phpseclib/Math/BigInteger.php");
 	include_once("phpseclib/Crypt/Hash.php");
 	include_once("phpseclib/Crypt/RSA.php");
