@@ -117,7 +117,7 @@ if (!isset($voucher_config['exponent'])) {
 
 if (!isset($voucher_config['publickey'])) {
 	/* generate a random 64 bit RSA key pair using the voucher binary */
-	$fd = popen("/usr/local/bin/voucher -g 64 -e " . (int)$voucher_config['exponent'], "r");
+	$fd = popen("/usr/local/bin/voucher -g 64 -e " . escapeshellarg((string)(int)$voucher_config['exponent']), "r");
 	if ($fd !== false) {
 		$output = fread($fd, 16384);
 		pclose($fd);
