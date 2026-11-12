@@ -96,6 +96,7 @@ require_once('system_advanced_admin.inc');
 require_once('system_advanced_firewall.inc');
 require_once('system_advanced_network.inc');
 require_once('system_advanced_misc.inc');
+require_once('system_advanced_performance.inc');
 require_once('system_advanced_notifications.inc');
 require_once('system_advanced_sysctl.inc');
 require_once('syslog.inc');

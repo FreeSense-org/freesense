@@ -30,7 +30,7 @@ $thermal_sensors_allow_multiple_widget_copies = true;
 
 
 //returns core temp data (from coretemp.ko or amdtemp.ko driver) as "|"-delimited string.
-//NOTE: depends on proper config in System >> Advanced >> Miscellaneous tab >> Thermal Sensors section.
+//NOTE: depends on proper config in System >> Advanced >> Performance tab >> Thermal Sensors section.
 function getThermalSensorsData() {
 
 	$_gb = exec("/sbin/sysctl -aq | grep temperature", $dfout);

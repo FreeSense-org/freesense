@@ -994,6 +994,13 @@ function filter_configure_sync($delete_states_if_needed = true) {
 		$limitrules .= "set optimization normal\n";
 	}
 
+	/* SYN flood protection; without the line pfctl loads its default (never) */
+	$syncookies = netperf_pf_syncookies((string)config_get_path('system/syncookies', ''),
+	    (string)config_get_path('system/syncookies_start', ''), (string)config_get_path('system/syncookies_end', ''));
+	if ($syncookies !== null) {
+		$limitrules .= "{$syncookies}\n";
+	}
+
 	$timeoutlist = "";
 	// TCP timeouts
 	foreach (["first", "opening", "established", "closing", "finwait", "closed", "tsdiff"] as $typ) {

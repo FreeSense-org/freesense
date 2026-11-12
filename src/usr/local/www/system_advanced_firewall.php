@@ -176,6 +176,38 @@ $section->addInput(new Form_Input(
 	['placeholder' => 5000]
 ))->setHelp('Maximum number of packet fragments to hold for reassembly by scrub rules. Leave this blank for the default (5000)');
 
+$group = new Form_Group('SYN Cookies');
+
+$group->add(new Form_Select(
+	'syncookies',
+	'SYN cookies',
+	$pconfig['syncookies'] ?: 'never',
+	array('never' => gettext('Never (default)'), 'adaptive' => gettext('Adaptive'), 'always' => gettext('Always'))
+))->setHelp('Mode');
+
+$group->add(new Form_Input(
+	'syncookies_start',
+	'Start',
+	'number',
+	$pconfig['syncookies_start'],
+	['min' => 1, 'max' => 100, 'placeholder' => 25]
+))->setHelp('Start (% of states)');
+
+$group->add(new Form_Input(
+	'syncookies_end',
+	'End',
+	'number',
+	$pconfig['syncookies_end'],
+	['min' => 1, 'max' => 100, 'placeholder' => 12]
+))->setHelp('End (% of states)');
+
+$group->setHelp('With SYN cookies the firewall answers a connection attempt without creating a state, and only keeps the '.
+	'connection once the handshake completes, so a SYN flood cannot fill the state table. Adaptive turns them on when the '.
+	'state table is Start percent full and off again below End percent. While they are on, TCP window scaling and other '.
+	'options of the first packet are not passed on.');
+
+$section->add($group);
+
 $form->add($section);
 
 $section = new Form_Section('VPN Packet Processing');

@@ -165,14 +165,15 @@ crypto_kernel([]);
 @rmdir($kernel);
 
 /* The page, the REST API and the dashboard know the new settings. */
-$page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_misc.php');
+/* the crypto settings moved from Miscellaneous to System > Advanced > Performance */
+$page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_performance.php');
 check_crypto(strpos($page, "['' => gettext('Automatic (recommended)')] + \$crypto_modules") !== false,
-    'the Miscellaneous page offers Automatic as the empty value');
+    'the Performance page offers Automatic as the empty value');
 check_crypto(strpos($page, "if (crypto_qat_available()) {") !== false && strpos($page, "'crypto_qat',") !== false,
-    'the Miscellaneous page shows the QAT checkbox only when the drivers exist');
+    'the Performance page shows the QAT checkbox only when the drivers exist');
 $misc = file_get_contents(__DIR__ . '/../src/usr/local/FreeSense/include/www/system_advanced_misc.inc');
 foreach (["'crypto_ccp',", "'crypto_ccr',", "crypto_offload_available('ccp')", "crypto_offload_available('ccr')"] as $needle) {
-	check_crypto(strpos($page, $needle) !== false, "the Miscellaneous page has {$needle}");
+	check_crypto(strpos($page, $needle) !== false, "the Performance page has {$needle}");
 }
 check_crypto(strpos($misc, "\$pconfig[\"crypto_{\$key}\"] = config_path_enabled('system', \"crypto_{\$key}\");") !== false &&
     strpos($misc, "if ((\$post[\"crypto_{\$key}\"] == \"yes\") && crypto_offload_available(\$key)) {") !== false,

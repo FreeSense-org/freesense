@@ -361,6 +361,6 @@ if ($thermal_sensors_widget_showFahrenheit) {
 
 		<div class="form-group">
 			<span><?=gettext('* A proper Thermal Sensor / Module can be configured under')?> <br />
-			&nbsp;&nbsp;&nbsp;<a href="system_advanced_misc.php"><?=gettext('System')?> &gt; <?=gettext('Advanced')?> &gt; <?=gettext('Miscellaneous')?> : <?=gettext('Thermal Sensors')?> <?=gettext('section')?></a>.</span>
+			&nbsp;&nbsp;&nbsp;<a href="system_advanced_performance.php"><?=gettext('System')?> &gt; <?=gettext('Advanced')?> &gt; <?=gettext('Performance')?> : <?=gettext('Thermal Sensors')?> <?=gettext('section')?></a>.</span>
 		</div>
 	</form>

@@ -144,6 +144,63 @@ function getSystemAdvancedMisc($json = false) {
 }
 
 /*
+ * The CPU, power, crypto, thermal and mitigation fields of the Miscellaneous
+ * form. System > Advanced > Performance shows them; saveSystemAdvancedMisc()
+ * (and the REST misc route) still saves them.
+ */
+function getSystemAdvancedHardwareFields() {
+	$fields = array('powerd_enable', 'powerd_ac_mode', 'powerd_battery_mode', 'powerd_normal_mode', 'hwpstate',
+	    'hwpstate_control_level', 'hwpstate_epp', 'crypto_hardware', 'thermal_hardware', 'microcode_early',
+	    'pti_disabled', 'mds_disable');
+	foreach (array_keys(crypto_offload_drivers()) as $key) {
+		$fields[] = "crypto_{$key}";
+	}
+	return $fields;
+}
+
+/*
+ * The Miscellaneous form as a browser would post it with the current
+ * settings, so a page can post part of it: checkboxes that are on are "yes",
+ * an existing proxy password is the unchanged placeholder.
+ */
+function getSystemAdvancedMiscPost() {
+	$post = array();
+	foreach (getSystemAdvancedMisc() as $key => $value) {
+		if (in_array($key, array('pti', 'mds'), true)) {
+			continue;
+		}
+		if (is_bool($value)) {
+			if ($value) {
+				$post[$key] = 'yes';
+			}
+		} else {
+			$post[$key] = (string)$value;
+		}
+	}
+	$post['proxypass'] = (config_get_path('system/proxypass', '') !== '') ? DMYPWD : '';
+	$post['proxypass_confirm'] = $post['proxypass'];
+	foreach (array('rrdbackup', 'dhcpbackup', 'logsbackup', 'captiveportalbackup') as $key) {
+		$post[$key] = (string)config_get_path("system/{$key}", '');
+	}
+	return $post;
+}
+
+/*
+ * $post with the given fields replaced by the current settings: used by the
+ * page that does not show those fields, so saving it keeps them unchanged.
+ */
+function systemAdvancedMiscKeepFields(array $post, array $fields) {
+	$current = getSystemAdvancedMiscPost();
+	foreach ($fields as $field) {
+		unset($post[$field]);
+		if (array_key_exists($field, $current)) {
+			$post[$field] = $current[$field];
+		}
+	}
+	return $post;
+}
+
+/*
  * The software accelerator choices for system/crypto_hardware. A choice is
  * offered only when the running kernel package ships its module: aesni and
  * ipsecmb are amd64-only, and ipsecmb.ko exists only on builds that carry

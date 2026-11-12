@@ -25,6 +25,7 @@
 require_once("config.inc");
 require_once("config.lib.inc");
 require_once("nic_tuning.inc");
+require_once("netperf.inc");
 
 function dhcp_is_backend($dhcpbackend)
 {
@@ -1448,7 +1449,7 @@ function load_loader_conf($loader_conf = NULL, $local = false) {
 		    "loader_conf_files",
 		    "machdep.hwpstate_pkg_ctrl",
 		    "net.pf.states_hashsize"
-		));
+		), netperf_loader_keys());
 	}
 	foreach ($input_split as $line) {
 		if (empty($line)) {
@@ -1494,7 +1495,7 @@ function cpu_vendor() {
 /*
  * cpu_microcode_file() - The microcode file the loader should apply early, or
  * null: on amd64 bare metal with a known vendor whose file is installed, unless
- * System > Advanced > Miscellaneous turns early loading off. Virtual machines
+ * System > Advanced > Performance turns early loading off. Virtual machines
  * get their microcode from the host, so they are skipped. The late update at
  * the end of boot (cpu-microcode-rc) still runs as a fallback.
  */
@@ -1739,6 +1740,9 @@ function setup_loader_settings($path = "", $upgrade = false) {
 
 	/* boot-time adapter tuning (queues, descriptor rings) from Interfaces > NIC Settings */
 	$data = array_merge($data, nic_tuning_loader_lines(config_get_path('system/nicsettings/adapters', [])));
+
+	/* packet processing threads and network buffers from System > Advanced > Performance */
+	$data = array_merge($data, netperf_current_loader_lines());
 
 	safe_write_file($loader_conf_file, $data);
 

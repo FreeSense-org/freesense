@@ -74,7 +74,8 @@ function restapi_routes_system() {
 	    'disablevpnrules, disablereplyto, disablenegate, no_apipa_block, checkaliasesurlcert, allow_nat64_prefix_override, ' .
 	    'enablebinatreflection, enablenatreflectionhelper (booleans); optimization, statepolicy, bogonsinterval, natreflection ' .
 	    '(from the *_choices), tftpinterface (list of interfaces), adaptivestart, adaptiveend, maximumstates, maximumtableentries, ' .
-	    'maximumfrags, maxmss, aliasesresolveinterval, reflectiontimeout and the state timeouts (e.g. tcpfirsttimeout; empty: ' .
+	    'maximumfrags, maxmss, aliasesresolveinterval, reflectiontimeout, syncookies (never|adaptive|always), syncookies_start, ' .
+	    'syncookies_end (percent of the state limit, adaptive only) and the state timeouts (e.g. tcpfirsttimeout; empty: ' .
 	    'default). NAT reflection fields exist only with more than one interface. Omitted fields keep their value. Saving reloads ' .
 	    'the filter at once.');
 	$net_body = array('type' => 'object', 'description' => 'The Networking form: radvddebug, dhcp6debug, dhcp6norelease, ipv6allow, ' .
@@ -92,6 +93,10 @@ function restapi_routes_system() {
 	    '(booleans), remove_failover_states_default, gw_down_kill_states, php_memory_limit, use_mfs_tmp_size, ' .
 	    'use_mfs_var_size, rrdbackup, dhcpbackup, logsbackup, captiveportalbackup, harddiskstandby. Omitted fields keep their value. ' .
 	    'Applied at once; reboot_required lists the changes that need a reboot.');
+	$perf_body = array('type' => 'object', 'description' => 'The network settings of the Performance page: netisr_threads ' .
+	    '(auto: one receive thread per CPU with the RSS kernel; single: the FreeBSD default), nmbclusters (mbuf cluster limit, empty: ' .
+	    'automatic). Both take effect after a reboot (reboot_required). The CPU, power, crypto and mitigation fields of the page ' .
+	    'are part of /v1/system/advanced/misc. Omitted fields keep their value.');
 	$notif_body = array('type' => 'object', 'description' => 'The Notifications form: cert_enable_notify, revoked_cert_ignore_notify, ' .
 	    'disable_smtp, smtpssl, sslvalidate, consolebell, disablebeep, enable_telegram, enable_pushover, enable_slack (booleans); ' .
 	    'certexpiredays, smtpipaddress, smtpport, smtptimeout, smtpfromaddress, smtpnotifyemailaddress, smtpusername, smtppassword, ' .
@@ -176,6 +181,11 @@ function restapi_routes_system() {
 			'summary' => 'Miscellaneous advanced settings (proxy password as "(set)")')),
 		restapi_route('PUT', '/v1/system/advanced/misc', 'restapi_h_sysadv_misc_set',
 			$w('system_advanced_misc.php', 'Change miscellaneous advanced settings (applied at once; omitted fields keep their value)', $misc_body)),
+		restapi_route('GET', '/v1/system/advanced/performance', 'restapi_h_sysadv_perf_get', array(
+			'page' => 'system_advanced_performance.php', 'area' => $area,
+			'summary' => 'Packet processing threads, network buffers and their running state (RSS, buffer use, pending reboot)')),
+		restapi_route('PUT', '/v1/system/advanced/performance', 'restapi_h_sysadv_perf_set',
+			$w('system_advanced_performance.php', 'Change packet processing threads or network buffers (after a reboot)', $perf_body)),
 		restapi_route('GET', '/v1/system/advanced/notifications', 'restapi_h_sysadv_notif_get', array(
 			'page' => 'system_advanced_notifications.php', 'area' => $area,
 			'summary' => 'Notification settings (passwords and API keys as "(set)")')),
@@ -311,6 +321,7 @@ function restapi_sysadv_fw_choices() {
 		    'aggressive' => gettext('Aggressive'), 'conservative' => gettext('Conservative')),
 		'statepolicy' => $state_policy_options,
 		'bogonsinterval' => array('monthly' => gettext('Monthly'), 'weekly' => gettext('Weekly'), 'daily' => gettext('Daily')),
+		'syncookies' => array('never' => gettext('Never (default)'), 'adaptive' => gettext('Adaptive'), 'always' => gettext('Always')),
 	);
 	if (count(config_get_path('interfaces', [])) > 1) {
 		$choices['natreflection'] = array('disable' => gettext('disabled'), 'proxy' => gettext('NAT + Proxy'),
@@ -329,7 +340,7 @@ function restapi_sysadv_fw_types() {
 		$types[$flag] = 'bool';
 	}
 	foreach (array('optimization', 'adaptivestart', 'adaptiveend', 'maximumstates', 'maximumtableentries', 'maximumfrags',
-	    'maxmss', 'statepolicy', 'aliasesresolveinterval', 'bogonsinterval') as $field) {
+	    'maxmss', 'statepolicy', 'aliasesresolveinterval', 'bogonsinterval', 'syncookies', 'syncookies_start', 'syncookies_end') as $field) {
 		$types[$field] = 'string';
 	}
 	if (count(config_get_path('interfaces', [])) > 1) {
@@ -375,6 +386,9 @@ function restapi_sysadv_fw_settings() {
 		'checkaliasesurlcert' => (bool)$p['checkaliasesurlcert'],
 		'bogonsinterval' => restapi_select_choice(empty($p['bogonsinterval']) ? 'monthly' : $p['bogonsinterval'], $choices['bogonsinterval']),
 		'allow_nat64_prefix_override' => (bool)$p['allow_nat64_prefix_override'],
+		'syncookies' => (string)($p['syncookies'] ?: 'never'),
+		'syncookies_start' => (string)$p['syncookies_start'],
+		'syncookies_end' => (string)$p['syncookies_end'],
 	);
 	if (isset($choices['natreflection'])) {
 		$out['natreflection'] = restapi_sysadv_natreflection($sys);
@@ -644,6 +658,44 @@ function restapi_h_sysadv_misc_set($req) {
 	}
 	return array('data' => restapi_sysadv_misc_out(restapi_sysadv_misc_settings()) +
 	    array('applied' => ($rv['retval'] == 0), 'reboot_required' => $reboot));
+}
+
+/* ------------------------------------------------------------------ */
+/* Performance (network settings)                                      */
+/* ------------------------------------------------------------------ */
+
+function restapi_sysadv_perf_out() {
+	$settings = netperf_settings();
+	$rss = netperf_rss_state();
+	$mbuf = netperf_mbuf_usage();
+	return array(
+		'netisr_threads' => $settings['netisr_threads'],
+		'nmbclusters' => $settings['nmbclusters'],
+		'status' => array(
+			'rss' => $rss['enabled'],
+			'rss_bits' => $rss['bits'],
+			'netisr_threads' => (int)get_single_sysctl('net.isr.numthreads'),
+			'nmbclusters' => (int)get_single_sysctl('kern.ipc.nmbclusters'),
+			'mbuf_clusters' => $mbuf,
+			'pending_reboot' => array_keys(netperf_pending(netperf_current_loader_lines(), netperf_booted_values(), netperf_loader_keys())),
+		),
+		'choices' => array('netisr_threads' => restapi_svc_choices(array('auto' => gettext('Automatic: one thread per CPU'),
+		    'single' => gettext('Single thread')))),
+	);
+}
+
+function restapi_h_sysadv_perf_get($req) {
+	return array('data' => restapi_sysadv_perf_out());
+}
+
+function restapi_h_sysadv_perf_set($req) {
+	$types = array('netisr_threads' => 'string', 'nmbclusters' => 'string', 'status' => 'ro', 'choices' => 'ro');
+	$values = restapi_svc_merge($req['body'], netperf_settings(), $types);
+	$rv = saveSystemAdvancedPerformance(array('netisr_threads' => $values['netisr_threads'], 'nmbclusters' => $values['nmbclusters']), false);
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => restapi_sysadv_perf_out() + array('reboot_required' => in_array('network', $rv['reboot'], true)));
 }
 
 /* ------------------------------------------------------------------ */

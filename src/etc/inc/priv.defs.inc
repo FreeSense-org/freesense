@@ -1086,6 +1086,12 @@ $priv_list['page-system-advanced-notifications']['descr'] = gettext("Allow acces
 $priv_list['page-system-advanced-notifications']['match'] = array();
 $priv_list['page-system-advanced-notifications']['match'][] = "system_advanced_notifications.php*";
 
+$priv_list['page-system-advanced-performance'] = array();
+$priv_list['page-system-advanced-performance']['name'] = gettext("WebCfg - System: Advanced: Performance");
+$priv_list['page-system-advanced-performance']['descr'] = gettext("Allow access to the 'System: Advanced: Performance' page.");
+$priv_list['page-system-advanced-performance']['match'] = array();
+$priv_list['page-system-advanced-performance']['match'][] = "system_advanced_performance.php*";
+
 $priv_list['page-system-advanced-sysctl'] = array();
 $priv_list['page-system-advanced-sysctl']['name'] = gettext("WebCfg - System: Advanced: Tunables");
 $priv_list['page-system-advanced-sysctl']['descr'] = gettext("Allow access to the 'System: Advanced: Tunables' page.");
