@@ -40,6 +40,8 @@ check(($nodes['fc'] ?? '') === '3', 'The node after a multi-line value must pars
 check(nic_tuning_parse_sysctl('dev.em.1', $lines) === [], 'Another unit must not match.');
 check(nic_tuning_parse_pnp($nodes['%pnpinfo']) === ['vendor' => '8086', 'device' => '100f', 'subvendor' => '15ad', 'subdevice' => '0750'],
     'PCI ids must parse from %pnpinfo.');
+check(nic_tuning_parse_pnp('vendor=0x00001af4 device=0x1000 subvendor=0x1af4 device_type=0x00000001') ===
+    ['vendor' => '1af4', 'device' => '1000', 'subvendor' => '1af4'], 'Padded virtio ids normalise to four digits (seen on Proxmox).');
 
 /* detection */
 $em = nic_tuning_detect('em0', $nodes);

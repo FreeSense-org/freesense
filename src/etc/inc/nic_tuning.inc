@@ -77,12 +77,12 @@ function nic_tuning_parse_sysctl(string $prefix, array $lines): array {
 	return $nodes;
 }
 
-/* pure: PCI ids from a %pnpinfo string ("vendor=0x8086 device=0x10fb ..."), lower-case hex without 0x */
+/* pure: PCI ids from a %pnpinfo string ("vendor=0x8086 device=0x10fb ..."), four lower-case hex digits (virtio pads to eight) */
 function nic_tuning_parse_pnp(string $pnpinfo): array {
 	$ids = [];
 	foreach (['vendor', 'device', 'subvendor', 'subdevice'] as $key) {
 		if (preg_match('/(?:^|\s)' . $key . '=0x([0-9a-f]+)(?:\s|$)/i', $pnpinfo, $m)) {
-			$ids[$key] = strtolower($m[1]);
+			$ids[$key] = sprintf('%04x', hexdec($m[1]) & 0xffff);
 		}
 	}
 	return $ids;
