@@ -212,6 +212,9 @@ if ($action === 'save_nic') {
 	} else {
 		$old_altq = config_path_enabled('system', 'hn_altq_enable');
 		config_set_path('system/nicsettings/profile', $profile);
+		if (!isset($_POST['checksum_default_off'])) {
+			config_del_path('system/nicsettings/checksum_default');
+		}
 		if (isset($_POST['hn_altq_enable'])) {
 			config_set_path('system/hn_altq_enable', true);
 		} else {
@@ -232,6 +235,7 @@ if ($action === 'save_nic') {
 }
 
 $active_profile = config_get_path('system/nicsettings/profile', 'firewall');
+$checksum_default_off = (config_get_path('system/nicsettings/checksum_default') === 'off');
 if (!isset($profiles[$active_profile])) {
 	$active_profile = 'firewall';
 }
@@ -364,7 +368,11 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 <?php
 foreach ($inventory as $nic):
 	$saved = nic_settings_saved($nic['id']);
+	/* what "Profile default" resolves to on this adapter */
 	$profile_values = $profiles[$active_profile];
+	if ($checksum_default_off || nic_settings_checksum_guarded($nic['device'])) {
+		$profile_values['checksum'] = 'off';
+	}
 	$reopen = null;
 	if ($reopen_nic === $nic['id']) {
 		$reopen = [];
@@ -396,6 +404,7 @@ foreach ($inventory as $nic):
 				<?php endif; ?>
 			</select>
 			<?php if (!$supported): ?><div class="form-text"><?=gettext('Not supported by this adapter.')?></div><?php endif; ?>
+			<?php if ($setting === 'checksum' && $supported && nic_settings_checksum_guarded($nic['device'])): ?><div class="form-text"><?=gettext('Off by default for this virtual driver: forwarding breaks with it on some hypervisors. Turn it on only after testing; other hypervisors are faster with it.')?></div><?php endif; ?>
 			<?php if ($setting === 'ipsec'): ?><div class="form-text"><?=gettext('The adapter encrypts and decrypts IPsec itself. Only AES-GCM security associations are offloaded; others stay in software. Applies to tunnels that come up after saving. Experimental: not yet tested on this hardware.')?></div><?php endif; ?>
 		</div>
 <?php endforeach; ?>
@@ -415,8 +424,10 @@ foreach ($inventory as $nic):
 	if ($nic['driver'] === 're') {
 		$hints[] = gettext('Realtek adapter: if you see unexplained corruption, drops or connectivity problems, turn checksum offload off.');
 	}
-	if (in_array($nic['driver'], ['vtnet', 'ena', 'hn'], true)) {
-		$hints[] = gettext('Virtual adapter: FreeSense keeps checksum offload off for this driver; multiqueue changes may need a reboot.');
+	if (nic_settings_checksum_guarded($nic['device'])) {
+		$hints[] = gettext('Virtual adapter: checksum offload stays off unless you turn it on for this adapter; multiqueue changes need a reboot.');
+	} elseif ($nic['driver'] === 'hn') {
+		$hints[] = gettext('Hyper-V adapter: multiqueue and ALTQ changes need a reboot.');
 	}
 ?>
 <div class="modal fade" id="nic-info-<?=htmlspecialchars($nic['id'])?>" tabindex="-1" aria-labelledby="nic-info-<?=htmlspecialchars($nic['id'])?>-title" aria-hidden="true">
@@ -482,6 +493,13 @@ foreach ($inventory as $nic):
 			</label>
 <?php endforeach; ?>
 		</div>
+<?php if ($checksum_default_off): ?>
+		<div class="form-check mt-3">
+			<input class="form-check-input" type="checkbox" id="checksum_default_off" name="checksum_default_off" value="yes" checked>
+			<label class="form-check-label" for="checksum_default_off"><?=gettext('Keep checksum offload off on every adapter')?></label>
+			<div class="form-text"><?=gettext('Carried over from an imported configuration that disabled hardware checksum offload. Clear it to let the profile decide; an adapter setting still wins.')?></div>
+		</div>
+<?php endif; ?>
 	</div>
 </div>
 

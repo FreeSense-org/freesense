@@ -4709,6 +4709,11 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 		}
 	}
 
+	/* An adapter MTU from Interfaces > NIC Settings applies when the interface sets none. */
+	if (($wantedmtu == 0) && ($mtuif == $mtuhwif)) {
+		$wantedmtu = nic_settings_mtu($mtuif);
+	}
+
 	/* Set the MTU to 1500 if no explicit MTU configured. */
 	if ($wantedmtu == 0) {
 		$wantedmtu = 1500; /* Default */
@@ -7431,11 +7436,13 @@ function is_altq_capable($int) {
 	 * https://www.freebsd.org/cgi/man.cgi?query=altq&apropos=0&sektion=0&manpath=FreeBSD+11.0-RELEASE&arch=default&format=html
 	 * Only the following drivers have ALTQ support
 	 * 20150328 - removed wireless drivers - ath, awi, bwn, iwi, ipw, ral, rum, run, wi - for now. redmine #4406
+	 * Every iflib driver (em/igb, igc, ix, ixl, iavf, ice, vmx, bnxt, axgbe "ax")
+	 * transmits through iflib_altq_if_transmit() when ALTQ is in the kernel.
 	 */
-	$capable = array("ae", "age", "alc", "ale", "an", "aue", "axe", "bce",
+	$capable = array("ae", "age", "alc", "ale", "an", "aue", "ax", "axe", "bce",
 			"bfe", "bge", "bnxt", "bridge", "bxe", "cas", "cpsw", "dc", "de",
-			"ed", "em", "ep", "epair", "et", "fxp", "gem", "hme", "hn",
-			"igb", "igc", "ix", "ixv", "jme", "l2tp", "le", "lem", "msk", "mxge", "my",
+			"ed", "em", "ep", "epair", "et", "fxp", "gem", "hme", "hn", "iavf", "ice",
+			"igb", "igc", "ix", "ixl", "ixv", "jme", "l2tp", "le", "lem", "msk", "mxge", "my",
 			"ndis", "nfe", "ng", "nge", "npe", "nve", "ql", "ovpnc",
 			"ovpns", "ppp", "pppoe", "pptp", "re", "rl", "sf", "sge",
 			"sis", "sk", "ste", "stge", "ti", "tun", "txp", "udav",

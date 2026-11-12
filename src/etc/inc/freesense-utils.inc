@@ -638,6 +638,12 @@ function nic_settings_saved($id) {
 	return $saved;
 }
 
+/* The MTU saved on NIC Settings for a physical adapter, or 0 when none is set. */
+function nic_settings_mtu(string $iface, $options = null): int {
+	$mtu = nic_settings_saved(nic_settings_device_id($iface, $options))['mtu'] ?? null;
+	return is_numeric($mtu) ? (int)$mtu : 0;
+}
+
 /* Inline IPsec offload is experimental, so no profile turns it on; an adapter opts in itself. */
 function nic_settings_profiles() {
 	return [
@@ -698,6 +704,11 @@ function interfaces_with_ipsec_offload(): array {
 	return $result;
 }
 
+/* Drivers whose checksum offload stays off unless an adapter turns it on explicitly. */
+function nic_settings_checksum_guarded(string $iface): bool {
+	return (stripos($iface, 'vtnet') === 0 || stripos($iface, 'ena') === 0);
+}
+
 function nic_settings_effective($iface, $options = null) {
 	$profiles = nic_settings_profiles();
 	$profile = config_get_path('system/nicsettings/profile', 'firewall');
@@ -705,6 +716,10 @@ function nic_settings_effective($iface, $options = null) {
 		$profile = 'firewall';
 	}
 	$result = $profiles[$profile];
+	/* checksum offload switched off for every adapter, carried over from an imported configuration */
+	if (config_get_path('system/nicsettings/checksum_default') === 'off') {
+		$result['checksum'] = 'off';
+	}
 	$id = nic_settings_device_id($iface, $options);
 	$saved = nic_settings_saved($id);
 	foreach (array_keys($result) as $setting) {
@@ -712,8 +727,12 @@ function nic_settings_effective($iface, $options = null) {
 			$result[$setting] = $saved[$setting];
 		}
 	}
-	/* These virtual drivers still require the long-standing checksum safeguard. */
-	if (stripos($iface, 'vtnet') === 0 || stripos($iface, 'ena') === 0) {
+	/*
+	 * VirtIO and ENA keep checksum offload off unless the adapter itself turns it
+	 * on: forwarding breaks with it on some hypervisors (FreeBSD PR 165059), while
+	 * others are faster with it.
+	 */
+	if (nic_settings_checksum_guarded($iface) && ($saved['checksum'] ?? 'inherit') !== 'on') {
 		$result['checksum'] = 'off';
 	}
 	$result['profile'] = $profile;
@@ -730,10 +749,8 @@ function hardware_offloading_applyflags($iface) {
 	}
 	$nic_settings = nic_settings_effective($iface, $options);
 
-	/* disable hardware checksum offloading for VirtIO network drivers,
-	 * see https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=165059 */
-	if ($nic_settings['checksum'] === 'off' ||
-	    stristr($iface, "vtnet") || stristr($iface, "ena")) {
+	/* VirtIO/ENA adapters already resolve to "off" unless turned on (nic_settings_effective) */
+	if ($nic_settings['checksum'] === 'off') {
 		if (isset($options['encaps']['txcsum'])) {
 			$flags_off |= IFCAP_TXCSUM;
 		}
@@ -802,9 +819,9 @@ function hardware_offloading_applyflags($iface) {
 		}
 	}
 
-	$mtu = nic_settings_saved($nic_settings['id'])['mtu'] ?? null;
-	if (is_numeric($mtu)) {
-		FreeSense_interface_mtu($iface, (int)$mtu);
+	$mtu = nic_settings_mtu($iface, $options);
+	if ($mtu > 0) {
+		FreeSense_interface_mtu($iface, $mtu);
 	}
 }
 
@@ -5221,6 +5238,30 @@ function fix_config_artifacts() {
 		array_set_path($conf, 'system/group', array_values($groups_config));
 		$conf_write = true;
 	}
+
+	/**
+	 * ===================================================================
+	 * The pfSense/OPNsense offload switches (presence = disabled) were
+	 * replaced by Interfaces > NIC Settings. Their TSO/LRO default matches
+	 * the Firewall Balanced profile; a disabled checksum offload, usually
+	 * set for a misbehaving adapter, is carried over for every adapter.
+	 * ===================================================================
+	 */
+	$system_config = array_get_path($conf, 'system', []);
+	if (is_array($system_config)) {
+		if (array_key_exists('disablechecksumoffloading', $system_config) &&
+		    !isset($system_config['nicsettings']['checksum_default'])) {
+			array_set_path($conf, 'system/nicsettings/checksum_default', 'off');
+			$conf_write = true;
+		}
+		foreach (['disablechecksumoffloading', 'disablesegmentationoffloading', 'disablelargereceiveoffloading'] as $legacy_key) {
+			if (array_key_exists($legacy_key, $system_config)) {
+				array_del_path($conf, "system/{$legacy_key}");
+				$conf_write = true;
+			}
+		}
+	}
+	unset($system_config);
 
 	/**
 	 * ===================================================================
