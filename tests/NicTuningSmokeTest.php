@@ -115,4 +115,10 @@ check(count(nic_tuning_notes(['driver' => 'ix', 'iflib' => true, 'rxqs' => 1, 'm
 check(nic_tuning_boot_changed(['fc' => '0'], ['fc' => '3']) === false, 'A live change needs no reboot.');
 check(nic_tuning_boot_changed([], ['queues' => '4']) && nic_tuning_boot_changed(['rxds' => '2048'], []), 'A boot change needs a reboot.');
 
+/* boot applies saved settings to unassigned adapters too (setup_microcode; seen on the lab box) */
+$utils = file_get_contents($root . '/src/etc/inc/freesense-utils.inc');
+check(strpos($utils, "foreach (config_get_path('system/nicsettings/adapters', array()) as \$adapter) {") !== false &&
+    strpos($utils, "if (nic_tuning_split(\$device) !== null && !isset(\$done[\$device]) && does_interface_exist(\$device)) {") !== false,
+    'setup_microcode() must apply saved settings to unassigned adapters at boot.');
+
 echo "NIC tuning smoke test passed.\n";
