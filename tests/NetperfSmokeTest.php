@@ -105,6 +105,6 @@ check(strpos($routes, "restapi_route('GET', '/v1/system/advanced/performance', '
     'The REST API has the Performance route.');
 check(strpos($routes, "saveSystemAdvancedPerformance(array('netisr_threads' => \$values['netisr_threads'], 'nmbclusters' => \$values['nmbclusters']), false)") !== false,
     'The REST route saves only the network settings (the hardware fields stay on the misc route).');
-check(strpos(file_get_contents("{$root}/src/etc/inc/restapi.inc"), "'ha-link', 'performance');") !== false, 'The performance capability is reported.');
+check(strpos(file_get_contents("{$root}/src/etc/inc/restapi.inc"), "'ha-link', 'performance', 'nic-settings');") !== false, 'The performance capability is reported.');
 
 echo "Performance smoke test passed.\n";

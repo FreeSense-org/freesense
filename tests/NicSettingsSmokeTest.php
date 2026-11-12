@@ -1,6 +1,8 @@
 <?php
 $root = dirname(__DIR__);
-$page = file_get_contents($root . '/src/usr/local/www/interfaces_nic_settings.php');
+/* the page and its shared logic (also used by the REST API) */
+$page = file_get_contents($root . '/src/usr/local/www/interfaces_nic_settings.php') .
+    file_get_contents($root . '/src/usr/local/FreeSense/include/www/interfaces_nic_settings.inc');
 $utils = file_get_contents($root . '/src/etc/inc/freesense-utils.inc');
 $advanced = file_get_contents($root . '/src/usr/local/www/system_advanced_network.php');
 $menu = file_get_contents($root . '/src/usr/local/www/head.inc');

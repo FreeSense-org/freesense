@@ -15,6 +15,7 @@
 require_once('guiconfig.inc');
 require_once('interfaces.inc');
 require_once('util.inc');
+require_once('interfaces_nic_settings.inc');
 
 $pgtitle = [gettext('Interfaces'), gettext('NIC Settings')];
 
@@ -26,115 +27,9 @@ if (isset($_REQUEST['view'], $legacy_views[$_REQUEST['view']])) {
 }
 $view = fs_view_param(['adapters', 'profile'], 'adapters');
 
-function nic_ui_driver($device) {
-	return preg_replace('/[0-9]+$/', '', $device);
-}
-
-function nic_ui_assignments() {
-	$result = [];
-	foreach (config_get_path('interfaces', []) as $logical => $config) {
-		if (!empty($config['if'])) {
-			$result[$config['if']] = ($config['descr'] ?? null) ?: strtoupper($logical);
-		}
-	}
-	return $result;
-}
-
-function nic_ui_inventory(bool $refresh = false) {
-	$devices = get_interface_list('all', 'physical') ?: [];
-	$assignments = nic_ui_assignments();
-	$result = [];
-	foreach ($devices as $device => $basic) {
-		$tuning = nic_tuning_adapter((string)$device, $refresh);
-		$info = get_interface_addresses($device) ?: [];
-		/* inline IPsec offload is a second-word capability the extension does not report */
-		$ipsec = interface_ipsec_offload_state((string)$device);
-		if ($ipsec !== null) {
-			$info['caps']['ipsec'] = true;
-			if ($ipsec) {
-				$info['encaps']['ipsec'] = true;
-			}
-		}
-		$effective = nic_settings_effective($device, $info);
-		$result[$device] = array_merge($basic, $info, [
-			'device' => $device,
-			'driver' => $tuning['driver'] ?: nic_ui_driver($device),
-			'tuning' => $tuning,
-			'assigned' => isset($assignments[$device]),
-			'assignment' => $assignments[$device] ?? gettext('Unassigned'),
-			'effective' => $effective,
-			'id' => $effective['id'],
-			'media' => $info['media'] ?? nic_ui_media($device),
-		]);
-	}
-	ksort($result, SORT_NATURAL);
-	return $result;
-}
-
-/* link speed and duplex from ifconfig, parsed the way get_interface_info() does for the dashboard widget */
-function nic_ui_media($device) {
-	$lines = [];
-	exec('/sbin/ifconfig ' . escapeshellarg($device) . ' 2>/dev/null', $lines);
-	foreach ($lines as $line) {
-		$line = ltrim($line);
-		if (preg_match('/^media: .*? \((.*?)\)/', $line, $m) ||
-		    preg_match('/^media: Ethernet (.*)/', $line, $m) ||
-		    preg_match('/^media: IEEE 802.11 Wireless Ethernet (.*)/', $line, $m)) {
-			return trim($m[1]);
-		}
-	}
-	return null;
-}
-
-/* hardware capability behind each setting; a setting the adapter lacks only offers "inherit" */
-function nic_ui_supported($nic, $setting) {
-	$caps = $nic['caps'] ?? [];
-	$need = [
-		'checksum' => ['txcsum', 'rxcsum', 'txcsum6', 'rxcsum6'],
-		'tso' => ['tso4', 'tso6'],
-		'lro' => ['lro'],
-		'vlan' => ['vlanhwtag'],
-		'wol' => ['wolmagic'],
-		'ipsec' => ['ipsec'],
-	];
-	foreach ($need[$setting] ?? [] as $cap) {
-		if (isset($caps[$cap])) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/* stores the adapter identity next to its settings, so loader.conf and boot know which device it was */
-function nic_ui_store_identity(array $nic): string {
-	$path = "system/nicsettings/adapters/{$nic['id']}";
-	/* drop a pre-prefix entry so only one copy remains */
-	config_del_path('system/nicsettings/adapters/' . substr($nic['id'], 4));
-	config_set_path("{$path}/mac", $nic['hwaddr'] ?? $nic['macaddr'] ?? $nic['mac'] ?? '');
-	config_set_path("{$path}/device", $nic['device']);
-	config_set_path("{$path}/driver", $nic['driver']);
-	return $path;
-}
-
-/* the display text of a tuning value: the choice label, or the number ("0" or empty = driver default) */
-function nic_ui_tuning_value(string $setting, string $value, string $driver): string {
-	$choices = nic_tuning_choices($setting, $driver);
-	if (isset($choices[$value])) {
-		return $choices[$value];
-	}
-	return ($value === '' || $value === '0') ? gettext('driver default') : $value;
-}
-
 $ncpu = max(1, (int)get_single_sysctl('hw.ncpu'));
 $vm_guest = (string)get_single_sysctl('kern.vm_guest');
-$tuning_labels = [
-	'fc' => gettext('Flow control'),
-	'aim' => gettext('Interrupt moderation'),
-	'tx_abdicate' => gettext('TX abdicate'),
-	'queues' => gettext('Queues'),
-	'rxds' => gettext('Receive descriptors'),
-	'txds' => gettext('Transmit descriptors'),
-];
+$tuning_labels = nic_ui_tuning_labels();
 $tuning_help = [
 	'fc' => gettext('Pause frames let a busy link stop its sender. On a router they stall every flow behind one slow port, so off is recommended.'),
 	'aim' => gettext('Adapts the interrupt rate to the load. Low latency spends more CPU time for shorter delays.'),
@@ -153,7 +48,7 @@ $counter_labels = [
 	'tx_watchdog' => gettext('Transmit watchdog resets'),
 ];
 
-$settings =['checksum' => gettext('Checksum offload'), 'tso' => gettext('TCP segmentation offload (TSO)'), 'lro' => gettext('Large receive offload (LRO)'), 'vlan' => gettext('VLAN hardware acceleration'), 'wol' => gettext('Wake-on-LAN magic packet'), 'ipsec' => gettext('Inline IPsec offload (experimental)')];
+$settings = nic_ui_setting_labels();
 $short = ['checksum' => gettext('Checksum'), 'tso' => 'TSO', 'lro' => 'LRO', 'vlan' => 'VLAN', 'wol' => 'WoL', 'ipsec' => 'IPsec'];
 $profile_labels = ['firewall' => gettext('Firewall Balanced'), 'throughput' => gettext('Maximum Throughput'), 'latency' => gettext('Low Latency'), 'capture' => gettext('Packet Capture / Troubleshooting')];
 $profile_help = [
@@ -172,118 +67,36 @@ $reopen_nic = null;
 $action = $_POST['action'] ?? null;
 $nic = null;
 if (in_array($action, ['save_nic', 'apply_recommended'], true)) {
-	foreach ($inventory as $candidate) {
-		if ($candidate['id'] === ($_POST['nic'] ?? '')) {
-			$nic = $candidate;
-		}
-	}
+	$nic = nic_ui_find($inventory, (string)($_POST['nic'] ?? ''));
 	if ($nic === null) {
 		$input_errors[] = gettext('Unknown network adapter.');
 		$action = null;
 	}
 }
+$rv = null;
 if ($action === 'save_nic') {
+	$values = ['settings' => [], 'mtu' => $_POST["{$nic['id']}_mtu"] ?? '', 'tuning' => []];
 	foreach (array_keys($settings) as $setting) {
-		$value = $_POST["{$nic['id']}_{$setting}"] ?? 'inherit';
-		if (!in_array($value, ['inherit', 'on', 'off'], true)) {
-			$input_errors[] = sprintf(gettext('Invalid %1$s setting for %2$s.'), $setting, $nic['device']);
-		} elseif ($value !== 'inherit' && !nic_ui_supported($nic, $setting)) {
-			$input_errors[] = sprintf(gettext('%1$s does not support %2$s.'), $nic['device'], $settings[$setting]);
-		}
+		$values['settings'][$setting] = $_POST["{$nic['id']}_{$setting}"] ?? 'inherit';
 	}
-	$mtu = trim($_POST["{$nic['id']}_mtu"] ?? '');
-	if ($mtu !== '' && (!ctype_digit($mtu) || (int)$mtu < 576 || (int)$mtu > 16384)) {
-		$input_errors[] = sprintf(gettext('MTU for %s must be between 576 and 16384.'), $nic['device']);
-	} elseif ($mtu !== '' && (int)$mtu > 1500 && !isset($nic['caps']['jumbomtu'])) {
-		$input_errors[] = sprintf(gettext('%s does not report jumbo MTU capability.'), $nic['device']);
-	}
-	/* driver tuning: only the controls this adapter has */
-	$tuning_new = [];
 	foreach (array_keys($nic['tuning']['controls']) as $setting) {
-		$value = trim((string)($_POST["{$nic['id']}_t_{$setting}"] ?? ''));
-		$error = nic_tuning_validate($setting, $value, $nic['tuning'], $ncpu);
-		if ($error !== null) {
-			$input_errors[] = sprintf('%1$s: %2$s', $tuning_labels[$setting], $error);
-		} elseif ($value !== '') {
-			$tuning_new[$setting] = $value;
-		}
+		$values['tuning'][$setting] = $_POST["{$nic['id']}_t_{$setting}"] ?? '';
 	}
-
-	if ($input_errors) {
+	$rv = nic_ui_save_adapter($nic, $values, $ncpu);
+	if ($rv['input_errors']) {
 		$reopen_nic = $nic['id'];
-	} else {
-		$tuning_old = nic_tuning_saved(nic_settings_saved($nic['id']));
-		$path = nic_ui_store_identity($nic);
-		foreach (array_keys($settings) as $setting) {
-			config_set_path("{$path}/{$setting}", $_POST["{$nic['id']}_{$setting}"] ?? 'inherit');
-		}
-		if ($mtu === '') {
-			config_del_path("{$path}/mtu");
-		} else {
-			config_set_path("{$path}/mtu", (int)$mtu);
-		}
-		config_del_path("{$path}/tuning");
-		if ($tuning_new) {
-			config_set_path("{$path}/tuning", $tuning_new);
-		}
-		write_config(sprintf(gettext('Updated NIC hardware settings for %s.'), $nic['device']));
-		hardware_offloading_applyflags($nic['device']);
-		if ($mtu !== '') {
-			FreeSense_interface_mtu($nic['device'], (int)$mtu);
-		}
-		$reboot = nic_tuning_boot_changed($tuning_old, $tuning_new);
-		if ($reboot) {
-			setup_loader_settings();
-		}
-		$inventory = nic_ui_inventory(true);
-		$savemsg = sprintf(gettext('Settings for %s were saved and applied.'), $nic['device']) .
-		    ($reboot ? ' ' . gettext('Queue and descriptor changes take effect after a reboot.') : '');
 	}
 } elseif ($action === 'apply_recommended') {
-	$recommended = nic_tuning_recommend($nic['tuning'], config_get_path('system/nicsettings/profile', 'firewall'));
-	if (!$recommended) {
-		$input_errors[] = sprintf(gettext('There is nothing to recommend for %s under this profile.'), $nic['device']);
-	} else {
-		$tuning_old = nic_tuning_saved(nic_settings_saved($nic['id']));
-		$tuning_new = array_merge($tuning_old, $recommended);
-		$path = nic_ui_store_identity($nic);
-		config_set_path("{$path}/tuning", $tuning_new);
-		write_config(sprintf(gettext('Applied the recommended driver tuning to %s.'), $nic['device']));
-		hardware_offloading_applyflags($nic['device']);
-		$reboot = nic_tuning_boot_changed($tuning_old, $tuning_new);
-		if ($reboot) {
-			setup_loader_settings();
-		}
-		$inventory = nic_ui_inventory(true);
-		$savemsg = sprintf(gettext('The recommended tuning was applied to %s.'), $nic['device']) .
-		    ($reboot ? ' ' . gettext('Queue and descriptor changes take effect after a reboot.') : '');
-	}
+	$rv = nic_ui_apply_recommended($nic);
 } elseif ($action === 'save_profile') {
-	$profile = $_POST['profile'] ?? 'firewall';
-	if (!isset($profiles[$profile])) {
-		$input_errors[] = gettext('Invalid NIC profile.');
-	} else {
-		$old_altq = config_path_enabled('system', 'hn_altq_enable');
-		config_set_path('system/nicsettings/profile', $profile);
-		if (!isset($_POST['checksum_default_off'])) {
-			config_del_path('system/nicsettings/checksum_default');
-		}
-		if (isset($_POST['hn_altq_enable'])) {
-			config_set_path('system/hn_altq_enable', true);
-		} else {
-			config_del_path('system/hn_altq_enable');
-		}
-		write_config(gettext('Updated NIC profile.'));
-		$reboot = ($old_altq !== config_path_enabled('system', 'hn_altq_enable'));
-		if ($reboot) {
-			setup_loader_settings();
-		}
-		foreach (array_keys($inventory) as $device) {
-			hardware_offloading_applyflags($device);
-		}
+	$rv = nic_ui_save_profile(['profile' => $_POST['profile'] ?? 'firewall', 'checksum_default_off' => isset($_POST['checksum_default_off']),
+	    'hn_altq_enable' => isset($_POST['hn_altq_enable'])], $inventory);
+}
+if ($rv !== null) {
+	$input_errors = array_merge($input_errors, $rv['input_errors']);
+	if (!$rv['input_errors']) {
 		$inventory = nic_ui_inventory(true);
-		$savemsg = gettext('The profile was saved and applied to every adapter that inherits it.') .
-		    ($reboot ? ' ' . gettext('The ALTQ change takes effect after a reboot.') : '');
+		$savemsg = $rv['message'];
 	}
 }
 

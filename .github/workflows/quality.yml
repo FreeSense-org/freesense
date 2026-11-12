@@ -110,6 +110,7 @@ jobs:
               RestApiRoutingSmokeTest \
               RestApiDhcpSmokeTest \
               RestApiManagementSmokeTest \
+              RestApiNicSettingsSmokeTest \
               FleetJoinSmokeTest \
               FleetAgentSmokeTest \
               FleetGuardSmokeTest \
