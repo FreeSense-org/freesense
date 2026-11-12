@@ -99,4 +99,11 @@ check($out['tuning']['apply']['queues'] === 'boot' && $out['tuning']['apply']['f
 check(count($out['tuning']['choices']['aim']) === 3 && !isset($out['tuning']['choices']['queues']), 'choice controls list their values');
 check($out['hardware']['pci']['device'] === '100f' && $out['hardware']['rx_queues'] === 1, 'hardware detection is included');
 
+/* empty maps must encode as JSON objects, not lists (seen on a VirtIO adapter without tuning controls) */
+$vt = $nic;
+$vt['tuning'] = nic_tuning_detect('vtnet1', array('%driver' => 'vtnet'));
+$json = json_encode(restapi_nic_out($vt, array('settings' => array(), 'mtu' => '', 'tuning' => array()), 'capture', 4, 'kvm'));
+check(strpos($json, '"controls":{}') !== false && strpos($json, '"differences":{}') !== false && strpos($json, '"tuning":{}') !== false &&
+    strpos($json, '"counters":{}') !== false, 'empty maps are {} in JSON: ' . substr($json, 0, 0));
+
 echo "OK: NIC Settings REST API\n";

@@ -97,6 +97,11 @@ function restapi_nic_merge(array $body, array $current, array $setting_names, ar
 	return $values;
 }
 
+/* pure: a map for JSON: an empty PHP array would encode as [] instead of {} */
+function restapi_nic_map(array $map) {
+	return $map ? $map : new stdClass();
+}
+
 /* pure: one adapter as the API shows it, from an inventory entry */
 function restapi_nic_out(array $nic, array $saved_values, string $profile, int $ncpu, string $vm_guest): array {
 	$detect = $nic['tuning'];
@@ -123,25 +128,25 @@ function restapi_nic_out(array $nic, array $saved_values, string $profile, int $
 		'mtu' => isset($nic['mtu']) ? (int)$nic['mtu'] : null,
 		'supported' => $supported,
 		'effective' => array_intersect_key($nic['effective'], $supported),
-		'saved' => $saved_values,
+		'saved' => array('settings' => $saved_values['settings'], 'mtu' => $saved_values['mtu'], 'tuning' => restapi_nic_map($saved_values['tuning'])),
 		'hardware' => array(
 			'description' => $detect['desc'],
-			'pci' => $detect['pci'],
+			'pci' => restapi_nic_map($detect['pci']),
 			'iflib' => $detect['iflib'],
 			'rx_queues' => $detect['rxqs'],
 			'tx_queues' => $detect['txqs'],
 			'queue_cpus' => array_values($detect['queue_cpus']),
 			'interrupt_vectors' => $detect['msix'],
-			'counters' => $detect['counters'],
+			'counters' => restapi_nic_map($detect['counters']),
 		),
 		'tuning' => array(
-			'controls' => $detect['controls'],
-			'apply' => array_map(function ($control) {
+			'controls' => restapi_nic_map($detect['controls']),
+			'apply' => restapi_nic_map(array_map(function ($control) {
 				return $control['apply'];
-			}, array_intersect_key(nic_tuning_controls(), $detect['controls'])),
-			'choices' => $choices,
-			'recommended' => $recommended,
-			'differences' => nic_tuning_differences($detect, $recommended),
+			}, array_intersect_key(nic_tuning_controls(), $detect['controls']))),
+			'choices' => restapi_nic_map($choices),
+			'recommended' => restapi_nic_map($recommended),
+			'differences' => restapi_nic_map(nic_tuning_differences($detect, $recommended)),
 		),
 		'notes' => nic_tuning_notes($detect, $ncpu, $vm_guest),
 	);
@@ -250,5 +255,5 @@ function restapi_h_nic_recommended($req) {
 		throw new RestApiError(409, 'nothing_to_apply', html_entity_decode(strip_tags($rv['input_errors'][0]), ENT_QUOTES));
 	}
 	$nic = restapi_nic_lookup(nic_ui_inventory(true), $nic['id']);
-	return array('data' => restapi_nic_one($nic) + array('applied' => $rv['applied'], 'reboot_required' => $rv['reboot']));
+	return array('data' => restapi_nic_one($nic) + array('applied' => restapi_nic_map($rv['applied']), 'reboot_required' => $rv['reboot']));
 }
