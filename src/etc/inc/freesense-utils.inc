@@ -24,6 +24,7 @@
 
 require_once("config.inc");
 require_once("config.lib.inc");
+require_once("nic_tuning.inc");
 
 function dhcp_is_backend($dhcpbackend)
 {
@@ -823,6 +824,11 @@ function hardware_offloading_applyflags($iface) {
 	if ($mtu > 0) {
 		FreeSense_interface_mtu($iface, $mtu);
 	}
+
+	/* live driver tuning (flow control, interrupt moderation, TX abdicate) of the adapter itself */
+	if (nic_tuning_split($iface) !== null) {
+		nic_tuning_apply_live($iface, nic_tuning_saved(nic_settings_saved($nic_settings['id'])));
+	}
 }
 
 /****f* freesense-utils/enable_hardware_offloading
@@ -1437,8 +1443,9 @@ function load_loader_conf($loader_conf = NULL, $local = false) {
 		if (empty($line)) {
 			continue;
 		}
-		$skip = false;
 		$name = explode('=', $line, 2)[0];
+		/* per-adapter iflib overrides from Interfaces > NIC Settings */
+		$skip = (!$local && nic_tuning_is_loader_key($name));
 		foreach($remove as $rkey) {
 			if (strncasecmp(trim($name), $rkey, strlen($rkey)) == 0) {
 				$skip = true;
@@ -1718,6 +1725,9 @@ function setup_loader_settings($path = "", $upgrade = false) {
 	$pf_maximumstates = (config_get_path('system/maximumstates', 0) > 0) ? config_get_path('system/maximumstates') : freesense_default_state_size();
 	$pf_hashtablesize = pow(2, ceil(log(floor(intval($pf_maximumstates) / 2), 2)));
 	$data[] = "net.pf.states_hashsize=\"{$pf_hashtablesize}\"";
+
+	/* boot-time adapter tuning (queues, descriptor rings) from Interfaces > NIC Settings */
+	$data = array_merge($data, nic_tuning_loader_lines(config_get_path('system/nicsettings/adapters', [])));
 
 	safe_write_file($loader_conf_file, $data);
 
