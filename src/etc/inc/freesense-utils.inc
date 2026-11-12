@@ -947,10 +947,21 @@ function setup_microcode() {
 
 	/* if list */
 	$iflist = get_configured_interface_list(true);
+	$done = array();
 	foreach (array_keys($iflist) as $if) {
 		enable_hardware_offloading($if);
+		$done[get_real_interface($if)] = true;
 	}
 	unset($iflist);
+
+	/* unassigned adapters with saved NIC Settings (offloads, MTU, driver tuning) */
+	foreach (config_get_path('system/nicsettings/adapters', array()) as $adapter) {
+		$device = is_array($adapter) ? (string)($adapter['device'] ?? '') : '';
+		if (nic_tuning_split($device) !== null && !isset($done[$device]) && does_interface_exist($device)) {
+			hardware_offloading_applyflags($device);
+			$done[$device] = true;
+		}
+	}
 }
 
 /****f* freesense-utils/get_carp_status
