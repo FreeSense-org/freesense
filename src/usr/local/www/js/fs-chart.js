@@ -15,7 +15,9 @@
  *                {key: 'out', label: 'Out', color: '--fs-series-2', mirror: true}],
  *       window: 600,                      // seconds kept (0 = everything given)
  *       format: FS.fmt.bps,               // axis and tooltip values
- *       label: 'Traffic on WAN'});        // accessible name
+ *       label: 'Traffic on WAN',          // accessible name
+ *       bars: false,                      // bars instead of curves
+ *       time: true});                     // false: x is an index (xlabels: [...] names it)
  *   c.seed(t[], {in: [...], out: [...]}); // history (unix seconds, null = gap)
  *   c.push(t, {in: v, out: v});           // live samples
  *
@@ -103,13 +105,15 @@
 					label: s.label, stroke: col, width: 1.5, scale: s.scale || 'y',
 					fill: opts.fill ? alpha(col, opts.fill) : null,
 					points: { show: false }, spanGaps: false,
-					paths: (window.uPlot.paths && window.uPlot.paths.spline) ? window.uPlot.paths.spline() : undefined
+					paths: (opts.bars && window.uPlot.paths.bars) ? window.uPlot.paths.bars({ size: [0.7, 40] }) :
+						((window.uPlot.paths && window.uPlot.paths.spline) ? window.uPlot.paths.spline() : undefined)
 				};
 			}));
 			var axes = [
 				{
 					show: opts.axes, stroke: text, font: font, size: 26, grid: { stroke: grid, width: 1 }, ticks: { show: false },
 					values: function (self, vals, axis, space, incr) {
+						if (opts.time === false) return vals.map(function (v) { return opts.xlabels ? (opts.xlabels[v] || '') : String(v); });
 						return vals.map(function (v) {
 							var d = new Date(v * 1000);
 							var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -124,7 +128,7 @@
 				}
 			];
 			var scales = {
-				x: { time: true, auto: true },
+				x: { time: opts.time !== false, auto: true },
 				y: { range: function (self, min, max) {
 					var lo = Math.min(0, min || 0), hi = Math.max(0, max || 0);
 					if (lo === 0 && hi === 0) hi = 1;
@@ -155,7 +159,9 @@
 				if (opts.onHover) opts.onHover(null);
 				return;
 			}
-			$tip.empty().append($('<div class="fs-chart-tip-t"></div>').text(FS.fmt.time(data[0][i] * 1000)));
+			var head = (opts.time === false) ? (opts.xlabels ? (opts.xlabels[data[0][i]] || '') : String(data[0][i])) :
+				(opts.tipTime ? opts.tipTime(data[0][i]) : FS.fmt.time(data[0][i] * 1000));
+			$tip.empty().append($('<div class="fs-chart-tip-t"></div>').text(head));
 			var vals = {};
 			opts.series.forEach(function (s, k) {
 				var v = data[k + 1][i];
