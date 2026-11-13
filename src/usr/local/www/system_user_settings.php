@@ -42,9 +42,7 @@ if ($this_user) {
 	$pconfig['webguicss'] = $this_user['webguicss'];
 	$pconfig['webguifixedmenu'] = $this_user['webguifixedmenu'];
 	$pconfig['webguihostnamemenu'] = $this_user['webguihostnamemenu'];
-	$pconfig['dashboardcolumns'] = $this_user['dashboardcolumns'];
 	$pconfig['interfacessort'] = isset($this_user['interfacessort']);
-	$pconfig['dashboardavailablewidgetspanel'] = isset($this_user['dashboardavailablewidgetspanel']);
 	$pconfig['systemlogsfilterpanel'] = isset($this_user['systemlogsfilterpanel']);
 	$pconfig['systemlogsmanagelogpanel'] = isset($this_user['systemlogsmanagelogpanel']);
 	$pconfig['statusmonitoringsettingspanel'] = isset($this_user['statusmonitoringsettingspanel']);
@@ -61,13 +59,12 @@ if (isset($_POST['save'])) {
 	unset($input_errors);
 	/* input validation */
 
-	$reqdfields = explode(" ", "webguicss dashboardcolumns");
-	$reqdfieldsn = array(gettext("Theme"), gettext("Dashboard Columns"));
+	$reqdfields = explode(" ", "webguicss");
+	$reqdfieldsn = array(gettext("Theme"));
 	do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
 	validate_webguicss_field($input_errors, $_POST['webguicss']);
 	validate_webguifixedmenu_field($input_errors, $_POST['webguifixedmenu']);
 	validate_webguihostnamemenu_field($input_errors, $_POST['webguihostnamemenu']);
-	validate_dashboardcolumns_field($input_errors, $_POST['dashboardcolumns']);
 
 	$userent = config_get_path("system/user/{$id}");
 
@@ -88,20 +85,13 @@ if (isset($_POST['save'])) {
 			unset($userent['webguihostnamemenu']);
 		}
 
-		$pconfig['dashboardcolumns'] = $userent['dashboardcolumns'] = $_POST['dashboardcolumns'];
+		unset($userent['dashboardcolumns'], $userent['dashboardavailablewidgetspanel'], $userent['widgets']);
 
 		if ($_POST['interfacessort']) {
 			$pconfig['interfacessort'] = $userent['interfacessort'] = true;
 		} else {
 			$pconfig['interfacessort'] = false;
 			unset($userent['interfacessort']);
-		}
-
-		if ($_POST['dashboardavailablewidgetspanel']) {
-			$pconfig['dashboardavailablewidgetspanel'] = $userent['dashboardavailablewidgetspanel'] = true;
-		} else {
-			$pconfig['dashboardavailablewidgetspanel'] = false;
-			unset($userent['dashboardavailablewidgetspanel']);
 		}
 
 		if ($_POST['systemlogsfilterpanel']) {

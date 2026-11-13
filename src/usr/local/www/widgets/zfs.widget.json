@@ -1,0 +1,28 @@
+{
+	"type": "zfs",
+	"title": "ZFS",
+	"description": "Pool health, capacity, errors and the boot environment",
+	"icon": "fa-database",
+	"tone": "series-4",
+	"category": "System",
+	"page": "index.php",
+	"link": "/system_boot_environments.php",
+	"order": 33,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 30,
+	"strings": [
+		"This system does not use ZFS.",
+		"used",
+		"fragmented",
+		"errors",
+		"%s free",
+		"Boot environment",
+		"Device",
+		"State"
+	]
+}

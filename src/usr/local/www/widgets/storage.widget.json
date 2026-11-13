@@ -1,0 +1,30 @@
+{
+	"type": "storage",
+	"title": "Storage",
+	"description": "Disk and swap usage",
+	"icon": "fa-hard-drive",
+	"tone": "series-4",
+	"category": "System",
+	"page": "index.php",
+	"order": 32,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 60,
+	"settings": [
+		{
+			"key": "all",
+			"type": "checkbox",
+			"label": "Show every file system",
+			"value": false
+		}
+	],
+	"strings": [
+		"%s of %s",
+		"Swap",
+		"%s free"
+	]
+}

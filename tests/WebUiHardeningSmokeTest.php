@@ -59,11 +59,14 @@ if ($download === false || $start === false || $download > $start) {
 	$fail('A packet capture download request (no CSRF check) must not be able to start, stop or clear a capture.');
 }
 
-/* The captive portal status widget disconnects only through a POST. */
-$widget = file_get_contents($www . '/widgets/widgets/captive_portal_status.widget.php');
-if (strpos($widget, "\$_GET['act']") !== false || strpos($widget, '&amp;act=del') !== false ||
-    strpos($widget, "captiveportal_disconnect_client(\$_POST['id'], 6);") === false) {
-	$fail('The captive portal status widget must disconnect clients through a POST form.');
+/* Dashboard widgets only act through the REST API (privilege of the page they mirror); the old PHP widgets are gone. */
+if (is_dir($www . '/widgets/widgets') || is_dir($www . '/widgets/include') || is_dir($www . '/widgets/javascript')) {
+	$fail('The 1.x PHP dashboard widgets must be removed.');
+}
+$cpdel = file_get_contents($root . '/src/etc/inc/restapi/routes_status.inc');
+if (strpos($cpdel, "'/v1/status/captive-portal/{zone}/sessions/{session}', 'restapi_h_captiveportal_disconnect', array(
+			'page' => 'status_captiveportal.php', 'area' => 'status', 'write' => true,") === false) {
+	$fail('The captive portal disconnect route must need the Captive Portal status page and be a write.');
 }
 
 /* Actions that change the configuration only run on a POST (csrf-magic checks POST only). */
@@ -176,26 +179,12 @@ if (strpos($pkginstall, 'function pkg_mgr_install_readonly_user()') === false ||
     strpos($customrepos, 'if (pkg_mgr_install_readonly_user()) {') === false) {
 	$fail('Package operations must be refused for a user with "Deny Config Write".');
 }
-/* The RSS cache (unserialized by root) is not world-writable, and feed links are web links. */
-$rss = file_get_contents($www . '/widgets/widgets/rss.widget.php');
-if (strpos($rss, "\$rss_cache_dir = '/var/db/simplepie';") === false || strpos($rss, 'chmod a+rw') !== false ||
-    strpos($rss, "['http', 'https']") === false) {
-	$fail('The RSS widget must cache in a root-only directory and only link http(s) URLs.');
-}
 
 /* The dynamic firewall log never reads a path named in the request. */
 $syslog = file_get_contents($root . '/src/etc/inc/syslog.inc');
 if (strpos($syslog, "\$logfile = getGETPOSTsettingvalue('logfile', null);") !== false ||
     strpos($syslog, "\$logfile = g_get('varlog_path') . '/filter.log';") === false) {
 	$fail('handle_ajax() must read the firewall log only.');
-}
-/* Dashboard widgets only act with the privilege of the status page that has the same action. */
-if (strpos(file_get_contents($www . '/widgets/widgets/captive_portal_status.widget.php'), "isAllowedPage('status_captiveportal.php')") === false ||
-    strpos(file_get_contents($www . '/widgets/widgets/openvpn.widget.php'), "isAllowedPage('status_openvpn.php')") === false) {
-	$fail('Widget disconnects need the Captive Portal or OpenVPN status page privilege.');
-}
-if (strpos(file_get_contents($www . '/widgets/widgets/log.widget.php'), "if (!empty(\$_POST['widgetkey']) && empty(\$_POST['ajax'])) {") === false) {
-	$fail('The firewall log widget must save its settings on POST only.');
 }
 $index = file_get_contents($www . '/index.php');
 if (strpos($index, "\$_REQUEST['closenotice']") !== false || strpos($index, 'userHasPrivilege($notice_user, "user-view-clear-notices")') === false) {
@@ -284,12 +273,6 @@ if (strpos(file_get_contents($www . '/interfaces_wireless_edit.php'), "in_array(
 /* Limiter numbers reach dnctl as integers. */
 if (preg_match('/dnctl (pipe|sched|queue) delete " \. \$this->GetNumber\(\)/', file_get_contents($root . '/src/etc/inc/shaper.inc'))) {
 	$fail('shaper.inc must cast limiter numbers before dnctl.');
-}
-/* CVE-2026-111234: SimplePie never fetches; the widget fetches http(s) only and hands it the text. */
-if (strpos($rss, 'CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS') === false ||
-    strpos($rss, '$tmp_feed->set_raw_data($feed_data);') === false || strpos($rss, 'set_feed_url(') !== false ||
-    strpos($rss, 'FilesystemAdapter') !== false) {
-	$fail('The RSS widget must fetch feeds itself over http(s) and give SimplePie raw data only.');
 }
 
 /* Input scan 2026-11-04: the auth boundary. */

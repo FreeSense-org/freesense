@@ -2344,7 +2344,6 @@ EOD;
 			'64m' => 'xmlrpc',
 			'33m' => 'diag_command|diag_edit|suricata/suricata_ip_list_mgmt|suricata/suricata_sid_mgmt',
 			'4m' => 'services_captiveportal|services_captiveportal_filemanager',
-			'3m' => 'widgets/widgets/picture\\.widget',
 		] as $limit => $pages) {
 			$body_locations .= "\t\tlocation ~ ^/({$pages})\\.php\$ {\n\t\t\tclient_max_body_size {$limit};\n{$php_location}\n\t\t}\n";
 		}

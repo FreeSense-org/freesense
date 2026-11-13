@@ -1,0 +1,43 @@
+{
+	"type": "thermal",
+	"title": "Thermal sensors",
+	"description": "Temperatures of the CPU and other sensors with warning levels",
+	"icon": "fa-temperature-half",
+	"tone": "series-8",
+	"category": "System",
+	"page": "index.php",
+	"order": 31,
+	"sizes": [
+		"sm",
+		"md"
+	],
+	"size": "sm",
+	"every": 10,
+	"settings": [
+		{
+			"key": "warn",
+			"type": "number",
+			"label": "Warning at (°C)",
+			"value": 70,
+			"min": 30,
+			"max": 120
+		},
+		{
+			"key": "crit",
+			"type": "number",
+			"label": "Critical at (°C)",
+			"value": 85,
+			"min": 30,
+			"max": 130
+		},
+		{
+			"key": "fahrenheit",
+			"type": "checkbox",
+			"label": "Show Fahrenheit",
+			"value": false
+		}
+	],
+	"strings": [
+		"This system reports no temperature sensors."
+	]
+}

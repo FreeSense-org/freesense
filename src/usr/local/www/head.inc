@@ -35,8 +35,6 @@ require_once('restapi_session.inc');
 header('Content-Type: text/html; charset=utf-8');
 
 /* Optional page variables: pages set these before including head.inc. */
-$columnsContainer ??= '';
-$dashboard_available_widgets_hidden ??= false;
 $system_logs_filter_form_hidden ??= false;
 $system_logs_manage_log_form_hidden ??= false;
 $monitoring_settings_form_hidden ??= false;
@@ -64,11 +62,6 @@ if (isset($user_settings['webgui']['webguicss'])) {
 // Bootstrap 5 color mode: dark themes carry "dark" in the filename.
 $fs_colormode = (stripos($cssfile, 'dark') !== false) ? 'dark' : 'light';
 
-// set default columns to two if unset
-if (config_get_path('system/webgui/dashboardcolumns') === null) {
-	config_set_path('system/webgui/dashboardcolumns', 2);
-}
-
 ?>
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="<?=$fs_colormode?>">
@@ -93,6 +86,9 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 	<link rel="stylesheet" href="/css/_freesense-tokens.css?v=<?=filemtime('/usr/local/www/css/_freesense-tokens.css')?>">
 	<link rel="stylesheet" href="/css/_freesense-core.css?v=<?=filemtime('/usr/local/www/css/_freesense-core.css')?>">
 	<link rel="stylesheet" href="/css/_freesense-components.css?v=<?=filemtime('/usr/local/www/css/_freesense-components.css')?>">
+<?php foreach ((array)($fs_page_css ?? []) as $fs_css): /* page stylesheets: web paths under /usr/local/www */ ?>
+	<link rel="stylesheet" href="<?=htmlspecialchars($fs_css)?>?v=<?=@filemtime('/usr/local/www' . $fs_css)?>">
+<?php endforeach; ?>
 	<link rel="stylesheet" href="<?=$cssfile?>?v=<?=filemtime('/usr/local/www/' . $cssfile)?>" />
 
 	<title><?=$tabtitle?></title>
@@ -584,12 +580,6 @@ if ($user_settings['webgui']['webguifixedmenu'] == "fixed") {
 	$menuclass_dropdown = ' dropdown-menu-fixed';
 }
 
-$numColumns = (int) $user_settings['webgui']['dashboardcolumns'];
-
-if (($pagename === "index.php") && ($numColumns > 2)) {
-	$columnsContainer = 'style="max-width: ' . 585*$numColumns . 'px;width: 100%"';
-}
-
 $display_notices = false;
 $allow_clear_notices = false;
 
@@ -624,7 +614,7 @@ if ($fs_menu_mode === 'icons') {
 	$fs_body_class[] = 'fs-menu-auto';
 }
 ?>
-<body id="<?=$numColumns?>"<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
+<body<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
 <nav id="topmenu" class="navbar navbar-expand-lg fs-topbar<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
 	<div class="container fs-page">
 		<div class="fs-topbar-row">
@@ -708,7 +698,7 @@ if ($fs_menu_mode === 'icons') {
 </nav>
 
 <main class="fs-main">
-<div class="container fs-page <?=$menuclass?>" <?=$columnsContainer?>>
+<div class="container fs-page <?=$menuclass?>">
 
 <?php
 /* Password Security warnings */
@@ -803,22 +793,6 @@ if (config_get_path('fleet/node_id', '') !== '') {
 		<div class="fs-pagehead-actions">
 		<?=fs_render_page_actions()?>
 		<ul class="context-links">
-
-	<?php if (isset($widgets)): ?>
-		<li>
-			<a href="#" title="<?=gettext("Save dashboard layout")?>" id="btnstore" class="invisible">
-				<i class="fa-solid fa-floppy-disk icon-pointer"></i>
-			</a>
-		</li>
-	<?php endif?>
-
-	<?php if ($dashboard_available_widgets_hidden): ?>
-		<li>
-			<a onclick="$('#widget-available').toggle(360);" title="<?=gettext("Available widgets")?>">
-				<i class="fa-solid fa-plus icon-pointer"></i>
-			</a>
-		</li>
-	<?php endif?>
 
 	<?php if ($system_logs_filter_form_hidden): ?>
 		<li>

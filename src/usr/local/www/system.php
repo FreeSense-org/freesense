@@ -261,11 +261,9 @@ gen_webguifixedmenu_field($section, $pconfig['webguifixedmenu']);
 gen_webguihostnamemenu_field($section, $pconfig['webguihostnamemenu']);
 gen_webguipagewidth_field($section, $pconfig['webguipagewidth']);
 gen_webguimenuicons_field($section, $pconfig['webguimenuicons']);
-gen_dashboardcolumns_field($section, $pconfig['dashboardcolumns']);
 gen_interfacessort_field($section, $pconfig['interfacessort']);
 gen_associatedpanels_fields(
 	$section,
-	$pconfig['dashboardavailablewidgetspanel'],
 	$pconfig['systemlogsfilterpanel'],
 	$pconfig['systemlogsmanagelogpanel'],
 	$pconfig['statusmonitoringsettingspanel']);

@@ -1,0 +1,72 @@
+{
+	"type": "traffic",
+	"title": "Traffic",
+	"description": "Live throughput of an interface, opened with its recent history",
+	"icon": "fa-chart-area",
+	"tone": "series-1",
+	"category": "Network",
+	"page": "status_graph.php",
+	"link": "/status_graph.php",
+	"order": 22,
+	"sizes": [
+		"md",
+		"lg",
+		"xl",
+		"full"
+	],
+	"size": "lg",
+	"every": 2,
+	"allow_copies": true,
+	"settings": [
+		{
+			"key": "interface",
+			"type": "interface",
+			"label": "Interface",
+			"value": "wan"
+		},
+		{
+			"key": "window",
+			"type": "select",
+			"label": "Time span",
+			"options": [
+				[
+					"600",
+					"10 minutes"
+				],
+				[
+					"3600",
+					"1 hour"
+				],
+				[
+					"86400",
+					"24 hours"
+				]
+			],
+			"value": "600"
+		},
+		{
+			"key": "unit",
+			"type": "select",
+			"label": "Show",
+			"options": [
+				[
+					"bps",
+					"Bits per second"
+				],
+				[
+					"pps",
+					"Packets per second"
+				]
+			],
+			"value": "bps"
+		}
+	],
+	"strings": [
+		"In",
+		"Out",
+		"Peak",
+		"Traffic on %s",
+		"History from the RRD, then live every 2 seconds",
+		"Live only: there is no history for this interface yet"
+	]
+}

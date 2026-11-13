@@ -201,9 +201,7 @@ function usermgr_user_form($this_user) {
 	$pconfig['webguicss'] = $this_user['webguicss'];
 	$pconfig['webguifixedmenu'] = $this_user['webguifixedmenu'];
 	$pconfig['webguihostnamemenu'] = $this_user['webguihostnamemenu'];
-	$pconfig['dashboardcolumns'] = $this_user['dashboardcolumns'];
 	$pconfig['interfacessort'] = isset($this_user['interfacessort']);
-	$pconfig['dashboardavailablewidgetspanel'] = isset($this_user['dashboardavailablewidgetspanel']);
 	$pconfig['systemlogsfilterpanel'] = isset($this_user['systemlogsfilterpanel']);
 	$pconfig['systemlogsmanagelogpanel'] = isset($this_user['systemlogsmanagelogpanel']);
 	$pconfig['statusmonitoringsettingspanel'] = isset($this_user['statusmonitoringsettingspanel']);
@@ -538,7 +536,6 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 	validate_webguicss_field($input_errors, $post['webguicss']);
 	validate_webguifixedmenu_field($input_errors, $post['webguifixedmenu']);
 	validate_webguihostnamemenu_field($input_errors, $post['webguihostnamemenu']);
-	validate_dashboardcolumns_field($input_errors, $post['dashboardcolumns']);
 
 	/* No privilege escalation; system users and the admins group are protected. */
 	$refusal = usermgr_user_save_refusal($post, $id, $caller);
@@ -589,7 +586,6 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 
 		$userent['name'] = $post['usernamefld'];
 		$userent['expires'] = $post['expires'];
-		$userent['dashboardcolumns'] = $post['dashboardcolumns'];
 		$userent['authorizedkeys'] = base64_encode($post['authorizedkeys']);
 		$userent['ipsecpsk'] = $post['ipsecpsk'];
 
@@ -629,11 +625,7 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 			unset($userent['interfacessort']);
 		}
 
-		if ($post['dashboardavailablewidgetspanel']) {
-			$userent['dashboardavailablewidgetspanel'] = true;
-		} else {
-			unset($userent['dashboardavailablewidgetspanel']);
-		}
+		unset($userent['dashboardcolumns'], $userent['dashboardavailablewidgetspanel'], $userent['widgets']);
 
 		if ($post['systemlogsfilterpanel']) {
 			$userent['systemlogsfilterpanel'] = true;

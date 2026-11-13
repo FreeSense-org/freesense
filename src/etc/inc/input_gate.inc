@@ -71,7 +71,6 @@ const INPUT_GATE_MULTILINE = [
 	'vpn_openvpn_client.php' => ['custom_options', 'shared_key', 'tls'],
 	'vpn_openvpn_csc.php' => ['custom_options'],
 	'vpn_openvpn_server.php' => ['custom_options', 'shared_key', 'tls'],
-	'rss.widget.php' => ['rssfeed'],
 ];
 
 /* Multi-line fields of the REST API, whatever the route. */

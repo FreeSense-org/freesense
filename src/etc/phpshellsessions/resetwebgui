@@ -22,22 +22,20 @@
 
 config_read_file(true);
 $default_theme = "FreeSense.css";
-$default_columns = 2;
-$default_widgets = "system_information:col1:show,interfaces:col2:show";
 
 echo "Resetting webGUI:\n";
 echo "  Theme to " . $default_theme . "\n";
-echo "  Dashboard columns to " . $default_columns . "\n";
 echo "  Top navigation to scroll\n";
-echo "  Widgets to System Information and Interfaces\n";
+echo "  Every user's dashboard to the default layout\n";
 echo "...";
 
 config_set_path('system/webgui/webguicss', $default_theme);
-config_set_path('system/webgui/dashboardcolumns', $default_columns);
 
 config_del_path('system/webgui/webguifixedmenu');
 
-config_set_path('widgets/sequence', $default_widgets);
+foreach (glob('/conf/webui/dashboard/*.json') ?: [] as $layout) {
+	@unlink($layout);
+}
 
 write_config("pfSsh.php reset webGUI");
 
