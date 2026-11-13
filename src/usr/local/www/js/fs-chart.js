@@ -71,13 +71,15 @@
 		var onScreen = true;
 		var pending = false;
 		/* Live glide: the x axis follows the clock a little behind now, so new samples slide in instead of stepping. */
-		var gliding = false, glideFrame = 0, lastGlide = 0, lag = opts.lag || 3;
+		var gliding = false, glideFrame = 0, lastGlide = 0, lag = opts.lag || 3, skew = null;
+		/* seconds the firewall's clock is ahead of this browser's (measured on every live sample) */
+		function serverNow() { return Date.now() / 1000 + (skew || 0); }
 		function glide(ts) {
 			glideFrame = 0;
 			if (!gliding || !u || !onScreen || document.hidden) return;
 			if (ts - lastGlide >= 33) {
 				lastGlide = ts;
-				var max = Date.now() / 1000 - lag;
+				var max = serverNow() - lag;
 				var min = opts.window ? max - opts.window : (data[0][0] || max - 60);
 				u.batch(function () {
 					u.setScale('x', { min: min, max: max });
@@ -234,7 +236,7 @@
 		return {
 			seed: function (t, values) {
 				/* RRD rows run up to the next step boundary; drop rows in the future so live samples follow on. */
-				var now = Date.now() / 1000, n = 0;
+				var now = serverNow(), n = 0;
 				while (n < t.length && t[n] <= now) n++;
 				data = [t.slice(0, n)].concat(opts.series.map(function (s) {
 					return (values[s.key] || []).slice(0, n).map(function (v) { return signed(s, v); });
@@ -250,11 +252,14 @@
 				if (t == null) return;
 				var last = data[0].length ? data[0][data[0].length - 1] : null;
 				if (last !== null && t <= last) return;
+				/* follow the firewall's clock: smooth the offset, jump when it is far off */
+				var off = t - Date.now() / 1000;
+				skew = (skew === null || Math.abs(off - skew) > 5) ? off : skew * 0.8 + off * 0.2;
 				data[0].push(t);
 				opts.series.forEach(function (s, k) { data[k + 1].push(signed(s, values[s.key])); });
 				/* keep one sample beyond the visible window so the line enters from the edge */
 				if (opts.window && data[0].length) {
-					var cut = Date.now() / 1000 - lag - opts.window - 10, k = 0;
+					var cut = serverNow() - lag - opts.window - 10, k = 0;
 					while (k < data[0].length - 1 && data[0][k] < cut) k++;
 					if (k) data = data.map(function (col) { return col.slice(k); });
 				}
