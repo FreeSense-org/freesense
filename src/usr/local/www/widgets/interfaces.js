@@ -309,7 +309,7 @@
 			series: [{ key: 'in', label: T('In'), color: '--fs-series-1' }, { key: 'out', label: T('Out'), color: '--fs-series-2', mirror: true }]
 		}) : null;
 		if (onChart) onChart(chart);
-		var seeded = !chart;
+		var seeded = !chart, lastT = 0;
 		FS.live.add({
 			id: taskId, every: 2,
 			run: function () {
@@ -318,6 +318,8 @@
 				}, function () { /* no RRD yet: live only */ }).then(function () { seeded = true; });
 				return seed.then(function () { return FS.api.get('/status/traffic', { if: name }); }).then(function (r) {
 					var t = (r.data.interfaces || {})[name] || {};
+					if (lastT && (r.data.t - lastT) > 20) seeded = !chart;
+					lastT = r.data.t;
 					$box.find('.fs-nicd-in b').text(F.bps(t.in_bps));
 					$box.find('.fs-nicd-out b').text(F.bps(t.out_bps));
 					if (chart) chart.push(r.data.t, { in: t.in_bps, out: t.out_bps });
