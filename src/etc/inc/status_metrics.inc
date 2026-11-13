@@ -276,7 +276,7 @@ function status_metrics_system() {
 		'swap' => status_metrics_parse_swapinfo((string)shell_exec('/usr/sbin/swapinfo -k 2>/dev/null')),
 		'mbuf' => $mbuf,
 		'states' => array('current' => $states['current'], 'max' => $states['max']),
-		'temperatures' => $temps,
+		'temperatures' => status_metrics_sensors(),
 		'disks' => status_metrics_parse_df((string)shell_exec('/bin/df -kTt ufs,zfs,tmpfs,cd9660 2>/dev/null')),
 		'uptime_seconds' => (int)get_uptime_sec(),
 		'time' => gmdate('c'),
