@@ -99,6 +99,7 @@ jobs:
               StatusMetricsSmokeTest \
               NicStatusSmokeTest \
               DashboardSmokeTest \
+              SysstatSmokeTest \
               RestApiLogCursorSmokeTest \
               WebUiPrefsSmokeTest \
               WebUiStepperSmokeTest \

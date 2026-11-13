@@ -23,7 +23,6 @@ $priv_list['page-dashboard-all']['descr'] = gettext("Allow access to all pages r
 $priv_list['page-dashboard-all']['match'] = array();
 $priv_list['page-dashboard-all']['match'][] = "index.php*";
 $priv_list['page-dashboard-all']['match'][] = "graph.php*";
-$priv_list['page-dashboard-all']['match'][] = "getstats.php*";
 $priv_list['page-dashboard-all']['match'][] = "ifstats.php*";
 $priv_list['page-dashboard-all']['match'][] = "status_logs_filter_dynamic.php*";
 

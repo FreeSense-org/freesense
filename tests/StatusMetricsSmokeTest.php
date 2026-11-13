@@ -25,7 +25,7 @@ function fn_source($code, $name) {
 }
 
 define('STATUS_METRICS_MAX_AGE', 30);
-foreach (array('status_metrics_rate', 'status_metrics_cpu_percent', 'status_metrics_parse_pfinfo', 'status_metrics_parse_df',
+foreach (array('status_metrics_rate', 'status_metrics_parse_pfinfo', 'status_metrics_parse_df',
     'status_metrics_parse_swapinfo', 'status_metrics_parse_mbuf', 'status_metrics_parse_temp', 'status_metrics_parse_sensors', 'status_metrics_parse_xport',
     'status_metrics_ranges', 'status_metrics_parse_ntpq', 'status_metrics_parse_smart_health') as $fn) {
 	eval(fn_source($src, $fn));
@@ -61,8 +61,6 @@ check(status_metrics_rate(1000, 100.0, 3000, 102.0) === 1000.0, 'a rate is the c
 check(status_metrics_rate(null, null, 3000, 102.0) === null, 'no previous sample: no rate');
 check(status_metrics_rate(5000, 100.0, 1000, 102.0) === null, 'a counter that went backwards (reset) gives no rate');
 check(status_metrics_rate(1000, 100.0, 3000, 100.0 + STATUS_METRICS_MAX_AGE + 1) === null, 'a stale sample gives no rate');
-check(status_metrics_cpu_percent(array(100, 0, 50, 10, 840), array(150, 0, 70, 10, 1020)) === 28.0, 'CPU busy percent from cp_time ticks');
-check(status_metrics_cpu_percent(array(1, 2, 3), array(1, 2, 3, 4, 5)) === null, 'malformed cp_time gives null');
 
 /* Temperature sensors */
 $sensors = status_metrics_parse_sensors("dev.cpu.1.temperature: 47.0C\ndev.cpu.0.temperature: 45.0C\nhw.acpi.thermal.tz0.temperature: 27.9C\n" .
@@ -226,7 +224,8 @@ check(restapi_gateway_number('0.753ms') === 0.753 && restapi_gateway_number('0.0
     'dpinger values become numbers (or null)');
 
 $system_fn = fn_source($src, 'status_metrics_system');
-check(strpos($system_fn, "'temperatures' => status_metrics_sensors(),") !== false && strpos($system_fn, '$temps') === false,
-    'status/system reports every sensor from status_metrics_sensors()');
+check(strpos(file_get_contents(dirname(__DIR__) . '/src/etc/inc/sysstat.inc'), "'temperatures' => status_metrics_sensors(),") !== false &&
+    strpos($system_fn, "'temperatures' => (array)(\$snap['temperatures'] ?? array()),") !== false,
+    'status/system reports every sensor (status_metrics_sensors() in the sampler)');
 
 echo "Status metrics smoke test passed.\n";

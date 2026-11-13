@@ -34,7 +34,6 @@ require_once('util.inc');
 require_once('interfaces.inc');
 require_once('freesense-utils.inc');
 
-define('STATUS_METRICS_CPU_SAMPLE', '/var/run/fs_metrics_cpu.json');
 define('STATUS_METRICS_IF_SAMPLE', '/var/run/fs_metrics_if.json');
 /* A previous sample older than this is not used for a rate. */
 define('STATUS_METRICS_MAX_AGE', 30);
@@ -75,19 +74,6 @@ function status_metrics_rate_base(array $sample, $now) {
 }
 
 /* ------------------------------------------------------------ parsers */
-
-/* kern.cp_time "user nice sys intr idle" → busy percent between two samples, or null. */
-function status_metrics_cpu_percent($prev, $now) {
-	if (!is_array($prev) || (count($prev) !== 5) || !is_array($now) || (count($now) !== 5)) {
-		return null;
-	}
-	$total = array_sum($now) - array_sum($prev);
-	$idle = $now[4] - $prev[4];
-	if ($total <= 0) {
-		return null;
-	}
-	return round(max(0, min(100, 100 * (1 - ($idle / $total)))), 1);
-}
 
 /* `pfctl -si` → state table totals and rates. */
 function status_metrics_parse_pfinfo($text) {
@@ -227,66 +213,40 @@ function status_metrics_parse_xport($xml) {
 
 /* ------------------------------------------------------------- system */
 
-/* CPU busy percent since the previous call (any client), or null on the first call. */
-function status_metrics_cpu_usage() {
-	$now = array_map('intval', explode(' ', trim((string)get_single_sysctl('kern.cp_time'))));
-	$sample = status_metrics_sample_read(STATUS_METRICS_CPU_SAMPLE);
-	$usage = null;
-	if (isset($sample['t'], $sample['ticks']) && ((time() - (int)$sample['t']) <= STATUS_METRICS_MAX_AGE)) {
-		$usage = status_metrics_cpu_percent($sample['ticks'], $now);
-	}
-	/* Keep the older sample when the last one is very recent, so polls from
-	 * several clients still measure over a useful interval. */
-	if (!isset($sample['t']) || ((time() - (int)$sample['t']) >= 1)) {
-		status_metrics_sample_write(STATUS_METRICS_CPU_SAMPLE, array('t' => time(), 'ticks' => $now, 'usage' => $usage));
-	} elseif ($usage === null) {
-		$usage = $sample['usage'] ?? null;
-	}
-	return $usage;
-}
-
+/*
+ * Live system metrics from the sysstat sampler snapshot (sysstat.inc): no
+ * command runs while the request waits. CPU is measured over the last
+ * second, per core as well, with the last two minutes of history.
+ */
 function status_metrics_system() {
-	sysctl_prefetch(array('kern.cp_time', 'vm.stats.vm.v_page_count', 'vm.stats.vm.v_inactive_count',
-	    'vm.stats.vm.v_laundry_count', 'vm.stats.vm.v_free_count', 'hw.pagesize', 'hw.ncpu', 'hw.model',
-	    'dev.cpu.0.freq_levels', 'dev.cpu.0.freq'));
-
-	$ncpu = (int)get_single_sysctl('hw.ncpu');
-	$page = (int)get_single_sysctl('hw.pagesize') ?: 4096;
-	$pages = (int)get_single_sysctl('vm.stats.vm.v_page_count');
-	$avail = (int)get_single_sysctl('vm.stats.vm.v_inactive_count') + (int)get_single_sysctl('vm.stats.vm.v_laundry_count') +
-	    (int)get_single_sysctl('vm.stats.vm.v_free_count');
-	$load = sys_getloadavg();
+	require_once('sysstat.inc');
+	$snap = sysstat_read() ?? [];
 	$levels = explode(' ', trim((string)get_single_sysctl('dev.cpu.0.freq_levels')));
 	$maxfreq = (int)explode('/', $levels[0] ?? '')[0];
-
-	sysctl_prefetch(null);
-
-	$mbuf = status_metrics_parse_mbuf((string)shell_exec('/usr/bin/vmstat -z --libxo=json 2>/dev/null'));
-	$states = status_metrics_states();
+	$cpu = $snap['cpu'] ?? null;
 	return array(
 		'cpu' => array(
-			'usage' => status_metrics_cpu_usage(),
-			'count' => $ncpu,
+			'usage' => $cpu['total']['busy'] ?? null,
+			'user' => $cpu['total']['user'] ?? null,
+			'system' => $cpu['total']['system'] ?? null,
+			'interrupt' => $cpu['total']['interrupt'] ?? null,
+			'cores' => array_map(function ($c) { return $c['busy']; }, (array)($cpu['cores'] ?? array())),
+			'history' => (array)($snap['cpu_history'] ?? array()),
+			'count' => (int)get_single_sysctl('hw.ncpu'),
 			'model' => (string)get_single_sysctl('hw.model'),
-			'load' => is_array($load) ? array_map(function ($v) { return round($v, 2); }, $load) : null,
-			'freq_mhz' => ((int)get_single_sysctl('dev.cpu.0.freq') > 0) ? (int)get_single_sysctl('dev.cpu.0.freq') : null,
+			'load' => $snap['load'] ?? null,
+			'freq_mhz' => $snap['freq_mhz'] ?? null,
 			'freq_max_mhz' => ($maxfreq > 0) ? $maxfreq : null,
 		),
-		'memory' => array('total_bytes' => $pages * $page, 'used_bytes' => max(0, ($pages - $avail) * $page)),
-		'swap' => status_metrics_parse_swapinfo((string)shell_exec('/usr/sbin/swapinfo -k 2>/dev/null')),
-		'mbuf' => $mbuf,
-		'states' => array('current' => $states['current'], 'max' => $states['max']),
-		'temperatures' => status_metrics_sensors(),
-		'disks' => status_metrics_parse_df((string)shell_exec('/bin/df -kTt ufs,zfs,tmpfs,cd9660 2>/dev/null')),
+		'memory' => $snap['memory'] ?? array('total_bytes' => null, 'used_bytes' => null),
+		'swap' => $snap['swap'] ?? array('total_bytes' => 0, 'used_bytes' => 0),
+		'mbuf' => $snap['mbuf'] ?? array('used' => null, 'max' => null),
+		'states' => $snap['states'] ?? array('current' => null, 'max' => null),
+		'temperatures' => (array)($snap['temperatures'] ?? array()),
+		'disks' => (array)($snap['disks'] ?? array()),
 		'uptime_seconds' => (int)get_uptime_sec(),
 		'time' => gmdate('c'),
 	);
-}
-
-/* Every temperature sensor the hardware reports (the thermal sensors the RRD graphs too). */
-function status_metrics_sensors() {
-	return status_metrics_parse_sensors((string)shell_exec('/sbin/sysctl -q hw.acpi.thermal dev.cpu dev.t5nex dev.armada_thermal ' .
-	    'dev.cordbuc dev.pchtherm dev.amdtemp dev.coretemp 2>/dev/null'));
 }
 
 /*
@@ -335,6 +295,12 @@ function status_metrics_identity() {
 		'timezone' => (string)config_get_path('system/timezone', 'Etc/UTC'),
 		'update_check' => !config_path_enabled('system/firmware', 'disablecheck'),
 	);
+}
+
+/* Every temperature sensor the hardware reports (the thermal sensors the RRD graphs too). */
+function status_metrics_sensors() {
+	return status_metrics_parse_sensors((string)shell_exec('/sbin/sysctl -q hw.acpi.thermal dev.cpu dev.t5nex dev.armada_thermal ' .
+	    'dev.cordbuc dev.pchtherm dev.amdtemp dev.coretemp 2>/dev/null'));
 }
 
 function status_metrics_states() {

@@ -1473,3 +1473,12 @@
 /var/etc/syslog.conf
 /var/mail/_relayd
 /var/mail/unbound
+/usr/local/www/getstats.php
+/usr/local/www/stats.php
+/usr/local/sbin/show_filter_reload_status.php
+/usr/local/bin/runmsntp.sh
+/usr/local/bin/filterparser.php
+/usr/local/bin/parser_ipv6_tester.php
+/usr/local/bin/parser_dhcpv6_leases_tester.php
+/usr/local/bin/parser_readme.md
+/usr/local/bin/usermgrwhoami

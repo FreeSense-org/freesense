@@ -184,8 +184,10 @@ check_crypto(strpos($routes, "\$types[\"crypto_{\$key}\"] = 'bool';") !== false 
     'the REST API exposes every offload flag');
 $dash = file_get_contents(__DIR__ . '/../src/usr/local/www/includes/functions.inc.php');
 foreach (['"OSSL"', '"IPSECMB"', "is_module_loaded('qat_c2xxx')", '"CCP"', '"CCR"', '"ARMV8"', '"SAFEXCEL"',
-    "crypto_device_attached('t6nex')", 'interfaces_with_ipsec_offload()'] as $needle) {
+    "crypto_device_attached('t6nex')"] as $needle) {
 	check_crypto(strpos($dash, $needle) !== false, "the dashboard crypto status knows {$needle}");
 }
+check_crypto(strpos(file_get_contents(__DIR__ . '/../src/etc/inc/status_metrics.inc'), "'ipsec_offload' => interfaces_with_ipsec_offload(),") !== false,
+    'the System widget data reports inline IPsec offload');
 
 echo "Crypto accelerator smoke test passed.\n";

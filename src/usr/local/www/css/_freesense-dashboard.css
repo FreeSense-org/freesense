@@ -402,3 +402,13 @@
 }
 .fs-qa:hover, .fs-qa:focus-visible { border-color: var(--fs-d-accent); color: var(--fs-text-strong); }
 .fs-qa i { font-size: 1.1rem; color: var(--fs-coral-text); }
+
+/* System: CPU load */
+.fs-sysload { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px; padding: 4px 0 12px; margin-bottom: 4px; border-bottom: 1px solid var(--fs-d-line); }
+.fs-syscpu { grid-column: 1 / -1; }
+.fs-sysm small, .fs-syscpu small { font-size: var(--fs-fs-xs); }
+.fs-syscores { display: flex; gap: 3px; align-items: flex-end; height: 28px; margin: 8px 0 4px; }
+.fs-syscore { flex: 1 1 0; max-width: 18px; height: 100%; display: flex; align-items: flex-end; border-radius: 3px; background: var(--fs-d-card-2); overflow: hidden; }
+.fs-syscore i { display: block; width: 100%; background: var(--fs-series-1); border-radius: 3px; transition: height .5s ease; }
+.fs-syscore.is-warn i { background: var(--fs-warn); }
+.fs-syscore.is-crit i { background: var(--fs-block); }

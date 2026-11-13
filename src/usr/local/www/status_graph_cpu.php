@@ -31,7 +31,6 @@
 ##|*NAME=Status: CPU load
 ##|*DESCR=Allow access to the 'Status: CPU load' page.
 ##|*MATCH=status_graph_cpu.php*
-##|*MATCH=stats.php*
 ##|-PRIV
 
 $pgtitle = array(gettext("Status"), gettext("CPU Load Graph"));
@@ -150,31 +149,29 @@ events.push(function() {
 		$('#cpu-live > span').text(failed ? text.error : text.live);
 	}
 
-	/* stats.php?stats=cpu answers "total ticks|idle ticks"; usage is the busy share between two samples */
+	/* GET /api/v1/status/system (session bridge): CPU use over the last second from the sysstat sampler, plus its two-minute history once */
+	var seeded = false;
 	function fetchData() {
-		$.ajax('stats.php', {type: 'get', data: {stats: 'cpu'}, cache: false, dataType: 'text'})
-			.done(function(res) {
-				var parts = String(res).trim().split('|');
-				var total = parseFloat(parts[0]);
-				var idle = parseFloat(parts[1]);
-				if (!isFinite(total) || !isFinite(idle)) {
-					status(false);
-					return;
-				}
-				status(true);
-				if (last && total > last.total) {
-					var usage = 100 * (1 - (idle - last.idle) / (total - last.total));
-					data.push(Math.min(100, Math.max(0, usage)));
+		fetch('/api/v1/status/system', {credentials: 'same-origin', cache: 'no-store',
+		    headers: {'Accept': 'application/json', 'X-CSRF-Token': $('meta[name="fs-csrf"]').attr('content') || ''}})
+			.then(function(r) { if (!r.ok) { throw r.status; } return r.json(); })
+			.then(function(res) {
+				var cpu = (res.data || {}).cpu || {};
+				if (!seeded && Array.isArray(cpu.history)) {
+					data = cpu.history.filter(function(v) { return v !== null; }).slice(-POINTS);
+					seeded = true;
+				} else if (cpu.usage !== null && cpu.usage !== undefined) {
+					data.push(Math.min(100, Math.max(0, cpu.usage)));
 					if (data.length > POINTS) {
 						data.shift();
 					}
-					document.getElementById('cpu-wait').hidden = (data.length > 1);
-					tiles();
-					draw();
 				}
-				last = {total: total, idle: idle};
+				status(true);
+				document.getElementById('cpu-wait').hidden = (data.length > 1);
+				tiles();
+				draw();
 			})
-			.fail(function() {
+			.catch(function() {
 				status(false);
 			});
 	}
