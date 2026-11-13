@@ -705,3 +705,133 @@ function status_metrics_traffic_history($if, $range) {
 	    'in_block_bps' => $data['in_block_bps'] ?? array(), 'out_block_bps' => $data['out_block_bps'] ?? array(),
 	    'in_pps' => $data['in_pps'] ?? null, 'out_pps' => $data['out_pps'] ?? null);
 }
+
+/* ---------------------------------------------- NTP, ZFS, SMART, portal */
+
+/*
+ * `ntpq -pnw` → peers: array of array(tally, remote, refid, stratum, type,
+ * when, poll, reach, delay, offset, jitter). The tally is the first column:
+ * "*" system peer, "o" PPS peer, "+" candidate, "-" outlier, "x" false
+ * ticker, empty when unused. -w puts a long address on a line of its own.
+ */
+function status_metrics_parse_ntpq($text) {
+	$peers = array();
+	$pending = '';
+	$tail = '/\s\d+\s+\S+\s+\S+\s+\d+\s+\d+\s+[0-9.\-]+\s+[0-9.\-+]+\s+[0-9.\-]+\s*$/';
+	foreach (preg_split('/\r?\n/', (string)$text) as $line) {
+		if ((trim($line) === '') || (strpos(ltrim($line), 'remote') === 0) || (strpos($line, '====') === 0)) {
+			continue;
+		}
+		if (($pending === '') && !preg_match($tail, $line)) {
+			$pending = rtrim($line);
+			continue;
+		}
+		$line = ($pending !== '') ? $pending . ' ' . ltrim($line) : $line;
+		$pending = '';
+		$tally = ($line[0] === ' ') ? '' : $line[0];
+		$f = preg_split('/\s+/', trim(($tally === '') ? $line : substr($line, 1)));
+		if (count($f) < 10) {
+			continue;
+		}
+		$num = function ($v) { return is_numeric($v) ? (float)$v : null; };
+		$peers[] = array('tally' => $tally, 'remote' => $f[0], 'refid' => $f[1], 'stratum' => (int)$f[2], 'type' => $f[3],
+		    'when' => $f[4], 'poll' => (int)$f[5], 'reach' => $f[6], 'delay' => $num($f[7]), 'offset' => $num($f[8]), 'jitter' => $num($f[9]));
+	}
+	return $peers;
+}
+
+/* NTP: whether the server runs, the peer the clock follows and every peer. */
+function status_metrics_ntp() {
+	$enabled = (config_get_path('ntpd/enable', 'enabled') === 'enabled');
+	$peers = array();
+	if ($enabled && is_executable('/usr/local/sbin/ntpq')) {
+		$v4 = config_path_enabled('system', 'ipv6allow') ? '' : ' -4';
+		$peers = status_metrics_parse_ntpq((string)shell_exec("/usr/local/sbin/ntpq -pnw{$v4} 2>/dev/null"));
+	}
+	$source = null;
+	foreach ($peers as $p) {
+		if (($p['tally'] === '*') || ($p['tally'] === 'o')) {
+			$source = $p;
+			break;
+		}
+	}
+	return array('enabled' => $enabled, 'synced' => ($source !== null), 'source' => $source, 'peers' => $peers, 'time' => gmdate('c'));
+}
+
+define('STATUS_METRICS_ZFS_CACHE', '/var/run/fs_metrics_zfs.json');
+define('STATUS_METRICS_SMART_CACHE', '/var/run/fs_metrics_smart.json');
+
+/* ZFS pools from freesense-zfs-status (FreeSense-upgrade), at most every 8 seconds. */
+function status_metrics_zfs() {
+	$mtime = @filemtime(STATUS_METRICS_ZFS_CACHE);
+	if (($mtime === false) || ($mtime < time() - 8)) {
+		$output = array();
+		exec('/usr/local/sbin/freesense-zfs-status 2>/dev/null', $output, $rc);
+		if ($rc === 0) {
+			@file_put_contents(STATUS_METRICS_ZFS_CACHE, implode("\n", $output), LOCK_EX);
+		}
+	}
+	$data = @json_decode((string)@file_get_contents(STATUS_METRICS_ZFS_CACHE), true);
+	return is_array($data) ? $data : array('zfs_active' => false, 'pools' => array());
+}
+
+/* pure: smartctl -H output → PASSED, FAILED, OK, ... or '' when the drive does not say */
+function status_metrics_parse_smart_health($text) {
+	if (preg_match('/^(?:SMART overall-health self-assessment test result|SMART Health Status):\s*(\S+)/m', (string)$text, $m)) {
+		return strtoupper($m[1]);
+	}
+	return '';
+}
+
+/*
+ * Drives and their SMART health (PASSED or OK is good, '' unknown). smartctl
+ * wakes drives, so the result is cached five minutes unless $refresh asks.
+ */
+function status_metrics_smart($refresh = false) {
+	$mtime = @filemtime(STATUS_METRICS_SMART_CACHE);
+	if (!$refresh && ($mtime !== false) && ($mtime > time() - 300)) {
+		$data = @json_decode((string)@file_get_contents(STATUS_METRICS_SMART_CACHE), true);
+		if (is_array($data)) {
+			return $data;
+		}
+	}
+	$platform = system_identify_specific_platform();
+	$drives = array();
+	foreach ((($platform['name'] ?? '') === 'Hyper-V') ? array() : get_drive_list() as $dev) {
+		if (!preg_match('/^[a-z]+[0-9]+$/', (string)$dev)) {
+			continue;
+		}
+		$ident = '';
+		foreach (explode("\n", (string)shell_exec('/usr/sbin/diskinfo -v ' . escapeshellarg("/dev/{$dev}") . ' 2>/dev/null')) as $line) {
+			if (preg_match('/^\s*(\S+)\s+#\s+Disk ident/', $line, $m)) {
+				$ident = $m[1];
+			}
+		}
+		$health = status_metrics_parse_smart_health((string)shell_exec('/usr/local/sbin/smartctl -H ' . escapeshellarg("/dev/{$dev}") . ' 2>/dev/null'));
+		$drives[] = array('device' => $dev, 'ident' => $ident, 'health' => $health);
+	}
+	$data = array('drives' => $drives, 'checked' => gmdate('c'));
+	@file_put_contents(STATUS_METRICS_SMART_CACHE, json_encode($data), LOCK_EX);
+	return $data;
+}
+
+/* Captive portal sessions of every zone: zone, session id, IP, MAC, user, start and last activity. */
+function status_metrics_captiveportal() {
+	global $cpzone, $cpzoneid;
+	require_once('captiveportal.inc');
+	$out = array();
+	foreach ((array)config_get_path('captiveportal', array()) as $zone => $cp) {
+		if (!is_array($cp)) {
+			continue;
+		}
+		$cpzone = $zone;
+		$cpzoneid = $cp['zoneid'] ?? null;
+		foreach ((array)captiveportal_read_db() as $e) {
+			$last = captiveportal_get_last_activity($e[2]);
+			$out[] = array('zone' => (string)$zone, 'zone_name' => (string)($cp['zone'] ?? $zone), 'session' => (string)$e[5],
+			    'ip' => (string)$e[2], 'mac' => (string)$e[3], 'user' => (string)$e[4], 'since' => gmdate('c', (int)$e[0]),
+			    'last_activity' => ($last > 0) ? gmdate('c', (int)$last) : null);
+		}
+	}
+	return $out;
+}
