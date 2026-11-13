@@ -51,7 +51,7 @@ check(strpos($v1, "require_once('restapi/routes_nicsettings.inc');") !== false &
     'the v1 route table includes the NIC Settings routes');
 check(strpos(file_get_contents("{$root}/src/usr/local/www/api/index.php"), "require_once('interfaces_nic_settings.inc');") !== false,
     'the API loads the page logic');
-check(strpos(file_get_contents("{$root}/src/etc/inc/restapi.inc"), "'nic-settings');") !== false, 'the nic-settings capability is reported');
+check(strpos(file_get_contents("{$root}/src/etc/inc/restapi.inc"), "'nic-settings',") !== false, 'the nic-settings capability is reported');
 
 /* PUT merge: only the fields it sends, strict names and types */
 $current = array('settings' => array('checksum' => 'inherit', 'tso' => 'off'), 'mtu' => '', 'tuning' => array('fc' => '0'));
