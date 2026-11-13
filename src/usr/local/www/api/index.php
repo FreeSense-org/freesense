@@ -116,6 +116,7 @@ require_once('restapi.inc');
 require_once('restapi_session.inc');
 /* Live status for the WebUI (routes_status.inc). */
 require_once('status_metrics.inc');
+require_once('status_nics.inc');
 require_once('notices.inc');
 /* The caller's profile, preferences, sessions and dashboard layout (routes_me.inc). */
 require_once('webui_prefs.inc');

@@ -45,11 +45,11 @@ require_once('restapi_log.inc');
 
 define('RESTAPI_LAST_USED', '/var/db/restapi_last_used.json');
 /* API level reported by GET /api/v1/meta (see restapi_h_meta). */
-define('RESTAPI_LEVEL', 19);
+define('RESTAPI_LEVEL', 20);
 
 /* Optional features reported by GET /api/v1/meta. */
 function restapi_capabilities() {
-	return array('session', 'batch', 'log-cursors', 'jobs', 'me', 'schemas', 'log-webui', 'meta', 'history', 'top-talkers', 'update-center', 'schedules-vips', 'nat-v2', 'dns-resolver', 'assignments', 'routing-v2', 'dhcp-server', 'carp', 'management', 'ha-link', 'performance', 'nic-settings');
+	return array('session', 'batch', 'log-cursors', 'jobs', 'me', 'schemas', 'log-webui', 'meta', 'history', 'top-talkers', 'update-center', 'schedules-vips', 'nat-v2', 'dns-resolver', 'assignments', 'routing-v2', 'dhcp-server', 'carp', 'management', 'ha-link', 'performance', 'nic-settings', 'nics');
 }
 define('RESTAPI_MAX_TOKENS_PER_USER', 20);
 /*

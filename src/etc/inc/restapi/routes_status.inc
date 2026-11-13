@@ -21,8 +21,9 @@
 
 /*
  * Live status for the WebUI dashboard and status pages: system metrics,
- * interface traffic (live and history), the state table and notices.
- * The front controller loads status_metrics.inc and notices.inc.
+ * interface state and traffic (live and history), the state table and
+ * notices. The front controller loads status_metrics.inc, status_nics.inc
+ * and notices.inc.
  */
 
 function restapi_routes_status() {
@@ -30,6 +31,13 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/system', 'restapi_h_status_system', array(
 			'page' => 'index.php', 'area' => 'system',
 			'summary' => 'Live system metrics: CPU, memory, swap, mbufs, states, temperatures, disks, uptime')),
+		restapi_route('GET', '/v1/status/nics', 'restapi_h_status_nics', array(
+			'page' => 'status_interfaces.php', 'area' => 'status',
+			'query' => array('if' => 'Comma-separated interfaces (wan,lan,opt1); all when omitted'),
+			'summary' => 'Assigned interfaces: link state, speed and duplex, MAC and vendor, MTU, addresses, gateways, VLAN, LAGG, adapter and counters')),
+		restapi_route('GET', '/v1/status/nics/{name}', 'restapi_h_status_nic', array(
+			'page' => 'status_interfaces.php', 'area' => 'status',
+			'summary' => 'One interface in full: the list fields plus SFP module, wireless, pf pass/block and adapter drop counters, PPP and cellular')),
 		restapi_route('GET', '/v1/status/traffic', 'restapi_h_status_traffic', array(
 			'page' => 'status_graph.php', 'area' => 'status',
 			'query' => array('if' => 'Comma-separated interfaces (wan,lan,opt1); all when omitted'),
@@ -66,6 +74,19 @@ function restapi_routes_status() {
 
 function restapi_h_status_system($req) {
 	return array('data' => status_metrics_system());
+}
+
+function restapi_h_status_nics($req) {
+	$ifs = array_values(array_filter(array_map('trim', explode(',', (string)($req['query']['if'] ?? '')))));
+	return array('data' => status_nics_list($ifs));
+}
+
+function restapi_h_status_nic($req) {
+	$data = status_nics_detail((string)$req['params']['name']);
+	if ($data === null) {
+		throw new RestApiError(404, 'not_found', 'No such interface.');
+	}
+	return array('data' => $data);
 }
 
 function restapi_h_status_traffic($req) {
