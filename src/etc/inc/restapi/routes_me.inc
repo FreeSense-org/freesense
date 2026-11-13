@@ -82,23 +82,11 @@ function restapi_h_me_profile_put($req) {
 	if (!empty($errors)) {
 		throw restapi_me_validation($errors);
 	}
-	$entry = getUserEntry($req['user']['name']);
-	if (!isset($entry['idx'])) {
+	if (webui_profile_save($req['user']['name'], $values) !== null) {
 		throw new RestApiError(404, 'not_found', 'User not found.');
 	}
+	$entry = getUserEntry($req['user']['name']);
 	$path = "system/user/{$entry['idx']}";
-	if (array_key_exists('name', $values)) {
-		config_set_path("{$path}/descr", $values['name']);
-	}
-	if (array_key_exists('email', $values)) {
-		if ($values['email'] === '') {
-			config_del_path("{$path}/email");
-		} else {
-			config_set_path("{$path}/email", $values['email']);
-		}
-	}
-	write_config(sprintf(gettext('Profile of %s changed in the WebUI.'), $req['user']['name']));
-	local_user_set(config_get_path($path));
 	$req['user'] = config_get_path($path);
 	return restapi_h_me_profile($req);
 }

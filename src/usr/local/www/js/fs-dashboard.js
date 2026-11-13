@@ -254,6 +254,11 @@
 					inst.$body.attr('aria-busy', 'false');
 					if (!inst.state.loadedOnce) unskeleton(inst);
 					inst.state.loadedOnce = true;
+					/* Account > Preferences: start paused. Every widget loads once, then updates stop. */
+					if (CFG.live === false && !D.liveApplied && Object.keys(D.instances).every(function (k) { return D.instances[k].state.loadedOnce || D.instances[k].collapsed; })) {
+						D.liveApplied = true;
+						FS.live.pause(true);
+					}
 				});
 			},
 			onState: function (s, info) {
