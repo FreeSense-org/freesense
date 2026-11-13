@@ -117,7 +117,9 @@
 						return vals.map(function (v) {
 							var d = new Date(v * 1000);
 							var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-							return incr >= 86400 ? (d.getMonth() + 1) + '/' + d.getDate() : hm;
+							if (incr >= 86400) return (d.getMonth() + 1) + '/' + d.getDate();
+							/* ticks closer than a minute: show the seconds, or they repeat */
+							return (incr < 60) ? hm + ':' + String(d.getSeconds()).padStart(2, '0') : hm;
 						});
 					}
 				},
