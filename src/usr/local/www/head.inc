@@ -706,7 +706,7 @@ if ($fs_menu_mode === 'icons') {
 					<li class="nav-item dropdown fs-nav-account">
 						<button type="button" class="nav-link fs-account-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="<?=gettext('Account')?>">
 							<span class="fs-avatar" aria-hidden="true"><?=htmlspecialchars($fs_initials)?></span>
-							<span class="fs-side-user"><b><?=htmlspecialchars($fs_disp !== '' ? $fs_disp : $fs_uname)?></b><span>@<?=htmlspecialchars($fs_host)?></span></span>
+							<span class="fs-side-user"><b><?=htmlspecialchars($fs_uname)?></b><span>@<?=htmlspecialchars($fs_host)?></span></span>
 							<i class="fa-solid fa-chevron-down fs-account-caret" aria-hidden="true"></i>
 						</button>
 						<ul class="dropdown-menu dropdown-menu-end fs-account-menu">
