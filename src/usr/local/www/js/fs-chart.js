@@ -82,11 +82,21 @@
 				return {
 					label: s.label, stroke: col, width: 1.5, scale: s.scale || 'y',
 					fill: opts.fill ? alpha(col, opts.fill) : null,
-					points: { show: false }, spanGaps: false
+					points: { show: false }, spanGaps: false,
+					paths: (window.uPlot.paths && window.uPlot.paths.spline) ? window.uPlot.paths.spline() : undefined
 				};
 			}));
 			var axes = [
-				{ show: opts.axes, stroke: text, font: font, size: 26, grid: { stroke: grid, width: 1 }, ticks: { show: false } },
+				{
+					show: opts.axes, stroke: text, font: font, size: 26, grid: { stroke: grid, width: 1 }, ticks: { show: false },
+					values: function (self, vals, axis, space, incr) {
+						return vals.map(function (v) {
+							var d = new Date(v * 1000);
+							var hm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+							return incr >= 86400 ? (d.getMonth() + 1) + '/' + d.getDate() : hm;
+						});
+					}
+				},
 				{
 					show: opts.axes, scale: 'y', stroke: text, font: font, size: 74, gap: 6,
 					grid: { stroke: grid, width: 1 }, ticks: { show: false },
@@ -228,7 +238,7 @@
 
 	/* Inline SVG sparkline (a string; values are numbers, null = gap). */
 	FS.chart.spark = function (values, o) {
-		o = $.extend({ w: 120, h: 28, color: 'var(--fs-series-1)', fill: true, max: null, min: 0 }, o);
+		o = $.extend({ w: 120, h: 28, color: 'var(--fs-series-1)', fill: true, max: null, min: 0, spanGaps: true }, o);
 		var pts = (values || []).filter(function (v) { return v != null; });
 		var svg = '<svg class="fs-spark" viewBox="0 0 ' + o.w + ' ' + o.h + '" preserveAspectRatio="none" aria-hidden="true" focusable="false">';
 		if (pts.length < 2) return svg + '</svg>';
@@ -237,18 +247,27 @@
 		var span = (max - min) || 1, n = values.length;
 		var segs = [], cur = [];
 		values.forEach(function (v, i) {
-			if (v == null) { if (cur.length) segs.push(cur); cur = []; return; }
+			if (v == null) { if (!o.spanGaps && cur.length) { segs.push(cur); cur = []; } return; }
 			var x = (n === 1 ? 0 : i / (n - 1) * o.w).toFixed(1);
 			var y = (o.h - 1 - ((Math.min(Math.max(v, min), max) - min) / span) * (o.h - 2)).toFixed(1);
 			cur.push(x + ',' + y);
 		});
 		if (cur.length) segs.push(cur);
 		segs.forEach(function (s) {
-			if (o.fill && s.length > 1) {
-				svg += '<polygon points="' + s[0].split(',')[0] + ',' + o.h + ' ' + s.join(' ') + ' ' + s[s.length - 1].split(',')[0] + ',' + o.h +
-					'" style="fill:' + o.color + '" opacity=".16"/>';
+			var p = s.map(function (xy) { return xy.split(',').map(Number); });
+			if (p.length < 2) return;
+			var d = 'M' + p[0][0] + ',' + p[0][1];
+			for (var i = 0; i < p.length - 1; i++) {
+				var p0 = p[i - 1] || p[i], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2] || p2;
+				var c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+				var c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+				c1y = Math.min(o.h - 1, Math.max(1, c1y)); c2y = Math.min(o.h - 1, Math.max(1, c2y));
+				d += ' C' + c1x.toFixed(1) + ',' + c1y.toFixed(1) + ' ' + c2x.toFixed(1) + ',' + c2y.toFixed(1) + ' ' + p2[0] + ',' + p2[1];
 			}
-			svg += '<polyline points="' + s.join(' ') + '" fill="none" style="stroke:' + o.color + '" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>';
+			if (o.fill) {
+				svg += '<path d="' + d + ' L' + p[p.length - 1][0] + ',' + o.h + ' L' + p[0][0] + ',' + o.h + ' Z" style="fill:' + o.color + '" opacity=".16"/>';
+			}
+			svg += '<path d="' + d + '" fill="none" style="stroke:' + o.color + '" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>';
 		});
 		return svg + '</svg>';
 	};

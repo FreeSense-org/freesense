@@ -272,7 +272,10 @@
 .fs-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 12px; text-align: center; }
 .fs-res-item small { display: block; font-size: .6875rem; line-height: 1.3; color: var(--fs-text-muted); }
 .fs-res-item .fs-res-label { font-size: var(--fs-fs-xs); font-weight: 600; color: var(--fs-text-muted); }
-.fs-res-spark { height: 26px; margin-top: 4px; color: var(--fs-series-1); }
+.fs-res-item { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.fs-res-item .fs-ring { display: block; margin: 0 auto 4px; }
+.fs-res-spark { width: 100%; max-width: 110px; height: 26px; margin: 6px auto 0; color: var(--fs-series-1); }
+.fs-res[data-look="bars"] .fs-res-item { align-items: stretch; }
 .fs-res[data-look="bars"] { grid-template-columns: 1fr; text-align: left; }
 .fs-res-row { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-fs-sm); margin-bottom: 4px; }
 .fs-res-foot { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; font-size: var(--fs-fs-xs); color: var(--fs-text-muted); }
