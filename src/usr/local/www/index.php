@@ -159,7 +159,7 @@ FreeSense_handle_custom_code("/usr/local/pkg/dashboard/pre_dashboard");
 		<button type="button" class="btn btn-sm btn-primary" data-fs-dash-edit><?=gettext('Done')?></button>
 	</div>
 	<div id="fs-dash-grid" class="fs-grid" aria-live="off">
-		<div class="fs-dash-loading"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> <?=gettext('Loading the dashboard')?></div>
+		<div class="fs-dash-loading" role="status" aria-label="<?=gettext('Loading the dashboard')?>"><i></i><i></i><i></i><i></i></div>
 	</div>
 </div>
 

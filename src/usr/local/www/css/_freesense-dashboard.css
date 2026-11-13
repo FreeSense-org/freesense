@@ -414,3 +414,27 @@
 .fs-syscore i { display: block; width: 100%; background: var(--fs-series-1); border-radius: 3px; transition: height .5s ease; }
 .fs-syscore.is-warn i { background: var(--fs-warn); }
 .fs-syscore.is-crit i { background: var(--fs-block); }
+
+/* ---- loading placeholders and motion ---- */
+.fs-widget-body { position: relative; }
+.fs-widget-body[aria-busy="true"] { min-height: 150px; }
+.fs-skel { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; gap: 12px; padding: 16px var(--fs-d-pad); background: var(--fs-d-card); transition: opacity .25s ease; }
+.fs-skel.is-done { opacity: 0; pointer-events: none; }
+.fs-skel-bar, .fs-skel-block {
+	display: block; height: 12px; width: 100%; border-radius: 6px; flex: none;
+	background: linear-gradient(90deg, var(--fs-d-card-2) 0, color-mix(in srgb, var(--fs-d-card-2) 55%, var(--fs-text-muted) 18%) 40%, var(--fs-d-card-2) 80%) 0 0 / 300% 100%;
+	animation: fs-shimmer 1.4s linear infinite;
+}
+.fs-skel-lg { height: 22px; width: 48%; border-radius: 8px; }
+.fs-skel-block { flex: 1 1 auto; min-height: 70px; height: auto; border-radius: 10px; }
+.fs-dash-loading { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fs-d-gap); text-align: left; padding: 0; }
+.fs-dash-loading > i { display: block; height: 220px; border-radius: var(--fs-d-radius); border: 1px solid var(--fs-d-line);
+	background: linear-gradient(90deg, var(--fs-d-card) 0, var(--fs-d-card-2) 40%, var(--fs-d-card) 80%) 0 0 / 300% 100%; animation: fs-shimmer 1.4s linear infinite; }
+.fs-dash-loading > i:nth-child(n+3) { height: 150px; }
+/* a widget settles in with a small zoom-out; changing its size repeats it */
+.fs-widget { animation: fs-settle .42s var(--fs-ease) backwards; }
+.fs-widget.is-resized > .fs-widget-body { animation: fs-settle .32s var(--fs-ease) backwards; }
+@keyframes fs-settle { from { opacity: 0; transform: scale(1.045); } to { opacity: 1; transform: scale(1); } }
+.fs-grid > .fs-widget:nth-child(2) { animation-delay: .04s; } .fs-grid > .fs-widget:nth-child(3) { animation-delay: .08s; }
+.fs-grid > .fs-widget:nth-child(4) { animation-delay: .12s; } .fs-grid > .fs-widget:nth-child(n+5) { animation-delay: .16s; }
+@media (prefers-reduced-motion: reduce) { .fs-widget, .fs-widget.is-resized > .fs-widget-body { animation: none; } .fs-skel-bar, .fs-skel-block, .fs-dash-loading > i { animation: none; } }
