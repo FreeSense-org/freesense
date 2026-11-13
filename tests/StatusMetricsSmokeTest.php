@@ -225,4 +225,8 @@ check(restapi_gateway_number('0.753ms') === 0.753 && restapi_gateway_number('0.0
     restapi_gateway_number('') === null && restapi_gateway_number(null) === null && restapi_gateway_number('~') === null,
     'dpinger values become numbers (or null)');
 
+$system_fn = fn_source($src, 'status_metrics_system');
+check(strpos($system_fn, "'temperatures' => status_metrics_sensors(),") !== false && strpos($system_fn, '$temps') === false,
+    'status/system reports every sensor from status_metrics_sensors()');
+
 echo "Status metrics smoke test passed.\n";
