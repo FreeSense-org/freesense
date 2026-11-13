@@ -19,6 +19,7 @@
  *     load(w) -> Promise  fetch and render; called by FS.live every N seconds
  *     resize(w)           optional, after a size change
  *     destroy(w)          optional, before the widget is removed or remounted
+ *     options(w, key)     optional, extra [[value, label]] for a select setting
  *   });
  *   w = {id, type, def, $root, $body, settings, size, state, save(), foot(text|node), refresh()}
  *
@@ -284,7 +285,7 @@
 
 	/* ----------------------------------------------------- settings */
 
-	function settingsField(s, value) {
+	function settingsField(s, value, inst) {
 		var id = 'fs-ws-' + s.key, $f;
 		if (s.type === 'checkbox') {
 			$f = $('<div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" role="switch"><label class="form-check-label"></label></div>');
@@ -307,6 +308,8 @@
 			if (s.type === 'select' || s.type === 'interface') {
 				$in = $('<select class="form-select"></select>');
 				var opts = (s.type === 'interface') ? D.interfaceOptions() : (s.options || []);
+				/* A widget script can add choices it knows at run time: impl.options(w, key) -> [[value, label]]. */
+				if (s.type === 'select' && inst && typeof inst.def.options === 'function') opts = opts.concat(inst.def.options(inst, s.key) || []);
 				/* An interface setting that defaults to '' also offers "every interface". */
 				if (s.type === 'interface' && s.value === '') opts = [['', T('Every interface')]].concat(opts);
 				opts.forEach(function (o) {
@@ -329,7 +332,7 @@
 		$m.find('.modal-title').text(T('%s settings', d.title));
 		var $b = $m.find('.modal-body').empty();
 		var fields = [{ key: 'title', label: 'Title', type: 'text', placeholder: d.title }].concat(d.settings);
-		fields.forEach(function (s) { $b.append(settingsField(s, inst.settings[s.key])); });
+		fields.forEach(function (s) { $b.append(settingsField(s, inst.settings[s.key], inst)); });
 		$m.find('form').off('submit').on('submit', function (e) {
 			e.preventDefault();
 			fields.forEach(function (s) {
