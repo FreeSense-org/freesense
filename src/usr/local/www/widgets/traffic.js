@@ -58,6 +58,9 @@
 			}).then(function () { w.state.seeded = true; });
 			return seed.then(function () { return FS.api.get('/status/traffic', { if: iface }); }).then(function (r) {
 				var v = (r.data.interfaces || {})[iface] || {};
+				/* back from a hidden tab or a pause: reseed from the RRD so the hole fills */
+				if (w.state.lastT && (r.data.t - w.state.lastT) > 20) w.state.seeded = false;
+				w.state.lastT = r.data.t;
 				var vin = pps ? v.in_pps : v.in_bps, vout = pps ? v.out_pps : v.out_bps;
 				w.state.chart.push(r.data.t, { in: vin, out: vout });
 				var fmt = pps ? F.pps : F.bps;

@@ -321,7 +321,7 @@ events.push(function() {
 		}
 		return win[key].reduce(function(a, b) { return a + b; }, 0) / win[key].length;
 	}
-	var seeded = false;
+	var seeded = false, lastT = 0;
 	FS.live.add({id: 'traffic-graph', every: 1, run: function() {
 		var seed = seeded ? Promise.resolve() : FS.api.get('/status/traffic/history', {if: iface, range: '10m'}).then(function(r) {
 			chart.seed(r.data.t, {in: r.data.in_bps, out: r.data.out_bps});
@@ -333,6 +333,11 @@ events.push(function() {
 				return;
 			}
 			$('#traffic-chart-error').hide();
+			/* back from a hidden tab or a pause: fetch the history again so the RRD fills the hole */
+			if (lastT && (r.data.t - lastT) > 20) {
+				seeded = false;
+			}
+			lastT = r.data.t;
 			chart.push(r.data.t, {in: avg('in', v.in_bps), out: avg('out', v.out_bps)});
 			$('.fs-legend[data-k=in] b').text(FS.fmt.bps(v.in_bps));
 			$('.fs-legend[data-k=out] b').text(FS.fmt.bps(v.out_bps));
