@@ -29,6 +29,8 @@ require_once("shortcuts.inc");
 require_once("service-utils.inc");
 require_once("package_registration.inc");
 require_once('notices.inc');
+/* The session bridge token, so page scripts can call /api/v1 as the signed-in user (js/fs-api.js). */
+require_once('restapi_session.inc');
 
 header('Content-Type: text/html; charset=utf-8');
 
@@ -74,6 +76,9 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 <? include('includes/iconheaders.html') ?>
 	<meta name="theme-color" content="#ffffff">
+<?php $fs_csrf = restapi_session_token(); if ($fs_csrf !== ''): ?>
+	<meta name="fs-csrf" content="<?=htmlspecialchars($fs_csrf)?>">
+<?php endif; ?>
 
 	<!-- full stylesheet chain, each with its own cache-buster (the themes carry
 	     no @imports: imported files have separate cache entries that touching
