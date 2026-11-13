@@ -32,8 +32,6 @@
 ##|*DESCR=Allow access to the 'Status: Traffic Graph' page.
 ##|*MATCH=status_graph.php*
 ##|*MATCH=bandwidth_by_ip.php*
-##|*MATCH=graph.php*
-##|*MATCH=ifstats.php*
 ##|-PRIV
 
 require_once('config.inc');
@@ -84,7 +82,6 @@ if (!empty($_POST)) {
 	$cursort = $pick($_POST['sort'], ['in', 'out']);
 	$curfilter = $pick($_POST['filter'], ['local', 'remote', 'all']);
 	$curhostipformat = $pick($_POST['hostipformat'], ['', 'hostname', 'descr', 'fqdn']);
-	$curbackgroundupdate = $pick($_POST['backgroundupdate'], ['false', 'true']);
 	$curinvert = $pick($_POST['invert'], ['true', 'false']);
 	$cursmoothing = $pick($_POST['smoothfactor'], ['0', '1', '2', '3', '4', '5']);
 	$curmode = $pick($_POST['mode'], ['rate', 'iftop']);
@@ -96,7 +93,6 @@ if (!empty($_POST)) {
 		$pconfig["sort"] = $cursort;
 		$pconfig["filter"] = $curfilter;
 		$pconfig["hostipformat"] = $curhostipformat;
-		$pconfig["backgroundupdate"] = $curbackgroundupdate;
 		$pconfig["smoothfactor"] = $cursmoothing;
 		$pconfig["invert"] = $curinvert;
 		$pconfig["mode"] = $curmode;
@@ -110,7 +106,6 @@ if (!empty($_POST)) {
 		$cursort = $pconfig['sort'];
 		$curfilter = $pconfig['filter'];
 		$curhostipformat = $pconfig['hostipformat'];
-		$curbackgroundupdate = $pconfig['backgroundupdate'];
 		$cursmoothing = $pconfig['smoothfactor'];
 		$curinvert = $pconfig['invert'];
 		$curmode = $pconfig['mode'];;
@@ -129,7 +124,6 @@ if (!empty($_POST)) {
 		$cursort = "";
 		$curfilter = "";
 		$curhostipformat = "";
-		$curbackgroundupdate = "";
 		$cursmoothing = 0;
 		$curinvert = "";
 		$curmode = "";
@@ -150,11 +144,12 @@ function iflist() {
 
 $pgtitle = array(gettext("Status"), gettext("Traffic Graph"));
 
+$fs_page_css = ['/vendor/uplot/uPlot.min.css', '/css/_freesense-dashboard.css'];
+$fs_page_scripts = ['/js/fs-core.js', '/vendor/uplot/uPlot.iife.min.js', '/js/fs-chart.js'];
 include("head.inc");
 
 fs_tabs('status-graphs', 'status_graph.php');
 
-$realif = get_real_interface($curif);
 
 /* the controls post back to this page (and feed bandwidth_by_ip.php) */
 $graph_selects = [
@@ -184,12 +179,8 @@ $graph_more = [
 		'rate' => gettext('Rate (standard)'),
 		'iftop' => gettext('iftop (experimental)'),
 	]],
-	'backgroundupdate' => [gettext('Background updates'), $curbackgroundupdate, [
-		'false' => gettext('Clear graphs when not visible'),
-		'true' => gettext('Keep graphs updated on inactive tab (more CPU)'),
-	]],
 ];
-$more_open = (($curmode === 'iftop') || ($curbackgroundupdate === 'true') || (intval($cursmoothing) > 0));
+$more_open = (($curmode === 'iftop') || (intval($cursmoothing) > 0));
 $if_label = $ifdescrs[$curif] ?? $curif;
 ?>
 
@@ -209,19 +200,12 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 .fs-graph-live { color: var(--fs-text-muted); font-size: var(--fs-fs-xs); font-weight: 400; }
 .fs-graph-live i { color: var(--fs-pass); font-size: .6em; vertical-align: middle; }
 .fs-graph-body { padding: var(--fs-sp-2) var(--fs-sp-3) var(--fs-sp-3); }
-/* the card heading names the interface: hide the label nvd3 draws in the svg */
-.fs-graph-body .interface-label { display: none; }
-.fs-graph-body .traffic-widget-chart, .fs-graph-body .traffic-widget-chart svg { height: 320px; padding: 0; border: 0; }
-.fs-graph-body .nvd3 .nv-axis .tick line { stroke: var(--fs-border) !important; stroke-opacity: .6; }
-.fs-graph-body .nvd3 .nv-axis .nv-axisMaxMin text, .fs-graph-body .nvd3 .nv-axis .tick text { fill: var(--fs-text-muted) !important; font-size: 11px; }
-.fs-graph-body .nvd3 .nv-legend-text { fill: var(--bs-body-color) !important; font-size: 12px; }
-.fs-graph-body .nvd3 .nv-guideline line { stroke: var(--fs-text-muted); }
-.fs-graph-body .nvd3 .nv-groups path.nv-line { stroke-width: 1.75px; }
+.fs-graph-body .fs-traffic-big { height: 320px; }
 #top10-hosts td:not(:first-child), .fs-graph-hosts th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 575px) {
 	.fs-graph-controls > div { flex: 1 1 calc(50% - var(--fs-sp-3)); }
 	.fs-graph-controls .form-select { width: 100%; }
-	.fs-graph-body .traffic-widget-chart, .fs-graph-body .traffic-widget-chart svg { height: 240px; }
+	.fs-graph-body .fs-traffic-big { height: 240px; }
 }
 </style>
 
@@ -281,9 +265,8 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 	</div>
 	<div class="fs-graph-body">
 		<div id="traffic-chart-error" class="alert alert-danger" style="display: none;" role="alert"></div>
-		<div id="traffic-chart-<?=htmlspecialchars($curif)?>" class="d3-chart traffic-widget-chart" data-if="<?=htmlspecialchars($curif)?>" data-realif="<?=htmlspecialchars($realif)?>">
-			<svg role="img" aria-label="<?=htmlspecialchars(sprintf(gettext('Traffic on %s'), $if_label))?>"></svg>
-		</div>
+		<div class="fs-traffic-now mb-2"><span class="fs-legend" data-k="in"><i style="background: var(--fs-series-1)"></i><?=gettext('In')?> <b>&mdash;</b></span><span class="fs-legend" data-k="out"><i style="background: var(--fs-series-2)"></i><?=gettext('Out')?> <b>&mdash;</b></span></div>
+		<div id="traffic-chart" class="fs-traffic-big" data-if="<?=htmlspecialchars($curif)?>" data-label="<?=htmlspecialchars(sprintf(gettext('Traffic on %s'), $if_label))?>"></div>
 	</div>
 </div>
 </form>
@@ -312,47 +295,58 @@ $if_label = $ifdescrs[$curif] ?? $curif;
 	</div>
 </div>
 
-<script src="/vendor/d3/d3.min.js?v=<?=filemtime('/usr/local/www/vendor/d3/d3.min.js')?>"></script>
-<script src="/vendor/nvd3/nv.d3.min.js?v=<?=filemtime('/usr/local/www/vendor/nvd3/nv.d3.min.js')?>"></script>
-<script src="/vendor/visibility/visibility-2.0.2.js?v=<?=filemtime('/usr/local/www/vendor/visibility/visibility-2.0.2.js')?>"></script>
-
-<link href="/vendor/nvd3/nv.d3.min.css" media="screen, projection" rel="stylesheet" type="text/css">
-
 <script type="text/javascript">
 //<![CDATA[
+/*
+ * The live chart (fs-chart on uPlot): the interface's RRD history of the last
+ * ten minutes when it has one, then GET /api/v1/status/traffic every second.
+ * Smoothing averages the last 1-5 samples; Invert draws in below the axis.
+ */
 events.push(function() {
-
-	var chartEl = $('.fs-graph-body .traffic-widget-chart');
-	var InterfaceString = String(chartEl.attr('data-if') || '');
-	var RealInterfaceString = String(chartEl.attr('data-realif') || '');
-	window.graph_backgroundupdate = $('#backgroundupdate').val() === "true";
-	window.smoothing = $('#smoothfactor').val();
-	window.interval = 1;
-	window.invert = $('#invert').val() === "true";
-	window.size = 8;
-	window.interfaces = InterfaceString.split("|").filter(function(entry) { return entry.trim() != ''; });
-	window.realinterfaces = RealInterfaceString.split("|").filter(function(entry) { return entry.trim() != ''; });
-
-	graph_init();
-	graph_visibilitycheck();
-
+	var el = document.getElementById('traffic-chart'), iface = el.getAttribute('data-if');
+	var invert = $('#invert').val() === 'true', smooth = parseInt($('#smoothfactor').val(), 10) || 0;
+	var win = {in: [], out: []};
+	var chart = FS.chart.timeseries(el, {
+		window: 600, label: el.getAttribute('data-label'), format: FS.fmt.bps, lag: 2,
+		series: [{key: 'in', label: <?=json_encode(gettext('In'))?>, color: '--fs-series-1', mirror: invert},
+		    {key: 'out', label: <?=json_encode(gettext('Out'))?>, color: '--fs-series-2', mirror: !invert}]
+	});
+	function avg(key, v) {
+		if (v === null || v === undefined) {
+			return null;
+		}
+		win[key].push(v);
+		while (win[key].length > smooth + 1) {
+			win[key].shift();
+		}
+		return win[key].reduce(function(a, b) { return a + b; }, 0) / win[key].length;
+	}
+	var seeded = false;
+	FS.live.add({id: 'traffic-graph', every: 1, run: function() {
+		var seed = seeded ? Promise.resolve() : FS.api.get('/status/traffic/history', {if: iface, range: '10m'}).then(function(r) {
+			chart.seed(r.data.t, {in: r.data.in_bps, out: r.data.out_bps});
+		}, function() { /* no RRD for this interface: live only */ }).then(function() { seeded = true; });
+		return seed.then(function() { return FS.api.get('/status/traffic', {if: iface}); }).then(function(r) {
+			var v = (r.data.interfaces || {})[iface];
+			if (!v) {
+				$('#traffic-chart-error').text(<?=json_encode(gettext('This interface reports no traffic counters.'))?>).show();
+				return;
+			}
+			$('#traffic-chart-error').hide();
+			chart.push(r.data.t, {in: avg('in', v.in_bps), out: avg('out', v.out_bps)});
+			$('.fs-legend[data-k=in] b').text(FS.fmt.bps(v.in_bps));
+			$('.fs-legend[data-k=out] b').text(FS.fmt.bps(v.out_bps));
+		});
+	}, onState: function(s, info) {
+		if (s === 'error') {
+			$('#traffic-chart-error').text(info.error).show();
+		}
+	}});
 });
 //]]>
 </script>
-
-<script src="/js/traffic-graphs.js?v=<?=filemtime('/usr/local/www/js/traffic-graphs.js')?>"></script>
-
 <script type="text/javascript">
 //<![CDATA[
-
-var graph_interfacenames = <?php
-	$iflist = array();
-	foreach ($ifdescrs as $ifname => $ifdescr) {
-		$iflist[$ifname] = $ifdescr;
-	}
-	echo json_encode($iflist, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-?>;
-
 var topHostsText = {
 	unit: <?=json_encode(gettext("Bits/sec"))?>,
 	none: <?=json_encode(gettext('No traffic on this interface right now.'))?>,

@@ -370,13 +370,6 @@ dl.dl-horizontal { margin: 0; padding: .85rem 1rem; }
 
 .content { padding: 1rem; }
 
-/* dashboard widget heading accents */
-.widget-heading-icon { display: block; float: right; }
-.widget-heading-icon .fa-solid,
-.widget-heading-icon i.fa-regular,
-.widget-heading-icon i.fa-brands { color: var(--bs-secondary-color); }
-.widget-heading-icon .fa-solid:hover { color: var(--fs-coral); }
-[id^="widgets-col"] { min-height: 300px; }
 .panel-body.collapse.show { overflow-x: auto; }
 
 /* ============================ Forms =================================== */
@@ -466,48 +459,9 @@ svg { display: block; }
 	.breadcrumb { font-size: 1.05rem; }
 }
 
-/* ---------------------------------------------------------------------------
-   Charts (d3 / nvd3): dashboard Traffic Graphs widget, Status > Monitoring,
-   Status > Traffic Graph. These structural rules existed in the original
-   themes and were lost in the BS5 rewrite — without the explicit heights the
-   chart svgs collapse to 0 and the Monitoring page renders empty.
-   Colors ride the BS5 theme variables so light + dark both work. */
-.d3-chart, .d3-chart svg {
-    margin: 0;
-    padding: 10px 0;
-    height: 445px;
-    width: 100%;
-}
-.traffic-widget-chart, .traffic-widget-chart svg {
-    padding: 0;
-    height: 250px;
-}
-.traffic-widget-chart:not(:last-child) {
-    border-bottom: 2px solid var(--bs-border-color);
-}
+/* Text inside inline SVG follows the theme. */
 svg text {
-    fill: var(--bs-body-color) !important;
-}
-g.nv-axis text, g.nv-legend text {
     fill: var(--bs-body-color);
-}
-.nvd3 .nv-axis line, .nvd3 .nv-axis path {
-    fill: var(--bs-border-color) !important;
-    stroke: var(--bs-border-color) !important;
-}
-.nvtooltip {
-    background: var(--bs-tertiary-bg);
-    color: var(--bs-body-color);
-    border: 1px solid var(--bs-border-color);
-}
-.nvtooltip > h3 {
-    background-color: var(--bs-secondary-bg);
-    border-bottom: 1px solid var(--bs-border-color);
-    color: var(--bs-body-color);
-    font-size: 14px;
-}
-.nvtooltip table td.legend-color-guide div {
-    border: 1px solid var(--bs-border-color);
 }
 
 /* ===========================================================================
@@ -1092,101 +1046,7 @@ body { --fs-navbar-h: 6.9rem; }
 	/* Names shown: a little more air between them on the long rows. */
 	body:not(.fs-menu-icons):not(.fs-width-classic) .fs-topbar .fs-topbar-menu > .nav-item > .nav-link { padding-left: 1rem; padding-right: 1rem; }
 }
- * Dashboard widgets: one look for all of them. A tinted icon square in the
- * title, calm tables (sentence-case headers, no stripes), state shown as a
- * coloured dot and word instead of a filled cell, slim meters. Scoped to
- * the dashboard columns; widgets keep their own markup.
- */
-[id^="widgets-col"] > .panel { border: 1px solid var(--fs-border); border-radius: var(--fs-r-md); background: var(--fs-surface); overflow: hidden; }
-[id^="widgets-col"] > .panel > .panel-heading { padding: var(--fs-sp-2) var(--fs-sp-3); background: transparent; border-bottom: 1px solid var(--fs-border); }
-[id^="widgets-col"] > .panel > .panel-heading .panel-title { display: flex; align-items: center; gap: var(--fs-sp-2); font-size: var(--fs-fs-md); font-weight: 600; color: var(--fs-text-strong); }
-[id^="widgets-col"] > .panel > .panel-heading .panel-title > a:not(.config) { color: inherit; text-decoration: none; }
-[id^="widgets-col"] > .panel > .panel-heading .panel-title > a:hover { color: var(--fs-coral); }
-[id^="widgets-col"] .widget-heading-icon { margin-left: auto; display: flex; gap: var(--fs-sp-2); }
-.fs-wicon { display: grid; place-items: center; flex: none; width: 1.85rem; height: 1.85rem; border-radius: var(--fs-r-sm); font-size: .9rem;
-	color: var(--fc); background: color-mix(in srgb, var(--fc) 15%, transparent); }
-[id^="widgets-col"] > .panel > .panel-body { padding: 0; }
-[id^="widgets-col"] > .panel > .panel-body > :not(table):not(.table-responsive):not(.fs-fleet-widget):not(.list-group) { margin-left: var(--fs-sp-3); margin-right: var(--fs-sp-3); }
-[id^="widgets-col"] .panel-body .table { margin-bottom: 0; font-size: var(--fs-fs-base); --bs-table-striped-bg: transparent; --bs-table-bg: transparent; }
-[id^="widgets-col"] .panel-body .table > :not(caption) > * > * { padding: .5rem var(--fs-sp-2); border-bottom-color: var(--fs-border); vertical-align: middle; }
-[id^="widgets-col"] .panel-body .table > :not(caption) > * > :first-child { padding-left: var(--fs-sp-3); }
-[id^="widgets-col"] .panel-body .table > :not(caption) > * > :last-child { padding-right: var(--fs-sp-3); }
-[id^="widgets-col"] .panel-body .table > tbody > tr:last-child > * { border-bottom: 0; }
-[id^="widgets-col"] .panel-body .table thead th { font-size: var(--fs-fs-xs); font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--fs-text-muted); }
-[id^="widgets-col"] .panel-body .table tbody th { font-weight: 400; color: var(--fs-text-muted); white-space: nowrap; }
-[id^="widgets-col"] .panel-body .table-hover > tbody > tr:hover > * { --bs-table-hover-bg: color-mix(in srgb, var(--fs-text) 4%, transparent); }
-/* A filled state cell becomes a dot and a word. */
-[id^="widgets-col"] td.bg-success, [id^="widgets-col"] td.bg-danger, [id^="widgets-col"] td.bg-warning, [id^="widgets-col"] td.bg-info {
-	background: transparent !important; font-weight: 600; white-space: nowrap; }
-[id^="widgets-col"] td.bg-success { color: var(--fs-pass) !important; }
-[id^="widgets-col"] td.bg-danger { color: var(--fs-block) !important; }
-[id^="widgets-col"] td.bg-warning { color: var(--fs-warn) !important; }
-[id^="widgets-col"] td.bg-info { color: var(--fs-info) !important; }
-[id^="widgets-col"] td.bg-success::before, [id^="widgets-col"] td.bg-danger::before, [id^="widgets-col"] td.bg-warning::before, [id^="widgets-col"] td.bg-info::before {
-	content: ""; display: inline-block; width: .55rem; height: .55rem; margin-right: .4rem; border-radius: 50%; background: currentColor; vertical-align: .05rem;
-	box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent); }
-[id^="widgets-col"] .text-success { color: var(--fs-pass) !important; }
-[id^="widgets-col"] .text-danger { color: var(--fs-block) !important; }
-[id^="widgets-col"] .text-warning { color: var(--fs-warn) !important; }
-/* Meters. */
-[id^="widgets-col"] .progress { height: .5rem; border-radius: 999px; background: color-mix(in srgb, var(--fs-text) 9%, transparent); overflow: hidden; }
-[id^="widgets-col"] .progress-bar { border-radius: 999px; background-color: var(--fs-info); font-size: 0; }
-[id^="widgets-col"] .progress-bar.bg-success, [id^="widgets-col"] .progress-bar-success { background-color: var(--fs-pass) !important; }
-[id^="widgets-col"] .progress-bar.bg-warning, [id^="widgets-col"] .progress-bar-warning { background-color: var(--fs-warn) !important; }
-[id^="widgets-col"] .progress-bar.bg-danger, [id^="widgets-col"] .progress-bar-danger { background-color: var(--fs-block) !important; }
-[id^="widgets-col"] .panel-footer { background: color-mix(in srgb, var(--fs-text) 3%, transparent); border-top: 1px solid var(--fs-border); padding: var(--fs-sp-3); }
-/* A widget with nothing to show: a quiet line, never a warning. */
+/* A widget with nothing to show (fs_widget_empty()): a quiet line, never a warning. */
 .fs-wempty { display: flex; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-3); color: var(--fs-text-muted); font-size: var(--fs-fs-base); }
 .fs-wempty-icon { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 50%; background: color-mix(in srgb, var(--fs-text) 7%, transparent); }
-[id^="widgets-col"] > .panel > .panel-body > .fs-wempty { margin: 0; }
-[id^="widgets-col"] .table:has(.fs-wempty) thead { display: none; }
-/* Feeds: quiet list, the title is the link. */
-.fs-wrss .list-group-item { border-left: 0; border-right: 0; border-color: var(--fs-border); background: transparent; padding: var(--fs-sp-2) var(--fs-sp-3); }
-.fs-wrss .list-group-item:first-child { border-top: 0; }
-.fs-wrss .list-group-item:hover { background: color-mix(in srgb, var(--fs-text) 4%, transparent); }
-.fs-wrss .list-group-item-heading { font-size: var(--fs-fs-base); font-weight: 600; margin: 0 0 2px; color: var(--fs-text-strong); }
-.fs-wrss .list-group-item-text { font-size: var(--fs-fs-sm); color: var(--fs-text-muted); margin: 0; }
-/* A row label with its icon (System Information). */
-.fs-wrow-icon { width: 1.1rem; margin-right: var(--fs-sp-2); text-align: center; color: color-mix(in srgb, var(--fs-text-muted) 75%, transparent); }
-[id^="widgets-col"] .panel-body .table td b, [id^="widgets-col"] .panel-body .table td strong { font-weight: 600; }
-/* System Information: the update notice. */
-.fs-wupdate { display: inline-flex; align-items: center; gap: var(--fs-sp-2); margin: var(--fs-sp-2) 0 var(--fs-sp-1); padding: .3rem .65rem; border-radius: var(--fs-r-sm);
-	color: var(--fs-info); background: color-mix(in srgb, var(--fs-info) 12%, transparent); border: 1px solid color-mix(in srgb, var(--fs-info) 35%, transparent);
-	text-decoration: none; max-width: 100%; }
-.fs-wupdate span { overflow-wrap: anywhere; }
-.fs-wupdate strong { font-weight: 600; }
-.fs-wupdate:hover { background: color-mix(in srgb, var(--fs-info) 20%, transparent); color: var(--fs-info); }
-.fs-wver-ok { display: inline-flex; align-items: center; gap: var(--fs-sp-1); margin-top: var(--fs-sp-1); color: var(--fs-pass); }
-.fs-wver-checked { font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
-.fs-wver-checked a { margin-left: var(--fs-sp-1); color: var(--fs-text-muted); }
-.fs-wver-checked a:hover { color: var(--fs-coral); }
-/* ZFS pools: name, health and free space, a meter, three figures; a quiet footer line. */
-.fs-wzfs { padding: var(--fs-sp-3); }
-.fs-wzfs + .table { border-top: 1px solid var(--fs-border); }
-.fs-wzfs-head { display: flex; align-items: center; gap: var(--fs-sp-2); margin-bottom: var(--fs-sp-2); }
-.fs-wzfs-head strong { font-size: var(--fs-fs-md); color: var(--fs-text-strong); }
-.fs-wzfs-size { margin-left: auto; color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
-.fs-wzfs-facts { display: flex; flex-wrap: wrap; gap: var(--fs-sp-1) var(--fs-sp-4); margin-top: var(--fs-sp-2); font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
-.fs-wzfs-facts strong { color: var(--fs-text-strong); font-variant-numeric: tabular-nums; }
-.fs-wzfs-scan { margin: var(--fs-sp-2) 0 0; font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
-.fs-wzfs-scan i { margin-right: var(--fs-sp-1); }
-.fs-wfootline { display: flex; align-items: center; gap: var(--fs-sp-2); padding: var(--fs-sp-2) var(--fs-sp-3); border-top: 1px solid var(--fs-border);
-	font-size: var(--fs-fs-sm); color: var(--fs-text-muted); }
-.fs-wfootline a { margin-left: auto; }
-[id^="widgets-col"] > .panel > .panel-body .fs-wfootline, [id^="widgets-col"] > .panel > .panel-body > div > .fs-wzfs { margin: 0; }
-[id^="widgets-col"] > .panel > .panel-body > [id^="zfs_storage"] { margin-left: 0; margin-right: 0; }
-/*
- * Widget settings (the wrench): one column, the list full width, the
- * buttons small and side by side under it; "All / None" is secondary.
- */
-[id^="widgets-col"] .panel-footer .form-horizontal .panel.col-sm-10 { width: 100%; float: none; padding: 0; margin: 0 0 var(--fs-sp-3); border: 1px solid var(--fs-border); border-radius: var(--fs-r-sm); }
-[id^="widgets-col"] .panel-footer .form-horizontal .panel > .panel-body { padding: 0; }
-[id^="widgets-col"] .panel-footer .form-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fs-sp-2); margin: 0 0 var(--fs-sp-3); }
-[id^="widgets-col"] .panel-footer .form-group > [class*="col-sm-"] { flex: 1 1 auto; width: auto; max-width: none; margin-left: 0; padding: 0; }
-[id^="widgets-col"] .panel-footer .form-group > .control-label { flex: 0 0 8rem; text-align: left; padding: 0; font-weight: 500; color: var(--fs-text-muted); }
-[id^="widgets-col"] .panel-footer .form-group:last-child { margin-bottom: 0; }
-[id^="widgets-col"] .panel-footer .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .75rem; font-size: var(--fs-fs-sm); margin: 0 var(--fs-sp-1) 0 0; }
-[id^="widgets-col"] .panel-footer .btn .icon-embed-btn { display: inline; margin: 0; font-size: .85em; }
-[id^="widgets-col"] .panel-footer .btn-info { background: transparent; color: var(--fs-text); border: 1px solid var(--fs-border); }
-[id^="widgets-col"] .panel-footer .btn-info:hover { background: color-mix(in srgb, var(--fs-text) 6%, transparent); color: var(--fs-text-strong); }
-[id^="widgets-col"] .panel-footer .table td, [id^="widgets-col"] .panel-footer .table th { padding: .35rem var(--fs-sp-3); }
+

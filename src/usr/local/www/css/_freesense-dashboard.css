@@ -224,6 +224,8 @@
 .fs-chart-tip-row { display: flex; align-items: center; gap: 6px; }
 .fs-chart-tip-row i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
 .fs-chart-tip-row b { margin-left: auto; padding-left: 12px; font-family: var(--fs-font-mono); font-weight: 600; }
+.fs-donut-seg { stroke: var(--bs-body-bg); stroke-width: 1.5; transition: opacity var(--fs-t-fast); }
+.fs-donut-seg:hover { opacity: .8; }
 .fs-spark { display: block; width: 100%; height: 100%; overflow: visible; }
 
 .fs-ring-track { stroke: var(--fs-d-card-2, var(--bs-tertiary-bg)); }

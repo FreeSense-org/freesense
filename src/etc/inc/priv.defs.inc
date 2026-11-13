@@ -353,18 +353,6 @@ $priv_list['page-getserviceproviders']['descr'] = gettext("Allow access to the '
 $priv_list['page-getserviceproviders']['match'] = array();
 $priv_list['page-getserviceproviders']['match'][] = "getserviceproviders.php*";
 
-$priv_list['page-diagnostics-interfacetraffic'] = array();
-$priv_list['page-diagnostics-interfacetraffic']['name'] = gettext("WebCfg - Diagnostics: Interface Traffic");
-$priv_list['page-diagnostics-interfacetraffic']['descr'] = gettext("Allow access to the 'Diagnostics: Interface Traffic' page.");
-$priv_list['page-diagnostics-interfacetraffic']['match'] = array();
-$priv_list['page-diagnostics-interfacetraffic']['match'][] = "graph.php*";
-
-$priv_list['page-xmlrpcinterfacestats'] = array();
-$priv_list['page-xmlrpcinterfacestats']['name'] = gettext("WebCfg - XMLRPC Interface Stats");
-$priv_list['page-xmlrpcinterfacestats']['descr'] = gettext("Allow access to the 'XMLRPC Interface Stats' page.");
-$priv_list['page-xmlrpcinterfacestats']['match'] = array();
-$priv_list['page-xmlrpcinterfacestats']['match'][] = "ifstats.php*";
-
 $priv_list['page-system-login-logout'] = array();
 $priv_list['page-system-login-logout']['name'] = gettext("WebCfg - System: Login / Logout / Dashboard");
 $priv_list['page-system-login-logout']['descr'] = gettext("Allow access to the 'System: Login / Logout' page and Dashboard.");
@@ -908,8 +896,6 @@ $priv_list['page-status-trafficgraph']['descr'] = gettext("Allow access to the '
 $priv_list['page-status-trafficgraph']['match'] = array();
 $priv_list['page-status-trafficgraph']['match'][] = "status_graph.php*";
 $priv_list['page-status-trafficgraph']['match'][] = "bandwidth_by_ip.php*";
-$priv_list['page-status-trafficgraph']['match'][] = "graph.php*";
-$priv_list['page-status-trafficgraph']['match'][] = "ifstats.php*";
 
 $priv_list['page-status-cpuload'] = array();
 $priv_list['page-status-cpuload']['name'] = gettext("WebCfg - Status: CPU load");
