@@ -68,6 +68,26 @@
 		var frame = 0;
 		var onScreen = true;
 		var pending = false;
+		/* Live glide: the x axis follows the clock a little behind now, so new samples slide in instead of stepping. */
+		var gliding = false, glideFrame = 0, lastGlide = 0, lag = opts.lag || 3;
+		function glide(ts) {
+			glideFrame = 0;
+			if (!gliding || !u || !onScreen || document.hidden) return;
+			if (ts - lastGlide >= 33) {
+				lastGlide = ts;
+				var max = Date.now() / 1000 - lag;
+				var min = opts.window ? max - opts.window : (data[0][0] || max - 60);
+				u.batch(function () {
+					u.setScale('x', { min: min, max: max });
+				});
+			}
+			glideFrame = window.requestAnimationFrame(glide);
+		}
+		function startGlide() {
+			if (gliding || FS.reducedMotion) return;
+			gliding = true;
+			glideFrame = window.requestAnimationFrame(glide);
+		}
 
 		function signed(s, v) { return (v == null) ? null : (s.mirror ? -Math.abs(v) : v); }
 
@@ -104,7 +124,7 @@
 				}
 			];
 			var scales = {
-				x: { time: true },
+				x: { time: true, auto: true },
 				y: { range: function (self, min, max) {
 					var lo = Math.min(0, min || 0), hi = Math.max(0, max || 0);
 					if (lo === 0 && hi === 0) hi = 1;
@@ -166,7 +186,7 @@
 			frame = window.requestAnimationFrame(function () {
 				frame = 0;
 				pending = false;
-				if (u) u.setData(data, true);
+				if (u) u.setData(data, !gliding);
 				updateLabel();
 			});
 		}
@@ -191,6 +211,7 @@
 		var io = new IntersectionObserver(function (entries) {
 			onScreen = entries[0].isIntersecting;
 			if (onScreen && pending) draw();
+			if (onScreen && gliding && !glideFrame) glideFrame = window.requestAnimationFrame(glide);
 		});
 		io.observe(el);
 		/* The theme is a stylesheet; rebuild when the colour mode or the DPR changes. */
@@ -223,7 +244,13 @@
 				if (last !== null && t <= last) return;
 				data[0].push(t);
 				opts.series.forEach(function (s, k) { data[k + 1].push(signed(s, values[s.key])); });
-				prune();
+				/* keep one sample beyond the visible window so the line enters from the edge */
+				if (opts.window && data[0].length) {
+					var cut = Date.now() / 1000 - lag - opts.window - 10, k = 0;
+					while (k < data[0].length - 1 && data[0][k] < cut) k++;
+					if (k) data = data.map(function (col) { return col.slice(k); });
+				}
+				startGlide();
 				draw();
 			},
 			last: function () {
@@ -237,6 +264,8 @@
 				ro.disconnect(); io.disconnect(); mo.disconnect();
 				if (dprQuery.removeEventListener) dprQuery.removeEventListener('change', onDpr);
 				if (frame) window.cancelAnimationFrame(frame);
+				gliding = false;
+				if (glideFrame) window.cancelAnimationFrame(glideFrame);
 				if (u) u.destroy();
 				$el.empty();
 			}

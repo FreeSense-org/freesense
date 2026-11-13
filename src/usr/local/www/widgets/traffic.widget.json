@@ -30,6 +30,10 @@
 			"label": "Time span",
 			"options": [
 				[
+					"120",
+					"2 minutes"
+				],
+				[
 					"600",
 					"10 minutes"
 				],
