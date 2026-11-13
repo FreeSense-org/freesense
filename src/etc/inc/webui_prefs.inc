@@ -69,6 +69,7 @@ function webui_pref_defaults() {
 		'mode' => (string)($d['mode'] ?? 'auto'),
 		'accent' => (string)($d['accent'] ?? ''),
 		'density' => (string)($d['density'] ?? 'comfortable'),
+		'nav' => (string)($d['nav'] ?? 'top'),
 		'start_page' => '/',
 	);
 }
@@ -83,6 +84,7 @@ function webui_pref_validate(array $in) {
 		'mode' => '/^(light|dark|auto)$/',
 		'accent' => '/^([a-z][a-z0-9-]{0,23})?$/',
 		'density' => '/^(comfortable|compact)$/',
+		'nav' => '/^(top|side)$/',
 		'start_page' => '#^/[A-Za-z0-9/_.-]{0,200}$#',
 	);
 	$out = array();
@@ -96,6 +98,7 @@ function webui_pref_validate(array $in) {
 				'mode' => 'One of light, dark or auto.',
 				'accent' => 'An accent name of the theme.',
 				'density' => 'One of comfortable or compact.',
+				'nav' => 'One of top (menu bar) or side (sidebar).',
 				'start_page' => 'A WebUI path such as /network/interfaces.',
 			)[$k];
 		} else {
