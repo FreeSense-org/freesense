@@ -1827,6 +1827,18 @@
 				}
 				setOpen(toggle, toggle.getAttribute('aria-expanded') !== 'true');
 			}, true);
+			/* Bootstrap must not also toggle them on a wide screen. */
+			var syncToggles = function () {
+				menu.querySelectorAll(':scope > .nav-item > .dropdown-toggle').forEach(function (t) {
+					if (wide.matches) {
+						t.removeAttribute('data-bs-toggle');
+					} else {
+						t.setAttribute('data-bs-toggle', 'dropdown');
+					}
+				});
+			};
+			syncToggles();
+			wide.addEventListener('change', syncToggles);
 			if (wide.matches) {
 				var current = menu.querySelector('.dropdown-toggle.active');
 				if (current) {
