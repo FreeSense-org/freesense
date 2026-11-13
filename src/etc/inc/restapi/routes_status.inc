@@ -64,6 +64,22 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/states', 'restapi_h_status_states', array(
 			'page' => 'diag_states_summary.php', 'area' => 'status',
 			'summary' => 'State table size, limit and search/insert/removal rates')),
+		restapi_route('GET', '/v1/status/ntp', 'restapi_h_status_ntp', array(
+			'page' => 'status_ntpd.php', 'area' => 'status',
+			'summary' => 'NTP: whether the server runs, the peer the clock follows and every peer (stratum, reach, delay, offset, jitter)')),
+		restapi_route('GET', '/v1/status/zfs', 'restapi_h_status_zfs', array(
+			'page' => 'index.php', 'area' => 'system',
+			'summary' => 'ZFS pools: health, capacity, fragmentation, scan, devices and their errors')),
+		restapi_route('GET', '/v1/status/smart', 'restapi_h_status_smart', array(
+			'page' => 'diag_smart.php', 'area' => 'diagnostics',
+			'query' => array('refresh' => 'true: ask the drives now instead of using the five-minute cache'),
+			'summary' => 'Drives and their SMART health')),
+		restapi_route('GET', '/v1/status/captive-portal', 'restapi_h_status_captiveportal', array(
+			'page' => 'status_captiveportal.php', 'area' => 'status',
+			'summary' => 'Captive portal sessions of every zone')),
+		restapi_route('DELETE', '/v1/status/captive-portal/{zone}/sessions/{session}', 'restapi_h_captiveportal_disconnect', array(
+			'page' => 'status_captiveportal.php', 'area' => 'status', 'write' => true,
+			'summary' => 'Disconnect a captive portal session')),
 		restapi_route('GET', '/v1/notices', 'restapi_h_notices', array(
 			'page' => 'index.php', 'area' => 'system', 'summary' => 'System notices')),
 		restapi_route('DELETE', '/v1/notices/{id}', 'restapi_h_notice_delete', array(
@@ -150,6 +166,45 @@ function restapi_h_status_traffic_history($req) {
 
 function restapi_h_status_states($req) {
 	return array('data' => status_metrics_states());
+}
+
+function restapi_h_status_ntp($req) {
+	return array('data' => status_metrics_ntp());
+}
+
+function restapi_h_status_zfs($req) {
+	return array('data' => status_metrics_zfs());
+}
+
+function restapi_h_status_smart($req) {
+	$refresh = in_array(strtolower((string)($req['query']['refresh'] ?? '')), array('1', 'true', 'yes'), true);
+	return array('data' => status_metrics_smart($refresh));
+}
+
+function restapi_h_status_captiveportal($req) {
+	return array('data' => status_metrics_captiveportal());
+}
+
+function restapi_h_captiveportal_disconnect($req) {
+	global $cpzone, $cpzoneid;
+	require_once('captiveportal.inc');
+	$zone = strtolower((string)$req['params']['zone']);
+	$session = (string)$req['params']['session'];
+	if (!preg_match('/^[a-z0-9_]{1,64}$/', $zone) || !is_array(config_get_path("captiveportal/{$zone}")) ||
+	    !preg_match('/^[A-Za-z0-9]{1,64}$/', $session)) {
+		throw new RestApiError(404, 'not_found', 'No such captive portal session.');
+	}
+	$cpzone = $zone;
+	$cpzoneid = config_get_path("captiveportal/{$zone}/zoneid");
+	$found = false;
+	foreach ((array)captiveportal_read_db() as $e) {
+		$found = $found || ((string)$e[5] === $session);
+	}
+	if (!$found) {
+		throw new RestApiError(404, 'not_found', 'No such captive portal session.');
+	}
+	captiveportal_disconnect_client($session, 6);
+	return array('data' => null);
 }
 
 /* Notices as plain text (the queue stores them HTML-encoded for the old pages). */

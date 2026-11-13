@@ -27,10 +27,34 @@ function fn_source($code, $name) {
 define('STATUS_METRICS_MAX_AGE', 30);
 foreach (array('status_metrics_rate', 'status_metrics_cpu_percent', 'status_metrics_parse_pfinfo', 'status_metrics_parse_df',
     'status_metrics_parse_swapinfo', 'status_metrics_parse_mbuf', 'status_metrics_parse_temp', 'status_metrics_parse_sensors', 'status_metrics_parse_xport',
-    'status_metrics_ranges') as $fn) {
+    'status_metrics_ranges', 'status_metrics_parse_ntpq', 'status_metrics_parse_smart_health') as $fn) {
 	eval(fn_source($src, $fn));
 }
 eval(fn_source($routes_src, 'restapi_notice_list'));
+
+/* ntpq -pnw: tally, wrapped long address, PPS peer */
+$peers = status_metrics_parse_ntpq(<<<'TXT'
+     remote           refid      st t when poll reach   delay   offset  jitter
+==============================================================================
+ 0.freesense.pool.ntp.org
+                 .POOL.          16 p    -   64    0    0.000   +0.000   0.000
+*162.159.200.1   10.21.8.4        3 u   35   64  377   12.345   -0.512   0.231
++2606:4700:f1::123
+                 10.21.8.4        3 u   36   64  377   14.002   +0.118   0.410
+-192.0.2.10      .GPS.            1 u  512 1024  377   40.120   +3.000   1.200
+TXT);
+check(count($peers) === 4, 'every peer, wrapped addresses joined');
+check($peers[0]['tally'] === '' && $peers[0]['remote'] === '0.freesense.pool.ntp.org' && $peers[0]['stratum'] === 16, 'pool entry');
+check($peers[1]['tally'] === '*' && $peers[1]['remote'] === '162.159.200.1' && $peers[1]['delay'] === 12.345 && $peers[1]['offset'] === -0.512 &&
+    $peers[1]['reach'] === '377' && $peers[1]['poll'] === 64, 'system peer with delay, offset and reach');
+check($peers[2]['tally'] === '+' && $peers[2]['remote'] === '2606:4700:f1::123' && $peers[2]['jitter'] === 0.41, 'wrapped IPv6 candidate');
+check($peers[3]['tally'] === '-' && $peers[3]['refid'] === '.GPS.' && $peers[3]['stratum'] === 1, 'outlier');
+check(status_metrics_parse_ntpq('') === array(), 'no ntpq output, no peers');
+
+/* smartctl -H */
+check(status_metrics_parse_smart_health("=== START OF READ SMART DATA SECTION ===\nSMART overall-health self-assessment test result: PASSED\n") === 'PASSED', 'ATA health');
+check(status_metrics_parse_smart_health("SMART Health Status: OK\n") === 'OK', 'SCSI health');
+check(status_metrics_parse_smart_health("Device does not support SMART\n") === '', 'unknown health');
 
 /* Rates */
 check(status_metrics_rate(1000, 100.0, 3000, 102.0) === 1000.0, 'a rate is the counter delta per second');
