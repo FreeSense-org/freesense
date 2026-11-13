@@ -1800,13 +1800,39 @@
 		apply(saved);
 		/* A menu icon in the rail opens the full sidebar with that menu expanded. */
 		var menu = document.querySelector('.fs-topbar-menu');
+		var wide = window.matchMedia('(min-width: 992px)');
+		function setOpen(toggle, open) {
+			toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+			toggle.classList.toggle('show', open);
+			var panel = toggle.parentNode.querySelector('.dropdown-menu');
+			if (panel) {
+				panel.classList.toggle('show', open);
+			}
+		}
 		if (menu) {
+			/* On a wide screen the groups open inline and stay open until closed; the group of the
+			 * current page is open when the page loads. Phones keep the Bootstrap dropdowns. */
 			menu.addEventListener('click', function (e) {
-				if (body.classList.contains('fs-side-rail') && e.target.closest('.dropdown-toggle')) {
+				var toggle = e.target.closest('.dropdown-toggle');
+				if (!toggle || !wide.matches) {
+					return;
+				}
+				e.preventDefault();
+				e.stopPropagation();
+				if (body.classList.contains('fs-side-rail')) {
 					apply(false);
 					try { localStorage.setItem(KEY, '0'); } catch (err) { /* storage unavailable */ }
+					setOpen(toggle, true);
+					return;
 				}
+				setOpen(toggle, toggle.getAttribute('aria-expanded') !== 'true');
 			}, true);
+			if (wide.matches) {
+				var current = menu.querySelector('.dropdown-toggle.active');
+				if (current) {
+					setOpen(current, true);
+				}
+			}
 		}
 		if (btn) {
 			btn.addEventListener('click', function () {
