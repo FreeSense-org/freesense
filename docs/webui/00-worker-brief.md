@@ -19,7 +19,7 @@ Then open the **pilot page** for your page type (listed in `02-page-types.md`) a
 2. **Never rename or delete a page, and never change a form field `name`.** URLs, POST field names and GET parameters are used by menus, widgets, `shortcuts/`, `help.php`, the REST API, packages, docs and bookmarks.
 3. **A new view of a page** uses `?view=<name>` in the same file. If you really must add a file, add it to the **existing** privilege's `match` list in `src/etc/inc/priv.defs.inc`. Never create a new privilege.
 4. **Stable API: do not rename** `.panel*`, `.table`, `.form-group`, `.content`, `.contains-table`, `table-rowdblclickedit`, `usepost`, `do-confirm`, `display_top_tabs()` or any public `Form_*` method. Packages depend on them.
-5. **No new libraries and no CDNs.** The appliance runs offline. Use Bootstrap 5.3, jQuery 4, Font Awesome 6 (`fa-solid`) and the `fs_*` helpers.
+5. **No new libraries and no CDNs.** The appliance runs offline. Use Bootstrap 5.3, jQuery 4, Font Awesome 7 (`fa-solid`), the `fs_*` helpers and, for charts and live data, `js/fs-core.js` / `js/fs-chart.js` (uPlot, the one vendored chart library).
 6. **No raw colors or pixel literals in page files.** Use tokens and component classes. No new inline `style=""`; remove the ones you touch.
 7. **Stay in your lane.** Edit only the files in your assignment. If you need a change to a shared file (`head.inc`, `guiconfig.inc`, `includes/fs_ui.inc`, `css/_freesense-*.css`, `js/freesense-ui.js`, `classes/Form/*`), don't make it. Write it up in your PR description under "Shared change needed" and stop.
 8. **Escape output.** Every value you print goes through `htmlspecialchars()` (the helpers do this for you). Keep `gettext()` around every user-visible string.
