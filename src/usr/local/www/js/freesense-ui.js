@@ -1798,6 +1798,16 @@
 		var saved = false;
 		try { saved = localStorage.getItem(KEY) === '1'; } catch (e) { /* storage unavailable */ }
 		apply(saved);
+		/* A menu icon in the rail opens the full sidebar with that menu expanded. */
+		var menu = document.querySelector('.fs-topbar-menu');
+		if (menu) {
+			menu.addEventListener('click', function (e) {
+				if (body.classList.contains('fs-side-rail') && e.target.closest('.dropdown-toggle')) {
+					apply(false);
+					try { localStorage.setItem(KEY, '0'); } catch (err) { /* storage unavailable */ }
+				}
+			}, true);
+		}
 		if (btn) {
 			btn.addEventListener('click', function () {
 				var rail = !body.classList.contains('fs-side-rail');
