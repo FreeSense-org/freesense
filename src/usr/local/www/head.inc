@@ -621,12 +621,13 @@ if ($fs_menu_mode === 'icons') {
 }
 ?>
 <body<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
-<nav id="topmenu" class="navbar navbar-expand-lg fs-topbar<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
+<nav id="topmenu" class="navbar navbar-expand-lg fs-topbar<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>"<?= ($fs_user_prefs['nav'] === 'side') ? '' : ' data-bs-theme="dark"' ?>>
 	<div class="container fs-page">
 		<div class="fs-topbar-row">
 			<a class="navbar-brand" href="/">
 				<?php include("/usr/local/www/header-logo.svg"); ?>
 			</a>
+			<span class="fs-side-sub" hidden><?=htmlspecialchars(config_get_path('system/hostname') . ' · ' . g_get('product_version_string'))?></span>
 			<ul class="navbar-nav fs-topbar-tools">
 				<li class="nav-item">
 					<button type="button" class="nav-link fs-nav-search" data-fs-palette-open
@@ -661,7 +662,7 @@ if ($fs_menu_mode === 'icons') {
 			</button>
 		</div>
 		<div class="collapse navbar-collapse" id="pf-navbar">
-			<ul class="navbar-nav fs-topbar-menu">
+			<ul class="navbar-nav fs-topbar-menu" data-fs-side-label="<?=gettext('Menu')?>">
 			<?php if (isAllowedPage('index.php')): ?>
 				<li class="nav-item">
 					<a class="nav-link navlnk<?=($fs_current_page === 'index.php') ? ' active' : ''?>" href="/" title="<?=gettext('Dashboard')?>"<?=($fs_current_page === 'index.php') ? ' aria-current="page"' : ''?>>
@@ -699,9 +700,12 @@ if ($fs_menu_mode === 'icons') {
 					    $item['icon'], $item['menu'], $item['href'], $fs_current_page, $menuclass_dropdown);
 			 	endforeach?>
 			</ul>
+			<div class="fs-side-foot">
+			<div class="fs-side-host"><i class="fa-solid fa-server" aria-hidden="true"></i><div><b><?=htmlspecialchars(config_get_path('system/hostname'))?></b><span><?=htmlspecialchars($system_url)?></span></div></div>
 			<button type="button" class="fs-side-toggle" data-fs-side-toggle aria-pressed="false" title="<?=gettext('Collapse the sidebar')?>">
 				<i class="fa-solid fa-angles-left fs-menu-icon" aria-hidden="true"></i><span class="fs-side-label"><?=gettext('Collapse')?></span>
 			</button>
+			</div>
 		</div>
 	</div>
 </nav>
