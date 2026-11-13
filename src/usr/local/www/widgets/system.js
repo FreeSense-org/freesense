@@ -12,7 +12,7 @@
 	'use strict';
 
 	var T = FS.t, F = FS.fmt, el = D.el;
-	var VERSION_EVERY = 900000;
+	var VERSION_EVERY = 900000, INFO_EVERY = 60000;
 
 	function kv($dl, label, value, small) {
 		if (value == null || value === '' || (Array.isArray(value) && !value.length)) return;
@@ -31,6 +31,45 @@
 				.append(D.tag(T('Update available') + (v.latest ? ' ' + v.latest : ''), 'info', 'fa-cloud-arrow-down'));
 		}
 		return D.tag(T('Up to date'), 'ok', 'fa-circle-check');
+	}
+
+	function meterRow(label, pct, sub) {
+		var $r = el('div', 'fs-sysm');
+		$r.append(el('div', 'fs-res-row').append(el('span', 'fs-res-label', label), el('b', 'fs-num', F.pct(pct))));
+		$r.append(FS.chart.meter(pct, { label: label }));
+		if (sub) $r.append(el('small', 'fs-muted', sub));
+		return $r;
+	}
+
+	/* CPU load like the 1.x System Information: usage, a bar per core, load average, frequency, then the other meters. */
+	function load(w) {
+		var s = w.state.stats;
+		if (!s) return null;
+		var c = s.cpu, $l = el('div', 'fs-sysload');
+		var $cpu = el('div', 'fs-syscpu');
+		$cpu.append(el('div', 'fs-res-row').append(el('span', 'fs-res-label', T('CPU')),
+			el('b', 'fs-num', F.pct(c.usage, 1))));
+		$cpu.append(FS.chart.meter(c.usage, { label: T('CPU') }));
+		if ((c.cores || []).length > 1) {
+			var $cores = el('div', 'fs-syscores').attr({ role: 'img', 'aria-label': T('Per core') + ': ' + c.cores.map(function (v) { return Math.round(v) + '%'; }).join(', ') });
+			c.cores.forEach(function (v, i) {
+				$cores.append(el('span', 'fs-syscore' + (v >= 90 ? ' is-crit' : (v >= 75 ? ' is-warn' : ''))).attr('title', T('Core %s', i) + ': ' + Math.round(v) + '%')
+					.append(el('i', '').css('height', Math.max(4, Math.min(100, v)) + '%')));
+			});
+			$cpu.append($cores);
+		}
+		var facts = [];
+		if (c.load) facts.push(T('Load') + ' ' + c.load.join(' · '));
+		if (c.freq_mhz) facts.push(c.freq_mhz + (c.freq_max_mhz ? ' / ' + c.freq_max_mhz : '') + ' MHz');
+		if (c.user != null) facts.push(T('user %s, system %s, interrupt %s', F.pct(c.user, 1), F.pct(c.system, 1), F.pct(c.interrupt, 1)));
+		$cpu.append(el('small', 'fs-muted d-block', facts.join(' · ')));
+		$l.append($cpu);
+		var pct = function (u, t) { return (t > 0 && u != null) ? u / t * 100 : null; };
+		$l.append(meterRow(T('Memory'), pct(s.memory.used_bytes, s.memory.total_bytes), T('%s of %s', F.bytes(s.memory.used_bytes), F.bytes(s.memory.total_bytes))));
+		if (s.swap && s.swap.total_bytes > 0) $l.append(meterRow(T('Swap'), pct(s.swap.used_bytes, s.swap.total_bytes), T('%s of %s', F.bytes(s.swap.used_bytes), F.bytes(s.swap.total_bytes))));
+		$l.append(meterRow(T('States'), pct(s.states.current, s.states.max), T('%s of %s', F.num(s.states.current), F.num(s.states.max))));
+		$l.append(meterRow(T('MBUFs'), pct(s.mbuf.used, s.mbuf.max), T('%s of %s', F.num(s.mbuf.used), F.num(s.mbuf.max))));
+		return $l;
 	}
 
 	function render(w) {
@@ -63,13 +102,20 @@
 			kv($dl, T('MDS mitigation'), d.mds);
 			kv($dl, T('Time zone'), d.timezone);
 		}
-		w.$body.empty().append($hero, $dl);
+		w.$body.empty().append($hero);
+		var $load = load(w);
+		if ($load) w.$body.append($load);
+		w.$body.append($dl);
 	}
 
 	D.define('system', {
-		mount: function (w) { w.state.verAt = 0; },
+		mount: function (w) { w.state.verAt = 0; w.state.infoAt = 0; },
 		load: function (w) {
-			var jobs = [FS.api.get('/system/info').then(function (r) { w.state.info = r.data; })];
+			var jobs = [FS.api.get('/status/system').then(function (r) { w.state.stats = r.data; })];
+			if (Date.now() - w.state.infoAt > INFO_EVERY) {
+				w.state.infoAt = Date.now();
+				jobs.push(FS.api.get('/system/info').then(function (r) { w.state.info = r.data; }));
+			}
 			if (Date.now() - w.state.verAt > VERSION_EVERY) {
 				w.state.verAt = Date.now();
 				jobs.push(FS.api.get('/system/version').then(function (r) {
