@@ -158,6 +158,39 @@ function status_metrics_parse_temp($value) {
 }
 
 /*
+ * pure: `sysctl` temperature lines ("dev.cpu.0.temperature: 45.0C") → array
+ * of array(id, name, celsius), sorted by id. Unreadable sensors ("-1.0C",
+ * "-") are left out. Names: CPU n, ACPI zone n, PCH n, otherwise the driver.
+ */
+function status_metrics_parse_sensors($text) {
+	$out = array();
+	foreach (preg_split('/\r?\n/', (string)$text) as $line) {
+		if (!preg_match('/^([a-z0-9_.]+\.temperature):\s*(\S+)/i', trim($line), $m)) {
+			continue;
+		}
+		$celsius = status_metrics_parse_temp($m[2]);
+		if (($celsius === null) || ($celsius <= 0)) {
+			continue;
+		}
+		$id = $m[1];
+		if (preg_match('/^dev\.cpu\.(\d+)\./', $id, $n)) {
+			$name = sprintf('CPU %d', $n[1]);
+		} elseif (preg_match('/^hw\.acpi\.thermal\.tz(\d+)\./', $id, $n)) {
+			$name = sprintf('ACPI zone %d', $n[1]);
+		} elseif (preg_match('/^dev\.pchtherm\.(\d+)\./', $id, $n)) {
+			$name = sprintf('PCH %d', $n[1]);
+		} elseif (preg_match('/^dev\.([a-z0-9_]+)\.(\d+)\./', $id, $n)) {
+			$name = "{$n[1]} {$n[2]}";
+		} else {
+			$name = $id;
+		}
+		$out[] = array('id' => $id, 'name' => $name, 'celsius' => $celsius);
+	}
+	usort($out, function ($a, $b) { return strnatcmp($a['id'], $b['id']); });
+	return $out;
+}
+
+/*
  * `rrdtool xport` XML → array('t' => [...], <legend> => [...]). Values that
  * are NaN (no data) become null. Rows carry <t> with --showtime; without it
  * (rrdtool 1.11 default) row i is at start + i * step.
@@ -215,7 +248,7 @@ function status_metrics_cpu_usage() {
 function status_metrics_system() {
 	sysctl_prefetch(array('kern.cp_time', 'vm.stats.vm.v_page_count', 'vm.stats.vm.v_inactive_count',
 	    'vm.stats.vm.v_laundry_count', 'vm.stats.vm.v_free_count', 'hw.pagesize', 'hw.ncpu', 'hw.model',
-	    'dev.cpu.0.freq_levels', 'dev.cpu.0.freq', 'hw.acpi.thermal.tz0.temperature'));
+	    'dev.cpu.0.freq_levels', 'dev.cpu.0.freq'));
 
 	$ncpu = (int)get_single_sysctl('hw.ncpu');
 	$page = (int)get_single_sysctl('hw.pagesize') ?: 4096;
@@ -226,17 +259,6 @@ function status_metrics_system() {
 	$levels = explode(' ', trim((string)get_single_sysctl('dev.cpu.0.freq_levels')));
 	$maxfreq = (int)explode('/', $levels[0] ?? '')[0];
 
-	$temps = array();
-	for ($i = 0; $i < $ncpu; $i++) {
-		$t = status_metrics_parse_temp(get_single_sysctl("dev.cpu.{$i}.temperature"));
-		if ($t !== null) {
-			$temps[] = array('name' => sprintf('CPU %d', $i), 'celsius' => $t);
-		}
-	}
-	$tz = status_metrics_parse_temp(get_single_sysctl('hw.acpi.thermal.tz0.temperature'));
-	if ($tz !== null) {
-		$temps[] = array('name' => 'ACPI zone 0', 'celsius' => $tz);
-	}
 	sysctl_prefetch(null);
 
 	$mbuf = status_metrics_parse_mbuf((string)shell_exec('/usr/bin/vmstat -z --libxo=json 2>/dev/null'));
@@ -258,6 +280,60 @@ function status_metrics_system() {
 		'disks' => status_metrics_parse_df((string)shell_exec('/bin/df -kTt ufs,zfs,tmpfs,cd9660 2>/dev/null')),
 		'uptime_seconds' => (int)get_uptime_sec(),
 		'time' => gmdate('c'),
+	);
+}
+
+/* Every temperature sensor the hardware reports (the thermal sensors the RRD graphs too). */
+function status_metrics_sensors() {
+	return status_metrics_parse_sensors((string)shell_exec('/sbin/sysctl -q hw.acpi.thermal dev.cpu dev.t5nex dev.armada_thermal ' .
+	    'dev.cordbuc dev.pchtherm dev.amdtemp dev.coretemp 2>/dev/null'));
+}
+
+/*
+ * The slowly changing facts of the System widget: hardware, BIOS, build,
+ * kernel, crypto acceleration, CPU microcode and mitigations, DNS servers.
+ * The crypto helpers live in the WebUI's includes/functions.inc.php, which
+ * pkg-utils.inc loads; without them the crypto fields are empty.
+ */
+function status_metrics_identity() {
+	$platform = system_identify_specific_platform();
+	$kenv = function_exists('FreeSense_kenv_dump') ? FreeSense_kenv_dump() : array();
+	$bios = array('vendor' => (string)($kenv['smbios.bios.vendor'] ?? ''), 'version' => (string)($kenv['smbios.bios.version'] ?? ''),
+	    'date' => (string)($kenv['smbios.bios.reldate'] ?? ''));
+	$build = trim((string)@file_get_contents('/etc/version.buildtime'));
+	$crypto = array();
+	$algorithms = array();
+	if (function_exists('get_cpu_crypto_support')) {
+		$support = get_cpu_crypto_support();
+		foreach ((array)($support['accel'] ?? array()) as $accel) {
+			$crypto[] = array('name' => (string)$accel['name'], 'present' => (bool)$accel['present'], 'active' => (bool)$accel['enabled']);
+			if ($accel['present'] && $accel['enabled']) {
+				$algorithms = array_merge($algorithms, (array)$accel['algs']);
+			}
+		}
+		$algorithms = array_values(array_unique($algorithms));
+	}
+	$pti = (string)get_single_sysctl('vm.pmap.pti');
+	$mds = (string)get_single_sysctl('hw.mds_disable_state');
+	return array(
+		'hardware' => (string)($platform['descr'] ?? ''),
+		'serial' => (string)system_get_serial(),
+		'bios' => $bios,
+		'boot_method' => (string)get_single_sysctl('machdep.bootmethod'),
+		'arch' => php_uname('m'),
+		'kernel' => php_uname('s') . ' ' . php_uname('r'),
+		'build_time' => (($build !== '') && (strtotime($build) !== false)) ? gmdate('c', strtotime($build)) : null,
+		'cpu_packages' => function_exists('get_cpu_count') ? (string)get_cpu_count(true) : '',
+		'crypto' => $crypto,
+		'crypto_algorithms' => $algorithms,
+		'crypto_instructions' => cpu_crypto_features(),
+		'ipsec_offload' => interfaces_with_ipsec_offload(),
+		'microcode' => cpu_microcode_status(),
+		'pti' => ($pti === '') ? null : ($pti !== '0'),
+		'mds' => ($mds === '') ? null : $mds,
+		'dns_servers' => array_values((array)get_dns_nameservers(false, true)),
+		'timezone' => (string)config_get_path('system/timezone', 'Etc/UTC'),
+		'update_check' => !config_path_enabled('system/firmware', 'disablecheck'),
 	);
 }
 
@@ -340,9 +416,10 @@ function status_metrics_xport($range, $defs) {
 }
 
 /*
- * CPU and memory history in percent from the system RRDs: cpu = user + nice
- * + system + interrupt, mem = active + wired + laundry (of all memory).
- * Null when the RRDs do not exist yet.
+ * System history from the system RRDs: cpu = user + nice + system +
+ * interrupt and mem = active + wired + laundry (percent of all memory),
+ * mbuf in percent of the limit and states (entries) when those RRDs exist.
+ * Null when the processor and memory RRDs do not exist yet.
  */
 function status_metrics_system_history($range) {
 	$dir = g_get('vardb_path') . '/rrd';
@@ -353,14 +430,23 @@ function status_metrics_system_history($range) {
 	}
 	$c = escapeshellarg($cpu);
 	$m = escapeshellarg($mem);
-	$data = status_metrics_xport($range,
-	    "DEF:u={$c}:user:AVERAGE DEF:n={$c}:nice:AVERAGE DEF:s={$c}:system:AVERAGE DEF:i={$c}:interrupt:AVERAGE " .
+	$defs = "DEF:u={$c}:user:AVERAGE DEF:n={$c}:nice:AVERAGE DEF:s={$c}:system:AVERAGE DEF:i={$c}:interrupt:AVERAGE " .
 	    "DEF:a={$m}:active:AVERAGE DEF:w={$m}:wire:AVERAGE DEF:l={$m}:laundry:AVERAGE " .
-	    'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN CDEF:mem=a,w,ADDNAN,l,ADDNAN XPORT:cpu:cpu XPORT:mem:mem');
+	    'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN CDEF:mem=a,w,ADDNAN,l,ADDNAN XPORT:cpu:cpu XPORT:mem:mem';
+	if (is_file("{$dir}/system-mbuf.rrd")) {
+		$b = escapeshellarg("{$dir}/system-mbuf.rrd");
+		$defs .= " DEF:bt={$b}:total:AVERAGE DEF:bm={$b}:max:AVERAGE CDEF:mbuf=bt,bm,/,100,* XPORT:mbuf:mbuf";
+	}
+	if (is_file("{$dir}/system-states.rrd")) {
+		$st = escapeshellarg("{$dir}/system-states.rrd");
+		$defs .= " DEF:pfs={$st}:pfstates:AVERAGE XPORT:pfs:states";
+	}
+	$data = status_metrics_xport($range, $defs);
 	if ($data === null) {
 		return null;
 	}
-	return array('range' => $range, 'step' => $data['step'], 't' => $data['t'], 'cpu' => $data['cpu'] ?? array(), 'mem' => $data['mem'] ?? array());
+	return array('range' => $range, 'step' => $data['step'], 't' => $data['t'], 'cpu' => $data['cpu'] ?? array(), 'mem' => $data['mem'] ?? array(),
+	    'mbuf' => $data['mbuf'] ?? null, 'states' => $data['states'] ?? null);
 }
 
 /*
@@ -585,25 +671,37 @@ function status_metrics_top_talkers($if, $limit = 20) {
 	return array('hosts' => array_slice($hosts, 0, $limit), 'age' => max(0, time() - $mtime));
 }
 
-/* Traffic history in bits/s from the interface's RRD, or null when there is none. */
+/*
+ * Traffic history from the interface's RRDs: passed and blocked bits/s
+ * (IPv4 + IPv6) and, when the packets RRD exists, passed packets/s. Null
+ * when there is no traffic RRD.
+ */
 function status_metrics_traffic_history($if, $range) {
 	$ranges = status_metrics_ranges();
 	if (!isset($ranges[$range]) || !preg_match('/^[a-z][a-z0-9_]{0,31}$/', (string)$if)) {
 		return null;
 	}
-	$file = g_get('vardb_path') . "/rrd/{$if}-traffic.rrd";
+	$dir = g_get('vardb_path') . '/rrd';
+	$file = "{$dir}/{$if}-traffic.rrd";
 	if (!is_file($file)) {
 		return null;
 	}
-	list($back, $step) = $ranges[$range];
 	$f = escapeshellarg($file);
-	$cmd = '/usr/local/bin/rrdtool xport --showtime --start ' . escapeshellarg("-{$back}") . ' --end now --step ' . (int)$step .
-	    " DEF:ip={$f}:inpass:AVERAGE DEF:ip6={$f}:inpass6:AVERAGE DEF:op={$f}:outpass:AVERAGE DEF:op6={$f}:outpass6:AVERAGE" .
-	    ' CDEF:in=ip,ip6,ADDNAN,8,* CDEF:out=op,op6,ADDNAN,8,* XPORT:in:in_bps XPORT:out:out_bps 2>/dev/null';
-	$data = status_metrics_parse_xport((string)shell_exec($cmd));
-	if (!is_array($data)) {
+	$defs = "DEF:ip={$f}:inpass:AVERAGE DEF:ip6={$f}:inpass6:AVERAGE DEF:op={$f}:outpass:AVERAGE DEF:op6={$f}:outpass6:AVERAGE" .
+	    " DEF:ib={$f}:inblock:AVERAGE DEF:ib6={$f}:inblock6:AVERAGE DEF:ob={$f}:outblock:AVERAGE DEF:ob6={$f}:outblock6:AVERAGE" .
+	    ' CDEF:in=ip,ip6,ADDNAN,8,* CDEF:out=op,op6,ADDNAN,8,* CDEF:inb=ib,ib6,ADDNAN,8,* CDEF:outb=ob,ob6,ADDNAN,8,*' .
+	    ' XPORT:in:in_bps XPORT:out:out_bps XPORT:inb:in_block_bps XPORT:outb:out_block_bps';
+	if (is_file("{$dir}/{$if}-packets.rrd")) {
+		$p = escapeshellarg("{$dir}/{$if}-packets.rrd");
+		$defs .= " DEF:pi={$p}:inpass:AVERAGE DEF:pi6={$p}:inpass6:AVERAGE DEF:po={$p}:outpass:AVERAGE DEF:po6={$p}:outpass6:AVERAGE" .
+		    ' CDEF:inp=pi,pi6,ADDNAN CDEF:outp=po,po6,ADDNAN XPORT:inp:in_pps XPORT:outp:out_pps';
+	}
+	$data = status_metrics_xport($range, $defs);
+	if ($data === null) {
 		return null;
 	}
 	return array('interface' => $if, 'range' => $range, 'step' => $data['step'], 't' => $data['t'],
-	    'in_bps' => $data['in_bps'] ?? array(), 'out_bps' => $data['out_bps'] ?? array());
+	    'in_bps' => $data['in_bps'] ?? array(), 'out_bps' => $data['out_bps'] ?? array(),
+	    'in_block_bps' => $data['in_block_bps'] ?? array(), 'out_block_bps' => $data['out_block_bps'] ?? array(),
+	    'in_pps' => $data['in_pps'] ?? null, 'out_pps' => $data['out_pps'] ?? null);
 }

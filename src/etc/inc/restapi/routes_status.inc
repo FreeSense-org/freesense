@@ -45,11 +45,11 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/traffic/history', 'restapi_h_status_traffic_history', array(
 			'page' => 'status_graph.php', 'area' => 'status',
 			'query' => array('if' => 'Interface (wan, lan, opt1)', 'range' => '10m, 1h, 24h, 7d or 30d'),
-			'summary' => 'Traffic history in bits/s from the interface RRD')),
+			'summary' => 'Traffic history from the interface RRDs: passed and blocked bits/s, passed packets/s')),
 		restapi_route('GET', '/v1/status/system/history', 'restapi_h_status_system_history', array(
 			'page' => 'index.php', 'area' => 'system',
 			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
-			'summary' => 'CPU and memory use in percent over time (system RRDs)')),
+			'summary' => 'CPU, memory and mbuf use in percent and state table entries over time (system RRDs)')),
 		restapi_route('GET', '/v1/status/gateways/history', 'restapi_h_status_gateway_history', array(
 			'page' => 'status_gateways.php', 'area' => 'status',
 			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
