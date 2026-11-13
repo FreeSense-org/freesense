@@ -85,6 +85,7 @@ if (!function_exists('set_language')) {
 	require_once("freesense-utils.inc");
 }
 
+require_once("webui_prefs.inc");
 set_language();
 
 /* Some ajax scripts still need access to GUI */

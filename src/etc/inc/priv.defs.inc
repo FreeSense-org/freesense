@@ -1200,10 +1200,10 @@ $priv_list['page-system-boot-environments']['match'] = array();
 $priv_list['page-system-boot-environments']['match'][] = "system_boot_environments.php*";
 
 $priv_list['page-system-user-settings'] = array();
-$priv_list['page-system-user-settings']['name'] = gettext("WebCfg - System: User Settings");
-$priv_list['page-system-user-settings']['descr'] = gettext("Allow access to the 'System: User Settings' page.");
+$priv_list['page-system-user-settings']['name'] = gettext("WebCfg - System: Account");
+$priv_list['page-system-user-settings']['descr'] = gettext("Allow access to the 'Account' page: profile, appearance, preferences and sessions.");
 $priv_list['page-system-user-settings']['match'] = array();
-$priv_list['page-system-user-settings']['match'][] = "system_user_settings.php*";
+$priv_list['page-system-user-settings']['match'][] = "account.php*";
 
 $priv_list['page-system-usermanager'] = array();
 $priv_list['page-system-usermanager']['name'] = gettext("WebCfg - System: User Manager");

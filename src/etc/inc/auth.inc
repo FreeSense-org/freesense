@@ -2468,7 +2468,12 @@ function session_auth() {
 				return true;
 			} else {
 				if (empty($page)) {
-					$page = "/";
+					/* The user's own start page (Account > Preferences); a validated local path. */
+					require_once("webui_prefs.inc");
+					$page = webui_prefs_get((string)($_SESSION['Username'] ?? ''))['start_page'];
+					if ($page === '') {
+						$page = "/";
+					}
 				}
 				header("Location: {$page}");
 			}

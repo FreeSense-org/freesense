@@ -163,6 +163,7 @@ FreeSense_handle_custom_code("/usr/local/pkg/dashboard/pre_dashboard");
 	</div>
 </div>
 
+<?php $dash_config['live'] = (($fs_user_prefs['live'] ?? 'on') !== 'off'); ?>
 <script type="application/json" id="fs-dash-config"><?=json_encode($dash_config, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES)?></script>
 
 <div class="offcanvas offcanvas-end fs-dash" tabindex="-1" id="fs-dash-catalogue" aria-labelledby="fs-dash-catalogue-title">

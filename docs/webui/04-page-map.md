@@ -104,7 +104,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system_usermanager | List + Editor (`act=edit`) | existing bulk becomes the bulk bar; badges (disabled, expired); search | B | M |
 | system_groupmanager | List + Editor | standard | B | |
 | system_usermanager_addprivs, _groupmanager_addprivs | Editor | **done**: the multi-select, its hidden shadow copy, the filter box and Filter/Clear buttons are one searchable checklist (grouped, descriptions inline, admin-level badges, Selected only); Cancel returns to the user / group | D | |
-| system_usermanager_settings, _passwordmg, system_user_settings | Settings | standard | D | |
+| system_usermanager_settings, _passwordmg, account | Settings | standard | D | |
 | system_authservers | List + Editor | standard | B / D | |
 | system_camanager, _certmanager, _crlmanager | List + Editor | **delete the hand-rolled search JS**, use `data-fs-table` (with a column filter replacing "Name/DN/Both"); badges for expiry (warn < 30 days, block when expired) | B | M |
 | system_certmanager_renew | Tool | standard | E | |

@@ -86,7 +86,7 @@ check(strpos($head, 'dashboardcolumns') === false && strpos($head, 'btnstore') =
 
 /* No 1.x widget settings remain */
 foreach (['src/etc/inc/auth.inc', 'src/etc/inc/util.inc', 'src/usr/local/www/guiconfig.inc', 'src/usr/local/www/system.php',
-    'src/usr/local/www/system_user_settings.php', 'src/usr/local/FreeSense/include/www/system_general.inc'] as $f) {
+    'src/usr/local/www/account.php', 'src/usr/local/FreeSense/include/www/system_general.inc'] as $f) {
 	$s = file_get_contents("{$root}/{$f}");
 	check(strpos($s, 'save_widget_settings') === false && strpos($s, 'is_valid_widgetkey(') === false && strpos($s, 'gen_dashboardcolumns_field') === false,
 	    "{$f} has no 1.x widget helpers");
@@ -119,8 +119,13 @@ check(strpos(file_get_contents("{$www}/js/fs-chart.js"), 'FS.chart.donut = funct
 $prefs = file_get_contents("{$root}/src/etc/inc/webui_prefs.inc");
 check(strpos($prefs, "'nav' => '/^(top|side)\$/'") !== false && strpos($prefs, "'nav' => (string)(\$d['nav'] ?? 'top')") !== false, 'nav is a validated preference, top by default');
 check(strpos($head, "\$fs_user_prefs['nav'] === 'side'") !== false && strpos($head, "'fs-nav-side'") !== false && strpos($head, 'data-fs-side-toggle') !== false, 'head.inc switches the body to the sidebar layout');
-$us = file_get_contents("{$www}/system_user_settings.php");
-check(strpos($us, "webui_prefs_put(\$_SESSION['Username'], ['nav' => \$nav_pick]);") !== false && strpos($us, "'webuinav'") !== false, 'User Settings saves the choice as a preference (outside config.xml)');
+check(!file_exists("{$www}/system_user_settings.php") && file_exists("{$www}/account.php"), 'User Settings became the Account page');
+$us = file_get_contents("{$www}/account.php");
+check(strpos($us, "webui_prefs_put(\$username, \$values)") !== false && strpos($us, "'nav'") !== false && strpos($us, "'language'") !== false, 'Account saves appearance as preferences (outside config.xml)');
+check(strpos($us, 'page-system-user-settings') !== false && strpos($us, 'account.php*') !== false, 'the Account page keeps its privilege');
+check(strpos($head, 'fs-nav-account') !== false && strpos($head, 'fs-nav-palette') !== false && strpos($head, '/account.php') !== false && strpos($head, 'data-fs-accent') !== false,
+    'head.inc has the account and appearance menus in both layouts');
+check(strpos(file_get_contents("{$root}/src/etc/FreeSense.obsoletedfiles"), '/usr/local/www/system_user_settings.php') !== false, 'the old page is listed as obsolete');
 check(strpos(file_get_contents("{$www}/css/_freesense-core.css"), 'body.fs-nav-side > #topmenu.navbar') !== false, 'the sidebar styles exist');
 
 echo "DashboardSmokeTest: OK

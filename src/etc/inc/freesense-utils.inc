@@ -4473,6 +4473,10 @@ function set_language() {
 	} elseif (!empty(g_get('language'))) {
 		$lang = g_get('language');
 	}
+	/* A language the signed-in user picked in Account > Appearance wins. */
+	if (function_exists('webui_user_language') && (($user_lang = webui_user_language()) !== '')) {
+		$lang = $user_lang;
+	}
 	$lang .= ".UTF-8";
 
 	putenv("LANG={$lang}");

@@ -71,6 +71,8 @@ function webui_pref_defaults() {
 		'density' => (string)($d['density'] ?? 'comfortable'),
 		'nav' => (string)($d['nav'] ?? 'top'),
 		'start_page' => '/',
+		'live' => 'on',
+		'language' => '',
 	);
 }
 
@@ -85,7 +87,9 @@ function webui_pref_validate(array $in) {
 		'accent' => '/^([a-z][a-z0-9-]{0,23})?$/',
 		'density' => '/^(comfortable|compact)$/',
 		'nav' => '/^(top|side)$/',
-		'start_page' => '#^/[A-Za-z0-9/_.-]{0,200}$#',
+		'start_page' => '#^(?!.*\.\.)/([A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*)?$#',
+		'live' => '/^(on|off)$/',
+		'language' => '/^([a-z]{2,3}(_[A-Za-z]{2,4}){0,2})?$/',
 	);
 	$out = array();
 	$errors = array();
@@ -100,6 +104,8 @@ function webui_pref_validate(array $in) {
 				'density' => 'One of comfortable or compact.',
 				'nav' => 'One of top (menu bar) or side (sidebar).',
 				'start_page' => 'A WebUI path such as /network/interfaces.',
+				'live' => 'One of on or off.',
+				'language' => 'A language code such as en_US, or empty for the system language.',
 			)[$k];
 		} else {
 			$out[$k] = $v;
@@ -112,6 +118,18 @@ function webui_prefs_get($username) {
 	$saved = webui_read_json(webui_user_file('prefs', $username)) ?? array();
 	list($clean) = webui_pref_validate(array_intersect_key($saved, webui_pref_defaults()));
 	return array_merge(webui_pref_defaults(), $clean);
+}
+
+/*
+ * The language the signed-in user chose, or '' for the system language. Only
+ * a language FreeSense ships a translation for is returned.
+ */
+function webui_user_language() {
+	if (empty($_SESSION['Username']) || !function_exists('get_locale_list')) {
+		return '';
+	}
+	$lang = webui_prefs_get((string)$_SESSION['Username'])['language'];
+	return ($lang !== '' && isset(get_locale_list()[$lang])) ? $lang : '';
 }
 
 function webui_prefs_put($username, array $values) {
@@ -202,6 +220,32 @@ function webui_profile_validate(array $in) {
 		}
 	}
 	return array($out, $errors);
+}
+
+/*
+ * Save a validated profile change (webui_profile_validate()) for a local user:
+ * the display name and the email address in config.xml. Returns null, or the
+ * reason it could not be saved. Used by the REST route and the Account page.
+ */
+function webui_profile_save($username, array $values) {
+	$entry = getUserEntry($username);
+	if (!isset($entry['idx'])) {
+		return 'User not found.';
+	}
+	$path = "system/user/{$entry['idx']}";
+	if (array_key_exists('name', $values)) {
+		config_set_path("{$path}/descr", $values['name']);
+	}
+	if (array_key_exists('email', $values)) {
+		if ($values['email'] === '') {
+			config_del_path("{$path}/email");
+		} else {
+			config_set_path("{$path}/email", $values['email']);
+		}
+	}
+	write_config(sprintf(gettext('Profile of %s changed in the WebUI.'), $username));
+	local_user_set(config_get_path($path));
+	return null;
 }
 
 /* ----------------------------------------------------------- sessions */
