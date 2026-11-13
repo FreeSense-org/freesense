@@ -14,7 +14,7 @@
 	'use strict';
 
 	var T = FS.t, F = FS.fmt, el = D.el;
-	var RANGE = { 600: '10m', 3600: '1h', 86400: '24h' };
+	var RANGE = { 120: '10m', 600: '10m', 3600: '1h', 86400: '24h' };
 
 	function name(w) {
 		var i = (D.config.interfaces || []).filter(function (x) { return x.name === w.settings.interface; })[0];
