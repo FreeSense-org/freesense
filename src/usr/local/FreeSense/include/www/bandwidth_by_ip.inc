@@ -129,11 +129,11 @@ function printBandwidth($interface, $filter, $sort, $hostipformat, $mode) {
 					killbypid("/var/run/iftop_{$real_interface}.pid");
 				}
 				@unlink("/var/run/iftop_{$real_interface}.pid");
-				$_grb = exec( "/usr/local/bin/iftop_parser.sh {$real_interface} {$current_ts}", $listedIPs );
+				$_grb = exec("/usr/local/bin/iftop_parser.sh " . escapeshellarg($real_interface) . " " . (int)$current_ts, $listedIPs);
 			}
 		} else {
 			// refresh iftop infos
-			$_grb = exec( "/usr/local/bin/iftop_parser.sh {$real_interface} {$current_ts}", $listedIPs );
+			$_grb = exec("/usr/local/bin/iftop_parser.sh " . escapeshellarg($real_interface) . " " . (int)$current_ts, $listedIPs);
 		}
 
 		// order and group by
@@ -171,7 +171,7 @@ function printBandwidth($interface, $filter, $sort, $hostipformat, $mode) {
 		}
 
 	} else {
-		$_grb = exec("/usr/local/bin/rate -i {$real_interface} -nlq 1 -Aba 20 {$sort_method} {$ratesubnet} | /usr/bin/tr \"|\" \" \" | /usr/bin/awk '{ printf \"%s;%s;%s;%s;%s\\n\", $1,  $2,  $4,  $6,  $8 }'", $listedIPs);
+		$_grb = exec("/usr/local/bin/rate -i " . escapeshellarg($real_interface) . " -nlq 1 -Aba 20 {$sort_method} {$ratesubnet} | /usr/bin/tr \"|\" \" \" | /usr/bin/awk '{ printf \"%s;%s;%s;%s;%s\\n\", $1,  $2,  $4,  $6,  $8 }'", $listedIPs);
 	}
 
 	$someinfo = false;

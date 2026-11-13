@@ -22,11 +22,9 @@ Versions are read from the files' own banners.
 | Font Awesome Free | 7.3.1 | Current. |
 | js-cookie | 3.0.8 | Current. No known CVE. |
 | jquery.cookie (in `jquery-treegrid/js/`) | 1.3.1 | **Removed.** CVE-2022-23395 (prototype pollution leading to DOM XSS) affects 1.3.1, but no page loaded the file: `foot.inc` loads js-cookie 3.0.8 and `js/jquery-cookie-shim.js`, which gives jquery-treegrid the `$.cookie` calls it needs. The unused file is removed from the package and from installed systems (`FreeSense.obsoletedfiles`). |
-| jquery-treegrid | 0.3.0 | Unmaintained. No known CVE. Its development files (Gruntfile.js, package.json, bower.json, README.md) are still served. |
-| d3 | 3.5.17 | Unmaintained major version (v3). No known CVE. |
-| d3pie | 0.1.8 (internal version string 0.1.6) | Unmaintained. No known CVE. |
-| nvd3 | 1.8.6 | Unmaintained; its tooltips insert HTML. No known CVE. |
-| visibility.js | 2.0.2 | Unmaintained. No known CVE. |
+| jquery-treegrid | 0.3.0 | Unmaintained. No known CVE. Its development files are removed. |
+| uPlot | 1.6.32 | Current (MIT). No known CVE. The only chart library: time series through `js/fs-chart.js`; sparklines, rings, donuts and meters are plain SVG. |
+| d3, d3pie, nvd3, visibility.js | 3.5.17, 0.1.8, 1.8.6, 2.0.2 | **Removed** in 1.2 (dashboard v2): unmaintained, and nvd3 tooltips inserted HTML. Listed in `FreeSense.obsoletedfiles`. |
 | sortable.js | unversioned, locally modified | No known CVE. |
 | csrf-magic | 1.0.4 | Unmaintained. No known CVE. |
 
@@ -94,7 +92,7 @@ against this code base. The ones not listed are not affected or do not apply
    later, expat 2.10.0 and sqlite3 3.54; otherwise overlay the port.
 2. Ship an sshguard port patch that detects webConfigurator login failures.
 3. Replace phpseclib (voucher keys can be made with OpenSSL).
-4. Plan removal or replacement of the d3 v3, d3pie and nvd3 components and the
-   jquery-treegrid development files.
+4. Done in 1.2: d3 v3, d3pie, nvd3 and visibility.js are replaced by uPlot, and
+   the jquery-treegrid development files are no longer served.
 5. PEAR XML_RPC2 comes from FreeBSD ports, not from this repository; check it at
    each FreeBSD pin refresh.

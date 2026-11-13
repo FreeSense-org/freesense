@@ -330,6 +330,34 @@
 			'<text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" class="fs-ring-text">' + (known ? Math.round(pct) + '%' : FS.fmt.dash) + '</text></svg>';
 	};
 
+	/*
+	 * SVG donut: items [{label, value, color}] (color: a CSS colour or a
+	 * --token). Each segment carries a <title> tooltip: "label: value (n%)".
+	 */
+	FS.chart.donut = function (items, o) {
+		o = $.extend({ size: 208, inner: 0.58, label: '', gap: 1 }, o);
+		var total = items.reduce(function (n, i) { return n + (+i.value || 0); }, 0);
+		var r = o.size / 2, ri = r * o.inner, mid = r, svg = '<svg class="fs-donut" viewBox="0 0 ' + o.size + ' ' + o.size + '" width="100%" height="100%" role="img" aria-label="' + FS.esc(o.label) + '">';
+		if (!total) return svg + '</svg>';
+		var a0 = -Math.PI / 2;
+		items.forEach(function (it) {
+			var v = +it.value || 0;
+			if (v <= 0) return;
+			var frac = v / total, a1 = a0 + frac * 2 * Math.PI;
+			var col = (String(it.color).indexOf('--') === 0) ? 'var(' + it.color + ')' : it.color;
+			var pct = Math.round(frac * 1000) / 10, tip = FS.esc(it.label + ': ' + v.toLocaleString() + ' (' + pct + '%)');
+			if (frac >= 0.9999) {
+				svg += '<circle cx="' + mid + '" cy="' + mid + '" r="' + ((r + ri) / 2) + '" fill="none" stroke-width="' + (r - ri) + '" style="stroke:' + col + '"><title>' + tip + '</title></circle>';
+			} else {
+				var large = (a1 - a0) > Math.PI ? 1 : 0, p = function (rad, a) { return (mid + rad * Math.cos(a)).toFixed(2) + ' ' + (mid + rad * Math.sin(a)).toFixed(2); };
+				svg += '<path d="M' + p(r, a0) + ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' + p(r, a1) + ' L' + p(ri, a1) + ' A' + ri + ' ' + ri + ' 0 ' + large + ' 0 ' + p(ri, a0) +
+					' Z" style="fill:' + col + '" class="fs-donut-seg"><title>' + tip + '</title></path>';
+			}
+			a0 = a1;
+		});
+		return svg + '</svg>';
+	};
+
 	/* Horizontal meter bar, 0-100 %. */
 	FS.chart.meter = function (pct, o) {
 		o = $.extend({ warn: 75, crit: 90, label: '' }, o);

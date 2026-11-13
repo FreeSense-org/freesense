@@ -316,16 +316,40 @@ function status_metrics_states() {
  * Current counters and rates (bits/s, packets/s) for the given interfaces
  * (friendly names such as wan, lan, opt1); all assigned interfaces when empty.
  */
-function status_metrics_traffic(array $ifnames = array()) {
+/*
+ * Interfaces a traffic graph may show: the assigned ones plus IPsec (enc0),
+ * enabled OpenVPN instances and IPsec VTIs (the Status > Traffic Graph list).
+ */
+function status_metrics_traffic_sources() {
 	$all = get_configured_interface_with_descr();
+	if (function_exists('ipsec_enabled') && ipsec_enabled()) {
+		$all['enc0'] = gettext('IPsec');
+	}
+	foreach (array('server', 'client') as $mode) {
+		foreach ((array)config_get_path("openvpn/openvpn-{$mode}", array()) as $s) {
+			if (is_array($s) && !isset($s['disable']) && isset($s['vpnid'])) {
+				$all['ovpn' . substr($mode, 0, 1) . (int)$s['vpnid']] = gettext('OpenVPN') . " {$mode}: " . (string)($s['description'] ?? '');
+			}
+		}
+	}
+	if (function_exists('interface_ipsec_vti_list_all')) {
+		$all = array_merge($all, interface_ipsec_vti_list_all());
+	}
+	return $all;
+}
+
+function status_metrics_traffic(array $ifnames = array()) {
+	$all = status_metrics_traffic_sources();
 	$ifnames = empty($ifnames) ? array_keys($all) : array_values(array_intersect($ifnames, array_keys($all)));
 	$prev = status_metrics_sample_read(STATUS_METRICS_IF_SAMPLE);
 	$next = $prev;
 	$now = microtime(true);
 	$out = array();
+	$assigned = get_configured_interface_with_descr();
 	foreach ($ifnames as $if) {
-		$realif = get_real_interface($if);
-		if (empty($realif)) {
+		/* enc0, ovpnsN, ovpncN and ipsecN are device names already */
+		$realif = isset($assigned[$if]) ? get_real_interface($if) : $if;
+		if (empty($realif) || !does_interface_exist($realif)) {
 			continue;
 		}
 		$s = FreeSense_get_interface_stats($realif);
