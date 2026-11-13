@@ -96,14 +96,15 @@ function dashboard_manifest_parse(string $json, string $type): ?array {
  * pure: the layout a user starts with, from the widget types they may use.
  * It follows the 1.x default (two columns: System Information and Traffic
  * Graphs on the left; Interfaces, Gateways and Services on the right), with
- * System Information split into System and Resources. The grid packs each
+ * the System widget in place of System Information (CPU load included;
+ * Resources stays in the catalogue). The grid packs each
  * half like a column (masonry, js/fs-dashboard.js).
  */
 function dashboard_default_layout(array $catalogue): array {
 	$want = [
 		['system', 'lg', []], ['interfaces', 'lg', []],
-		['resources', 'lg', []], ['gateways', 'lg', []],
-		['traffic', 'lg', ['interface' => 'wan']], ['services', 'lg', []],
+		['traffic', 'lg', ['interface' => 'wan']], ['gateways', 'lg', []],
+		['services', 'lg', []],
 	];
 	$out = [];
 	foreach ($want as $i => list($type, $size, $settings)) {

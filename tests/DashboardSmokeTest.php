@@ -61,9 +61,9 @@ foreach (['system', 'resources', 'interfaces', 'interface-detail', 'traffic', 'g
 
 /* The default layout follows the 1.x two-column default */
 $layout = dashboard_default_layout($catalogue);
-check(array_column($layout, 'type') === ['system', 'interfaces', 'resources', 'gateways', 'traffic', 'services'] &&
-    array_unique(array_column($layout, 'size')) === ['lg'], 'the default layout: System, Resources, Traffic beside Interfaces, Gateways, Services');
-check((array)$layout[4]['settings'] === ['interface' => 'wan'], 'the default traffic widget shows WAN');
+check(array_column($layout, 'type') === ['system', 'interfaces', 'traffic', 'gateways', 'services'] &&
+    array_unique(array_column($layout, 'size')) === ['lg'], 'the default layout: System, Traffic beside Interfaces, Gateways, Services (Resources only from the catalogue)');
+check((array)$layout[2]['settings'] === ['interface' => 'wan'], 'the default traffic widget shows WAN');
 check(count(dashboard_default_layout(['services' => $catalogue['services']])) === 1, 'widgets the user may not use are left out');
 
 /* The page shell */
