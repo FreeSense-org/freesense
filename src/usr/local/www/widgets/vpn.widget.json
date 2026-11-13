@@ -1,0 +1,26 @@
+{
+	"type": "vpn",
+	"title": "VPN tunnels",
+	"description": "WireGuard, OpenVPN and IPsec tunnels together",
+	"icon": "fa-shield-halved",
+	"tone": "series-5",
+	"category": "VPN",
+	"page": "index.php",
+	"order": 50,
+	"sizes": [
+		"md",
+		"lg",
+		"xl"
+	],
+	"size": "md",
+	"every": 10,
+	"strings": [
+		"up",
+		"connecting",
+		"idle",
+		"down",
+		"handshake %s",
+		"up %s",
+		"No VPN tunnels are configured."
+	]
+}

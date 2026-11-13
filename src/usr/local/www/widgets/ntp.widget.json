@@ -1,0 +1,26 @@
+{
+	"type": "ntp",
+	"title": "NTP",
+	"description": "The time source the clock follows and the other peers",
+	"icon": "fa-clock",
+	"tone": "series-7",
+	"category": "System",
+	"page": "status_ntpd.php",
+	"link": "/status_ntpd.php",
+	"order": 35,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "sm",
+	"every": 60,
+	"strings": [
+		"Synchronised",
+		"Not synchronised",
+		"The NTP server is off",
+		"Stratum %s",
+		"offset %s ms",
+		"Peers"
+	]
+}

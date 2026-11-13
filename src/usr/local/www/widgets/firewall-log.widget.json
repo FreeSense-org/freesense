@@ -1,0 +1,70 @@
+{
+	"type": "firewall-log",
+	"title": "Firewall log",
+	"description": "Live tail of the firewall log",
+	"icon": "fa-scroll",
+	"tone": "neutral",
+	"category": "Security",
+	"page": "status_logs_filter.php",
+	"link": "/status_logs_filter.php",
+	"order": 40,
+	"sizes": [
+		"md",
+		"lg",
+		"xl",
+		"full"
+	],
+	"size": "lg",
+	"every": 5,
+	"allow_copies": true,
+	"settings": [
+		{
+			"key": "rows",
+			"type": "number",
+			"label": "Rows",
+			"value": 10,
+			"min": 3,
+			"max": 50
+		},
+		{
+			"key": "action",
+			"type": "select",
+			"label": "Show",
+			"options": [
+				[
+					"",
+					"Every action"
+				],
+				[
+					"block,reject",
+					"Blocked and rejected"
+				],
+				[
+					"pass",
+					"Passed"
+				]
+			],
+			"value": ""
+		},
+		{
+			"key": "interface",
+			"type": "interface",
+			"label": "Interface",
+			"value": ""
+		}
+	],
+	"strings": [
+		"Time",
+		"Interface",
+		"Action",
+		"Source",
+		"Destination",
+		"Protocol",
+		"Pass",
+		"Block",
+		"Reject",
+		"Match",
+		"No log entries yet.",
+		"Every interface"
+	]
+}

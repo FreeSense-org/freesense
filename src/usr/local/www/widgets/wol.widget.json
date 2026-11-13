@@ -1,0 +1,24 @@
+{
+	"type": "wol",
+	"title": "Wake on LAN",
+	"description": "Wake stored devices with one click",
+	"icon": "fa-power-off",
+	"tone": "series-6",
+	"category": "Network",
+	"page": "services_wol.php",
+	"link": "/services_wol.php",
+	"order": 28,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 0,
+	"strings": [
+		"Wake",
+		"Wake %s",
+		"Magic packet sent to %s",
+		"No devices are stored."
+	]
+}

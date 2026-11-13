@@ -149,7 +149,7 @@ function dashboard_i18n(array $catalogue): array {
 		'%s removed. Add it again from Add widget.', 'Reset the dashboard?', 'Every widget goes back to the default layout and settings.',
 		'Reset', 'The dashboard is empty. Use Add widget to place some.', 'Reset to default', 'Other', 'Request failed', 'Request failed (HTTP %s)',
 		'The firewall did not answer', 'Your session has ended, so live data stopped updating.', 'Sign in again', 'Close',
-		'just now', '%ss ago', '%sm ago', '%sh ago', '%sd ago', 'Chart', 'Charts are not available.', 'Copy', 'Copied',
+		'just now', '%ss ago', '%sm ago', '%sh ago', '%sd ago', 'Chart', 'Charts are not available.', 'Copy', 'Copied', 'Every interface',
 	];
 	foreach ($catalogue as $m) {
 		$strings = array_merge($strings, $m['strings']);

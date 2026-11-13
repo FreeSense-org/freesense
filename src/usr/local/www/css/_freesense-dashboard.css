@@ -355,3 +355,45 @@
 .fs-notice > i { margin-top: 3px; }
 .fs-notice p { margin: 2px 0; font-size: var(--fs-fs-sm); overflow-wrap: anywhere; }
 .fs-notice--crit > i { color: var(--fs-block); } .fs-notice--warn > i { color: var(--fs-warn); } .fs-notice--info > i { color: var(--fs-info); }
+
+/* Firewall log */
+.fs-log-mini { font-size: var(--fs-fs-sm); --bs-table-bg: transparent; }
+.fs-log-mini th { font-size: var(--fs-fs-xs); font-weight: 600; color: var(--fs-text-muted); white-space: nowrap; }
+.fs-log-mini td { white-space: nowrap; }
+.fs-log-mini tr.is-new > td { animation: fs-row-in 1.6s ease-out; }
+@keyframes fs-row-in { 0% { background: color-mix(in srgb, var(--fs-d-accent) 18%, transparent); } 100% { background: transparent; } }
+
+/* State table, NTP */
+.fs-stat { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.fs-stat-val { font-size: 1.6rem; font-weight: 700; color: var(--fs-text-strong); font-variant-numeric: tabular-nums; line-height: 1.2; }
+.fs-stat-sub { color: var(--fs-text-muted); font-size: var(--fs-fs-sm); }
+.fs-states-spark { height: 36px; margin: 6px 0 10px; }
+.fs-kv-inline { display: flex; gap: 20px; flex-wrap: wrap; }
+.fs-kv-inline > div { display: block; border: 0; padding: 0; }
+.fs-kv-inline dd { font-family: var(--fs-font-mono); font-weight: 600; }
+
+/* Top talkers */
+.fs-talkers > li { border: 0; padding: 5px 0; }
+.fs-talker-row { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-fs-sm); }
+.fs-talker-bar { display: flex; height: 6px; margin-top: 4px; background: var(--fs-d-card-2); border-radius: 99px; overflow: hidden; }
+.fs-talker-bar .in { background: var(--fs-series-1); }
+.fs-talker-bar .out { background: var(--fs-series-2); }
+
+/* DHCP leases, VPN */
+.fs-lease { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; }
+.fs-lease-top { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.fs-lease-top input { max-width: 220px; }
+.fs-lease-count { white-space: nowrap; font-size: var(--fs-fs-sm); }
+.fs-vpn { display: grid; grid-template-columns: auto auto 1fr auto; gap: 10px; align-items: center; }
+.fs-vpn-type { color: var(--fs-text-muted); width: 1.25em; text-align: center; }
+.fs-vpn-bytes { display: flex; flex-direction: column; font-size: var(--fs-fs-xs); }
+
+/* Quick actions */
+.fs-qa-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.fs-qa {
+	display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 72px;
+	border: 1px solid var(--fs-d-line); border-radius: var(--fs-d-radius-sm); background: var(--fs-d-card); color: var(--fs-text);
+	text-decoration: none; font-size: var(--fs-fs-sm); transition: border-color var(--fs-t-fast);
+}
+.fs-qa:hover, .fs-qa:focus-visible { border-color: var(--fs-d-accent); color: var(--fs-text-strong); }
+.fs-qa i { font-size: 1.1rem; color: var(--fs-coral-text); }

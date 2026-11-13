@@ -307,6 +307,8 @@
 			if (s.type === 'select' || s.type === 'interface') {
 				$in = $('<select class="form-select"></select>');
 				var opts = (s.type === 'interface') ? D.interfaceOptions() : (s.options || []);
+				/* An interface setting that defaults to '' also offers "every interface". */
+				if (s.type === 'interface' && s.value === '') opts = [['', T('Every interface')]].concat(opts);
 				opts.forEach(function (o) {
 					$in.append($('<option></option>').val(o[0]).text(s.type === 'interface' ? o[1] : T(o[1])).prop('selected', String(o[0]) === String(value)));
 				});
