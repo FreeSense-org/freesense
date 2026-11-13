@@ -161,9 +161,9 @@ $page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_perfo
 foreach (["'microcode_early',", "'Power Savings - ' . \$hwpstate_name", "\$hwpstate_amd ? 'AMD CPPC' : 'Intel Speed Shift'"] as $needle) {
 	check_cpu(strpos($page, $needle) !== false, "the Performance page is missing {$needle}");
 }
-$widget = file_get_contents(__DIR__ . '/../src/usr/local/www/widgets/widgets/system_information.widget.php');
-foreach (["'microcode' => gettext('CPU Microcode')", '$microcode = cpu_microcode_status();', '$cpu_features = cpu_crypto_features();'] as $needle) {
-	check_cpu(strpos($widget, $needle) !== false, "the System Information widget is missing {$needle}");
+$metrics = file_get_contents(__DIR__ . '/../src/etc/inc/status_metrics.inc');
+foreach (["'microcode' => cpu_microcode_status(),", "'crypto_instructions' => cpu_crypto_features(),"] as $needle) {
+	check_cpu(strpos($metrics, $needle) !== false, "the System widget data (status_metrics_identity) is missing {$needle}");
 }
 $routes = file_get_contents(__DIR__ . '/../src/etc/inc/restapi/routes_system.inc');
 foreach (["\$types['microcode_early'] = 'bool';", "'microcode' => cpu_microcode_status(),", "\$reboot[] = 'microcode';"] as $needle) {

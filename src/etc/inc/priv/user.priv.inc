@@ -22,17 +22,10 @@ $priv_list['page-dashboard-all']['name'] = gettext("WebCfg - Dashboard (all)");
 $priv_list['page-dashboard-all']['descr'] = gettext("Allow access to all pages required for the dashboard.");
 $priv_list['page-dashboard-all']['match'] = array();
 $priv_list['page-dashboard-all']['match'][] = "index.php*";
-$priv_list['page-dashboard-all']['match'][] = "widgets/widgets/*.widget.php*";
 $priv_list['page-dashboard-all']['match'][] = "graph.php*";
 $priv_list['page-dashboard-all']['match'][] = "getstats.php*";
 $priv_list['page-dashboard-all']['match'][] = "ifstats.php*";
 $priv_list['page-dashboard-all']['match'][] = "status_logs_filter_dynamic.php*";
-
-$priv_list['page-dashboard-widgets'] = array();
-$priv_list['page-dashboard-widgets']['name'] = gettext("WebCfg - Dashboard widgets (direct access).");
-$priv_list['page-dashboard-widgets']['descr'] = gettext("Allow direct access to all Dashboard widget pages, required for some widgets using AJAX.");
-$priv_list['page-dashboard-widgets']['match'] = array();
-$priv_list['page-dashboard-widgets']['match'][] = "widgets/widgets/*.widget.php*";
 
 $priv_list['user-config-readonly'] = array();
 $priv_list['user-config-readonly']['name']  = gettext("User - Config: Deny Config Write");

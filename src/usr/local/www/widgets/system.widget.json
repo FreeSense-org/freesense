@@ -1,0 +1,62 @@
+{
+	"type": "system",
+	"title": "System",
+	"description": "Name, version and updates, hardware, CPU and crypto, uptime",
+	"icon": "fa-server",
+	"tone": "series-1",
+	"category": "System",
+	"page": "index.php",
+	"order": 10,
+	"sizes": [
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 30,
+	"settings": [
+		{
+			"key": "detail",
+			"type": "select",
+			"label": "Rows",
+			"options": [
+				[
+					"basic",
+					"The essentials"
+				],
+				[
+					"full",
+					"Everything"
+				]
+			],
+			"value": "basic"
+		}
+	],
+	"strings": [
+		"Up to date",
+		"Update available",
+		"Checking for updates",
+		"Update check is off",
+		"Could not check for updates",
+		"Uptime",
+		"Hardware",
+		"CPU",
+		"Crypto",
+		"Crypto instructions",
+		"BIOS",
+		"Kernel",
+		"Built",
+		"DNS servers",
+		"Config changed",
+		"Microcode",
+		"Kernel PTI",
+		"MDS mitigation",
+		"Serial",
+		"Time zone",
+		"Boot method",
+		"Enabled",
+		"Disabled",
+		"none active",
+		"%s CPUs",
+		"Update Center"
+	]
+}

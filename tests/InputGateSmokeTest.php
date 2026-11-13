@@ -89,7 +89,7 @@ check('XML: nothing to find', input_gate_xml_multiline([]) === []);
 
 /* The tables stay consistent with the pages they name. */
 foreach (array_keys(INPUT_GATE_MULTILINE) as $page) {
-	$paths = [$repo . "/src/usr/local/www/{$page}", $repo . "/src/usr/local/www/widgets/widgets/{$page}"];
+	$paths = [$repo . "/src/usr/local/www/{$page}"];
 	check("listed page exists: {$page}", (bool)array_filter($paths, 'file_exists'));
 }
 foreach (array_merge(INPUT_GATE_XML_PAGES) as $page) {

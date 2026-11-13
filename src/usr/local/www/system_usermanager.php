@@ -636,9 +636,7 @@ events.push(function() {
 		hideInput('webguicss', !adv);
 		hideInput('webguifixedmenu', !adv);
 		hideInput('webguihostnamemenu', !adv);
-		hideInput('dashboardcolumns', !adv);
 		hideCheckbox('interfacessort', !adv);
-		hideCheckbox('dashboardavailablewidgetspanel', !adv);
 		hideCheckbox('systemlogsfilterpanel', !adv);
 		hideCheckbox('systemlogsmanagelogpanel', !adv);
 		hideCheckbox('statusmonitoringsettingspanel', !adv);

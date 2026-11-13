@@ -1,0 +1,24 @@
+{
+	"type": "notices",
+	"title": "Notices",
+	"description": "Messages that need attention",
+	"icon": "fa-bell",
+	"tone": "warn",
+	"category": "System",
+	"page": "index.php",
+	"order": 34,
+	"sizes": [
+		"md",
+		"lg",
+		"xl",
+		"full"
+	],
+	"size": "md",
+	"every": 30,
+	"strings": [
+		"Nothing needs attention.",
+		"Dismiss",
+		"Dismiss all",
+		"Open"
+	]
+}

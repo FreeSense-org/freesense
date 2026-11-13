@@ -1,0 +1,46 @@
+{
+	"type": "resources",
+	"title": "Resources",
+	"description": "CPU, memory, swap, mbufs and states with their last hour",
+	"icon": "fa-microchip",
+	"tone": "series-1",
+	"category": "System",
+	"page": "index.php",
+	"order": 11,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 2,
+	"settings": [
+		{
+			"key": "look",
+			"type": "select",
+			"label": "Display",
+			"options": [
+				[
+					"rings",
+					"Rings"
+				],
+				[
+					"bars",
+					"Bars"
+				]
+			],
+			"value": "rings"
+		}
+	],
+	"strings": [
+		"CPU",
+		"Memory",
+		"Swap",
+		"States",
+		"MBUFs",
+		"%s of %s",
+		"Load",
+		"Frequency",
+		"%s cores"
+	]
+}

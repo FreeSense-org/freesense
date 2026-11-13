@@ -1,0 +1,27 @@
+{
+	"type": "gateways",
+	"title": "Gateways",
+	"description": "Latency, jitter and loss of every gateway with the last hour",
+	"icon": "fa-route",
+	"tone": "series-3",
+	"category": "Network",
+	"page": "status_gateways.php",
+	"link": "/status_gateways.php",
+	"order": 23,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 5,
+	"strings": [
+		"default",
+		"Online",
+		"Down",
+		"Latency",
+		"Loss",
+		"No gateways are configured.",
+		"Monitoring off"
+	]
+}

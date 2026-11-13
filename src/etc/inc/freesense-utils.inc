@@ -342,35 +342,6 @@ function validate_webguimenuicons_field(&$input_errors, $value) {
 	}
 }
 
-/****f* freesense-utils/gen_dashboardcolumns_field
- * NAME
- *   gen_dashboardcolumns_field
- * INPUTS
- *   Pointer to section object
- *   Initial value for the field
- * RESULT
- *   no return value, section object is updated
- ******/
-function gen_dashboardcolumns_field(&$section, $value) {
-
-	if (((int) $value < 1) || ((int) $value > 6)) {
-		$value = 2;
-	}
-
-	$section->addInput(new Form_Input(
-		'dashboardcolumns',
-		'Dashboard Columns',
-		'number',
-		$value,
-		['min' => 1, 'max' => 6]
-	));
-}
-function validate_dashboardcolumns_field(&$input_errors, $value) {
-	if (!is_numericint($value) || ((int) $value < 1) || ((int) $value > 6)) {
-		$input_errors[] = gettext("The submitted Dashboard Columns value is invalid.");
-	}
-}
-
 /****f* freesense-utils/gen_interfacessort_field
  * NAME
  *   gen_interfacessort_field
@@ -399,16 +370,9 @@ function gen_interfacessort_field(&$section, $value) {
  * RESULT
  *   no return value, section object is updated
  ******/
-function gen_associatedpanels_fields(&$section, $value1, $value2, $value3, $value4) {
+function gen_associatedpanels_fields(&$section, $value2, $value3, $value4) {
 
 	$group = new Form_Group('Associated Panels Show/Hide');
-
-	$group->add(new Form_Checkbox(
-		'dashboardavailablewidgetspanel',
-		null,
-		'Available Widgets',
-		$value1
-		))->setHelp('Show the Available Widgets panel on the Dashboard.');
 
 	$group->add(new Form_Checkbox(
 		'systemlogsfilterpanel',
@@ -509,11 +473,9 @@ function gen_user_settings_fields(&$section, $pconfig) {
 	gen_webguicss_field($section, $pconfig['webguicss']);
 	gen_webguifixedmenu_field($section, $pconfig['webguifixedmenu']);
 	gen_webguihostnamemenu_field($section, $pconfig['webguihostnamemenu']);
-	gen_dashboardcolumns_field($section, $pconfig['dashboardcolumns']);
 	gen_interfacessort_field($section, $pconfig['interfacessort']);
 	gen_associatedpanels_fields(
 		$section,
-		$pconfig['dashboardavailablewidgetspanel'],
 		$pconfig['systemlogsfilterpanel'],
 		$pconfig['systemlogsmanagelogpanel'],
 		$pconfig['statusmonitoringsettingspanel']);

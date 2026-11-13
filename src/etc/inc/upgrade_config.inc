@@ -7383,6 +7383,25 @@ function upgrade_244_to_245() {
 }
 
 /*
+ * 1.2: the dashboard is rebuilt (widgets read /api/v1, layouts live per user
+ * in /conf/webui). Drop the 1.x widget layout and settings, the column count
+ * and the Available Widgets panel switch, globally and per user, and install
+ * the ZFS health check that the old ZFS widget used to run while drawing.
+ */
+function upgrade_245_to_246() {
+	config_del_path('widgets');
+	config_del_path('system/webgui/dashboardcolumns');
+	config_del_path('system/webgui/dashboardavailablewidgetspanel');
+	foreach (array_keys((array)config_get_path('system/user', [])) as $i) {
+		foreach (['widgets', 'dashboardcolumns', 'dashboardavailablewidgetspanel'] as $key) {
+			config_del_path("system/user/{$i}/{$key}");
+		}
+	}
+	require_once('services.inc');
+	install_cron_job('/usr/local/sbin/freesense-zfs-notices', true, '*/5', '*', '*', '*', '*', 'root', false);
+}
+
+/*
  * Special function that is called independent of current config version. It's
  * a workaround to have config_upgrade running on older versions after next
  * config version was already taken by newer FreeSense.

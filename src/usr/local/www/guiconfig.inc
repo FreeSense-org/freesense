@@ -563,55 +563,6 @@ function genhtmltitle($title, $links=true) {
 	return $bc;
 }
 
-function gen_customwidgettitle_div($widgettitle) {
-	$divstr = '<div class="form-group">';
-	$divstr .= '  <label for="descr" class="col-sm-4 control-label">' . gettext('Widget title'). '</label>';
-	$divstr .= '  <div class="col-sm-4">';
-	$divstr .= '    <input type="text" name="descr" id="descr" value="'. $widgettitle . '" class="form-control" />';
-	$divstr .= '  </div>';
-	$divstr .= '</div>';
-
-	return $divstr;
-}
-
-function set_customwidgettitle(& $user_settings) {
-	if (!is_valid_widgetkey($_POST['widgetkey'], $user_settings)) {
-		return false;
-	}
-	if ($_POST['descr']) {
-		$user_settings['widgets'][$_POST['widgetkey']]['descr'] = trim($_POST['descr']);
-	} else {
-		unset($user_settings['widgets'][$_POST['widgetkey']]['descr']);
-	}
-}
-
-//function to create widget tabs when called
-function display_widget_tabs(& $tab_array) {
-	echo "<div id=\"tabs\">";
-	foreach ($tab_array as $ta) {
-		$dashpos = strpos($ta[2], '-');
-		$tabclass = substr($ta[2], 0, $dashpos);
-		$tabclass = $tabclass . "-class";
-		if ($ta[1] == true) {
-			$tabActive = "table-cell";
-			$tabNonActive = "none";
-		} else {
-			$tabActive = "none";
-			$tabNonActive = "table-cell";
-		}
-		echo "<div id=\"{$ta[2]}-active\" class=\"{$tabclass}-tabactive\" style=\"display:{$tabActive}; background-color:#EEEEEE; color:black;\">";
-		echo "<b>&nbsp;&nbsp;&nbsp;{$ta[0]}";
-		echo "&nbsp;&nbsp;&nbsp;</b>";
-		echo "</div>";
-
-		echo "<div id=\"{$ta[2]}-deactive\" class=\"{$tabclass}-tabdeactive\" style=\"display:{$tabNonActive}; background-color:#777777; color:white; cursor: pointer;\" onclick=\"return changeTabDIV('{$ta[2]}')\">";
-		echo "<b>&nbsp;&nbsp;&nbsp;{$ta[0]}";
-		echo "&nbsp;&nbsp;&nbsp;</b>";
-		echo "</div>";
-	}
-	echo "</div>";
-}
-
 // Return inline javascript file or CSS to minimize
 // request count going back to server.
 function outputJavaScriptFileInline($javascript) {

@@ -113,7 +113,7 @@ function restapi_routes_system() {
 	$gen_body = array('type' => 'object', 'description' => 'The General Setup form: hostname, domain, dnsservers (list of {address, ' .
 	    'hostname (for TLS verification), gateway (only with more than one gateway of an address family; "none")}), dnslocalhost, ' .
 	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, webguipagewidth, webguimenuicons, logincss (from the choices), timeservers (space ' .
-	    'separated), dashboardcolumns (1-6), login_message, dnsallowoverride, interfacessort, dashboardavailablewidgetspanel, ' .
+	    'separated), login_message, dnsallowoverride, interfacessort, ' .
 	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
 	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost, loginhideversion (booleans). ' .
 	    'Omitted fields keep their value. Applied at once (hostname, DNS, timezone, NTP, filter).');
@@ -931,7 +931,7 @@ function restapi_h_tunables_apply($req) {
 
 /* The checkboxes of the General Setup form. */
 function restapi_sysgen_flags() {
-	return array('dnsallowoverride', 'interfacessort', 'dashboardavailablewidgetspanel', 'systemlogsfilterpanel',
+	return array('dnsallowoverride', 'interfacessort', 'systemlogsfilterpanel',
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'requirestatefilter', 'requirefirewallinterface',
 	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'roworderdragging', 'loginshowhost', 'loginhideversion');
 }
@@ -939,7 +939,7 @@ function restapi_sysgen_flags() {
 function restapi_sysgen_types() {
 	$types = array('dnsservers' => 'objects', 'choices' => 'ro', 'applied' => 'ro');
 	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language', 'webguicss', 'webguifixedmenu',
-	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'dashboardcolumns', 'logincss', 'login_message') as $field) {
+	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss', 'login_message') as $field) {
 		$types[$field] = 'string';
 	}
 	foreach (restapi_sysgen_flags() as $flag) {
@@ -1017,7 +1017,6 @@ function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
 		'webguihostnamemenu' => (string)$p['webguihostnamemenu'],
 		'webguipagewidth' => (string)($p['webguipagewidth'] ?? ''),
 		'webguimenuicons' => (string)($p['webguimenuicons'] ?? ''),
-		'dashboardcolumns' => (string)$p['dashboardcolumns'],
 		'logincss' => (string)$p['logincss'],
 		/* The page shows the stored message HTML encoded; the API returns the text. */
 		'login_message' => html_entity_decode((string)$p['login_message'], ENT_QUOTES | ENT_HTML401),

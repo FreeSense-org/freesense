@@ -71,8 +71,8 @@ function restapi_routes_users() {
 	$user_body = array('type' => 'object', 'description' => 'A user as its page\'s form: name, password (write-only; required for a ' .
 	    'new user, "(set)" or leaving it out keeps it; the user\'s REST API keys keep working after a password change), descr (full name), expires ' .
 	    '(MM/DD/YYYY), disabled, groups (list of group names), authorizedkeys (SSH keys, write-only; "(set)" or leaving it out keeps ' .
-	    'them), ipsecpsk (write-only), keephistory, customsettings, webguicss, webguifixedmenu, webguihostnamemenu, dashboardcolumns, ' .
-	    'interfacessort, dashboardavailablewidgetspanel, systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, ' .
+	    'them), ipsecpsk (write-only), keephistory, customsettings, webguicss, webguifixedmenu, webguihostnamemenu, ' .
+	    'interfacessort, systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, ' .
 	    'webguileftcolumnhyper, disablealiaspopupdetail, pagenamefirst (booleans). Omitted fields keep their value (a new user: the ' .
 	    'page\'s defaults). Only privileges the key\'s user holds can be granted through groups. Applied at once.');
 	$privs_body = array('type' => 'object', 'description' => 'privileges: the complete list of assigned privilege ids (see ' .
@@ -186,11 +186,11 @@ function restapi_users_key_fingerprints($text) {
 function restapi_users_types() {
 	return restapi_ovpn_typemap(array('uid', 'scope', 'privileges', 'certificates', 'api_keys', 'authorizedkeys_count',
 	    'authorizedkeys_fingerprints', 'effective_admin'),
-	    array('disabled', 'customsettings', 'interfacessort', 'dashboardavailablewidgetspanel', 'systemlogsfilterpanel',
+	    array('disabled', 'customsettings', 'interfacessort', 'systemlogsfilterpanel',
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst',
 	    'keephistory'),
 	    array('groups'),
-	    array('name', 'password', 'descr', 'expires', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'dashboardcolumns',
+	    array('name', 'password', 'descr', 'expires', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu',
 	    'authorizedkeys', 'ipsecpsk'));
 }
 
@@ -203,17 +203,15 @@ function restapi_users_types() {
 function restapi_users_values(array $p, array $css) {
 	$out = array('name' => (string)($p['usernamefld'] ?? ''), 'password' => '', 'descr' => (string)($p['descr'] ?? ''),
 	    'expires' => (string)($p['expires'] ?? ''));
-	foreach (array('disabled', 'customsettings', 'interfacessort', 'dashboardavailablewidgetspanel', 'systemlogsfilterpanel',
+	foreach (array('disabled', 'customsettings', 'interfacessort', 'systemlogsfilterpanel',
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst',
 	    'keephistory') as $flag) {
 		$out[$flag] = !empty($p[$flag]);
 	}
-	/* gen_webguicss_field(), gen_dashboardcolumns_field() and the two menu selects */
+	/* gen_webguicss_field() and the two menu selects */
 	$out['webguicss'] = (is_scalar($p['webguicss'] ?? null) && isset($css[$p['webguicss']])) ? (string)$p['webguicss'] : 'FreeSense.css';
 	$out['webguifixedmenu'] = restapi_ovpn_select($p['webguifixedmenu'] ?? null, array('' => '', 'fixed' => ''));
 	$out['webguihostnamemenu'] = restapi_ovpn_select($p['webguihostnamemenu'] ?? null, array('' => '', 'hostonly' => '', 'fqdn' => ''));
-	$cols = (int)($p['dashboardcolumns'] ?? 0);
-	$out['dashboardcolumns'] = (($cols < 1) || ($cols > 6)) ? '2' : (string)$p['dashboardcolumns'];
 	$out['groups'] = array_values(array_map('strval', (array)($p['groups'] ?? array())));
 	$out['authorizedkeys'] = is_string($p['authorizedkeys'] ?? null) ? $p['authorizedkeys'] : '';
 	$out['ipsecpsk'] = is_scalar($p['ipsecpsk'] ?? null) ? (string)$p['ipsecpsk'] : '';
@@ -401,8 +399,8 @@ function restapi_users_out(array $user, $full) {
 	if (!$full) {
 		return $out;
 	}
-	foreach (array('customsettings', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'dashboardcolumns', 'interfacessort',
-	    'dashboardavailablewidgetspanel', 'systemlogsfilterpanel', 'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel',
+	foreach (array('customsettings', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'interfacessort',
+	    'systemlogsfilterpanel', 'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel',
 	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst', 'keephistory') as $field) {
 		$out[$field] = $values[$field];
 	}

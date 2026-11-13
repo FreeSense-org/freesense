@@ -2134,15 +2134,12 @@ function is_account_disabled($username) {
 
 function get_user_settings($username) {
 	$settings = array();
-	$settings['widgets'] = config_get_path('widgets');
-	$settings['webgui']['dashboardcolumns'] = config_get_path('system/webgui/dashboardcolumns');
 	$settings['webgui']['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
 	$settings['webgui']['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
 	$settings['webgui']['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
 	$settings['webgui']['webguicss'] = config_get_path('system/webgui/webguicss');
 	$settings['webgui']['logincss'] = config_get_path('system/webgui/logincss');
 	$settings['webgui']['interfacessort'] = config_path_enabled('system/webgui', 'interfacessort');
-	$settings['webgui']['dashboardavailablewidgetspanel'] = config_path_enabled('system/webgui', 'dashboardavailablewidgetspanel');
 	$settings['webgui']['webguifixedmenu'] = config_path_enabled('system/webgui', 'webguifixedmenu');
 	$settings['webgui']['webguileftcolumnhyper'] = config_path_enabled('system/webgui', 'webguileftcolumnhyper');
 	$settings['webgui']['disablealiaspopupdetail'] = config_path_enabled('system/webgui', 'disablealiaspopupdetail');
@@ -2154,13 +2151,6 @@ function get_user_settings($username) {
 	$user = $user['item'];
 	if (isset($user['customsettings'])) {
 		$settings['customsettings'] = true;
-		if (isset($user['widgets'])) {
-			// This includes the 'sequence', and any widgetname-config per-widget settings.
-			$settings['widgets'] = $user['widgets'];
-		}
-		if (isset($user['dashboardcolumns'])) {
-			$settings['webgui']['dashboardcolumns'] = $user['dashboardcolumns'];
-		}
 		if (isset($user['webguicss'])) {
 			$settings['webgui']['webguicss'] = $user['webguicss'];
 		}
@@ -2168,7 +2158,6 @@ function get_user_settings($username) {
 			$settings['webgui']['webguihostnamemenu'] = $user['webguihostnamemenu'];
 		}
 		$settings['webgui']['interfacessort'] = isset($user['interfacessort']);
-		$settings['webgui']['dashboardavailablewidgetspanel'] = isset($user['dashboardavailablewidgetspanel']);
 		$settings['webgui']['webguifixedmenu'] = isset($user['webguifixedmenu']);
 		$settings['webgui']['webguileftcolumnhyper'] = isset($user['webguileftcolumnhyper']);
 		$settings['webgui']['disablealiaspopupdetail'] = isset($user['disablealiaspopupdetail']);
@@ -2180,31 +2169,7 @@ function get_user_settings($username) {
 		$settings['customsettings'] = false;
 	}
 
-	if ($settings['webgui']['dashboardcolumns'] < 1) {
-		$settings['webgui']['dashboardcolumns'] = 2;
-	}
-
 	return $settings;
-}
-
-function save_widget_settings($username, $settings, $message = "") {
-	global $userindex;
-	$user = getUserEntry($username);
-	$user = $user['item'];
-
-	if (strlen($message) > 0) {
-		$msgout = $message;
-	} else {
-		$msgout = gettext("Widget configuration has been changed.");
-	}
-
-	if (isset($user['customsettings'])) {
-		config_set_path("system/user/{$userindex[$username]}/widgets", $settings);
-		write_config($msgout . " " . sprintf(gettext("(User %s)"), $username));
-	} else {
-		config_set_path('widgets', $settings);
-		write_config($msgout);
-	}
 }
 
 function auth_get_authserver($name) {
