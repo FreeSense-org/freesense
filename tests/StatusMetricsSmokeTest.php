@@ -26,7 +26,7 @@ function fn_source($code, $name) {
 
 define('STATUS_METRICS_MAX_AGE', 30);
 foreach (array('status_metrics_rate', 'status_metrics_cpu_percent', 'status_metrics_parse_pfinfo', 'status_metrics_parse_df',
-    'status_metrics_parse_swapinfo', 'status_metrics_parse_mbuf', 'status_metrics_parse_temp', 'status_metrics_parse_xport',
+    'status_metrics_parse_swapinfo', 'status_metrics_parse_mbuf', 'status_metrics_parse_temp', 'status_metrics_parse_sensors', 'status_metrics_parse_xport',
     'status_metrics_ranges') as $fn) {
 	eval(fn_source($src, $fn));
 }
@@ -39,6 +39,15 @@ check(status_metrics_rate(5000, 100.0, 1000, 102.0) === null, 'a counter that we
 check(status_metrics_rate(1000, 100.0, 3000, 100.0 + STATUS_METRICS_MAX_AGE + 1) === null, 'a stale sample gives no rate');
 check(status_metrics_cpu_percent(array(100, 0, 50, 10, 840), array(150, 0, 70, 10, 1020)) === 28.0, 'CPU busy percent from cp_time ticks');
 check(status_metrics_cpu_percent(array(1, 2, 3), array(1, 2, 3, 4, 5)) === null, 'malformed cp_time gives null');
+
+/* Temperature sensors */
+$sensors = status_metrics_parse_sensors("dev.cpu.1.temperature: 47.0C\ndev.cpu.0.temperature: 45.0C\nhw.acpi.thermal.tz0.temperature: 27.9C\n" .
+    "dev.pchtherm.0.temperature: 51.0C\ndev.t5nex.0.temperature: 60C\nhw.acpi.thermal.tz1.temperature: -1.0C\ndev.cpu.10.temperature: 44.0C\nnoise\n");
+check(count($sensors) === 6, 'every readable sensor, unreadable ones left out');
+check($sensors[0] === array('id' => 'dev.cpu.0.temperature', 'name' => 'CPU 0', 'celsius' => 45.0) && $sensors[2]['name'] === 'CPU 10',
+    'CPU sensors in natural order');
+check($sensors[1]['name'] === 'CPU 1' && $sensors[3]['name'] === 'PCH 0' && $sensors[4]['name'] === 't5nex 0' && $sensors[5]['name'] === 'ACPI zone 0', 'PCH and driver sensor names');
+check(in_array('ACPI zone 0', array_column($sensors, 'name'), true), 'ACPI thermal zone name');
 
 /* pfctl -si */
 $pf = status_metrics_parse_pfinfo(<<<'TXT'

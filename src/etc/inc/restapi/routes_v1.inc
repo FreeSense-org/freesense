@@ -79,7 +79,7 @@ function restapi_routes_v1() {
 
 		restapi_route('GET', '/v1/system/info', 'restapi_h_system_info', array(
 			'page' => 'index.php', 'area' => 'system',
-			'summary' => 'Hostname, version, platform and uptime')),
+			'summary' => 'Hostname, version, platform, uptime, hardware, BIOS, build, crypto acceleration, CPU microcode and mitigations, DNS servers')),
 
 		restapi_route('GET', '/v1/status/interfaces', 'restapi_h_status_interfaces', array(
 			'page' => 'status_interfaces.php', 'area' => 'status',
@@ -229,7 +229,7 @@ function restapi_h_system_info($req) {
 	if (preg_match('/sec = (\d+)/', (string)get_single_sysctl('kern.boottime'), $m)) {
 		$boottime = (int)$m[1];
 	}
-	return array('data' => array(
+	return array('data' => status_metrics_identity() + array(
 		'hostname' => config_get_path('system/hostname'),
 		'domain' => config_get_path('system/domain'),
 		'product' => g_get('product_label'),
