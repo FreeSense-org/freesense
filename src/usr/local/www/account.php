@@ -216,7 +216,7 @@ if ($tab === 'profile') {
 		    ->setHelp('Shown next to your avatar. Up to 64 characters.');
 		$section->addInput(new Form_Input('email', 'Email', 'email', $_POST['email'] ?? ($this_user['email'] ?? '')))
 		    ->setHelp('Optional. Used for notifications addressed to you.');
-		$form->addGlobal(new Form_Button('save', gettext('Save'), null, 'fa-solid fa-save'))->addClass('btn-primary');
+		$form->addGlobal(new Form_Button('save', gettext('Save'), null, 'fa-solid fa-floppy-disk'))->addClass('btn-primary');
 	} else {
 		$section->addInput(new Form_StaticText(gettext('Profile'), gettext('Managed on the authentication server.')));
 	}
@@ -244,7 +244,7 @@ if ($tab === 'profile') {
 	}
 	$section->addInput(new Form_Select('language', 'Language', $prefs['language'], $langs))
 	    ->setHelp('The language of the WebUI for you only. The system default is set in System > General Setup.');
-	$form->addGlobal(new Form_Button('save', gettext('Save'), null, 'fa-solid fa-save'))->addClass('btn-primary');
+	$form->addGlobal(new Form_Button('save', gettext('Save'), null, 'fa-solid fa-floppy-disk'))->addClass('btn-primary');
 	$form->add($section);
 	print($form);
 } elseif ($tab === 'preferences') {
@@ -275,7 +275,7 @@ if ($tab === 'profile') {
 		gen_pagenamefirst_field($section2, $pconfig['pagenamefirst']);
 		$form->add($section2);
 	}
-	$form->addGlobal(new Form_Button('save', gettext('Save'), null, 'fa-solid fa-save'))->addClass('btn-primary');
+	$form->addGlobal(new Form_Button('save', gettext('Save'), null, 'fa-solid fa-floppy-disk'))->addClass('btn-primary');
 	print($form);
 
 	$reset = account_form('preferences', 'reset_dashboard');
