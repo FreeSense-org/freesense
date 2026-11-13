@@ -34,6 +34,8 @@ check(dashboard_manifest_parse('{"type":"y","title":"X","page":"index.php"}', 'x
 check(dashboard_manifest_parse('{"title":"X"}', 'x') === null, 'a manifest needs the page whose privilege it uses');
 check(dashboard_manifest_parse('{"title":"X","page":"javascript:alert(1)"}', 'x') === null, 'the page is a .php page name');
 check(dashboard_manifest_parse('not json', 'x') === null, 'bad JSON');
+check(dashboard_manifest_parse('{"title":"X","page":"pkg.php?xml=bind.xml"}', 'x')['page'] === 'pkg.php?xml=bind.xml', 'a package page with its query');
+check(dashboard_manifest_parse('{"title":"X","page":"pkg.php?xml=<b>"}', 'x') === null, 'a page query is plain characters only');
 $m = dashboard_manifest_parse('{"title":"X","page":"index.php","sizes":["huge","lg","md"],"size":"sm","every":99999,"icon":"bad icon",' .
     '"link":"javascript:x","settings":[{"key":"title","type":"text","label":"T"},{"key":"ok","type":"select","label":"S","options":[[1,"a"],["bad"]]},' .
     '{"key":"Bad Key","type":"text","label":"B"},{"key":"e","type":"eval","label":"E"}]}', 'x');
@@ -48,7 +50,7 @@ foreach (glob("{$www}/widgets/*.widget.json") as $file) {
 	$type = basename($file, '.widget.json');
 	$m = dashboard_manifest_parse(file_get_contents($file), $type);
 	check($m !== null, "{$type}.widget.json is a valid manifest");
-	check(file_exists("{$root}/src/usr/local/www/{$m['page']}"), "{$type} names an existing page ({$m['page']})");
+	check(file_exists("{$root}/src/usr/local/www/" . strtok($m['page'], '?')), "{$type} names an existing page ({$m['page']})");
 	$js = (string)@file_get_contents("{$www}/widgets/{$type}.js");
 	check(strpos($js, "D.define('{$type}', {") !== false, "{$type}.js registers the widget");
 	check(strpos($js, '.innerHTML') === false && strpos($js, 'eval(') === false, "{$type}.js builds its DOM without innerHTML or eval");

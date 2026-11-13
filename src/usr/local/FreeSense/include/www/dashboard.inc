@@ -47,7 +47,7 @@ function dashboard_manifest_parse(string $json, string $type): ?array {
 	}
 	$m = json_decode($json, true);
 	if (!is_array($m) || (($m['type'] ?? $type) !== $type) || !is_string($m['title'] ?? null) || ($m['title'] === '') ||
-	    !is_string($m['page'] ?? null) || !preg_match('/^[A-Za-z0-9_.\/-]+\.php$/', $m['page'])) {
+	    !is_string($m['page'] ?? null) || !preg_match('/^[A-Za-z0-9_.\/-]+\.php(\?[A-Za-z0-9_.=&-]+)?$/', $m['page'])) {
 		return null;
 	}
 	$sizes = array_values(array_intersect(DASHBOARD_SIZES, (array)($m['sizes'] ?? ['md'])));
