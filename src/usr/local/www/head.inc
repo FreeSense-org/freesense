@@ -674,7 +674,7 @@ if ($fs_menu_mode === 'icons') {
 						</button>
 						<div class="dropdown-menu dropdown-menu-end fs-palette" data-fs-prefs>
 							<div class="fs-palette-group"><b><?=gettext('Mode')?></b>
-								<div class="fs-seg" role="group">
+								<div class="fs-pseg" role="group">
 									<?php foreach (array('light' => gettext('Light'), 'dark' => gettext('Dark'), 'auto' => gettext('Auto')) as $k => $l): ?>
 									<button type="button" data-fs-pref="mode" data-v="<?=$k?>" aria-pressed="<?=($fs_mode === $k) ? 'true' : 'false'?>"><?=$l?></button>
 									<?php endforeach; ?>
@@ -688,14 +688,14 @@ if ($fs_menu_mode === 'icons') {
 								</div>
 							</div>
 							<div class="fs-palette-group"><b><?=gettext('Density')?></b>
-								<div class="fs-seg" role="group">
+								<div class="fs-pseg" role="group">
 									<?php foreach (array('comfortable' => gettext('Comfortable'), 'compact' => gettext('Compact')) as $k => $l): ?>
 									<button type="button" data-fs-pref="density" data-v="<?=$k?>" aria-pressed="<?=($fs_user_prefs['density'] === $k) ? 'true' : 'false'?>"><?=$l?></button>
 									<?php endforeach; ?>
 								</div>
 							</div>
 							<div class="fs-palette-group"><b><?=gettext('Menu')?></b>
-								<div class="fs-seg" role="group">
+								<div class="fs-pseg" role="group">
 									<?php foreach (array('top' => gettext('Top bar'), 'side' => gettext('Sidebar')) as $k => $l): ?>
 									<button type="button" data-fs-pref="nav" data-v="<?=$k?>" data-reload="1" aria-pressed="<?=($fs_user_prefs['nav'] === $k) ? 'true' : 'false'?>"><?=$l?></button>
 									<?php endforeach; ?>
