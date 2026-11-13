@@ -104,4 +104,24 @@ check(zfs_notices_message(['name' => 'z', 'health' => 'ONLINE', 'errors' => 'No 
 check(strpos((string)zfs_notices_message(['name' => 'z', 'health' => 'DEGRADED', 'devices' => []]), 'health DEGRADED') !== false, 'a degraded pool');
 check(strpos((string)zfs_notices_message(['name' => 'z', 'health' => 'ONLINE', 'devices' => [['checksum_errors' => 3]]]), 'device errors 3') !== false, 'device errors');
 
-echo "DashboardSmokeTest: OK\n";
+
+/* Phase 5: one chart library (uPlot via fs-chart) */
+foreach (['vendor/d3', 'vendor/nvd3', 'vendor/d3pie', 'vendor/visibility', 'js/traffic-graphs.js', 'ifstats.php', 'graph.php'] as $gone) {
+	check(!file_exists("{$www}/{$gone}"), "{$gone} is removed");
+}
+foreach (['status_graph.php', 'status_logs_filter_summary.php'] as $page) {
+	$src = file_get_contents("{$www}/{$page}");
+	check(strpos($src, 'd3') === false && strpos($src, "'/js/fs-chart.js'") !== false, "{$page} draws with fs-chart");
+}
+check(strpos(file_get_contents("{$www}/js/fs-chart.js"), 'FS.chart.donut = function') !== false, 'fs-chart has the donut');
+
+/* Phase 7: per-user navigation layout */
+$prefs = file_get_contents("{$root}/src/etc/inc/webui_prefs.inc");
+check(strpos($prefs, "'nav' => '/^(top|side)\$/'") !== false && strpos($prefs, "'nav' => (string)(\$d['nav'] ?? 'top')") !== false, 'nav is a validated preference, top by default');
+check(strpos($head, "\$fs_user_prefs['nav'] === 'side'") !== false && strpos($head, "'fs-nav-side'") !== false && strpos($head, 'data-fs-side-toggle') !== false, 'head.inc switches the body to the sidebar layout');
+$us = file_get_contents("{$www}/system_user_settings.php");
+check(strpos($us, "webui_prefs_put(\$_SESSION['Username'], ['nav' => \$nav_pick]);") !== false && strpos($us, "'webuinav'") !== false, 'User Settings saves the choice as a preference (outside config.xml)');
+check(strpos(file_get_contents("{$www}/css/_freesense-core.css"), 'body.fs-nav-side > #topmenu.navbar') !== false, 'the sidebar styles exist');
+
+echo "DashboardSmokeTest: OK
+";

@@ -31,6 +31,7 @@
 
  require_once("auth.inc");
  require_once("guiconfig.inc");
+require_once("webui_prefs.inc");
 
 $pgtitle = array(gettext("System"), gettext("User Settings"));
 
@@ -136,6 +137,10 @@ if (isset($_POST['save'])) {
 			unset($userent['pagenamefirst']);
 		}
 
+		/* The navigation layout is a per-user preference outside config.xml (webui_prefs.inc). */
+		$nav_pick = in_array($_POST['webuinav'] ?? 'top', ['top', 'side'], true) ? $_POST['webuinav'] : 'top';
+		webui_prefs_put($_SESSION['Username'], ['nav' => $nav_pick]);
+
 		config_set_path("system/user/{$id}", $userent);
 		$savemsg = sprintf(gettext("User settings successfully changed for user %s."), $_SESSION['Username']);
 		write_config($savemsg);
@@ -157,6 +162,12 @@ $form = new Form();
 $section = new Form_Section('User Settings for ' . $_SESSION['Username']);
 
 gen_user_settings_fields($section, $pconfig);
+$section->addInput(new Form_Select(
+	'webuinav',
+	'Navigation',
+	webui_prefs_get($_SESSION['Username'])['nav'],
+	['top' => gettext('Top menu bar'), 'side' => gettext('Sidebar')]
+))->setHelp('Where the menu is. The sidebar keeps the same menus, with a panel that opens beside it; on a phone both become the same collapsed menu.');
 
 $form->add($section);
 print($form);

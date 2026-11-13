@@ -605,6 +605,12 @@ if ($fs_width === 'full') {
 } elseif ($fs_width !== 'wide') {
 	$fs_body_class[] = 'fs-width-classic';
 }
+/* Navigation layout: the user's own choice (System > User Settings), the top menu bar by default. */
+require_once('webui_prefs.inc');
+$fs_user_prefs = webui_prefs_get((string)($_SESSION['Username'] ?? ''));
+if ($fs_user_prefs['nav'] === 'side') {
+	$fs_body_class[] = 'fs-nav-side';
+}
 /* Icons and text is the default ('' or the older 'text'). */
 $fs_menu_mode = (string)($user_settings['webgui']['webguimenuicons'] ?? '');
 if ($fs_menu_mode === 'icons') {
@@ -693,6 +699,9 @@ if ($fs_menu_mode === 'icons') {
 					    $item['icon'], $item['menu'], $item['href'], $fs_current_page, $menuclass_dropdown);
 			 	endforeach?>
 			</ul>
+			<button type="button" class="fs-side-toggle" data-fs-side-toggle aria-pressed="false" title="<?=gettext('Collapse the sidebar')?>">
+				<i class="fa-solid fa-angles-left fs-menu-icon" aria-hidden="true"></i><span class="fs-side-label"><?=gettext('Collapse')?></span>
+			</button>
 		</div>
 	</div>
 </nav>

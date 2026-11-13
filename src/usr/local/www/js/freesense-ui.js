@@ -1780,6 +1780,32 @@
 	} else {
 		init();
 	}
+
+	/* Sidebar navigation: collapse to an icon rail, remembered in this browser. */
+	(function () {
+		var body = document.body, KEY = 'fs-side-rail';
+		if (!body || !body.classList.contains('fs-nav-side')) {
+			return;
+		}
+		var btn = document.querySelector('[data-fs-side-toggle]');
+		function apply(rail) {
+			body.classList.toggle('fs-side-rail', rail);
+			if (btn) {
+				btn.setAttribute('aria-pressed', rail ? 'true' : 'false');
+				btn.querySelector('i').className = 'fa-solid ' + (rail ? 'fa-angles-right' : 'fa-angles-left') + ' fs-menu-icon';
+			}
+		}
+		var saved = false;
+		try { saved = localStorage.getItem(KEY) === '1'; } catch (e) { /* storage unavailable */ }
+		apply(saved);
+		if (btn) {
+			btn.addEventListener('click', function () {
+				var rail = !body.classList.contains('fs-side-rail');
+				apply(rail);
+				try { localStorage.setItem(KEY, rail ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+			});
+		}
+	})();
 })();
 
 /*
