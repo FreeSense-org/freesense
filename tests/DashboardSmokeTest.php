@@ -54,7 +54,8 @@ foreach (glob("{$www}/widgets/*.widget.json") as $file) {
 	check(strpos($js, '.innerHTML') === false && strpos($js, 'eval(') === false, "{$type}.js builds its DOM without innerHTML or eval");
 	$catalogue[$type] = $m;
 }
-foreach (['system', 'resources', 'interfaces', 'interface-detail', 'traffic', 'gateways', 'services', 'thermal', 'storage', 'zfs', 'notices'] as $type) {
+foreach (['system', 'resources', 'interfaces', 'interface-detail', 'traffic', 'gateways', 'services', 'thermal', 'storage', 'zfs', 'notices',
+    'firewall-log', 'states', 'top-talkers', 'dhcp-leases', 'vpn', 'carp', 'ntp', 'dyndns', 'smart', 'wol', 'captive-portal', 'packages', 'quick-actions'] as $type) {
 	check(isset($catalogue[$type]), "core widget {$type} exists");
 }
 

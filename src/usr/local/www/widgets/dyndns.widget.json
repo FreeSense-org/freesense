@@ -1,0 +1,22 @@
+{
+	"type": "dyndns",
+	"title": "Dynamic DNS",
+	"description": "Dynamic DNS clients and the address they last registered",
+	"icon": "fa-globe",
+	"tone": "series-3",
+	"category": "Network",
+	"page": "services_dyndns.php",
+	"link": "/services_dyndns.php",
+	"order": 27,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 60,
+	"strings": [
+		"No Dynamic DNS clients are configured.",
+		"Disabled"
+	]
+}

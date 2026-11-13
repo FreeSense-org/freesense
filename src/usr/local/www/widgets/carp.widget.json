@@ -1,0 +1,29 @@
+{
+	"type": "carp",
+	"title": "High availability",
+	"description": "CARP virtual IPs and their state on this node",
+	"icon": "fa-clone",
+	"tone": "series-3",
+	"category": "Network",
+	"page": "status_carp.php",
+	"link": "/status_carp.php",
+	"order": 26,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 10,
+	"strings": [
+		"Master",
+		"Backup",
+		"Init",
+		"Disabled",
+		"Unknown",
+		"Maintenance mode",
+		"CARP is disabled",
+		"No CARP virtual IPs are configured.",
+		"Demotion %s"
+	]
+}
