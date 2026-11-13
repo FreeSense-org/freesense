@@ -204,9 +204,16 @@
 
 		return {
 			seed: function (t, values) {
-				data = [t.slice()].concat(opts.series.map(function (s) {
-					return (values[s.key] || []).map(function (v) { return signed(s, v); });
+				/* RRD rows run up to the next step boundary; drop rows in the future so live samples follow on. */
+				var now = Date.now() / 1000, n = 0;
+				while (n < t.length && t[n] <= now) n++;
+				data = [t.slice(0, n)].concat(opts.series.map(function (s) {
+					return (values[s.key] || []).slice(0, n).map(function (v) { return signed(s, v); });
 				}));
+				/* trailing rows without data (the current step) would leave a gap before the live line */
+				while (data[0].length && data.slice(1).every(function (col) { return col[col.length - 1] == null; })) {
+					data = data.map(function (col) { return col.slice(0, -1); });
+				}
 				prune();
 				draw();
 			},
