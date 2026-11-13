@@ -188,6 +188,7 @@
 		} catch (e) {
 			if (window.console) console.error(e);
 		}
+		skeleton(inst);
 		watch(inst);
 		start(inst);
 		return inst;
@@ -212,7 +213,7 @@
 		var cs = getComputedStyle(el.parentNode);
 		var row = parseFloat(cs.gridAutoRows) || 6;
 		var gap = parseFloat(getComputedStyle(el).marginBottom) || 0;
-		el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((el.getBoundingClientRect().height + gap) / row));
+		el.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((el.offsetHeight + gap) / row));
 	}
 	var ro = window.ResizeObserver ? new ResizeObserver(function (entries) {
 		entries.forEach(function (en) { span(en.target); });
@@ -220,6 +221,19 @@
 	$(window).on('resize', FS.debounce(function () {
 		if ($grid) $grid.children('.fs-widget').each(function () { span(this); });
 	}, 100));
+
+	/* Placeholder shown until the first load answers: grey bars (or a chart block) that shimmer. */
+	var SKEL_CHART = { traffic: 1, 'interface-detail': 1, resources: 1 };
+	function skeleton(inst) {
+		var $s = $('<div class="fs-skel" aria-hidden="true"></div>');
+		if (SKEL_CHART[inst.type]) $s.append('<i class="fs-skel-bar fs-skel-lg"></i><i class="fs-skel-block"></i>');
+		else $s.append('<i class="fs-skel-bar fs-skel-lg"></i><i class="fs-skel-bar" style="width:92%"></i><i class="fs-skel-bar" style="width:78%"></i><i class="fs-skel-bar" style="width:86%"></i><i class="fs-skel-bar" style="width:54%"></i>');
+		inst.$body.append($s);
+	}
+	function unskeleton(inst) {
+		inst.$body.children('.fs-skel').addClass('is-done');
+		setTimeout(function () { inst.$body.children('.fs-skel').remove(); }, 260);
+	}
 
 	function errorCard(inst, message) {
 		var $e = $('<div class="fs-wempty fs-wempty-error"><i class="fa-solid fa-plug-circle-xmark" aria-hidden="true"></i><p></p>' +
@@ -238,6 +252,7 @@
 				if (inst.collapsed) return Promise.resolve();
 				return Promise.resolve(inst.def.load(inst)).then(function () {
 					inst.$body.attr('aria-busy', 'false');
+					if (!inst.state.loadedOnce) unskeleton(inst);
 					inst.state.loadedOnce = true;
 				});
 			},
@@ -265,6 +280,7 @@
 		inst.$body.off().empty().attr('aria-busy', 'true');
 		inst.foot(null);
 		inst.def.mount(inst);
+		skeleton(inst);
 		FS.live.now('w:' + inst.id);
 	}
 
@@ -425,6 +441,7 @@
 			} else if (act === 'size') {
 				inst.size = $b.data('v');
 				inst.$root.attr('data-size', inst.size);
+				inst.$root.removeClass('is-resized'); void inst.$root[0].offsetWidth; inst.$root.addClass('is-resized');
 				menu(inst);
 				if (inst.def.resize) inst.def.resize(inst);
 				persist();
