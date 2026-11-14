@@ -123,8 +123,8 @@ check(!file_exists("{$www}/system_user_settings.php") && file_exists("{$www}/acc
 $us = file_get_contents("{$www}/account.php");
 check(strpos($us, "webui_prefs_put(\$username, \$values)") !== false && strpos($us, "'nav'") !== false && strpos($us, "'language'") !== false, 'Account saves appearance as preferences (outside config.xml)');
 check(strpos($us, 'page-system-user-settings') !== false && strpos($us, 'account.php*') !== false, 'the Account page keeps its privilege');
-check(strpos($head, 'fs-nav-account') !== false && strpos($head, 'fs-nav-palette') !== false && strpos($head, '/account.php') !== false && strpos($head, 'data-fs-accent') !== false,
-    'head.inc has the account and appearance menus in both layouts');
+check(strpos($head, 'fs-nav-account') !== false && strpos($head, 'fs-nav-palette') === false && strpos($head, '/account.php') !== false && strpos($head, 'data-fs-accent') !== false,
+    'head.inc has the account menu in both layouts; appearance lives on the Account page, not in a top bar button');
 check(strpos(file_get_contents("{$root}/src/etc/FreeSense.obsoletedfiles"), '/usr/local/www/system_user_settings.php') !== false, 'the old page is listed as obsolete');
 check(strpos(file_get_contents("{$www}/css/_freesense-core.css"), 'body.fs-nav-side > #topmenu.navbar') !== false, 'the sidebar styles exist');
 
