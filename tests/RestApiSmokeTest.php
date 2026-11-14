@@ -2120,13 +2120,13 @@ check_api(strpos(json_encode($fps), 'AAAAC3Nza') === false && strpos(json_encode
 check_api(restapi_users_has_password(array('bcrypt-hash' => '$2y$x')) && restapi_users_has_password(array('sha512-hash' => 'x')) &&
     !restapi_users_has_password(array('name' => 'x')), 'a password is reported as set from any stored hash');
 $unew = restapi_users_values(array());
-check_api(!isset($unew['webguicss']) && !isset($unew['webguifixedmenu']) && $unew['webguihostnamemenu'] === '' &&
+check_api(!isset($unew['webguicss']) && !isset($unew['webguifixedmenu']) &&
     $unew['groups'] === array() && $unew['disabled'] === false && $unew['password'] === '', 'a new user starts as the page\'s new form (no groups, no menu choice)');
-$uform = array('usernamefld' => 'bob', 'descr' => 'Bob', 'webguihostnamemenu' => 'bogus',
+$uform = array('usernamefld' => 'bob', 'descr' => 'Bob',
     'groups' => array('ops'), 'authorizedkeys' => $smoke_key, 'ipsecpsk' => 'psk1', 'disabled' => true, 'keephistory' => false);
 $ucur = restapi_users_values($uform);
-check_api($ucur['webguihostnamemenu'] === '' &&
-    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (an unknown menu falls back)');
+check_api(!isset($ucur['webguihostnamemenu']) &&
+    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (no menu choice)');
 $up = restapi_users_post(array('descr' => 'Bobby', 'password' => '(set)', 'ipsecpsk' => '(set)'), $ucur);
 check_api($up['usernamefld'] === 'bob' && $up['passwordfld1'] === '' && $up['passwordfld2'] === '' && $up['ipsecpsk'] === 'psk1' && $up['authorizedkeys'] === $smoke_key &&
     $up['disabled'] === 'yes' && !isset($up['keephistory']) && $up['groups'] === array('ops') && $up['descr'] === 'Bobby' && !isset($up['name']) && !isset($up['password']) &&
@@ -2999,7 +2999,7 @@ check_api(!restapi_sysgen_multiwan(array()) && !restapi_sysgen_multiwan(array(ar
     restapi_sysgen_multiwan(array(array('ipprotocol' => 'inet6'), array('ipprotocol' => 'inet6'))), 'a gateway per DNS server only with two gateways of a family');
 $gp = array('hostname' => 'fw', 'domain' => 'home.arpa', 'dnsserver' => array('192.0.2.53', '2001:db8::53'), 'dnshost0' => 'dns.example',
     'dnsgw0' => 'WAN_DHCP', 'dnsallowoverride' => true, 'dnslocalhost' => null, 'timezone' => 'Etc/UTC', 'timeservers' => 'pool.ntp.org',
-    'language' => 'en_US', 'webguihostnamemenu' => 'fqdn',
+    'language' => 'en_US',
     'logincss' => null, 'login_message' => htmlentities("Authorised <users> only & \"staff\""));
 foreach (restapi_sysgen_flags() as $flag) {
 	$gp[$flag] = in_array($flag, array('loginshowhost', 'dnsallowoverride'), true);
@@ -3013,7 +3013,7 @@ $gv2 = restapi_sysgen_values($gp, true);
 check_api($gv2['dnsservers'][0]['gateway'] === 'WAN_DHCP' && $gv2['dnsservers'][1]['gateway'] === 'none',
     'general: gateways ("none" when unset) when the page offers them');
 check_api(array_keys(restapi_sysgen_types()) === array_merge(array('dnsservers', 'choices', 'applied', 'hostname', 'domain', 'dnslocalhost', 'timezone',
-    'timeservers', 'language', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
+    'timeservers', 'language', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
     !array_diff(array_keys($gv), array_keys(restapi_sysgen_types())), 'general: every returned field has a type');
 check_api(restapi_sysgen_dns_rows(array(array('address' => '192.0.2.53'), array('address' => '192.0.2.54', 'hostname' => 'h')), false) ===
     array('dns0' => '192.0.2.53', 'dnshost0' => '', 'dns1' => '192.0.2.54', 'dnshost1' => 'h'), 'general: DNS servers as the page\'s rows');

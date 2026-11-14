@@ -632,7 +632,6 @@ events.push(function() {
 	function setcustomoptions() {
 		var adv = $('#customsettings').prop('checked');
 
-		hideInput('webguihostnamemenu', !adv);
 		hideCheckbox('interfacessort', !adv);
 		hideCheckbox('systemlogsfilterpanel', !adv);
 		hideCheckbox('systemlogsmanagelogpanel', !adv);

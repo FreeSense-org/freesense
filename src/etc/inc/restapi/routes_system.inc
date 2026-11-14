@@ -112,7 +112,7 @@ function restapi_routes_system() {
 
 	$gen_body = array('type' => 'object', 'description' => 'The General Setup form: hostname, domain, dnsservers (list of {address, ' .
 	    'hostname (for TLS verification), gateway (only with more than one gateway of an address family; "none")}), dnslocalhost, ' .
-	    'timezone, language, webguihostnamemenu, webguipagewidth, webguimenuicons, logincss (from the choices), timeservers (space ' .
+	    'timezone, language, logincss (from the choices), timeservers (space ' .
 	    'separated), login_message, dnsallowoverride, interfacessort, ' .
 	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
 	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost, loginhideversion (booleans). ' .
@@ -939,7 +939,7 @@ function restapi_sysgen_flags() {
 function restapi_sysgen_types() {
 	$types = array('dnsservers' => 'objects', 'choices' => 'ro', 'applied' => 'ro');
 	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language',
-	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss', 'login_message') as $field) {
+	    'logincss', 'login_message') as $field) {
 		$types[$field] = 'string';
 	}
 	foreach (restapi_sysgen_flags() as $flag) {
@@ -970,10 +970,6 @@ function restapi_sysgen_choices() {
 		    'local' => 'Use local DNS (127.0.0.1), ignore remote DNS Servers', 'remote' => 'Use remote DNS Servers, ignore local DNS'),
 		'timezone' => array_combine($timezones, system_general_timezone_descr($timezones)),
 		'language' => get_locale_list(),
-		'webguihostnamemenu' => array('' => gettext("Default (No hostname)"), 'hostonly' => gettext("Hostname only"),
-		    'fqdn' => gettext("Fully Qualified Domain Name")),
-		'webguipagewidth' => webgui_pagewidth_choices(),
-		'webguimenuicons' => webgui_menuicons_choices(),
 		'logincss' => array("1e3f75;" => gettext("Dark Blue"), "003300" => gettext("Dark green"), "770101" => gettext("Crimson red"),
 		    "4b1263" => gettext("Purple"), "424142" => gettext("Gray"), "333333" => gettext("Dark gray"), "000000" => gettext("Black"),
 		    "633215" => gettext("Dark brown"), "bf7703" => gettext("Brown"), "008000" => gettext("Green"),
@@ -1009,9 +1005,6 @@ function restapi_sysgen_values(array $p, $with_gateways) {
 		'timezone' => (string)$p['timezone'],
 		'timeservers' => (string)$p['timeservers'],
 		'language' => (string)$p['language'],
-		'webguihostnamemenu' => (string)$p['webguihostnamemenu'],
-		'webguipagewidth' => (string)($p['webguipagewidth'] ?? ''),
-		'webguimenuicons' => (string)($p['webguimenuicons'] ?? ''),
 		'logincss' => (string)$p['logincss'],
 		/* The page shows the stored message HTML encoded; the API returns the text. */
 		'login_message' => html_entity_decode((string)$p['login_message'], ENT_QUOTES | ENT_HTML401),
@@ -1095,7 +1088,7 @@ function restapi_h_sysgen_set($req) {
 	$current = restapi_sysgen_settings();
 	$values = restapi_svc_merge($req['body'], $current, $types);
 	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language',
-	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss'));
+	    'logincss'));
 	$rows = restapi_sysgen_dns_rows($values['dnsservers'], $with_gateways);
 	if ($with_gateways) {
 		foreach ($rows as $key => $gw) {

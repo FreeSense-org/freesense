@@ -71,7 +71,7 @@ function restapi_routes_users() {
 	$user_body = array('type' => 'object', 'description' => 'A user as its page\'s form: name, password (write-only; required for a ' .
 	    'new user, "(set)" or leaving it out keeps it; the user\'s REST API keys keep working after a password change), descr (full name), expires ' .
 	    '(MM/DD/YYYY), disabled, groups (list of group names), authorizedkeys (SSH keys, write-only; "(set)" or leaving it out keeps ' .
-	    'them), ipsecpsk (write-only), keephistory, customsettings, webguihostnamemenu, ' .
+	    'them), ipsecpsk (write-only), keephistory, customsettings, ' .
 	    'interfacessort, systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, ' .
 	    'webguileftcolumnhyper, disablealiaspopupdetail, pagenamefirst (booleans). Omitted fields keep their value (a new user: the ' .
 	    'page\'s defaults). Only privileges the key\'s user holds can be granted through groups. Applied at once.');
@@ -190,7 +190,7 @@ function restapi_users_types() {
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst',
 	    'keephistory'),
 	    array('groups'),
-	    array('name', 'password', 'descr', 'expires', 'webguihostnamemenu',
+	    array('name', 'password', 'descr', 'expires',
 	    'authorizedkeys', 'ipsecpsk'));
 }
 
@@ -208,8 +208,6 @@ function restapi_users_values(array $p) {
 	    'keephistory') as $flag) {
 		$out[$flag] = !empty($p[$flag]);
 	}
-	/* the menu select */
-	$out['webguihostnamemenu'] = restapi_ovpn_select($p['webguihostnamemenu'] ?? null, array('' => '', 'hostonly' => '', 'fqdn' => ''));
 	$out['groups'] = array_values(array_map('strval', (array)($p['groups'] ?? array())));
 	$out['authorizedkeys'] = is_string($p['authorizedkeys'] ?? null) ? $p['authorizedkeys'] : '';
 	$out['ipsecpsk'] = is_scalar($p['ipsecpsk'] ?? null) ? (string)$p['ipsecpsk'] : '';
@@ -397,7 +395,7 @@ function restapi_users_out(array $user, $full) {
 	if (!$full) {
 		return $out;
 	}
-	foreach (array('customsettings', 'webguihostnamemenu', 'interfacessort',
+	foreach (array('customsettings', 'interfacessort',
 	    'systemlogsfilterpanel', 'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel',
 	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst', 'keephistory') as $field) {
 		$out[$field] = $values[$field];

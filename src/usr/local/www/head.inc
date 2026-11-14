@@ -581,7 +581,7 @@ if (!g_get('disablehelpmenu')) {
 
 $menuclass = "static";
 $menuclass_dropdown = '';
-if ($fs_user_prefs['topnav'] === 'fixed') {
+if (($fs_user_prefs['nav'] === 'top') && ($fs_user_prefs['topnav'] === 'fixed')) {
 	$menuclass = "fixed";
 	$menuclass_dropdown = ' dropdown-menu-fixed';
 }
@@ -602,10 +602,10 @@ if (are_notices_pending()) {
 }
 ?>
 <?php
-/* Layout from System > General Setup: page width and an icon-only top bar. */
+/* Layout from the user's own choices (Account > Appearance): page width and an icon-only top bar. */
 $fs_body_class = array();
 /* Classic (1200 px) is the default ('' or the older 'classic'); Wide is the token's 1680 px. */
-$fs_width = (string)($user_settings['webgui']['webguipagewidth'] ?? '');
+$fs_width = $fs_user_prefs['page_width'];
 if ($fs_width === 'full') {
 	$fs_body_class[] = 'fs-width-full';
 } elseif ($fs_width !== 'wide') {
@@ -616,7 +616,7 @@ if ($fs_user_prefs['nav'] === 'side') {
 	$fs_body_class[] = 'fs-nav-side';
 }
 /* Icons and text is the default ('' or the older 'text'). */
-$fs_menu_mode = (string)($user_settings['webgui']['webguimenuicons'] ?? '');
+$fs_menu_mode = $fs_user_prefs['menu_icons'];
 if ($fs_menu_mode === 'icons') {
 	$fs_body_class[] = 'fs-menu-icons';
 } elseif ($fs_menu_mode === 'auto') {
@@ -696,10 +696,10 @@ if ($fs_menu_mode === 'icons') {
 				</li>
 			<?php endif; ?>
 			<?php
-                if ($user_settings['webgui']['webguihostnamemenu'] == 'hostonly') {
+                if ($fs_user_prefs['hostname_menu'] === 'hostonly') {
                     $help_menu_title = htmlspecialchars(config_get_path('system/hostname'));
                 }
-                elseif ($user_settings['webgui']['webguihostnamemenu'] == 'fqdn') {
+                elseif ($fs_user_prefs['hostname_menu'] === 'fqdn') {
                     $help_menu_title = htmlspecialchars($system_url);
                 }
                 else {
