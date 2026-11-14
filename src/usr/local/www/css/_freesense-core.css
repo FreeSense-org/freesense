@@ -1082,7 +1082,10 @@ body { --fs-navbar-h: 6.9rem; }
 		background: color-mix(in srgb, var(--bs-body-bg) 80%, transparent); -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2);
 		border-bottom: 1px solid var(--fs-chrome-border); transition: left var(--fs-t) var(--fs-ease), box-shadow .2s ease;
 	}
-	/* once the page has scrolled, the bar floats above the content with a soft shadow */
+	/* "Scrolls with page" (the default top navigation setting): the bar slides away with the content, so nothing hides behind it */
+	body.fs-nav-side:not(:has(> #topmenu.fixed-top)) .fs-topbar-tools { transform: translateY(calc(-1 * var(--fs-bar-shift, 0px))); will-change: transform; }
+	body.fs-nav-side:not(:has(> #topmenu.fixed-top)).fs-scrolled .fs-topbar-tools { box-shadow: none; }
+	/* "Fixed": once the page has scrolled, the bar floats above the content with a soft shadow */
 	body.fs-nav-side.fs-scrolled .fs-topbar-tools { box-shadow: 0 10px 22px -14px rgba(0, 0, 0, .7); }
 	html:has(body.fs-nav-side) { scroll-padding-top: calc(3.5rem + .5rem); }
 	body.fs-nav-side .fs-side-crumb { display: flex !important; gap: .5rem; margin-right: auto; font-size: .875rem; color: var(--fs-chrome-fg); white-space: nowrap; }

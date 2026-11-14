@@ -2054,6 +2054,11 @@
 	function sync() {
 		tick = false;
 		body.classList.toggle('fs-scrolled', window.scrollY > 4);
+		/* the bar follows the page away unless the user chose a fixed top navigation */
+		var bar = document.querySelector('.fs-topbar-tools');
+		if (bar && !document.querySelector('#topmenu.fixed-top')) {
+			body.style.setProperty('--fs-bar-shift', Math.min(Math.max(window.scrollY, 0), bar.offsetHeight) + 'px');
+		}
 	}
 	window.addEventListener('scroll', function () {
 		if (!tick) {
