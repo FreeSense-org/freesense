@@ -1079,8 +1079,12 @@ body { --fs-navbar-h: 6.9rem; }
 	body.fs-nav-side .fs-topbar-tools {
 		position: fixed; top: 0; right: 0; left: var(--fs-side-w); height: var(--fs-bar-h); z-index: 1029; margin: 0; padding: 0 var(--fs-sp-4);
 		flex-direction: row; flex-wrap: nowrap; align-items: center; gap: var(--fs-sp-2); width: auto;
-		background: var(--bs-body-bg); border-bottom: 1px solid var(--fs-chrome-border); transition: left var(--fs-t) var(--fs-ease);
+		background: color-mix(in srgb, var(--bs-body-bg) 80%, transparent); -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2);
+		border-bottom: 1px solid var(--fs-chrome-border); transition: left var(--fs-t) var(--fs-ease), box-shadow .2s ease;
 	}
+	/* once the page has scrolled, the bar floats above the content with a soft shadow */
+	body.fs-nav-side.fs-scrolled .fs-topbar-tools { box-shadow: 0 10px 22px -14px rgba(0, 0, 0, .7); }
+	html:has(body.fs-nav-side) { scroll-padding-top: calc(3.5rem + .5rem); }
 	body.fs-nav-side .fs-side-crumb { display: flex !important; gap: .5rem; margin-right: auto; font-size: .875rem; color: var(--fs-chrome-fg); white-space: nowrap; }
 	body.fs-nav-side .fs-side-crumb span::after { content: '/'; margin-left: .5rem; }
 	body.fs-nav-side .fs-side-crumb b { color: var(--fs-chrome-fg-hi); font-weight: 600; }

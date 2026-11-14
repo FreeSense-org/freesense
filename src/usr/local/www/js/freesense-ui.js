@@ -2042,3 +2042,24 @@
 		});
 	});
 })();
+
+/* Sidebar layout: tell the CSS when the page has scrolled, so the top bar can float above the content. */
+(function () {
+	'use strict';
+	var body = document.body;
+	if (!body || !body.classList.contains('fs-nav-side')) {
+		return;
+	}
+	var tick = false;
+	function sync() {
+		tick = false;
+		body.classList.toggle('fs-scrolled', window.scrollY > 4);
+	}
+	window.addEventListener('scroll', function () {
+		if (!tick) {
+			tick = true;
+			window.requestAnimationFrame(sync);
+		}
+	}, { passive: true });
+	sync();
+})();
