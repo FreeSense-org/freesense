@@ -2001,48 +2001,6 @@
 	}
 })();
 
-/*
- * Appearance menu (the palette button in the top bar): saves one preference of the signed-in
- * user through PUT /api/v1/me/preferences. Accent and density apply at once; mode and menu
- * layout need a different stylesheet or markup, so the page reloads.
- */
-(function () {
-	'use strict';
-	document.addEventListener('click', function (e) {
-		var btn = e.target.closest ? e.target.closest('[data-fs-pref]') : null;
-		if (!btn || btn.getAttribute('aria-pressed') === 'true') {
-			return;
-		}
-		var meta = document.querySelector('meta[name="fs-csrf"]');
-		var key = btn.getAttribute('data-fs-pref'), val = btn.getAttribute('data-v'), body = {};
-		body[key] = val;
-		fetch('/api/v1/me/preferences', {
-			method: 'PUT', credentials: 'same-origin',
-			headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': meta ? meta.content : '' },
-			body: JSON.stringify(body)
-		}).then(function (r) {
-			if (!r.ok) {
-				throw new Error('save failed');
-			}
-			var root = document.documentElement;
-			if (key === 'accent') {
-				root.setAttribute('data-fs-accent', val);
-			} else if (key === 'density') {
-				root.setAttribute('data-fs-density', val);
-			} else {
-				window.location.reload();
-				return;
-			}
-			btn.parentNode.querySelectorAll('[data-fs-pref]').forEach(function (b) {
-				b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
-			});
-		}).catch(function () {
-			btn.classList.add('is-error');
-			setTimeout(function () { btn.classList.remove('is-error'); }, 1500);
-		});
-	});
-})();
-
 /* Sidebar layout: tell the CSS when the page has scrolled, so the top bar can float above the content. */
 (function () {
 	'use strict';

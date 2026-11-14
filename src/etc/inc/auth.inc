@@ -2137,10 +2137,8 @@ function get_user_settings($username) {
 	$settings['webgui']['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
 	$settings['webgui']['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
 	$settings['webgui']['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
-	$settings['webgui']['webguicss'] = config_get_path('system/webgui/webguicss');
 	$settings['webgui']['logincss'] = config_get_path('system/webgui/logincss');
 	$settings['webgui']['interfacessort'] = config_path_enabled('system/webgui', 'interfacessort');
-	$settings['webgui']['webguifixedmenu'] = config_path_enabled('system/webgui', 'webguifixedmenu');
 	$settings['webgui']['webguileftcolumnhyper'] = config_path_enabled('system/webgui', 'webguileftcolumnhyper');
 	$settings['webgui']['disablealiaspopupdetail'] = config_path_enabled('system/webgui', 'disablealiaspopupdetail');
 	$settings['webgui']['systemlogsfilterpanel'] = config_path_enabled('system/webgui', 'systemlogsfilterpanel');
@@ -2151,14 +2149,10 @@ function get_user_settings($username) {
 	$user = $user['item'];
 	if (isset($user['customsettings'])) {
 		$settings['customsettings'] = true;
-		if (isset($user['webguicss'])) {
-			$settings['webgui']['webguicss'] = $user['webguicss'];
-		}
 		if (isset($user['webguihostnamemenu'])) {
 			$settings['webgui']['webguihostnamemenu'] = $user['webguihostnamemenu'];
 		}
 		$settings['webgui']['interfacessort'] = isset($user['interfacessort']);
-		$settings['webgui']['webguifixedmenu'] = isset($user['webguifixedmenu']);
 		$settings['webgui']['webguileftcolumnhyper'] = isset($user['webguileftcolumnhyper']);
 		$settings['webgui']['disablealiaspopupdetail'] = isset($user['disablealiaspopupdetail']);
 		$settings['webgui']['systemlogsfilterpanel'] = isset($user['systemlogsfilterpanel']);

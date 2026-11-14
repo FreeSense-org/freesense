@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		}
 	} elseif ($action === 'appearance') {
 		$in = array();
-		foreach (array('mode', 'accent', 'density', 'nav', 'language') as $k) {
+		foreach (array('mode', 'accent', 'density', 'nav', 'topnav', 'language') as $k) {
 			$in[$k] = (string)($_POST[$k] ?? '');
 		}
 		list($values, $errors) = webui_pref_validate($in);
@@ -113,14 +113,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 			$input_errors[] = gettext($e);
 		}
 		if ($local) {
-			validate_webguifixedmenu_field($input_errors, $_POST['webguifixedmenu'] ?? '');
 			validate_webguihostnamemenu_field($input_errors, $_POST['webguihostnamemenu'] ?? '');
 		}
 		if (!$input_errors) {
 			webui_prefs_put($username, $values);
 			if ($local) {
 				$ent = config_get_path("system/user/{$id}");
-				foreach (array('webguifixedmenu', 'webguihostnamemenu') as $k) {
+				foreach (array('webguihostnamemenu') as $k) {
 					if (!empty($_POST[$k])) {
 						$ent[$k] = $_POST[$k];
 					} else {
@@ -238,6 +237,9 @@ if ($tab === 'profile') {
 	$section->addInput(new Form_Select('nav', 'Menu', $prefs['nav'], array(
 		'top' => gettext('Top menu bar'), 'side' => gettext('Sidebar'))))
 	    ->setHelp('Both layouts have the same menus. On a phone both become one collapsed menu.');
+	$section->addInput(new Form_Select('topnav', 'Top bar', $prefs['topnav'], array(
+		'scroll' => gettext('Scrolls with the page'), 'fixed' => gettext('Fixed (stays visible at the top of the page)'))))
+	    ->setHelp('The fixed bar is intended for large screens; content passes under it.');
 	$langs = array('' => gettext('System default'));
 	foreach (get_locale_list() as $k => $l) {
 		$langs[$k] = $l;
@@ -258,14 +260,12 @@ if ($tab === 'profile') {
 	$form->add($section);
 	if ($local) {
 		$pconfig = array(
-			'webguifixedmenu' => $this_user['webguifixedmenu'] ?? '',
 			'webguihostnamemenu' => $this_user['webguihostnamemenu'] ?? '',
 		);
 		foreach ($legacy_flags as $k) {
 			$pconfig[$k] = isset($this_user[$k]);
 		}
 		$section2 = new Form_Section(gettext('Pages'));
-		gen_webguifixedmenu_field($section2, $pconfig['webguifixedmenu']);
 		gen_webguihostnamemenu_field($section2, $pconfig['webguihostnamemenu']);
 		gen_interfacessort_field($section2, $pconfig['interfacessort']);
 		gen_associatedpanels_fields($section2, $pconfig['systemlogsfilterpanel'], $pconfig['systemlogsmanagelogpanel'],

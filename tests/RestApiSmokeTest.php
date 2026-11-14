@@ -2119,15 +2119,14 @@ check_api($fps === array(array('type' => 'ssh-ed25519', 'fingerprint' => $smoke_
 check_api(strpos(json_encode($fps), 'AAAAC3Nza') === false && strpos(json_encode($fps), 'ops@example') === false, 'fingerprints carry neither the key nor its comment');
 check_api(restapi_users_has_password(array('bcrypt-hash' => '$2y$x')) && restapi_users_has_password(array('sha512-hash' => 'x')) &&
     !restapi_users_has_password(array('name' => 'x')), 'a password is reported as set from any stored hash');
-$css = array('FreeSense.css' => 'FreeSense', 'FreeSense-dark.css' => 'Dark');
-$unew = restapi_users_values(array(), $css);
-check_api($unew['webguicss'] === 'FreeSense.css' && !isset($unew['dashboardcolumns']) && $unew['webguifixedmenu'] === '' && $unew['webguihostnamemenu'] === '' &&
-    $unew['groups'] === array() && $unew['disabled'] === false && $unew['password'] === '', 'a new user starts as the page\'s new form (theme, 2 columns, no groups)');
-$uform = array('usernamefld' => 'bob', 'descr' => 'Bob', 'webguicss' => 'gone.css', 'webguifixedmenu' => 'fixed', 'webguihostnamemenu' => 'bogus',
+$unew = restapi_users_values(array());
+check_api(!isset($unew['webguicss']) && !isset($unew['webguifixedmenu']) && $unew['webguihostnamemenu'] === '' &&
+    $unew['groups'] === array() && $unew['disabled'] === false && $unew['password'] === '', 'a new user starts as the page\'s new form (no groups, no menu choice)');
+$uform = array('usernamefld' => 'bob', 'descr' => 'Bob', 'webguihostnamemenu' => 'bogus',
     'groups' => array('ops'), 'authorizedkeys' => $smoke_key, 'ipsecpsk' => 'psk1', 'disabled' => true, 'keephistory' => false);
-$ucur = restapi_users_values($uform, $css);
-check_api($ucur['webguicss'] === 'FreeSense.css' && $ucur['webguifixedmenu'] === 'fixed' && $ucur['webguihostnamemenu'] === '' &&
-    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (unknown theme and menu fall back)');
+$ucur = restapi_users_values($uform);
+check_api($ucur['webguihostnamemenu'] === '' &&
+    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (an unknown menu falls back)');
 $up = restapi_users_post(array('descr' => 'Bobby', 'password' => '(set)', 'ipsecpsk' => '(set)'), $ucur);
 check_api($up['usernamefld'] === 'bob' && $up['passwordfld1'] === '' && $up['passwordfld2'] === '' && $up['ipsecpsk'] === 'psk1' && $up['authorizedkeys'] === $smoke_key &&
     $up['disabled'] === 'yes' && !isset($up['keephistory']) && $up['groups'] === array('ops') && $up['descr'] === 'Bobby' && !isset($up['name']) && !isset($up['password']) &&
@@ -3000,21 +2999,21 @@ check_api(!restapi_sysgen_multiwan(array()) && !restapi_sysgen_multiwan(array(ar
     restapi_sysgen_multiwan(array(array('ipprotocol' => 'inet6'), array('ipprotocol' => 'inet6'))), 'a gateway per DNS server only with two gateways of a family');
 $gp = array('hostname' => 'fw', 'domain' => 'home.arpa', 'dnsserver' => array('192.0.2.53', '2001:db8::53'), 'dnshost0' => 'dns.example',
     'dnsgw0' => 'WAN_DHCP', 'dnsallowoverride' => true, 'dnslocalhost' => null, 'timezone' => 'Etc/UTC', 'timeservers' => 'pool.ntp.org',
-    'language' => 'en_US', 'webguicss' => 'gone.css', 'webguifixedmenu' => null, 'webguihostnamemenu' => 'fqdn',
+    'language' => 'en_US', 'webguihostnamemenu' => 'fqdn',
     'logincss' => null, 'login_message' => htmlentities("Authorised <users> only & \"staff\""));
 foreach (restapi_sysgen_flags() as $flag) {
 	$gp[$flag] = in_array($flag, array('loginshowhost', 'dnsallowoverride'), true);
 }
-$gv = restapi_sysgen_values($gp, false, array('FreeSense.css' => 'FreeSense'));
+$gv = restapi_sysgen_values($gp, false);
 check_api($gv['dnsservers'] === array(array('address' => '192.0.2.53', 'hostname' => 'dns.example'), array('address' => '2001:db8::53', 'hostname' => '')) &&
-    $gv['webguicss'] === 'FreeSense.css' && !isset($gv['dashboardcolumns']) && $gv['dnslocalhost'] === '' && $gv['loginshowhost'] === true &&
+    !isset($gv['webguicss']) && !isset($gv['dashboardcolumns']) && $gv['dnslocalhost'] === '' && $gv['loginshowhost'] === true &&
     $gv['dnsallowoverride'] === true && $gv['interfacessort'] === false && $gv['login_message'] === "Authorised <users> only & \"staff\"",
-    'general: the form as API values (theme like the select, the login message as text, no gateways with one WAN)');
-$gv2 = restapi_sysgen_values($gp, true, array('gone.css' => 'gone'));
-check_api($gv2['dnsservers'][0]['gateway'] === 'WAN_DHCP' && $gv2['dnsservers'][1]['gateway'] === 'none' && $gv2['webguicss'] === 'gone.css',
+    'general: the form as API values (the login message as text, no gateways with one WAN)');
+$gv2 = restapi_sysgen_values($gp, true);
+check_api($gv2['dnsservers'][0]['gateway'] === 'WAN_DHCP' && $gv2['dnsservers'][1]['gateway'] === 'none',
     'general: gateways ("none" when unset) when the page offers them');
 check_api(array_keys(restapi_sysgen_types()) === array_merge(array('dnsservers', 'choices', 'applied', 'hostname', 'domain', 'dnslocalhost', 'timezone',
-    'timeservers', 'language', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
+    'timeservers', 'language', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
     !array_diff(array_keys($gv), array_keys(restapi_sysgen_types())), 'general: every returned field has a type');
 check_api(restapi_sysgen_dns_rows(array(array('address' => '192.0.2.53'), array('address' => '192.0.2.54', 'hostname' => 'h')), false) ===
     array('dns0' => '192.0.2.53', 'dnshost0' => '', 'dns1' => '192.0.2.54', 'dnshost1' => 'h'), 'general: DNS servers as the page\'s rows');

@@ -71,7 +71,7 @@ function restapi_routes_users() {
 	$user_body = array('type' => 'object', 'description' => 'A user as its page\'s form: name, password (write-only; required for a ' .
 	    'new user, "(set)" or leaving it out keeps it; the user\'s REST API keys keep working after a password change), descr (full name), expires ' .
 	    '(MM/DD/YYYY), disabled, groups (list of group names), authorizedkeys (SSH keys, write-only; "(set)" or leaving it out keeps ' .
-	    'them), ipsecpsk (write-only), keephistory, customsettings, webguicss, webguifixedmenu, webguihostnamemenu, ' .
+	    'them), ipsecpsk (write-only), keephistory, customsettings, webguihostnamemenu, ' .
 	    'interfacessort, systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, ' .
 	    'webguileftcolumnhyper, disablealiaspopupdetail, pagenamefirst (booleans). Omitted fields keep their value (a new user: the ' .
 	    'page\'s defaults). Only privileges the key\'s user holds can be granted through groups. Applied at once.');
@@ -190,17 +190,17 @@ function restapi_users_types() {
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst',
 	    'keephistory'),
 	    array('groups'),
-	    array('name', 'password', 'descr', 'expires', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu',
+	    array('name', 'password', 'descr', 'expires', 'webguihostnamemenu',
 	    'authorizedkeys', 'ipsecpsk'));
 }
 
 /*
  * A user's form values in API shape: $p is the page's form
  * (usermgr_user_form(), or array() for a new user), the selects as the page
- * preselects them ($css: the theme choices). Secrets in clear: the output
+ * preselects them. Secrets in clear: the output
  * builder masks them.
  */
-function restapi_users_values(array $p, array $css) {
+function restapi_users_values(array $p) {
 	$out = array('name' => (string)($p['usernamefld'] ?? ''), 'password' => '', 'descr' => (string)($p['descr'] ?? ''),
 	    'expires' => (string)($p['expires'] ?? ''));
 	foreach (array('disabled', 'customsettings', 'interfacessort', 'systemlogsfilterpanel',
@@ -208,9 +208,7 @@ function restapi_users_values(array $p, array $css) {
 	    'keephistory') as $flag) {
 		$out[$flag] = !empty($p[$flag]);
 	}
-	/* gen_webguicss_field() and the two menu selects */
-	$out['webguicss'] = (is_scalar($p['webguicss'] ?? null) && isset($css[$p['webguicss']])) ? (string)$p['webguicss'] : 'FreeSense.css';
-	$out['webguifixedmenu'] = restapi_ovpn_select($p['webguifixedmenu'] ?? null, array('' => '', 'fixed' => ''));
+	/* the menu select */
 	$out['webguihostnamemenu'] = restapi_ovpn_select($p['webguihostnamemenu'] ?? null, array('' => '', 'hostonly' => '', 'fqdn' => ''));
 	$out['groups'] = array_values(array_map('strval', (array)($p['groups'] ?? array())));
 	$out['authorizedkeys'] = is_string($p['authorizedkeys'] ?? null) ? $p['authorizedkeys'] : '';
@@ -379,7 +377,7 @@ function restapi_users_admin_equivalent(array $privs) {
 /* A user in API shape: summary, or (full) also its form fields. Fields are copied one by one; secrets never leave. */
 function restapi_users_out(array $user, $full) {
 	$form = usermgr_user_form($user);
-	$values = restapi_users_values($form, get_css_files());
+	$values = restapi_users_values($form);
 	$out = array(
 		'name' => (string)$user['name'],
 		'descr' => $values['descr'],
@@ -399,7 +397,7 @@ function restapi_users_out(array $user, $full) {
 	if (!$full) {
 		return $out;
 	}
-	foreach (array('customsettings', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'interfacessort',
+	foreach (array('customsettings', 'webguihostnamemenu', 'interfacessort',
 	    'systemlogsfilterpanel', 'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel',
 	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'pagenamefirst', 'keephistory') as $field) {
 		$out[$field] = $values[$field];
@@ -426,14 +424,14 @@ function restapi_h_users_get($req) {
 /* Save a user through the page's function ($id null: create) and return it by its (new) name. */
 function restapi_users_save(array $body, $id, array $caller, $status) {
 	if ($id === null) {
-		$current = restapi_users_values(array(), get_css_files());
+		$current = restapi_users_values(array());
 		$post = restapi_users_post($body, $current);
 		$post['act'] = 'new';
 		$post['utype'] = 'user';
 		$post['oldusername'] = '';
 	} else {
 		$user = config_get_path("system/user/{$id}");
-		$current = restapi_users_values(usermgr_user_form($user), get_css_files());
+		$current = restapi_users_values(usermgr_user_form($user));
 		$post = restapi_users_post($body, $current);
 		/* A system user's full name is read-only on the page (the field is not posted). */
 		if ($user['scope'] == 'system') {

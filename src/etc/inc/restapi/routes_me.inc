@@ -38,7 +38,7 @@ function restapi_routes_me() {
 			'body' => array('name' => array('type' => 'string'), 'email' => array('type' => 'string')),
 			'summary' => 'Change your display name and email (local users)')),
 		restapi_route('GET', '/v1/me/preferences', 'restapi_h_me_prefs', array(
-			'page' => '@authenticated', 'summary' => 'Your WebUI preferences: theme, mode, accent, density, start page')),
+			'page' => '@authenticated', 'summary' => 'Your WebUI preferences: theme, mode, accent, density, menu layout, top bar, start page')),
 		restapi_route('PUT', '/v1/me/preferences', 'restapi_h_me_prefs_put', array(
 			'page' => '@authenticated', 'write' => true, 'summary' => 'Change some of your WebUI preferences')),
 		restapi_route('GET', '/v1/me/sessions', 'restapi_h_me_sessions', array(
