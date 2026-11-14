@@ -2134,9 +2134,6 @@ function is_account_disabled($username) {
 
 function get_user_settings($username) {
 	$settings = array();
-	$settings['webgui']['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
-	$settings['webgui']['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
-	$settings['webgui']['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
 	$settings['webgui']['logincss'] = config_get_path('system/webgui/logincss');
 	$settings['webgui']['interfacessort'] = config_path_enabled('system/webgui', 'interfacessort');
 	$settings['webgui']['webguileftcolumnhyper'] = config_path_enabled('system/webgui', 'webguileftcolumnhyper');
@@ -2149,9 +2146,6 @@ function get_user_settings($username) {
 	$user = $user['item'];
 	if (isset($user['customsettings'])) {
 		$settings['customsettings'] = true;
-		if (isset($user['webguihostnamemenu'])) {
-			$settings['webgui']['webguihostnamemenu'] = $user['webguihostnamemenu'];
-		}
 		$settings['webgui']['interfacessort'] = isset($user['interfacessort']);
 		$settings['webgui']['webguileftcolumnhyper'] = isset($user['webguileftcolumnhyper']);
 		$settings['webgui']['disablealiaspopupdetail'] = isset($user['disablealiaspopupdetail']);

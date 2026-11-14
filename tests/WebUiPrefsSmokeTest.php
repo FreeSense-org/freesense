@@ -48,6 +48,9 @@ check(isset(webui_pref_validate(array('start_page' => '//evil.example/x'))[1]['s
 check(webui_pref_validate(array('live' => 'off', 'language' => 'nb_NO'))[1] === array() && isset(webui_pref_validate(array('live' => 'maybe'))[1]['live']) &&
     isset(webui_pref_validate(array('language' => '../x'))[1]['language']), 'live and language are validated');
 check(webui_prefs_get('alice')['mode'] === 'auto', 'no saved preferences: defaults');
+check(webui_pref_validate(array('page_width' => 'wide', 'menu_icons' => 'auto', 'hostname_menu' => 'fqdn'))[1] === array() &&
+    webui_pref_validate(array('page_width' => ''))[1] === array() && isset(webui_pref_validate(array('menu_icons' => 'big'))[1]['menu_icons']) &&
+    isset(webui_pref_validate(array('hostname_menu' => 'x'))[1]['hostname_menu']), 'page width, top bar menu and hostname in menu are per-user preferences');
 check(webui_prefs_get('alice')['topnav'] === 'scroll' && webui_pref_validate(array('topnav' => 'fixed'))[1] === array() &&
     isset(webui_pref_validate(array('topnav' => 'sticky'))[1]['topnav']), 'the top bar scrolls with the page unless the user chose fixed');
 check(webui_prefs_put('alice', array('mode' => 'dark'))['mode'] === 'dark' && webui_prefs_put('alice', array('accent' => 'teal'))['mode'] === 'dark',

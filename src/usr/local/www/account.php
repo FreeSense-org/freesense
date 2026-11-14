@@ -92,7 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		}
 	} elseif ($action === 'appearance') {
 		$in = array();
-		foreach (array('mode', 'accent', 'density', 'nav', 'topnav', 'language') as $k) {
+		foreach (array('mode', 'accent', 'density', 'nav', 'topnav', 'page_width', 'menu_icons', 'hostname_menu', 'language') as $k) {
 			$in[$k] = (string)($_POST[$k] ?? '');
 		}
 		list($values, $errors) = webui_pref_validate($in);
@@ -112,20 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 		foreach ($errors as $e) {
 			$input_errors[] = gettext($e);
 		}
-		if ($local) {
-			validate_webguihostnamemenu_field($input_errors, $_POST['webguihostnamemenu'] ?? '');
-		}
 		if (!$input_errors) {
 			webui_prefs_put($username, $values);
 			if ($local) {
 				$ent = config_get_path("system/user/{$id}");
-				foreach (array('webguihostnamemenu') as $k) {
-					if (!empty($_POST[$k])) {
-						$ent[$k] = $_POST[$k];
-					} else {
-						unset($ent[$k]);
-					}
-				}
 				foreach ($legacy_flags as $k) {
 					if (!empty($_POST[$k])) {
 						$ent[$k] = true;
@@ -237,9 +227,16 @@ if ($tab === 'profile') {
 	$section->addInput(new Form_Select('nav', 'Menu', $prefs['nav'], array(
 		'top' => gettext('Top menu bar'), 'side' => gettext('Sidebar'))))
 	    ->setHelp('Both layouts have the same menus. On a phone both become one collapsed menu.');
-	$section->addInput(new Form_Select('topnav', 'Top bar', $prefs['topnav'], array(
+	$section->addInput(new Form_Select('topnav', 'Top menu bar', $prefs['topnav'], array(
 		'scroll' => gettext('Scrolls with the page'), 'fixed' => gettext('Fixed (stays visible at the top of the page)'))))
-	    ->setHelp('The fixed bar is intended for large screens; content passes under it.');
+	    ->setHelp('Only for the top menu bar layout. The fixed bar is intended for large screens; content passes under it.');
+	$section->addInput(new Form_Select('menu_icons', 'Top bar menu', $prefs['menu_icons'], webgui_menuicons_choices()))
+	    ->setHelp('Only for the top menu bar layout. Icons and text shows every menu with its name. Automatic shows the names when they fit, a tighter bar when room is short and icons when even that does not fit. ' .
+	    'Icons only keeps the bar calm; hover a menu for its name. On small screens the menu always shows names.');
+	$section->addInput(new Form_Select('page_width', 'Page width', $prefs['page_width'], webgui_pagewidth_choices()))
+	    ->setHelp('How wide the pages may get on a large screen. Classic keeps the content at 1200 px like older versions; Wide uses more of the screen.');
+	$section->addInput(new Form_Select('hostname_menu', 'Hostname in menu', $prefs['hostname_menu'], webgui_hostnamemenu_choices()))
+	    ->setHelp('Replaces the Help menu title with the system hostname or FQDN.');
 	$langs = array('' => gettext('System default'));
 	foreach (get_locale_list() as $k => $l) {
 		$langs[$k] = $l;
@@ -259,14 +256,11 @@ if ($tab === 'profile') {
 		'off' => gettext('Paused: widgets load once; press Live to resume'))));
 	$form->add($section);
 	if ($local) {
-		$pconfig = array(
-			'webguihostnamemenu' => $this_user['webguihostnamemenu'] ?? '',
-		);
+		$pconfig = array();
 		foreach ($legacy_flags as $k) {
 			$pconfig[$k] = isset($this_user[$k]);
 		}
 		$section2 = new Form_Section(gettext('Pages'));
-		gen_webguihostnamemenu_field($section2, $pconfig['webguihostnamemenu']);
 		gen_interfacessort_field($section2, $pconfig['interfacessort']);
 		gen_associatedpanels_fields($section2, $pconfig['systemlogsfilterpanel'], $pconfig['systemlogsmanagelogpanel'],
 		    $pconfig['statusmonitoringsettingspanel']);
@@ -329,5 +323,20 @@ if ($tab === 'profile') {
 }
 ?>
 </div>
+<?php if ($tab === 'appearance'): ?>
+<script type="text/javascript">
+//<![CDATA[
+events.push(function() {
+	/* The choice belongs to the menu bar layout; the sidebar layout's top bar always scrolls away with the page. */
+	function syncTopBar() {
+		hideInput('topnav', $('#nav').val() !== 'top');
+		hideInput('menu_icons', $('#nav').val() !== 'top');
+	}
+	$('#nav').change(syncTopBar);
+	syncTopBar();
+});
+//]]>
+</script>
+<?php endif; ?>
 <?php
 include("foot.inc");

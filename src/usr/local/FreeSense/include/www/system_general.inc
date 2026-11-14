@@ -82,9 +82,6 @@ function system_general_settings() {
 	$pconfig['systemlogsfilterpanel'] = config_path_enabled('system/webgui', 'systemlogsfilterpanel');
 	$pconfig['systemlogsmanagelogpanel'] = config_path_enabled('system/webgui', 'systemlogsmanagelogpanel');
 	$pconfig['statusmonitoringsettingspanel'] = config_path_enabled('system/webgui', 'statusmonitoringsettingspanel');
-	$pconfig['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
-	$pconfig['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
-	$pconfig['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
 	$pconfig['dnslocalhost'] = config_get_path('system/dnslocalhost');
 	//$pconfig['dashboardperiod'] = isset($config['widgets']['period']) ? $config['widgets']['period']:"10";
 	$pconfig['roworderdragging'] = config_path_enabled('system/webgui', 'roworderdragging');
@@ -184,9 +181,6 @@ function system_general_save(array $post) {
 	if ($post['domain'] && (!is_domain($post['domain'], false, false))) {
 		$input_errors[] = gettext("The domain may only contain the characters a-z, 0-9, '-' and '.', and it cannot start with '.' or '-'.");
 	}
-	validate_webguihostnamemenu_field($input_errors, $post['webguihostnamemenu']);
-	validate_webguipagewidth_field($input_errors, $post['webguipagewidth'] ?? '');
-	validate_webguimenuicons_field($input_errors, $post['webguimenuicons'] ?? '');
 
 	$dnslist = $ignore_posted_dnsgw = array();
 
@@ -329,20 +323,6 @@ function system_general_save(array $post) {
 			config_set_path('system/login_message', base64_encode($login_message));
 		} else {
 			config_del_path('system/login_message');
-		}
-
-		if ($post['webguihostnamemenu']) {
-			config_set_path('system/webgui/webguihostnamemenu', $post['webguihostnamemenu']);
-		} else {
-			config_del_path('system/webgui/webguihostnamemenu');
-		}
-
-		foreach (array('webguipagewidth', 'webguimenuicons') as $layout) {
-			if (!empty($post[$layout])) {
-				config_set_path("system/webgui/{$layout}", $post[$layout]);
-			} else {
-				config_del_path("system/webgui/{$layout}");
-			}
 		}
 
 		config_set_path('system/webgui/requirestatefilter', $post['requirestatefilter'] ? true : false);

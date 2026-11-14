@@ -219,29 +219,9 @@ function get_css_files() {
 	return $csslist;
 }
 
-/****f* freesense-utils/gen_webguihostnamemenu_field
- * NAME
- *   gen_webguihostnamemenu_field
- * INPUTS
- *   Pointer to section object
- *   Initial value for the field
- * RESULT
- *   no return value, section object is updated
- ******/
-function gen_webguihostnamemenu_field(&$section, $value) {
-
-	$section->addInput(new Form_Select(
-		'webguihostnamemenu',
-		'Hostname in Menu',
-		$value,
-		["" => gettext("Default (No hostname)"), "hostonly" => gettext("Hostname only"), "fqdn" => gettext("Fully Qualified Domain Name")]
-	))->setHelp("Replaces the Help menu title in the Navbar with the system hostname or FQDN.");
-}
-function validate_webguihostnamemenu_field(&$input_errors, $value) {
-	$valid_values = array("", "hostonly", "fqdn");
-	if (!in_array($value, $valid_values)) {
-		$input_errors[] = gettext("The submitted Hostname in Menu value is invalid.");
-	}
+/* The Help menu title: the default, the hostname or the FQDN. */
+function webgui_hostnamemenu_choices() {
+	return array('' => gettext('Default (No hostname)'), 'hostonly' => gettext('Hostname only'), 'fqdn' => gettext('Fully Qualified Domain Name'));
 }
 
 /* The page width choices: the classic 1200 px (default), wide, or the whole window. */
@@ -249,41 +229,9 @@ function webgui_pagewidth_choices() {
 	return array('' => gettext('Classic (1200 px)'), 'wide' => gettext('Wide (1680 px)'), 'full' => gettext('Full window width'));
 }
 
-function gen_webguipagewidth_field(&$section, $value) {
-	$section->addInput(new Form_Select(
-		'webguipagewidth',
-		'Page width',
-		$value,
-		webgui_pagewidth_choices()
-	))->setHelp('How wide the pages may get on a large screen. Classic keeps the content at 1200 px like older versions; Wide uses more of the screen.');
-}
-
-function validate_webguipagewidth_field(&$input_errors, $value) {
-	if (!array_key_exists((string)$value, webgui_pagewidth_choices())) {
-		$input_errors[] = gettext("The submitted Page width value is invalid.");
-	}
-}
-
 /* The top bar: icons with their names (default), automatic, or icons only (the names show as tooltips). */
 function webgui_menuicons_choices() {
 	return array('' => gettext('Icons and text'), 'auto' => gettext('Automatic'), 'icons' => gettext('Icons only'));
-}
-
-function gen_webguimenuicons_field(&$section, $value) {
-	$section->addInput(new Form_Select(
-		'webguimenuicons',
-		'Top bar menu',
-		$value,
-		webgui_menuicons_choices()
-	))->setHelp('Icons and text shows every menu with its name. Automatic shows the names when they fit, a tighter bar when room is short and icons when even that does not fit. ' .
-	    'Icons only keeps the bar calm; hover a menu for its name. On small screens the menu always shows names.');
-}
-
-function validate_webguimenuicons_field(&$input_errors, $value) {
-	/* 'text' is the older spelling of the default. */
-	if (!array_key_exists((string)$value, webgui_menuicons_choices()) && ((string)$value !== 'text')) {
-		$input_errors[] = gettext("The submitted Top bar menu value is invalid.");
-	}
 }
 
 /****f* freesense-utils/gen_interfacessort_field
@@ -414,7 +362,6 @@ function gen_pagenamefirst_field(&$section, $value) {
  ******/
 function gen_user_settings_fields(&$section, $pconfig) {
 
-	gen_webguihostnamemenu_field($section, $pconfig['webguihostnamemenu']);
 	gen_interfacessort_field($section, $pconfig['interfacessort']);
 	gen_associatedpanels_fields(
 		$section,
