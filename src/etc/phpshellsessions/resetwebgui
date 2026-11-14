@@ -21,17 +21,12 @@
  */
 
 config_read_file(true);
-$default_theme = "FreeSense.css";
 
 echo "Resetting webGUI:\n";
 echo "  Theme to " . $default_theme . "\n";
 echo "  Top navigation to scroll\n";
 echo "  Every user's dashboard to the default layout\n";
 echo "...";
-
-config_set_path('system/webgui/webguicss', $default_theme);
-
-config_del_path('system/webgui/webguifixedmenu');
 
 foreach (glob('/conf/webui/dashboard/*.json') ?: [] as $layout) {
 	@unlink($layout);

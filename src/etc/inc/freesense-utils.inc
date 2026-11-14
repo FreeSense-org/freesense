@@ -219,62 +219,6 @@ function get_css_files() {
 	return $csslist;
 }
 
-/****f* freesense-utils/gen_webguicss_field
- * NAME
- *   gen_webguicss_field
- * INPUTS
- *   Pointer to section object
- *   Initial value for the field
- * RESULT
- *   no return value, section object is updated
- ******/
-function gen_webguicss_field(&$section, $value) {
-
-	$csslist = get_css_files();
-
-	if (!isset($csslist[$value ?? ''])) {
-		$value = "FreeSense.css";
-	}
-
-	$section->addInput(new Form_Select(
-		'webguicss',
-		'Theme',
-		$value,
-		$csslist
-	))->setHelp('Choose an alternative css file (if installed) to change the appearance of the webConfigurator. css files are located in /usr/local/www/css/%s', '<span id="csstxt"></span>');
-}
-function validate_webguicss_field(&$input_errors, $value) {
-	$csslist = get_css_files();
-	if (!isset($csslist[$value])) {
-		$input_errors[] = gettext("The submitted Theme could not be found. Pick a different theme.");
-	}
-}
-
-/****f* freesense-utils/gen_webguifixedmenu_field
- * NAME
- *   gen_webguifixedmenu_field
- * INPUTS
- *   Pointer to section object
- *   Initial value for the field
- * RESULT
- *   no return value, section object is updated
- ******/
-function gen_webguifixedmenu_field(&$section, $value) {
-
-	$section->addInput(new Form_Select(
-		'webguifixedmenu',
-		'Top Navigation',
-		$value,
-		["" => gettext("Scrolls with page"), "fixed" => gettext("Fixed (Remains visible at top of page)")]
-	))->setHelp("The fixed option is intended for large screens only.");
-}
-function validate_webguifixedmenu_field(&$input_errors, $value) {
-	$valid_values = array("", "fixed");
-	if (!in_array($value, $valid_values)) {
-		$input_errors[] = gettext("The submitted Top Navigation value is invalid.");
-	}
-}
-
 /****f* freesense-utils/gen_webguihostnamemenu_field
  * NAME
  *   gen_webguihostnamemenu_field
@@ -470,8 +414,6 @@ function gen_pagenamefirst_field(&$section, $value) {
  ******/
 function gen_user_settings_fields(&$section, $pconfig) {
 
-	gen_webguicss_field($section, $pconfig['webguicss']);
-	gen_webguifixedmenu_field($section, $pconfig['webguifixedmenu']);
 	gen_webguihostnamemenu_field($section, $pconfig['webguihostnamemenu']);
 	gen_interfacessort_field($section, $pconfig['interfacessort']);
 	gen_associatedpanels_fields(

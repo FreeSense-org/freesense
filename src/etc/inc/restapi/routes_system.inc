@@ -112,7 +112,7 @@ function restapi_routes_system() {
 
 	$gen_body = array('type' => 'object', 'description' => 'The General Setup form: hostname, domain, dnsservers (list of {address, ' .
 	    'hostname (for TLS verification), gateway (only with more than one gateway of an address family; "none")}), dnslocalhost, ' .
-	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, webguipagewidth, webguimenuicons, logincss (from the choices), timeservers (space ' .
+	    'timezone, language, webguihostnamemenu, webguipagewidth, webguimenuicons, logincss (from the choices), timeservers (space ' .
 	    'separated), login_message, dnsallowoverride, interfacessort, ' .
 	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
 	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost, loginhideversion (booleans). ' .
@@ -938,7 +938,7 @@ function restapi_sysgen_flags() {
 
 function restapi_sysgen_types() {
 	$types = array('dnsservers' => 'objects', 'choices' => 'ro', 'applied' => 'ro');
-	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language', 'webguicss', 'webguifixedmenu',
+	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language',
 	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss', 'login_message') as $field) {
 		$types[$field] = 'string';
 	}
@@ -970,8 +970,6 @@ function restapi_sysgen_choices() {
 		    'local' => 'Use local DNS (127.0.0.1), ignore remote DNS Servers', 'remote' => 'Use remote DNS Servers, ignore local DNS'),
 		'timezone' => array_combine($timezones, system_general_timezone_descr($timezones)),
 		'language' => get_locale_list(),
-		'webguicss' => get_css_files(),
-		'webguifixedmenu' => array('' => gettext("Scrolls with page"), 'fixed' => gettext("Fixed (Remains visible at top of page)")),
 		'webguihostnamemenu' => array('' => gettext("Default (No hostname)"), 'hostonly' => gettext("Hostname only"),
 		    'fqdn' => gettext("Fully Qualified Domain Name")),
 		'webguipagewidth' => webgui_pagewidth_choices(),
@@ -992,7 +990,7 @@ function restapi_sysgen_choices() {
 }
 
 /* The page's form (pconfig) as API values; DNS servers as {address, hostname[, gateway]}. */
-function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
+function restapi_sysgen_values(array $p, $with_gateways) {
 	$servers = array();
 	foreach (array_values((array)($p['dnsserver'] ?? array())) as $i => $address) {
 		$server = array('address' => (string)$address, 'hostname' => (string)($p["dnshost{$i}"] ?? ''));
@@ -1011,9 +1009,6 @@ function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
 		'timezone' => (string)$p['timezone'],
 		'timeservers' => (string)$p['timeservers'],
 		'language' => (string)$p['language'],
-		/* The theme select shows FreeSense.css when the stored theme is not installed. */
-		'webguicss' => isset($csslist[(string)$p['webguicss']]) ? (string)$p['webguicss'] : 'FreeSense.css',
-		'webguifixedmenu' => (string)$p['webguifixedmenu'],
 		'webguihostnamemenu' => (string)$p['webguihostnamemenu'],
 		'webguipagewidth' => (string)($p['webguipagewidth'] ?? ''),
 		'webguimenuicons' => (string)($p['webguimenuicons'] ?? ''),
@@ -1028,7 +1023,7 @@ function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
 }
 
 function restapi_sysgen_settings() {
-	return restapi_sysgen_values(system_general_settings(), isset(restapi_sysgen_choices()['dnsgw']), get_css_files());
+	return restapi_sysgen_values(system_general_settings(), isset(restapi_sysgen_choices()['dnsgw']));
 }
 
 /* The dnsservers list as the page's rows (dnsN, dnshostN and dnsgwN when the gateway select is shown). */
@@ -1099,8 +1094,8 @@ function restapi_h_sysgen_set($req) {
 	$with_gateways = isset($choices['dnsgw']);
 	$current = restapi_sysgen_settings();
 	$values = restapi_svc_merge($req['body'], $current, $types);
-	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language', 'webguicss',
-	    'webguifixedmenu', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss'));
+	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language',
+	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss'));
 	$rows = restapi_sysgen_dns_rows($values['dnsservers'], $with_gateways);
 	if ($with_gateways) {
 		foreach ($rows as $key => $gw) {

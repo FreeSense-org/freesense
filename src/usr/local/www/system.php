@@ -256,8 +256,6 @@ $form->add($section);
 
 $section = new Form_Section('webConfigurator');
 
-gen_webguicss_field($section, $pconfig['webguicss']);
-gen_webguifixedmenu_field($section, $pconfig['webguifixedmenu']);
 gen_webguihostnamemenu_field($section, $pconfig['webguihostnamemenu']);
 gen_webguipagewidth_field($section, $pconfig['webguipagewidth']);
 gen_webguimenuicons_field($section, $pconfig['webguimenuicons']);
@@ -325,7 +323,6 @@ $form->add($section);
 
 print $form;
 
-$csswarning = sprintf(gettext("%sUser-created themes are unsupported, use at your own risk."), "<br />");
 
 ?>
 </div>
@@ -333,20 +330,6 @@ $csswarning = sprintf(gettext("%sUser-created themes are unsupported, use at you
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
-
-	function setThemeWarning() {
-		if ($('#webguicss').val().startsWith("FreeSense")) {
-			$('#csstxt').html("").addClass("text-default");
-		} else {
-			$('#csstxt').html("<?=$csswarning?>").addClass("text-danger");
-		}
-	}
-
-	$('#webguicss').change(function() {
-		setThemeWarning();
-	});
-
-	setThemeWarning();
 
 	// Suppress "Delete row" button if there are fewer than two rows
 	checkLastRow();

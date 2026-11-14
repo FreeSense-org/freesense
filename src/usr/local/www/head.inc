@@ -53,17 +53,12 @@ if ($user_settings['webgui']['pagenamefirst']) {
 
 /*
  * Appearance is the user's own (Account > Appearance, webui_prefs.inc): mode light,
- * dark or auto (follows the browser), an accent and a density. A user who never
- * chose a mode keeps the colour of the theme file set in an earlier version.
+ * dark or auto (follows the browser), an accent, a density, the menu layout and
+ * whether the top bar scrolls with the page or stays fixed.
  */
 require_once('webui_prefs.inc');
 $fs_user_prefs = webui_prefs_get((string)($_SESSION['Username'] ?? ''));
-$fs_mode_saved = (webui_read_json(webui_user_file('prefs', (string)($_SESSION['Username'] ?? ''))) ?? array())['mode'] ?? null;
-if (!in_array($fs_mode_saved, array('light', 'dark', 'auto'), true)) {
-	$fs_legacy_css = (string)($user_settings['webgui']['webguicss'] ?? 'FreeSense-dark.css');
-	$fs_mode_saved = (stripos($fs_legacy_css, 'dark') === false) ? 'light' : 'dark';
-}
-$fs_mode = $fs_mode_saved;
+$fs_mode = $fs_user_prefs['mode'];
 $fs_colormode = ($fs_mode === 'light') ? 'light' : 'dark';	/* auto starts dark; the script below follows the browser */
 $cssfile = ($fs_mode === 'light') ? '/css/FreeSense.css' : '/css/FreeSense-dark.css';
 $fs_accents = array('' => 'Coral', 'blue' => 'Blue', 'teal' => 'Teal', 'green' => 'Green', 'violet' => 'Violet', 'amber' => 'Amber');
@@ -586,7 +581,7 @@ if (!g_get('disablehelpmenu')) {
 
 $menuclass = "static";
 $menuclass_dropdown = '';
-if ($user_settings['webgui']['webguifixedmenu'] == "fixed") {
+if ($fs_user_prefs['topnav'] === 'fixed') {
 	$menuclass = "fixed";
 	$menuclass_dropdown = ' dropdown-menu-fixed';
 }
@@ -668,41 +663,6 @@ if ($fs_menu_mode === 'icons') {
 					$fs_initials = webui_initials($fs_disp !== '' ? $fs_disp : $fs_uname);
 					$fs_host = (string)config_get_path('system/hostname');
 					?>
-					<li class="nav-item dropdown fs-nav-palette">
-						<button type="button" class="nav-link" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="<?=gettext('Appearance')?>">
-							<i class="fa-solid fa-palette" aria-hidden="true"></i><span class="visually-hidden"><?=gettext('Appearance')?></span>
-						</button>
-						<div class="dropdown-menu dropdown-menu-end fs-palette" data-fs-prefs>
-							<div class="fs-palette-group"><b><?=gettext('Mode')?></b>
-								<div class="fs-pseg" role="group">
-									<?php foreach (array('light' => gettext('Light'), 'dark' => gettext('Dark'), 'auto' => gettext('Auto')) as $k => $l): ?>
-									<button type="button" data-fs-pref="mode" data-v="<?=$k?>" aria-pressed="<?=($fs_mode === $k) ? 'true' : 'false'?>"><?=$l?></button>
-									<?php endforeach; ?>
-								</div>
-							</div>
-							<div class="fs-palette-group"><b><?=gettext('Accent')?></b>
-								<div class="fs-swatches" role="group">
-									<?php foreach ($fs_accents as $k => $l): ?>
-									<button type="button" class="fs-swatch" data-fs-pref="accent" data-v="<?=$k?>" data-accent="<?=$k?>" title="<?=gettext($l)?>" aria-label="<?=gettext($l)?>" aria-pressed="<?=($fs_accent === $k) ? 'true' : 'false'?>"></button>
-									<?php endforeach; ?>
-								</div>
-							</div>
-							<div class="fs-palette-group"><b><?=gettext('Density')?></b>
-								<div class="fs-pseg" role="group">
-									<?php foreach (array('comfortable' => gettext('Comfortable'), 'compact' => gettext('Compact')) as $k => $l): ?>
-									<button type="button" data-fs-pref="density" data-v="<?=$k?>" aria-pressed="<?=($fs_user_prefs['density'] === $k) ? 'true' : 'false'?>"><?=$l?></button>
-									<?php endforeach; ?>
-								</div>
-							</div>
-							<div class="fs-palette-group"><b><?=gettext('Menu')?></b>
-								<div class="fs-pseg" role="group">
-									<?php foreach (array('top' => gettext('Top bar'), 'side' => gettext('Sidebar')) as $k => $l): ?>
-									<button type="button" data-fs-pref="nav" data-v="<?=$k?>" data-reload="1" aria-pressed="<?=($fs_user_prefs['nav'] === $k) ? 'true' : 'false'?>"><?=$l?></button>
-									<?php endforeach; ?>
-								</div>
-							</div>
-						</div>
-					</li>
 					<li class="nav-item dropdown fs-nav-account">
 						<button type="button" class="nav-link fs-account-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="<?=gettext('Account')?>">
 							<span class="fs-avatar" aria-hidden="true"><?=htmlspecialchars($fs_initials)?></span>

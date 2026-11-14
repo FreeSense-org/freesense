@@ -1181,23 +1181,11 @@ body:not(.fs-nav-side) .fs-side-crumb, body:not(.fs-nav-side) .fs-side-foot, bod
 .fs-account-toggle .fs-side-user b { font-size: .8125rem; font-weight: 600; color: var(--bs-emphasis-color); }
 .fs-account-caret { font-size: .65rem; color: var(--bs-secondary-color); }
 @media (max-width: 1199.98px) { .fs-account-toggle .fs-side-user, .fs-account-caret { display: none; } }
-.fs-account-menu, .fs-palette { min-width: 15rem; padding: .4rem; border-radius: 14px; }
+.fs-account-menu { min-width: 15rem; padding: .4rem; border-radius: 14px; }
 .fs-account-head { padding: .45rem .65rem .35rem; font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); overflow-wrap: anywhere; }
 .fs-account-menu .dropdown-item { display: flex; align-items: center; gap: .7rem; padding: .5rem .65rem; border-radius: 9px; font-size: .875rem; }
 .fs-account-menu .dropdown-item > i { width: 1.1rem; text-align: center; color: var(--bs-secondary-color); }
 .fs-account-menu .dropdown-item kbd { margin-left: auto; font-size: .6875rem; background: transparent; color: var(--bs-secondary-color); padding: 0; }
-.fs-palette { min-width: 16rem; padding: .75rem; gap: .8rem; }
-.fs-palette.show { display: grid; }
-.fs-palette-group { display: grid; gap: .35rem; }
-.fs-palette-group > b { font-size: .6875rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); }
-.fs-pseg { display: flex; padding: 3px; gap: 2px; border-radius: 10px; background: var(--bs-tertiary-bg); }
-.fs-pseg > button { flex: 1 1 0; padding: .3rem .5rem; border: 0; border-radius: 8px; background: transparent; font-size: .8125rem; color: var(--bs-secondary-color); }
-.fs-pseg > button[aria-pressed="true"] { background: var(--fs-accent-tint); color: var(--fs-coral-text); font-weight: 600; box-shadow: inset 0 0 0 1px var(--fs-coral); }
-.fs-swatches { display: flex; gap: .5rem; }
-.fs-swatch { width: 1.6rem; height: 1.6rem; border-radius: 50%; border: 2px solid transparent; background: var(--sw, #ea4f2d); box-shadow: 0 0 0 1px var(--bs-border-color); }
-.fs-swatch[aria-pressed="true"] { border-color: var(--bs-body-bg); box-shadow: 0 0 0 2px var(--sw, #ea4f2d); }
-.fs-swatch[data-accent=""] { --sw: #ea4f2d; } .fs-swatch[data-accent="blue"] { --sw: #2f6fe4; } .fs-swatch[data-accent="teal"] { --sw: #0f9d8f; }
-.fs-swatch[data-accent="green"] { --sw: #2f9e57; } .fs-swatch[data-accent="violet"] { --sw: #7c4dff; } .fs-swatch[data-accent="amber"] { --sw: #d98a00; }
 /* the top bar is a fixed dark band in the top-menu layout */
 .fs-topbar[data-bs-theme="dark"] .fs-account-toggle .fs-side-user b { color: #fff; }
 .fs-topbar[data-bs-theme="dark"] .fs-account-toggle .fs-side-user, .fs-topbar[data-bs-theme="dark"] .fs-account-caret { color: rgba(255, 255, 255, .62); }

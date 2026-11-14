@@ -198,8 +198,6 @@ function usermgr_user_form($this_user) {
 	$pconfig['descr'] = $this_user['descr'];
 	$pconfig['expires'] = $this_user['expires'];
 	$pconfig['customsettings'] = isset($this_user['customsettings']);
-	$pconfig['webguicss'] = $this_user['webguicss'];
-	$pconfig['webguifixedmenu'] = $this_user['webguifixedmenu'];
 	$pconfig['webguihostnamemenu'] = $this_user['webguihostnamemenu'];
 	$pconfig['interfacessort'] = isset($this_user['interfacessort']);
 	$pconfig['systemlogsfilterpanel'] = isset($this_user['systemlogsfilterpanel']);
@@ -533,8 +531,6 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 			$input_errors[] = gettext("Invalid internal Certificate Authority") . "\n";
 		}
 	}
-	validate_webguicss_field($input_errors, $post['webguicss']);
-	validate_webguifixedmenu_field($input_errors, $post['webguifixedmenu']);
 	validate_webguihostnamemenu_field($input_errors, $post['webguihostnamemenu']);
 
 	/* No privilege escalation; system users and the admins group are protected. */
@@ -599,18 +595,6 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 			$userent['customsettings'] = true;
 		} else {
 			unset($userent['customsettings']);
-		}
-
-		if ($post['webguicss']) {
-			$userent['webguicss'] = $post['webguicss'];
-		} else {
-			unset($userent['webguicss']);
-		}
-
-		if ($post['webguifixedmenu']) {
-			$userent['webguifixedmenu'] = $post['webguifixedmenu'];
-		} else {
-			unset($userent['webguifixedmenu']);
 		}
 
 		if ($post['webguihostnamemenu']) {
