@@ -41,3 +41,19 @@ The best way to contribute code is a pull request on GitHub:
    `Fixes #NNN`.
 
 Keep PRs focused and describe what changed and why.
+
+#### Commit messages
+
+Every commit becomes a line of "What is new" on System > Update of a Development
+system, so the first line says what changed, for the person reading the update:
+
+```
+Area: what changed
+```
+
+For example `WebUI: the page width setting is per user and lives in Account`.
+Add `Release-Note: skip` to the commit message for internal work that should not
+be listed, or `Release-Note: <one line>` to word the note differently from the
+subject. A check on every pull request reports commits that do not follow this.
+The full rules are in
+[docs/commit-messages.md](https://github.com/FreeSense-org/freesense-os-base/blob/main/docs/commit-messages.md).
