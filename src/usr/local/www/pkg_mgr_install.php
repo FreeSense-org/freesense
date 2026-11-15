@@ -109,12 +109,22 @@ if (!empty($_REQUEST['ajax'])) {
 		}
 		$channel = pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
 		if (preg_match('/^[A-Za-z0-9_.-]+$/D', $channel)) {
-			// Release notes travel with the canonical release document used by
-			// the website and download publisher. This prevents the appliance
-			// and website from showing different changelogs for the same build.
-			$notes_url = 'https://pkg.freesense.org/v1/releases/' . rawurlencode($channel) . '.json';
-			$notes_raw = shell_exec('/usr/bin/fetch -qo - -T 5 ' . escapeshellarg($notes_url) . ' 2>/dev/null');
-			$notes = json_decode($notes_raw, true);
+			$notes = null;
+			if ($channel === 'devel') {
+				// Development gets a build's worth of notes on every build; the release
+				// document below only changes when images are published.
+				$log_raw = shell_exec('/usr/bin/fetch -qo - -T 5 ' . escapeshellarg(PKG_NOTES_LOG_URL) . ' 2>/dev/null');
+				$notes = pkg_update_notes_from_log(json_decode((string)$log_raw, true),
+				    pkg_build_generation($firmwareversions['installed_version'] ?? ''));
+			}
+			if (!is_array($notes)) {
+				// Release notes travel with the canonical release document used by
+				// the website and download publisher. This prevents the appliance
+				// and website from showing different changelogs for the same build.
+				$notes_url = 'https://pkg.freesense.org/v1/releases/' . rawurlencode($channel) . '.json';
+				$notes_raw = shell_exec('/usr/bin/fetch -qo - -T 5 ' . escapeshellarg($notes_url) . ' 2>/dev/null');
+				$notes = json_decode((string)$notes_raw, true);
+			}
 			if (is_array($notes)) {
 				$firmwareversions['release_notes'] = $notes;
 			}
@@ -445,6 +455,7 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 			<div class="panel panel-default mb-0" id="update_notes_card" style="display:none">
 				<div class="panel-heading d-flex justify-content-between align-items-center"><h3 class="panel-title"><i class="fa-solid fa-wand-magic-sparkles me-2" aria-hidden="true"></i><?=gettext('What is new')?></h3><span class="badge text-bg-primary" id="update_notes_count"></span></div>
 				<div class="panel-body p-3">
+					<p class="small text-body-secondary mb-3" id="update_notes_asof" style="display:none"></p>
 					<ul class="nav nav-tabs mb-3" id="update_notes_tabs" role="tablist">
 						<li class="nav-item" role="presentation"><button class="nav-link active" id="update_notes_freesense_tab" data-bs-toggle="tab" data-bs-target="#update_notes_freesense" type="button" role="tab" aria-controls="update_notes_freesense" aria-selected="true"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i><?=gettext('FreeSense')?><span class="badge text-bg-secondary ms-2" id="update_notes_freesense_count"></span></button></li>
 						<li class="nav-item" role="presentation"><button class="nav-link" id="update_notes_platform_tab" data-bs-toggle="tab" data-bs-target="#update_notes_platform" type="button" role="tab" aria-controls="update_notes_platform" aria-selected="false"><i class="fa-brands fa-freebsd me-1" aria-hidden="true"></i><?=gettext('Platform & packages')?><span class="badge text-bg-secondary ms-2" id="update_notes_platform_count"></span></button></li>
@@ -1029,6 +1040,14 @@ function render_update_notes(notes) {
 	$('#update_notes_freesense_count').text(changes.length);
 	$('#update_notes_platform_count').text(platformCount);
 	$('#update_notes_count').text((changes.length + platformCount) + ' <?=gettext('changes')?>');
+	/* Development: say how many builds the list covers and since when. */
+	var builds = notes && Number.isInteger(notes.notes_builds) ? notes.notes_builds : 0;
+	var since = notes && typeof notes.notes_since === 'string' ? notes.notes_since.slice(0, 10) : '';
+	if (builds > 0) {
+		$('#update_notes_asof').text((builds === 1 ? '<?=gettext('Changes in the latest build')?>' : '<?=gettext('Changes in the latest builds')?> (' + builds + ')') + (since ? ' · <?=gettext('since')?> ' + since : '')).show();
+	} else {
+		$('#update_notes_asof').hide();
+	}
 	var showPlatform = !changes.length && platformCount > 0;
 	$('#update_notes_freesense_tab').toggleClass('active', !showPlatform).attr('aria-selected', showPlatform ? 'false' : 'true');
 	$('#update_notes_platform_tab').toggleClass('active', showPlatform).attr('aria-selected', showPlatform ? 'true' : 'false');

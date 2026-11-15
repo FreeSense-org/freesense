@@ -93,7 +93,8 @@ foreach (['id="run-overlay"', 'function openRunOverlay', 'function closeRunOverl
 }
 foreach (['/v1/releases/', 'render_update_notes', 'fa-wand-magic-sparkles',
     'freesense.release-notes/v2', 'update_notes_freesense_tab',
-    'update_notes_platform_tab', 'FreeBSD ports snapshot updated'] as $requiredText) {
+    'update_notes_platform_tab', 'FreeBSD ports snapshot updated',
+    'pkg_update_notes_from_log', 'PKG_NOTES_LOG_URL', 'update_notes_asof'] as $requiredText) {
 	if (strpos($updateManager, $requiredText) === false) {
 		fwrite(STDERR, "Update page is missing classified release-note support.\n");
 		exit(1);
