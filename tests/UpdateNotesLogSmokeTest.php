@@ -114,4 +114,21 @@ check($first['release_notes']['platform']['freebsd']['changed'] === false &&
     $first['release_notes']['platform']['packages']['counts'] === array('updated' => 0, 'added' => 0, 'removed' => 0),
     'a first entry shows its changes and no invented platform diff');
 
+/* ---- what is new in 1.2 beyond Stable 1.1 ---- */
+check(array_key_exists('since_stable', $doc) && $doc['since_stable'] === null, 'no section in the log: none in the document');
+$withStable = $log;
+$withStable['since_stable'] = array('baseline' => 'RELENG_1_1', 'total' => 280, 'generation' => 300, 'changes' => array(
+	array('type' => 'feature', 'title' => 'VPN: WireGuard peers can be disabled', 'scope' => 'System', 'date' => '2026-11-10'),
+	array('type' => 'fix', 'title' => '', 'scope' => 'System'),
+	'junk',
+));
+$both = pkg_update_notes_from_log($withStable, 300);
+check($both['since_stable']['baseline'] === 'RELENG_1_1' && $both['since_stable']['total'] === 280 &&
+    count($both['since_stable']['changes']) === 1 &&
+    $both['since_stable']['changes'][0]['title'] === 'VPN: WireGuard peers can be disabled',
+    'the 1.2 list passes through without empty or broken lines, with the publisher total');
+$broken = $log;
+$broken['since_stable'] = 'x';
+check(pkg_update_notes_from_log($broken, 300)['since_stable'] === null, 'a broken section is ignored');
+
 echo "UpdateNotesLogSmokeTest passed\n";
