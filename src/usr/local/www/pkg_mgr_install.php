@@ -459,10 +459,12 @@ if (!isvalidpid($gui_pidfile) && !$confirmed && !$completed &&
 					<ul class="nav nav-tabs mb-3" id="update_notes_tabs" role="tablist">
 						<li class="nav-item" role="presentation"><button class="nav-link active" id="update_notes_freesense_tab" data-bs-toggle="tab" data-bs-target="#update_notes_freesense" type="button" role="tab" aria-controls="update_notes_freesense" aria-selected="true"><i class="fa-solid fa-shield-halved me-1" aria-hidden="true"></i><?=gettext('FreeSense')?><span class="badge text-bg-secondary ms-2" id="update_notes_freesense_count"></span></button></li>
 						<li class="nav-item" role="presentation"><button class="nav-link" id="update_notes_platform_tab" data-bs-toggle="tab" data-bs-target="#update_notes_platform" type="button" role="tab" aria-controls="update_notes_platform" aria-selected="false"><i class="fa-brands fa-freebsd me-1" aria-hidden="true"></i><?=gettext('Platform & packages')?><span class="badge text-bg-secondary ms-2" id="update_notes_platform_count"></span></button></li>
+						<li class="nav-item" role="presentation" id="update_notes_new12_item" style="display:none"><button class="nav-link" id="update_notes_new12_tab" data-bs-toggle="tab" data-bs-target="#update_notes_new12" type="button" role="tab" aria-controls="update_notes_new12" aria-selected="false"><i class="fa-solid fa-code-branch me-1" aria-hidden="true"></i><?=gettext('New in 1.2 vs 1.1')?><span class="badge text-bg-secondary ms-2" id="update_notes_new12_count"></span></button></li>
 					</ul>
 					<div class="tab-content">
 						<div class="tab-pane fade show active" id="update_notes_freesense" role="tabpanel" aria-labelledby="update_notes_freesense_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_freesense_summary"></div><div class="list-group list-group-flush" id="update_notes_freesense_list"></div></div>
 						<div class="tab-pane fade" id="update_notes_platform" role="tabpanel" aria-labelledby="update_notes_platform_tab"><div class="d-flex flex-wrap gap-2 mb-3" id="update_notes_platform_summary"></div><div class="list-group list-group-flush" id="update_notes_platform_list"></div></div>
+						<div class="tab-pane fade" id="update_notes_new12" role="tabpanel" aria-labelledby="update_notes_new12_tab"><p class="small text-body-secondary mb-3"><?=gettext('Changes on the Development line that Stable 1.1 does not have. Fixes that were also released in 1.1 are not listed.')?></p><div class="list-group list-group-flush" id="update_notes_new12_list"></div></div>
 					</div>
 				</div>
 			</div>
@@ -1036,6 +1038,29 @@ function render_update_notes(notes) {
 	});
 	if (packages && packages.truncated) platformList.append($('<div>').addClass('small text-body-secondary py-2').text('<?=gettext('Only the first 200 package changes are shown.')?>'));
 	if (!platformCount) platformList.append($('<div>').addClass('text-body-secondary py-3').text(structured ? '<?=gettext('FreeBSD platform and System packages are unchanged.')?>' : '<?=gettext('Platform details are not available for this older release.')?>'));
+
+	/* Development: what is new in 1.2 compared with Stable 1.1. */
+	var newIn12 = notes && notes.since_stable && Array.isArray(notes.since_stable.changes) ? notes.since_stable : null;
+	var newList = $('#update_notes_new12_list').empty();
+	if (newIn12 && newIn12.changes.length) {
+		newIn12.changes.slice(0, 50).forEach(function(change) {
+			var type = styles[change.type] ? change.type : 'other';
+			var row = $('<div>').addClass('list-group-item bg-transparent px-0 d-flex gap-3');
+			row.append($('<span>').addClass('text-' + styles[type]).append($('<i>').addClass('fa-solid fa-' + icons[type])));
+			var body = $('<div>'); body.append($('<div>').addClass('fw-semibold').text(change.title || ''));
+			var meta = [change.scope || '', typeof change.date === 'string' ? change.date : ''].filter(Boolean).join(' · ');
+			if (meta) body.append($('<div>').addClass('small text-body-secondary').text(meta));
+			row.append(body); newList.append(row);
+		});
+		var more = (newIn12.total || newIn12.changes.length) - Math.min(50, newIn12.changes.length);
+		if (more > 0) newList.append($('<div>').addClass('small text-body-secondary py-2')
+		    .append(document.createTextNode(more + ' <?=gettext('more changes. ')?>'))
+		    .append($('<a>').attr({href: <?=json_encode($release_notes_url)?>, target: '_blank', rel: 'noopener'}).text('<?=gettext('Read the release notes')?>')));
+		$('#update_notes_new12_count').text(newIn12.total || newIn12.changes.length);
+		$('#update_notes_new12_item').show();
+	} else {
+		$('#update_notes_new12_item').hide();
+	}
 
 	$('#update_notes_freesense_count').text(changes.length);
 	$('#update_notes_platform_count').text(platformCount);

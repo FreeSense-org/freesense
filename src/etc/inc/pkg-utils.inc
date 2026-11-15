@@ -2088,6 +2088,19 @@ function pkg_update_notes_from_log($log, $installed_generation = null, $recent =
 		'from_ports_commit' => is_string($from_ports) ? $from_ports : null,
 		'to_ports_commit' => is_string($to_ports) ? $to_ports : null,
 	);
+	/* What main has that the Stable branch does not, kept by the publisher (cherry-picks left out). */
+	$since_stable = null;
+	$section = $log['since_stable'] ?? null;
+	if (is_array($section) && is_array($section['changes'] ?? null)) {
+		$listed = array();
+		foreach ($section['changes'] as $c) {
+			if (is_array($c) && trim((string)($c['title'] ?? '')) !== '') {
+				$listed[] = $c;
+			}
+		}
+		$since_stable = array('baseline' => (string)($section['baseline'] ?? ''),
+		    'total' => max(count($listed), (int)($section['total'] ?? 0)), 'changes' => $listed);
+	}
 	return array(
 		'schema_version' => 'freesense.download/v4',
 		'channel' => 'devel',
@@ -2096,6 +2109,7 @@ function pkg_update_notes_from_log($log, $installed_generation = null, $recent =
 		'published_at' => (string)($newest['published_at'] ?? ''),
 		'notes_builds' => count($chosen),
 		'notes_since' => (string)($oldest['published_at'] ?? ''),
+		'since_stable' => $since_stable,
 		'release_notes' => array(
 			'schema_version' => 'freesense.release-notes/v2',
 			'baseline_release_id' => null,
