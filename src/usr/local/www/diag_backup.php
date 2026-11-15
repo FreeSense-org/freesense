@@ -178,11 +178,6 @@ if ($_POST) {
 
 }
 
-$id = rand() . '.' . time();
-
-$mth = ini_get('upload_progress_meter.store_method');
-$dir = ini_get('upload_progress_meter.file.filename_template');
-
 function build_area_list($showall) {
 	$areas = array(
 		"aliases" => gettext("Aliases"),
