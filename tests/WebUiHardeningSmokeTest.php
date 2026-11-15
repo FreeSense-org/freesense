@@ -375,7 +375,7 @@ if ((strpos($nginxgen, 'client_max_body_size 200m;') !== false) || (strpos($ngin
 	$fail('Request bodies must be small unless a page takes files.');
 }
 $phpini = file_get_contents($root . '/src/etc/rc.php_ini_setup');
-foreach (['session.use_strict_mode = 1', 'session.save_path = "${SESSIONDIR}"', 'php_admin_flag[register_argc_argv] = off', 'allow_url_include = Off'] as $needle) {
+foreach (['session.use_strict_mode = 1', 'session.save_path = "${SESSIONDIR}"', 'php_admin_flag[register_argc_argv] = off', 'allow_url_include = Off', 'session.upload_progress.enabled = Off'] as $needle) {
 	if (strpos($phpini, $needle) === false) {
 		$fail("php.ini must have: {$needle}");
 	}
