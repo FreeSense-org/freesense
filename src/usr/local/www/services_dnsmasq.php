@@ -211,12 +211,15 @@ $section->addInput(new Form_Checkbox(
 					'rather than binding to all interfaces and discarding queries to other addresses.%1$s' .
 					'This option does NOT work with IPv6. If set, dnsmasq will not bind to IPv6 addresses.', '<br /><br />');
 
-$section->addInput(new Form_Textarea(
+$section->addInput($dns_custom = new Form_Textarea(
 	'custom_options',
 	'Custom options',
 	$pconfig['custom_options']
 ))->setHelp('Enter any additional options to add to the dnsmasq configuration here, separated by a space or newline.')
   ->addClass('advanced');
+if (!services_dns_custom_editable('dnsmasq')) {
+	$dns_custom->setReadonly()->setHelp(gettext('Changing custom options requires the DNS Forwarder custom configuration privilege.'));
+}
 
 $form->add($section);
 print($form);

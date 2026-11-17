@@ -264,6 +264,7 @@ try {
 	$session_opencounter = 1;
 	$_SESSION = array('Username' => $ctx['user']['name'],
 	    'authsource' => empty($ctx['session']) ? "API key {$ctx['token']['id']}" : "{$ctx['authsource']} (WebUI)");
+	$_SESSION['page-match'] = $ctx['user']['__pages'] ?? array();
 	try {
 		$result = call_user_func($route['handler'], $req);
 		/* write_config() refused a save because a Fleet policy rule is in Lock mode. */
