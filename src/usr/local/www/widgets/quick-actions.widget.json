@@ -1,0 +1,27 @@
+{
+	"type": "quick-actions",
+	"title": "Quick actions",
+	"description": "Shortcuts to the pages you use most",
+	"icon": "fa-bolt",
+	"tone": "series-4",
+	"category": "System",
+	"page": "index.php",
+	"order": 12,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "sm",
+	"every": 0,
+	"strings": [
+		"Rules",
+		"Logs",
+		"Interfaces",
+		"Backup",
+		"Updates",
+		"Diagnostics",
+		"States",
+		"Services"
+	]
+}

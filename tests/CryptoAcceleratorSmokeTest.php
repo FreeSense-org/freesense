@@ -165,14 +165,15 @@ crypto_kernel([]);
 @rmdir($kernel);
 
 /* The page, the REST API and the dashboard know the new settings. */
-$page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_misc.php');
+/* the crypto settings moved from Miscellaneous to System > Advanced > Performance */
+$page = file_get_contents(__DIR__ . '/../src/usr/local/www/system_advanced_performance.php');
 check_crypto(strpos($page, "['' => gettext('Automatic (recommended)')] + \$crypto_modules") !== false,
-    'the Miscellaneous page offers Automatic as the empty value');
+    'the Performance page offers Automatic as the empty value');
 check_crypto(strpos($page, "if (crypto_qat_available()) {") !== false && strpos($page, "'crypto_qat',") !== false,
-    'the Miscellaneous page shows the QAT checkbox only when the drivers exist');
+    'the Performance page shows the QAT checkbox only when the drivers exist');
 $misc = file_get_contents(__DIR__ . '/../src/usr/local/FreeSense/include/www/system_advanced_misc.inc');
 foreach (["'crypto_ccp',", "'crypto_ccr',", "crypto_offload_available('ccp')", "crypto_offload_available('ccr')"] as $needle) {
-	check_crypto(strpos($page, $needle) !== false, "the Miscellaneous page has {$needle}");
+	check_crypto(strpos($page, $needle) !== false, "the Performance page has {$needle}");
 }
 check_crypto(strpos($misc, "\$pconfig[\"crypto_{\$key}\"] = config_path_enabled('system', \"crypto_{\$key}\");") !== false &&
     strpos($misc, "if ((\$post[\"crypto_{\$key}\"] == \"yes\") && crypto_offload_available(\$key)) {") !== false,
@@ -183,8 +184,10 @@ check_crypto(strpos($routes, "\$types[\"crypto_{\$key}\"] = 'bool';") !== false 
     'the REST API exposes every offload flag');
 $dash = file_get_contents(__DIR__ . '/../src/usr/local/www/includes/functions.inc.php');
 foreach (['"OSSL"', '"IPSECMB"', "is_module_loaded('qat_c2xxx')", '"CCP"', '"CCR"', '"ARMV8"', '"SAFEXCEL"',
-    "crypto_device_attached('t6nex')", 'interfaces_with_ipsec_offload()'] as $needle) {
+    "crypto_device_attached('t6nex')"] as $needle) {
 	check_crypto(strpos($dash, $needle) !== false, "the dashboard crypto status knows {$needle}");
 }
+check_crypto(strpos(file_get_contents(__DIR__ . '/../src/etc/inc/status_metrics.inc'), "'ipsec_offload' => interfaces_with_ipsec_offload(),") !== false,
+    'the System widget data reports inline IPsec offload');
 
 echo "Crypto accelerator smoke test passed.\n";

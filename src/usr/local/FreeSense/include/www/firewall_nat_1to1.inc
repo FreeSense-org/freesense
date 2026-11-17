@@ -130,8 +130,33 @@ function remove_binat_rules(int|array $search_index, array &$changes = []) {
 
 $ifdisp = get_configured_interface_with_descr();
 
+/* Every field save1to1NATrule() reads. Checks between fields stay in the saver. */
+function firewall_nat_1to1_input_rules(): array {
+	return [
+		'after' => ['token'],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'disabled' => ['flag'],
+		'dst' => ['line', 'label' => gettext('Destination')],
+		'dstmask' => ['int', 'label' => gettext('Destination bit count'), 'max' => 128],
+		'dstnot' => ['flag'],
+		'dsttype' => ['line', 'label' => gettext('Destination type')],
+		'external' => ['line', 'label' => gettext('External subnet IP')],
+		'exttype' => ['line', 'label' => gettext('External type')],
+		'id' => ['token'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'ipprotocol' => ['enum', 'label' => gettext('Address family'), 'values' => ['inet', 'inet6']],
+		'natreflection' => ['token', 'label' => gettext('NAT reflection')],
+		'nobinat' => ['flag'],
+		'src' => ['line', 'label' => gettext('Internal IP')],
+		'srcmask' => ['int', 'label' => gettext('Internal bit count'), 'max' => 128],
+		'srcnot' => ['flag'],
+		'srctype' => ['line', 'label' => gettext('Internal type')],
+	];
+}
+
 function save1to1NATrule($post, $id, $json = false) {
 	global $vpn_and_ppp_ifs;
+	$input_errors = input_check($post, firewall_nat_1to1_input_rules())[1];
 	$binat_exttype_flags = [SPECIALNET_IFADDR];
 	$binat_srctype_flags = [SPECIALNET_ANY, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPECIALNET_IFSUB];
 	$binat_dsttype_flags = [SPECIALNET_ANY, SPECIALNET_CLIENTS, SPECIALNET_IFADDR, SPECIALNET_IFSUB, SPECIALNET_VIPS];

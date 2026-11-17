@@ -33,6 +33,15 @@ require_once("auth.inc");
 require_once("certs.inc");
 
 /* master setup for vpn (mpd) */
+/* pure: form paths are canonical; old backups may still hold the nested RADIUS layout. */
+function vpn_pppoe_radius_value(array $settings, string $field): string {
+	if (!in_array($field, array('acct_update', 'nasip'), true)) {
+		throw new InvalidArgumentException('Invalid PPPoE RADIUS field.');
+	}
+	return (string)array_get_path($settings, 'radius/' . $field,
+	    array_get_path($settings, 'radius/server/' . $field, ''));
+}
+
 function vpn_setup() {
 	/* start pppoe server */
 	vpn_pppoes_configure();
@@ -82,6 +91,14 @@ function vpn_pppoes_configure() {
 			vpn_pppoe_configure($pppoe);
 		}
 	}
+}
+
+/* The optional ports of an mpd "set radius server" line. A second port needs the first. */
+function vpn_mpd_ports($port, $acctport) {
+	if (!is_port($port)) {
+		return '';
+	}
+	return ' ' . (int)$port . (is_port($acctport) ? ' ' . (int)$acctport : '');
 }
 
 function vpn_pppoe_configure(&$pppoecfg) {
@@ -205,14 +222,17 @@ EOD;
 		$radiusacctport = array_get_path($pppoecfg, 'radius/server/acctport', '');
 		$radiusip = array_get_path($pppoecfg, 'radius/server/ip', '');
 		$radiussecret = array_get_path($pppoecfg, 'radius/server/secret', '');
-		$mpdconf .= "\tset radius server {$radiusip} \"{$radiussecret}\" {$radiusport} {$radiusacctport}\n";
+		$mpdconf .= "\tset radius server " . get_mpd_str($radiusip) . ' ' . get_mpd_str($radiussecret) .
+		    vpn_mpd_ports($radiusport, $radiusacctport) . "\n";
 
 		if (array_path_enabled($pppoecfg, 'radius/server2')) {
 			$radiusport = array_get_path($pppoecfg, 'radius/server2/port', '');
 			$radiusacctport = array_get_path($pppoecfg, 'radius/server2/acctport', '');
 			$radiusip = array_get_path($pppoecfg, 'radius/server2/ip', '');
-			$radiussecret = array_get_path($pppoecfg, 'radius/server2/secret', '');
-			$mpdconf .= "\tset radius server {$radiusip} \"{$radiussecret}\" {$radiusport} {$radiusacctport}\n";
+			/* The page saves this one as secret2. */
+			$radiussecret = array_get_path($pppoecfg, 'radius/server2/secret2', array_get_path($pppoecfg, 'radius/server2/secret', ''));
+			$mpdconf .= "\tset radius server " . get_mpd_str($radiusip) . ' ' . get_mpd_str($radiussecret) .
+			    vpn_mpd_ports($radiusport, $radiusacctport) . "\n";
 		}
 
 		$mpdconf .=<<<EOD
@@ -228,12 +248,12 @@ EOD;
 
 EOD;
 		}
-		$radiusacctupdate = array_get_path($pppoecfg, 'radius/server/acct_update', '');
+		$radiusacctupdate = vpn_pppoe_radius_value($pppoecfg, 'acct_update');
 		if (!empty($radiusacctupdate)) {
-			$mpdconf .= "\tset auth acct-update {$radiusacctupdate}\n";
+			$mpdconf .= "\tset auth acct-update " . (int)$radiusacctupdate . "\n";
 		}
-		$radiusnasip = array_get_path($pppoecfg, 'radius/server/nasip', '');
-		if (!empty($radiusnasip)) {
+		$radiusnasip = vpn_pppoe_radius_value($pppoecfg, 'nasip');
+		if (is_ipaddr($radiusnasip)) {
 			$mpdconf .= "\tset radius me {$radiusnasip}\n";
 		}
 	}
@@ -276,10 +296,14 @@ function vpn_pppoe_updatesecret(&$pppoecfg) {
 			$item = explode(" ", $pppoecfg['username']);
 			foreach ($item as $userdata) {
 				$data = explode(":", $userdata);
-				/* Escape double quotes, do not allow password to start with '!'
-				 * upstream issue 10275 */
-				$pass = str_replace('"', '\"', ltrim(base64_decode($data[1]), '!'));
-				$mpdsecret .= "{$data[0]} \"{$pass}\" {$data[2]}\n";
+				/* A saved name or address must stay one token of one line. */
+				if (!cfg_value_valid('login', $data[0]) ||
+				    (!empty($data[2]) && !is_ipaddr($data[2]))) {
+					continue;
+				}
+				/* A leading '!' would make mpd run the secret as a command. upstream issue 10275 */
+				$pass = get_mpd_str(ltrim(base64_decode($data[1]), '!'));
+				$mpdsecret .= "{$data[0]} {$pass} {$data[2]}\n";
 			}
 		}
 
@@ -437,10 +461,9 @@ EOD;
 
 	if (array_path_enabled($l2tpcfg, 'radius')) {
 		$radiusip = array_get_path($l2tpcfg, 'radius/server', '');
-		/* Escape double quotes like the L2TP secret above. */
-		$radiussecret = str_replace('"', '\"', array_get_path($l2tpcfg, 'radius/secret', ''));
+		$radiussecret = get_mpd_str(array_get_path($l2tpcfg, 'radius/secret', ''));
 		$mpdconf .=<<<EOD
-	set radius server {$radiusip} "{$radiussecret}"
+	set radius server {$radiusip} {$radiussecret}
 	set radius retries 3
 	set radius timeout 10
 	set auth disable internal

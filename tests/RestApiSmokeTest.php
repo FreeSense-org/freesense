@@ -57,6 +57,22 @@ try {
 check_api($rejected, 'a route without a privilege page is rejected');
 
 check_api($route['scope'] === 'status:write' && $routes[0]['scope'] === 'status:read', 'route scope is <area>:<action>');
+$secret_route = restapi_route('GET', '/v1/things/{id}/raw', 'h_raw', array('page' => 'things.php', 'area' => 'status', 'secrets' => true));
+check_api($secret_route['secrets'] && !$secret_route['write'] && $secret_route['scope'] === 'status:write',
+    'a read that returns secrets needs the write scope');
+$secret_routes = array();
+foreach (restapi_routes_v1() as $r) {
+	if (!empty($r['secrets'])) {
+		$secret_routes[] = $r['method'] . ' ' . $r['path'];
+	}
+}
+check_api(in_array('GET /v1/config/revisions/{time}', $secret_routes, true) &&
+    in_array('GET /v1/config/revisions/{time}/diff', $secret_routes, true),
+    'raw configuration revisions and their diffs are secret reads');
+$restapi_src = file_get_contents($root . '/src/etc/inc/restapi.inc');
+check_api(strpos($restapi_src, "return !\$route['write'] && empty(\$route['secrets']) &&") !== false &&
+    strpos($restapi_src, "if (!empty(\$route['secrets']) && !empty(\$ctx['token']['readonly'])) {") !== false,
+    'a read privilege or a read-only key never opens a secret read');
 $rejected = false;
 try {
 	restapi_route('GET', '/v1/x', 'h', array('page' => 'x.php', 'area' => 'nope'));
@@ -914,7 +930,7 @@ check_api(strpos($fn_body($ddns_inc, 'dyndns_client_cache_files'), '_v6.cache') 
     strpos($fn_body($ddns_inc, 'dyndns_delete_client'), 'dyndns_client_cache_files(') !== false &&
     strpos($fn_body($ddns_inc, 'rfc2136_delete_client'), 'rfc2136_client_cache_files(') !== false, 'deleting a client removes its IPv4 and IPv6 cache files');
 
-foreach (array('services_ntpd.php' => array('ntpd_save_settings($_POST, $leapfile)', 'ntpd_settings()', 'ntpd_timeserver_rows()', 'ntpd_build_interface_list('),
+foreach (array('services_ntpd.php' => array('ntpd_save_settings($_POST)', 'ntpd_settings()', 'ntpd_timeserver_rows()', 'ntpd_build_interface_list('),
     'services_ntpd_acls.php' => array('ntpd_save_acls($acl_post)', 'ntpd_acl_rows()', 'ntpd_acl_flags()'),
     'services_dyndns.php' => array('dyndns_delete_client($_POST[\'id\'])', 'dyndns_toggle_client($_POST[\'id\'])'),
     'services_dyndns_edit.php' => array('dyndns_save_client($_POST, $id, $dup)', 'dyndns_client_settings($id, $dup)', 'dyndns_build_if_list()'),
@@ -1354,8 +1370,8 @@ check_api(strpos($user_save, 'The password cannot contain control characters.') 
     'an L2TP user password has no line breaks; a rename to an existing name is refused');
 $vpn_inc = file_get_contents("{$root}/src/etc/inc/vpn.inc");
 $l2_conf = $fn_body($vpn_inc, 'vpn_l2tp_configure');
-check_api(strpos($l2_conf, "\$radiussecret = str_replace('\"', '\\\"', array_get_path(\$l2tpcfg, 'radius/secret', ''));") !== false,
-    'the RADIUS secret is escaped in mpd.conf like the L2TP secret');
+check_api(strpos($l2_conf, "\$radiussecret = get_mpd_str(array_get_path(\$l2tpcfg, 'radius/secret', ''));") !== false,
+    'the RADIUS secret goes through get_mpd_str in mpd.conf');
 check_api(strpos($l2_conf, "\t\treturn true;\n") === false, 'stopping a disabled L2TP server reports success (the page showed a failure)');
 check_api(substr_count($routes_vpn, 'write_config(') === 0 && substr_count($routes_vpn, 'config_set_path(') === 0 && substr_count($routes_vpn, 'config_del_path(') === 0,
     'VPN API writes only through the GUI functions');
@@ -1843,7 +1859,7 @@ $pki_inc = file_get_contents("{$root}/src/usr/local/FreeSense/include/www/system
 foreach (array('system_camanager.php' => array('pki_ca_methods()', 'pki_ca_delete($id)', "pki_ca_form('edit', \$thisca)", "pki_ca_form('new', null, \$_POST['method'])",
     'pki_ca_save($pconfig, $id ?? null, $act, $savemsg)', 'pki_ca_signing_list()', 'pki_key_lengths()', 'pki_key_types()'),
     'system_crlmanager.php' => array('pki_crl_methods()', 'pki_crl_cleanup()', 'pki_crl_delete($id)', "pki_crl_new_form(\$_REQUEST['method'], \$_REQUEST['caref'])",
-    'pki_crl_revoke($pconfig, $_POST)', "pki_crl_unrevoke(\$crl_item_config, \$_REQUEST['certref'])", 'pki_crl_export($crl_item_config)',
+    'pki_crl_revoke($pconfig, $_POST)', "pki_crl_unrevoke(\$crl_item_config, \$_POST['certref'])", 'pki_crl_export($crl_item_config)',
     'pki_crl_save($pconfig, $crl_item_config, $act)', 'pki_crl_method_list(', 'pki_crl_cert_list($crl, $id)', 'pki_crl_ca_list()')) as $page => $calls) {
 	$src = file_get_contents("{$root}/src/usr/local/www/{$page}");
 	foreach ($calls as $call) {
@@ -2103,15 +2119,14 @@ check_api($fps === array(array('type' => 'ssh-ed25519', 'fingerprint' => $smoke_
 check_api(strpos(json_encode($fps), 'AAAAC3Nza') === false && strpos(json_encode($fps), 'ops@example') === false, 'fingerprints carry neither the key nor its comment');
 check_api(restapi_users_has_password(array('bcrypt-hash' => '$2y$x')) && restapi_users_has_password(array('sha512-hash' => 'x')) &&
     !restapi_users_has_password(array('name' => 'x')), 'a password is reported as set from any stored hash');
-$css = array('FreeSense.css' => 'FreeSense', 'FreeSense-dark.css' => 'Dark');
-$unew = restapi_users_values(array(), $css);
-check_api($unew['webguicss'] === 'FreeSense.css' && $unew['dashboardcolumns'] === '2' && $unew['webguifixedmenu'] === '' && $unew['webguihostnamemenu'] === '' &&
-    $unew['groups'] === array() && $unew['disabled'] === false && $unew['password'] === '', 'a new user starts as the page\'s new form (theme, 2 columns, no groups)');
-$uform = array('usernamefld' => 'bob', 'descr' => 'Bob', 'webguicss' => 'gone.css', 'dashboardcolumns' => '9', 'webguifixedmenu' => 'fixed', 'webguihostnamemenu' => 'bogus',
+$unew = restapi_users_values(array());
+check_api(!isset($unew['webguicss']) && !isset($unew['webguifixedmenu']) &&
+    $unew['groups'] === array() && $unew['disabled'] === false && $unew['password'] === '', 'a new user starts as the page\'s new form (no groups, no menu choice)');
+$uform = array('usernamefld' => 'bob', 'descr' => 'Bob',
     'groups' => array('ops'), 'authorizedkeys' => $smoke_key, 'ipsecpsk' => 'psk1', 'disabled' => true, 'keephistory' => false);
-$ucur = restapi_users_values($uform, $css);
-check_api($ucur['webguicss'] === 'FreeSense.css' && $ucur['dashboardcolumns'] === '2' && $ucur['webguifixedmenu'] === 'fixed' && $ucur['webguihostnamemenu'] === '' &&
-    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (unknown theme, columns and menu fall back)');
+$ucur = restapi_users_values($uform);
+check_api(!isset($ucur['webguihostnamemenu']) &&
+    $ucur['disabled'] === true && $ucur['groups'] === array('ops'), 'a user\'s values are preselected like the edit form (no menu choice)');
 $up = restapi_users_post(array('descr' => 'Bobby', 'password' => '(set)', 'ipsecpsk' => '(set)'), $ucur);
 check_api($up['usernamefld'] === 'bob' && $up['passwordfld1'] === '' && $up['passwordfld2'] === '' && $up['ipsecpsk'] === 'psk1' && $up['authorizedkeys'] === $smoke_key &&
     $up['disabled'] === 'yes' && !isset($up['keephistory']) && $up['groups'] === array('ops') && $up['descr'] === 'Bobby' && !isset($up['name']) && !isset($up['password']) &&
@@ -2984,21 +2999,21 @@ check_api(!restapi_sysgen_multiwan(array()) && !restapi_sysgen_multiwan(array(ar
     restapi_sysgen_multiwan(array(array('ipprotocol' => 'inet6'), array('ipprotocol' => 'inet6'))), 'a gateway per DNS server only with two gateways of a family');
 $gp = array('hostname' => 'fw', 'domain' => 'home.arpa', 'dnsserver' => array('192.0.2.53', '2001:db8::53'), 'dnshost0' => 'dns.example',
     'dnsgw0' => 'WAN_DHCP', 'dnsallowoverride' => true, 'dnslocalhost' => null, 'timezone' => 'Etc/UTC', 'timeservers' => 'pool.ntp.org',
-    'language' => 'en_US', 'webguicss' => 'gone.css', 'webguifixedmenu' => null, 'webguihostnamemenu' => 'fqdn', 'dashboardcolumns' => 2,
+    'language' => 'en_US',
     'logincss' => null, 'login_message' => htmlentities("Authorised <users> only & \"staff\""));
 foreach (restapi_sysgen_flags() as $flag) {
 	$gp[$flag] = in_array($flag, array('loginshowhost', 'dnsallowoverride'), true);
 }
-$gv = restapi_sysgen_values($gp, false, array('FreeSense.css' => 'FreeSense'));
+$gv = restapi_sysgen_values($gp, false);
 check_api($gv['dnsservers'] === array(array('address' => '192.0.2.53', 'hostname' => 'dns.example'), array('address' => '2001:db8::53', 'hostname' => '')) &&
-    $gv['webguicss'] === 'FreeSense.css' && $gv['dashboardcolumns'] === '2' && $gv['dnslocalhost'] === '' && $gv['loginshowhost'] === true &&
+    !isset($gv['webguicss']) && !isset($gv['dashboardcolumns']) && $gv['dnslocalhost'] === '' && $gv['loginshowhost'] === true &&
     $gv['dnsallowoverride'] === true && $gv['interfacessort'] === false && $gv['login_message'] === "Authorised <users> only & \"staff\"",
-    'general: the form as API values (theme like the select, the login message as text, no gateways with one WAN)');
-$gv2 = restapi_sysgen_values($gp, true, array('gone.css' => 'gone'));
-check_api($gv2['dnsservers'][0]['gateway'] === 'WAN_DHCP' && $gv2['dnsservers'][1]['gateway'] === 'none' && $gv2['webguicss'] === 'gone.css',
+    'general: the form as API values (the login message as text, no gateways with one WAN)');
+$gv2 = restapi_sysgen_values($gp, true);
+check_api($gv2['dnsservers'][0]['gateway'] === 'WAN_DHCP' && $gv2['dnsservers'][1]['gateway'] === 'none',
     'general: gateways ("none" when unset) when the page offers them');
 check_api(array_keys(restapi_sysgen_types()) === array_merge(array('dnsservers', 'choices', 'applied', 'hostname', 'domain', 'dnslocalhost', 'timezone',
-    'timeservers', 'language', 'webguicss', 'webguifixedmenu', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'dashboardcolumns', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
+    'timeservers', 'language', 'logincss', 'login_message'), restapi_sysgen_flags()) &&
     !array_diff(array_keys($gv), array_keys(restapi_sysgen_types())), 'general: every returned field has a type');
 check_api(restapi_sysgen_dns_rows(array(array('address' => '192.0.2.53'), array('address' => '192.0.2.54', 'hostname' => 'h')), false) ===
     array('dns0' => '192.0.2.53', 'dnshost0' => '', 'dns1' => '192.0.2.54', 'dnshost1' => 'h'), 'general: DNS servers as the page\'s rows');

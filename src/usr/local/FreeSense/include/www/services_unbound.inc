@@ -148,11 +148,12 @@ function unbound_build_if_list($selectedifs) {
  * pass unbound-checkconf. Returns input_errors (empty when saved) and
  * "pconfig", the form fields to show again.
  */
-function unbound_save_general($post) {
+function unbound_save_general($post, ?array $caller = null) {
 	$python_scripts = unbound_python_scripts();
 	$certs_available = unbound_certs_available();
 	$pconfig = $post;
 	$input_errors = array();
+	services_dns_custom_enforce('unbound', $pconfig, $input_errors, $caller);
 	$display_active_interface = null;
 	$display_outgoing_interface = null;
 	/* The interface lists are multi-selects (lists). */
@@ -523,7 +524,7 @@ function unbound_save_domain_override($post, $id) {
 
 	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
-	if (str_starts_with($post['domain'], '_msdcs')) {
+	if (($post['domain'] === '_msdcs') || str_starts_with($post['domain'], '_msdcs.')) {
 		$subdomainstr = substr($post['domain'], 7);
 		if ($subdomainstr && !is_domain($subdomainstr)) {
 			$input_errors[] = gettext("A valid domain must be specified after _msdcs.");

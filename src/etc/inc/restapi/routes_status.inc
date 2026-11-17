@@ -21,8 +21,9 @@
 
 /*
  * Live status for the WebUI dashboard and status pages: system metrics,
- * interface traffic (live and history), the state table and notices.
- * The front controller loads status_metrics.inc and notices.inc.
+ * interface state and traffic (live and history), the state table and
+ * notices. The front controller loads status_metrics.inc, status_nics.inc
+ * and notices.inc.
  */
 
 function restapi_routes_status() {
@@ -30,6 +31,13 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/system', 'restapi_h_status_system', array(
 			'page' => 'index.php', 'area' => 'system',
 			'summary' => 'Live system metrics: CPU, memory, swap, mbufs, states, temperatures, disks, uptime')),
+		restapi_route('GET', '/v1/status/nics', 'restapi_h_status_nics', array(
+			'page' => 'status_interfaces.php', 'area' => 'status',
+			'query' => array('if' => 'Comma-separated interfaces (wan,lan,opt1); all when omitted'),
+			'summary' => 'Assigned interfaces: link state, speed and duplex, MAC and vendor, MTU, addresses, gateways, VLAN, LAGG, adapter and counters')),
+		restapi_route('GET', '/v1/status/nics/{name}', 'restapi_h_status_nic', array(
+			'page' => 'status_interfaces.php', 'area' => 'status',
+			'summary' => 'One interface in full: the list fields plus SFP module, wireless, pf pass/block and adapter drop counters, PPP and cellular')),
 		restapi_route('GET', '/v1/status/traffic', 'restapi_h_status_traffic', array(
 			'page' => 'status_graph.php', 'area' => 'status',
 			'query' => array('if' => 'Comma-separated interfaces (wan,lan,opt1); all when omitted'),
@@ -37,11 +45,11 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/traffic/history', 'restapi_h_status_traffic_history', array(
 			'page' => 'status_graph.php', 'area' => 'status',
 			'query' => array('if' => 'Interface (wan, lan, opt1)', 'range' => '10m, 1h, 24h, 7d or 30d'),
-			'summary' => 'Traffic history in bits/s from the interface RRD')),
+			'summary' => 'Traffic history from the interface RRDs: passed and blocked bits/s, passed packets/s')),
 		restapi_route('GET', '/v1/status/system/history', 'restapi_h_status_system_history', array(
 			'page' => 'index.php', 'area' => 'system',
 			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
-			'summary' => 'CPU and memory use in percent over time (system RRDs)')),
+			'summary' => 'CPU, memory and mbuf use in percent and state table entries over time (system RRDs)')),
 		restapi_route('GET', '/v1/status/gateways/history', 'restapi_h_status_gateway_history', array(
 			'page' => 'status_gateways.php', 'area' => 'status',
 			'query' => array('range' => '10m, 1h, 24h, 7d or 30d'),
@@ -56,6 +64,22 @@ function restapi_routes_status() {
 		restapi_route('GET', '/v1/status/states', 'restapi_h_status_states', array(
 			'page' => 'diag_states_summary.php', 'area' => 'status',
 			'summary' => 'State table size, limit and search/insert/removal rates')),
+		restapi_route('GET', '/v1/status/ntp', 'restapi_h_status_ntp', array(
+			'page' => 'status_ntpd.php', 'area' => 'status',
+			'summary' => 'NTP: whether the server runs, the peer the clock follows and every peer (stratum, reach, delay, offset, jitter)')),
+		restapi_route('GET', '/v1/status/zfs', 'restapi_h_status_zfs', array(
+			'page' => 'index.php', 'area' => 'system',
+			'summary' => 'ZFS pools: health, capacity, fragmentation, scan, devices and their errors')),
+		restapi_route('GET', '/v1/status/smart', 'restapi_h_status_smart', array(
+			'page' => 'diag_smart.php', 'area' => 'diagnostics',
+			'query' => array('refresh' => 'true: ask the drives now instead of using the five-minute cache'),
+			'summary' => 'Drives and their SMART health')),
+		restapi_route('GET', '/v1/status/captive-portal', 'restapi_h_status_captiveportal', array(
+			'page' => 'status_captiveportal.php', 'area' => 'status',
+			'summary' => 'Captive portal sessions of every zone')),
+		restapi_route('DELETE', '/v1/status/captive-portal/{zone}/sessions/{session}', 'restapi_h_captiveportal_disconnect', array(
+			'page' => 'status_captiveportal.php', 'area' => 'status', 'write' => true,
+			'summary' => 'Disconnect a captive portal session')),
 		restapi_route('GET', '/v1/notices', 'restapi_h_notices', array(
 			'page' => 'index.php', 'area' => 'system', 'summary' => 'System notices')),
 		restapi_route('DELETE', '/v1/notices/{id}', 'restapi_h_notice_delete', array(
@@ -66,6 +90,19 @@ function restapi_routes_status() {
 
 function restapi_h_status_system($req) {
 	return array('data' => status_metrics_system());
+}
+
+function restapi_h_status_nics($req) {
+	$ifs = array_values(array_filter(array_map('trim', explode(',', (string)($req['query']['if'] ?? '')))));
+	return array('data' => status_nics_list($ifs));
+}
+
+function restapi_h_status_nic($req) {
+	$data = status_nics_detail((string)$req['params']['name']);
+	if ($data === null) {
+		throw new RestApiError(404, 'not_found', 'No such interface.');
+	}
+	return array('data' => $data);
 }
 
 function restapi_h_status_traffic($req) {
@@ -129,6 +166,45 @@ function restapi_h_status_traffic_history($req) {
 
 function restapi_h_status_states($req) {
 	return array('data' => status_metrics_states());
+}
+
+function restapi_h_status_ntp($req) {
+	return array('data' => status_metrics_ntp());
+}
+
+function restapi_h_status_zfs($req) {
+	return array('data' => status_metrics_zfs());
+}
+
+function restapi_h_status_smart($req) {
+	$refresh = in_array(strtolower((string)($req['query']['refresh'] ?? '')), array('1', 'true', 'yes'), true);
+	return array('data' => status_metrics_smart($refresh));
+}
+
+function restapi_h_status_captiveportal($req) {
+	return array('data' => status_metrics_captiveportal());
+}
+
+function restapi_h_captiveportal_disconnect($req) {
+	global $cpzone, $cpzoneid;
+	require_once('captiveportal.inc');
+	$zone = strtolower((string)$req['params']['zone']);
+	$session = (string)$req['params']['session'];
+	if (!preg_match('/^[a-z0-9_]{1,64}$/', $zone) || !is_array(config_get_path("captiveportal/{$zone}")) ||
+	    !preg_match('/^[A-Za-z0-9]{1,64}$/', $session)) {
+		throw new RestApiError(404, 'not_found', 'No such captive portal session.');
+	}
+	$cpzone = $zone;
+	$cpzoneid = config_get_path("captiveportal/{$zone}/zoneid");
+	$found = false;
+	foreach ((array)captiveportal_read_db() as $e) {
+		$found = $found || ((string)$e[5] === $session);
+	}
+	if (!$found) {
+		throw new RestApiError(404, 'not_found', 'No such captive portal session.');
+	}
+	captiveportal_disconnect_client($session, 6);
+	return array('data' => null);
 }
 
 /* Notices as plain text (the queue stores them HTML-encoded for the old pages). */

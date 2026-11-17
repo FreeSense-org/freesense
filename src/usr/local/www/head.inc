@@ -29,12 +29,12 @@ require_once("shortcuts.inc");
 require_once("service-utils.inc");
 require_once("package_registration.inc");
 require_once('notices.inc');
+/* The session bridge token, so page scripts can call /api/v1 as the signed-in user (js/fs-api.js). */
+require_once('restapi_session.inc');
 
 header('Content-Type: text/html; charset=utf-8');
 
 /* Optional page variables: pages set these before including head.inc. */
-$columnsContainer ??= '';
-$dashboard_available_widgets_hidden ??= false;
 $system_logs_filter_form_hidden ??= false;
 $system_logs_manage_log_form_hidden ??= false;
 $monitoring_settings_form_hidden ??= false;
@@ -51,29 +51,32 @@ if ($user_settings['webgui']['pagenamefirst']) {
 	$tabtitle = htmlspecialchars($system_url) . " - " . $pagetitle;
 }
 
-$cssfile = "/css/FreeSense-dark.css";
-
-if (isset($user_settings['webgui']['webguicss'])) {
-	if (file_exists("/usr/local/www/css/" . $user_settings['webgui']['webguicss'])) {
-		$cssfile = "/css/" . $user_settings['webgui']['webguicss'];
-	}
-}
-
-// Bootstrap 5 color mode: dark themes carry "dark" in the filename.
-$fs_colormode = (stripos($cssfile, 'dark') !== false) ? 'dark' : 'light';
-
-// set default columns to two if unset
-if (config_get_path('system/webgui/dashboardcolumns') === null) {
-	config_set_path('system/webgui/dashboardcolumns', 2);
-}
+/*
+ * Appearance is the user's own (Account > Appearance, webui_prefs.inc): mode light,
+ * dark or auto (follows the browser), an accent, a density, the menu layout and
+ * whether the top bar scrolls with the page or stays fixed.
+ */
+require_once('webui_prefs.inc');
+$fs_user_prefs = webui_prefs_get((string)($_SESSION['Username'] ?? ''));
+$fs_mode = $fs_user_prefs['mode'];
+$fs_colormode = ($fs_mode === 'light') ? 'light' : 'dark';	/* auto starts dark; the script below follows the browser */
+$cssfile = ($fs_mode === 'light') ? '/css/FreeSense.css' : '/css/FreeSense-dark.css';
+$fs_accents = array('' => 'Coral', 'blue' => 'Blue', 'teal' => 'Teal', 'green' => 'Green', 'violet' => 'Violet', 'amber' => 'Amber');
+$fs_accent = isset($fs_accents[$fs_user_prefs['accent']]) ? $fs_user_prefs['accent'] : '';
 
 ?>
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="<?=$fs_colormode?>">
+<html lang="en" data-bs-theme="<?=$fs_colormode?>" data-fs-mode="<?=$fs_mode?>" data-fs-accent="<?=htmlspecialchars($fs_accent)?>" data-fs-density="<?=($fs_user_prefs['density'] === 'compact') ? 'compact' : 'comfortable'?>">
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+<?php if ($fs_mode === 'auto'): ?>
+	<script>document.documentElement.setAttribute('data-bs-theme', matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');</script>
+<?php endif; ?>
 <? include('includes/iconheaders.html') ?>
 	<meta name="theme-color" content="#ffffff">
+<?php $fs_csrf = restapi_session_token(); if ($fs_csrf !== ''): ?>
+	<meta name="fs-csrf" content="<?=htmlspecialchars($fs_csrf)?>">
+<?php endif; ?>
 
 	<!-- full stylesheet chain, each with its own cache-buster (the themes carry
 	     no @imports: imported files have separate cache entries that touching
@@ -88,7 +91,15 @@ if (config_get_path('system/webgui/dashboardcolumns') === null) {
 	<link rel="stylesheet" href="/css/_freesense-tokens.css?v=<?=filemtime('/usr/local/www/css/_freesense-tokens.css')?>">
 	<link rel="stylesheet" href="/css/_freesense-core.css?v=<?=filemtime('/usr/local/www/css/_freesense-core.css')?>">
 	<link rel="stylesheet" href="/css/_freesense-components.css?v=<?=filemtime('/usr/local/www/css/_freesense-components.css')?>">
+<?php foreach ((array)($fs_page_css ?? []) as $fs_css): /* page stylesheets: web paths under /usr/local/www */ ?>
+	<link rel="stylesheet" href="<?=htmlspecialchars($fs_css)?>?v=<?=@filemtime('/usr/local/www' . $fs_css)?>">
+<?php endforeach; ?>
+<?php if ($fs_mode === 'auto'): ?>
+	<link rel="stylesheet" href="/css/FreeSense.css?v=<?=filemtime('/usr/local/www/css/FreeSense.css')?>" media="(prefers-color-scheme: light)" />
+	<link rel="stylesheet" href="/css/FreeSense-dark.css?v=<?=filemtime('/usr/local/www/css/FreeSense-dark.css')?>" media="not (prefers-color-scheme: light)" />
+<?php else: ?>
 	<link rel="stylesheet" href="<?=$cssfile?>?v=<?=filemtime('/usr/local/www/' . $cssfile)?>" />
+<?php endif; ?>
 
 	<title><?=$tabtitle?></title>
 	<script type="text/javascript">
@@ -393,10 +404,6 @@ if (isAllowedPage("system_usermanager_passwordmg.php")) {
 	$system_menu[] = array(gettext("User Password Manager"), "/system_usermanager_passwordmg.php", 'group' => 'access');
 }
 
-if ($user_settings['customsettings'] && isAllowedPage("system_user_settings.php")) {
-	$system_menu[] = array(gettext("User Settings"), "/system_user_settings.php", 'group' => 'access');
-}
-
 $system_menu = msort(array_merge($system_menu, return_ext_menu("System")), 0);
 
 /* ensure Logout is the last item in the menu */
@@ -574,15 +581,9 @@ if (!g_get('disablehelpmenu')) {
 
 $menuclass = "static";
 $menuclass_dropdown = '';
-if ($user_settings['webgui']['webguifixedmenu'] == "fixed") {
+if (($fs_user_prefs['nav'] === 'top') && ($fs_user_prefs['topnav'] === 'fixed')) {
 	$menuclass = "fixed";
 	$menuclass_dropdown = ' dropdown-menu-fixed';
-}
-
-$numColumns = (int) $user_settings['webgui']['dashboardcolumns'];
-
-if (($pagename === "index.php") && ($numColumns > 2)) {
-	$columnsContainer = 'style="max-width: ' . 585*$numColumns . 'px;width: 100%"';
 }
 
 $display_notices = false;
@@ -601,17 +602,21 @@ if (are_notices_pending()) {
 }
 ?>
 <?php
-/* Layout from System > General Setup: page width and an icon-only top bar. */
+/* Layout from the user's own choices (Account > Appearance): page width and an icon-only top bar. */
 $fs_body_class = array();
 /* Classic (1200 px) is the default ('' or the older 'classic'); Wide is the token's 1680 px. */
-$fs_width = (string)($user_settings['webgui']['webguipagewidth'] ?? '');
+$fs_width = $fs_user_prefs['page_width'];
 if ($fs_width === 'full') {
 	$fs_body_class[] = 'fs-width-full';
 } elseif ($fs_width !== 'wide') {
 	$fs_body_class[] = 'fs-width-classic';
 }
+/* Navigation layout: the user's own choice (Account > Appearance), the top menu bar by default. */
+if ($fs_user_prefs['nav'] === 'side') {
+	$fs_body_class[] = 'fs-nav-side';
+}
 /* Icons and text is the default ('' or the older 'text'). */
-$fs_menu_mode = (string)($user_settings['webgui']['webguimenuicons'] ?? '');
+$fs_menu_mode = $fs_user_prefs['menu_icons'];
 if ($fs_menu_mode === 'icons') {
 	$fs_body_class[] = 'fs-menu-icons';
 } elseif ($fs_menu_mode === 'auto') {
@@ -619,14 +624,16 @@ if ($fs_menu_mode === 'icons') {
 	$fs_body_class[] = 'fs-menu-auto';
 }
 ?>
-<body id="<?=$numColumns?>"<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
-<nav id="topmenu" class="navbar navbar-expand-lg fs-topbar<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>" data-bs-theme="dark">
+<body<?=empty($fs_body_class) ? '' : ' class="' . implode(' ', $fs_body_class) . '"'?>>
+<nav id="topmenu" class="navbar navbar-expand-lg fs-topbar<?= ($menuclass == 'fixed') ? ' fixed-top' : '' ?>"<?= ($fs_user_prefs['nav'] === 'side') ? '' : ' data-bs-theme="dark"' ?>>
 	<div class="container fs-page">
 		<div class="fs-topbar-row">
 			<a class="navbar-brand" href="/">
 				<?php include("/usr/local/www/header-logo.svg"); ?>
 			</a>
+			<span class="fs-side-sub" hidden><?=htmlspecialchars(config_get_path('system/hostname') . ' · ' . g_get('product_version_string'))?></span>
 			<ul class="navbar-nav fs-topbar-tools">
+				<li class="nav-item fs-side-crumb" aria-label="<?=gettext('Breadcrumb')?>"><span>FreeSense</span><b><?=htmlspecialchars(is_array($pgtitle ?? null) ? (string)end($pgtitle) : gettext('Dashboard'))?></b></li>
 				<li class="nav-item">
 					<button type="button" class="nav-link fs-nav-search" data-fs-palette-open
 					    data-fs-palette-empty="<?=gettext('No matching pages.')?>"
@@ -649,10 +656,30 @@ if ($fs_menu_mode === 'icons') {
 						</a>
 						<?=fs_notices_panel($notices, $allow_clear_notices && isAllowedPage('/index.php'))?>
 					</li>
-					<li class="nav-item">
-						<a class="nav-link" href="/index.php?logout" usepost>
-							<i class="fa-solid fa-right-from-bracket" title="<?=gettext("Logout") . " (" . $_SESSION['Username'] . "@" . htmlspecialchars($system_url) . ")"?>"></i>
-						</a>
+<?php
+					$fs_ent = getUserEntry((string)($_SESSION['Username'] ?? ''));
+					$fs_disp = trim((string)($fs_ent['item']['descr'] ?? ''));
+					$fs_uname = (string)($_SESSION['Username'] ?? '');
+					$fs_initials = webui_initials($fs_disp !== '' ? $fs_disp : $fs_uname);
+					$fs_host = (string)config_get_path('system/hostname');
+					?>
+					<li class="nav-item dropdown fs-nav-account">
+						<button type="button" class="nav-link fs-account-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="<?=gettext('Account')?>">
+							<span class="fs-avatar" aria-hidden="true"><?=htmlspecialchars($fs_initials)?></span>
+							<span class="fs-side-user"><b><?=htmlspecialchars($fs_uname)?></b><span>@<?=htmlspecialchars($fs_host)?></span></span>
+							<i class="fa-solid fa-chevron-down fs-account-caret" aria-hidden="true"></i>
+						</button>
+						<ul class="dropdown-menu dropdown-menu-end fs-account-menu">
+							<li class="fs-account-head"><?=sprintf(gettext('Signed in as %s'), htmlspecialchars($fs_uname . '@' . $fs_host))?></li>
+							<?php if (isAllowedPage('account.php')): ?>
+							<li><a class="dropdown-item" href="/account.php"><i class="fa-solid fa-user" aria-hidden="true"></i><?=gettext('Account settings')?></a></li>
+							<?php endif; if (isAllowedPage('system_usermanager_passwordmg.php')): ?>
+							<li><a class="dropdown-item" href="/system_usermanager_passwordmg.php"><i class="fa-solid fa-key" aria-hidden="true"></i><?=gettext('Change password')?></a></li>
+							<?php endif; ?>
+							<li><button type="button" class="dropdown-item" data-fs-palette-open><i class="fa-solid fa-keyboard" aria-hidden="true"></i><?=gettext('Command palette')?><kbd>Ctrl K</kbd></button></li>
+							<li><hr class="dropdown-divider"></li>
+							<li><a class="dropdown-item" href="/index.php?logout" usepost><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><?=gettext('Sign out')?></a></li>
+						</ul>
 					</li>
 			</ul>
 			<button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#pf-navbar" aria-controls="pf-navbar" aria-expanded="false" aria-label="<?=gettext('Toggle navigation')?>">
@@ -660,7 +687,7 @@ if ($fs_menu_mode === 'icons') {
 			</button>
 		</div>
 		<div class="collapse navbar-collapse" id="pf-navbar">
-			<ul class="navbar-nav fs-topbar-menu">
+			<ul class="navbar-nav fs-topbar-menu" data-fs-side-label="<?=gettext('Menu')?>">
 			<?php if (isAllowedPage('index.php')): ?>
 				<li class="nav-item">
 					<a class="nav-link navlnk<?=($fs_current_page === 'index.php') ? ' active' : ''?>" href="/" title="<?=gettext('Dashboard')?>"<?=($fs_current_page === 'index.php') ? ' aria-current="page"' : ''?>>
@@ -669,10 +696,10 @@ if ($fs_menu_mode === 'icons') {
 				</li>
 			<?php endif; ?>
 			<?php
-                if ($user_settings['webgui']['webguihostnamemenu'] == 'hostonly') {
+                if ($fs_user_prefs['hostname_menu'] === 'hostonly') {
                     $help_menu_title = htmlspecialchars(config_get_path('system/hostname'));
                 }
-                elseif ($user_settings['webgui']['webguihostnamemenu'] == 'fqdn') {
+                elseif ($fs_user_prefs['hostname_menu'] === 'fqdn') {
                     $help_menu_title = htmlspecialchars($system_url);
                 }
                 else {
@@ -698,12 +725,18 @@ if ($fs_menu_mode === 'icons') {
 					    $item['icon'], $item['menu'], $item['href'], $fs_current_page, $menuclass_dropdown);
 			 	endforeach?>
 			</ul>
+			<div class="fs-side-foot">
+			<div class="fs-side-host"><i class="fa-solid fa-server" aria-hidden="true"></i><div><b><?=htmlspecialchars(config_get_path('system/hostname'))?></b><span><?=htmlspecialchars($system_url)?></span></div></div>
+			<button type="button" class="fs-side-toggle" data-fs-side-toggle aria-pressed="false" title="<?=gettext('Collapse the sidebar')?>">
+				<i class="fa-solid fa-angles-left fs-menu-icon" aria-hidden="true"></i><span class="fs-side-label"><?=gettext('Collapse')?></span>
+			</button>
+			</div>
 		</div>
 	</div>
 </nav>
 
 <main class="fs-main">
-<div class="container fs-page <?=$menuclass?>" <?=$columnsContainer?>>
+<div class="container fs-page <?=$menuclass?>">
 
 <?php
 /* Password Security warnings */
@@ -798,22 +831,6 @@ if (config_get_path('fleet/node_id', '') !== '') {
 		<div class="fs-pagehead-actions">
 		<?=fs_render_page_actions()?>
 		<ul class="context-links">
-
-	<?php if (isset($widgets)): ?>
-		<li>
-			<a href="#" title="<?=gettext("Save dashboard layout")?>" id="btnstore" class="invisible">
-				<i class="fa-solid fa-floppy-disk icon-pointer"></i>
-			</a>
-		</li>
-	<?php endif?>
-
-	<?php if ($dashboard_available_widgets_hidden): ?>
-		<li>
-			<a onclick="$('#widget-available').toggle(360);" title="<?=gettext("Available widgets")?>">
-				<i class="fa-solid fa-plus icon-pointer"></i>
-			</a>
-		</li>
-	<?php endif?>
 
 	<?php if ($system_logs_filter_form_hidden): ?>
 		<li>

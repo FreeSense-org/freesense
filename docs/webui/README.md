@@ -8,6 +8,7 @@ How FreeSense WebUI pages are built, for core work and for package authors.
 - `02-page-types.md`: the six page types, with wireframes and pilot pages
 - `03-components.md`: PHP helpers, markup and JS behavior
 - `04-page-map.md`: every page with its type, planned change, phase and risk
+- `05-widgets.md`: the 1.2 dashboard widget contract (core and packages)
 
 The helpers in `03-components.md` are introduced in Phase A. Until a helper exists,
 treat its section as the specification.

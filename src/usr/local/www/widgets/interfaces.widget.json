@@ -1,0 +1,28 @@
+{
+	"type": "interfaces",
+	"title": "Interfaces",
+	"description": "Link, speed and duplex, addresses, MAC and live rates of every interface",
+	"icon": "fa-network-wired",
+	"tone": "series-6",
+	"category": "Network",
+	"page": "status_interfaces.php",
+	"link": "/status_interfaces.php",
+	"order": 20,
+	"sizes": ["md", "lg", "xl", "full"],
+	"size": "lg",
+	"every": 2,
+	"allow_copies": true,
+	"settings": [
+		{"key": "interfaces", "type": "interfaces", "label": "Interfaces to show"},
+		{"key": "show_down", "type": "checkbox", "label": "Show interfaces without link", "value": true}
+	],
+	"strings": [
+		"Up", "No carrier", "Disabled", "Full duplex", "Half duplex", "Autonegotiated", "DHCP", "PPPoE", "Static", "SLAAC", "Track", "VLAN %s on %s",
+		"LAGG %s", "No IPv4 address", "No interfaces to show.", "errors", "drops", "In", "Out", "Gateway", "MAC", "MTU", "Driver", "Adapter", "PCI",
+		"Queues", "Location", "Link", "Speed", "Media", "Flow control", "IPv4", "IPv6", "Link-local", "Counters", "Bytes in", "Bytes out",
+		"Packets in", "Packets out", "Errors in", "Errors out", "Drops in", "Drops out", "Collisions", "Passed in", "Passed out", "Blocked in",
+		"Blocked out", "Adapter drops", "SFP module", "Module", "Vendor", "Temperature", "Voltage", "RX power", "TX bias", "Wireless", "SSID",
+		"Channel", "Signal", "PPP", "Uptime", "Status page", "Interface settings", "NIC settings", "Traffic, last 10 minutes", "Details",
+		"Ports", "%s of %s ports active", "none", "Bytes and packets since boot"
+	]
+}

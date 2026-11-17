@@ -38,7 +38,7 @@ function restapi_routes_me() {
 			'body' => array('name' => array('type' => 'string'), 'email' => array('type' => 'string')),
 			'summary' => 'Change your display name and email (local users)')),
 		restapi_route('GET', '/v1/me/preferences', 'restapi_h_me_prefs', array(
-			'page' => '@authenticated', 'summary' => 'Your WebUI preferences: theme, mode, accent, density, start page')),
+			'page' => '@authenticated', 'summary' => 'Your WebUI preferences: theme, mode, accent, density, menu layout, top bar, start page')),
 		restapi_route('PUT', '/v1/me/preferences', 'restapi_h_me_prefs_put', array(
 			'page' => '@authenticated', 'write' => true, 'summary' => 'Change some of your WebUI preferences')),
 		restapi_route('GET', '/v1/me/sessions', 'restapi_h_me_sessions', array(
@@ -82,23 +82,11 @@ function restapi_h_me_profile_put($req) {
 	if (!empty($errors)) {
 		throw restapi_me_validation($errors);
 	}
-	$entry = getUserEntry($req['user']['name']);
-	if (!isset($entry['idx'])) {
+	if (webui_profile_save($req['user']['name'], $values) !== null) {
 		throw new RestApiError(404, 'not_found', 'User not found.');
 	}
+	$entry = getUserEntry($req['user']['name']);
 	$path = "system/user/{$entry['idx']}";
-	if (array_key_exists('name', $values)) {
-		config_set_path("{$path}/descr", $values['name']);
-	}
-	if (array_key_exists('email', $values)) {
-		if ($values['email'] === '') {
-			config_del_path("{$path}/email");
-		} else {
-			config_set_path("{$path}/email", $values['email']);
-		}
-	}
-	write_config(sprintf(gettext('Profile of %s changed in the WebUI.'), $req['user']['name']));
-	local_user_set(config_get_path($path));
 	$req['user'] = config_get_path($path);
 	return restapi_h_me_profile($req);
 }
@@ -124,6 +112,17 @@ function restapi_h_me_signout($req) {
 	if (empty($req['session'])) {
 		throw new RestApiError(400, 'not_a_session', 'Only a WebUI session can sign out; API keys are revoked in System > REST API.');
 	}
+	/*
+	 * api/index.php holds the session counter at 1 so handlers never open a
+	 * PHP session; open this one for real, or session_destroy() has nothing
+	 * to destroy and the server-side session outlives the sign-out.
+	 */
+	global $session_opencounter;
+	if (session_status() === PHP_SESSION_ACTIVE) {
+		session_write_close();
+	}
+	$session_opencounter = 0;
+	session_id($req['session_id']);
 	webgui_session_signout(false);
 	return array('data' => array('signed_out' => true));
 }

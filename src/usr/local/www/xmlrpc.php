@@ -60,13 +60,7 @@ class freesense_xmlrpc_server {
 		$login_ok = false;
 		if (!empty($username) && !empty($password)) {
 			$attributes = array();
-			$authcfg = auth_get_authserver(config_get_path('system/webgui/authmode'));
-
-			if (authenticate_user($username, $password,
-			    $authcfg, $attributes) ||
-			    authenticate_user($username, $password)) {
-				$login_ok = true;
-			}
+			$login_ok = (authenticate_identity($username, $password, $attributes) !== false);
 		}
 
 		if (!$login_ok) {
@@ -78,14 +72,14 @@ class freesense_xmlrpc_server {
 			    -1);
 		}
 
-		$user_entry = getUserEntry($username);
-		$user_entry = $user_entry['item'];
+		$user_entry = getUserEntry($username)['item'] ?? null;
 		/*
-		 * admin (uid = 0) is allowed
-		 * or regular user with necessary privilege
+		 * admin (uid = 0) is allowed, or a regular user with the necessary
+		 * privilege. A user from an LDAP or RADIUS server has no uid, so the
+		 * privilege check must not depend on one being set.
 		 */
-		if (($root_only && (($user_entry['uid'] ?? null) !== '0')) ||
-		    (isset($user_entry['uid']) && $user_entry['uid'] != '0' &&
+		$is_root = (is_array($user_entry) && (($user_entry['uid'] ?? null) === '0'));
+		if (!$is_root && ($root_only || !is_array($user_entry) ||
 		    !userHasPrivilege($user_entry, 'system-xmlrpc-ha-sync'))) {
 			log_auth_event(LOG_AUTH_EVENT_ERROR, $username, $this->remote_addr, 'not enough privileges');
 
@@ -150,20 +144,6 @@ class freesense_xmlrpc_server {
 			return $toreturn;
 		}
 
-		return true;
-	}
-
-	/**
-	 * Executes shell commands
-	 *
-	 * @param string $code
-	 *
-	 * @return bool
-	 */
-	public function exec_shell($code) {
-		$this->auth(true);
-
-		mwexec($code);
 		return true;
 	}
 
@@ -467,14 +447,7 @@ class freesense_xmlrpc_server {
 				delete_static_route($route_index, true);
 			}
 			// Apply the removed route changes, if any.
-			$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-			if (file_exists($routes_apply_file)) {
-				$toapplylist = unserialize_data(file_get_contents($routes_apply_file), []);
-				foreach ($toapplylist as $toapply) {
-					mwexec($toapply, true);
-				}
-				@unlink($routes_apply_file);
-			}
+			system_routing_apply_deletions();
 		}
 
 		/* For vip section, first keep items sent from the master */
@@ -754,31 +727,6 @@ class freesense_xmlrpc_server {
 
 		config_set_path('installedpackages', array_merge(
 		    config_get_path('installedpackages'), $section));
-		$mergedkeys = implode(", ", array_keys($section));
-		write_config(sprintf(gettext(
-		    "Merged in config (%s sections) from XMLRPC client."),
-		    $mergedkeys));
-
-		return true;
-	}
-
-	/**
-	 * Merge items into config
-	 *
-	 * @param array $section
-	 *
-	 * @return bool
-	 */
-	public function merge_config_section($section, $timeout) {
-		ini_set('default_socket_timeout', $timeout);
-		$this->auth();
-
-		if ($this->loop_detected) {
-			logger(LOG_ERR, localize_text("Disallowing CARP sync loop"), LOG_PREFIX_HA);
-			return true;
-		}
-
-		config_set_path('', $this->array_overlay(config_get_path(''), $section));
 		$mergedkeys = implode(", ", array_keys($section));
 		write_config(sprintf(gettext(
 		    "Merged in config (%s sections) from XMLRPC client."),

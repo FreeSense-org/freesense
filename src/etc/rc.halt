@@ -2,7 +2,8 @@
 
 # /etc/rc.halt
 
-if ! /usr/bin/lockf -s -t 30 /tmp/config.lock /usr/bin/true; then
+/bin/mkdir -p -m 0700 /var/db/freesense/locks
+if ! /usr/bin/lockf -s -k -t 30 /var/db/freesense/locks/config.lock /usr/bin/true; then
 	echo "Cannot halt at this moment, a config write operation is in progress and 30 seconds have passed."
 	exit 1
 fi

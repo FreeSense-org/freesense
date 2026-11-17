@@ -54,6 +54,8 @@ require_once("voucher.inc");
 $cpzone = strtolower(htmlspecialchars($_REQUEST['zone']));
 
 if ($_POST['generatekey']) {
+	/* Without Random, BigInteger falls back to mt_rand() for the key. */
+	include_once("phpseclib/Crypt/Random.php");
 	include_once("phpseclib/Math/BigInteger.php");
 	include_once("phpseclib/Crypt/Hash.php");
 	include_once("phpseclib/Crypt/RSA.php");
@@ -115,7 +117,7 @@ if (!isset($voucher_config['exponent'])) {
 
 if (!isset($voucher_config['publickey'])) {
 	/* generate a random 64 bit RSA key pair using the voucher binary */
-	$fd = popen("/usr/local/bin/voucher -g 64 -e " . $voucher_config['exponent'], "r");
+	$fd = popen("/usr/local/bin/voucher -g 64 -e " . escapeshellarg((string)(int)$voucher_config['exponent']), "r");
 	if ($fd !== false) {
 		$output = fread($fd, 16384);
 		pclose($fd);

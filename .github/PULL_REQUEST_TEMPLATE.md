@@ -10,4 +10,5 @@
 
 - [ ] Targets the correct branch (`main` for development)
 - [ ] Tested the change
+- [ ] Commit subjects read "Area: what changed" (they become the update notes)
 - [ ] Ready for review

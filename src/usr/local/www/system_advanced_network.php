@@ -242,7 +242,8 @@ $section = new Form_Section('Network Interfaces');
 $section->addInput(new Form_StaticText(
 	'NIC hardware settings',
 	sprintf('<a class="btn btn-outline-secondary" href="interfaces_nic_settings.php"><i class="fa-solid fa-microchip icon-embed-btn" aria-hidden="true"></i>%s</a>', gettext('Open NIC Settings'))
-))->setHelp('Checksum, segmentation, large receive, VLAN acceleration, and validated driver controls are managed per network card.');
+))->setHelp('Offloads and driver tuning (flow control, interrupt moderation, queues) are set per network adapter. ' .
+	'Packet processing threads and network buffers are on System > Advanced > Performance.');
 
 $section->addInput(new Form_Checkbox(
 	'sharednet',

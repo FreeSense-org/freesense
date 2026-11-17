@@ -183,9 +183,9 @@ The user said to start, so the recommended defaults apply:
 3. **Interfaces tabs:** keep the 11 pages behind an overflow tab bar.
 4. **From the 10-03 plan:** fluid page width with a 1680px cap, and zebra stripes dropped. The font stays Roboto for now; `--fs-font-ui` / `--fs-font-mono` make a later switch a one-line change.
 5. **The style guide lives in the repo** as `docs/webui/`.
-6. **Libraries upgraded first** (freesense #93): FA 7.3.1, jQuery UI 1.14.2, js-cookie 3.0.8, Visibility.js 2.0.2. The d3 3 / nvd3 / d3pie charts can only move to d3 7 by rewriting the three charts, which is now part of Phase E.
+6. **Libraries upgraded first** (freesense #93): FA 7.3.1, jQuery UI 1.14.2, js-cookie 3.0.8, Visibility.js 2.0.2. The d3 3 / nvd3 / d3pie charts were replaced in 1.2 by uPlot through `js/fs-chart.js` (dashboard v2, see `05-widgets.md`).
 7. **Icons:** canonical-name pass across core plus a CI guard (`webui/icon-names`). Icon meaning changes happen per page in Phase B.
 
 ## 7. Out of scope
 
-Replacing Bootstrap/jQuery, an SPA rewrite, replacing d3/nvd3, renaming or deleting pages, and changing config handling, privileges or validation logic. The only exception is the explicitly scoped bulk-delete handler PRs in R5.
+Replacing Bootstrap/jQuery, an SPA rewrite, renaming or deleting pages, and changing config handling, privileges or validation logic. The only exception is the explicitly scoped bulk-delete handler PRs in R5.

@@ -30,7 +30,8 @@ function fn_source($src, $name) {
 
 $fns = array('restapi_session_requested', 'restapi_session_cookie_id', 'restapi_session_problem',
     'restapi_session_authenticate', 'restapi_session_user', 'restapi_session_token');
-$code = '';
+$auth = file_get_contents("{$root}/src/etc/inc/auth.inc");
+$code = fn_source($auth, 'webgui_session_account_problem') . "\n}\n\n";
 foreach ($fns as $fn) {
 	$code .= fn_source($inc, $fn) . "\n}\n\n";
 }
@@ -58,6 +59,7 @@ function getUserEntry($name) {
 	if (isset($GLOBALS['users'][$name])) return array('idx' => 0, 'item' => $GLOBALS['users'][$name]);
 	return ($GLOBALS['cfg']['authmode'] ?? 'Local Auth') === 'Local Auth' ? null : array('idx' => null, 'item' => array('name' => $name));
 }
+function is_account_expired($name) { return !empty($GLOBALS['users'][$name]['expires']) && strtotime($GLOBALS['users'][$name]['expires']) < time(); }
 function getPrivPages($u, &$pages) { foreach (($u['priv'] ?? array()) as $p) $pages[] = $p; }
 function local_user_get_groups($u) { return array(); }
 /* phpsession_* stubs for restapi_session_token() */

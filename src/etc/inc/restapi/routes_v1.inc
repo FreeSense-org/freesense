@@ -34,6 +34,7 @@ require_once('restapi/routes_firewall.inc');
 require_once('restapi/routes_nat.inc');
 require_once('restapi/routes_routing.inc');
 require_once('restapi/routes_interfaces.inc');
+require_once('restapi/routes_nicsettings.inc');
 require_once('restapi/routes_ifconfig.inc');
 require_once('restapi/routes_services.inc');
 require_once('restapi/routes_unbound.inc');
@@ -78,7 +79,7 @@ function restapi_routes_v1() {
 
 		restapi_route('GET', '/v1/system/info', 'restapi_h_system_info', array(
 			'page' => 'index.php', 'area' => 'system',
-			'summary' => 'Hostname, version, platform and uptime')),
+			'summary' => 'Hostname, version, platform, uptime, hardware, BIOS, build, crypto acceleration, CPU microcode and mitigations, DNS servers')),
 
 		restapi_route('GET', '/v1/status/interfaces', 'restapi_h_status_interfaces', array(
 			'page' => 'status_interfaces.php', 'area' => 'status',
@@ -100,10 +101,10 @@ function restapi_routes_v1() {
 			'page' => 'diag_confbak.php', 'area' => 'config',
 			'summary' => 'Configuration history (newest first)')),
 		restapi_route('GET', '/v1/config/revisions/{time}', 'restapi_h_revision_get', array(
-			'page' => 'diag_confbak.php', 'area' => 'config', 'produces' => 'application/xml',
+			'page' => 'diag_confbak.php', 'area' => 'config', 'secrets' => true, 'produces' => 'application/xml',
 			'summary' => 'Download a configuration revision as XML ("current" for the running one)')),
 		restapi_route('GET', '/v1/config/revisions/{time}/diff', 'restapi_h_revision_diff', array(
-			'page' => 'diag_confbak.php', 'area' => 'config', 'produces' => 'text/plain',
+			'page' => 'diag_confbak.php', 'area' => 'config', 'secrets' => true, 'produces' => 'text/plain',
 			'query' => array('against' => 'Revision time to compare with, or "current" (default)'),
 			'summary' => 'Unified diff between a revision and another revision')),
 		restapi_route('POST', '/v1/config/revisions/{time}/restore', 'restapi_h_revision_restore', array(
@@ -130,7 +131,7 @@ function restapi_routes_v1() {
 	);
 
 	$routes = array_merge($routes, restapi_routes_firewall(), restapi_routes_nat(), restapi_routes_routing(),
-	    restapi_routes_interfaces(), restapi_routes_ifconfig(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
+	    restapi_routes_interfaces(), restapi_routes_nicsettings(), restapi_routes_ifconfig(), restapi_routes_services(), restapi_routes_unbound(), restapi_routes_ntp(),
 	    restapi_routes_ddns(), restapi_routes_dhcp(), restapi_routes_vpn(), restapi_routes_openvpn(),
 	    restapi_routes_pki(), restapi_routes_users(), restapi_routes_system(), restapi_routes_logs(), restapi_routes_packages(), restapi_routes_pkgrepos(),
 	    restapi_routes_diagnostics(), restapi_routes_operations(), restapi_routes_status(), restapi_routes_me(),
@@ -228,7 +229,7 @@ function restapi_h_system_info($req) {
 	if (preg_match('/sec = (\d+)/', (string)get_single_sysctl('kern.boottime'), $m)) {
 		$boottime = (int)$m[1];
 	}
-	return array('data' => array(
+	return array('data' => status_metrics_identity() + array(
 		'hostname' => config_get_path('system/hostname'),
 		'domain' => config_get_path('system/domain'),
 		'product' => g_get('product_label'),

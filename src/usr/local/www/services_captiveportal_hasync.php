@@ -133,6 +133,14 @@ if ($_POST['save']) {
 				$usedmacs = unserialize_data(base64_decode($resp['usedmacs']), []);
 
 				foreach ($connected_users as $user) {
+					/* The peer's values reach SQL and pf rules. */
+					if (!is_array($user) || !is_ipaddr($user['ip'] ?? '') ||
+					    (!empty($user['mac']) && !is_macaddr($user['mac'])) ||
+					    !preg_match('/^[A-Za-z0-9._-]*$/D', (string)($user['sessionid'] ?? '')) ||
+					    !preg_match('/^[A-Za-z0-9._ -]*$/D', (string)($user['authmethod'] ?? '')) ||
+					    !preg_match('/^[A-Za-z0-9._ -]*$/D', (string)($user['context'] ?? ''))) {
+						continue;
+					}
 					$pipeno = captiveportal_get_next_dn_ruleno('auth');
 					$attributes = array();
 					$attributes['allow_time'] = $user['allow_time'];

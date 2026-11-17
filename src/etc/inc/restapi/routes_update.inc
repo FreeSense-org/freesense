@@ -531,7 +531,16 @@ function restapi_release_doc($url) {
 
 function restapi_h_update_changelog($req) {
 	$channel = (string)pkg_get_repo_name(config_get_path('system/pkg_repo_conf_path'));
-	$url = restapi_release_doc_url($channel, php_uname('m'));
-	$doc = ($url === null) ? null : restapi_release_doc($url);
+	$doc = null;
+	if ($channel === 'devel') {
+		/* Development: the log written on every build, not the image release document. */
+		$versions = get_system_pkg_version(true);
+		$doc = pkg_update_notes_from_log(restapi_release_doc(PKG_NOTES_LOG_URL),
+		    pkg_build_generation($versions['installed_version'] ?? ''));
+	}
+	if ($doc === null) {
+		$url = restapi_release_doc_url($channel, php_uname('m'));
+		$doc = ($url === null) ? null : restapi_release_doc($url);
+	}
 	return array('data' => restapi_changelog_from_release($doc, RESTAPI_RELEASE_NOTES_PAGE));
 }

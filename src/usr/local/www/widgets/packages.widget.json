@@ -1,0 +1,24 @@
+{
+	"type": "packages",
+	"title": "Packages",
+	"description": "Installed packages and their updates",
+	"icon": "fa-box-open",
+	"tone": "series-2",
+	"category": "System",
+	"page": "pkg_mgr_installed.php",
+	"link": "/pkg_mgr_installed.php",
+	"order": 37,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 600,
+	"strings": [
+		"No packages are installed.",
+		"Update to %s",
+		"%s installed",
+		"%s updates"
+	]
+}

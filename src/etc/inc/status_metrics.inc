@@ -34,7 +34,6 @@ require_once('util.inc');
 require_once('interfaces.inc');
 require_once('freesense-utils.inc');
 
-define('STATUS_METRICS_CPU_SAMPLE', '/var/run/fs_metrics_cpu.json');
 define('STATUS_METRICS_IF_SAMPLE', '/var/run/fs_metrics_if.json');
 /* A previous sample older than this is not used for a rate. */
 define('STATUS_METRICS_MAX_AGE', 30);
@@ -75,19 +74,6 @@ function status_metrics_rate_base(array $sample, $now) {
 }
 
 /* ------------------------------------------------------------ parsers */
-
-/* kern.cp_time "user nice sys intr idle" → busy percent between two samples, or null. */
-function status_metrics_cpu_percent($prev, $now) {
-	if (!is_array($prev) || (count($prev) !== 5) || !is_array($now) || (count($now) !== 5)) {
-		return null;
-	}
-	$total = array_sum($now) - array_sum($prev);
-	$idle = $now[4] - $prev[4];
-	if ($total <= 0) {
-		return null;
-	}
-	return round(max(0, min(100, 100 * (1 - ($idle / $total)))), 1);
-}
 
 /* `pfctl -si` → state table totals and rates. */
 function status_metrics_parse_pfinfo($text) {
@@ -158,6 +144,39 @@ function status_metrics_parse_temp($value) {
 }
 
 /*
+ * pure: `sysctl` temperature lines ("dev.cpu.0.temperature: 45.0C") → array
+ * of array(id, name, celsius), sorted by id. Unreadable sensors ("-1.0C",
+ * "-") are left out. Names: CPU n, ACPI zone n, PCH n, otherwise the driver.
+ */
+function status_metrics_parse_sensors($text) {
+	$out = array();
+	foreach (preg_split('/\r?\n/', (string)$text) as $line) {
+		if (!preg_match('/^([a-z0-9_.]+\.temperature):\s*(\S+)/i', trim($line), $m)) {
+			continue;
+		}
+		$celsius = status_metrics_parse_temp($m[2]);
+		if (($celsius === null) || ($celsius <= 0)) {
+			continue;
+		}
+		$id = $m[1];
+		if (preg_match('/^dev\.cpu\.(\d+)\./', $id, $n)) {
+			$name = sprintf('CPU %d', $n[1]);
+		} elseif (preg_match('/^hw\.acpi\.thermal\.tz(\d+)\./', $id, $n)) {
+			$name = sprintf('ACPI zone %d', $n[1]);
+		} elseif (preg_match('/^dev\.pchtherm\.(\d+)\./', $id, $n)) {
+			$name = sprintf('PCH %d', $n[1]);
+		} elseif (preg_match('/^dev\.([a-z0-9_]+)\.(\d+)\./', $id, $n)) {
+			$name = "{$n[1]} {$n[2]}";
+		} else {
+			$name = $id;
+		}
+		$out[] = array('id' => $id, 'name' => $name, 'celsius' => $celsius);
+	}
+	usort($out, function ($a, $b) { return strnatcmp($a['id'], $b['id']); });
+	return $out;
+}
+
+/*
  * `rrdtool xport` XML → array('t' => [...], <legend> => [...]). Values that
  * are NaN (no data) become null. Rows carry <t> with --showtime; without it
  * (rrdtool 1.11 default) row i is at start + i * step.
@@ -194,71 +213,94 @@ function status_metrics_parse_xport($xml) {
 
 /* ------------------------------------------------------------- system */
 
-/* CPU busy percent since the previous call (any client), or null on the first call. */
-function status_metrics_cpu_usage() {
-	$now = array_map('intval', explode(' ', trim((string)get_single_sysctl('kern.cp_time'))));
-	$sample = status_metrics_sample_read(STATUS_METRICS_CPU_SAMPLE);
-	$usage = null;
-	if (isset($sample['t'], $sample['ticks']) && ((time() - (int)$sample['t']) <= STATUS_METRICS_MAX_AGE)) {
-		$usage = status_metrics_cpu_percent($sample['ticks'], $now);
-	}
-	/* Keep the older sample when the last one is very recent, so polls from
-	 * several clients still measure over a useful interval. */
-	if (!isset($sample['t']) || ((time() - (int)$sample['t']) >= 1)) {
-		status_metrics_sample_write(STATUS_METRICS_CPU_SAMPLE, array('t' => time(), 'ticks' => $now, 'usage' => $usage));
-	} elseif ($usage === null) {
-		$usage = $sample['usage'] ?? null;
-	}
-	return $usage;
-}
-
+/*
+ * Live system metrics from the sysstat sampler snapshot (sysstat.inc): no
+ * command runs while the request waits. CPU is measured over the last
+ * second, per core as well, with the last two minutes of history.
+ */
 function status_metrics_system() {
-	sysctl_prefetch(array('kern.cp_time', 'vm.stats.vm.v_page_count', 'vm.stats.vm.v_inactive_count',
-	    'vm.stats.vm.v_laundry_count', 'vm.stats.vm.v_free_count', 'hw.pagesize', 'hw.ncpu', 'hw.model',
-	    'dev.cpu.0.freq_levels', 'dev.cpu.0.freq', 'hw.acpi.thermal.tz0.temperature'));
-
-	$ncpu = (int)get_single_sysctl('hw.ncpu');
-	$page = (int)get_single_sysctl('hw.pagesize') ?: 4096;
-	$pages = (int)get_single_sysctl('vm.stats.vm.v_page_count');
-	$avail = (int)get_single_sysctl('vm.stats.vm.v_inactive_count') + (int)get_single_sysctl('vm.stats.vm.v_laundry_count') +
-	    (int)get_single_sysctl('vm.stats.vm.v_free_count');
-	$load = sys_getloadavg();
+	require_once('sysstat.inc');
+	$snap = sysstat_read() ?? [];
 	$levels = explode(' ', trim((string)get_single_sysctl('dev.cpu.0.freq_levels')));
 	$maxfreq = (int)explode('/', $levels[0] ?? '')[0];
-
-	$temps = array();
-	for ($i = 0; $i < $ncpu; $i++) {
-		$t = status_metrics_parse_temp(get_single_sysctl("dev.cpu.{$i}.temperature"));
-		if ($t !== null) {
-			$temps[] = array('name' => sprintf('CPU %d', $i), 'celsius' => $t);
-		}
-	}
-	$tz = status_metrics_parse_temp(get_single_sysctl('hw.acpi.thermal.tz0.temperature'));
-	if ($tz !== null) {
-		$temps[] = array('name' => 'ACPI zone 0', 'celsius' => $tz);
-	}
-	sysctl_prefetch(null);
-
-	$mbuf = status_metrics_parse_mbuf((string)shell_exec('/usr/bin/vmstat -z --libxo=json 2>/dev/null'));
-	$states = status_metrics_states();
+	$cpu = $snap['cpu'] ?? null;
 	return array(
 		'cpu' => array(
-			'usage' => status_metrics_cpu_usage(),
-			'count' => $ncpu,
+			'usage' => $cpu['total']['busy'] ?? null,
+			'user' => $cpu['total']['user'] ?? null,
+			'system' => $cpu['total']['system'] ?? null,
+			'interrupt' => $cpu['total']['interrupt'] ?? null,
+			'cores' => array_map(function ($c) { return $c['busy']; }, (array)($cpu['cores'] ?? array())),
+			'history' => (array)($snap['cpu_history'] ?? array()),
+			'count' => (int)get_single_sysctl('hw.ncpu'),
 			'model' => (string)get_single_sysctl('hw.model'),
-			'load' => is_array($load) ? array_map(function ($v) { return round($v, 2); }, $load) : null,
-			'freq_mhz' => ((int)get_single_sysctl('dev.cpu.0.freq') > 0) ? (int)get_single_sysctl('dev.cpu.0.freq') : null,
+			'load' => $snap['load'] ?? null,
+			'freq_mhz' => $snap['freq_mhz'] ?? null,
 			'freq_max_mhz' => ($maxfreq > 0) ? $maxfreq : null,
 		),
-		'memory' => array('total_bytes' => $pages * $page, 'used_bytes' => max(0, ($pages - $avail) * $page)),
-		'swap' => status_metrics_parse_swapinfo((string)shell_exec('/usr/sbin/swapinfo -k 2>/dev/null')),
-		'mbuf' => $mbuf,
-		'states' => array('current' => $states['current'], 'max' => $states['max']),
-		'temperatures' => $temps,
-		'disks' => status_metrics_parse_df((string)shell_exec('/bin/df -kTt ufs,zfs,tmpfs,cd9660 2>/dev/null')),
+		'memory' => $snap['memory'] ?? array('total_bytes' => null, 'used_bytes' => null),
+		'swap' => $snap['swap'] ?? array('total_bytes' => 0, 'used_bytes' => 0),
+		'mbuf' => $snap['mbuf'] ?? array('used' => null, 'max' => null),
+		'states' => $snap['states'] ?? array('current' => null, 'max' => null),
+		'temperatures' => (array)($snap['temperatures'] ?? array()),
+		'disks' => (array)($snap['disks'] ?? array()),
 		'uptime_seconds' => (int)get_uptime_sec(),
 		'time' => gmdate('c'),
 	);
+}
+
+/*
+ * The slowly changing facts of the System widget: hardware, BIOS, build,
+ * kernel, crypto acceleration, CPU microcode and mitigations, DNS servers.
+ * The crypto helpers live in the WebUI's includes/functions.inc.php, which
+ * pkg-utils.inc loads; without them the crypto fields are empty.
+ */
+function status_metrics_identity() {
+	$platform = system_identify_specific_platform();
+	$kenv = function_exists('FreeSense_kenv_dump') ? FreeSense_kenv_dump() : array();
+	$bios = array('vendor' => (string)($kenv['smbios.bios.vendor'] ?? ''), 'version' => (string)($kenv['smbios.bios.version'] ?? ''),
+	    'date' => (string)($kenv['smbios.bios.reldate'] ?? ''));
+	$build = trim((string)@file_get_contents('/etc/version.buildtime'));
+	$crypto = array();
+	$algorithms = array();
+	if (function_exists('get_cpu_crypto_support')) {
+		$support = get_cpu_crypto_support();
+		foreach ((array)($support['accel'] ?? array()) as $accel) {
+			$crypto[] = array('name' => (string)$accel['name'], 'present' => (bool)$accel['present'], 'active' => (bool)$accel['enabled']);
+			if ($accel['present'] && $accel['enabled']) {
+				$algorithms = array_merge($algorithms, (array)$accel['algs']);
+			}
+		}
+		$algorithms = array_values(array_unique($algorithms));
+	}
+	$pti = (string)get_single_sysctl('vm.pmap.pti');
+	$mds = (string)get_single_sysctl('hw.mds_disable_state');
+	return array(
+		'hardware' => (string)($platform['descr'] ?? ''),
+		'serial' => (string)system_get_serial(),
+		'bios' => $bios,
+		'boot_method' => (string)get_single_sysctl('machdep.bootmethod'),
+		'arch' => php_uname('m'),
+		'kernel' => php_uname('s') . ' ' . php_uname('r'),
+		'build_time' => (($build !== '') && (strtotime($build) !== false)) ? gmdate('c', strtotime($build)) : null,
+		'cpu_packages' => function_exists('get_cpu_count') ? (string)get_cpu_count(true) : '',
+		'crypto' => $crypto,
+		'crypto_algorithms' => $algorithms,
+		'crypto_instructions' => cpu_crypto_features(),
+		'ipsec_offload' => interfaces_with_ipsec_offload(),
+		'microcode' => cpu_microcode_status(),
+		'pti' => ($pti === '') ? null : ($pti !== '0'),
+		'mds' => ($mds === '') ? null : $mds,
+		'dns_servers' => array_values((array)get_dns_nameservers(false, true)),
+		'timezone' => (string)config_get_path('system/timezone', 'Etc/UTC'),
+		'update_check' => !config_path_enabled('system/firmware', 'disablecheck'),
+	);
+}
+
+/* Every temperature sensor the hardware reports (the thermal sensors the RRD graphs too). */
+function status_metrics_sensors() {
+	return status_metrics_parse_sensors((string)shell_exec('/sbin/sysctl -q hw.acpi.thermal dev.cpu dev.t5nex dev.armada_thermal ' .
+	    'dev.cordbuc dev.pchtherm dev.amdtemp dev.coretemp 2>/dev/null'));
 }
 
 function status_metrics_states() {
@@ -274,16 +316,40 @@ function status_metrics_states() {
  * Current counters and rates (bits/s, packets/s) for the given interfaces
  * (friendly names such as wan, lan, opt1); all assigned interfaces when empty.
  */
-function status_metrics_traffic(array $ifnames = array()) {
+/*
+ * Interfaces a traffic graph may show: the assigned ones plus IPsec (enc0),
+ * enabled OpenVPN instances and IPsec VTIs (the Status > Traffic Graph list).
+ */
+function status_metrics_traffic_sources() {
 	$all = get_configured_interface_with_descr();
+	if (function_exists('ipsec_enabled') && ipsec_enabled()) {
+		$all['enc0'] = gettext('IPsec');
+	}
+	foreach (array('server', 'client') as $mode) {
+		foreach ((array)config_get_path("openvpn/openvpn-{$mode}", array()) as $s) {
+			if (is_array($s) && !isset($s['disable']) && isset($s['vpnid'])) {
+				$all['ovpn' . substr($mode, 0, 1) . (int)$s['vpnid']] = gettext('OpenVPN') . " {$mode}: " . (string)($s['description'] ?? '');
+			}
+		}
+	}
+	if (function_exists('interface_ipsec_vti_list_all')) {
+		$all = array_merge($all, interface_ipsec_vti_list_all());
+	}
+	return $all;
+}
+
+function status_metrics_traffic(array $ifnames = array()) {
+	$all = status_metrics_traffic_sources();
 	$ifnames = empty($ifnames) ? array_keys($all) : array_values(array_intersect($ifnames, array_keys($all)));
 	$prev = status_metrics_sample_read(STATUS_METRICS_IF_SAMPLE);
 	$next = $prev;
 	$now = microtime(true);
 	$out = array();
+	$assigned = get_configured_interface_with_descr();
 	foreach ($ifnames as $if) {
-		$realif = get_real_interface($if);
-		if (empty($realif)) {
+		/* enc0, ovpnsN, ovpncN and ipsecN are device names already */
+		$realif = isset($assigned[$if]) ? get_real_interface($if) : $if;
+		if (empty($realif) || !does_interface_exist($realif)) {
 			continue;
 		}
 		$s = FreeSense_get_interface_stats($realif);
@@ -340,9 +406,10 @@ function status_metrics_xport($range, $defs) {
 }
 
 /*
- * CPU and memory history in percent from the system RRDs: cpu = user + nice
- * + system + interrupt, mem = active + wired + laundry (of all memory).
- * Null when the RRDs do not exist yet.
+ * System history from the system RRDs: cpu = user + nice + system +
+ * interrupt and mem = active + wired + laundry (percent of all memory),
+ * mbuf in percent of the limit and states (entries) when those RRDs exist.
+ * Null when the processor and memory RRDs do not exist yet.
  */
 function status_metrics_system_history($range) {
 	$dir = g_get('vardb_path') . '/rrd';
@@ -353,14 +420,23 @@ function status_metrics_system_history($range) {
 	}
 	$c = escapeshellarg($cpu);
 	$m = escapeshellarg($mem);
-	$data = status_metrics_xport($range,
-	    "DEF:u={$c}:user:AVERAGE DEF:n={$c}:nice:AVERAGE DEF:s={$c}:system:AVERAGE DEF:i={$c}:interrupt:AVERAGE " .
+	$defs = "DEF:u={$c}:user:AVERAGE DEF:n={$c}:nice:AVERAGE DEF:s={$c}:system:AVERAGE DEF:i={$c}:interrupt:AVERAGE " .
 	    "DEF:a={$m}:active:AVERAGE DEF:w={$m}:wire:AVERAGE DEF:l={$m}:laundry:AVERAGE " .
-	    'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN CDEF:mem=a,w,ADDNAN,l,ADDNAN XPORT:cpu:cpu XPORT:mem:mem');
+	    'CDEF:cpu=u,n,ADDNAN,s,ADDNAN,i,ADDNAN CDEF:mem=a,w,ADDNAN,l,ADDNAN XPORT:cpu:cpu XPORT:mem:mem';
+	if (is_file("{$dir}/system-mbuf.rrd")) {
+		$b = escapeshellarg("{$dir}/system-mbuf.rrd");
+		$defs .= " DEF:bt={$b}:total:AVERAGE DEF:bm={$b}:max:AVERAGE CDEF:mbuf=bt,bm,/,100,* XPORT:mbuf:mbuf";
+	}
+	if (is_file("{$dir}/system-states.rrd")) {
+		$st = escapeshellarg("{$dir}/system-states.rrd");
+		$defs .= " DEF:pfs={$st}:pfstates:AVERAGE XPORT:pfs:states";
+	}
+	$data = status_metrics_xport($range, $defs);
 	if ($data === null) {
 		return null;
 	}
-	return array('range' => $range, 'step' => $data['step'], 't' => $data['t'], 'cpu' => $data['cpu'] ?? array(), 'mem' => $data['mem'] ?? array());
+	return array('range' => $range, 'step' => $data['step'], 't' => $data['t'], 'cpu' => $data['cpu'] ?? array(), 'mem' => $data['mem'] ?? array(),
+	    'mbuf' => $data['mbuf'] ?? null, 'states' => $data['states'] ?? null);
 }
 
 /*
@@ -585,25 +661,167 @@ function status_metrics_top_talkers($if, $limit = 20) {
 	return array('hosts' => array_slice($hosts, 0, $limit), 'age' => max(0, time() - $mtime));
 }
 
-/* Traffic history in bits/s from the interface's RRD, or null when there is none. */
+/*
+ * Traffic history from the interface's RRDs: passed and blocked bits/s
+ * (IPv4 + IPv6) and, when the packets RRD exists, passed packets/s. Null
+ * when there is no traffic RRD.
+ */
 function status_metrics_traffic_history($if, $range) {
 	$ranges = status_metrics_ranges();
 	if (!isset($ranges[$range]) || !preg_match('/^[a-z][a-z0-9_]{0,31}$/', (string)$if)) {
 		return null;
 	}
-	$file = g_get('vardb_path') . "/rrd/{$if}-traffic.rrd";
+	$dir = g_get('vardb_path') . '/rrd';
+	$file = "{$dir}/{$if}-traffic.rrd";
 	if (!is_file($file)) {
 		return null;
 	}
-	list($back, $step) = $ranges[$range];
 	$f = escapeshellarg($file);
-	$cmd = '/usr/local/bin/rrdtool xport --showtime --start ' . escapeshellarg("-{$back}") . ' --end now --step ' . (int)$step .
-	    " DEF:ip={$f}:inpass:AVERAGE DEF:ip6={$f}:inpass6:AVERAGE DEF:op={$f}:outpass:AVERAGE DEF:op6={$f}:outpass6:AVERAGE" .
-	    ' CDEF:in=ip,ip6,ADDNAN,8,* CDEF:out=op,op6,ADDNAN,8,* XPORT:in:in_bps XPORT:out:out_bps 2>/dev/null';
-	$data = status_metrics_parse_xport((string)shell_exec($cmd));
-	if (!is_array($data)) {
+	$defs = "DEF:ip={$f}:inpass:AVERAGE DEF:ip6={$f}:inpass6:AVERAGE DEF:op={$f}:outpass:AVERAGE DEF:op6={$f}:outpass6:AVERAGE" .
+	    " DEF:ib={$f}:inblock:AVERAGE DEF:ib6={$f}:inblock6:AVERAGE DEF:ob={$f}:outblock:AVERAGE DEF:ob6={$f}:outblock6:AVERAGE" .
+	    ' CDEF:in=ip,ip6,ADDNAN,8,* CDEF:out=op,op6,ADDNAN,8,* CDEF:inb=ib,ib6,ADDNAN,8,* CDEF:outb=ob,ob6,ADDNAN,8,*' .
+	    ' XPORT:in:in_bps XPORT:out:out_bps XPORT:inb:in_block_bps XPORT:outb:out_block_bps';
+	if (is_file("{$dir}/{$if}-packets.rrd")) {
+		$p = escapeshellarg("{$dir}/{$if}-packets.rrd");
+		$defs .= " DEF:pi={$p}:inpass:AVERAGE DEF:pi6={$p}:inpass6:AVERAGE DEF:po={$p}:outpass:AVERAGE DEF:po6={$p}:outpass6:AVERAGE" .
+		    ' CDEF:inp=pi,pi6,ADDNAN CDEF:outp=po,po6,ADDNAN XPORT:inp:in_pps XPORT:outp:out_pps';
+	}
+	$data = status_metrics_xport($range, $defs);
+	if ($data === null) {
 		return null;
 	}
 	return array('interface' => $if, 'range' => $range, 'step' => $data['step'], 't' => $data['t'],
-	    'in_bps' => $data['in_bps'] ?? array(), 'out_bps' => $data['out_bps'] ?? array());
+	    'in_bps' => $data['in_bps'] ?? array(), 'out_bps' => $data['out_bps'] ?? array(),
+	    'in_block_bps' => $data['in_block_bps'] ?? array(), 'out_block_bps' => $data['out_block_bps'] ?? array(),
+	    'in_pps' => $data['in_pps'] ?? null, 'out_pps' => $data['out_pps'] ?? null);
+}
+
+/* ---------------------------------------------- NTP, ZFS, SMART, portal */
+
+/*
+ * `ntpq -pnw` → peers: array of array(tally, remote, refid, stratum, type,
+ * when, poll, reach, delay, offset, jitter). The tally is the first column:
+ * "*" system peer, "o" PPS peer, "+" candidate, "-" outlier, "x" false
+ * ticker, empty when unused. -w puts a long address on a line of its own.
+ */
+function status_metrics_parse_ntpq($text) {
+	$peers = array();
+	$pending = '';
+	$tail = '/\s\d+\s+\S+\s+\S+\s+\d+\s+\d+\s+[0-9.\-]+\s+[0-9.\-+]+\s+[0-9.\-]+\s*$/';
+	foreach (preg_split('/\r?\n/', (string)$text) as $line) {
+		if ((trim($line) === '') || (strpos(ltrim($line), 'remote') === 0) || (strpos($line, '====') === 0)) {
+			continue;
+		}
+		if (($pending === '') && !preg_match($tail, $line)) {
+			$pending = rtrim($line);
+			continue;
+		}
+		$line = ($pending !== '') ? $pending . ' ' . ltrim($line) : $line;
+		$pending = '';
+		$tally = ($line[0] === ' ') ? '' : $line[0];
+		$f = preg_split('/\s+/', trim(($tally === '') ? $line : substr($line, 1)));
+		if (count($f) < 10) {
+			continue;
+		}
+		$num = function ($v) { return is_numeric($v) ? (float)$v : null; };
+		$peers[] = array('tally' => $tally, 'remote' => $f[0], 'refid' => $f[1], 'stratum' => (int)$f[2], 'type' => $f[3],
+		    'when' => $f[4], 'poll' => (int)$f[5], 'reach' => $f[6], 'delay' => $num($f[7]), 'offset' => $num($f[8]), 'jitter' => $num($f[9]));
+	}
+	return $peers;
+}
+
+/* NTP: whether the server runs, the peer the clock follows and every peer. */
+function status_metrics_ntp() {
+	$enabled = (config_get_path('ntpd/enable', 'enabled') === 'enabled');
+	$peers = array();
+	if ($enabled && is_executable('/usr/local/sbin/ntpq')) {
+		$v4 = config_path_enabled('system', 'ipv6allow') ? '' : ' -4';
+		$peers = status_metrics_parse_ntpq((string)shell_exec("/usr/local/sbin/ntpq -pnw{$v4} 2>/dev/null"));
+	}
+	$source = null;
+	foreach ($peers as $p) {
+		if (($p['tally'] === '*') || ($p['tally'] === 'o')) {
+			$source = $p;
+			break;
+		}
+	}
+	return array('enabled' => $enabled, 'synced' => ($source !== null), 'source' => $source, 'peers' => $peers, 'time' => gmdate('c'));
+}
+
+define('STATUS_METRICS_ZFS_CACHE', '/var/run/fs_metrics_zfs.json');
+define('STATUS_METRICS_SMART_CACHE', '/var/run/fs_metrics_smart.json');
+
+/* ZFS pools from freesense-zfs-status (FreeSense-upgrade), at most every 8 seconds. */
+function status_metrics_zfs() {
+	$mtime = @filemtime(STATUS_METRICS_ZFS_CACHE);
+	if (($mtime === false) || ($mtime < time() - 8)) {
+		$output = array();
+		exec('/usr/local/sbin/freesense-zfs-status 2>/dev/null', $output, $rc);
+		if ($rc === 0) {
+			@file_put_contents(STATUS_METRICS_ZFS_CACHE, implode("\n", $output), LOCK_EX);
+		}
+	}
+	$data = @json_decode((string)@file_get_contents(STATUS_METRICS_ZFS_CACHE), true);
+	return is_array($data) ? $data : array('zfs_active' => false, 'pools' => array());
+}
+
+/* pure: smartctl -H output → PASSED, FAILED, OK, ... or '' when the drive does not say */
+function status_metrics_parse_smart_health($text) {
+	if (preg_match('/^(?:SMART overall-health self-assessment test result|SMART Health Status):\s*(\S+)/m', (string)$text, $m)) {
+		return strtoupper($m[1]);
+	}
+	return '';
+}
+
+/*
+ * Drives and their SMART health (PASSED or OK is good, '' unknown). smartctl
+ * wakes drives, so the result is cached five minutes unless $refresh asks.
+ */
+function status_metrics_smart($refresh = false) {
+	$mtime = @filemtime(STATUS_METRICS_SMART_CACHE);
+	if (!$refresh && ($mtime !== false) && ($mtime > time() - 300)) {
+		$data = @json_decode((string)@file_get_contents(STATUS_METRICS_SMART_CACHE), true);
+		if (is_array($data)) {
+			return $data;
+		}
+	}
+	$platform = system_identify_specific_platform();
+	$drives = array();
+	foreach ((($platform['name'] ?? '') === 'Hyper-V') ? array() : get_drive_list() as $dev) {
+		if (!preg_match('/^[a-z]+[0-9]+$/', (string)$dev)) {
+			continue;
+		}
+		$ident = '';
+		foreach (explode("\n", (string)shell_exec('/usr/sbin/diskinfo -v ' . escapeshellarg("/dev/{$dev}") . ' 2>/dev/null')) as $line) {
+			if (preg_match('/^\s*(\S+)\s+#\s+Disk ident/', $line, $m)) {
+				$ident = $m[1];
+			}
+		}
+		$health = status_metrics_parse_smart_health((string)shell_exec('/usr/local/sbin/smartctl -H ' . escapeshellarg("/dev/{$dev}") . ' 2>/dev/null'));
+		$drives[] = array('device' => $dev, 'ident' => $ident, 'health' => $health);
+	}
+	$data = array('drives' => $drives, 'checked' => gmdate('c'));
+	@file_put_contents(STATUS_METRICS_SMART_CACHE, json_encode($data), LOCK_EX);
+	return $data;
+}
+
+/* Captive portal sessions of every zone: zone, session id, IP, MAC, user, start and last activity. */
+function status_metrics_captiveportal() {
+	global $cpzone, $cpzoneid;
+	require_once('captiveportal.inc');
+	$out = array();
+	foreach ((array)config_get_path('captiveportal', array()) as $zone => $cp) {
+		if (!is_array($cp)) {
+			continue;
+		}
+		$cpzone = $zone;
+		$cpzoneid = $cp['zoneid'] ?? null;
+		foreach ((array)captiveportal_read_db() as $e) {
+			$last = captiveportal_get_last_activity($e[2]);
+			$out[] = array('zone' => (string)$zone, 'zone_name' => (string)($cp['zone'] ?? $zone), 'session' => (string)$e[5],
+			    'ip' => (string)$e[2], 'mac' => (string)$e[3], 'user' => (string)$e[4], 'since' => gmdate('c', (int)$e[0]),
+			    'last_activity' => ($last > 0) ? gmdate('c', (int)$last) : null);
+		}
+	}
+	return $out;
 }

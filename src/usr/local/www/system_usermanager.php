@@ -624,7 +624,6 @@ $form->add($section);
 
 print $form;
 
-$csswarning = sprintf(gettext("%sUser-created themes are unsupported, use at your own risk."), "<br />");
 ?>
 <script type="text/javascript">
 //<![CDATA[
@@ -633,12 +632,7 @@ events.push(function() {
 	function setcustomoptions() {
 		var adv = $('#customsettings').prop('checked');
 
-		hideInput('webguicss', !adv);
-		hideInput('webguifixedmenu', !adv);
-		hideInput('webguihostnamemenu', !adv);
-		hideInput('dashboardcolumns', !adv);
 		hideCheckbox('interfacessort', !adv);
-		hideCheckbox('dashboardavailablewidgetspanel', !adv);
 		hideCheckbox('systemlogsfilterpanel', !adv);
 		hideCheckbox('systemlogsmanagelogpanel', !adv);
 		hideCheckbox('statusmonitoringsettingspanel', !adv);
@@ -647,25 +641,10 @@ events.push(function() {
 		hideCheckbox('pagenamefirst', !adv);
 	}
 
-	// Handle displaying a warning message if a user-created theme is selected.
-	function setThemeWarning() {
-		if ($('#webguicss').val().startsWith("FreeSense")) {
-			$('#csstxt').html("").addClass("text-default");
-		} else {
-			$('#csstxt').html("<?=$csswarning?>").addClass("text-danger");
-		}
-	}
-
 	function change_keytype() {
 		hideClass('rsakeys', ($('#keytype').val() != 'RSA'));
 		hideClass('ecnames', ($('#keytype').val() != 'ECDSA'));
 	}
-
-	$('#webguicss').change(function() {
-		setThemeWarning();
-	});
-
-	setThemeWarning();
 
 	// On click . .
 	$('#customsettings').click(function () {

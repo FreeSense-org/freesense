@@ -39,7 +39,18 @@ require_once("pkg-utils.inc");
 require_once("freesense-utils.inc");
 require_once("util.inc");
 
-$xml = htmlspecialchars($_REQUEST['xml'] ?? '');
+/*
+ * Package privileges match the request URI (pkg_edit.php?xml=<name>), so the
+ * package comes from the query string only: a POST value, or a second xml=
+ * matched by a wildcard privilege, must not open another package's page.
+ */
+$xml_request = $_GET['xml'] ?? '';
+if (!is_string($xml_request) ||
+    (isset($_POST['xml']) && $_POST['xml'] !== $xml_request) ||
+    !isAllowedPage("pkg_edit.php?xml=" . $xml_request)) {
+	$xml_request = '';
+}
+$xml = htmlspecialchars($xml_request);
 
 $xml_fullpath = realpath('/usr/local/pkg/' . $xml);
 
@@ -53,6 +64,7 @@ if ($xml == "" || $xml_fullpath === false || substr($xml_fullpath, 0, strlen('/u
 } else {
 	$pkg = parse_xml_config_pkg($xml_fullpath, "packagegui");
 }
+input_gate_run_xml($pkg);
 
 if ($pkg['include_file'] != "") {
 	require_once($pkg['include_file']);

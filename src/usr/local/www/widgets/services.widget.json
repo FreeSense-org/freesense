@@ -1,0 +1,39 @@
+{
+	"type": "services",
+	"title": "Services",
+	"description": "Service status with start, restart and stop",
+	"icon": "fa-gears",
+	"tone": "series-7",
+	"category": "System",
+	"page": "status_services.php",
+	"link": "/status_services.php",
+	"order": 30,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 15,
+	"settings": [
+		{
+			"key": "problems",
+			"type": "checkbox",
+			"label": "Only show stopped services",
+			"value": false
+		}
+	],
+	"strings": [
+		"%s of %s running",
+		"%s stopped",
+		"All services are running.",
+		"Start",
+		"Restart",
+		"Stop",
+		"%s: %s",
+		"started",
+		"restarted",
+		"stopped",
+		"running"
+	]
+}

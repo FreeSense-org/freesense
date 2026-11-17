@@ -312,6 +312,23 @@ function pkg_mgr_install_finish($postlog) {
  * (lines separated by "\n"), 'progbar' => bool, 'logfilename' => string,
  * 'pid' => int|null).
  */
+/*
+ * Whether the signed-in user has "Deny Config Write". write_config() refuses
+ * their restore point, but a package or system update changes the system all
+ * the same, so package operations check this first.
+ */
+function pkg_mgr_install_readonly_user() {
+	if (empty($_SESSION['Username'])) {
+		return false;
+	}
+	$guiuser = getUserEntry($_SESSION['Username'])['item'] ?? null;
+	return (is_array($guiuser) && userHasPrivilege($guiuser, 'user-config-readonly'));
+}
+
+function pkg_mgr_install_readonly_message() {
+	return gettext("This account may not change the configuration, so it cannot install, remove or update packages or the system.");
+}
+
 function pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $fwbranch = '', $repos = array()) {
 	$paths = pkg_mgr_install_paths();
 	$gui_pidfile = $paths['gui_pidfile'];
@@ -371,6 +388,11 @@ function pkg_mgr_install_start($pkgmode, $pkgname, $firmwareupdate, $fwbranch = 
 	}
 	if (!isset($params)) {
 		$result['reason'] = 'nothing';
+		return $result;
+	}
+	if (pkg_mgr_install_readonly_user()) {
+		$result['reason'] = 'readonly';
+		$result['failmsg'] = pkg_mgr_install_readonly_message();
 		return $result;
 	}
 	/* Refuse at once while an operation runs, instead of after its lock timed out. */

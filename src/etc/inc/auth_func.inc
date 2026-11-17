@@ -44,7 +44,8 @@ function cmp_page_matches($page, & $matches, $fullwc = true) {
 		return false;
 	}
 
-	list($file, $query) = explode('?', $page);
+	/* Limit 2: what PHP treats as the query must be what is matched, including any further '?'. */
+	list($file, $query) = array_pad(explode('?', $page, 2), 2, '');
 	$file = realpath( g_get('www_path') . '/' . ltrim($file, '/'));
 	if (empty($file)) {
 		/* File does not exist, or other path shenanigans */

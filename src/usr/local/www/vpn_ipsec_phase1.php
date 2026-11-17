@@ -243,7 +243,7 @@ $section->addInput(new Form_Checkbox(
 if (!empty($pconfig['ikeid'])) {
 	$section->addInput(new Form_StaticText(
 		'IKE ID',
-		$pconfig['ikeid']
+		htmlspecialchars((string)$pconfig['ikeid'])
 	));
 }
 

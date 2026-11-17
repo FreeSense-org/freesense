@@ -1,0 +1,70 @@
+#!/usr/local/bin/php
+<?php
+/*
+ * freesense-zfs-notices
+ *
+ * part of FreeSense (https://www.freesense.org)
+ * Copyright (c) 2026 The FreeSense Project
+ * All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/*
+ * Files a system notice for every ZFS pool that needs attention (health not
+ * ONLINE, device errors, or data errors) and clears it once the pool is
+ * fine again. Run every five minutes by cron (installed by the 24.6 config
+ * upgrade and the default configuration). The 1.x ZFS dashboard widget did
+ * this while it was being drawn; the dashboard now only reads.
+ */
+
+require_once('config.inc');
+require_once('notices.inc');
+require_once('status_metrics.inc');
+
+/* pure: the notice text for a pool, or null when it is healthy */
+function zfs_notices_message(array $pool): ?string {
+	$health = strtoupper((string)($pool['health'] ?? ''));
+	$errors = 0;
+	foreach ((array)($pool['devices'] ?? []) as $d) {
+		$errors += (int)($d['read_errors'] ?? 0) + (int)($d['write_errors'] ?? 0) + (int)($d['checksum_errors'] ?? 0);
+	}
+	$data = (string)($pool['errors'] ?? '');
+	if (($health === 'ONLINE') && ($errors === 0) && (($data === '') || (stripos($data, 'No known data errors') !== false))) {
+		return null;
+	}
+	return sprintf(gettext('ZFS pool %1$s requires attention: health %2$s, device errors %3$d.'), (string)($pool['name'] ?? ''), $health, $errors);
+}
+
+$status = status_metrics_zfs();
+if (empty($status['zfs_active'])) {
+	exit(0);
+}
+$existing = [];
+foreach ((array)get_notices() as $n) {
+	$existing[html_entity_decode((string)($n['id'] ?? ''))] = html_entity_decode((string)($n['notice'] ?? ''));
+}
+foreach ((array)$status['pools'] as $pool) {
+	$id = 'zfs-' . (string)($pool['name'] ?? '');
+	$message = zfs_notices_message($pool);
+	if ($message === null) {
+		if (isset($existing[$id])) {
+			close_notice($id);
+		}
+	} elseif (($existing[$id] ?? null) !== $message) {
+		if (isset($existing[$id])) {
+			close_notice($id);
+		}
+		file_notice($id, $message, gettext('ZFS Storage'), '/system_boot_environments.php', 1, true);
+	}
+}

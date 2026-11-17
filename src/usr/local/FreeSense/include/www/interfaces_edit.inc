@@ -583,13 +583,7 @@ function interfaces_edit_apply(&$input_errors = null) {
 		enable_rrd_graphing();
 
 		if (is_subsystem_dirty('staticroutes')) {
-			$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-			if (file_exists($routes_apply_file)) {
-				foreach (unserialize_data(file_get_contents($routes_apply_file), []) as $toapply) {
-					mwexec("{$toapply}");
-				}
-				@unlink($routes_apply_file);
-			}
+			$retval |= system_routing_apply_deletions();
 		    if (system_routing_configure() == 0) {
 				clear_subsystem_dirty('staticroutes');
 			}
@@ -672,6 +666,11 @@ function interfaces_edit_save($if, array $post, &$input_errors, ?array &$ctx = n
 	$reqdfields = explode(" ", "descr");
 	$reqdfieldsn = [gettext("Description")];
 	do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
+
+	/* The same rules the DHCP client configuration writers apply. */
+	foreach (cfg_invalid_fields($post, cfg_dhcp_client_rules()) as $field) {
+		$input_errors[] = sprintf(gettext('The value of %s contains characters that are not allowed.'), htmlspecialchars($field));
+	}
 
 	if (!$input_errors) {
 		/* Reserved name? */
@@ -1265,6 +1264,12 @@ function interfaces_edit_save($if, array $post, &$input_errors, ?array &$ctx = n
 			$input_errors[] = gettext("Invalid option chosen for OFDM Protection Mode");
 		}
 
+		foreach (['ssid', 'passphrase', 'wpa_eap_inner_id', 'wpa_eap_inner_password', 'auth_server_shared_secret', 'auth_server_shared_secret2'] as $wpa_field) {
+			if (cfg_has_ctl($post[$wpa_field] ?? '')) {
+				$input_errors[] = gettext("Wireless settings cannot contain line breaks or control characters.");
+				break;
+			}
+		}
 		if ($post['passphrase']) {
 			$passlen = strlen($post['passphrase']);
 			if (($passlen < 8) ||

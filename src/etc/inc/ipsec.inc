@@ -1376,6 +1376,16 @@ function ipsec_strongswan_confgen($confarr, $indent = "") {
 				$confstr .= ipsec_strongswan_confgen($value, $indent . "\t");
 				$confstr .= "{$indent}}\n";
 			} else {
+				/*
+				 * One setting, one line. A comment holds user text such as a
+				 * description; a line break there would start a new setting.
+				 */
+				if (substr((string)$value, 0, 1) == '#') {
+					$value = cfg_one_line($value);
+				} elseif (cfg_has_ctl($value)) {
+					logger(LOG_ERR, localize_text('Skipping an invalid IPsec setting: %s', (string)$key), LOG_PREFIX_IPSEC);
+					continue;
+				}
 				$confstr .= "{$indent}";
 				if ((substr($value, 0 , 1) != '#') &&
 				    (substr($value, 0 , 8) != 'include ')) {
@@ -1529,8 +1539,8 @@ function ipsec_setup_gwifs() {
 				continue;
 			}
 
-			/* add an ipsec pinghosts entry */
-			if ($ph2ent['pinghost']) {
+			/* add an ipsec pinghosts entry; ping_hosts.sh splits it on | and runs some fields */
+			if (is_ipaddr($ph2ent['pinghost'] ?? '')) {
 				if (!is_array($iflist)) {
 					$iflist = get_configured_interface_list();
 				}
@@ -1840,7 +1850,8 @@ function ipsec_setup_strongswan() {
 			$ssconf['charon']['plugins']['attr']['25'] = str_replace(' ', ',', config_get_path('ipsec/client/dns_split'));
 		}
 
-		if (!empty(config_get_path('ipsec/client/login_banner'))) {
+		/* Written unquoted: a brace would end the section and start another. */
+		if (strongswan_text_valid(config_get_path('ipsec/client/login_banner'))) {
 			$ssconf['charon']['plugins']['attr'][] = "# Login Banner";
 			$ssconf['charon']['plugins']['attr']['28672'] = config_get_path('ipsec/client/login_banner');
 		}
@@ -1856,7 +1867,8 @@ function ipsec_setup_strongswan() {
 		}
 	}
 
-	@file_put_contents("{$g['varetc_path']}/ipsec/strongswan.conf", ipsec_strongswan_confgen($ssconf));
+	/* It can hold the RADIUS shared secret. */
+	file_put_contents_private("{$g['varetc_path']}/ipsec/strongswan.conf", ipsec_strongswan_confgen($ssconf));
 }
 
 /****f* ipsec/ipsec_setup_pools
@@ -3209,7 +3221,8 @@ function ipsec_configure($restart = false, $filterdns_restart = false) {
 	$scconf['secrets'] = array();
 	ipsec_setup_secrets();
 
-	@file_put_contents("{$g['varetc_path']}/ipsec/swanctl.conf", ipsec_strongswan_confgen($scconf));
+	/* It holds every PSK and EAP secret. */
+	file_put_contents_private("{$g['varetc_path']}/ipsec/swanctl.conf", ipsec_strongswan_confgen($scconf));
 
 	/* Clean up unused VTI interfaces */
 	foreach ($ipsec_vti_cleanup_ifs as $cleanif) {

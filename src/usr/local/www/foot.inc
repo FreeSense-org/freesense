@@ -73,6 +73,9 @@
 	<script type="text/javascript" src="/vendor/jquery-treegrid/js/jquery.treegrid.min.js?v=<?=filemtime('/usr/local/www/vendor/jquery-treegrid/js/jquery.treegrid.min.js')?>"></script>
 	<script type="text/javascript" src="/vendor/js-cookie/js.cookie.min.js?v=<?=filemtime('/usr/local/www/vendor/js-cookie/js.cookie.min.js')?>"></script>
 	<script type="text/javascript" src="/js/jquery-cookie-shim.js?v=<?=filemtime('/usr/local/www/js/jquery-cookie-shim.js')?>"></script>
+<?php foreach ((array)($fs_page_scripts ?? []) as $fs_js): /* page scripts after the shared ones: web paths under /usr/local/www */ ?>
+	<script src="<?=htmlspecialchars($fs_js)?>?v=<?=@filemtime('/usr/local/www' . $fs_js)?>"></script>
+<?php endforeach; ?>
 
 	<script type="text/javascript">
 	//<![CDATA[

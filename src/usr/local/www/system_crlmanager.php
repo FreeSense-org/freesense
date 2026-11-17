@@ -72,7 +72,7 @@ if (!empty($id)) {
 if ((!empty($act) &&
     ($act != 'new') &&
     !$thiscrl) ||
-    (($act == 'del') && empty($_POST))) {
+    (in_array($act, ['del', 'delcert'], true) && empty($_POST))) {
 	FreeSenseHeader("system_camanager.php");
 	$act="";
 	$savemsg = gettext("Invalid CRL reference.");
@@ -108,7 +108,7 @@ switch ($act) {
 		}
 		break;
 	case 'delcert':
-		$rv = pki_crl_unrevoke($crl_item_config, $_REQUEST['certref']);
+		$rv = pki_crl_unrevoke($crl_item_config, $_POST['certref']);
 		if ($rv === null) {
 			FreeSenseHeader("system_crlmanager.php");
 			exit;

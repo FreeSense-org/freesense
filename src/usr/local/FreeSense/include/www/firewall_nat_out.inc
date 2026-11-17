@@ -197,9 +197,43 @@ function saveNAToutMode($post, $json = false) {
 		exit;
 	}
 }
+/* Everything the outbound NAT saver reads. */
+function firewall_nat_out_input_rules(): array {
+	return [
+		'after' => ['line'],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'destination' => ['line', 'label' => gettext('Destination')],
+		'destination_not' => ['flag'],
+		'destination_subnet' => ['int', 'label' => gettext('Destination bit count'), 'max' => 128],
+		'destination_type' => ['line', 'label' => gettext('Destination type')],
+		'disabled' => ['flag'],
+		'dstport' => ['token', 'label' => gettext('Destination port')],
+		'eimnat' => ['flag'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'ipprotocol' => ['enum', 'label' => gettext('Address family'), 'values' => ['inet', 'inet6', 'inet46']],
+		'natport' => ['token', 'label' => gettext('Translation port')],
+		'nonat' => ['flag'],
+		'nosync' => ['flag'],
+		'poolopts' => ['enum', 'label' => gettext('Pool options'), 'values' => filter_nat_poolopts()],
+		'protocol' => ['token', 'label' => gettext('Protocol')],
+		'source' => ['line', 'label' => gettext('Source')],
+		'source_hash_key' => ['line', 'label' => gettext('Source hash key')],
+		'source_subnet' => ['int', 'label' => gettext('Source bit count'), 'max' => 128],
+		'source_type' => ['line', 'label' => gettext('Source type')],
+		'sourceport' => ['token', 'label' => gettext('Source port')],
+		'staticnatport' => ['flag'],
+		'target' => ['line', 'label' => gettext('Translation address')],
+		'target_subnet' => ['int', 'label' => gettext('Translation bit count'), 'max' => 128],
+		'target_type' => ['line', 'label' => gettext('Translation type')],
+	];
+}
+
 // Save Outbound rule
 function saveoutNATrule($post, $id, $json = false) {
 	global $after;
+
+	$submitted = $post;
+	list($post, $check_errors) = input_check($post, firewall_nat_out_input_rules());
 	$nat_tgttype_flags = [SPECIALNET_NETAL, SPECIALNET_IFADDR, SPECIALNET_VIPS];
 	$nat_srctype_flags = [SPECIALNET_ANY, SPECIALNET_SELF, SPECIALNET_NETAL, SPECIALNET_IFNET, SPECIALNET_GROUP];
 	$nat_dsttype_flags = [SPECIALNET_ANY, SPECIALNET_NETAL, SPECIALNET_IFNET, SPECIALNET_GROUP];
@@ -217,8 +251,9 @@ function saveoutNATrule($post, $id, $json = false) {
 		$post['destination_subnet'] = '';
 	}
 
-	unset($input_errors);
-	$pconfig = $post;
+	$input_errors = $check_errors;
+	/* A failed save shows what was typed, including what the check refused. */
+	$pconfig = array_merge($submitted, $post);
 
 	/*  run through $post items encoding HTML entitles so that the user
 	 *  cannot think he is slick and perform a XSS attack on the unwilling
@@ -228,10 +263,13 @@ function saveoutNATrule($post, $id, $json = false) {
 			continue;
 		}
 
+		if (is_array($value)) {
+			continue;
+		}
 		$temp = str_replace(">", "", $value);
 		$newpost = htmlentities($temp);
 		if ($newpost <> $temp) {
-			$input_errors[] = sprintf(gettext("Invalid characters detected (%s).  Please remove invalid characters and save again."), $temp);
+			$input_errors[] = sprintf(gettext("Invalid characters detected (%s).  Please remove invalid characters and save again."), htmlspecialchars($temp));
 		}
 	}
 

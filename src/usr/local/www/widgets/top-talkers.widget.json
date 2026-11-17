@@ -1,0 +1,40 @@
+{
+	"type": "top-talkers",
+	"title": "Top talkers",
+	"description": "The hosts on an interface moving the most traffic right now",
+	"icon": "fa-ranking-star",
+	"tone": "series-2",
+	"category": "Network",
+	"page": "index.php",
+	"order": 24,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 5,
+	"allow_copies": true,
+	"settings": [
+		{
+			"key": "interface",
+			"type": "interface",
+			"label": "Interface",
+			"value": "lan"
+		},
+		{
+			"key": "count",
+			"type": "number",
+			"label": "Hosts",
+			"value": 8,
+			"min": 3,
+			"max": 20
+		}
+	],
+	"strings": [
+		"No traffic right now.",
+		"In",
+		"Out",
+		"Sampled over %s"
+	]
+}

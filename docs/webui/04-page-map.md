@@ -104,7 +104,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | system_usermanager | List + Editor (`act=edit`) | existing bulk becomes the bulk bar; badges (disabled, expired); search | B | M |
 | system_groupmanager | List + Editor | standard | B | |
 | system_usermanager_addprivs, _groupmanager_addprivs | Editor | **done**: the multi-select, its hidden shadow copy, the filter box and Filter/Clear buttons are one searchable checklist (grouped, descriptions inline, admin-level badges, Selected only); Cancel returns to the user / group | D | |
-| system_usermanager_settings, _passwordmg, system_user_settings | Settings | standard | D | |
+| system_usermanager_settings, _passwordmg, account | Settings | standard | D | |
 | system_authservers | List + Editor | standard | B / D | |
 | system_camanager, _certmanager, _crlmanager | List + Editor | **delete the hand-rolled search JS**, use `data-fs-table` (with a column filter replacing "Name/DN/Both"); badges for expiry (warn < 30 days, block when expired) | B | M |
 | system_certmanager_renew | Tool | standard | E | |
@@ -133,11 +133,11 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 | status_ipsec, _leases, _sad, _spd | Status | **done**: registry group `status-ipsec`; Overview tiles + tunnel list (connected / connecting / disconnected / waiting badges, state filter), expandable child SAs kept across the 5 s refresh, connect / disconnect as row actions (disconnect confirmed, same AJAX handler); leases, SADs (confirmed delete) and SPDs as searchable lists | E | M |
 | status_openvpn, status_unbound, status_upnp, status_wireless, status_queues | Status | **done** (status-b): OpenVPN one card per server (service badge + controls, client list with confirmed Disconnect / Halt, collapsible routing table) and instance lists; Unbound speed / stats views; UPnP confirmed Delete all; Wireless Rescan header action; Queues tree with live stats and collapse toggles; not-configured empty-state card (f-shaper). **F** (f-firewall): UPnP "turned off" empty state with Configure UPnP | E | |
 | status_captiveportal, _vouchers, _voucher_rolls, _expire, _test | Status / Tool | registry group with zone param | E | **done** (F): zone picker, tiles, users list with confirmed disconnect, voucher/roll lists with badges and usage meter, test/expire as tool cards |
-| status_graph | Status | chart card + controls row (themed nvd3) | E | **done** (F): controls row + more options, top hosts fs-table; traffic-graphs.js uses --fs-series-*. status_graph_cpu rebuilt as native token-themed SVG chart with tiles; Traffic / CPU Load tabs link the two (old graph_cpu.php removed) |
+| status_graph | Status | chart card + controls row | E | **done** (F): controls row + more options, top hosts fs-table; 1.2: fs-chart (uPlot) with RRD seed and live glide. status_graph_cpu rebuilt as native token-themed SVG chart with tiles; Traffic / CPU Load tabs link the two (old graph_cpu.php removed) |
 | status_restapi | Status | already near-standard; align with tokens | F | **done** (Phase F): fs_tile, fs-table listeners and log toolbar, fs_badge, chart on series tokens |
 | status_filter_reload | Tool | **done**: console output card (Copy, Reloading/Done badge, live polling), Reload filter / Force config sync as header actions (same POST fields) | E | |
 | status_logs, _filter, _filter_dynamic, _filter_summary, _packages, _vpn, _settings | Log / Settings | **done**: tabs from registry `status-logs` (`includes/tabs/logs.inc`), second level as view switch; one log card per page (quick search, level filter, server filter fields in the toolbar, "More filters" collapsible, count); mono time, process chips, severity edge; firewall rows with action badges + rule popover, resolve / EasyRule row actions; Log settings modal + confirmed Clear log as header actions; summary tiles + donut/table cards; settings in sections with collapsible Storage and rotation, Reset log files as confirmed header action. Field names unchanged. Also rebuilt diag_packet_capture (options card, collapsible view options, Start/Stop bar, last-capture card, console output) | E | M |
-| index (dashboard) + widgets | Special | widget = flat card, compact header, tiles (10-03 phase 6) | E | M |
+| index (dashboard) + widgets | Special | **done (1.2)**: dashboard v2 - JSON widgets on /api/v1, 12-column masonry grid, uPlot charts, 24 core widgets, package widgets via plugin_restapi (`05-widgets.md`) | E | M |
 
 ## W8 — Diagnostics
 
@@ -158,7 +158,7 @@ Bulk or copy anywhere else is a **logic** task: a separate PR with a smoke test,
 ## Not pages (don't touch)
 
 `bandwidth_by_ip`, `getqueuestats`, `getserviceproviders`, `getstats`, `graph`, `ifstats`,
-`stats`, `xmlrpc`, `uploadconfig`, `csrf_error`, `crash_reporter` (gets tokens only; **done** in F: files list with downloads, report console with Copy, confirmed delete as header action, empty state), `help`, `status`
+`stats`, `xmlrpc`, `csrf_error`, `crash_reporter` (gets tokens only; **done** in F: files list with downloads, report console with Copy, confirmed delete as header action, empty state), `help`, `status`
 (support dump), `wizard` (Special, Phase F), `api/`.
 
 ---
