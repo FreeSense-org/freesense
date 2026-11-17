@@ -34,9 +34,9 @@ Versions are read from the files' own banners.
 |---|---|---|
 | simplepie/simplepie | 1.9.0 | **CVE-2026-111234** (local file read: a feed redirects or autodiscovers SimplePie to a `file://` URL). No fixed release. **Mitigated:** the RSS widget fetches feeds itself over http(s) only and hands SimplePie the raw text with autodiscovery off (`rss.widget.php`). `composer audit` does not list this CVE yet. |
 | mikehaertl/php-shellcommand | 1.7.0 | No advisories. |
-| nette/utils | 4.1.5 | No advisories. |
-| symfony/console | 8.1.8 | No advisories. |
-| symfony/cache | 8.1.8 | No advisories. No longer used by the RSS widget. |
+| nette/utils | 4.1.6 | No advisories. |
+| symfony/console | 8.1.10 | No advisories. |
+| symfony/cache | 8.1.10 | No advisories. No longer used by the RSS widget. |
 
 `composer audit --locked` reports no advisories for these versions
 (2026-11-09). CI runs it on every pull request (`quality.yml`), and Dependabot
