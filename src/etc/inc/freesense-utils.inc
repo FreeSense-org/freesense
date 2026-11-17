@@ -2261,102 +2261,99 @@ function get_freebsd_version() {
 	return $version[0];
 }
 
-function download_file($url, $destination, $verify_ssl = true, $connect_timeout = 5, $timeout = 0) {
-	global $g;
-
-	$fp = fopen($destination, "wb");
-
-	if (!$fp) {
+/* HTTP(S) downloads are staged beside their destination; a failed transfer never replaces it. */
+function download_file_transfer(string $url, string $destination, bool $verify_ssl, int $connect_timeout,
+    int $timeout, ?callable $writer = null, int $max_bytes = 134217728): bool {
+	$temp = tempnam(dirname($destination), '.download-');
+	if ($temp === false) {
 		return false;
 	}
-
+	$fp = @fopen($temp, 'wb');
+	if ($fp === false) {
+		unlink_if_exists($temp);
+		return false;
+	}
 	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, $url);
-	if ($verify_ssl) {
-		curl_setopt($ch, CURLOPT_CAPATH, "/etc/ssl/certs/");
-		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-	} else {
-		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYSTATUS, false);
+	$written = 0;
+	curl_setopt_array($ch, array(
+		CURLOPT_URL => $url,
+		CURLOPT_PROTOCOLS_STR => 'http,https',
+		CURLOPT_REDIR_PROTOCOLS_STR => ($verify_ssl && (strtolower((string)parse_url($url, PHP_URL_SCHEME)) === 'https')) ? 'https' : 'http,https',
+		CURLOPT_FOLLOWLOCATION => true,
+		CURLOPT_MAXREDIRS => 5,
+		CURLOPT_CAPATH => '/etc/ssl/certs/',
+		CURLOPT_SSL_VERIFYHOST => $verify_ssl ? 2 : 0,
+		CURLOPT_SSL_VERIFYPEER => $verify_ssl,
+		CURLOPT_CONNECTTIMEOUT => max(1, $connect_timeout),
+		CURLOPT_TIMEOUT => ($timeout > 0) ? $timeout : 120,
+		CURLOPT_LOW_SPEED_LIMIT => 1,
+		CURLOPT_LOW_SPEED_TIME => 30,
+		CURLOPT_USERAGENT => g_get('product_label') . '/' . g_get('product_version'),
+		CURLOPT_WRITEFUNCTION => function ($curl, string $chunk) use ($fp, $writer, $max_bytes, &$written): int {
+			$length = strlen($chunk);
+			if ($length > $max_bytes - $written) {
+				return 0;
+			}
+			$count = ($writer === null) ? fwrite($fp, $chunk) : $writer($curl, $chunk, $fp);
+			if ($count !== $length) {
+				return 0;
+			}
+			$written += $count;
+			return $count;
+		},
+	));
+	if ($writer !== null) {
+		curl_setopt($ch, CURLOPT_HEADERFUNCTION, 'read_header');
 	}
-	curl_setopt($ch, CURLOPT_FILE, $fp);
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connect_timeout);
-	curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-	curl_setopt($ch, CURLOPT_HEADER, false);
-	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-	curl_setopt($ch, CURLOPT_USERAGENT, g_get('product_label') . '/' . g_get('product_version'));
-
 	set_curlproxy($ch);
-
-	@curl_exec($ch);
-	$http_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-	fclose($fp);
-	if ($http_code == 200) {
-		return true;
-	} else {
-		logger(LOG_ERR, localize_text('Download file failed with status code %1$s. URL: %2$s', $http_code, $url));
-		unlink_if_exists($destination);
-		return false;
+	try {
+		$ok = (curl_exec($ch) !== false) && (curl_errno($ch) === 0) &&
+		    (curl_getinfo($ch, CURLINFO_RESPONSE_CODE) === 200);
+		$ok = fflush($fp) && $ok;
+	} catch (Throwable $error) {
+		$ok = false;
+	} finally {
+		fclose($fp);
 	}
+	/* Preserve existing consumers' read access; a new file follows the caller's umask. */
+	$mode = is_file($destination) ? (fileperms($destination) & 0777) : (0666 & ~umask());
+	if ($ok && @chmod($temp, $mode) && @rename($temp, $destination)) {
+		return true;
+	}
+	unlink_if_exists($temp);
+	/* URLs may contain credentials; never put the full URL in this log. */
+	logger(LOG_ERR, gettext('Download failed; the previous file was retained.'));
+	return false;
+}
+
+function download_file($url, $destination, $verify_ssl = true, $connect_timeout = 5, $timeout = 0) {
+	return download_file_transfer($url, $destination, $verify_ssl, $connect_timeout, $timeout);
 }
 
 function download_file_with_progress_bar($url, $destination, $verify_ssl = true, $readbody = 'read_body', $connect_timeout = 5, $timeout = 0) {
-	global $g, $ch, $fout, $file_size, $downloaded, $first_progress_update;
+	global $file_size, $downloaded, $first_progress_update;
 	$file_size = 1;
 	$downloaded = 1;
-	$first_progress_update = TRUE;
-	/* open destination file */
-	$fout = fopen($destination, "wb");
+	$first_progress_update = true;
+	return download_file_transfer($url, $destination, $verify_ssl, $connect_timeout, $timeout,
+	    function ($curl, string $chunk, $fp) use ($readbody): int {
+		    global $ch, $fout;
+		    $ch = $curl;
+		    $fout = $fp;
+		    return (int)call_user_func($readbody, $curl, $chunk);
+	    });
+}
 
-	if (!$fout) {
-		return false;
-	}
-	/*
-	 *      Originally by Author: Keyvan Minoukadeh
-	 *      Modified by Scott Ullrich to return Content-Length size
-	 */
-	$ch = curl_init();
-	curl_setopt($ch, CURLOPT_URL, $url);
-	if ($verify_ssl) {
-		curl_setopt($ch, CURLOPT_CAPATH, "/etc/ssl/certs/");
-		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-	} else {
-		curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYSTATUS, false);
-	}
-	curl_setopt($ch, CURLOPT_HEADERFUNCTION, 'read_header');
-	curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-	curl_setopt($ch, CURLOPT_WRITEFUNCTION, $readbody);
-	curl_setopt($ch, CURLOPT_NOPROGRESS, '1');
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $connect_timeout);
-	curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-	curl_setopt($ch, CURLOPT_USERAGENT, g_get('product_label') . '/' . g_get('product_version'));
-
-	set_curlproxy($ch);
-
-	@curl_exec($ch);
-	$http_code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-	fclose($fout);
-	if ($http_code == 200) {
-		return true;
-	} else {
-		logger(LOG_ERR, localize_text('Download file failed with status code %1$s. URL: %2$s', $http_code, $url));
-		unlink_if_exists($destination);
-		return false;
-	}
+/* Verify alias feeds by default; legacy explicit opt-outs remain visible in the UI. */
+function alias_url_verify_tls(): bool {
+	return !config_path_enabled('system', 'allowinsecurealiasesurl');
 }
 
 function read_header($ch, $string) {
 	global $file_size;
 	$length = strlen($string);
-	$regs = "";
-	preg_match("/(Content-Length:) (.*)/", $string, $regs);
-	if ($regs[2] <> "") {
-		$file_size = intval($regs[2]);
+	if (preg_match('/^Content-Length:\s*([0-9]+)/i', $string, $matches) === 1) {
+		$file_size = (int)$matches[1];
 	}
 	ob_flush();
 	return $length;
@@ -2407,11 +2404,9 @@ function read_body($ch, $string) {
 		}
 		$lastseen = $downloadProgress;
 	}
-	if ($fout) {
-		fwrite($fout, $string);
-	}
+	$count = $fout ? fwrite($fout, $string) : false;
 	ob_flush();
-	return $length;
+	return ($count === false) ? 0 : $count;
 }
 
 /*
@@ -2697,17 +2692,21 @@ function update_alias_url_data() {
 	foreach (array_merge($aliases, $aliases_nested) as $x) {
 
 		$address = array();
+		$failed = false;
 		$type = config_get_path("aliases/alias/{$x}/type");
 		foreach (config_get_path("aliases/alias/{$x}/aliasurl", []) as $alias_url) {
 			/* fetch down and add in */
 			if (is_URL($alias_url)) {
-				$temp_filename = tempnam("{$g['tmp_path']}/", "alias_import");
-				rmdir_recursive($temp_filename);
-				$verify_ssl = config_path_enabled('system','checkaliasesurlcert');
-				mkdir($temp_filename);
+				$temp_filename = alias_download_workdir();
+				if ($temp_filename === null) {
+					$failed = true;
+					continue;
+				}
+				$verify_ssl = alias_url_verify_tls();
 				if (!download_file($alias_url, $temp_filename . "/aliases", $verify_ssl)) {
 					logger(LOG_ERR, localize_text("Failed to download alias %s", $alias_url));
 					rmdir_recursive($temp_filename);
+					$failed = true;
 					continue;
 				}
 
@@ -2715,6 +2714,7 @@ function update_alias_url_data() {
 				if (alias_url_is_archive($alias_url) && !process_alias_tgz($temp_filename)) {
 					logger(LOG_ERR, localize_text("Could not unpack tgz from the URL '%s'.", $alias_url));
 					rmdir_recursive($temp_filename);
+					$failed = true;
 					continue;
 				}
 				if (file_exists("{$temp_filename}/aliases")) {
@@ -2722,7 +2722,8 @@ function update_alias_url_data() {
 					if ($t_address == null) {
 						/* nothing was found */
 						logger(LOG_ERR, localize_text("Could not fetch usable data from '%s'.", $alias_url));
-						//rmdir_recursive($temp_filename);
+						rmdir_recursive($temp_filename);
+						$failed = true;
 						continue;
 					} else {
 						array_push($address, ...$t_address);
@@ -2738,14 +2739,16 @@ function update_alias_url_data() {
 				$t_address = explode(" ", $aliastable[$alias_url]);
 				if ($t_address == null) {
 					logger(LOG_ERR, localize_text("Could not get usable data from '%s' URL alias.", $alias_url));
+					$failed = true;
 					continue;
 				}
 				array_push($address, ...$t_address);
 			}
-			if (!empty($address)) {
-				config_set_path("aliases/alias/{$x}/address", implode(" ", $address));
-				$updated = true;
-			}
+		}
+		/* A multi-feed alias is replaced only when every feed completed successfully. */
+		if (!$failed && !empty($address)) {
+			config_set_path("aliases/alias/{$x}/address", implode(" ", $address));
+			$updated = true;
 		}
 	}
 
@@ -2753,6 +2756,20 @@ function update_alias_url_data() {
 
 	/* Report status to callers as well */
 	return $updated;
+}
+
+/* Create an exclusive private import directory; never follow a replacement planted in /tmp. */
+function alias_download_workdir(): ?string {
+	$file = tempnam(g_get('tmp_path'), 'alias_import');
+	if ($file === false) {
+		return null;
+	}
+	unlink($file);
+	if (!@mkdir($file, 0700)) {
+		logger(LOG_ERR, gettext('Could not create the alias import directory.'));
+		return null;
+	}
+	return $file;
 }
 
 /* True when an alias URL points at a gzipped tar archive. */
@@ -2765,53 +2782,96 @@ function alias_url_is_archive($url) {
  * Replace $file, a gzipped tar archive, with the contents of the regular
  * files inside it, one after another (#16964).
  */
-function alias_unpack_archive($file) {
-	if (!file_exists('/usr/bin/tar')) {
-		logger(LOG_CRIT, localize_text("Alias archive is a .tar/tgz file which cannot be decompressed because utility is missing!"));
+/* Copy bounded tar output without extracting paths, links or device nodes onto the filesystem. */
+function alias_archive_copy(array $command, $output, int &$remaining, float $deadline): bool {
+	$process = proc_open($command, array(0 => array('file', '/dev/null', 'r'),
+	    1 => array('pipe', 'w'), 2 => array('file', '/dev/null', 'w')), $pipes);
+	if (!is_resource($process)) {
 		return false;
 	}
-	$dir = "{$file}.d";
-	rmdir_recursive($dir);
-	if (!@mkdir($dir, 0700)) {
-		return false;
-	}
-	/* bsdtar refuses absolute and ".." member paths by default. */
-	if (mwexec('/usr/bin/tar -xzf ' . escapeshellarg($file) . ' -C ' . escapeshellarg($dir), true) != 0) {
-		rmdir_recursive($dir);
-		return false;
-	}
-
-	$members = [];
-	$iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir,
-	    FilesystemIterator::SKIP_DOTS));
-	foreach ($iterator as $member) {
-		if ($member->isFile() && !$member->isLink()) {
-			$members[] = $member->getPathname();
+	stream_set_blocking($pipes[1], false);
+	$ok = true;
+	while (!feof($pipes[1])) {
+		if (microtime(true) >= $deadline) {
+			$ok = false;
+			break;
 		}
-	}
-	sort($members);
-
-	$fd = @fopen($file, 'w');
-	if (!$fd) {
-		logger(LOG_ERR, localize_text("Could not open %s for writing!", $file));
-		rmdir_recursive($dir);
-		return false;
-	}
-	foreach ($members as $member) {
-		$in = @fopen($member, 'r');
-		if (!$in) {
-			logger(LOG_ERR, localize_text('The following file could not be read %1$s from %2$s', basename($member), $file));
+		$read = array($pipes[1]);
+		$write = $except = null;
+		if (stream_select($read, $write, $except, 0, 200000) === false) {
+			$ok = false;
+			break;
+		}
+		if (!$read) {
 			continue;
 		}
-		stream_copy_to_stream($in, $fd);
-		/* Keep the last line of one file apart from the next file. */
-		fwrite($fd, "\n");
-		fclose($in);
+		$chunk = fread($pipes[1], min(65536, max(1, $remaining + 1)));
+		if (($chunk === false) || (strlen($chunk) > $remaining)) {
+			$ok = false;
+			break;
+		}
+		$length = strlen($chunk);
+		if (fwrite($output, $chunk) !== $length) {
+			$ok = false;
+			break;
+		}
+		$remaining -= $length;
 	}
-	fclose($fd);
-	rmdir_recursive($dir);
+	fclose($pipes[1]);
+	if (!$ok) {
+		proc_terminate($process, 9);
+	}
+	$status = proc_close($process);
+	return $ok && ($status === 0);
+}
 
-	return true;
+function alias_unpack_archive($file) {
+	$deadline = microtime(true) + 60;
+	$list = fopen('php://temp', 'w+b');
+	$remaining = 65536;
+	if (!alias_archive_copy(array('/usr/bin/tar', '-tzf', $file), $list, $remaining, $deadline)) {
+		fclose($list);
+		return false;
+	}
+	rewind($list);
+	$members = explode("\n", rtrim(stream_get_contents($list), "\n"));
+	fclose($list);
+	if (count($members) > 512) {
+		return false;
+	}
+	sort($members);
+	$temp = tempnam(dirname($file), '.alias-unpack-');
+	if ($temp === false) {
+		return false;
+	}
+	$output = @fopen($temp, 'wb');
+	if ($output === false) {
+		unlink_if_exists($temp);
+		return false;
+	}
+	$remaining = 134217728;
+	$ok = true;
+	foreach ($members as $member) {
+		if (($member === '') || str_ends_with($member, '/')) {
+			continue;
+		}
+		if (preg_match('/[\x00-\x1f\x7f]/', $member) || str_starts_with($member, '/') ||
+		    in_array('..', explode('/', $member), true) ||
+		    !alias_archive_copy(array('/usr/bin/tar', '-xOzf', $file, '--', $member), $output, $remaining, $deadline) ||
+		    ($remaining < 1) || (fwrite($output, "\n") !== 1)) {
+			$ok = false;
+			break;
+		}
+		$remaining--;
+	}
+	$ok = fflush($output) && $ok;
+	fclose($output);
+	if ($ok && @chmod($temp, fileperms($file) & 0777) && @rename($temp, $file)) {
+		return true;
+	}
+	unlink_if_exists($temp);
+	logger(LOG_ERR, gettext('Alias archive failed validation or exceeded its size or time limit.'));
+	return false;
 }
 
 function process_alias_tgz($temp_filename) {
@@ -2942,7 +3002,7 @@ function process_alias_urltable($name, $type, $url, $freq, $forceupdate=false, $
 
 		// Try to fetch the URL supplied
 		unlink_if_exists($tmp_urltable_filename);
-		$verify_ssl = config_path_enabled('system','checkaliasesurlcert');
+		$verify_ssl = alias_url_verify_tls();
 		if (download_file($url, $tmp_urltable_filename, $verify_ssl) &&
 		    (!alias_url_is_archive($url) || alias_unpack_archive($tmp_urltable_filename))) {
 			// Convert lines that begin with '$' or ';' to comments '#' instead of deleting them.
@@ -2971,9 +3031,6 @@ function process_alias_urltable($name, $type, $url, $freq, $forceupdate=false, $
 
 			unlink_if_exists($tmp_urltable_filename);
 		} else {
-			if (!$validateonly) {
-				touch($urltable_filename);
-			}
 			return false;
 		}
 		return true;

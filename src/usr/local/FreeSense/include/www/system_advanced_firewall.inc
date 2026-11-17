@@ -44,7 +44,7 @@ function getSystemAdvancedFirewall($json = false) {
 	$pconfig['aliasesresolveinterval'] = config_get_path('system/aliasesresolveinterval');
 	$pconfig['bogonsinterval'] = config_get_path('system/bogons/interval');
 	$pconfig['bypassstaticroutes'] = config_path_enabled('filter', 'bypassstaticroutes');
-	$pconfig['checkaliasesurlcert'] = config_path_enabled('system', 'checkaliasesurlcert');
+	$pconfig['checkaliasesurlcert'] = alias_url_verify_tls();
 	$pconfig['statepolicy'] = config_get_path('system/statepolicy');
 	$pconfig['disable_auto_floating_states'] = config_get_path('system/disable_auto_floating_states');
 	$pconfig['disablefilter'] = config_get_path('system/disablefilter');
@@ -298,8 +298,10 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 
 		if ($post['checkaliasesurlcert'] == "yes") {
 			config_set_path('system/checkaliasesurlcert', true);
+			config_del_path('system/allowinsecurealiasesurl');
 		} else {
 			config_del_path('system/checkaliasesurlcert');
+			config_set_path('system/allowinsecurealiasesurl', true);
 		}
 
 		$setup_sysctl = ($post['maximumtableentries'] != config_get_path('system/maximumtableentries'));
