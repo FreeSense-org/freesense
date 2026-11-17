@@ -42,8 +42,8 @@ Versions are read from the files' own banners.
 (2026-11-09). CI runs it on every pull request (`quality.yml`), and Dependabot
 proposes Composer updates monthly (`.github/dependabot.yml`). The shipped
 packages come from the `FreeSense-composer-deps` port, which also ships
-`psr/simple-cache` 3.0.0 (not in `composer.lock`); CI does not audit that
-port's versions. The runtime inventory audit now generates a separate lock
+`psr/simple-cache` 3.0.0 (not in `composer.lock`). The runtime inventory
+audit now generates a separate lock
 from every shipped GH_TUPLE, checks agreement with composer.lock, and audits
 that complete runtime set, including psr/simple-cache.
 
