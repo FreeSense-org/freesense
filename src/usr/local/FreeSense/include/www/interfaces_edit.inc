@@ -583,13 +583,7 @@ function interfaces_edit_apply(&$input_errors = null) {
 		enable_rrd_graphing();
 
 		if (is_subsystem_dirty('staticroutes')) {
-			$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-			if (file_exists($routes_apply_file)) {
-				foreach (unserialize_data(file_get_contents($routes_apply_file), []) as $toapply) {
-					mwexec("{$toapply}");
-				}
-				@unlink($routes_apply_file);
-			}
+			$retval |= system_routing_apply_deletions();
 		    if (system_routing_configure() == 0) {
 				clear_subsystem_dirty('staticroutes');
 			}

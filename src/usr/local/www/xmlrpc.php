@@ -447,14 +447,7 @@ class freesense_xmlrpc_server {
 				delete_static_route($route_index, true);
 			}
 			// Apply the removed route changes, if any.
-			$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-			if (file_exists($routes_apply_file)) {
-				$toapplylist = unserialize_data(file_get_contents($routes_apply_file), []);
-				foreach ($toapplylist as $toapply) {
-					mwexec($toapply, true);
-				}
-				@unlink($routes_apply_file);
-			}
+			system_routing_apply_deletions();
 		}
 
 		/* For vip section, first keep items sent from the master */
