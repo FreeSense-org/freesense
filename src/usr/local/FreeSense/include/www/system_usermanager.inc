@@ -588,12 +588,18 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 		}
 
 		$userent['name'] = $post['usernamefld'];
+		if (($userent['expires'] ?? '') !== ($post['expires'] ?? '')) {
+			$userent['session_generation'] = bin2hex(random_bytes(16));
+		}
 		$userent['expires'] = $post['expires'];
 		$userent['dashboardcolumns'] = $post['dashboardcolumns'];
 		$userent['authorizedkeys'] = base64_encode($post['authorizedkeys']);
 		$userent['ipsecpsk'] = $post['ipsecpsk'];
 
 		if ($post['disabled']) {
+			if (!isset($userent['disabled'])) {
+				$userent['session_generation'] = bin2hex(random_bytes(16));
+			}
 			$userent['disabled'] = true;
 		} else {
 			unset($userent['disabled']);
