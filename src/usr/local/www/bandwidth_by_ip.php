@@ -33,6 +33,9 @@ $sort = $_REQUEST['sort'];
 $hostipformat = $_REQUEST['hostipformat'];
 $mode = !empty($_REQUEST['mode']) ? $_REQUEST['mode'] : '';
 
+// Reverse DNS names belong to whoever owns the address; never let a browser render them as HTML.
+header('Content-Type: text/plain; charset=UTF-8');
+
 // Print bandwidth as specified
 printBandwidth($interface, $filter, $sort, $hostipformat, $mode);
 

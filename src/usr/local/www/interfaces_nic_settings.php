@@ -15,6 +15,7 @@
 require_once('guiconfig.inc');
 require_once('interfaces.inc');
 require_once('util.inc');
+require_once('interfaces_nic_settings.inc');
 
 $pgtitle = [gettext('Interfaces'), gettext('NIC Settings')];
 
@@ -26,118 +27,28 @@ if (isset($_REQUEST['view'], $legacy_views[$_REQUEST['view']])) {
 }
 $view = fs_view_param(['adapters', 'profile'], 'adapters');
 
-function nic_ui_driver($device) {
-	return preg_replace('/[0-9]+$/', '', $device);
-}
+$ncpu = max(1, (int)get_single_sysctl('hw.ncpu'));
+$vm_guest = (string)get_single_sysctl('kern.vm_guest');
+$tuning_labels = nic_ui_tuning_labels();
+$tuning_help = [
+	'fc' => gettext('Pause frames let a busy link stop its sender. On a router they stall every flow behind one slow port, so off is recommended.'),
+	'aim' => gettext('Adapts the interrupt rate to the load. Low latency spends more CPU time for shorter delays.'),
+	'tx_abdicate' => gettext('Hands transmit work to the queue thread instead of finishing it on the sending CPU. Measured at about 20% more forwarded packets per second on FreeBSD 16.'),
+	'queues' => gettext('Receive and transmit queue pairs. Empty lets the driver choose, usually one per CPU up to the hardware limit.'),
+	'rxds' => gettext('Receive ring size per queue. Larger rings absorb bursts but use more memory.'),
+	'txds' => gettext('Transmit ring size per queue.'),
+];
+$counter_labels = [
+	'rx_missed' => gettext('Missed (receive FIFO full)'),
+	'rx_no_buffers' => gettext('No receive buffers'),
+	'rx_overruns' => gettext('Receive overruns'),
+	'dropped' => gettext('Dropped by the driver'),
+	'tx_ring_drops' => gettext('Transmit ring drops'),
+	'tx_no_descriptors' => gettext('Transmit ring full'),
+	'tx_watchdog' => gettext('Transmit watchdog resets'),
+];
 
-function nic_ui_assignments() {
-	$result = [];
-	foreach (config_get_path('interfaces', []) as $logical => $config) {
-		if (!empty($config['if'])) {
-			$result[$config['if']] = ($config['descr'] ?? null) ?: strtoupper($logical);
-		}
-	}
-	return $result;
-}
-
-function nic_ui_inventory() {
-	$devices = get_interface_list('all', 'physical') ?: [];
-	$assignments = nic_ui_assignments();
-	$result = [];
-	foreach ($devices as $device => $basic) {
-		$info = get_interface_addresses($device) ?: [];
-		/* inline IPsec offload is a second-word capability the extension does not report */
-		$ipsec = interface_ipsec_offload_state((string)$device);
-		if ($ipsec !== null) {
-			$info['caps']['ipsec'] = true;
-			if ($ipsec) {
-				$info['encaps']['ipsec'] = true;
-			}
-		}
-		$effective = nic_settings_effective($device, $info);
-		$result[$device] = array_merge($basic, $info, [
-			'device' => $device,
-			'driver' => nic_ui_driver($device),
-			'assigned' => isset($assignments[$device]),
-			'assignment' => $assignments[$device] ?? gettext('Unassigned'),
-			'effective' => $effective,
-			'id' => $effective['id'],
-			'media' => $info['media'] ?? nic_ui_media($device),
-		]);
-	}
-	ksort($result, SORT_NATURAL);
-	return $result;
-}
-
-/* link speed and duplex from ifconfig, parsed the way get_interface_info() does for the dashboard widget */
-function nic_ui_media($device) {
-	$lines = [];
-	exec('/sbin/ifconfig ' . escapeshellarg($device) . ' 2>/dev/null', $lines);
-	foreach ($lines as $line) {
-		$line = ltrim($line);
-		if (preg_match('/^media: .*? \((.*?)\)/', $line, $m) ||
-		    preg_match('/^media: Ethernet (.*)/', $line, $m) ||
-		    preg_match('/^media: IEEE 802.11 Wireless Ethernet (.*)/', $line, $m)) {
-			return trim($m[1]);
-		}
-	}
-	return null;
-}
-
-/* hardware capability behind each setting; a setting the adapter lacks only offers "inherit" */
-function nic_ui_supported($nic, $setting) {
-	$caps = $nic['caps'] ?? [];
-	$need = [
-		'checksum' => ['txcsum', 'rxcsum', 'txcsum6', 'rxcsum6'],
-		'tso' => ['tso4', 'tso6'],
-		'lro' => ['lro'],
-		'vlan' => ['vlanhwtag'],
-		'wol' => ['wolmagic'],
-		'ipsec' => ['ipsec'],
-	];
-	foreach ($need[$setting] ?? [] as $cap) {
-		if (isset($caps[$cap])) {
-			return true;
-		}
-	}
-	return false;
-}
-
-function nic_ui_driver_controls($nic) {
-	$driver = $nic['driver'];
-	$unit = substr($nic['device'], strlen($driver));
-	$registry = [
-		'em' => ['cur' => ['rx_processing_limit', 'fc'], 'boot' => ['num_queues', 'rxd', 'txd']],
-		'igb' => ['cur' => ['rx_processing_limit', 'fc'], 'boot' => ['num_queues', 'rxd', 'txd']],
-		'ix' => ['cur' => ['fc'], 'boot' => ['max_interrupt_rate', 'flow_control']],
-		'ixl' => ['cur' => ['fw_version'], 'boot' => ['max_queues']],
-		're' => ['cur' => [], 'boot' => []],
-		'vtnet' => ['cur' => [], 'boot' => ['csum_disable', 'tso_disable', 'lro_disable', 'mq_disable', 'mq_max_pairs']],
-		'ena' => ['cur' => [], 'boot' => []],
-		'hn' => ['cur' => [], 'boot' => ['altq_disable']],
-	];
-	if (!isset($registry[$driver])) {
-		return [];
-	}
-	$found = [];
-	foreach ($registry[$driver] as $kind => $names) {
-		foreach ($names as $name) {
-			$candidates = $kind === 'cur'
-				? ["dev.{$driver}.{$unit}.{$name}"]
-				: ["hw.{$driver}.{$unit}.{$name}", "hw.{$driver}.{$name}"];
-			foreach ($candidates as $mib) {
-				$value = trim((string)shell_exec('/sbin/sysctl -n ' . escapeshellarg($mib) . ' 2>/dev/null'));
-				if ($value !== '') {
-					$found[] = ['mib' => $mib, 'value' => $value, 'apply' => $kind === 'cur' ? gettext('Live or link restart') : gettext('Reboot required')];
-					break;
-				}
-			}
-		}
-	}
-	return $found;
-}
-
-$settings = ['checksum' => gettext('Checksum offload'), 'tso' => gettext('TCP segmentation offload (TSO)'), 'lro' => gettext('Large receive offload (LRO)'), 'vlan' => gettext('VLAN hardware acceleration'), 'wol' => gettext('Wake-on-LAN magic packet'), 'ipsec' => gettext('Inline IPsec offload (experimental)')];
+$settings = nic_ui_setting_labels();
 $short = ['checksum' => gettext('Checksum'), 'tso' => 'TSO', 'lro' => 'LRO', 'vlan' => 'VLAN', 'wol' => 'WoL', 'ipsec' => 'IPsec'];
 $profile_labels = ['firewall' => gettext('Firewall Balanced'), 'throughput' => gettext('Maximum Throughput'), 'latency' => gettext('Low Latency'), 'capture' => gettext('Packet Capture / Troubleshooting')];
 $profile_help = [
@@ -154,84 +65,43 @@ $savemsg = null;
 $reopen_nic = null;
 
 $action = $_POST['action'] ?? null;
-if ($action === 'save_nic') {
-	$nic = null;
-	foreach ($inventory as $candidate) {
-		if ($candidate['id'] === ($_POST['nic'] ?? '')) {
-			$nic = $candidate;
-		}
-	}
+$nic = null;
+if (in_array($action, ['save_nic', 'apply_recommended'], true)) {
+	$nic = nic_ui_find($inventory, (string)($_POST['nic'] ?? ''));
 	if ($nic === null) {
 		$input_errors[] = gettext('Unknown network adapter.');
-	} else {
-		foreach (array_keys($settings) as $setting) {
-			$value = $_POST["{$nic['id']}_{$setting}"] ?? 'inherit';
-			if (!in_array($value, ['inherit', 'on', 'off'], true)) {
-				$input_errors[] = sprintf(gettext('Invalid %1$s setting for %2$s.'), $setting, $nic['device']);
-			} elseif ($value !== 'inherit' && !nic_ui_supported($nic, $setting)) {
-				$input_errors[] = sprintf(gettext('%1$s does not support %2$s.'), $nic['device'], $settings[$setting]);
-			}
-		}
-		$mtu = trim($_POST["{$nic['id']}_mtu"] ?? '');
-		if ($mtu !== '' && (!ctype_digit($mtu) || (int)$mtu < 576 || (int)$mtu > 16384)) {
-			$input_errors[] = sprintf(gettext('MTU for %s must be between 576 and 16384.'), $nic['device']);
-		} elseif ($mtu !== '' && (int)$mtu > 1500 && !isset($nic['caps']['jumbomtu'])) {
-			$input_errors[] = sprintf(gettext('%s does not report jumbo MTU capability.'), $nic['device']);
-		}
-
-		if ($input_errors) {
-			$reopen_nic = $nic['id'];
-		} else {
-			$path = "system/nicsettings/adapters/{$nic['id']}";
-			/* drop a pre-prefix entry so only one copy remains */
-			config_del_path('system/nicsettings/adapters/' . substr($nic['id'], 4));
-			config_set_path("{$path}/mac", $nic['hwaddr'] ?? $nic['macaddr'] ?? $nic['mac'] ?? '');
-			config_set_path("{$path}/device", $nic['device']);
-			config_set_path("{$path}/driver", $nic['driver']);
-			foreach (array_keys($settings) as $setting) {
-				config_set_path("{$path}/{$setting}", $_POST["{$nic['id']}_{$setting}"] ?? 'inherit');
-			}
-			if ($mtu === '') {
-				config_del_path("{$path}/mtu");
-			} else {
-				config_set_path("{$path}/mtu", (int)$mtu);
-			}
-			write_config(sprintf(gettext('Updated NIC hardware settings for %s.'), $nic['device']));
-			hardware_offloading_applyflags($nic['device']);
-			if ($mtu !== '') {
-				FreeSense_interface_mtu($nic['device'], (int)$mtu);
-			}
-			$inventory = nic_ui_inventory();
-			$savemsg = sprintf(gettext('Settings for %s were saved and applied.'), $nic['device']);
-		}
+		$action = null;
 	}
+}
+$rv = null;
+if ($action === 'save_nic') {
+	$values = ['settings' => [], 'mtu' => $_POST["{$nic['id']}_mtu"] ?? '', 'tuning' => []];
+	foreach (array_keys($settings) as $setting) {
+		$values['settings'][$setting] = $_POST["{$nic['id']}_{$setting}"] ?? 'inherit';
+	}
+	foreach (array_keys($nic['tuning']['controls']) as $setting) {
+		$values['tuning'][$setting] = $_POST["{$nic['id']}_t_{$setting}"] ?? '';
+	}
+	$rv = nic_ui_save_adapter($nic, $values, $ncpu);
+	if ($rv['input_errors']) {
+		$reopen_nic = $nic['id'];
+	}
+} elseif ($action === 'apply_recommended') {
+	$rv = nic_ui_apply_recommended($nic);
 } elseif ($action === 'save_profile') {
-	$profile = $_POST['profile'] ?? 'firewall';
-	if (!isset($profiles[$profile])) {
-		$input_errors[] = gettext('Invalid NIC profile.');
-	} else {
-		$old_altq = config_path_enabled('system', 'hn_altq_enable');
-		config_set_path('system/nicsettings/profile', $profile);
-		if (isset($_POST['hn_altq_enable'])) {
-			config_set_path('system/hn_altq_enable', true);
-		} else {
-			config_del_path('system/hn_altq_enable');
-		}
-		write_config(gettext('Updated NIC profile.'));
-		$reboot = ($old_altq !== config_path_enabled('system', 'hn_altq_enable'));
-		if ($reboot) {
-			setup_loader_settings();
-		}
-		foreach (array_keys($inventory) as $device) {
-			hardware_offloading_applyflags($device);
-		}
-		$inventory = nic_ui_inventory();
-		$savemsg = gettext('The profile was saved and applied to every adapter that inherits it.') .
-		    ($reboot ? ' ' . gettext('The ALTQ change takes effect after a reboot.') : '');
+	$rv = nic_ui_save_profile(['profile' => $_POST['profile'] ?? 'firewall', 'checksum_default_off' => isset($_POST['checksum_default_off']),
+	    'hn_altq_enable' => isset($_POST['hn_altq_enable'])], $inventory);
+}
+if ($rv !== null) {
+	$input_errors = array_merge($input_errors, $rv['input_errors']);
+	if (!$rv['input_errors']) {
+		$inventory = nic_ui_inventory(true);
+		$savemsg = $rv['message'];
 	}
 }
 
 $active_profile = config_get_path('system/nicsettings/profile', 'firewall');
+$checksum_default_off = (config_get_path('system/nicsettings/checksum_default') === 'off');
 if (!isset($profiles[$active_profile])) {
 	$active_profile = 'firewall';
 }
@@ -343,6 +213,9 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 ?>
 						<span class="fs-chip fs-chip--strong fs-nic-chip <?=!$supported ? 'is-na' : ($on ? 'is-on' : 'is-off')?><?=$custom ? ' is-custom' : ''?>" title="<?=htmlspecialchars($title)?>"><span class="visually-hidden"><?=htmlspecialchars($title)?></span><span aria-hidden="true"><?=htmlspecialchars($short[$setting])?></span></span>
 <?php endforeach; ?>
+<?php if (nic_tuning_saved($saved)): ?>
+						<span class="fs-nic-custom" title="<?=gettext('Driver tuning is set on this adapter')?>"><?=gettext('tuned')?></span>
+<?php endif; ?>
 					</div></td>
 					<td class="fs-col-actions"><?=fs_row_actions($actions)?></td>
 				</tr>
@@ -364,7 +237,11 @@ fs_view_switch(['adapters' => gettext('Adapters'), 'profile' => gettext('Profile
 <?php
 foreach ($inventory as $nic):
 	$saved = nic_settings_saved($nic['id']);
+	/* what "Profile default" resolves to on this adapter */
 	$profile_values = $profiles[$active_profile];
+	if ($checksum_default_off || nic_settings_checksum_guarded($nic['device'])) {
+		$profile_values['checksum'] = 'off';
+	}
 	$reopen = null;
 	if ($reopen_nic === $nic['id']) {
 		$reopen = [];
@@ -372,7 +249,11 @@ foreach ($inventory as $nic):
 			$reopen["{$nic['id']}_{$setting}"] = $_POST["{$nic['id']}_{$setting}"] ?? 'inherit';
 		}
 		$reopen["{$nic['id']}_mtu"] = $_POST["{$nic['id']}_mtu"] ?? '';
+		foreach (array_keys($nic['tuning']['controls']) as $setting) {
+			$reopen["{$nic['id']}_t_{$setting}"] = $_POST["{$nic['id']}_t_{$setting}"] ?? '';
+		}
 	}
+	$tuning_saved = nic_tuning_saved($saved);
 
 	/* configure one adapter */
 	fs_modal_form_begin('nic-' . $nic['id'], sprintf(gettext('Configure %1$s (%2$s)'), $nic['assignment'], $nic['device']), '', ['nic' => $nic['id']], $reopen);
@@ -396,6 +277,7 @@ foreach ($inventory as $nic):
 				<?php endif; ?>
 			</select>
 			<?php if (!$supported): ?><div class="form-text"><?=gettext('Not supported by this adapter.')?></div><?php endif; ?>
+			<?php if ($setting === 'checksum' && $supported && nic_settings_checksum_guarded($nic['device'])): ?><div class="form-text"><?=gettext('Off by default for this virtual driver: forwarding breaks with it on some hypervisors. Turn it on only after testing; other hypervisors are faster with it.')?></div><?php endif; ?>
 			<?php if ($setting === 'ipsec'): ?><div class="form-text"><?=gettext('The adapter encrypts and decrypts IPsec itself. Only AES-GCM security associations are offloaded; others stay in software. Applies to tunnels that come up after saving. Experimental: not yet tested on this hardware.')?></div><?php endif; ?>
 		</div>
 <?php endforeach; ?>
@@ -405,19 +287,49 @@ foreach ($inventory as $nic):
 			<div class="form-text"><?=isset($nic['caps']['jumbomtu']) ? gettext('Empty uses the interface default. Jumbo frames need every device on the path to support them.') : gettext('Empty uses the interface default. This adapter does not support jumbo frames.')?></div>
 		</div>
 	</div>
-	<div class="fs-nic-warning"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Applying to an active interface can interrupt traffic for a moment, including this session if it runs over this adapter.')?></div>
+<?php if ($nic['tuning']['controls']): ?>
+	<h3 class="fs-nic-subtitle"><?=gettext('Performance')?></h3>
+	<p class="form-text mt-0"><?=gettext('Driver controls this adapter offers. Empty keeps the driver default; Details shows what the profile recommends.')?></p>
+	<div class="fs-nic-form">
+<?php foreach ($nic['tuning']['controls'] as $setting => $current):
+	$control = nic_tuning_controls()[$setting];
+	$field = "{$nic['id']}_t_{$setting}";
+	$value = $tuning_saved[$setting] ?? '';
+?>
+		<label class="form-label" for="<?=htmlspecialchars($field)?>"><?=htmlspecialchars($tuning_labels[$setting])?><?php if ($control['apply'] === 'boot'): ?> <?=fs_badge('info', gettext('After reboot'))?><?php endif; ?></label>
+		<div>
+<?php if ($control['type'] === 'choice'): ?>
+			<select class="form-select" id="<?=htmlspecialchars($field)?>" name="<?=htmlspecialchars($field)?>">
+				<option value=""<?=$value === '' ? ' selected' : ''?>><?=htmlspecialchars(sprintf(gettext('Not set (now: %s)'), nic_ui_tuning_value($setting, $current, $nic['driver'])))?></option>
+<?php foreach (nic_tuning_choices($setting, $nic['driver']) as $choice => $choice_label): ?>
+				<option value="<?=htmlspecialchars((string)$choice)?>"<?=$value === (string)$choice ? ' selected' : ''?>><?=htmlspecialchars($choice_label)?></option>
+<?php endforeach; ?>
+			</select>
+<?php else: ?>
+			<input class="form-control fs-mono" type="number" id="<?=htmlspecialchars($field)?>" name="<?=htmlspecialchars($field)?>" value="<?=htmlspecialchars($value)?>"
+			    <?=$control['type'] === 'count' ? 'min="1" max="' . $ncpu . '"' : 'min="64" max="16384"'?>
+			    placeholder="<?=htmlspecialchars($setting === 'queues' ? sprintf(gettext('driver default (now %d)'), $nic['tuning']['rxqs']) : gettext('driver default'))?>">
+<?php endif; ?>
+			<div class="form-text"><?=htmlspecialchars($tuning_help[$setting])?></div>
+		</div>
+<?php endforeach; ?>
+	</div>
+<?php endif; ?>
+	<div class="fs-nic-warning">
+<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><?=gettext('Applying to an active interface can interrupt traffic for a moment, including this session if it runs over this adapter.')?></div>
 <?php
 	fs_modal_form_end(gettext('Save and apply'), 'action', 'save_nic', 'fa-check');
 
-	/* read-only details */
-	$controls = nic_ui_driver_controls($nic);
+	/* read-only details and diagnostics */
+	$detect = $nic['tuning'];
+	$recommended = nic_tuning_recommend($detect, $active_profile);
+	$differences = nic_tuning_differences($detect, $recommended);
 	$hints = [];
-	if ($nic['driver'] === 're') {
-		$hints[] = gettext('Realtek adapter: if you see unexplained corruption, drops or connectivity problems, turn checksum offload off.');
+	if (nic_settings_checksum_guarded($nic['device'])) {
+		$hints[] = gettext('Virtual adapter: checksum offload stays off unless you turn it on for this adapter; multiqueue changes need a reboot.');
 	}
-	if (in_array($nic['driver'], ['vtnet', 'ena', 'hn'], true)) {
-		$hints[] = gettext('Virtual adapter: FreeSense keeps checksum offload off for this driver; multiqueue changes may need a reboot.');
-	}
+	$hints = array_merge($hints, nic_tuning_notes($detect, $ncpu, $vm_guest));
+	$pci = $detect['pci'] ? sprintf('%s:%s', $detect['pci']['vendor'] ?? '?', $detect['pci']['device'] ?? '?') : '';
 ?>
 <div class="modal fade" id="nic-info-<?=htmlspecialchars($nic['id'])?>" tabindex="-1" aria-labelledby="nic-info-<?=htmlspecialchars($nic['id'])?>-title" aria-hidden="true">
 	<div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
@@ -437,19 +349,45 @@ foreach ($inventory as $nic):
 <?php endforeach; ?>
 <?php if (!$caps): ?><span class="fs-muted"><?=gettext('None reported')?></span><?php endif; ?>
 				</div><div class="form-text"><?=gettext('Highlighted capabilities are currently enabled.')?></div></dd>
+<?php if ($detect['found']): ?>
+				<dt><?=gettext('Device')?></dt><dd><?=htmlspecialchars($detect['desc'] ?: '-')?><?php if ($pci !== ''): ?> <span class="fs-mono fs-muted small"><?=htmlspecialchars(sprintf(gettext('PCI %s'), $pci))?></span><?php endif; ?></dd>
+<?php if ($detect['iflib']): ?>
+				<dt><?=gettext('Queues')?></dt><dd><?=htmlspecialchars(sprintf(gettext('%1$d receive, %2$d transmit on %3$d CPUs'), $detect['rxqs'], $detect['txqs'], $ncpu))?><?php if ($detect['msix'] !== null): ?> <span class="fs-muted small"><?=htmlspecialchars(sprintf(gettext('(%d interrupt vectors)'), $detect['msix']))?></span><?php endif; ?>
+<?php if ($detect['queue_cpus']): ?><div class="fs-muted small"><?=htmlspecialchars(sprintf(gettext('Receive queues run on CPU %s'), implode(', ', $detect['queue_cpus'])))?></div><?php endif; ?></dd>
+<?php endif; ?>
+<?php endif; ?>
 			</dl>
-			<?php if ($controls): ?>
-			<h3 class="fs-nic-subtitle"><?=gettext('Driver controls')?></h3>
+<?php if ($detect['counters']): ?>
+			<h3 class="fs-nic-subtitle"><?=gettext('Drops and errors since boot')?></h3>
+			<dl class="fs-nic-facts">
+<?php foreach ($counter_labels as $counter => $counter_label): if (!isset($detect['counters'][$counter])) { continue; } ?>
+				<dt><?=htmlspecialchars($counter_label)?></dt><dd class="fs-mono<?=$detect['counters'][$counter] > 0 ? ' text-warning-emphasis' : ''?>"><?=htmlspecialchars(number_format($detect['counters'][$counter]))?></dd>
+<?php endforeach; ?>
+			</dl>
+<?php endif; ?>
+<?php if ($detect['controls']): ?>
+			<h3 class="fs-nic-subtitle"><?=htmlspecialchars(sprintf(gettext('Tuning for the %s profile'), $profile_labels[$active_profile]))?></h3>
+<?php if (!$recommended): ?>
+			<p class="fs-muted"><?=gettext('This profile recommends no driver tuning.')?></p>
+<?php elseif (!$differences): ?>
+			<p class="fs-muted"><i class="fa-solid fa-check" aria-hidden="true"></i> <?=gettext('The adapter already runs with the recommended values.')?></p>
+<?php else: ?>
 			<table class="table table-sm">
-				<thead><tr><th><?=gettext('Control')?></th><th><?=gettext('Current value')?></th><th><?=gettext('Takes effect')?></th></tr></thead>
+				<thead><tr><th><?=gettext('Setting')?></th><th><?=gettext('Now')?></th><th><?=gettext('Recommended')?></th></tr></thead>
 				<tbody>
-				<?php foreach ($controls as $control): ?>
-					<tr><td class="fs-mono"><?=htmlspecialchars($control['mib'])?></td><td class="fs-mono"><?=htmlspecialchars($control['value'])?></td><td><?=htmlspecialchars($control['apply'])?></td></tr>
-				<?php endforeach; ?>
+<?php foreach ($differences as $setting => $difference): ?>
+					<tr><td><?=htmlspecialchars($tuning_labels[$setting])?><?php if (nic_tuning_controls()[$setting]['apply'] === 'boot'): ?> <?=fs_badge('info', gettext('After reboot'))?><?php endif; ?></td>
+					<td><?=htmlspecialchars(nic_ui_tuning_value($setting, $difference['current'], $nic['driver']))?></td>
+					<td><?=htmlspecialchars(nic_ui_tuning_value($setting, $difference['recommended'], $nic['driver']))?></td></tr>
+<?php endforeach; ?>
 				</tbody>
 			</table>
-			<p class="form-text"><?=gettext('Shown for reference; change them under System > Advanced > System Tunables.')?></p>
-			<?php endif; ?>
+			<form method="post" class="d-flex justify-content-end">
+				<input type="hidden" name="nic" value="<?=htmlspecialchars($nic['id'])?>">
+				<button class="btn btn-sm btn-primary" name="action" value="apply_recommended"><i class="fa-solid fa-wand-magic-sparkles icon-embed-btn" aria-hidden="true"></i><?=gettext('Apply recommended')?></button>
+			</form>
+<?php endif; ?>
+<?php endif; ?>
 			<?php foreach ($hints as $hint): ?>
 			<div class="fs-nic-hint"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i><?=htmlspecialchars($hint)?></div>
 			<?php endforeach; ?>
@@ -482,6 +420,13 @@ foreach ($inventory as $nic):
 			</label>
 <?php endforeach; ?>
 		</div>
+<?php if ($checksum_default_off): ?>
+		<div class="form-check mt-3">
+			<input class="form-check-input" type="checkbox" id="checksum_default_off" name="checksum_default_off" value="yes" checked>
+			<label class="form-check-label" for="checksum_default_off"><?=gettext('Keep checksum offload off on every adapter')?></label>
+			<div class="form-text"><?=gettext('Carried over from an imported configuration that disabled hardware checksum offload. Clear it to let the profile decide; an adapter setting still wins.')?></div>
+		</div>
+<?php endif; ?>
 	</div>
 </div>
 

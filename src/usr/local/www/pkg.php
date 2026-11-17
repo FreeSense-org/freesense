@@ -36,7 +36,18 @@ function domTT_title($title_msg) {
 	print "onmouseout=\"this.style.color = ''; domTT_mouseout(this, event);\" onmouseover=\"domTT_activate(this, event, 'content', '".gettext($title_msg)."', 'trail', true, 'delay', 0, 'fade', 'both', 'fadeMax', 93, 'styleClass', 'niceTitle');\"";
 }
 
-$xml = $_REQUEST['xml'] ?? null;
+/*
+ * Package privileges match the request URI (pkg_edit.php?xml=<name>), so the
+ * package comes from the query string only: a POST value, or a second xml=
+ * matched by a wildcard privilege, must not open another package's page.
+ */
+$xml_request = $_GET['xml'] ?? '';
+if (!is_string($xml_request) ||
+    (isset($_POST['xml']) && $_POST['xml'] !== $xml_request) ||
+    !isAllowedPage("pkg.php?xml=" . $xml_request)) {
+	$xml_request = '';
+}
+$xml = $xml_request;
 
 if ($xml == "") {
 	$pgtitle = array(gettext("Package"), gettext("Editor"));
@@ -64,6 +75,7 @@ if ($xml == "") {
 
 	if (file_exists($pkg_full_path)) {
 		$pkg = parse_xml_config_pkg($pkg_full_path, "packagegui");
+		input_gate_run_xml($pkg);
 	} else {
 		include("head.inc");
 		print_info_box(sprintf(gettext("File not found %s."), htmlspecialchars($xml)), 'danger', false);
@@ -104,6 +116,9 @@ if ($_POST['act'] == "update") {
 		parse_str($_POST['ids'], $update_list);
 		// sort ids to know what to change
 		// useful to do not lose data when using sorting and paging
+		$update_list['ids'] = array_values(array_filter((array)($update_list['ids'] ?? []), function ($v) use ($current_values) {
+			return is_scalar($v) && ctype_digit((string)$v) && array_key_exists((int)$v, $current_values);
+		}));
 		$sort_list=$update_list['ids'];
 		sort($sort_list);
 		// apply updates
@@ -446,8 +461,9 @@ foreach ($rows as $i => $ip):
 	$actions = [
 		['edit', 'pkg_edit.php?xml=' . $xml_url . '&act=edit&id=' . $i, $name,
 		    $edit_msg ? ['attrs' => ['title' => $edit_msg]] : []],
+		/* usepost drops the href's query from the POST action; the package must stay in the URI. */
 		['delete', 'pkg.php?xml=' . $xml_url . '&act=del&id=' . $i, $name,
-		    $delete_msg ? ['attrs' => ['title' => $delete_msg]] : []],
+		    ['attrs' => array_merge(['usepost' => '?xml=' . $xml_url], $delete_msg ? ['title' => $delete_msg] : [])]],
 	];
 ?>
 					<tr<?=$movable ? ' class="sortable" id="id_' . (int)$i . '"' : ''?>>
@@ -573,7 +589,7 @@ function save_changes_to_xml(xml) {
 	$.ajax({
 		type: 'post',
 		cache: false,
-		url: <?=json_encode($_SERVER['SCRIPT_NAME'])?>,
+		url: <?=json_encode($_SERVER['SCRIPT_NAME'] . '?xml=' . $xml_url)?>,
 		data: {xml: <?=json_encode((string)$xml)?>, act: 'update', ids: ids},
 		beforeSend: function() {
 			$('#savemsg').text(<?=json_encode(gettext('Saving changes...'))?>);

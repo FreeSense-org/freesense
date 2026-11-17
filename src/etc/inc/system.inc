@@ -1855,8 +1855,8 @@ function system_staticroutes_configure($interface = "", $update_dns = false) {
 					$targets[] = $tgt;
 				}
 			}
-			file_put_contents("{$g['tmp_path']}/staticroute_{$id}", serialize($targets));
-			file_put_contents("{$g['tmp_path']}/staticroute_{$id}_gw", serialize($sroute['gateway']));
+			file_put_contents_private(system_routing_state_path("staticroute_{$id}"), serialize($targets));
+			file_put_contents_private(system_routing_state_path("staticroute_{$id}_gw"), serialize($sroute['gateway']));
 			$id++;
 		}
 	}
@@ -1888,6 +1888,90 @@ function system_staticroutes_configure($interface = "", $update_dns = false) {
 	return 0;
 }
 
+/* Routing caches and pending deletions belong to root, never to /tmp. */
+function system_routing_state_path(string $name): string {
+	if (preg_match('/^(deletions|staticroute_[0-9]+(?:_gw)?)$/D', $name) !== 1) {
+		throw new InvalidArgumentException('Invalid routing state name.');
+	}
+	return private_state_dir('routing') . '/' . $name;
+}
+
+/* pure: only a structured, valid route deletion can become a command. */
+function system_routing_delete_command(array $record): ?string {
+	$target = $record['target'] ?? null;
+	$gateway = $record['gateway'] ?? null;
+	if (!is_string($target) || !is_subnet($target) || !is_string($gateway) ||
+	    (($gateway !== '') && !is_ipaddr($gateway))) {
+		return null;
+	}
+	$family = is_subnetv6($target) ? '-inet6' : '-inet';
+	return '/sbin/route delete ' . $family . ' ' . escapeshellarg($target) .
+	    (($gateway === '') ? '' : ' ' . escapeshellarg($gateway));
+}
+
+/* Append validated operations while retaining deletions from other pending edits. */
+function system_routing_queue_deletions(array $records): void {
+	if (!$records) {
+		return;
+	}
+	$key = lock('routing-deletions', LOCK_EX);
+	if (!$key) {
+		throw new RuntimeException('Could not lock pending routing changes.');
+	}
+	try {
+		$path = system_routing_state_path('deletions');
+		$pending = is_file($path) ? unserialize_data(file_get_contents($path), []) : [];
+		$pending = is_array($pending) ? $pending : [];
+		foreach ($records as $record) {
+			if (!is_array($record) || (system_routing_delete_command($record) === null)) {
+				throw new InvalidArgumentException('Invalid pending route deletion.');
+			}
+			$pending[] = $record;
+		}
+		$temp = tempnam(dirname($path), '.deletions-');
+		if (($temp === false) || (file_put_contents_private($temp, serialize($pending)) === false) || !@rename($temp, $path)) {
+			if ($temp !== false) {
+				unlink_if_exists($temp);
+			}
+			throw new RuntimeException('Could not save pending routing changes.');
+		}
+	} finally {
+		unlock($key);
+	}
+}
+
+/* All apply paths (WebUI, REST, interfaces, aliases and HA) consume the same queue. */
+function system_routing_apply_deletions(): int {
+	$key = lock('routing-deletions', LOCK_EX);
+	if (!$key) {
+		return 1;
+	}
+	$result = 0;
+	try {
+		$path = system_routing_state_path('deletions');
+		$pending = is_file($path) ? unserialize_data(file_get_contents($path), []) : [];
+		if (!is_array($pending)) {
+			logger(LOG_ERR, gettext('Invalid pending routing changes were discarded.'));
+			$result = 1;
+		} else {
+			foreach ($pending as $record) {
+				$command = is_array($record) ? system_routing_delete_command($record) : null;
+				if ($command === null) {
+					logger(LOG_ERR, gettext('An invalid pending route deletion was discarded.'));
+					$result = 1;
+					continue;
+				}
+				/* A duplicate deletion may find the route already removed by another edit. */
+				mwexec($command, true);
+			}
+		}
+		unlink_if_exists($path);
+	} finally {
+		unlock($key);
+	}
+	return $result;
+}
+
 function delete_static_route($id, $delete = false) {
 	global $g, $changedesc_prefix, $a_gateways;
 
@@ -1895,40 +1979,30 @@ function delete_static_route($id, $delete = false) {
 		return;
 	}
 
-	if (file_exists("{$g['tmp_path']}/.system_routes.apply")) {
-		$toapplylist = unserialize_data(file_get_contents("{$g['tmp_path']}/.system_routes.apply"), []);
-	} else {
-		$toapplylist = array();
-	}
+	$toapplylist = array();
+	$cache = system_routing_state_path('staticroute_' . (int)$id);
 
-	if (file_exists("{$g['tmp_path']}/staticroute_{$id}") &&
-	    file_exists("{$g['tmp_path']}/staticroute_{$id}_gw")) {
-		$delete_targets = unserialize_data(file_get_contents("{$g['tmp_path']}/staticroute_{$id}"), []);
-		$delgw = lookup_gateway_ip_by_name(unserialize_data(file_get_contents("{$g['tmp_path']}/staticroute_{$id}_gw")));
+	if (file_exists($cache) && file_exists($cache . '_gw')) {
+		$delete_targets = unserialize_data(file_get_contents($cache), []);
+		$delgw = lookup_gateway_ip_by_name(unserialize_data(file_get_contents($cache . '_gw')));
 		if (count($delete_targets)) {
 			foreach ($delete_targets as $dts) {
-				if (is_subnetv4($dts)) {
-					$family = "-inet";
-				} else {
-					$family = "-inet6";
-				}
 				$route = route_get($dts, '', true);
 				if (!count($route)) {
 					continue;
 				}
-				$toapplylist[] = "/sbin/route delete " .
-				    $family . " " . $dts . " " . $delgw;
+				$toapplylist[] = array('target' => $dts, 'gateway' => (string)$delgw);
 			}
 		}
 	}
 
 	if ($delete) {
-		unlink_if_exists("{$g['tmp_path']}/staticroute_{$id}");
-		unlink_if_exists("{$g['tmp_path']}/staticroute_{$id}_gw");
+		unlink_if_exists($cache);
+		unlink_if_exists($cache . '_gw');
 	}
 
 	if (!empty($toapplylist)) {
-		file_put_contents("{$g['tmp_path']}/.system_routes.apply", serialize($toapplylist));
+		system_routing_queue_deletions($toapplylist);
 	}
 
 	unset($targets);
@@ -2259,9 +2333,15 @@ EOD;
 		$nginx_config .= "\t\tlisten [::]:{$nginx_port};\n";
 	}
 
+	/*
+	 * Request bodies are read before anyone has signed in, so they are small
+	 * unless a page takes files. A portal only receives login forms.
+	 */
+	$body_limit = ($captive_portal !== false) ? '1m' : '8m';
+
 	$nginx_config .= <<<EOD
 
-		client_max_body_size 200m;
+		client_max_body_size {$body_limit};
 
 		gzip on;
 		gzip_vary on;
@@ -2294,6 +2374,7 @@ EOD;
 			fastcgi_param  HTTP_PROXY  "";
 			fastcgi_read_timeout 300;
 			fastcgi_hide_header X-Frame-Options;
+			client_max_body_size 64m;
 			include        /usr/local/etc/nginx/fastcgi_params;
 		}
 
@@ -2312,16 +2393,7 @@ EOD;
 		}
 	}
 
-	$nginx_config .= <<<EOD
-		root "{$document_root}";
-{$static_expires}{$api_location}		location / {
-			index  index.php index.html index.htm;
-		}
-		location ~ (\.inc$|\.orig$|\.pkgsave$) {
-			deny all;
-			return 403;
-		}
-		location ~ \.php$ {
+	$php_location = <<<EOD
 			try_files \$uri =404; #  This line closes a potential security hole
 			# ensuring users can't execute uploaded files
 			# see: https://forum.nginx.org/read.php?2,88845,page=3
@@ -2336,6 +2408,32 @@ EOD;
 			fastcgi_hide_header X-Frame-Options;
 {$fastcgi_buffers}{$intercept_errors}
 			include        /usr/local/etc/nginx/fastcgi_params;
+EOD;
+
+	/* The pages that take more than the default, core and optional packages alike. */
+	$body_locations = '';
+	if ($captive_portal === false) {
+		foreach ([
+			'200m' => 'diag_backup|tftp_files|fleet/fleet_backups',
+			'64m' => 'xmlrpc',
+			'33m' => 'diag_command|diag_edit|suricata/suricata_ip_list_mgmt|suricata/suricata_sid_mgmt',
+			'4m' => 'services_captiveportal|services_captiveportal_filemanager',
+		] as $limit => $pages) {
+			$body_locations .= "\t\tlocation ~ ^/({$pages})\\.php\$ {\n\t\t\tclient_max_body_size {$limit};\n{$php_location}\n\t\t}\n";
+		}
+	}
+
+	$nginx_config .= <<<EOD
+		root "{$document_root}";
+{$static_expires}{$api_location}		location / {
+			index  index.php index.html index.htm;
+		}
+		location ~ (\.inc$|\.orig$|\.pkgsave$) {
+			deny all;
+			return 403;
+		}
+{$body_locations}		location ~ \.php$ {
+{$php_location}
 		}
 		location ~ (^/status$) {
 			allow 127.0.0.1;
@@ -2730,7 +2828,8 @@ function system_ntp_configure() {
 	/* set NTP server authentication key */
 	if (config_get_path('ntpd/serverauth') == 'yes') {
 		$ntpkeyscfg = "{$ntp_keyid} " . strtoupper(config_get_path('ntpd/serverauthalgo')) . " " . base64_decode(config_get_path('ntpd/serverauthkey')) . "\n";
-		if (!@file_put_contents("{$g['varetc_path']}/ntp.keys", $ntpkeyscfg)) {
+		/* It holds the NTP authentication key. */
+		if (!file_put_contents_private("{$g['varetc_path']}/ntp.keys", $ntpkeyscfg)) {
 			logger(LOG_ERR, localize_text("Could not open %s for writing", g_get('varetc_path') . '/ntp.keys'), LOG_PREFIX_NTP);
 			return;
 		}
@@ -2786,7 +2885,7 @@ function system_ntp_configure() {
 		}
 		$ntpcfg .= "\n";
 		$ntpcfg .= 'fudge 127.127.22.0';
-		if (!empty(config_get_path('ntpd/pps/fudge1'))) {
+		if (cfg_value_valid('decimal', config_get_path('ntpd/pps/fudge1'))) {
 			$ntpcfg .= ' time1 ';
 			$ntpcfg .= config_get_path('ntpd/pps/fudge1');
 		}
@@ -2801,7 +2900,7 @@ function system_ntp_configure() {
 		if (!empty(config_get_path('ntpd/pps/flag4'))) {
 			$ntpcfg .= ' flag4 1';
 		}
-		if (!empty(config_get_path('ntpd/pps/refid'))) {
+		if (cfg_value_valid('ntp_refid', config_get_path('ntpd/pps/refid'))) {
 			$ntpcfg .= ' refid ';
 			$ntpcfg .= config_get_path('ntpd/pps/refid');
 		}
@@ -2843,11 +2942,11 @@ function system_ntp_configure() {
 		}
 		$ntpcfg .= "\n";
 		$ntpcfg .= 'fudge 127.127.20.0';
-		if (!empty(config_get_path('ntpd/gps/fudge1'))) {
+		if (cfg_value_valid('decimal', config_get_path('ntpd/gps/fudge1'))) {
 			$ntpcfg .= ' time1 ';
 			$ntpcfg .= config_get_path('ntpd/gps/fudge1');
 		}
-		if (!empty(config_get_path('ntpd/gps/fudge2'))) {
+		if (cfg_value_valid('decimal', config_get_path('ntpd/gps/fudge2'))) {
 			$ntpcfg .= ' time2 ';
 			$ntpcfg .= config_get_path('ntpd/gps/fudge2');
 		}
@@ -2867,11 +2966,11 @@ function system_ntp_configure() {
 		if (!empty(config_get_path('ntpd/gps/flag4'))) {
 			$ntpcfg .= ' flag4 1';
 		}
-		if (!empty(config_get_path('ntpd/gps/refid'))) {
+		if (cfg_value_valid('ntp_refid', config_get_path('ntpd/gps/refid'))) {
 			$ntpcfg .= ' refid ';
 			$ntpcfg .= config_get_path('ntpd/gps/refid');
 		}
-		if (!empty(config_get_path('ntpd/gps/stratum'))) {
+		if (cfg_value_valid('int', config_get_path('ntpd/gps/stratum'))) {
 			$ntpcfg .= ' stratum ';
 			$ntpcfg .= config_get_path('ntpd/gps/stratum');
 		}

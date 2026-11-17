@@ -29,10 +29,13 @@ include_once("auth.inc");
 include_once("config.inc");
 include_once("config.lib.inc");
 include_once("priv.inc");
+require_once(__DIR__ . "/input_gate.inc");
 if (!function_exists('is_platform_booting')) {
 	require_once('globals.inc');
 }
 require_once('freesense-utils.inc');
+
+webgui_request_guard();
 
 /* Authenticate user - exit if failed */
 if (!session_auth()) {
@@ -99,6 +102,9 @@ if (!$_SESSION['Post_Login']) {
 
 	exit;
 }
+
+/* Signed in and allowed this page: check the request before the page runs. */
+input_gate_run();
 
 /*
  * Close session data to allow other scripts from same host to come in.
@@ -185,11 +191,6 @@ function display_login_form() {
 			if ($_SESSION['Logged_In'] <> "True") {
 				isset($_SESSION['Login_Error']) ? $login_error = $_SESSION['Login_Error'] : $login_error = gettext("unknown reason");
 				printf("showajaxmessage('" . gettext("Invalid login (%s).") . "')", $login_error);
-			}
-			if (file_exists("{$g['tmp_path']}/webconfigurator.lock")) {
-				// TODO: add the IP from the user who did lock the device
-				$whom = file_get_contents("{$g['tmp_path']}/webconfigurator.lock");
-				printf("showajaxmessage('" . gettext("This device is currently being maintained by: %s.") . "');", $whom);
 			}
 		}
 		//If session ended

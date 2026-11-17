@@ -1,0 +1,24 @@
+{
+	"type": "states",
+	"title": "State table",
+	"description": "State table use and insert and removal rates",
+	"icon": "fa-table-cells",
+	"tone": "series-3",
+	"category": "Security",
+	"page": "diag_states_summary.php",
+	"link": "/diag_dump_states.php",
+	"order": 41,
+	"sizes": [
+		"sm",
+		"md",
+		"lg"
+	],
+	"size": "md",
+	"every": 5,
+	"strings": [
+		"%s of %s",
+		"Inserts/s",
+		"Removals/s",
+		"Searches/s"
+	]
+}

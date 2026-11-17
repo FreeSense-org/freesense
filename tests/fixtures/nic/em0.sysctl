@@ -1,0 +1,172 @@
+dev.em.0.interrupts.rx_overrun=0
+dev.em.0.interrupts.rx_desc_min_thresh=0
+dev.em.0.interrupts.tx_queue_min_thresh=0
+dev.em.0.interrupts.tx_queue_empty=0
+dev.em.0.interrupts.tx_abs_timer=0
+dev.em.0.interrupts.tx_pkt_timer=0
+dev.em.0.interrupts.rx_abs_timer=0
+dev.em.0.interrupts.rx_pkt_timer=0
+dev.em.0.interrupts.asserts=0
+dev.em.0.mac_stats.tso_ctx_fail=0
+dev.em.0.mac_stats.tso_txd=0
+dev.em.0.mac_stats.tx_frames_1024_1522=10
+dev.em.0.mac_stats.tx_frames_512_1023=4
+dev.em.0.mac_stats.tx_frames_256_511=259
+dev.em.0.mac_stats.tx_frames_128_255=22
+dev.em.0.mac_stats.tx_frames_65_127=4918
+dev.em.0.mac_stats.tx_frames_64=443293
+dev.em.0.mac_stats.mcast_pkts_txd=0
+dev.em.0.mac_stats.bcast_pkts_txd=0
+dev.em.0.mac_stats.good_pkts_txd=448506
+dev.em.0.mac_stats.total_pkts_txd=448506
+dev.em.0.mac_stats.good_octets_txd=19611323
+dev.em.0.mac_stats.good_octets_recvd=31324873
+dev.em.0.mac_stats.rx_frames_1024_1522=302
+dev.em.0.mac_stats.rx_frames_512_1023=66
+dev.em.0.mac_stats.rx_frames_256_511=314
+dev.em.0.mac_stats.rx_frames_128_255=2282
+dev.em.0.mac_stats.rx_frames_65_127=483205
+dev.em.0.mac_stats.rx_frames_64=0
+dev.em.0.mac_stats.mcast_pkts_recvd=0
+dev.em.0.mac_stats.bcast_pkts_recvd=0
+dev.em.0.mac_stats.good_pkts_recvd=477799
+dev.em.0.mac_stats.total_pkts_recvd=486169
+dev.em.0.mac_stats.mgmt_pkts_txd=0
+dev.em.0.mac_stats.mgmt_pkts_drop=0
+dev.em.0.mac_stats.mgmt_pkts_recvd=0
+dev.em.0.mac_stats.unsupported_fc_recvd=0
+dev.em.0.mac_stats.xoff_txd=0
+dev.em.0.mac_stats.xoff_recvd=0
+dev.em.0.mac_stats.xon_txd=0
+dev.em.0.mac_stats.xon_recvd=0
+dev.em.0.mac_stats.coll_ext_errs=0
+dev.em.0.mac_stats.alignment_errs=0
+dev.em.0.mac_stats.crc_errs=0
+dev.em.0.mac_stats.recv_errs=0
+dev.em.0.mac_stats.recv_jabber=0
+dev.em.0.mac_stats.recv_oversize=0
+dev.em.0.mac_stats.recv_fragmented=0
+dev.em.0.mac_stats.recv_undersize=0
+dev.em.0.mac_stats.recv_no_buff=0
+dev.em.0.mac_stats.recv_length_errors=0
+dev.em.0.mac_stats.missed_packets=0
+dev.em.0.mac_stats.defer_count=0
+dev.em.0.mac_stats.sequence_errors=0
+dev.em.0.mac_stats.symbol_errors=0
+dev.em.0.mac_stats.collision_count=0
+dev.em.0.mac_stats.late_coll=0
+dev.em.0.mac_stats.multiple_coll=0
+dev.em.0.mac_stats.single_coll=0
+dev.em.0.mac_stats.excess_coll=0
+dev.em.0.queue_rx_0.rx_irq=0
+dev.em.0.queue_rx_0.rxd_tail=614
+dev.em.0.queue_rx_0.rxd_head=615
+dev.em.0.queue_rx_0.interrupt_rate=20032
+dev.em.0.queue_tx_0.tx_irq=0
+dev.em.0.queue_tx_0.txd_tail=64
+dev.em.0.queue_tx_0.txd_head=64
+dev.em.0.queue_tx_0.interrupt_rate=20032
+dev.em.0.fc_low_water=45604
+dev.em.0.fc_high_water=47104
+dev.em.0.rx_control=67403778
+dev.em.0.device_control=1086325321
+dev.em.0.rx_overruns=0
+dev.em.0.link_irq=0
+dev.em.0.dropped=0
+dev.em.0.eee_control=1
+dev.em.0.tx_abs_int_delay=66
+dev.em.0.rx_abs_int_delay=66
+dev.em.0.tx_int_delay=66
+dev.em.0.rx_int_delay=0
+dev.em.0.allow_64bit_dma=0
+dev.em.0.tso_tcp_flags_mask_last_segment=0
+dev.em.0.tso_tcp_flags_mask_middle_segment=0
+dev.em.0.tso_tcp_flags_mask_first_segment=0
+dev.em.0.reg_dump=General Registers
+	CTRL	 40c00249
+	STATUS	 0000cb83
+	CTRL_EXT	 00000cc0
+
+Interrupt Registers
+	ICR	 00000000
+
+RX Registers
+	RCTL	 04048002
+	RDLEN	 00004000
+	RDH	 00000267
+	RDT	 00000266
+	RXDCTL	 01010000
+	RDBAL	 02b49000
+	RDBAH	 00000000
+
+TX Registers
+	TCTL	 0103f0fa
+	TDBAL	 b9340000
+	TDBAH	 00000000
+	TDLEN	 00004000
+	TDH	 00000040
+	TDT	 00000040
+	TXDCTL	 0101011f
+	TDFH	 00000000
+	TDFT	 00000000
+	TDFHS	 00000000
+	TDFPC	 00000000
+
+
+dev.em.0.fc=3
+dev.em.0.fw_version=EEPROM V15.255-15
+dev.em.0.nvm=-1
+dev.em.0.rs_dump=0
+dev.em.0.debug=-1
+dev.em.0.enable_aim=1
+dev.em.0.iflib.rxq0.rxq_fl0.buf_size=2048
+dev.em.0.iflib.rxq0.rxq_fl0.credits=1023
+dev.em.0.iflib.rxq0.rxq_fl0.cidx=615
+dev.em.0.iflib.rxq0.rxq_fl0.pidx=614
+dev.em.0.iflib.rxq0.cpu=3
+dev.em.0.iflib.txq0.r_abdications=0
+dev.em.0.iflib.txq0.r_restarts=0
+dev.em.0.iflib.txq0.r_stalls=0
+dev.em.0.iflib.txq0.r_starts=448419
+dev.em.0.iflib.txq0.r_drops=0
+dev.em.0.iflib.txq0.r_enqueues=529475
+dev.em.0.iflib.txq0.ring_state=pidx_head: 1091 pidx_tail: 1091 cidx: 1091 state: IDLE
+dev.em.0.iflib.txq0.txq_cleaned=448534
+dev.em.0.iflib.txq0.txq_processed=448574
+dev.em.0.iflib.txq0.txq_in_use=42
+dev.em.0.iflib.txq0.txq_cidx_processed=62
+dev.em.0.iflib.txq0.txq_cidx=22
+dev.em.0.iflib.txq0.txq_pidx=64
+dev.em.0.iflib.txq0.no_tx_dma_setup=0
+dev.em.0.iflib.txq0.txd_encap_efbig=0
+dev.em.0.iflib.txq0.tx_map_failed=0
+dev.em.0.iflib.txq0.no_desc_avail=0
+dev.em.0.iflib.txq0.mbuf_defrag_failed=0
+dev.em.0.iflib.txq0.m_pullups=0
+dev.em.0.iflib.txq0.mbuf_defrag=0
+dev.em.0.iflib.txq0.cpu=2
+dev.em.0.iflib.tx_defer_mfree=0
+dev.em.0.iflib.tx_reclaim_ticks=0
+dev.em.0.iflib.tx_reclaim_thresh=0
+dev.em.0.iflib.override_nrxds=0
+dev.em.0.iflib.override_ntxds=0
+dev.em.0.iflib.allocated_msix_vectors=1
+dev.em.0.iflib.use_extra_msix_vectors=0
+dev.em.0.iflib.use_logical_cores=0
+dev.em.0.iflib.separate_txrx=0
+dev.em.0.iflib.core_offset=0
+dev.em.0.iflib.tx_abdicate=0
+dev.em.0.iflib.rx_budget=0
+dev.em.0.iflib.disable_msix=0
+dev.em.0.iflib.override_qs_enable=0
+dev.em.0.iflib.override_nrxqs=0
+dev.em.0.iflib.override_ntxqs=0
+dev.em.0.iflib.simple_tx=0
+dev.em.0.iflib.tx_watchdog_events=0
+dev.em.0.iflib.driver_version=7.7.8-fbsd
+dev.em.0.%iommu=rid=0x88
+dev.em.0.%parent=pci0
+dev.em.0.%pnpinfo=vendor=0x8086 device=0x100f subvendor=0x15ad subdevice=0x0750 class=0x020000
+dev.em.0.%location=slot=17 function=0 dbsf=pci0:0:17:0
+dev.em.0.%driver=em
+dev.em.0.%desc=Intel(R) Legacy PRO/1000 MT 82545EM (Copper)

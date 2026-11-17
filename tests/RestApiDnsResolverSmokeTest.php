@@ -80,6 +80,8 @@ function get_dns_nameservers($a, $b) { return array('127.0.0.1'); }
 function ip_in_subnet($ip, $subnet) { return strpos($ip, '127.') === 0; }
 function is_dhcp_server_enabled() { return false; }
 function test_unbound_config($cfg, &$output) { return 0; }
+/* Authorization is exercised against the real helper in AuditRemediationSmokeTest. */
+function services_dns_custom_enforce($section, &$post, &$errors, $caller = null) {}
 function validate_nat64_prefix($prefix) { return $prefix === '64:ff9b::/96'; }
 function unbound_get_next_id() { return 7; }
 $GLOBALS['applied'] = 0;

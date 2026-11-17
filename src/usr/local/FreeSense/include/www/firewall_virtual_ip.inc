@@ -52,6 +52,26 @@ function getVIPs($json = false) {
 }
 
 // Save virtual IP changes
+/* Every field saveVIP() reads. Checks between fields stay in the saver. */
+function firewall_virtual_ip_input_rules(): array {
+	return [
+		'advbase' => ['int', 'label' => gettext('Base advertising frequency'), 'max' => 254],
+		'advskew' => ['int', 'label' => gettext('Advertising skew'), 'max' => 254],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'id' => ['int'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'mode' => ['enum', 'label' => gettext('Type'), 'values' => ['proxyarp', 'carp', 'ipalias', 'other']],
+		'noexpand' => ['flag'],
+		'password' => ['secret', 'label' => gettext('Virtual IP Password')],
+		'password_confirm' => ['secret', 'label' => gettext('Virtual IP Password')],
+		'subnet' => ['line', 'label' => gettext('Address')],
+		'subnet_bits' => ['int', 'label' => gettext('Address bit count'), 'max' => 128],
+		'type' => ['enum', 'label' => gettext('Address type'), 'values' => ['single', 'network']],
+		'uniqid' => ['token'],
+		'vhid' => ['int', 'label' => gettext('VHID Group'), 'max' => 255],
+	];
+}
+
 function saveVIP($post, $json = false) {
 	global $g;
 
@@ -59,7 +79,7 @@ function saveVIP($post, $json = false) {
 	$rv = array();
 	$id = is_numericint($post['id']) ? $post['id'] : null;
 
-	$input_errors = array();
+	$input_errors = input_check($post, firewall_virtual_ip_input_rules())[1];
 
 	/* input validation */
 	$reqdfields = explode(" ", "mode");
@@ -160,6 +180,16 @@ function saveVIP($post, $json = false) {
 	 */
 	switch ($post['mode']) {
 		case 'carp':
+			/* These reach ifconfig and the CARP status check. */
+			if (!is_numericint($post['vhid']) || ($post['vhid'] < 1) || ($post['vhid'] > 255)) {
+				$input_errors[] = gettext("The VHID must be a number between 1 and 255.");
+			}
+			if (!is_numericint($post['advbase']) || ($post['advbase'] < 1) || ($post['advbase'] > 254)) {
+				$input_errors[] = gettext("The base advertising frequency must be a number between 1 and 254.");
+			}
+			if (!is_numericint($post['advskew']) || ($post['advskew'] < 0) || ($post['advskew'] > 254)) {
+				$input_errors[] = gettext("The advertising skew must be a number between 0 and 254.");
+			}
 			/* verify against reusage of vhids */
 			$idtracker = 0;
 			foreach (config_get_path('virtualip/vip', []) as $vip) {

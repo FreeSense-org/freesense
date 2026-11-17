@@ -35,6 +35,7 @@ require_once('config.inc');
 require_once('functions.inc');
 require_once('auth.inc');
 require_once('priv.inc');
+require_once('input_gate.inc');
 /* backup.inc must be loaded at file scope: rrd_data_xml() uses its globals. */
 require_once('backup.inc');
 require_once('remote_backup.inc');
@@ -95,6 +96,8 @@ require_once('system_advanced_admin.inc');
 require_once('system_advanced_firewall.inc');
 require_once('system_advanced_network.inc');
 require_once('system_advanced_misc.inc');
+require_once('system_advanced_performance.inc');
+require_once('interfaces_nic_settings.inc');
 require_once('system_advanced_notifications.inc');
 require_once('system_advanced_sysctl.inc');
 require_once('syslog.inc');
@@ -113,6 +116,7 @@ require_once('restapi.inc');
 require_once('restapi_session.inc');
 /* Live status for the WebUI (routes_status.inc). */
 require_once('status_metrics.inc');
+require_once('status_nics.inc');
 require_once('notices.inc');
 /* The caller's profile, preferences, sessions and dashboard layout (routes_me.inc). */
 require_once('webui_prefs.inc');
@@ -241,6 +245,12 @@ try {
 		'login_time' => $ctx['login_time'] ?? null,
 	);
 
+	$gate_hits = input_gate_run_rest($path, $req['query'], $req['body']);
+	if ($gate_hits) {
+		throw new RestApiError(422, 'invalid_characters', 'The request has invalid characters.',
+		    array('fields' => array_values(array_unique(array_column($gate_hits, 0)))));
+	}
+
 	/* Lets restapi_validation_error() key messages by the route's resource schema. */
 	restapi_request_context(array('schema' => $route['schema'] ?? null, 'body' => $req['body']));
 
@@ -254,6 +264,7 @@ try {
 	$session_opencounter = 1;
 	$_SESSION = array('Username' => $ctx['user']['name'],
 	    'authsource' => empty($ctx['session']) ? "API key {$ctx['token']['id']}" : "{$ctx['authsource']} (WebUI)");
+	$_SESSION['page-match'] = $ctx['user']['__pages'] ?? array();
 	try {
 		$result = call_user_func($route['handler'], $req);
 		/* write_config() refused a save because a Fleet policy rule is in Lock mode. */

@@ -45,6 +45,7 @@ $fs_tab_groups['system-advanced'] = [
 	[gettext('Admin Access'), 'system_advanced_admin.php'],
 	[gettext('Firewall & NAT'), 'system_advanced_firewall.php'],
 	[gettext('Networking'), 'system_advanced_network.php'],
+	[gettext('Performance'), 'system_advanced_performance.php'],
 	[gettext('Miscellaneous'), 'system_advanced_misc.php'],
 	[gettext('System Tunables'), 'system_advanced_sysctl.php'],
 	[gettext('Notifications'), 'system_advanced_notifications.php'],

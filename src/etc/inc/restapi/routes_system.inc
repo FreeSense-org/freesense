@@ -74,7 +74,8 @@ function restapi_routes_system() {
 	    'disablevpnrules, disablereplyto, disablenegate, no_apipa_block, checkaliasesurlcert, allow_nat64_prefix_override, ' .
 	    'enablebinatreflection, enablenatreflectionhelper (booleans); optimization, statepolicy, bogonsinterval, natreflection ' .
 	    '(from the *_choices), tftpinterface (list of interfaces), adaptivestart, adaptiveend, maximumstates, maximumtableentries, ' .
-	    'maximumfrags, maxmss, aliasesresolveinterval, reflectiontimeout and the state timeouts (e.g. tcpfirsttimeout; empty: ' .
+	    'maximumfrags, maxmss, aliasesresolveinterval, reflectiontimeout, syncookies (never|adaptive|always), syncookies_start, ' .
+	    'syncookies_end (percent of the state limit, adaptive only) and the state timeouts (e.g. tcpfirsttimeout; empty: ' .
 	    'default). NAT reflection fields exist only with more than one interface. Omitted fields keep their value. Saving reloads ' .
 	    'the filter at once.');
 	$net_body = array('type' => 'object', 'description' => 'The Networking form: radvddebug, dhcp6debug, dhcp6norelease, ipv6allow, ' .
@@ -92,6 +93,10 @@ function restapi_routes_system() {
 	    '(booleans), remove_failover_states_default, gw_down_kill_states, php_memory_limit, use_mfs_tmp_size, ' .
 	    'use_mfs_var_size, rrdbackup, dhcpbackup, logsbackup, captiveportalbackup, harddiskstandby. Omitted fields keep their value. ' .
 	    'Applied at once; reboot_required lists the changes that need a reboot.');
+	$perf_body = array('type' => 'object', 'description' => 'The network settings of the Performance page: netisr_threads ' .
+	    '(auto: one receive thread per CPU with the RSS kernel; single: the FreeBSD default), nmbclusters (mbuf cluster limit, empty: ' .
+	    'automatic). Both take effect after a reboot (reboot_required). The CPU, power, crypto and mitigation fields of the page ' .
+	    'are part of /v1/system/advanced/misc. Omitted fields keep their value.');
 	$notif_body = array('type' => 'object', 'description' => 'The Notifications form: cert_enable_notify, revoked_cert_ignore_notify, ' .
 	    'disable_smtp, smtpssl, sslvalidate, consolebell, disablebeep, enable_telegram, enable_pushover, enable_slack (booleans); ' .
 	    'certexpiredays, smtpipaddress, smtpport, smtptimeout, smtpfromaddress, smtpnotifyemailaddress, smtpusername, smtppassword, ' .
@@ -107,8 +112,8 @@ function restapi_routes_system() {
 
 	$gen_body = array('type' => 'object', 'description' => 'The General Setup form: hostname, domain, dnsservers (list of {address, ' .
 	    'hostname (for TLS verification), gateway (only with more than one gateway of an address family; "none")}), dnslocalhost, ' .
-	    'timezone, language, webguicss, webguifixedmenu, webguihostnamemenu, webguipagewidth, webguimenuicons, logincss (from the choices), timeservers (space ' .
-	    'separated), dashboardcolumns (1-6), login_message, dnsallowoverride, interfacessort, dashboardavailablewidgetspanel, ' .
+	    'timezone, language, logincss (from the choices), timeservers (space ' .
+	    'separated), login_message, dnsallowoverride, interfacessort, ' .
 	    'systemlogsfilterpanel, systemlogsmanagelogpanel, statusmonitoringsettingspanel, requirestatefilter, ' .
 	    'requirefirewallinterface, webguileftcolumnhyper, disablealiaspopupdetail, roworderdragging, loginshowhost, loginhideversion (booleans). ' .
 	    'Omitted fields keep their value. Applied at once (hostname, DNS, timezone, NTP, filter).');
@@ -176,6 +181,11 @@ function restapi_routes_system() {
 			'summary' => 'Miscellaneous advanced settings (proxy password as "(set)")')),
 		restapi_route('PUT', '/v1/system/advanced/misc', 'restapi_h_sysadv_misc_set',
 			$w('system_advanced_misc.php', 'Change miscellaneous advanced settings (applied at once; omitted fields keep their value)', $misc_body)),
+		restapi_route('GET', '/v1/system/advanced/performance', 'restapi_h_sysadv_perf_get', array(
+			'page' => 'system_advanced_performance.php', 'area' => $area,
+			'summary' => 'Packet processing threads, network buffers and their running state (RSS, buffer use, pending reboot)')),
+		restapi_route('PUT', '/v1/system/advanced/performance', 'restapi_h_sysadv_perf_set',
+			$w('system_advanced_performance.php', 'Change packet processing threads or network buffers (after a reboot)', $perf_body)),
 		restapi_route('GET', '/v1/system/advanced/notifications', 'restapi_h_sysadv_notif_get', array(
 			'page' => 'system_advanced_notifications.php', 'area' => $area,
 			'summary' => 'Notification settings (passwords and API keys as "(set)")')),
@@ -311,6 +321,7 @@ function restapi_sysadv_fw_choices() {
 		    'aggressive' => gettext('Aggressive'), 'conservative' => gettext('Conservative')),
 		'statepolicy' => $state_policy_options,
 		'bogonsinterval' => array('monthly' => gettext('Monthly'), 'weekly' => gettext('Weekly'), 'daily' => gettext('Daily')),
+		'syncookies' => array('never' => gettext('Never (default)'), 'adaptive' => gettext('Adaptive'), 'always' => gettext('Always')),
 	);
 	if (count(config_get_path('interfaces', [])) > 1) {
 		$choices['natreflection'] = array('disable' => gettext('disabled'), 'proxy' => gettext('NAT + Proxy'),
@@ -329,7 +340,7 @@ function restapi_sysadv_fw_types() {
 		$types[$flag] = 'bool';
 	}
 	foreach (array('optimization', 'adaptivestart', 'adaptiveend', 'maximumstates', 'maximumtableentries', 'maximumfrags',
-	    'maxmss', 'statepolicy', 'aliasesresolveinterval', 'bogonsinterval') as $field) {
+	    'maxmss', 'statepolicy', 'aliasesresolveinterval', 'bogonsinterval', 'syncookies', 'syncookies_start', 'syncookies_end') as $field) {
 		$types[$field] = 'string';
 	}
 	if (count(config_get_path('interfaces', [])) > 1) {
@@ -375,6 +386,9 @@ function restapi_sysadv_fw_settings() {
 		'checkaliasesurlcert' => (bool)$p['checkaliasesurlcert'],
 		'bogonsinterval' => restapi_select_choice(empty($p['bogonsinterval']) ? 'monthly' : $p['bogonsinterval'], $choices['bogonsinterval']),
 		'allow_nat64_prefix_override' => (bool)$p['allow_nat64_prefix_override'],
+		'syncookies' => (string)($p['syncookies'] ?: 'never'),
+		'syncookies_start' => (string)$p['syncookies_start'],
+		'syncookies_end' => (string)$p['syncookies_end'],
 	);
 	if (isset($choices['natreflection'])) {
 		$out['natreflection'] = restapi_sysadv_natreflection($sys);
@@ -647,6 +661,44 @@ function restapi_h_sysadv_misc_set($req) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Performance (network settings)                                      */
+/* ------------------------------------------------------------------ */
+
+function restapi_sysadv_perf_out() {
+	$settings = netperf_settings();
+	$rss = netperf_rss_state();
+	$mbuf = netperf_mbuf_usage();
+	return array(
+		'netisr_threads' => $settings['netisr_threads'],
+		'nmbclusters' => $settings['nmbclusters'],
+		'status' => array(
+			'rss' => $rss['enabled'],
+			'rss_bits' => $rss['bits'],
+			'netisr_threads' => (int)get_single_sysctl('net.isr.numthreads'),
+			'nmbclusters' => (int)get_single_sysctl('kern.ipc.nmbclusters'),
+			'mbuf_clusters' => $mbuf,
+			'pending_reboot' => array_keys(netperf_pending(netperf_current_loader_lines(), netperf_booted_values(), netperf_loader_keys())),
+		),
+		'choices' => array('netisr_threads' => restapi_svc_choices(array('auto' => gettext('Automatic: one thread per CPU'),
+		    'single' => gettext('Single thread')))),
+	);
+}
+
+function restapi_h_sysadv_perf_get($req) {
+	return array('data' => restapi_sysadv_perf_out());
+}
+
+function restapi_h_sysadv_perf_set($req) {
+	$types = array('netisr_threads' => 'string', 'nmbclusters' => 'string', 'status' => 'ro', 'choices' => 'ro');
+	$values = restapi_svc_merge($req['body'], netperf_settings(), $types);
+	$rv = saveSystemAdvancedPerformance(array('netisr_threads' => $values['netisr_threads'], 'nmbclusters' => $values['nmbclusters']), false);
+	if (!empty($rv['input_errors'])) {
+		throw restapi_validation_error($rv['input_errors']);
+	}
+	return array('data' => restapi_sysadv_perf_out() + array('reboot_required' => in_array('network', $rv['reboot'], true)));
+}
+
+/* ------------------------------------------------------------------ */
 /* Notifications                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -879,15 +931,15 @@ function restapi_h_tunables_apply($req) {
 
 /* The checkboxes of the General Setup form. */
 function restapi_sysgen_flags() {
-	return array('dnsallowoverride', 'interfacessort', 'dashboardavailablewidgetspanel', 'systemlogsfilterpanel',
+	return array('dnsallowoverride', 'interfacessort', 'systemlogsfilterpanel',
 	    'systemlogsmanagelogpanel', 'statusmonitoringsettingspanel', 'requirestatefilter', 'requirefirewallinterface',
 	    'webguileftcolumnhyper', 'disablealiaspopupdetail', 'roworderdragging', 'loginshowhost', 'loginhideversion');
 }
 
 function restapi_sysgen_types() {
 	$types = array('dnsservers' => 'objects', 'choices' => 'ro', 'applied' => 'ro');
-	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language', 'webguicss', 'webguifixedmenu',
-	    'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'dashboardcolumns', 'logincss', 'login_message') as $field) {
+	foreach (array('hostname', 'domain', 'dnslocalhost', 'timezone', 'timeservers', 'language',
+	    'logincss', 'login_message') as $field) {
 		$types[$field] = 'string';
 	}
 	foreach (restapi_sysgen_flags() as $flag) {
@@ -918,12 +970,6 @@ function restapi_sysgen_choices() {
 		    'local' => 'Use local DNS (127.0.0.1), ignore remote DNS Servers', 'remote' => 'Use remote DNS Servers, ignore local DNS'),
 		'timezone' => array_combine($timezones, system_general_timezone_descr($timezones)),
 		'language' => get_locale_list(),
-		'webguicss' => get_css_files(),
-		'webguifixedmenu' => array('' => gettext("Scrolls with page"), 'fixed' => gettext("Fixed (Remains visible at top of page)")),
-		'webguihostnamemenu' => array('' => gettext("Default (No hostname)"), 'hostonly' => gettext("Hostname only"),
-		    'fqdn' => gettext("Fully Qualified Domain Name")),
-		'webguipagewidth' => webgui_pagewidth_choices(),
-		'webguimenuicons' => webgui_menuicons_choices(),
 		'logincss' => array("1e3f75;" => gettext("Dark Blue"), "003300" => gettext("Dark green"), "770101" => gettext("Crimson red"),
 		    "4b1263" => gettext("Purple"), "424142" => gettext("Gray"), "333333" => gettext("Dark gray"), "000000" => gettext("Black"),
 		    "633215" => gettext("Dark brown"), "bf7703" => gettext("Brown"), "008000" => gettext("Green"),
@@ -940,7 +986,7 @@ function restapi_sysgen_choices() {
 }
 
 /* The page's form (pconfig) as API values; DNS servers as {address, hostname[, gateway]}. */
-function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
+function restapi_sysgen_values(array $p, $with_gateways) {
 	$servers = array();
 	foreach (array_values((array)($p['dnsserver'] ?? array())) as $i => $address) {
 		$server = array('address' => (string)$address, 'hostname' => (string)($p["dnshost{$i}"] ?? ''));
@@ -959,13 +1005,6 @@ function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
 		'timezone' => (string)$p['timezone'],
 		'timeservers' => (string)$p['timeservers'],
 		'language' => (string)$p['language'],
-		/* The theme select shows FreeSense.css when the stored theme is not installed. */
-		'webguicss' => isset($csslist[(string)$p['webguicss']]) ? (string)$p['webguicss'] : 'FreeSense.css',
-		'webguifixedmenu' => (string)$p['webguifixedmenu'],
-		'webguihostnamemenu' => (string)$p['webguihostnamemenu'],
-		'webguipagewidth' => (string)($p['webguipagewidth'] ?? ''),
-		'webguimenuicons' => (string)($p['webguimenuicons'] ?? ''),
-		'dashboardcolumns' => (string)$p['dashboardcolumns'],
 		'logincss' => (string)$p['logincss'],
 		/* The page shows the stored message HTML encoded; the API returns the text. */
 		'login_message' => html_entity_decode((string)$p['login_message'], ENT_QUOTES | ENT_HTML401),
@@ -977,7 +1016,7 @@ function restapi_sysgen_values(array $p, $with_gateways, array $csslist) {
 }
 
 function restapi_sysgen_settings() {
-	return restapi_sysgen_values(system_general_settings(), isset(restapi_sysgen_choices()['dnsgw']), get_css_files());
+	return restapi_sysgen_values(system_general_settings(), isset(restapi_sysgen_choices()['dnsgw']));
 }
 
 /* The dnsservers list as the page's rows (dnsN, dnshostN and dnsgwN when the gateway select is shown). */
@@ -1048,8 +1087,8 @@ function restapi_h_sysgen_set($req) {
 	$with_gateways = isset($choices['dnsgw']);
 	$current = restapi_sysgen_settings();
 	$values = restapi_svc_merge($req['body'], $current, $types);
-	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language', 'webguicss',
-	    'webguifixedmenu', 'webguihostnamemenu', 'webguipagewidth', 'webguimenuicons', 'logincss'));
+	restapi_settings_check_changed_choices($values, $current, $choices, array('dnslocalhost', 'timezone', 'language',
+	    'logincss'));
 	$rows = restapi_sysgen_dns_rows($values['dnsservers'], $with_gateways);
 	if ($with_gateways) {
 		foreach ($rows as $key => $gw) {

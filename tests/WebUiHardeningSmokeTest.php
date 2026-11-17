@@ -59,11 +59,14 @@ if ($download === false || $start === false || $download > $start) {
 	$fail('A packet capture download request (no CSRF check) must not be able to start, stop or clear a capture.');
 }
 
-/* The captive portal status widget disconnects only through a POST. */
-$widget = file_get_contents($www . '/widgets/widgets/captive_portal_status.widget.php');
-if (strpos($widget, "\$_GET['act']") !== false || strpos($widget, '&amp;act=del') !== false ||
-    strpos($widget, "captiveportal_disconnect_client(\$_POST['id'], 6);") === false) {
-	$fail('The captive portal status widget must disconnect clients through a POST form.');
+/* Dashboard widgets only act through the REST API (privilege of the page they mirror); the old PHP widgets are gone. */
+if (is_dir($www . '/widgets/widgets') || is_dir($www . '/widgets/include') || is_dir($www . '/widgets/javascript')) {
+	$fail('The 1.x PHP dashboard widgets must be removed.');
+}
+$cpdel = file_get_contents($root . '/src/etc/inc/restapi/routes_status.inc');
+if (strpos($cpdel, "'/v1/status/captive-portal/{zone}/sessions/{session}', 'restapi_h_captiveportal_disconnect', array(
+			'page' => 'status_captiveportal.php', 'area' => 'status', 'write' => true,") === false) {
+	$fail('The captive portal disconnect route must need the Captive Portal status page and be a write.');
 }
 
 /* Actions that change the configuration only run on a POST (csrf-magic checks POST only). */
@@ -106,13 +109,16 @@ if (strpos($auth, 'function local_user_upgrade_legacy_hash(') === false ||
 
 /* The XML-RPC methods that run code are for admin (uid 0) only, not for the HA sync privilege. */
 $xmlrpc = file_get_contents($www . '/xmlrpc.php');
-foreach (['exec_php', 'exec_shell'] as $method) {
+foreach (['exec_php'] as $method) {
 	if (!preg_match('/function ' . $method . '\(\$code\) \{\s+\$this->auth\(true\);/', $xmlrpc)) {
 		$fail("XML-RPC {$method}() must call auth(true) (uid 0 only).");
 	}
 }
-if (strpos($xmlrpc, "(\$root_only && ((\$user_entry['uid'] ?? null) !== '0'))") === false) {
-	$fail('XML-RPC auth(true) must reject every account except uid 0.');
+/* An LDAP or RADIUS user has no uid; the privilege check must not depend on one. */
+if (strpos($xmlrpc, "\$is_root = (is_array(\$user_entry) && ((\$user_entry['uid'] ?? null) === '0'));") === false ||
+    strpos($xmlrpc, "if (!\$is_root && (\$root_only || !is_array(\$user_entry) ||") === false ||
+    strpos($xmlrpc, "isset(\$user_entry['uid']) &&") !== false) {
+	$fail('XML-RPC auth() must allow uid 0 only, or a user that holds the HA sync privilege.');
 }
 
 /* Redirect query values are URL-encoded, shell arguments are escaped, and ".ko" is a suffix. */
@@ -130,6 +136,242 @@ if (strpos($auth, 'pw usershow -n {$') !== false) {
 $util = file_get_contents($root . '/src/etc/inc/util.inc');
 if (strpos($util, "rtrim(\$module_name, '.ko')") !== false || strpos($util, 'dmesg |grep $ifname') !== false) {
 	$fail('util.inc: is_module_loaded() must strip the ".ko" suffix, and dmesg must get an escaped interface name.');
+}
+
+/* Security audit 2026-10-27. */
+/* Pages whose privileges name a query value take that value from the query string only. */
+if (strpos(file_get_contents($www . '/status_logs.php'), "\$_REQUEST['logfile']") !== false) {
+	$fail('status_logs.php must read the log name from $_GET: its privileges match the request URI.');
+}
+foreach (['pkg.php', 'pkg_edit.php'] as $page) {
+	$source = file_get_contents($www . '/' . $page);
+	if (strpos($source, "\$xml_request = \$_GET['xml'] ?? '';") === false ||
+	    strpos($source, "(isset(\$_POST['xml']) && \$_POST['xml'] !== \$xml_request)") === false ||
+	    strpos($source, "!isAllowedPage(\"{$page}?xml=\" . \$xml_request)") === false) {
+		$fail("{$page} must load only the package named in the query string the user may open.");
+	}
+}
+/* The list page's own POSTs keep the package in the URI, or the check above refuses them. */
+$pkg_list = file_get_contents($www . '/pkg.php');
+if (strpos($pkg_list, "['usepost' => '?xml=' . \$xml_url]") === false ||
+    strpos($pkg_list, "json_encode(\$_SERVER['SCRIPT_NAME'] . '?xml=' . \$xml_url)") === false) {
+	$fail('pkg.php must send its delete and save-order POSTs to a URI that names the package.');
+}
+/* State changes on these pages need a CSRF-checked POST. */
+if (strpos(file_get_contents($www . '/diag_tables.php'), "\$_REQUEST['delete']") !== false) {
+	$fail('diag_tables.php must delete table entries on POST only.');
+}
+if (strpos(file_get_contents($www . '/status_logs_common.inc'), "\$save_settings = (\$_SERVER['REQUEST_METHOD'] === 'POST') ?") === false) {
+	$fail('Log display settings must be saved on POST only.');
+}
+/* Privileges that amount to root say so. */
+$privdefs = file_get_contents($root . '/src/etc/inc/priv.defs.inc');
+foreach (['page-services-captiveportal', 'page-services-captiveportal-filemanager'] as $priv) {
+	if (strpos($privdefs, "\$priv_list['{$priv}']['warn'] = \"standard-warning-root\";") === false) {
+		$fail("{$priv} runs uploaded PHP as root and must carry the root warning.");
+	}
+}
+/* "Deny Config Write" also denies package and system updates. */
+$pkginstall = file_get_contents($root . '/src/usr/local/FreeSense/include/www/pkg_mgr_install.inc');
+$customrepos = file_get_contents($root . '/src/etc/inc/pkg_custom_repos.inc');
+if (strpos($pkginstall, 'function pkg_mgr_install_readonly_user()') === false ||
+    strpos($pkginstall, 'if (pkg_mgr_install_readonly_user()) {') === false ||
+    strpos($customrepos, 'if (pkg_mgr_install_readonly_user()) {') === false) {
+	$fail('Package operations must be refused for a user with "Deny Config Write".');
+}
+
+/* The dynamic firewall log never reads a path named in the request. */
+$syslog = file_get_contents($root . '/src/etc/inc/syslog.inc');
+if (strpos($syslog, "\$logfile = getGETPOSTsettingvalue('logfile', null);") !== false ||
+    strpos($syslog, "\$logfile = g_get('varlog_path') . '/filter.log';") === false) {
+	$fail('handle_ajax() must read the firewall log only.');
+}
+$index = file_get_contents($www . '/index.php');
+if (strpos($index, "\$_REQUEST['closenotice']") !== false || strpos($index, 'userHasPrivilege($notice_user, "user-view-clear-notices")') === false) {
+	$fail('index.php must clear notices on POST only, for users who may clear them.');
+}
+/* Pages that replace the configuration carry the root warning and honour "Deny Config Write". */
+if (file_exists($www . '/uploadconfig.php') || strpos($privdefs, 'page-hidden-uploadconfiguration') !== false) {
+	$fail('uploadconfig.php was removed: it could replace the configuration from one POST field.');
+}
+if (strpos($privdefs, "\$priv_list['page-freesensewizardsubsystem']['warn'] = \"standard-warning-root\";") === false) {
+	$fail('The wizard must be flagged as root.');
+}
+/* Plain-text replies holding user-controlled text are not rendered as HTML. */
+foreach (['status_logs_filter.php', 'bandwidth_by_ip.php'] as $page) {
+	if (strpos(file_get_contents($www . '/' . $page), "header('Content-Type: text/plain; charset=UTF-8');") === false) {
+		$fail("{$page} must answer its text replies as text/plain.");
+	}
+}
+/* The HA sync password is never sent to a peer it was not entered for. */
+$hasync = file_get_contents($root . '/src/usr/local/FreeSense/include/www/system_hasync.inc');
+if (strpos($hasync, "((string)(\$old_hasync['synchronizetoip'] ?? '') !== (string)\$a_hasync['synchronizetoip'])") === false) {
+	$fail('Changing the HA sync peer must require the sync password again.');
+}
+/* Signing out through the REST session bridge destroys the server-side session. */
+if (strpos(file_get_contents($root . '/src/etc/inc/restapi/routes_me.inc'), "session_id(\$req['session_id']);\n\twebgui_session_signout(false);") === false) {
+	$fail('restapi_h_me_signout() must open the real session before signing out.');
+}
+/* The Fleet join key file is never readable by others. */
+if (strpos(file_get_contents($www . '/system_fleet.php'), "\$old_umask = umask(0077);\n\t\t\tfile_put_contents(FLEET_JOIN_REQUEST_FILE") === false) {
+	$fail('system_fleet.php must create the join request file under umask 0077.');
+}
+
+/* OpenVPN: the client-chosen user name never reaches eval, and odd names are refused. */
+$connect = file_get_contents($root . '/src/usr/local/sbin/openvpn.connect_async.sh');
+if (strpos($connect, 'eval ') !== false || strpos($connect, '.*|*[!A-Za-z0-9._@+-]*)') === false) {
+	$fail('openvpn.connect_async.sh must not eval, and must refuse user names outside the allowed characters.');
+}
+if (strpos(file_get_contents($root . '/src/etc/inc/openvpn.auth-user.php'), "preg_match('/^[A-Za-z0-9_@+-][A-Za-z0-9._@+-]*\$/D', (string)\$username)") === false) {
+	$fail('openvpn.auth-user.php must refuse user names outside the allowed characters.');
+}
+$learn = file_get_contents($root . '/src/usr/local/sbin/openvpn.learn-address.sh');
+if (strpos($learn, "''|[.-]*|*[!A-Za-z0-9._@+-]*)") === false || strpos($learn, 'local_data ${CN}') !== false) {
+	$fail('openvpn.learn-address.sh must register safe names only and pass them as arguments.');
+}
+/* Root never runs or loads a script from a fixed name in /tmp. */
+$services = file_get_contents($root . '/src/etc/inc/services.inc');
+$filter = file_get_contents($root . '/src/etc/inc/filter.inc');
+if (strpos($services, "{\$g['tmp_path']}/dhcpd.sh") !== false || strpos($filter, "{\$g['tmp_path']}/commands.txt") !== false ||
+    strpos(file_get_contents($root . '/src/usr/local/bin/ping_hosts.sh'), '/tmp/tmpHOSTS') !== false ||
+    strpos(file_get_contents($root . '/src/etc/rc.php_ini_setup'), '> /tmp/php.ini') !== false) {
+	$fail('dhcpd.sh, commands.txt, ping_hosts.sh and php.ini must use private temporary files.');
+}
+/* Daemon configurations that hold secrets are readable by root only. */
+$ipsec = file_get_contents($root . '/src/etc/inc/ipsec.inc');
+if (strpos($util, 'function file_put_contents_private(') === false ||
+    strpos($ipsec, 'file_put_contents_private("{$g[\'varetc_path\']}/ipsec/swanctl.conf"') === false ||
+    strpos($ipsec, 'file_put_contents_private("{$g[\'varetc_path\']}/ipsec/strongswan.conf"') === false ||
+    substr_count(file_get_contents($root . '/src/etc/inc/interfaces.inc'), 'file_put_contents_private(') !== 2 ||
+    strpos($services, '@chmod("{$g[\'varetc_path\']}/snmpd.conf", 0600);') === false ||
+    strpos(file_get_contents($root . '/src/etc/inc/auth.inc'), 'file_put_contents_private("/etc/radius.conf"') === false) {
+	$fail('IPsec, wireless, PPP, SNMP and RADIUS configurations must be written 0600.');
+}
+/* Dynamic DNS requests that carry credentials verify the server. */
+if (preg_match('/(duiadns\.net|dyn\.dns\.he\.net)[^\n]*\n[^\n]*\n?[^\n]*SSL_VERIFYPEER, FALSE/', file_get_contents($root . '/src/etc/inc/dyndns.class'))) {
+	$fail('duiadns and he-net updates must verify TLS.');
+}
+/* The PKCS#12 export never writes into a directory it did not create. */
+if (strpos(file_get_contents($root . '/src/etc/inc/certs.inc'), "if ((\$workdir === false) || !@mkdir(\$workdir, 0700)) {") === false) {
+	$fail('cert_pkcs12_export() must stop when it cannot create its work directory.');
+}
+/* DHCP client host names are plain labels before they reach unbound. */
+if (strpos(file_get_contents($root . '/src/usr/local/bin/kea2unbound'), "preg_match('/^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\$/D', \$hostname)") === false) {
+	$fail('kea2unbound must only write plain DNS labels.');
+}
+/* Captive portal: the client-supplied zone is a plain name, and RADIUS numbers go into SQL as numbers. */
+if (strpos(file_get_contents($root . '/src/usr/local/captiveportal/index.php'), "if (!preg_match('/^[a-z0-9_]+\$/D', \$cpzone)) {") === false ||
+    strpos($cp, "? (int)\$attributes['session_timeout'] : 'NULL';") === false) {
+	$fail('The captive portal must validate the zone and cast RADIUS numbers.');
+}
+
+/* CVE-2026-111215: the wireless parent is a listed wireless device and is escaped. */
+if (strpos(file_get_contents($www . '/interfaces_wireless_edit.php'), "in_array((string)\$_POST['if'], array_column(interface_list_wireless(), 'if'), true)") === false ||
+    strpos(file_get_contents($root . '/src/etc/inc/interfaces.inc'), 'wlandev {$baseif}') !== false) {
+	$fail('The wireless parent interface must be validated and escaped.');
+}
+/* Limiter numbers reach dnctl as integers. */
+if (preg_match('/dnctl (pipe|sched|queue) delete " \. \$this->GetNumber\(\)/', file_get_contents($root . '/src/etc/inc/shaper.inc'))) {
+	$fail('shaper.inc must cast limiter numbers before dnctl.');
+}
+
+/* Input scan 2026-11-04: the auth boundary. */
+$authinc = file_get_contents($root . '/src/etc/inc/auth.inc');
+$authgui = file_get_contents($root . '/src/etc/inc/authgui.inc');
+if (strpos(file_get_contents($root . '/src/etc/inc/auth_func.inc'), "explode('?', \$page, 2)") === false) {
+	$fail('cmp_page_matches() must treat everything after the first ? as the query.');
+}
+/* The guard must not depend on include order, as it did when it ran at include time. */
+if (strpos($authinc, 'function_exists("display_error_form")') !== false || strpos($authinc, 'function webgui_request_guard() {') === false ||
+    strpos($authgui, "webgui_request_guard();") === false) {
+	$fail('The rebind, Referer and lockout checks must run from authgui.inc through webgui_request_guard().');
+}
+/* A directory login never takes on a root-equivalent local account's rights, in either entry point. */
+if (strpos($authinc, 'authenticate_identity($username, $password, $attributes);') === false ||
+    strpos($xmlrpc, 'authenticate_identity($username, $password, $attributes)') === false ||
+    strpos($xmlrpc, 'authenticate_user(') !== false) {
+	$fail('The WebGUI sign-in and XML-RPC must authenticate through authenticate_identity().');
+}
+
+/* Input scan 2026-11-04: the CVE batch and where each value is used. */
+$src = fn($f) => file_get_contents($root . '/src/' . $f);
+$must = [
+	'etc/inc/util.inc' => ["'/^[A-Za-z0-9_.-]{1,32}\$/D', explode('%', \$ipaddr, 2)[1]", "require_once(__DIR__ . '/cfg_format.inc');"],
+	'usr/local/sbin/FreeSense-dhclient-script' => ['*[!A-Za-z0-9\\ ._:-]*)'],
+	'etc/inc/interfaces.inc' => ["\$text = preg_replace('/[\\x00-\\x1f\\x7f]/', '', \$text);", "if (!preg_match('/^[a-z0-9]+\$/D', \$pppif)) {"],
+	'etc/inc/services.inc' => ['Skipping an invalid cron item', 'file_put_contents_private("{$g[\'varetc_path\']}/nsupdatekey'],
+	'etc/inc/system.inc' => ['file_put_contents_private("{$g[\'varetc_path\']}/ntp.keys"'],
+	'etc/inc/vpn.inc' => ["get_mpd_str(ltrim(base64_decode(\$data[1]), '!'))", "'radius/server2/secret2'"],
+	'etc/inc/ipsec.inc' => ['Skipping an invalid IPsec setting', "if (is_ipaddr(\$ph2ent['pinghost'] ?? '')) {"],
+	'etc/inc/dyndns.class' => ['CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS'],
+	'etc/inc/config.lib.inc' => ['if (config_write_denied() || !file_exists($path)', 'if (config_write_denied() || !file_exists($conffile))', "in_array((string)\$file['path'], array_map('dirname', \$paths), true)"],
+	'etc/inc/freesense-utils.inc' => ["\$vhid = (int)\$vip['vhid'];"],
+	'etc/inc/filter.inc' => ["'/^[A-Za-z0-9 _-]{1,64}\$/D'"],
+	'usr/local/FreeSense/include/www/firewall_virtual_ip.inc' => ['The VHID must be a number between 1 and 255.'],
+	'usr/local/FreeSense/include/www/services_dyndns.inc' => ['The Update URL must start with http:// or https://.'],
+	'usr/local/FreeSense/include/www/vpn_ipsec.inc' => ['Automatically ping host must be an IP address.', 'The Login Banner must be one line'],
+	'usr/local/www/services_pppoe_edit.php' => ['The user name %s contains characters that are not allowed.'],
+	'usr/local/www/services_captiveportal_hasync.php' => ["!is_ipaddr(\$user['ip'] ?? '')"],
+];
+foreach ($must as $file => $needles) {
+	foreach ($needles as $needle) {
+		if (strpos($src($file), $needle) === false) {
+			$fail("{$file} must contain: {$needle}");
+		}
+	}
+}
+$vpnipsec = $src('usr/local/FreeSense/include/www/vpn_ipsec.inc');
+if (strpos($vpnipsec, 'Automatically ping host must be an IP address.') < strpos($vpnipsec, 'function ipsec_p2_save(')) {
+	$fail('The IPsec ping host check belongs to the phase 2 save.');
+}
+if (strpos($src('usr/local/sbin/FreeSense-dhclient-script'), 'eval ') !== false) {
+	$fail('The dhclient script must not eval: its values come from configuration and the DHCP server.');
+}
+foreach (["function dhcp_client_cfg(", '$wancfg = dhcp_client_cfg($wancfg, $interface);', '$ifcfg = dhcp_client_cfg($ifcfg, $interface);', "\$mtus = cfg_int_list(\$ppp['mtu']);"] as $needle) {
+	if (strpos($src('etc/inc/interfaces.inc'), $needle) === false) {
+		$fail("interfaces.inc must contain: {$needle}");
+	}
+}
+if (strpos($src('etc/inc/system.inc'), "cfg_value_valid('ntp_refid', config_get_path('ntpd/gps/refid'))") === false) {
+	$fail('The NTP writer must check GPS and PPS values.');
+}
+if (strpos($src('usr/local/www/interfaces_ppps_edit.php'), "handle_pppoe_reset(\$_POST);") !== false) {
+	$fail('interfaces_ppps_edit.php must not take the PPP id for the cron job from the form.');
+}
+if (strpos($src('etc/inc/config.lib.inc'), "\$dirname = \$file['path'];\n\t\t} else {") !== false) {
+	$fail('restore_xmldatafile() must not write to a path named in the backup.');
+}
+
+/* Input scan 2026-11-04: inputs removed, limits lowered. */
+if ((strpos($xmlrpc, 'exec_shell') !== false) || (strpos($xmlrpc, 'function merge_config_section') !== false)) {
+	$fail('XML-RPC must not offer exec_shell or merge_config_section: nothing calls them.');
+}
+$pinghosts = file_get_contents($root . '/src/usr/local/bin/ping_hosts.sh');
+if ((strpos($pinghosts, 'sh -c') !== false) || (strpos($pinghosts, 'FAILURESCRIPT') !== false)) {
+	$fail('ping_hosts.sh must not run commands from its host list.');
+}
+if (strpos(file_get_contents($root . '/src/usr/local/FreeSense/include/www/backup.inc'), '<path>') !== false) {
+	$fail('Backups must not carry a path to restore to.');
+}
+$ntpdpage = file_get_contents($www . '/services_ntpd.php');
+if (strpos($ntpdpage, '$_FILES') !== false || strpos($ntpdpage, 'leapfile') !== false) {
+	$fail('The NTP page takes its leap seconds as text only.');
+}
+$nginxgen = file_get_contents($root . '/src/etc/inc/system.inc');
+if ((strpos($nginxgen, 'client_max_body_size 200m;') !== false) || (strpos($nginxgen, "\$body_limit = (\$captive_portal !== false) ? '1m' : '8m';") === false)) {
+	$fail('Request bodies must be small unless a page takes files.');
+}
+$phpini = file_get_contents($root . '/src/etc/rc.php_ini_setup');
+foreach (['session.use_strict_mode = 1', 'session.save_path = "${SESSIONDIR}"', 'php_admin_flag[register_argc_argv] = off', 'allow_url_include = Off', 'session.upload_progress.enabled = Off'] as $needle) {
+	if (strpos($phpini, $needle) === false) {
+		$fail("php.ini must have: {$needle}");
+	}
+}
+$configlib = file_get_contents($root . '/src/etc/inc/config.lib.inc');
+if ((strpos($configlib, "g_get('tmp_path') . '/config.cache") !== false) || (strpos($configlib, "g_get('tmp_path') . '/config.extra.cache") !== false) || (strpos($configlib, "@chmod(config_cache_path(), 0600);") === false) ||
+    (substr_count($configlib, 'config_cache_write(') !== 3) || (strpos($configlib, 'safe_write_file(config_cache_path()') === false) ||
+    (strpos(file_get_contents($root . '/src/etc/FreeSense-rc'), '/bin/chmod 0700 /cf/conf') === false)) {
+	$fail('The configuration and its cache must be readable by root only, and the cache must not be in /tmp.');
 }
 
 echo "WebUI hardening smoke test passed\n";

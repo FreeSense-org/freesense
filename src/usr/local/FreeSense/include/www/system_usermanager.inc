@@ -198,12 +198,7 @@ function usermgr_user_form($this_user) {
 	$pconfig['descr'] = $this_user['descr'];
 	$pconfig['expires'] = $this_user['expires'];
 	$pconfig['customsettings'] = isset($this_user['customsettings']);
-	$pconfig['webguicss'] = $this_user['webguicss'];
-	$pconfig['webguifixedmenu'] = $this_user['webguifixedmenu'];
-	$pconfig['webguihostnamemenu'] = $this_user['webguihostnamemenu'];
-	$pconfig['dashboardcolumns'] = $this_user['dashboardcolumns'];
 	$pconfig['interfacessort'] = isset($this_user['interfacessort']);
-	$pconfig['dashboardavailablewidgetspanel'] = isset($this_user['dashboardavailablewidgetspanel']);
 	$pconfig['systemlogsfilterpanel'] = isset($this_user['systemlogsfilterpanel']);
 	$pconfig['systemlogsmanagelogpanel'] = isset($this_user['systemlogsmanagelogpanel']);
 	$pconfig['statusmonitoringsettingspanel'] = isset($this_user['statusmonitoringsettingspanel']);
@@ -535,10 +530,6 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 			$input_errors[] = gettext("Invalid internal Certificate Authority") . "\n";
 		}
 	}
-	validate_webguicss_field($input_errors, $post['webguicss']);
-	validate_webguifixedmenu_field($input_errors, $post['webguifixedmenu']);
-	validate_webguihostnamemenu_field($input_errors, $post['webguihostnamemenu']);
-	validate_dashboardcolumns_field($input_errors, $post['dashboardcolumns']);
 
 	/* No privilege escalation; system users and the admins group are protected. */
 	$refusal = usermgr_user_save_refusal($post, $id, $caller);
@@ -588,12 +579,17 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 		}
 
 		$userent['name'] = $post['usernamefld'];
+		if (($userent['expires'] ?? '') !== ($post['expires'] ?? '')) {
+			$userent['session_generation'] = bin2hex(random_bytes(16));
+		}
 		$userent['expires'] = $post['expires'];
-		$userent['dashboardcolumns'] = $post['dashboardcolumns'];
 		$userent['authorizedkeys'] = base64_encode($post['authorizedkeys']);
 		$userent['ipsecpsk'] = $post['ipsecpsk'];
 
 		if ($post['disabled']) {
+			if (!isset($userent['disabled'])) {
+				$userent['session_generation'] = bin2hex(random_bytes(16));
+			}
 			$userent['disabled'] = true;
 		} else {
 			unset($userent['disabled']);
@@ -605,35 +601,13 @@ function usermgr_user_save(array $post, $id, $caller, &$pconfig = null, &$savems
 			unset($userent['customsettings']);
 		}
 
-		if ($post['webguicss']) {
-			$userent['webguicss'] = $post['webguicss'];
-		} else {
-			unset($userent['webguicss']);
-		}
-
-		if ($post['webguifixedmenu']) {
-			$userent['webguifixedmenu'] = $post['webguifixedmenu'];
-		} else {
-			unset($userent['webguifixedmenu']);
-		}
-
-		if ($post['webguihostnamemenu']) {
-			$userent['webguihostnamemenu'] = $post['webguihostnamemenu'];
-		} else {
-			unset($userent['webguihostnamemenu']);
-		}
-
 		if ($post['interfacessort']) {
 			$userent['interfacessort'] = true;
 		} else {
 			unset($userent['interfacessort']);
 		}
 
-		if ($post['dashboardavailablewidgetspanel']) {
-			$userent['dashboardavailablewidgetspanel'] = true;
-		} else {
-			unset($userent['dashboardavailablewidgetspanel']);
-		}
+		unset($userent['dashboardcolumns'], $userent['dashboardavailablewidgetspanel'], $userent['widgets']);
 
 		if ($post['systemlogsfilterpanel']) {
 			$userent['systemlogsfilterpanel'] = true;

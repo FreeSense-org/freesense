@@ -66,7 +66,7 @@ if ($_POST) {
 	if (($_POST['name'] && !is_validaliasname($_POST['name']))) {
 		$input_errors[] = gettext("The Check IP Service name contains invalid characters.");
 	}
-	if (($_POST['url'] && !is_URL($_POST['url']))) {
+	if (($_POST['url'] && !is_URL($_POST['url'], true))) {
 		$input_errors[] = gettext("The Check IP Service URL is not valid.");
 	}
 	if ($_POST['passwordfld'] != $_POST['passwordfld_confirm']) {

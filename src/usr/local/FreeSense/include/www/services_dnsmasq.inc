@@ -178,9 +178,11 @@ function build_if_list($pconfig) {
 
 // Save the DNS forwarder configuration (only). Does not affect the host or override list.
 // Everything is validated before the configuration is changed.
-function saveDNSMasqConfig($post, $json=false) {
+function saveDNSMasqConfig($post, $json=false, ?array $caller = null) {
     $pconfig = $post;
     $input_errors = array();
+	services_dns_custom_enforce('dnsmasq', $post, $input_errors, $caller);
+	$pconfig = $post;
 
 	if (!empty(trim($post['custom_options']))) {
 		$custom_options_source = str_replace("\r\n", "\n", trim($post['custom_options']));
@@ -447,7 +449,7 @@ function saveDomainOverride($post, $id, $json=false) {
 
     do_input_validation($post, $reqdfields, $reqdfieldsn, $input_errors);
 
-    if (str_starts_with($post['domain'], '_msdcs')) {
+    if (($post['domain'] === '_msdcs') || str_starts_with($post['domain'], '_msdcs.')) {
         $subdomainstr = substr($post['domain'], 7);
 
         if ($subdomainstr && !is_domain($subdomainstr)) {

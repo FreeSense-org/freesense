@@ -490,7 +490,7 @@ EOD;
 		// Ensure that the log directory exists
 		$logpath = dirname($log_socket);
 		safe_mkdir($logpath);
-		$syslogd_sockets .= " -l {$log_socket}";
+		$syslogd_sockets .= " -l " . escapeshellarg($log_socket);
 	}
 
 	/* Setup log rotation */
@@ -1476,7 +1476,8 @@ function handle_ajax() {
 	if ($_REQUEST['lastsawtime'] && $_REQUEST['logfile']) {
 
 		$lastsawtime = getGETPOSTsettingvalue('lastsawtime', null);
-		$logfile = getGETPOSTsettingvalue('logfile', null);
+		/* Only the dynamic firewall log page polls here; never read a path named in the request. */
+		$logfile = g_get('varlog_path') . '/filter.log';
 		$nentries = getGETPOSTsettingvalue('nentries', null);
 		$type = getGETPOSTsettingvalue('type', null);
 		$filter = getGETPOSTsettingvalue('filter', null);

@@ -69,6 +69,8 @@ status_logs_common_code();
 
 $pgtitle = array(gettext("Status"), gettext("System Logs"), gettext($allowed_logs[$logfile]["name"]), $view_title);
 $pglinks = array("", "status_logs.php", "status_logs_filter.php", "@self");
+$fs_page_css = ['/css/_freesense-dashboard.css'];
+$fs_page_scripts = ['/js/fs-core.js', '/js/fs-chart.js'];
 include("head.inc");
 
 status_logs_notices();
@@ -216,11 +218,8 @@ endforeach;
 .fs-sum-label { overflow-wrap: anywhere; }
 .fs-sum-swatch { display: inline-block; width: .7rem; height: .7rem; margin-right: .5rem; border-radius: 2px; vertical-align: -.05rem; background: var(--fs-neutral); }
 .fs-sum-empty { padding: var(--fs-sp-6) var(--fs-sp-4); text-align: center; color: var(--fs-text-muted); }
-.fs-sum-chart .p0_tooltip text, .fs-sum-chart [class$="_tooltip"] text { font-family: var(--fs-font-ui); }
 </style>
 
-<script src="/vendor/d3/d3.min.js"></script>
-<script src="/vendor/d3pie/d3pie.min.js"></script>
 <script type="text/javascript">
 //<![CDATA[
 events.push(function() {
@@ -239,9 +238,6 @@ events.push(function() {
 		el.style.backgroundColor = other;
 	});
 
-	if (typeof d3pie === 'undefined') {
-		return;
-	}
 	charts.forEach(function (chart, n) {
 		var el = document.getElementById('pieChart' + n);
 		var content = chart.items.map(function (item, i) {
@@ -253,24 +249,7 @@ events.push(function() {
 		if (!el || !content.length) {
 			return;
 		}
-		var size = el.clientWidth || 208;
-		new d3pie('pieChart' + n, {
-			size: { canvasHeight: size, canvasWidth: size, pieInnerRadius: '58%', pieOuterRadius: '96%' },
-			data: { sortOrder: 'none', content: content },
-			labels: {
-				outer: { format: 'none' },
-				inner: { format: 'none' },
-				lines: { enabled: false }
-			},
-			tooltips: {
-				enabled: true,
-				type: 'placeholder',
-				string: '{label}: {value} ({percentage}%)',
-				styles: { fadeInSpeed: 120, backgroundColor: token('--fs-text-strong'), backgroundOpacity: 0.95, color: token('--fs-surface'), borderRadius: 4, fontSize: 12, padding: 6 }
-			},
-			effects: { load: { effect: 'none' }, pullOutSegmentOnClick: { effect: 'none' }, highlightSegmentOnMouseover: true, highlightLuminosity: 0.15 },
-			misc: { colors: { segmentStroke: surface }, canvasPadding: { top: 2, right: 2, bottom: 2, left: 2 } }
-		});
+		el.innerHTML = FS.chart.donut(content, { label: el.getAttribute('aria-label') || '' });
 	});
 });
 //]]>

@@ -1,0 +1,25 @@
+{
+	"type": "captive-portal",
+	"title": "Captive portal",
+	"description": "Who is signed in to the captive portal",
+	"icon": "fa-wifi",
+	"tone": "series-2",
+	"category": "Security",
+	"page": "status_captiveportal.php",
+	"link": "/status_captiveportal.php",
+	"order": 42,
+	"sizes": [
+		"md",
+		"lg",
+		"xl"
+	],
+	"size": "md",
+	"every": 30,
+	"strings": [
+		"Nobody is signed in.",
+		"Disconnect",
+		"Disconnect %s",
+		"%s disconnected",
+		"last active %s"
+	]
+}

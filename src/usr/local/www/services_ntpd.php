@@ -44,8 +44,7 @@ ntpd_migrate_openntpd();
 
 if ($_POST) {
 	unset($input_errors);
-	$leapfile = is_uploaded_file($_FILES['leapfile']['tmp_name']) ? file_get_contents($_FILES['leapfile']['tmp_name']) : null;
-	$rv = ntpd_save_settings($_POST, $leapfile);
+	$rv = ntpd_save_settings($_POST);
 	$input_errors = $rv['input_errors'];
 	if ($rv['changes_applied']) {
 		$changes_applied = true;
@@ -77,7 +76,6 @@ if (!empty($changes_applied)) {
 fs_tabs('services-ntp', 'services_ntpd.php');
 
 $form = new Form;
-$form->setMultipartEncoding();	// Allow file uploads
 
 $section = new Form_Section('NTP Server Configuration');
 
@@ -305,13 +303,7 @@ $section->addInput(new Form_Textarea(
 	'leaptext',
 	null,
 	base64_decode(chunk_split($pconfig['leapsec'] ?? ''))
-))->setHelp('Enter Leap second configuration as text OR select a file to upload.');
-
-$section->addInput(new Form_Input(
-	'leapfile',
-	null,
-	'file'
-))->addClass('btn-secondary');
+))->setHelp('Enter Leap second configuration as text.');
 
 $section->addInput(new Form_Select(
 	'dnsresolv',
@@ -423,7 +415,6 @@ events.push(function() {
 		// On page load decide the initial state based on the data.
 		if (ispageload) {
 <?php
-			// Note: leapfile is not a field saved in the config, so no need to test for it here.
 			// leapsec is the encoded text in the config, leaptext is not a pconfig[] key.
 			if (empty($pconfig['leapsec'])) {
 				$showadv = false;
@@ -438,7 +429,6 @@ events.push(function() {
 		}
 
 		hideInput('leaptext', !showadvleap);
-		hideInput('leapfile', !showadvleap);
 
 		if (showadvleap) {
 			text = "<?=gettext('Hide Advanced');?>";

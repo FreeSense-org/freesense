@@ -2479,12 +2479,25 @@ function handle_pppoe_reset($post_array) {
 	global $g;
 
 	$pppif = "{$post_array['type']}{$post_array['ptpid']}";
+	/* These come from the form and become a file name and a line of /etc/crontab. */
+	if (!preg_match('/^[a-z0-9]+$/D', $pppif)) {
+		return;
+	}
+	foreach (['pppoe_resetminute', 'pppoe_resethour'] as $field) {
+		if (isset($post_array[$field]) && !preg_match('/^[0-9]{0,2}$/D', (string)$post_array[$field])) {
+			return;
+		}
+	}
+	if (isset($post_array['pppoe_resetdate']) && !preg_match('#^([0-9]{1,2}/[0-9]{1,2}(/[0-9]{1,4})?)?$#D', (string)$post_array['pppoe_resetdate'])) {
+		return;
+	}
 	$cron_cmd_file = "{$g['varetc_path']}/pppoe_restart_{$pppif}";
 
 	if (!is_array(config_get_path('cron/item'))) {
-		if (config_set_path('cron/item', array()) === null)
+		if (config_set_path('cron/item', array()) === null) {
 			logger(LOG_DEBUG, localize_text('Cron section in config root is invalid.'));
 			return;
+		}
 	}
 
 	$itemhash = getMPDCRONSettings($pppif);
@@ -2675,6 +2688,8 @@ function get_mpd_str(string|null $text) {
 	if (!isset($text) || (mb_strlen($text) < 1)) {
 		return '""';
 	}
+	/* A control character would end the line and start a new mpd command. */
+	$text = preg_replace('/[\x00-\x1f\x7f]/', '', $text);
 	return '"' . str_replace(['\\', '"', '$'], ['\\\\', '\"', '\$'], $text) . '"';
 }
 
@@ -2841,9 +2856,7 @@ function interface_ppps_configure($interface) {
 	} else {
 		$ondemand = "disable";
 	}
-	if (!isset($ppp['idletimeout'])) {
-		$ppp['idletimeout'] = 0;
-	}
+	$ppp['idletimeout'] = (int)($ppp['idletimeout'] ?? 0);
 
 	if (empty($ppp['username']) && $type == "modem") {
 		$ppp['username'] = "user";
@@ -2855,19 +2868,20 @@ function interface_ppps_configure($interface) {
 		$passwd = base64_decode($ppp['password']);
 	}
 
-	$bandwidths = explode(',', $ppp['bandwidth']);
+	/* Numbers per link, written unquoted into mpd.conf. */
+	$bandwidths = cfg_int_list($ppp['bandwidth']);
 	$defaultmtu = "1492";
 	if (!empty($ifcfg['mtu'])) {
 		$defaultmtu = intval($ifcfg['mtu']);
 	}
 	if (isset($ppp['mtu'])) {
-		$mtus = explode(',', $ppp['mtu']);
+		$mtus = cfg_int_list($ppp['mtu']);
 	}
 	if (isset($ppp['mru'])) {
-		$mrus = explode(',', $ppp['mru']);
+		$mrus = cfg_int_list($ppp['mru']);
 	}
 	if (isset($ppp['mrru'])) {
-		$mrrus = explode(',', $ppp['mrru']);
+		$mrrus = cfg_int_list($ppp['mrru']);
 	}
 	if (!empty($ifcfg['ipaddrv6'])) {
 		$ipv6cp = "set bundle enable ipv6cp";
@@ -3175,6 +3189,8 @@ EOD;
 			logger(LOG_ERR, localize_text('Cannot open %1$s in %2$s.', "mpd_{$interface}.conf", "interface_ppps_configure()"));
 			return 0;
 		}
+		/* It holds the PPP password; readable by root only. */
+		@chmod("{$g['varetc_path']}/mpd_{$interface}.conf", 0600);
 		// Write out mpd_ppp.conf
 		fwrite($fd, $mpdconf);
 		fclose($fd);
@@ -3670,7 +3686,7 @@ function interface_wireless_clone($realif, $wlcfg) {
 		logger(LOG_INFO, localize_text("Cloning new wireless interface %s", $realif));
 		// Create the new wlan interface. FreeBSD returns the new interface name.
 		// example:  wlan2
-		exec("/sbin/ifconfig wlan create wlandev {$baseif} {$mode} bssid 2>&1", $out, $ret);
+		exec("/sbin/ifconfig wlan create wlandev " . escapeshellarg($baseif) . " {$mode} bssid 2>&1", $out, $ret);
 		if ($ret <> 0) {
 			logger(LOG_ERR, localize_text('Failed to clone interface %1$s with error code %2$s, output %3$s', $baseif, $ret, $out[0]));
 			return false;
@@ -3941,6 +3957,20 @@ function interface_wireless_configure($if, &$wl, &$wlcfg) {
 	unlink_if_exists("{$wpa_supplicant_file}*");
 	unlink_if_exists($hostapd_conf);
 
+	/*
+	 * One value per line. If one breaks that, do not configure WPA at all:
+	 * carrying on without it could bring up an open network.
+	 */
+	$wpa_values = [$wlcfg['ssid'] ?? '', $wlcfg['wpa']['passphrase'] ?? '', $wlcfg['wpa']['wpa_eap_inner_id'] ?? '',
+	    base64_decode((string)($wlcfg['wpa']['wpa_eap_inner_password'] ?? '')), $wlcfg['auth_server_shared_secret'] ?? '',
+	    $wlcfg['auth_server_shared_secret2'] ?? ''];
+	foreach ($wpa_values as $wpa_value) {
+		if (cfg_has_ctl($wpa_value)) {
+			logger(LOG_ERR, localize_text('Not configuring wireless on %s: a setting contains a line break or control character.', $if));
+			return 0;
+		}
+	}
+
 	/* generate wpa_supplicant/hostap config if wpa is enabled */
 	$wpa = "";
 	switch ($wlcfg['mode']) {
@@ -3996,7 +4026,7 @@ EOD;
 				}
 				$wpa .= "}\n";
 
-				@file_put_contents($wpa_supplicant_file . "conf", $wpa);
+				file_put_contents_private($wpa_supplicant_file . "conf", $wpa);
 				unset($wpa);
 			}
 			break;
@@ -4071,7 +4101,7 @@ EOD;
 					}
 				}
 
-				@file_put_contents($hostapd_conf, $wpa);
+				file_put_contents_private($hostapd_conf, $wpa);
 				unset($wpa);
 			}
 			break;
@@ -4677,6 +4707,11 @@ function interface_configure($interface = "wan", $reloadall = false, $linkupeven
 		if (is_array($vxlan_mtu_cfg)) {
 			$wantedmtu = interface_vxlan_default_mtu($vxlan_mtu_cfg);
 		}
+	}
+
+	/* An adapter MTU from Interfaces > NIC Settings applies when the interface sets none. */
+	if (($wantedmtu == 0) && ($mtuif == $mtuhwif)) {
+		$wantedmtu = nic_settings_mtu($mtuif);
 	}
 
 	/* Set the MTU to 1500 if no explicit MTU configured. */
@@ -5322,6 +5357,7 @@ function interface_dhcpv6_configure($ifconf, $ifcfg, $destroy = false) {
 		logger(LOG_INFO, localize_text("Accept router advertisements on interface %s", $wanif));
 		mwexec("/sbin/ifconfig {$wanif} inet6 accept_rtadv");
 
+		$wancfg = dhcp_client_cfg($wancfg, $interface);
 		if ($wancfg['adv_dhcp6_config_file_override']) {
 			// DHCP6 Config File Override
 			$dhcp6cconf .= DHCP6_Config_File_Override($wancfg, $wanif);
@@ -5713,6 +5749,8 @@ EOD;
 function DHCP6_Config_File_Advanced($interface, $wancfg, $wanif) {
 	global $g;
 
+	$wancfg = dhcp_client_cfg($wancfg, $interface);
+
 	$send_options = "";
 	if ($wancfg['adv_dhcp6_interface_statement_send_options'] != '') {
 		$options = DHCP_Config_Option_Split($wancfg['adv_dhcp6_interface_statement_send_options']);
@@ -5893,6 +5931,7 @@ function interface_dhcp_configure($interface) {
 	if (empty($ifcfg)) {
 		$ifcfg = array();
 	}
+	$ifcfg = dhcp_client_cfg($ifcfg, $interface);
 
 	$dhclientconf_vlantag = "";
 	if (isset($ifcfg['dhcpvlanenable']) && isset($ifcfg['dhcpcvpt'])) {
@@ -5981,6 +6020,19 @@ EOD;
 	mwexec("/sbin/dhclient -c {$g['varetc_path']}/dhclient_{$interface}.conf -p {$g['varrun_path']}/dhclient.{$realif}.pid {$realif} > {$g['tmp_path']}/{$realif}_output 2> {$g['tmp_path']}/{$realif}_error_output");
 
 	return 0;
+}
+
+/*
+ * The interface settings without DHCP client values that do not fit their
+ * format. These files are read by daemons that run scripts, and a value that
+ * closes its statement could add a script or media line.
+ */
+function dhcp_client_cfg(array $ifcfg, $interface) {
+	list($ifcfg, $bad) = cfg_dhcp_client_clean($ifcfg);
+	if (!empty($bad)) {
+		logger(LOG_ERR, localize_text('Ignoring invalid DHCP client settings of %1$s: %2$s', $interface, implode(', ', $bad)));
+	}
+	return $ifcfg;
 }
 
 function DHCP_Config_File_Advanced($ifcfg, $realif) {
@@ -7384,11 +7436,13 @@ function is_altq_capable($int) {
 	 * https://www.freebsd.org/cgi/man.cgi?query=altq&apropos=0&sektion=0&manpath=FreeBSD+11.0-RELEASE&arch=default&format=html
 	 * Only the following drivers have ALTQ support
 	 * 20150328 - removed wireless drivers - ath, awi, bwn, iwi, ipw, ral, rum, run, wi - for now. redmine #4406
+	 * Every iflib driver (em/igb, igc, ix, ixl, iavf, ice, vmx, bnxt, axgbe "ax")
+	 * transmits through iflib_altq_if_transmit() when ALTQ is in the kernel.
 	 */
-	$capable = array("ae", "age", "alc", "ale", "an", "aue", "axe", "bce",
+	$capable = array("ae", "age", "alc", "ale", "an", "aue", "ax", "axe", "bce",
 			"bfe", "bge", "bnxt", "bridge", "bxe", "cas", "cpsw", "dc", "de",
-			"ed", "em", "ep", "epair", "et", "fxp", "gem", "hme", "hn",
-			"igb", "igc", "ix", "ixv", "jme", "l2tp", "le", "lem", "msk", "mxge", "my",
+			"ed", "em", "ep", "epair", "et", "fxp", "gem", "hme", "hn", "iavf", "ice",
+			"igb", "igc", "ix", "ixl", "ixv", "jme", "l2tp", "le", "lem", "msk", "mxge", "my",
 			"ndis", "nfe", "ng", "nge", "npe", "nve", "ql", "ovpnc",
 			"ovpns", "ppp", "pppoe", "pptp", "re", "rl", "sf", "sge",
 			"sis", "sk", "ste", "stge", "ti", "tun", "txp", "udav",

@@ -31,6 +31,59 @@ require_once('services_dhcp.inc');
 define('DYNDNS_PROVIDER_VALUES', 'all-inkl azure azurev6 citynetwork cloudflare cloudflare-v6 cloudns custom custom-v6 desec desec-v6 digitalocean digitalocean-v6 dnsexit dnsimple dnsimple-v6 dnsmadeeasy dnsomatic domeneshop domeneshop-v6 dreamhost dreamhost-v6 duiadns duiadns-v6 dyfi dyndns dyndns-custom dyndns-static dyns dynv6 dynv6-v6 easydns easydns-v6 eurodns freedns freedns-v6 freedns2 freedns2-v6 glesys gandi-livedns gandi-livedns-v6 godaddy godaddy-v6 googledomains gratisdns he-net he-net-v6 he-net-tunnelbroker hover linode linode-v6 loopia luadns luadns-v6 mythicbeasts mythicbeasts-v6 name.com name.com-v6 namecheap nicru nicru-v6 noip noip-v6 noip-free noip-free-v6 onecom onecom-v6 ods opendns ovh-dynhost route53 route53-v6 selfhost spdyn spdyn-v6 strato yandex yandex-v6 zoneedit porkbun porkbun-v6');
 define('DYNDNS_PROVIDER_DESCRIPTIONS', 'All-Inkl.com,Azure DNS,Azure DNS (v6),City Network,Cloudflare,Cloudflare (v6),ClouDNS,Custom,Custom (v6),deSEC,deSEC (v6),DigitalOcean,DigitalOcean (v6),DNSexit,DNSimple,DNSimple (v6),DNS Made Easy,DNS-O-Matic,Domeneshop,Domeneshop (v6),DreamHost,Dreamhost (v6),DuiaDns.net,DuiaDns.net (v6),DY.fi,DynDNS (dynamic),DynDNS (custom),DynDNS (static),DyNS,Dynv6,Dynv6 (v6),easyDNS,easyDNS (v6),Euro Dns,freeDNS,freeDNS (v6),freeDNS API Version 2, freeDNS API Version 2 (v6),GleSYS,Gandi LiveDNS,Gandi LiveDNS (v6),GoDaddy,GoDaddy (v6),Google Domains,GratisDNS,HE.net,HE.net (v6),HE.net Tunnelbroker,Hover,Linode,Linode (v6),Loopia,LuaDNS,LuaDNS (v6),Mythic Beasts,Mythic Beasts (v6),Name.com,Name.com (v6),Namecheap,NIC.RU,NIC.RU (v6),No-IP,No-IP (v6),No-IP (free),No-IP (free-v6),One.com,One.com (v6),ODS.org,OpenDNS,OVH DynHOST,Route 53,Route 53 (v6),SelfHost,SPDYN,SPDYN (v6),Strato,Yandex,Yandex (v6),ZoneEdit,Porkbun,Porkbun (v6)');
 
+/* Root-equivalent DNS options are separate from permission to edit ordinary DNS settings. */
+function services_dns_custom_editable(string $section, ?array $caller = null): bool {
+	$priv = ($section === 'unbound') ? 'page-services-dnsresolver-custom' : 'page-services-dnsforwarder-custom';
+	$page = ($section === 'unbound') ? 'services_unbound.php' : 'services_dnsmasq.php';
+	if ($caller === null) {
+		$entry = getUserEntry((string)($_SESSION['Username'] ?? ''));
+		$caller = $entry['item'] ?? array();
+		if (!isset($entry['idx']) && isset($_SESSION['page-match'])) {
+			$caller['__pages'] = $_SESSION['page-match'];
+		}
+	}
+	if (isset($caller['__pages'])) {
+		return in_array('*', $caller['__pages'], true) ||
+		    in_array($page . '?custom_config=*', $caller['__pages'], true);
+	}
+	return ((string)($caller['uid'] ?? '') === '0') || userHasPrivilege($caller, 'page-all') ||
+	    userHasPrivilege($caller, $priv);
+}
+
+/* Preserve omitted/read-only options, and reject changes before generating or testing daemon config. */
+function services_dns_custom_enforce(string $section, array &$post, array &$errors, ?array $caller = null): void {
+	if (services_dns_custom_editable($section, $caller)) {
+		return;
+	}
+	$stored = base64_decode((string)config_get_path($section . '/custom_options', ''));
+	if (array_key_exists('custom_options', $post) &&
+	    (!is_string($post['custom_options']) ||
+	    (str_replace("\r\n", "\n", trim($post['custom_options'])) !== str_replace("\r\n", "\n", trim($stored))))) {
+		$errors[] = gettext('Changing custom DNS options requires the dedicated custom configuration privilege.');
+	}
+	$post['custom_options'] = $stored;
+	if ($section !== 'unbound') {
+		return;
+	}
+	$enabled = config_path_enabled('unbound', 'python');
+	if ((($caller !== null) || array_key_exists('python', $post)) && (isset($post['python']) !== $enabled)) {
+		$errors[] = gettext('Changing the DNS Python module requires the custom configuration privilege.');
+	}
+	foreach (array('python_order', 'python_script') as $field) {
+		$value = (string)config_get_path('unbound/' . $field, '');
+		$display = (($field === 'python_order') && ($value === '')) ? 'pre_validator' : $value;
+		if ($enabled && array_key_exists($field, $post) && ($post[$field] !== $display)) {
+			$errors[] = gettext('Changing the DNS Python module requires the custom configuration privilege.');
+		}
+		$post[$field] = $value;
+	}
+	if ($enabled) {
+		$post['python'] = 'yes';
+	} else {
+		unset($post['python']);
+	}
+}
+
 /* implement ipv6 route advertising daemon */
 function services_radvd_configure($blacklist = array()) {
 	global $g;
@@ -1322,7 +1375,9 @@ function services_dhcpd_configure($family = "all") {
 	services_dhcpd_kill_all($family);
 
 	if (dhcp_is_backend('isc')) {
-		$fd = fopen("{$g['tmp_path']}/dhcpd.sh", "w");
+		/* Root runs this script: never from a fixed name in /tmp, which another user could own. */
+		$dhcpd_script = tempnam(g_get('varrun_path'), 'dhcpd.sh.');
+		$fd = fopen($dhcpd_script, "w");
 		fwrite($fd, "/bin/mkdir -p {$g['dhcpd_chroot_path']}\n");
 		fwrite($fd, "/bin/mkdir -p {$g['dhcpd_chroot_path']}/dev\n");
 		fwrite($fd, "/bin/mkdir -p {$g['dhcpd_chroot_path']}/etc\n");
@@ -1334,7 +1389,8 @@ function services_dhcpd_configure($family = "all") {
 		fwrite($fd, "/bin/df {$g['dhcpd_chroot_path']}/dev | /usr/bin/grep -q {$g['dhcpd_chroot_path']}/dev || /sbin/mount -t devfs devfs {$g['dhcpd_chroot_path']}/dev\n");
 
 		fclose($fd);
-		mwexec("/bin/sh {$g['tmp_path']}/dhcpd.sh");
+		mwexec('/bin/sh ' . escapeshellarg($dhcpd_script));
+		@unlink($dhcpd_script);
 	}
 
 	if (($family === 'all') || ($family === 'inet')) {
@@ -4863,7 +4919,7 @@ function services_dnsmasq_configure($restart_dhcp = true) {
 			if ($override['ip'] == "!") {
 				$override['ip'] = "";
 			}
-			$args .= ' --server=/' . $override['domain'] . '/' . $override['ip'];
+			$args .= ' ' . escapeshellarg('--server=/' . $override['domain'] . '/' . $override['ip']);
 		}
 
 		/* avoid 127.0.0.1 dns loop,
@@ -4880,7 +4936,7 @@ function services_dnsmasq_configure($restart_dhcp = true) {
 		/* Allow DNS Rebind for forwarded domains */
 		if (!config_path_enabled('system/webgui','nodnsrebindcheck')) {
 			foreach (config_get_path('dnsmasq/domainoverrides', []) as $override) {
-				$args .= ' --rebind-domain-ok=/' . $override['domain'] . '/ ';
+				$args .= ' ' . escapeshellarg('--rebind-domain-ok=/' . $override['domain'] . '/') . ' ';
 			}
 		}
 
@@ -5135,6 +5191,8 @@ function services_snmpd_configure($interface='') {
 			printf(gettext("Error: cannot open snmpd.conf in services_snmpd_configure().%s"), "\n");
 			return 1;
 		}
+		/* It holds the communities; readable by root only. */
+		@chmod("{$g['varetc_path']}/snmpd.conf", 0600);
 
 		$snmpdcfg = config_get_path('snmpd');
 		$snmpdconf = <<<EOD
@@ -5484,7 +5542,8 @@ key "{$keyname}" {
 };
 
 EOD;
-		@file_put_contents("{$g['varetc_path']}/nsupdatekey{$i}", $upkey);
+		/* It holds the TSIG key. */
+		file_put_contents_private("{$g['varetc_path']}/nsupdatekey{$i}", $upkey);
 
 		/* generate update instructions */
 		$upinst = "";
@@ -5655,6 +5714,11 @@ function configure_cron() {
 		}
 
 		foreach (config_get_path('cron/item', []) as $item) {
+			/* One bad value must not add a line or a command to root's crontab. */
+			if (!cron_item_valid($item)) {
+				logger(LOG_ERR, localize_text('Skipping an invalid cron item: %s', substr(cfg_one_line($item['command'] ?? ''), 0, 120)));
+				continue;
+			}
 			$crontab_contents .= "\n{$item['minute']}\t";
 			$crontab_contents .= "{$item['hour']}\t";
 			$crontab_contents .= "{$item['mday']}\t";

@@ -27,6 +27,8 @@
  */
 
 //require_once('interfaces.inc');
+require_once(__DIR__ . '/cfg_format.inc');
+require_once(__DIR__ . '/input_check.inc');
 require_once('Net/IPv6.php');
 define('VIP_ALL', 1);
 define('VIP_CARP', 2);
@@ -341,7 +343,7 @@ function parse_rule_label_item(array $label): array|null {
 				$label_descr = implode(RULE_LABEL_TAG_DELIMITER, $label_tags);
 			}
 		} else {
-			$label_descr = str_replace('"', '', trim($label['descr']));
+			$label_descr = str_replace('"', '', trim(cfg_one_line($label['descr'])));
 		}
 	}
 	$label_descr_length = strlen($label_descr);
@@ -784,35 +786,48 @@ function clear_filter_subsystems_dirty() {
 	clear_subsystem_dirty('shaper');
 }
 
+/*
+ * Returns a private directory for system state, creating it if needed. Its parent, /var/db, can only
+ * be written by root. /tmp and /var/run are both world-writable, so a process running as another
+ * user could plant a file, a link or this directory itself there before root creates it.
+ */
+function private_state_dir(string $sub = ''): string {
+	$dir = g_get('vardb_path') . '/freesense' . (($sub === '') ? '' : "/{$sub}");
+	if (!is_dir($dir)) {
+		@mkdir($dir, 0700, true);
+	}
+
+	return $dir;
+}
+
+/* Returns the path of a named lock file. */
+function lock_file_path(string $lock): string {
+	$dir = private_state_dir('locks');
+
+	return $dir . '/' . preg_replace('/[^A-Za-z0-9_.-]/', '_', $lock) . '.lock';
+}
+
 /* lock configuration file */
 function lock($lock, $op = LOCK_SH) {
-	global $g;
 	if (!$lock) {
 		die(gettext("WARNING: A name must be given as parameter to lock() function."));
 	}
-	if (!file_exists("{$g['tmp_path']}/{$lock}.lock")) {
-		@touch("{$g['tmp_path']}/{$lock}.lock");
-		@chmod("{$g['tmp_path']}/{$lock}.lock", 0666);
-	}
-	if ($fp = fopen("{$g['tmp_path']}/{$lock}.lock", "w")) {
+	// Mode 'c' creates the file if needed and never truncates it.
+	if ($fp = @fopen(lock_file_path($lock), "c")) {
 		if (flock($fp, $op)) {
 			return $fp;
 		} else {
 			fclose($fp);
 		}
 	}
+	logger(LOG_ERR, localize_text("Could not take lock %s", $lock));
 }
 
 function try_lock($lock, $timeout = 5) {
-	global $g;
 	if (!$lock) {
 		die(gettext("WARNING: A name must be given as parameter to try_lock() function."));
 	}
-	if (!file_exists("{$g['tmp_path']}/{$lock}.lock")) {
-		@touch("{$g['tmp_path']}/{$lock}.lock");
-		@chmod("{$g['tmp_path']}/{$lock}.lock", 0666);
-	}
-	if ($fp = fopen("{$g['tmp_path']}/{$lock}.lock", "w")) {
+	if ($fp = @fopen(lock_file_path($lock), "c")) {
 		$trycounter = 0;
 		while (!flock($fp, LOCK_EX | LOCK_NB)) {
 			if ($trycounter >= $timeout) {
@@ -841,9 +856,7 @@ function unlock($cfglckkey = 0)
 
 /* unlock forcefully configuration file */
 function unlock_force($lock) {
-	global $g;
-
-	@unlink("{$g['tmp_path']}/{$lock}.lock");
+	@unlink(lock_file_path($lock));
 }
 
 function send_event($cmd) {
@@ -1026,14 +1039,20 @@ function do_input_validation($postdata, $reqdfields, $reqdfieldsn, &$input_error
 
 	/* check for bad control characters */
 	foreach ($postdata as $pn => $pd) {
-		if (is_string($pd) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $pd)) {
+		$bad = false;
+		$values = is_array($pd) ? $pd : array($pd);
+		array_walk_recursive($values, function ($v) use (&$bad) {
+			$bad = $bad || (is_string($v) && preg_match("/[\\x00-\\x08\\x0b\\x0c\\x0e-\\x1f]/", $v));
+		});
+		if ($bad) {
 			$input_errors[] = sprintf(gettext("The field %s contains invalid characters."), $pn);
 		}
 	}
 
 	if (is_array($reqdfields)) {
 		for ($i = 0; $i < count($reqdfields); $i++) {
-			if ($postdata[$reqdfields[$i]] == "") {
+			$value = $postdata[$reqdfields[$i]] ?? "";
+			if (($value === array()) || ($value == "")) {
 				$input_errors[] = sprintf(gettext("The field %s is required."), $reqdfieldsn[$i]);
 			}
 		}
@@ -1482,12 +1501,21 @@ function is_ipaddrv6($ipaddr) {
 	if (!is_string($ipaddr) || empty($ipaddr)) {
 		return false;
 	}
+	/* Net_IPv6 accepts a trailing line break. */
+	if (cfg_has_ctl($ipaddr)) {
+		return false;
+	}
 	/*
 	 * While Net_IPv6::checkIPv6() considers IPv6/mask a valid IPv6,
 	 * is_ipaddrv6() needs to be more strict to keep the compatibility
 	 * with is_ipaddrv4().
 	 */
 	if (strstr($ipaddr, "/")) {
+		return false;
+	}
+	/* A scope is an interface name. Callers pass "validated" addresses to shells and config files. */
+	if ((strpos($ipaddr, '%') !== false) &&
+	    !preg_match('/^[A-Za-z0-9_.-]{1,32}$/D', explode('%', $ipaddr, 2)[1])) {
 		return false;
 	}
 	if (strstr($ipaddr, "%") && is_linklocal($ipaddr)) {
@@ -1517,7 +1545,7 @@ function is_ipaddrv6($ipaddr) {
 function is_ipaddrv6_v4map($ipaddr) {
 	/* check RFC4291 par 2.2.2 format, ex: fd00::1.2.3.4
 	 * see upstream issue 11446 */
-	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/i', $ipaddr)) {
+	if (is_ipaddrv6($ipaddr) && preg_match('/^[0-9a-f:]{2,30}[0-9.]{7,15}$/iD', $ipaddr)) {
 		return true;
 	}
 	return false;
@@ -1561,14 +1589,14 @@ function is_mcast($ipaddr) {
 
 function is_mcastv4($ipaddr) {
 	if (!is_ipaddrv4($ipaddr) ||
-	    !preg_match('/^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$/', $ipaddr)) {
+	    !preg_match('/^2(?:2[4-9]|3\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d?|0)){3}$/D', $ipaddr)) {
 		return false;
 	}
 	return true;
 }
 
 function is_mcastv6($ipaddr) {
-	if (!is_ipaddrv6($ipaddr) || !preg_match('/^ff.+$/', $ipaddr)) {
+	if (!is_ipaddrv6($ipaddr) || !preg_match('/^ff.+$/D', $ipaddr)) {
 		return false;
 	}
 	return true;
@@ -1751,7 +1779,7 @@ function is_ipaddroralias($ipaddr) {
 	false - if not a valid subnet
 	true (numeric 4 or 6) - if valid, gives type of subnet */
 function is_subnet($subnet) {
-	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}|[0-9a-f:]{2,30}[0-9.]{7,15}))\/(\d{1,3})$/i', $subnet, $parts)) {
+	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}|[0-9a-f:]{2,30}[0-9.]{7,15}))\/(\d{1,3})$/iD', $subnet, $parts)) {
 		if (is_ipaddrv4($parts[1]) && $parts[3] <= 32) {
 			return 4;
 		}
@@ -1990,7 +2018,7 @@ function is_unqualified_hostname($hostname) {
 		return false;
 	}
 
-	if (preg_match('/^(?:[a-z0-9_]|[a-z0-9_][a-z0-9_\-]*[a-z0-9_])$/i', $hostname)) {
+	if (preg_match('/^(?:[a-z0-9_]|[a-z0-9_][a-z0-9_\-]*[a-z0-9_])$/iD', $hostname)) {
 		return true;
 	} else {
 		return false;
@@ -2024,9 +2052,9 @@ function is_domain($domain, $allow_wildcard=false, $trailing_dot=true) {
 		return false;
 	}
 	if ($allow_wildcard) {
-		$domain_regex = '/^(?:(?:[a-z_0-9\*]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/i';
+		$domain_regex = '/^(?:(?:[a-z_0-9\*]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/iD';
 	} else {
-		$domain_regex = '/^(?:(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/i';
+		$domain_regex = '/^(?:(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9])\.)*(?:[a-z_0-9]|[a-z_0-9][a-z_0-9\-]*[a-z_0-9\.])$/iD';
 	}
 
 	if (preg_match($domain_regex, $domain)) {
@@ -2276,7 +2304,7 @@ function group_ports($ports, $kflc = false) {
 
 /* returns true if $val is a valid shaper bandwidth value */
 function is_valid_shaperbw($val) {
-	return (preg_match("/^(\d+(?:\.\d+)?)([MKG]?b|%)$/", $val));
+	return (preg_match("/^(\d+(?:\.\d+)?)([MKG]?b|%)$/D", $val));
 }
 
 /* returns true if $test is in the range between $start and $end */
@@ -2879,13 +2907,8 @@ function logger(int $priority, mixed $message, string|null $prefix = null, int|n
 		$log_prefix = $log_prefix . ' [' . gettext($prefix) . ']';
 	}
 
-	if (g_get('debug')) {
-		$trace = DEBUG_BACKTRACE_PROVIDE_OBJECT;
-	} elseif ($priority == LOG_DEBUG) {
-		$trace = DEBUG_BACKTRACE_IGNORE_ARGS;
-	} else {
-		$trace = null;
-	}
+	// Never include call arguments in a backtrace: they can hold passwords and keys.
+	$trace = (g_get('debug') || ($priority == LOG_DEBUG)) ? DEBUG_BACKTRACE_IGNORE_ARGS : null;
 
 	if (isset($trace)) {
 		$log_string = json_encode(
@@ -3467,6 +3490,21 @@ function run_plugins($directory) {
  *    safe_mkdir($path, $mode = 0755)
  *    create directory if it doesn't already exist and isn't a file!
  */
+/*
+ * Write $data to $path readable by root only, for daemon configurations that
+ * hold secrets (PSKs, passwords). Returns what file_put_contents() returns.
+ */
+function file_put_contents_private($path, $data) {
+	if (file_exists($path)) {
+		@chmod($path, 0600);
+	}
+	$old_umask = umask(0077);
+	$result = @file_put_contents($path, $data);
+	umask($old_umask);
+	@chmod($path, 0600);
+	return $result;
+}
+
 function safe_mkdir($path, $mode = 0755) {
 	if (!is_file($path) && !is_dir($path)) {
 		return @mkdir($path, $mode, true);
@@ -4084,7 +4122,7 @@ function route_get($target, $ipprotocol = '', $useroute = false) {
 		} else {
 			$inet = '6';
 		}
-		$interface = exec("/sbin/route -n{$inet} get {$target} 2>/dev/null | /usr/bin/awk '/interface:/{print $2}'");
+		$interface = exec("/sbin/route -n{$inet} get " . escapeshellarg($target) . " 2>/dev/null | /usr/bin/awk '/interface:/{print $2}'");
 		if (empty($interface)) {
 			return array();
 		} elseif ($interface == 'lo0') {
@@ -4875,7 +4913,8 @@ function array_set_path(array &$arr, string $path, $value, $default = null) {
 		if (mb_strlen($key) == 0) {
 			continue;
 		}
-		if (array_key_exists($key, $el) && !empty($el[$key])) {
+		// '0', 0 and false are real values, so only '', null and [] count as vacant.
+		if (array_key_exists($key, $el) && ($el[$key] !== '') && ($el[$key] !== null) && ($el[$key] !== [])) {
 			if (!is_array($el[$key])) {
 				return ($default);
 			}
@@ -6037,66 +6076,3 @@ function unserialize_data(?string $path, mixed $default = null, ?array $options 
 	return $data;
 }
 
-/* Get an array of active widgets and metadata from user settings */
-function get_active_widgets($user_settings) {
-	$widgets = [];
-
-	/* Break up the sequence string into an array of widget definitions */
-	$widget_sep = ',';
-	$widget_seq_array = explode($widget_sep, rtrim($user_settings['widgets']['sequence'], $widget_sep));
-
-	foreach ($widget_seq_array as $widget_seq_data) {
-		/* Break each widget definition into its component values */
-		[$name, $column, $display, $instance] = explode(':', $widget_seq_data);
-		if (is_null($instance)) {
-			$instance = 0;
-		}
-		$widgets[] = [
-			'name'     => $name,
-			'column'   => $column,
-			'display'  => $display,
-			'instance' => $instance
-		];
-	}
-	return $widgets;
-}
-
-/* Test the validity of a given widget key based on user settings. */
-function is_valid_widgetkey($widgetkey, $user_settings, $widgetfile = null) {
-	/* Proper form of a widgetkey is <widget-name>-<instance-id>
-	 * Where:
-	 *   widget-name : Name of an active widget, which should be found in
-	 *                 the current sequence list.
-	 *   instance-id : An integer 0 or higher identifying a widget instance
-	 *
-	 * Additionally, for a widget to be valid in this context it must also
-	 * be present on the current Dashboard layout.
-	 */
-
-	/* Break the given widgetkey into its component parts */
-	[$wname, $wid] = explode('-', $widgetkey, 2);
-
-	/* Test for basic validity conditions */
-	if (empty($wname) ||
-	    !is_numericint($wid) ||
-	    empty($user_settings)) {
-		return false;
-	}
-
-	/* Check if this widget also matches a specific widget name */
-	if (!empty($widgetfile) &&
-	    ($wname != basename($widgetfile, '.widget.php'))) {
-		return false;
-	}
-
-	/* Ensure the key is for a widget which is in the Dashboard
-	 * configuration. */
-	$widgets = get_active_widgets($user_settings);
-	foreach ($widgets as $widget) {
-		if (($widget['name'] == $wname) &&
-		    ($widget['instance'] == $wid)) {
-			return true;
-		}
-	}
-	return false;
-}

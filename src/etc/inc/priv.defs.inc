@@ -353,30 +353,6 @@ $priv_list['page-getserviceproviders']['descr'] = gettext("Allow access to the '
 $priv_list['page-getserviceproviders']['match'] = array();
 $priv_list['page-getserviceproviders']['match'][] = "getserviceproviders.php*";
 
-$priv_list['page-getstats'] = array();
-$priv_list['page-getstats']['name'] = gettext("WebCfg - AJAX: Get Stats");
-$priv_list['page-getstats']['descr'] = gettext("Allow access to the 'AJAX: Get Stats' page.");
-$priv_list['page-getstats']['match'] = array();
-$priv_list['page-getstats']['match'][] = "getstats.php*";
-
-$priv_list['page-diagnostics-interfacetraffic'] = array();
-$priv_list['page-diagnostics-interfacetraffic']['name'] = gettext("WebCfg - Diagnostics: Interface Traffic");
-$priv_list['page-diagnostics-interfacetraffic']['descr'] = gettext("Allow access to the 'Diagnostics: Interface Traffic' page.");
-$priv_list['page-diagnostics-interfacetraffic']['match'] = array();
-$priv_list['page-diagnostics-interfacetraffic']['match'][] = "graph.php*";
-
-$priv_list['page-diagnostics-cpuutilization'] = array();
-$priv_list['page-diagnostics-cpuutilization']['name'] = gettext("WebCfg - Diagnostics: CPU Utilization");
-$priv_list['page-diagnostics-cpuutilization']['descr'] = gettext("Allow access to the 'Diagnostics: CPU Utilization' page.");
-$priv_list['page-diagnostics-cpuutilization']['match'] = array();
-$priv_list['page-diagnostics-cpuutilization']['match'][] = "stats.php*";
-
-$priv_list['page-xmlrpcinterfacestats'] = array();
-$priv_list['page-xmlrpcinterfacestats']['name'] = gettext("WebCfg - XMLRPC Interface Stats");
-$priv_list['page-xmlrpcinterfacestats']['descr'] = gettext("Allow access to the 'XMLRPC Interface Stats' page.");
-$priv_list['page-xmlrpcinterfacestats']['match'] = array();
-$priv_list['page-xmlrpcinterfacestats']['match'][] = "ifstats.php*";
-
 $priv_list['page-system-login-logout'] = array();
 $priv_list['page-system-login-logout']['name'] = gettext("WebCfg - System: Login / Logout / Dashboard");
 $priv_list['page-system-login-logout']['descr'] = gettext("Allow access to the 'System: Login / Logout' page and Dashboard.");
@@ -561,12 +537,14 @@ $priv_list['page-system-packagemanager-repositories']['match'][] = "pkg_mgr_repo
 $priv_list['page-services-captiveportal'] = array();
 $priv_list['page-services-captiveportal']['name'] = gettext("WebCfg - Services: Captive Portal");
 $priv_list['page-services-captiveportal']['descr'] = gettext("Allow access to the 'Services: Captive Portal' page.");
+$priv_list['page-services-captiveportal']['warn'] = "standard-warning-root";
 $priv_list['page-services-captiveportal']['match'] = array();
 $priv_list['page-services-captiveportal']['match'][] = "services_captiveportal.php*";
 
 $priv_list['page-services-captiveportal-filemanager'] = array();
 $priv_list['page-services-captiveportal-filemanager']['name'] = gettext("WebCfg - Services: Captive Portal: File Manager");
 $priv_list['page-services-captiveportal-filemanager']['descr'] = gettext("Allow access to the 'Services: Captive Portal: File Manager' page.");
+$priv_list['page-services-captiveportal-filemanager']['warn'] = "standard-warning-root";
 $priv_list['page-services-captiveportal-filemanager']['match'] = array();
 $priv_list['page-services-captiveportal-filemanager']['match'][] = "services_captiveportal_filemanager.php*";
 
@@ -918,15 +896,12 @@ $priv_list['page-status-trafficgraph']['descr'] = gettext("Allow access to the '
 $priv_list['page-status-trafficgraph']['match'] = array();
 $priv_list['page-status-trafficgraph']['match'][] = "status_graph.php*";
 $priv_list['page-status-trafficgraph']['match'][] = "bandwidth_by_ip.php*";
-$priv_list['page-status-trafficgraph']['match'][] = "graph.php*";
-$priv_list['page-status-trafficgraph']['match'][] = "ifstats.php*";
 
 $priv_list['page-status-cpuload'] = array();
 $priv_list['page-status-cpuload']['name'] = gettext("WebCfg - Status: CPU load");
 $priv_list['page-status-cpuload']['descr'] = gettext("Allow access to the 'Status: CPU load' page.");
 $priv_list['page-status-cpuload']['match'] = array();
 $priv_list['page-status-cpuload']['match'][] = "status_graph_cpu.php*";
-$priv_list['page-status-cpuload']['match'][] = "stats.php*";
 
 $priv_list['page-status-interfaces'] = array();
 $priv_list['page-status-interfaces']['name'] = gettext("WebCfg - Status: Interfaces");
@@ -1084,6 +1059,12 @@ $priv_list['page-system-advanced-notifications']['descr'] = gettext("Allow acces
 $priv_list['page-system-advanced-notifications']['match'] = array();
 $priv_list['page-system-advanced-notifications']['match'][] = "system_advanced_notifications.php*";
 
+$priv_list['page-system-advanced-performance'] = array();
+$priv_list['page-system-advanced-performance']['name'] = gettext("WebCfg - System: Advanced: Performance");
+$priv_list['page-system-advanced-performance']['descr'] = gettext("Allow access to the 'System: Advanced: Performance' page.");
+$priv_list['page-system-advanced-performance']['match'] = array();
+$priv_list['page-system-advanced-performance']['match'][] = "system_advanced_performance.php*";
+
 $priv_list['page-system-advanced-sysctl'] = array();
 $priv_list['page-system-advanced-sysctl']['name'] = gettext("WebCfg - System: Advanced: Tunables");
 $priv_list['page-system-advanced-sysctl']['descr'] = gettext("Allow access to the 'System: Advanced: Tunables' page.");
@@ -1219,10 +1200,10 @@ $priv_list['page-system-boot-environments']['match'] = array();
 $priv_list['page-system-boot-environments']['match'][] = "system_boot_environments.php*";
 
 $priv_list['page-system-user-settings'] = array();
-$priv_list['page-system-user-settings']['name'] = gettext("WebCfg - System: User Settings");
-$priv_list['page-system-user-settings']['descr'] = gettext("Allow access to the 'System: User Settings' page.");
+$priv_list['page-system-user-settings']['name'] = gettext("WebCfg - System: Account");
+$priv_list['page-system-user-settings']['descr'] = gettext("Allow access to the 'Account' page: profile, appearance, preferences and sessions.");
 $priv_list['page-system-user-settings']['match'] = array();
-$priv_list['page-system-user-settings']['match'][] = "system_user_settings.php*";
+$priv_list['page-system-user-settings']['match'][] = "account.php*";
 
 $priv_list['page-system-usermanager'] = array();
 $priv_list['page-system-usermanager']['name'] = gettext("WebCfg - System: User Manager");
@@ -1250,12 +1231,6 @@ $priv_list['page-system-usermanager-settings']['descr'] = gettext("Allow access 
 $priv_list['page-system-usermanager-settings']['warn'] = "standard-warning-root";
 $priv_list['page-system-usermanager-settings']['match'] = array();
 $priv_list['page-system-usermanager-settings']['match'][] = "system_usermanager_settings.php*";
-
-$priv_list['page-hidden-uploadconfiguration'] = array();
-$priv_list['page-hidden-uploadconfiguration']['name'] = gettext("WebCfg - Hidden: Upload Configuration");
-$priv_list['page-hidden-uploadconfiguration']['descr'] = gettext("Allow access to the 'Hidden: Upload Configuration' page.");
-$priv_list['page-hidden-uploadconfiguration']['match'] = array();
-$priv_list['page-hidden-uploadconfiguration']['match'][] = "uploadconfig.php*";
 
 $priv_list['page-vpn-ipsec'] = array();
 $priv_list['page-vpn-ipsec']['name'] = gettext("WebCfg - VPN: IPsec");
@@ -1338,6 +1313,7 @@ $priv_list['page-openvpn-server']['match'][] = "vpn_openvpn_server.php*";
 $priv_list['page-freesensewizardsubsystem'] = array();
 $priv_list['page-freesensewizardsubsystem']['name'] = gettext("WebCfg - Wizard Subsystem");
 $priv_list['page-freesensewizardsubsystem']['descr'] = gettext("Allow access to the Wizard Subsystem (e.g. Setup Wizard, OpenVPN Wizard).");
+$priv_list['page-freesensewizardsubsystem']['warn'] = "standard-warning-root";
 $priv_list['page-freesensewizardsubsystem']['match'] = array();
 $priv_list['page-freesensewizardsubsystem']['match'][] = "wizard.php*";
 

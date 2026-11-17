@@ -1,0 +1,29 @@
+{
+	"type": "interface-detail",
+	"title": "Interface detail",
+	"description": "One interface in full: link, addresses, adapter, counters and live traffic",
+	"icon": "fa-ethernet",
+	"tone": "series-6",
+	"category": "Network",
+	"page": "status_interfaces.php",
+	"order": 21,
+	"sizes": [
+		"md",
+		"lg",
+		"xl"
+	],
+	"size": "lg",
+	"every": 30,
+	"allow_copies": true,
+	"settings": [
+		{
+			"key": "interface",
+			"type": "interface",
+			"label": "Interface",
+			"value": "wan"
+		}
+	],
+	"strings": [
+		"The interface is not assigned."
+	]
+}

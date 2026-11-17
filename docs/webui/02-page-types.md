@@ -133,6 +133,11 @@ Rules:
 
 ---
 
+## Dashboard (1.2)
+
+`index.php` is the dashboard v2 shell: widgets are JavaScript modules on `/api/v1`. Follow
+`05-widgets.md`, not the page types above.
+
 ## Special pages: visual layer only
 
 Apply tokens, cards, toolbar styling, badges and row actions. **Keep their structure**,
@@ -140,6 +145,6 @@ and don't restructure them without a separate decision:
 
 `firewall_rules.php` (interface tabs, separators, drag), `vpn_ipsec.php` (P1/P2 nesting),
 `firewall_shaper*.php` (tree), `interfaces_assign.php`, `interfaces.php` (very long settings;
-sections only), `index.php` and widgets, `wizard.php`, `pkg.php` / `pkg_edit.php` (the XML
+sections only), `wizard.php`, `pkg.php` / `pkg_edit.php` (the XML
 package renderer: every XML package changes with it, so change it last and test 3 packages),
 `system_restapi_explorer.php`.

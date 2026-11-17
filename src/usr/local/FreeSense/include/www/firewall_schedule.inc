@@ -86,7 +86,14 @@ function schedule_sort() {
  * Returns array('input_errors' => [...], 'schedule' => the built schedule).
  */
 function saveSchedule($post, $id = null, $strict = false) {
-	$input_errors = array();
+	$input_errors = input_check($post, [
+		'descr' => ['line', 'label' => gettext('Description')],
+		'name' => ['line', 'label' => gettext('Schedule Name')],
+		'schedule*' => ['line', 'label' => gettext('Schedule')],
+		'starttime*' => ['token', 'label' => gettext('Start time')],
+		'stoptime*' => ['token', 'label' => gettext('Stop time')],
+		'timedescr*' => ['line', 'label' => gettext('Time range description')],
+	])[1];
 	$a_schedules = config_get_path('schedules/schedule', []);
 	if (($id !== null) && !isset($a_schedules[$id])) {
 		$id = null;

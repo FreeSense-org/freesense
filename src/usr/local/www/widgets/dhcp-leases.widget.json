@@ -1,0 +1,28 @@
+{
+	"type": "dhcp-leases",
+	"title": "DHCP leases",
+	"description": "Clients with a lease, online first, with search",
+	"icon": "fa-address-book",
+	"tone": "series-6",
+	"category": "Network",
+	"page": "status_dhcp_leases.php",
+	"link": "/status_dhcp_leases.php",
+	"order": 25,
+	"sizes": [
+		"md",
+		"lg",
+		"xl"
+	],
+	"size": "md",
+	"every": 30,
+	"strings": [
+		"%s online",
+		"of %s",
+		"Search name, IP or MAC",
+		"static",
+		"No lease matches.",
+		"(no name)",
+		"online",
+		"offline"
+	]
+}

@@ -44,7 +44,7 @@ function getSystemAdvancedFirewall($json = false) {
 	$pconfig['aliasesresolveinterval'] = config_get_path('system/aliasesresolveinterval');
 	$pconfig['bogonsinterval'] = config_get_path('system/bogons/interval');
 	$pconfig['bypassstaticroutes'] = config_path_enabled('filter', 'bypassstaticroutes');
-	$pconfig['checkaliasesurlcert'] = config_path_enabled('system', 'checkaliasesurlcert');
+	$pconfig['checkaliasesurlcert'] = alias_url_verify_tls();
 	$pconfig['statepolicy'] = config_get_path('system/statepolicy');
 	$pconfig['disable_auto_floating_states'] = config_get_path('system/disable_auto_floating_states');
 	$pconfig['disablefilter'] = config_get_path('system/disablefilter');
@@ -59,6 +59,9 @@ function getSystemAdvancedFirewall($json = false) {
 	$pconfig['icmperrortimeout'] = config_get_path('system/icmperrortimeout');
 	$pconfig['icmpfirsttimeout'] = config_get_path('system/icmpfirsttimeout');
 	$pconfig['maximumfrags'] = config_get_path('system/maximumfrags');
+	$pconfig['syncookies'] = config_get_path('system/syncookies', 'never');
+	$pconfig['syncookies_start'] = config_get_path('system/syncookies_start');
+	$pconfig['syncookies_end'] = config_get_path('system/syncookies_end');
 	$pconfig['maximumstates'] = config_get_path('system/maximumstates');
 	$pconfig['maximumtableentries'] = config_get_path('system/maximumtableentries');
 	$pconfig['no_apipa_block'] = config_path_enabled('system', 'no_apipa_block');
@@ -93,12 +96,39 @@ function getSystemAdvancedFirewall($json = false) {
 	return $json ? json_encode($pconfig) : $pconfig;
 }
 
+/* Every field saveSystemAdvancedFirewall() reads. Ranges and checks between fields stay in the saver. */
+function system_advanced_firewall_input_rules(): array {
+	$rules = [
+		'bogonsinterval' => ['enum', 'label' => gettext('Update Frequency'), 'values' => ['monthly', 'weekly', 'daily']],
+		'natreflection' => ['token', 'label' => gettext('NAT Reflection mode')],
+		'optimization' => ['enum', 'label' => gettext('Firewall Optimization Options'), 'values' => ['normal', 'high-latency', 'aggressive', 'conservative']],
+		'statepolicy' => ['token', 'label' => gettext('Firewall State Policy')],
+		'syncookies' => ['enum', 'label' => gettext('SYN Cookies'), 'values' => ['never', 'adaptive', 'always']],
+		'syncookies_start' => ['int', 'label' => gettext('SYN cookies start'), 'min' => 1, 'max' => 100],
+		'syncookies_end' => ['int', 'label' => gettext('SYN cookies end'), 'min' => 1, 'max' => 100],
+		'tftpinterface' => ['list', 'of' => 'token', 'label' => gettext('TFTP Proxy')],
+	];
+	foreach (['adaptiveend', 'adaptivestart', 'aliasesresolveinterval', 'maximumfrags', 'maximumstates', 'maximumtableentries', 'maxmss', 'reflectiontimeout',
+	    'icmperrortimeout', 'icmpfirsttimeout', 'otherfirsttimeout', 'othermultipletimeout', 'othersingletimeout', 'sctpclosedtimeout', 'sctpclosingtimeout',
+	    'sctpestablishedtimeout', 'sctpfirsttimeout', 'sctpopeningtimeout', 'tcpclosedtimeout', 'tcpclosingtimeout', 'tcpestablishedtimeout', 'tcpfinwaittimeout',
+	    'tcpfirsttimeout', 'tcpidletimeout', 'tcpopeningtimeout', 'tcptsdifftimeout', 'udpfirsttimeout', 'udpmultipletimeout', 'udpsingletimeout'] as $field) {
+		$rules[$field] = ['int', 'label' => $field];
+	}
+	foreach (['allow_nat64_prefix_override', 'bypassstaticroutes', 'checkaliasesurlcert', 'disable_auto_floating_states', 'disablefilter', 'disablenegate', 'disablereplyto',
+	    'disablescrub', 'disablevpnrules', 'enablebinatreflection', 'enablenatreflectionhelper', 'maxmss_enable', 'no_apipa_block', 'rfc959workaround', 'scrubnodf', 'scrubrnid',
+	    'vpn_fragment_reassemble', 'vpn_scrubnodf'] as $field) {
+		$rules[$field] = ['flag'];
+	}
+	return $rules;
+}
+
 function saveSystemAdvancedFirewall($post, $json = false) {
 	global $g, $state_policy_options;
 
 	$rv = array();
 
 	/* input validation */
+	$input_errors = input_check($post, system_advanced_firewall_input_rules())[1];
 
 	if (!empty($post['statepolicy']) &&
 	    !array_key_exists($post['statepolicy'], $state_policy_options)) {
@@ -119,6 +149,10 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 	}
 	if ($post['aliasesresolveinterval'] && !is_numericint($post['aliasesresolveinterval'])) {
 		$input_errors[] = gettext("The Aliases Hostname Resolve Interval value must be an integer.");
+	}
+	foreach (netperf_validate_syncookies((string)($post['syncookies'] ?? ''), trim((string)($post['syncookies_start'] ?? '')),
+	    trim((string)($post['syncookies_end'] ?? ''))) as $error) {
+		$input_errors[] = $error;
 	}
 	if ($post['maximumfrags'] && !is_numericint($post['maximumfrags'])) {
 		$input_errors[] = gettext("The Firewall Maximum Fragment Entries value must be an integer.");
@@ -274,8 +308,10 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 
 		if ($post['checkaliasesurlcert'] == "yes") {
 			config_set_path('system/checkaliasesurlcert', true);
+			config_del_path('system/allowinsecurealiasesurl');
 		} else {
 			config_del_path('system/checkaliasesurlcert');
+			config_set_path('system/allowinsecurealiasesurl', true);
 		}
 
 		$setup_sysctl = ($post['maximumtableentries'] != config_get_path('system/maximumtableentries'));
@@ -287,6 +323,21 @@ function saveSystemAdvancedFirewall($post, $json = false) {
 		config_set_path('system/aliasesresolveinterval', $post['aliasesresolveinterval']);
 		config_set_path('system/maximumtableentries', $post['maximumtableentries']);
 		config_set_path('system/maximumfrags', $post['maximumfrags']);
+
+		/* pf SYN cookies: never (pf default, not stored), adaptive or always */
+		if (in_array($post['syncookies'] ?? '', array('adaptive', 'always'), true)) {
+			config_set_path('system/syncookies', $post['syncookies']);
+		} else {
+			config_del_path('system/syncookies');
+		}
+		foreach (array('syncookies_start', 'syncookies_end') as $field) {
+			$value = trim((string)($post[$field] ?? ''));
+			if (($post['syncookies'] ?? '') === 'adaptive' && $value !== '') {
+				config_set_path("system/{$field}", $value);
+			} else {
+				config_del_path("system/{$field}");
+			}
+		}
 
 		if ($post['maxmss_enable'] == "yes") {
 			config_set_path('system/maxmss_enable', true);

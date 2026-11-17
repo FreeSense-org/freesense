@@ -25,20 +25,51 @@ function fn_source($code, $name) {
 }
 
 define('STATUS_METRICS_MAX_AGE', 30);
-foreach (array('status_metrics_rate', 'status_metrics_cpu_percent', 'status_metrics_parse_pfinfo', 'status_metrics_parse_df',
-    'status_metrics_parse_swapinfo', 'status_metrics_parse_mbuf', 'status_metrics_parse_temp', 'status_metrics_parse_xport',
-    'status_metrics_ranges') as $fn) {
+foreach (array('status_metrics_rate', 'status_metrics_parse_pfinfo', 'status_metrics_parse_df',
+    'status_metrics_parse_swapinfo', 'status_metrics_parse_mbuf', 'status_metrics_parse_temp', 'status_metrics_parse_sensors', 'status_metrics_parse_xport',
+    'status_metrics_ranges', 'status_metrics_parse_ntpq', 'status_metrics_parse_smart_health') as $fn) {
 	eval(fn_source($src, $fn));
 }
 eval(fn_source($routes_src, 'restapi_notice_list'));
+
+/* ntpq -pnw: tally, wrapped long address, PPS peer */
+$peers = status_metrics_parse_ntpq(<<<'TXT'
+     remote           refid      st t when poll reach   delay   offset  jitter
+==============================================================================
+ 0.freesense.pool.ntp.org
+                 .POOL.          16 p    -   64    0    0.000   +0.000   0.000
+*162.159.200.1   10.21.8.4        3 u   35   64  377   12.345   -0.512   0.231
++2606:4700:f1::123
+                 10.21.8.4        3 u   36   64  377   14.002   +0.118   0.410
+-192.0.2.10      .GPS.            1 u  512 1024  377   40.120   +3.000   1.200
+TXT);
+check(count($peers) === 4, 'every peer, wrapped addresses joined');
+check($peers[0]['tally'] === '' && $peers[0]['remote'] === '0.freesense.pool.ntp.org' && $peers[0]['stratum'] === 16, 'pool entry');
+check($peers[1]['tally'] === '*' && $peers[1]['remote'] === '162.159.200.1' && $peers[1]['delay'] === 12.345 && $peers[1]['offset'] === -0.512 &&
+    $peers[1]['reach'] === '377' && $peers[1]['poll'] === 64, 'system peer with delay, offset and reach');
+check($peers[2]['tally'] === '+' && $peers[2]['remote'] === '2606:4700:f1::123' && $peers[2]['jitter'] === 0.41, 'wrapped IPv6 candidate');
+check($peers[3]['tally'] === '-' && $peers[3]['refid'] === '.GPS.' && $peers[3]['stratum'] === 1, 'outlier');
+check(status_metrics_parse_ntpq('') === array(), 'no ntpq output, no peers');
+
+/* smartctl -H */
+check(status_metrics_parse_smart_health("=== START OF READ SMART DATA SECTION ===\nSMART overall-health self-assessment test result: PASSED\n") === 'PASSED', 'ATA health');
+check(status_metrics_parse_smart_health("SMART Health Status: OK\n") === 'OK', 'SCSI health');
+check(status_metrics_parse_smart_health("Device does not support SMART\n") === '', 'unknown health');
 
 /* Rates */
 check(status_metrics_rate(1000, 100.0, 3000, 102.0) === 1000.0, 'a rate is the counter delta per second');
 check(status_metrics_rate(null, null, 3000, 102.0) === null, 'no previous sample: no rate');
 check(status_metrics_rate(5000, 100.0, 1000, 102.0) === null, 'a counter that went backwards (reset) gives no rate');
 check(status_metrics_rate(1000, 100.0, 3000, 100.0 + STATUS_METRICS_MAX_AGE + 1) === null, 'a stale sample gives no rate');
-check(status_metrics_cpu_percent(array(100, 0, 50, 10, 840), array(150, 0, 70, 10, 1020)) === 28.0, 'CPU busy percent from cp_time ticks');
-check(status_metrics_cpu_percent(array(1, 2, 3), array(1, 2, 3, 4, 5)) === null, 'malformed cp_time gives null');
+
+/* Temperature sensors */
+$sensors = status_metrics_parse_sensors("dev.cpu.1.temperature: 47.0C\ndev.cpu.0.temperature: 45.0C\nhw.acpi.thermal.tz0.temperature: 27.9C\n" .
+    "dev.pchtherm.0.temperature: 51.0C\ndev.t5nex.0.temperature: 60C\nhw.acpi.thermal.tz1.temperature: -1.0C\ndev.cpu.10.temperature: 44.0C\nnoise\n");
+check(count($sensors) === 6, 'every readable sensor, unreadable ones left out');
+check($sensors[0] === array('id' => 'dev.cpu.0.temperature', 'name' => 'CPU 0', 'celsius' => 45.0) && $sensors[2]['name'] === 'CPU 10',
+    'CPU sensors in natural order');
+check($sensors[1]['name'] === 'CPU 1' && $sensors[3]['name'] === 'PCH 0' && $sensors[4]['name'] === 't5nex 0' && $sensors[5]['name'] === 'ACPI zone 0', 'PCH and driver sensor names');
+check(in_array('ACPI zone 0', array_column($sensors, 'name'), true), 'ACPI thermal zone name');
 
 /* pfctl -si */
 $pf = status_metrics_parse_pfinfo(<<<'TXT'
@@ -191,5 +222,10 @@ eval(fn_source($v1, 'restapi_gateway_number'));
 check(restapi_gateway_number('0.753ms') === 0.753 && restapi_gateway_number('0.0%') === 0.0 && restapi_gateway_number('12ms') === 12.0 &&
     restapi_gateway_number('') === null && restapi_gateway_number(null) === null && restapi_gateway_number('~') === null,
     'dpinger values become numbers (or null)');
+
+$system_fn = fn_source($src, 'status_metrics_system');
+check(strpos(file_get_contents(dirname(__DIR__) . '/src/etc/inc/sysstat.inc'), "'temperatures' => status_metrics_sensors(),") !== false &&
+    strpos($system_fn, "'temperatures' => (array)(\$snap['temperatures'] ?? array()),") !== false,
+    'status/system reports every sensor (status_metrics_sensors() in the sampler)');
 
 echo "Status metrics smoke test passed.\n";

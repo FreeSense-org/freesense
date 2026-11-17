@@ -129,12 +129,30 @@ function remove_npt_rules(int|array $search_index, array &$changes = []) {
 }
 
 // Save NPt rule
+/* Every field savenptNATrule() reads. Checks between fields stay in the saver. */
+function firewall_nat_npt_input_rules(): array {
+	return [
+		'after' => ['token'],
+		'descr' => ['line', 'label' => gettext('Description')],
+		'disabled' => ['flag'],
+		'dst' => ['line', 'label' => gettext('Destination prefix')],
+		'dstmask' => ['int', 'label' => gettext('Destination bit count'), 'max' => 128],
+		'dstnot' => ['flag'],
+		'dsttype' => ['line', 'label' => gettext('Destination type')],
+		'id' => ['token'],
+		'interface' => ['token', 'label' => gettext('Interface')],
+		'src' => ['line', 'label' => gettext('Source prefix')],
+		'srcmask' => ['int', 'label' => gettext('Source bit count'), 'max' => 128],
+		'srcnot' => ['flag'],
+	];
+}
+
 function savenptNATrule($post, $id, $json = false) {
 	if (isset($post['after'])) {
 		$after = $post['after'];
 	}
 
-	unset($input_errors);
+	$input_errors = input_check($post, firewall_nat_npt_input_rules())[1];
 	$pconfig = $post;
 
 	// input validation

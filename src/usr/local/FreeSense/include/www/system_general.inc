@@ -49,10 +49,6 @@ function system_general_settings() {
 	$pconfig['domain'] = config_get_path('system/domain');
 	$pconfig['dnsserver'] = config_get_path('system/dnsserver');
 
-	// set default columns to two if unset
-	if (!is_numericint(config_get_path('system/webgui/dashboardcolumns'))) {
-		config_set_path('system/webgui/dashboardcolumns', 2);
-	}
 
 	// set default language if unset
 	if (!config_path_enabled('system', 'language')) {
@@ -79,20 +75,13 @@ function system_general_settings() {
 	$pconfig['timezone'] = config_get_path('system/timezone');
 	$pconfig['timeservers'] = config_get_path('system/timeservers');
 	$pconfig['language'] = config_get_path('system/language');
-	$pconfig['webguicss'] = config_get_path('system/webgui/webguicss');
 	$pconfig['logincss'] = config_get_path('system/webgui/logincss');
-	$pconfig['webguifixedmenu'] = config_get_path('system/webgui/webguifixedmenu');
-	$pconfig['dashboardcolumns'] = config_get_path('system/webgui/dashboardcolumns');
 	$pconfig['interfacessort'] = config_path_enabled('system/webgui', 'interfacessort');
 	$pconfig['webguileftcolumnhyper'] = config_path_enabled('system/webgui', 'webguileftcolumnhyper');
 	$pconfig['disablealiaspopupdetail'] = config_path_enabled('system/webgui', 'disablealiaspopupdetail');
-	$pconfig['dashboardavailablewidgetspanel'] = config_path_enabled('system/webgui', 'dashboardavailablewidgetspanel');
 	$pconfig['systemlogsfilterpanel'] = config_path_enabled('system/webgui', 'systemlogsfilterpanel');
 	$pconfig['systemlogsmanagelogpanel'] = config_path_enabled('system/webgui', 'systemlogsmanagelogpanel');
 	$pconfig['statusmonitoringsettingspanel'] = config_path_enabled('system/webgui', 'statusmonitoringsettingspanel');
-	$pconfig['webguihostnamemenu'] = config_get_path('system/webgui/webguihostnamemenu');
-	$pconfig['webguipagewidth'] = config_get_path('system/webgui/webguipagewidth', '');
-	$pconfig['webguimenuicons'] = config_get_path('system/webgui/webguimenuicons', '');
 	$pconfig['dnslocalhost'] = config_get_path('system/dnslocalhost');
 	//$pconfig['dashboardperiod'] = isset($config['widgets']['period']) ? $config['widgets']['period']:"10";
 	$pconfig['roworderdragging'] = config_path_enabled('system/webgui', 'roworderdragging');
@@ -192,12 +181,6 @@ function system_general_save(array $post) {
 	if ($post['domain'] && (!is_domain($post['domain'], false, false))) {
 		$input_errors[] = gettext("The domain may only contain the characters a-z, 0-9, '-' and '.', and it cannot start with '.' or '-'.");
 	}
-	validate_webguicss_field($input_errors, $post['webguicss']);
-	validate_webguifixedmenu_field($input_errors, $post['webguifixedmenu']);
-	validate_webguihostnamemenu_field($input_errors, $post['webguihostnamemenu']);
-	validate_webguipagewidth_field($input_errors, $post['webguipagewidth'] ?? '');
-	validate_webguimenuicons_field($input_errors, $post['webguimenuicons'] ?? '');
-	validate_dashboardcolumns_field($input_errors, $post['dashboardcolumns']);
 
 	$dnslist = $ignore_posted_dnsgw = array();
 
@@ -310,9 +293,6 @@ function system_general_save(array $post) {
 		config_del_path('system/webgui/disablealiaspopupdetail');
 		config_set_path('system/webgui/disablealiaspopupdetail', $post['disablealiaspopupdetail'] ? true : false);
 
-		config_del_path('system/webgui/dashboardavailablewidgetspanel');
-		config_set_path('system/webgui/dashboardavailablewidgetspanel', $post['dashboardavailablewidgetspanel'] ? true : false);
-
 		config_del_path('system/webgui/systemlogsfilterpanel');
 		config_set_path('system/webgui/systemlogsfilterpanel', $post['systemlogsfilterpanel'] ? true : false);
 
@@ -325,12 +305,6 @@ function system_general_save(array $post) {
 //		if ($post['dashboardperiod']) {
 //			$config['widgets']['period'] = $post['dashboardperiod'];
 //		}
-
-		if ($post['webguicss']) {
-			config_set_path('system/webgui/webguicss', $post['webguicss']);
-		} else {
-			config_del_path('system/webgui/webguicss');
-		}
 
 		config_set_path('system/webgui/roworderdragging', $post['roworderdragging'] ? true:false);
 
@@ -349,32 +323,6 @@ function system_general_save(array $post) {
 			config_set_path('system/login_message', base64_encode($login_message));
 		} else {
 			config_del_path('system/login_message');
-		}
-
-		if ($post['webguifixedmenu']) {
-			config_set_path('system/webgui/webguifixedmenu', $post['webguifixedmenu']);
-		} else {
-			config_del_path('system/webgui/webguifixedmenu');
-		}
-
-		if ($post['webguihostnamemenu']) {
-			config_set_path('system/webgui/webguihostnamemenu', $post['webguihostnamemenu']);
-		} else {
-			config_del_path('system/webgui/webguihostnamemenu');
-		}
-
-		foreach (array('webguipagewidth', 'webguimenuicons') as $layout) {
-			if (!empty($post[$layout])) {
-				config_set_path("system/webgui/{$layout}", $post[$layout]);
-			} else {
-				config_del_path("system/webgui/{$layout}");
-			}
-		}
-
-		if ($post['dashboardcolumns']) {
-			config_set_path('system/webgui/dashboardcolumns', $post['dashboardcolumns']);
-		} else {
-			config_del_path('system/webgui/dashboardcolumns');
 		}
 
 		config_set_path('system/webgui/requirestatefilter', $post['requirestatefilter'] ? true : false);

@@ -58,7 +58,7 @@ if (!function_exists("pkg_debug")) {
 function pkg_valid_name($pkgname) {
 	global $g;
 
-	$pattern = "/^{$g['pkg_prefix']}[a-zA-Z0-9\.\-_]+$/";
+	$pattern = "/^{$g['pkg_prefix']}[a-zA-Z0-9\.\-_]+$/D";
 	return preg_match($pattern, $pkgname);
 }
 
@@ -1964,5 +1964,158 @@ error:
 	}
 
 	return $result;
+}
+
+/*
+ * What is new on a Development system. The download document only changes with
+ * image releases, so Development systems read a log that is written on every
+ * build: https://pkg.freesense.org/v1/releases/devel.notes.json
+ * (freesense.release-notes-log/v1, one entry per build, newest first).
+ */
+define('PKG_NOTES_LOG_SCHEMA', 'freesense.release-notes-log/v1');
+define('PKG_NOTES_LOG_URL', 'https://pkg.freesense.org/v1/releases/devel.notes.json');
+
+/* The build generation in a FreeSense package version: its last long number (1.2.0.a.20261114.1340.1794665047). */
+function pkg_build_generation($version) {
+	return preg_match('/[._](\d{6,12})$/D', (string)$version, $m) ? (int)$m[1] : null;
+}
+
+/* Net package changes over several builds, oldest first: an update keeps its first "from" and its last "to". */
+function pkg_notes_merge_packages(array $builds, $limit = 200) {
+	$net = array();
+	foreach ($builds as $build) {
+		$packages = is_array($build['platform']['packages'] ?? null) ? $build['platform']['packages'] : array();
+		foreach (array('updated', 'added', 'removed') as $kind) {
+			foreach ((is_array($packages[$kind] ?? null) ? $packages[$kind] : array()) as $item) {
+				$name = is_array($item) ? (string)($item['name'] ?? '') : '';
+				if ($name === '') {
+					continue;
+				}
+				$origin = (string)($item['origin'] ?? '');
+				$seen = $net[$name] ?? null;
+				if ($kind === 'updated') {
+					$net[$name] = array('kind' => (($seen['kind'] ?? '') === 'added') ? 'added' : 'updated',
+					    'origin' => $origin, 'from' => $seen['from'] ?? (string)($item['from'] ?? ''),
+					    'to' => (string)($item['to'] ?? ''), 'version' => (string)($item['to'] ?? ''));
+				} elseif ($kind === 'added') {
+					if ($seen !== null && $seen['kind'] === 'removed') {
+						$net[$name] = array('kind' => 'updated', 'origin' => $origin, 'from' => $seen['version'],
+						    'to' => (string)($item['version'] ?? ''), 'version' => (string)($item['version'] ?? ''));
+					} else {
+						$net[$name] = array('kind' => 'added', 'origin' => $origin, 'from' => '', 'to' => '',
+						    'version' => (string)($item['version'] ?? ''));
+					}
+				} elseif ($seen !== null && $seen['kind'] === 'added') {
+					unset($net[$name]);
+				} else {
+					$net[$name] = array('kind' => 'removed', 'origin' => $origin, 'from' => '', 'to' => '',
+					    'version' => (string)($item['version'] ?? ($seen['from'] ?? '')));
+				}
+			}
+		}
+	}
+	ksort($net);
+	$out = array('available' => true, 'updated' => array(), 'added' => array(), 'removed' => array(),
+	    'counts' => array('updated' => 0, 'added' => 0, 'removed' => 0), 'truncated' => false);
+	foreach ($net as $name => $n) {
+		$out['counts'][$n['kind']]++;
+		if (count($out[$n['kind']]) >= $limit) {
+			$out['truncated'] = true;
+		} elseif ($n['kind'] === 'updated') {
+			$out['updated'][] = array('name' => $name, 'from' => $n['from'], 'to' => $n['to'], 'origin' => $n['origin']);
+		} else {
+			$out[$n['kind']][] = array('name' => $name, 'version' => $n['version'], 'origin' => $n['origin']);
+		}
+	}
+	return $out;
+}
+
+/*
+ * A release document, in the shape System > Update and the REST changelog read,
+ * from the Development notes log: the builds newer than the installed one, or
+ * the latest few when the system is up to date. Null when the log is unusable.
+ */
+function pkg_update_notes_from_log($log, $installed_generation = null, $recent = 3, $cap = 30) {
+	if (!is_array($log) || (($log['schema_version'] ?? '') !== PKG_NOTES_LOG_SCHEMA) ||
+	    !is_array($log['entries'] ?? null)) {
+		return null;
+	}
+	$entries = array();
+	foreach ($log['entries'] as $entry) {
+		if (is_array($entry) && is_int($entry['generation'] ?? null) && is_array($entry['changes'] ?? null)) {
+			$entries[] = $entry;
+		}
+	}
+	if (empty($entries)) {
+		return null;
+	}
+	$chosen = array();
+	if ($installed_generation !== null) {
+		foreach ($entries as $entry) {
+			if ($entry['generation'] > $installed_generation) {
+				$chosen[] = $entry;
+			}
+		}
+	}
+	if (empty($chosen)) {
+		$chosen = array_slice($entries, 0, max(1, (int)$recent));
+	}
+	$newest = $chosen[0];
+	$oldest = $chosen[count($chosen) - 1];
+
+	$changes = array();
+	$seen = array();
+	foreach ($chosen as $entry) {
+		foreach ($entry['changes'] as $c) {
+			if (!is_array($c) || trim((string)($c['title'] ?? '')) === '') {
+				continue;
+			}
+			$identity = (string)$c['title'] . "\0" . (string)($c['scope'] ?? '');
+			if (!isset($seen[$identity]) && count($changes) < $cap) {
+				$seen[$identity] = true;
+				$changes[] = $c;
+			}
+		}
+	}
+	$from = $oldest['platform']['freebsd']['from_commit'] ?? null;
+	$from_ports = $oldest['platform']['freebsd']['from_ports_commit'] ?? null;
+	$to = $newest['platform']['freebsd']['to_commit'] ?? ($newest['provenance']['freebsd'] ?? null);
+	$to_ports = $newest['platform']['freebsd']['to_ports_commit'] ?? ($newest['provenance']['ports'] ?? null);
+	$freebsd = array(
+		'changed' => is_string($from) && is_string($to) && ($from !== $to),
+		'ports_changed' => is_string($from_ports) && is_string($to_ports) && ($from_ports !== $to_ports),
+		'from_commit' => is_string($from) ? $from : null, 'to_commit' => is_string($to) ? $to : null,
+		'from_ports_commit' => is_string($from_ports) ? $from_ports : null,
+		'to_ports_commit' => is_string($to_ports) ? $to_ports : null,
+	);
+	/* What main has that the Stable branch does not, kept by the publisher (cherry-picks left out). */
+	$since_stable = null;
+	$section = $log['since_stable'] ?? null;
+	if (is_array($section) && is_array($section['changes'] ?? null)) {
+		$listed = array();
+		foreach ($section['changes'] as $c) {
+			if (is_array($c) && trim((string)($c['title'] ?? '')) !== '') {
+				$listed[] = $c;
+			}
+		}
+		$since_stable = array('baseline' => (string)($section['baseline'] ?? ''),
+		    'total' => max(count($listed), (int)($section['total'] ?? 0)), 'changes' => $listed);
+	}
+	return array(
+		'schema_version' => 'freesense.download/v4',
+		'channel' => 'devel',
+		'release_id' => (string)($newest['version'] ?? '') . '-g' . $newest['generation'],
+		'generation' => $newest['generation'],
+		'published_at' => (string)($newest['published_at'] ?? ''),
+		'notes_builds' => count($chosen),
+		'notes_since' => (string)($oldest['published_at'] ?? ''),
+		'since_stable' => $since_stable,
+		'release_notes' => array(
+			'schema_version' => 'freesense.release-notes/v2',
+			'baseline_release_id' => null,
+			'freesense' => $changes,
+			'platform' => array('freebsd' => $freebsd, 'packages' => pkg_notes_merge_packages(array_reverse($chosen))),
+		),
+	);
 }
 ?>

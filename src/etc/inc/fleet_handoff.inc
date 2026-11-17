@@ -136,6 +136,7 @@ function fleet_handoff_signin(string $token): bool {
 	$_SESSION['remoteauth'] = false;
 	$_SESSION['authsource'] = 'FreeSense Fleet (' . $record['operator'] . ')';
 	$_SESSION['Username'] = $user['name'];
+	$_SESSION['user_session_generation'] = (string)($user['session_generation'] ?? '');
 	$_SESSION['last_access'] = time();
 	$_SESSION['protocol'] = webgui_request_protocol();
 	$_SESSION['REMOTE_ADDR'] = $_SERVER['REMOTE_ADDR'];

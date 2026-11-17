@@ -1466,15 +1466,12 @@ function captiveportal_remove_entries($remove, $carp_loop = false) {
 		return;
 	}
 
-	$query = "DELETE FROM captiveportal WHERE sessionid in (";
-	foreach ($remove as $idx => $unindex) {
-		$query .= "'{$unindex}'";
-		if ($idx < (count($remove) - 1)) {
-			$query .= ",";
-		}
+	/* The session ids can come from the HA peer over XML-RPC. */
+	$ids = array();
+	foreach ($remove as $unindex) {
+		$ids[] = "'" . SQLite3::escapeString((string)$unindex) . "'";
 	}
-	$query .= ")";
-	captiveportal_write_db($query);
+	captiveportal_write_db("DELETE FROM captiveportal WHERE sessionid in (" . implode(",", $ids) . ")");
 
 	if (captiveportal_xmlrpc_sync_get_details($syncip, $syncport, $syncuser, $syncpass, $carp_loop)) {
 		$rpc_client = new freesense_xmlrpc_client();
@@ -1930,9 +1927,16 @@ function captiveportal_reapply_attributes($cpentry, $attributes) {
 function captiveportal_update_entry($sessionid, $new_value, $field_to_update) {
 	global $cpzone;
 
-	if (!intval($new_value)) {
-		$new_value = "'{$new_value}'";
+	/* The bandwidth values come from RADIUS reply attributes. */
+	if (!in_array($field_to_update, array('authmethod', 'bw_up', 'bw_down'), true)) {
+		return;
 	}
+	if (is_numeric($new_value)) {
+		$new_value = (int)$new_value;
+	} else {
+		$new_value = "'" . SQLite3::escapeString((string)$new_value) . "'";
+	}
+	$sessionid = SQLite3::escapeString((string)$sessionid);
 	captiveportal_write_db("UPDATE captiveportal SET {$field_to_update} = {$new_value} WHERE sessionid = '{$sessionid}'");
 }
 
@@ -2160,12 +2164,12 @@ function portal_allow($clientip, $clientmac, $username, $password = null, $redir
 				$attributes['session_timeout'] = $remaining_time;
 			}
 
-			/* handle empty attributes */
-			$session_timeout = (!empty($attributes['session_timeout'])) ? $attributes['session_timeout'] : 'NULL';
-			$idle_timeout = (!empty($attributes['idle_timeout'])) ? $attributes['idle_timeout'] : 'NULL';
-			$session_terminate_time = (!empty($attributes['session_terminate_time'])) ? $attributes['session_terminate_time'] : 'NULL';
-			$interim_interval = (!empty($attributes['interim_interval'])) ? $attributes['interim_interval'] : 'NULL';
-			$traffic_quota = (!empty($attributes['maxbytes'])) ? $attributes['maxbytes'] : 'NULL';
+			/* handle empty attributes; they come from the RADIUS server and go into SQL as numbers */
+			$session_timeout = (!empty($attributes['session_timeout'])) ? (int)$attributes['session_timeout'] : 'NULL';
+			$idle_timeout = (!empty($attributes['idle_timeout'])) ? (int)$attributes['idle_timeout'] : 'NULL';
+			$session_terminate_time = (!empty($attributes['session_terminate_time'])) ? (int)$attributes['session_terminate_time'] : 'NULL';
+			$interim_interval = (!empty($attributes['interim_interval'])) ? (int)$attributes['interim_interval'] : 'NULL';
+			$traffic_quota = (!empty($attributes['maxbytes'])) ? (int)$attributes['maxbytes'] : 'NULL';
 
 			/* escape username */
 			$safe_username = SQLite3::escapeString($username);
@@ -2920,6 +2924,9 @@ function captiveportal_pipe_configure($host, $type, $user_auth = true) {
 		$pipeup = captiveportal_get_next_dn_ruleno($type);
 	}
 
+	$pipeup = (int)$pipeup;
+	$bwUp = (int)$bwUp;
+	$bwDown = (int)$bwDown;
 	mwexec("/sbin/dnctl pipe {$pipeup} config bw {$bwUp}Kbit/s queue 100 buckets 16");
 	$pipedown = $pipeup + 1;
 	mwexec("/sbin/dnctl pipe {$pipedown} config bw {$bwDown}Kbit/s queue 100 buckets 16");

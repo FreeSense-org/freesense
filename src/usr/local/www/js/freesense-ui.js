@@ -1780,6 +1780,80 @@
 	} else {
 		init();
 	}
+
+	/* Sidebar navigation: collapse to an icon rail, remembered in this browser. */
+	(function () {
+		var body = document.body, KEY = 'fs-side-rail';
+		if (!body || !body.classList.contains('fs-nav-side')) {
+			return;
+		}
+		var btn = document.querySelector('[data-fs-side-toggle]');
+		function apply(rail) {
+			body.classList.toggle('fs-side-rail', rail);
+			if (btn) {
+				btn.setAttribute('aria-pressed', rail ? 'true' : 'false');
+				btn.querySelector('i').className = 'fa-solid ' + (rail ? 'fa-angles-right' : 'fa-angles-left') + ' fs-menu-icon';
+			}
+		}
+		var saved = false;
+		try { saved = localStorage.getItem(KEY) === '1'; } catch (e) { /* storage unavailable */ }
+		apply(saved);
+		/* A menu icon in the rail opens the full sidebar with that menu expanded. */
+		var menu = document.querySelector('.fs-topbar-menu');
+		var wide = window.matchMedia('(min-width: 992px)');
+		function setOpen(toggle, open) {
+			toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+			toggle.classList.toggle('show', open);
+			var panel = toggle.parentNode.querySelector('.dropdown-menu');
+			if (panel) {
+				panel.classList.toggle('show', open);
+			}
+		}
+		if (menu) {
+			/* On a wide screen the groups open inline and stay open until closed; the group of the
+			 * current page is open when the page loads. Phones keep the Bootstrap dropdowns. */
+			menu.addEventListener('click', function (e) {
+				var toggle = e.target.closest('.dropdown-toggle');
+				if (!toggle || !wide.matches) {
+					return;
+				}
+				e.preventDefault();
+				e.stopPropagation();
+				if (body.classList.contains('fs-side-rail')) {
+					apply(false);
+					try { localStorage.setItem(KEY, '0'); } catch (err) { /* storage unavailable */ }
+					setOpen(toggle, true);
+					return;
+				}
+				setOpen(toggle, toggle.getAttribute('aria-expanded') !== 'true');
+			}, true);
+			/* Bootstrap must not also toggle them on a wide screen. */
+			var syncToggles = function () {
+				menu.querySelectorAll(':scope > .nav-item > .dropdown-toggle').forEach(function (t) {
+					if (wide.matches) {
+						t.removeAttribute('data-bs-toggle');
+					} else {
+						t.setAttribute('data-bs-toggle', 'dropdown');
+					}
+				});
+			};
+			syncToggles();
+			wide.addEventListener('change', syncToggles);
+			if (wide.matches) {
+				var current = menu.querySelector('.dropdown-toggle.active');
+				if (current) {
+					setOpen(current, true);
+				}
+			}
+		}
+		if (btn) {
+			btn.addEventListener('click', function () {
+				var rail = !body.classList.contains('fs-side-rail');
+				apply(rail);
+				try { localStorage.setItem(KEY, rail ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+			});
+		}
+	})();
 })();
 
 /*
@@ -1925,4 +1999,30 @@
 	} else {
 		init();
 	}
+})();
+
+/* Sidebar layout: tell the CSS when the page has scrolled, so the top bar can float above the content. */
+(function () {
+	'use strict';
+	var body = document.body;
+	if (!body || !body.classList.contains('fs-nav-side')) {
+		return;
+	}
+	var tick = false;
+	function sync() {
+		tick = false;
+		body.classList.toggle('fs-scrolled', window.scrollY > 4);
+		/* the bar follows the page away unless the user chose a fixed top navigation */
+		var bar = document.querySelector('.fs-topbar-tools');
+		if (bar && !document.querySelector('#topmenu.fixed-top')) {
+			body.style.setProperty('--fs-bar-shift', Math.min(Math.max(window.scrollY, 0), bar.offsetHeight) + 'px');
+		}
+	}
+	window.addEventListener('scroll', function () {
+		if (!tick) {
+			tick = true;
+			window.requestAnimationFrame(sync);
+		}
+	}, { passive: true });
+	sync();
 })();

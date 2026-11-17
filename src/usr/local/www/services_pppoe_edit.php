@@ -111,6 +111,18 @@ if ($_POST['save']) {
 		}
 
 		do_input_validation($_POST, $reqdfields, $reqdfieldsn, $input_errors);
+		$input_errors = array_merge((array)$input_errors, input_check($_POST, [
+			'mode' => ['token', 'label' => gettext('Server mode')],
+			'interface' => ['token', 'label' => gettext('Interface')],
+			'paporchap' => ['flag'],
+			'descr' => ['line', 'label' => gettext('Description')],
+			'pppoe_dns1' => ['ip', 'label' => gettext('DNS server')],
+			'pppoe_dns2' => ['ip', 'label' => gettext('DNS server')],
+			'radiusserver2' => ['ipv4', 'label' => gettext('Secondary RADIUS server')],
+			'radius_acct_update' => ['int', 'label' => gettext('Accounting update')],
+			'password*' => ['secret', 'label' => gettext('Password')],
+			'ip*' => ['ipv4', 'label' => gettext('IP address')],
+		])[1]);
 
 		if (($_POST['localip'] && !is_ipaddrv4($_POST['localip']))) {
 			$input_errors[] = gettext("A valid server address must be specified.");
@@ -141,6 +153,10 @@ if ($_POST['save']) {
 
 		for ($x = 0; $x < 4999; $x++) {
 			if ($_POST["username{$x}"]) {
+				/* The name is written unquoted, one user per line, into mpd.secret. */
+				if (!cfg_value_valid('login', $_POST["username{$x}"])) {
+					$input_errors[] = sprintf(gettext("The user name %s contains characters that are not allowed."), htmlspecialchars((string)$_POST["username{$x}"]));
+				}
 				if (empty($_POST["password{$x}"])) {
 					$input_errors[] = sprintf(gettext("No password specified for username %s"), $_POST["username{$x}"]);
 				} elseif (preg_match("/^!/", trim($_POST["password{$x}"]))) {
@@ -151,6 +167,24 @@ if ($_POST['save']) {
 				}
 			}
 		}
+	}
+
+	/* These go into mpd.conf. */
+	foreach (['radiussecret', 'radiussecret2'] as $field) {
+		if (cfg_has_ctl($_POST[$field] ?? '')) {
+			$input_errors[] = gettext("The RADIUS shared secret contains characters that are not allowed.");
+		}
+	}
+	foreach (['radiusserverport', 'radiusserveracctport', 'radiusserver2port', 'radiusserver2acctport'] as $field) {
+		if (!empty($_POST[$field]) && !is_port($_POST[$field])) {
+			$input_errors[] = gettext("The RADIUS ports must be valid port numbers.");
+		}
+	}
+	if (!empty($_POST['radius_acct_update']) && !is_numericint($_POST['radius_acct_update'])) {
+		$input_errors[] = gettext("The RADIUS accounting update must be a whole number.");
+	}
+	if (!empty($_POST['radius_nasip']) && !is_ipaddr($_POST['radius_nasip'])) {
+		$input_errors[] = gettext("The RADIUS NAS IP must be an IP address.");
 	}
 
 	if ($_POST['pppoeid'] && !is_numeric($_POST['pppoeid'])) {

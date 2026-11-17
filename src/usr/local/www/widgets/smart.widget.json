@@ -1,0 +1,24 @@
+{
+	"type": "smart",
+	"title": "Disk health",
+	"description": "SMART health of every drive",
+	"icon": "fa-heart-pulse",
+	"tone": "series-8",
+	"category": "System",
+	"page": "diag_smart.php",
+	"link": "/diag_smart.php",
+	"order": 36,
+	"sizes": [
+		"sm",
+		"md"
+	],
+	"size": "sm",
+	"every": 300,
+	"strings": [
+		"Passed",
+		"Failed",
+		"Unknown",
+		"No drives report SMART data.",
+		"Checked %s"
+	]
+}
