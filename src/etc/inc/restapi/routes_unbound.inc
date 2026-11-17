@@ -348,7 +348,7 @@ function restapi_h_unbound_get($req) {
 function restapi_h_unbound_set($req) {
 	$types = restapi_unbound_types();
 	$values = restapi_svc_merge($req['body'], restapi_unbound_settings(), $types);
-	$rv = unbound_save_general(restapi_svc_post($values, $types));
+	$rv = unbound_save_general(restapi_svc_post($values, $types), $req['user'] ?? null);
 	if (!empty($rv['input_errors'])) {
 		throw restapi_validation_error($rv['input_errors']);
 	}
