@@ -36,17 +36,5 @@ function session_read_single_var($varname) {
 	return $result;
 }
 
-$session_pagematch = session_read_single_var("page-match");
-
-$pageuri = $_SERVER['REQUEST_URI'];
-if (cmp_page_matches($pageuri, $session_pagematch)) {
-	/* This shortcut skips authgui.inc, so the configuration is loaded only when needed. */
-	if (input_gate_hits()) {
-		include_once("util.inc");
-		include_once("config.inc");
-		include_once("config.lib.inc");
-		input_gate_run();
-	}
-	return; // auth OK
-}
-require_once("authgui.inc");
+/* Account disable/expiry and session checks must also apply to graph and widget polling. */
+require_once('authgui.inc');

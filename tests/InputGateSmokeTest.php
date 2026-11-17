@@ -96,7 +96,7 @@ foreach (array_merge(INPUT_GATE_XML_PAGES) as $page) {
 	check("{$page} checks itself once its XML is loaded", strpos(file_get_contents($repo . "/src/usr/local/www/{$page}"), 'input_gate_run_xml($pkg)') !== false);
 }
 check('the sign-in layer runs the gate', strpos(file_get_contents($repo . '/src/etc/inc/authgui.inc'), 'input_gate_run();') !== false);
-check('the AJAX shortcut runs the gate', strpos(file_get_contents($repo . '/src/etc/inc/auth_check.inc'), 'input_gate_hits()') !== false);
+check('AJAX requests run the authenticated request gate', strpos(file_get_contents($repo . '/src/etc/inc/auth_check.inc'), "require_once('authgui.inc');") !== false);
 check('the REST API runs the gate', strpos(file_get_contents($repo . '/src/usr/local/www/api/index.php'), 'input_gate_run_rest(') !== false);
 
 /* do_input_validation() must walk lists too. */
