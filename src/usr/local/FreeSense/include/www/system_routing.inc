@@ -52,15 +52,7 @@ require_once("openvpn.inc");
  */
 function routing_apply_changes() {
 	/* Route deletions queued by static route edits/deletes. */
-	$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-	if (file_exists($routes_apply_file)) {
-		foreach (unserialize_data(file_get_contents($routes_apply_file), []) as $toapply) {
-			mwexec("{$toapply}");
-		}
-		@unlink($routes_apply_file);
-	}
-
-	$retval = 0;
+	$retval = system_routing_apply_deletions();
 
 	/* reconfigure our gateway monitor */
 	setup_gateways_monitor();
@@ -573,7 +565,7 @@ function routing_save_static_route($post, $id = null) {
 	$oroute = $this_routes_config;
 	$old_targets = array();
 	if (!empty($oroute)) {
-		$staticroute_file = g_get('tmp_path') . '/staticroute_' . $id;
+		$staticroute_file = system_routing_state_path('staticroute_' . (int)$id);
 		if (file_exists($staticroute_file)) {
 			$old_targets = unserialize_data(file_get_contents($staticroute_file), []);
 		}
@@ -618,12 +610,7 @@ function routing_save_static_route($post, $id = null) {
 		unset($route['disabled']);
 	}
 
-	$routes_apply_file = g_get('tmp_path') . '/.system_routes.apply';
-	if (file_exists($routes_apply_file)) {
-		$toapplylist = unserialize_data(file_get_contents($routes_apply_file), []);
-	} else {
-		$toapplylist = array();
-	}
+	$toapplylist = array();
 	config_set_path("staticroutes/route/{$id}", $route);
 
 	if (!empty($oroute)) {
@@ -644,17 +631,15 @@ function routing_save_static_route($post, $id = null) {
 		}
 		if (count($delete_targets)) {
 			foreach ($delete_targets as $dts) {
-				$family = is_ipaddrv6($dts) || is_subnetv6($dts) ? "-inet6" : "-inet";
 				if (!count(route_get($dts, '', true))) {
 					continue;
 				}
-				$toapplylist[] = "/sbin/route delete " .
-				    $family . " " . $dts . " " . $delgw;
+				$toapplylist[] = array('target' => $dts, 'gateway' => (string)$delgw);
 			}
 		}
 	}
 
-	file_put_contents($routes_apply_file, serialize($toapplylist));
+	system_routing_queue_deletions($toapplylist);
 
 	mark_subsystem_dirty('staticroutes');
 
