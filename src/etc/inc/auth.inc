@@ -907,6 +907,15 @@ function local_user_set_password(&$user_item_config, $password) {
 			break;
 	}
 
+	/* Changing a password revokes old WebUI sessions, not independent API keys. */
+	$user['session_generation'] = bin2hex(random_bytes(16));
+	if (!empty($_SESSION['Logged_In']) && (($_SESSION['Username'] ?? '') === ($user['name'] ?? ''))) {
+		/* Keep the authenticated self-service/setup-wizard session working. */
+		phpsession_begin();
+		$_SESSION['user_session_generation'] = $user['session_generation'];
+		phpsession_end(true);
+	}
+
 	if (($user['name'] == config_get_path('hasync/username')) &&
 	    (config_get_path('hasync/adminsync') == 'on')) {
 		config_set_path('hasync/new_password', $password);
@@ -2389,6 +2398,7 @@ function webgui_session_signin($username, $password) {
 		$_SESSION['authsource'] = 'Local Database Fallback';
 	}
 	$_SESSION['Username'] = $username;
+	$_SESSION['user_session_generation'] = (string)(getUserEntry($username)['item']['session_generation'] ?? '');
 	$_SESSION['user_radius_attributes'] = $attributes;
 	$_SESSION['last_access'] = time();
 	$_SESSION['protocol'] = webgui_request_protocol();
@@ -2424,8 +2434,11 @@ function webgui_session_account_problem(array $session): ?string {
 	$entry = getUserEntry($name);
 	$user = $entry['item'] ?? null;
 	if (isset($entry['idx']) && is_array($user)) {
-		if (isset($user['disabled']) && ($user['disabled'] !== false)) {
+		if (isset($user['disabled'])) {
 			return 'This account is no longer active.';
+		}
+		if ((string)($session['user_session_generation'] ?? '') !== (string)($user['session_generation'] ?? '')) {
+			return 'This session has been revoked.';
 		}
 		if (is_account_expired($name)) {
 			return 'This account has expired.';
