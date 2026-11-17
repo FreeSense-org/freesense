@@ -46,6 +46,7 @@ function restapi_schema_services_dns_resolver() {
 	$isc = function_exists('dhcp_is_backend') ? dhcp_is_backend('isc') : true;
 	$ssl = array('field' => 'enablessl', 'truthy' => true);
 	$python = array('field' => 'python', 'truthy' => true);
+	$custom_readonly = function_exists('services_dns_custom_editable') && !services_dns_custom_editable('unbound');
 
 	$general = array(
 		array('name' => 'enable', 'type' => 'switch', 'label' => gettext('Enable'), 'text' => gettext('Enable DNS resolver')),
@@ -105,11 +106,11 @@ function restapi_schema_services_dns_resolver() {
 	    'help' => gettext('If this option is set, then the common name (CN) of connected OpenVPN clients will be registered in the DNS Resolver, so that their name can be resolved. This only works for OpenVPN servers (Remote Access SSL/TLS or User Auth with Username as Common Name option) operating in "tun" mode. The domain in System > General Setup should also be set to the proper value.'));
 
 	$python_fields = array(
-		array('name' => 'python', 'type' => 'switch', 'label' => gettext('Python module'), 'text' => gettext('Enable Python Module')),
-		array('name' => 'python_order', 'type' => 'select', 'label' => gettext('Python module order'), 'width' => 'half', 'default' => 'pre_validator',
+		array('name' => 'python', 'readonly' => $custom_readonly, 'type' => 'switch', 'label' => gettext('Python module'), 'text' => gettext('Enable Python Module')),
+		array('name' => 'python_order', 'readonly' => $custom_readonly, 'type' => 'select', 'label' => gettext('Python module order'), 'width' => 'half', 'default' => 'pre_validator',
 		    'visibleWhen' => $python, 'help' => gettext('Select the Python Module ordering.'),
 		    'options' => restapi_schema_choices(array('pre_validator' => gettext('Pre Validator'), 'post_validator' => gettext('Post Validator')))),
-		array('name' => 'python_script', 'type' => 'select', 'label' => gettext('Python module script'), 'width' => 'half', 'options' => $scripts,
+		array('name' => 'python_script', 'readonly' => $custom_readonly, 'type' => 'select', 'label' => gettext('Python module script'), 'width' => 'half', 'options' => $scripts,
 		    'visibleWhen' => $python, 'help' => gettext('Select the Python module script to utilize.')),
 	);
 
@@ -123,7 +124,7 @@ function restapi_schema_services_dns_resolver() {
 			array('id' => 'registration', 'title' => gettext('Registration'), 'fields' => $registration),
 			array('id' => 'python', 'title' => gettext('Python module'), 'advanced' => true, 'fields' => $python_fields),
 			array('id' => 'custom', 'title' => gettext('Custom options'), 'advanced' => true, 'fields' => array(
-				array('name' => 'custom_options', 'type' => 'textarea', 'label' => gettext('Custom options'), 'code' => true, 'rows' => 8,
+				array('name' => 'custom_options', 'readonly' => $custom_readonly, 'type' => 'textarea', 'label' => gettext('Custom options'), 'code' => true, 'rows' => 8,
 				    'help' => gettext('Enter any additional configuration parameters to add to the DNS Resolver configuration here, separated by a newline.'),
 				    'errorMatch' => array('generated config file')),
 			)),

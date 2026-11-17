@@ -170,4 +170,14 @@ $priv_list['page-services-dhcpserver-kea-custom']['name'] = gettext("WebCfg - Se
 $priv_list['page-services-dhcpserver-kea-custom']['descr'] = gettext("Allow edit access to the custom Kea JSON configuration fields on the DHCP and DHCPv6 Server pages.");
 $priv_list['page-services-dhcpserver-kea-custom']['warn'] = "standard-warning-root";
 
-?>
+$priv_list['page-services-dnsresolver-custom'] = array();
+$priv_list['page-services-dnsresolver-custom']['name'] = gettext('WebCfg - Services: DNS Resolver: Custom Configuration');
+$priv_list['page-services-dnsresolver-custom']['descr'] = gettext('Allow changes to custom DNS daemon configuration and scripts.');
+$priv_list['page-services-dnsresolver-custom']['warn'] = 'standard-warning-root';
+$priv_list['page-services-dnsresolver-custom']['match'] = array('services_unbound.php?custom_config=*');
+
+$priv_list['page-services-dnsforwarder-custom'] = array();
+$priv_list['page-services-dnsforwarder-custom']['name'] = gettext('WebCfg - Services: DNS Forwarder: Custom Configuration');
+$priv_list['page-services-dnsforwarder-custom']['descr'] = gettext('Allow changes to custom DNS daemon configuration and scripts.');
+$priv_list['page-services-dnsforwarder-custom']['warn'] = 'standard-warning-root';
+$priv_list['page-services-dnsforwarder-custom']['match'] = array('services_dnsmasq.php?custom_config=*');

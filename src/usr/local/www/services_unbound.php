@@ -39,6 +39,7 @@ require_once("services_unbound.inc");
 $python_scripts = unbound_python_scripts();
 $pconfig = unbound_general_settings();
 $certs_available = unbound_certs_available();
+$custom_editable = services_dns_custom_editable('unbound');
 
 if (!empty($_POST['apply'])) {
 	$retval = unbound_apply_changes();
@@ -196,26 +197,31 @@ $section->addInput(new Form_Checkbox(
 	$pconfig['dnssec']
 ));
 
-$section->addInput(new Form_Checkbox(
+$section->addInput($dns_python = new Form_Checkbox(
 	'python',
 	gettext('Python Module'),
 	gettext('Enable Python Module'),
 	$pconfig['python']
 ))->setHelp('Enable the Python Module.');
 
-$section->addInput(new Form_Select(
+$section->addInput($dns_python_order = new Form_Select(
 	'python_order',
 	gettext('Python Module Order'),
 	$pconfig['python_order'],
 	[ 'pre_validator' => 'Pre Validator', 'post_validator' => 'Post Validator' ]
 ))->setHelp('Select the Python Module ordering.');
 
-$section->addInput(new Form_Select(
+$section->addInput($dns_python_script = new Form_Select(
 	'python_script',
 	gettext('Python Module Script'),
 	$pconfig['python_script'],
 	$python_scripts
 ))->setHelp('Select the Python module script to utilize.');
+if (!$custom_editable) {
+	foreach (array($dns_python, $dns_python_order, $dns_python_script) as $input) {
+		$input->setDisabled();
+	}
+}
 
 $section->addInput(new Form_Checkbox(
 	'forwarding',
@@ -279,11 +285,14 @@ $section->addInput(new Form_StaticText(
 	$btnadv
 ));
 
-$section->addInput(new Form_Textarea (
+$section->addInput($dns_custom = new Form_Textarea (
 	'custom_options',
 	gettext('Custom options'),
 	$pconfig['custom_options']
 ))->setHelp(gettext('Enter any additional configuration parameters to add to the DNS Resolver configuration here, separated by a newline.'));
+if (!$custom_editable) {
+	$dns_custom->setReadonly()->setHelp(gettext('Changing custom options requires the DNS Resolver custom configuration privilege.'));
+}
 
 $form->add($section);
 print($form);
