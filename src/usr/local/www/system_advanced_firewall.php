@@ -341,7 +341,7 @@ $section->addInput(new Form_Checkbox(
 	'Verify HTTPS certificates when downloading alias URLs',
 	$pconfig['checkaliasesurlcert']
 ))->setHelp('Make sure the certificate is valid for all HTTPS addresses on '.
-	'aliases. If it\'s not valid or is revoked, do not download it.');
+	'aliases. Verification is on by default. Disabling it allows a network attacker to change alias contents. Failed downloads retain the previous data.');
 
 $form->add($section);
 
