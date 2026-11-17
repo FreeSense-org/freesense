@@ -1,6 +1,6 @@
 # Known CVEs in third-party components
 
-Status as of 2026-11-09. This file tracks publicly known vulnerabilities in
+Source status as of 2026-11-17. Sealed release locks may retain older inputs. This file tracks publicly known vulnerabilities in
 components FreeSense ships or inherits from upstream pfSense. It covers the
 JavaScript libraries under `src/usr/local/www/vendor`, the runtime Composer
 dependencies (shipped by `devel/FreeSense-composer-deps` in
@@ -43,22 +43,25 @@ Versions are read from the files' own banners.
 proposes Composer updates monthly (`.github/dependabot.yml`). The shipped
 packages come from the `FreeSense-composer-deps` port, which also ships
 `psr/simple-cache` 3.0.0 (not in `composer.lock`); CI does not audit that
-port's versions.
+port's versions. The runtime inventory audit now generates a separate lock
+from every shipped GH_TUPLE, checks agreement with composer.lock, and audits
+that complete runtime set, including psr/simple-cache.
 
-## System ports (ports pin of 2026-10-23, FreeBSD source of 2026-10-26)
+## System ports and sealed release inputs
 
-Fixes published after the current pins. Each arrives with the next FreeBSD pin
-unless noted.
+Development uses the ports pin of 2026-11-03. The sealed 1.1.12 lock uses
+2026-10-23 ports and 2026-10-26 FreeBSD sources. A source fix does not change
+an immutable sealed lock; publication is a separate release procedure.
 
 | Component | Pinned | Fixed in | Advisories |
 |---|---|---|---|
-| Suricata (optional package) | 8.0.7 | 8.0.8 | 32 issues fixed upstream (6 high); CVE ids pending |
+| Suricata (optional package) | sealed 1.1.12: 8.0.7; Development pin: 8.0.8 | 8.0.8 | 32 issues fixed upstream (6 high); CVE ids pending |
 | OpenSSH (FreeBSD base, sshd off by default) | 10.4p1 | 10.5p1, 10.6p1 | Security fixes without CVE ids; the compression issues apply after sign-in only |
-| expat (port and base libbsdxml) | 2.9.0 | 2.10.0 | CVE-2026-113351, -115506, -117610, -118370 (denial of service) |
-| sqlite3 (port and base) | 3.53.4 | 3.54.0 | CVE-2026-119371 to -119379, -119591; need a hostile database file or SQL text. Only the captive portal session database uses it. |
+| expat port (base libbsdxml is separate) | 2.9.0 in pins; 2.10.0 System overlay | 2.10.0 | CVE-2026-113351, -115506, -117610, -118370 (denial of service) |
+| sqlite3 port (base SQLite is separate) | sealed 1.1.12: 3.53.4; Development pin: 3.54.1 | 3.54.0 | CVE-2026-119371 to -119379, -119591; need a hostile database file or SQL text. Only the captive portal session database uses it. |
 | net-snmp (optional package) | 5.9.5.2 | no fixed release | CVE-2026-89147 (SMUX denial of service); only with SMUX enabled |
 | Python 3.12 imaplib and poplib | 3.12.15 | no fixed release | CVE-2025-15366, CVE-2025-15367; FreeSense does not use these modules |
-| sshguard | 2.5.1 (stock FreeBSD port) | — | No CVE. The stock scanner has no pattern for webConfigurator login failures (the pfSense-SA-24_06 problem), so failed WebUI, XML-RPC and REST API logins are never blocked. Needs a port patch. |
+| sshguard | 2.6.0 in both ports pins | current | Its scanner includes the webConfigurator failure pattern used by FreeSense. The earlier 2.5.1 claim was incorrect. End-to-end blocking still needs an appliance check. |
 
 phpseclib (`freesense-system-ports` `security/phpseclib`, not a FreeBSD port, so
 VuXML never lists it) is updated from 2.0.17 to 2.0.56, which fixes
@@ -80,7 +83,7 @@ against this code base. The ones not listed are not affected or do not apply
 |---|---|---|
 | SA-26_22 (CVE-2026-92182) | XML-RPC skips the privilege check for LDAP and RADIUS users (no uid). | **Fixed** (`xmlrpc.php` `auth()`). |
 | CVE-2026-111215 | Command injection through the wireless clone parent interface. | **Fixed** (`interfaces_wireless_edit.php`, `interfaces.inc`). |
-| SA-24_06, SA-25_09 | sshguard misses webConfigurator login failures. | **Affected**: see sshguard above. |
+| SA-24_06, SA-25_09 | sshguard misses webConfigurator login failures. | The pinned 2.6.0 scanner includes the pattern. See sshguard above for runtime verification. |
 | SA-26_04 (CVE-2026-38961) | RSS widget title XSS. | Not affected. Links and item text are also escaped and limited to http(s). |
 | SA-26_21 (CVE-2026-67189) | Traffic graph host name XSS. | Not affected on the page. `bandwidth_by_ip.php` answers as text/plain. |
 | SA-26_18 | Dashboard widget path traversal leading to PHP file inclusion (authenticated). Fixed upstream in pfSense Plus 26.07 and CE 2.9.0. | Not affected. The dashboard includes only widgets whose names match installed `*.widget.php` files (`dashboard_sequence_entry_valid()` in `index.php`). No CVE record was found for the ID this file listed before (CVE-2026-97730). |
@@ -88,9 +91,11 @@ against this code base. The ones not listed are not affected or do not apply
 
 ## Follow-up
 
-1. Check that the next FreeBSD pin carries Suricata 8.0.8, OpenSSH 10.5p1 or
-   later, expat 2.10.0 and sqlite3 3.54; otherwise overlay the port.
-2. Ship an sshguard port patch that detects webConfigurator login failures.
+1. The Expat System overlay supplies 2.10.0 without rotating the ports pin.
+   Development pins already contain Suricata 8.0.8 and SQLite 3.54.1. Check
+   exact inputs when preparing a new Stable lock, and review OpenSSH patches
+   rather than relying on its version banner.
+2. Verify sshguard blocking on an appliance; its pinned scanner has the pattern.
 3. Replace phpseclib (voucher keys can be made with OpenSSL).
 4. Done in 1.2: d3 v3, d3pie, nvd3 and visibility.js are replaced by uPlot, and
    the jquery-treegrid development files are no longer served.
