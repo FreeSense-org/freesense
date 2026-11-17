@@ -2418,6 +2418,26 @@ function webgui_session_signout($timeout = false) {
 	phpsession_destroy();
 }
 
+/* A local or Fleet session must still belong to an enabled, unexpired account. */
+function webgui_session_account_problem(array $session): ?string {
+	$name = (string)($session['Username'] ?? '');
+	$entry = getUserEntry($name);
+	$user = $entry['item'] ?? null;
+	if (isset($entry['idx']) && is_array($user)) {
+		if (isset($user['disabled']) && ($user['disabled'] !== false)) {
+			return 'This account is no longer active.';
+		}
+		if (is_account_expired($name)) {
+			return 'This account has expired.';
+		}
+		return null;
+	}
+	/* Fleet signs in as a local user, even though its authsource is not Local Database. */
+	$source = (string)($session['authsource'] ?? 'Local Database');
+	$local = str_starts_with($source, 'Local Database') || str_starts_with($source, 'FreeSense Fleet (');
+	return (!$local && is_array($user)) ? null : 'This account is no longer active.';
+}
+
 function session_auth() {
 	global $_SESSION, $page;
 
@@ -2433,6 +2453,12 @@ function session_auth() {
 	]);
 
 	phpsession_begin();
+
+	if (!empty($_SESSION['Logged_In']) && (webgui_session_account_problem($_SESSION) !== null)) {
+		$_SESSION = array();
+		phpsession_destroy();
+		return false;
+	}
 
 	// Detect protocol change
 	if (!isset($_POST['login']) && !empty($_SESSION['Logged_In']) &&

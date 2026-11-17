@@ -131,6 +131,10 @@ function restapi_session_authenticate($remote_ip) {
  * signing in. Also used by the WebUI 2.0 page frame.
  */
 function restapi_session_user(array $s) {
+	$problem = webgui_session_account_problem($s);
+	if ($problem !== null) {
+		throw new RestApiError(401, 'session_required', $problem);
+	}
 	$name = (string)$s['Username'];
 	$user = restapi_local_user($name);
 	if ($user === null) {

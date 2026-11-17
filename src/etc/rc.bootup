@@ -46,6 +46,8 @@ $g['booting'] = true;
 
 /* parse the configuration and include all functions used below */
 require_once("/etc/inc/config.inc");
+/* Recovery access never survives a reboot. */
+restore_security_checks();
 echo ".";
 require_once("/etc/inc/config.console.inc");
 echo ".";
