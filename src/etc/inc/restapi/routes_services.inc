@@ -450,7 +450,7 @@ function restapi_h_dnsmasq_get($req) {
 function restapi_h_dnsmasq_set($req) {
 	$types = restapi_dnsmasq_types();
 	$values = restapi_svc_merge($req['body'], restapi_dnsmasq_settings(), $types);
-	$rv = saveDNSMasqConfig(restapi_svc_post($values, $types));
+	$rv = saveDNSMasqConfig(restapi_svc_post($values, $types), false, $req['user'] ?? null);
 	if (!empty($rv['input_errors'])) {
 		throw restapi_validation_error($rv['input_errors']);
 	}
