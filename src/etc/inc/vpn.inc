@@ -33,6 +33,15 @@ require_once("auth.inc");
 require_once("certs.inc");
 
 /* master setup for vpn (mpd) */
+/* pure: form paths are canonical; old backups may still hold the nested RADIUS layout. */
+function vpn_pppoe_radius_value(array $settings, string $field): string {
+	if (!in_array($field, array('acct_update', 'nasip'), true)) {
+		throw new InvalidArgumentException('Invalid PPPoE RADIUS field.');
+	}
+	return (string)array_get_path($settings, 'radius/' . $field,
+	    array_get_path($settings, 'radius/server/' . $field, ''));
+}
+
 function vpn_setup() {
 	/* start pppoe server */
 	vpn_pppoes_configure();
@@ -239,11 +248,11 @@ EOD;
 
 EOD;
 		}
-		$radiusacctupdate = array_get_path($pppoecfg, 'radius/server/acct_update', '');
+		$radiusacctupdate = vpn_pppoe_radius_value($pppoecfg, 'acct_update');
 		if (!empty($radiusacctupdate)) {
 			$mpdconf .= "\tset auth acct-update " . (int)$radiusacctupdate . "\n";
 		}
-		$radiusnasip = array_get_path($pppoecfg, 'radius/server/nasip', '');
+		$radiusnasip = vpn_pppoe_radius_value($pppoecfg, 'nasip');
 		if (is_ipaddr($radiusnasip)) {
 			$mpdconf .= "\tset radius me {$radiusnasip}\n";
 		}
