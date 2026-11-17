@@ -419,10 +419,12 @@ function saveAlias($post, $id) {
 		for ($x = 0; $x < $max_alias_addresses - 1; $x++) {
 			if (is_URL($post['address' . $x], true)) {
 				/* fetch down and add in */
-				$temp_filename = tempnam($g['tmp_path'] . '/', "alias_import");
-				rmdir_recursive($temp_filename);
-				$verify_ssl = config_path_enabled('system', 'checkaliasesurlcert');
-				mkdir($temp_filename);
+				$temp_filename = alias_download_workdir();
+				if ($temp_filename === null) {
+					$data_errors[] = gettext('Could not create the alias import directory.');
+					continue;
+				}
+				$verify_ssl = alias_url_verify_tls();
 				if (!download_file($post['address' . $x], $temp_filename . "/aliases", $verify_ssl)) {
 					$data_errors[] = sprintf(gettext("Could not fetch the URL '%s'."), $post['address' . $x]);
 					rmdir_recursive($temp_filename);
@@ -430,7 +432,7 @@ function saveAlias($post, $id) {
 				}
 
 				/* if the item is tar gzipped then extract */
-				if (stristr($post['address' . $x], ".tgz") && !process_alias_tgz($temp_filename)) {
+				if (alias_url_is_archive($post['address' . $x]) && !process_alias_tgz($temp_filename)) {
 					$data_errors[] = sprintf(gettext("Could not unpack tgz from the URL '%s'."), $post['address' . $x]);
 					rmdir_recursive($temp_filename);
 					continue;
