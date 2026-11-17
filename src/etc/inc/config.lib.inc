@@ -902,20 +902,29 @@ function config_install($conffile) {
  * modifying config.xml without an unconditional reboot.
  */
 function disable_security_checks() {
-	global $g;
-	touch("{$g['tmp_path']}/disable_security_checks");
+	$path = private_state_dir('webgui') . '/recovery';
+	if (file_put_contents_private($path, (string)(time() + 900)) === false) {
+		logger(LOG_ERR, gettext('Could not enable temporary WebUI recovery access.'));
+	}
 }
 
 /* Restores security checks. Should be called after all succeed. */
 function restore_security_checks() {
-	global $g;
-	unlink_if_exists("{$g['tmp_path']}/disable_security_checks");
+	unlink_if_exists(private_state_dir('webgui') . '/recovery');
 }
 
 /* Returns status of security check temporary disable. */
 function security_checks_disabled() {
-	global $g;
-	return file_exists("{$g['tmp_path']}/disable_security_checks");
+	$path = private_state_dir('webgui') . '/recovery';
+	clearstatcache(true, $path);
+	$stat = @lstat($path);
+	if (($stat === false) || (($stat['mode'] & 0170000) !== 0100000) ||
+	    ($stat['uid'] !== 0) || (($stat['mode'] & 0077) !== 0)) {
+		return false;
+	}
+	$expires = @file_get_contents($path);
+	return is_string($expires) && ctype_digit($expires) &&
+	    ((int)$expires > time()) && ((int)$expires <= time() + 900);
 }
 
 function config_validate($conffile) {
