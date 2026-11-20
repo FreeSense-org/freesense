@@ -561,21 +561,24 @@ function fleet_tailscale_up(string $authkey, callable $say): string {
 	config_set_path('installedpackages/tailscale/config/0/enable', 'on');
 	write_config('Fleet: Tailscale logged in with the invitation\'s one-time key.');
 	require_once('/usr/local/pkg/tailscale/tailscale.inc');
-	tailscale_resync_config_hook();
 	$ip = '';
-	for ($i = 0; ($i < 45) && ($ip === ''); $i++) {
-		sleep(2);
-		$out = array();
-		exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
-		$ip = (($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) ? trim($out[0]) : '';
+	try {
+		tailscale_resync_config_hook();
+		for ($i = 0; ($i < 45) && ($ip === ''); $i++) {
+			sleep(2);
+			$out = array();
+			exec('/usr/local/bin/tailscale ip -4 2>/dev/null', $out, $rc);
+			$ip = (($rc === 0) && filter_var(trim((string)($out[0] ?? '')), FILTER_VALIDATE_IP)) ? trim($out[0]) : '';
+		}
+	} finally {
+		/* Used once, whatever happened: it must not stay in config.xml or its backups. */
+		config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
+		write_config('Fleet: the one-time Tailscale key was used and removed.');
+		foreach (fleet_files_containing(glob(g_get('cf_conf_path') . '/backup/config-*.xml') ?: array(), $authkey) as $f) {
+			@unlink($f);
+		}
+		cleanup_backupcache();
 	}
-	/* Used once: it must not stay in config.xml or its backups. */
-	config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
-	write_config('Fleet: the one-time Tailscale key was used and removed.');
-	foreach (fleet_files_containing(glob(g_get('cf_conf_path') . '/backup/config-*.xml') ?: array(), $authkey) as $f) {
-		@unlink($f);
-	}
-	cleanup_backupcache();
 	if ($ip === '') {
 		throw new FleetJoinError('E133', 'Tailscale did not come up within 90 seconds. The key may be used up or expired, or the firewall cannot reach the Tailscale control plane (HTTPS 443).');
 	}
