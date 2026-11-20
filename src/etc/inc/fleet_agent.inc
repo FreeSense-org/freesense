@@ -840,8 +840,9 @@ function fleet_leave_unlocked(string $why, ?array $restapi_before): void {
 	require_once('restapi_listener.inc');
 	if (($why !== 'rollback') && is_file(g_get('conf_path') . '/config.xml')) {
 		if (fleet_node_dir(FLEET_ARCHIVE_DIR)) {
-			@copy(g_get('conf_path') . '/config.xml', FLEET_ARCHIVE_DIR . '/config-' . time() . '.xml');
-			@chmod(FLEET_ARCHIVE_DIR . '/config-' . time() . '.xml', 0600);
+			$archive = FLEET_ARCHIVE_DIR . '/config-' . time() . '.xml';
+			@copy(g_get('conf_path') . '/config.xml', $archive);
+			@chmod($archive, 0600);
 		}
 	}
 	if ($restapi_before === null) {
