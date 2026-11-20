@@ -130,6 +130,11 @@ function fleet_valid_peer($peer): bool {
 		if (!is_string($cidr) || !restapi_valid_network($cidr) || (strpos($cidr, '/') === false)) {
 			return false;
 		}
+		/* A peer's addresses are management addresses: never a default route (0.0.0.0/0, ::/0) or a huge block that would swallow the firewall's own traffic. */
+		list($ip, $bits) = explode('/', $cidr, 2);
+		if ((int)$bits < ((strpos($ip, ':') !== false) ? 16 : 8)) {
+			return false;
+		}
 	}
 	return true;
 }
