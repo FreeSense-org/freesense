@@ -41,9 +41,14 @@ require_once('fleet_join.inc');
 define('FLEET_SEED_FILE', FLEET_NODE_DIR . '/seed.json');
 define('FLEET_SEED_NAME', 'fleet-join.conf');
 define('FLEET_SEED_MODES', array('attended', 'pin', 'unattended'));
-/* pure: a PIN is 6 to 8 digits. */
+/* pure: the PIN as typed or printed ("ab3de-fgh2j-...") in the form it seals with: capitals, no dashes or spaces. */
+function fleet_seed_pin_normalise(string $pin): string {
+	return strtoupper((string)preg_replace('/[\s-]+/', '', $pin));
+}
+
+/* pure: a PIN is 20 characters of a 32-letter alphabet without 0, 1, I and O (100 bits: it is the only thing between a copied USB stick and the join key). */
 function fleet_seed_pin_valid(string $pin): bool {
-	return (bool)preg_match('/^[0-9]{6,8}$/D', $pin);
+	return (bool)preg_match('/^[2-9A-HJ-NP-Z]{20}$/D', fleet_seed_pin_normalise($pin));
 }
 
 /* pure: seal a secret to a PIN or a join key's data (fleet_seal_raw()); the Deployment Factory does the same. */
