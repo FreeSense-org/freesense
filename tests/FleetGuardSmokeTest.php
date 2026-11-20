@@ -204,4 +204,8 @@ foreach (array('firewall_rules.php', 'firewall_nat.php') as $pg) {
 	check((strpos($src, "items: '> tr:not([data-fs-locked])'") !== false) && (strpos($src, 'FLEET_AUTO_LOCKED_TEXT') !== false), "{$pg} shows Fleet entries locked and never drags them");
 }
 
+/* one commit-confirm window per firewall */
+$guard_src = (string)file_get_contents(dirname(__DIR__) . '/src/etc/inc/fleet_guard.inc');
+check(preg_match('/function fleet_confirm_begin.*?fleet_confirm_pending\(\).*?DomainException/s', $guard_src) === 1, 'a second commit-confirm window is refused while one is open');
+
 echo "FleetGuardSmokeTest: OK\n";
