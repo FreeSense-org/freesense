@@ -62,6 +62,10 @@ foreach (array(array('public_key' => 'short') + $peer, array('endpoint' => 'bad 
 	check(!fleet_valid_peer($bad), 'refused peer ' . json_encode($bad));
 }
 check(!fleet_valid_peer('x') && !fleet_valid_peer(null), 'a peer is a list of fields');
+check(fleet_valid_peer(array('allowed_ips' => array_map(function ($i) { return "10.{$i}.0.0/16"; }, range(1, 8))) + $peer) && !fleet_valid_peer(array('allowed_ips' => array_map(function ($i) { return "10.{$i}.0.0/16"; }, range(1, 9))) + $peer),
+    'a peer claims at most 8 networks');
+$ifc_src = (string)file_get_contents($root . '/src/etc/inc/interfaces.inc');
+check(strpos($ifc_src, 'pfsync0 -syncdev syncpeer 0.0.0.0 down') !== false && strpos($ifc_src, '= "-syncpeer"') === false, 'pfsync clears its peer with the any-address (-syncpeer does not on FreeBSD 16)');
 foreach (array('0.0.0.0/0', '::/0', '10.0.0.0/7', 'fd00::/15') as $wide) {
 	check(!fleet_valid_peer(array('allowed_ips' => array($wide)) + $peer), "a peer cannot claim {$wide}");
 }

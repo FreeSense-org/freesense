@@ -208,6 +208,9 @@ try {
 			if (($seed !== null) && ($seed['mode'] === 'pin')) {
 				fwrite(STDOUT, "A join seed is waiting for its PIN.\n");
 				$pin = fleet_seed_pin_normalise(ask('PIN: ', true));
+				if (!fleet_seed_pin_valid($pin)) {
+					throw new FleetJoinError('E103', 'The PIN is not valid: a PIN has 20 letters and digits (no 0, 1, I or O), with or without dashes.');
+				}
 				$key = fleet_seed_open_key($seed['sealed_key'], $pin);
 				if ($key === null) {
 					throw new FleetJoinError('E103', 'The PIN is wrong.');

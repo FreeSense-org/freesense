@@ -3323,7 +3323,8 @@ function interfaces_sync_setup() {
 		if (is_ipaddr($pfsyncpeerip)) {
 			$syncpeer = "syncpeer {$pfsyncpeerip}";
 		} else {
-			$syncpeer = "-syncpeer";
+			/* "-syncpeer" does not clear a peer on FreeBSD 16; the any-address does (multicast). */
+			$syncpeer = "syncpeer 0.0.0.0";
 		}
 
 		mwexec("/sbin/ifconfig pfsync0 syncdev {$carp_sync_int} " .
@@ -3349,7 +3350,7 @@ function interfaces_sync_setup() {
 		logger(LOG_INFO, localize_text("pfsync done in %s seconds.", $i), LOG_PREFIX_HA);
 		logger(LOG_INFO, localize_text("Configuring CARP settings finalize..."), LOG_PREFIX_HA);
 	} else {
-		mwexec("/sbin/ifconfig pfsync0 -syncdev -syncpeer down");
+		mwexec("/sbin/ifconfig pfsync0 -syncdev syncpeer 0.0.0.0 down");
 	}
 
 	/* Don't enable CARP if we haven't booted */

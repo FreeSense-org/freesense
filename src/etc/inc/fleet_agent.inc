@@ -123,7 +123,7 @@ function fleet_valid_peer($peer): bool {
 		return false;
 	}
 	$ips = $peer['allowed_ips'] ?? null;
-	if (!is_array($ips) || empty($ips)) {
+	if (!is_array($ips) || empty($ips) || (count($ips) > 8)) {
 		return false;
 	}
 	foreach ($ips as $cidr) {
