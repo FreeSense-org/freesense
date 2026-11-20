@@ -73,7 +73,8 @@ foreach (array(
 	check(($t !== null) && ($t[2] === 'E122' || $t[2] === 'E102'), 'refused seed ' . substr($bad, 0, 60));
 }
 
-check(fleet_seed_pin_valid('123456') && fleet_seed_pin_valid('12345678') && !fleet_seed_pin_valid('12345') && !fleet_seed_pin_valid('12a456'), 'PIN format');
+check(fleet_seed_pin_valid('K7M2P-9XQ4T-HW3NR-Z8D5C') && fleet_seed_pin_valid('k7m2p9xq4thw3nrz8d5c') && !fleet_seed_pin_valid('123456') && !fleet_seed_pin_valid('K7M2P-9XQ4T-HW3NR-Z8D5') &&
+    !fleet_seed_pin_valid('K7M2P-9XQ4T-HW3NR-Z8D5O') && (fleet_seed_pin_normalise(' k7m2p-9xq4t ') === 'K7M2P9XQ4T'), 'PIN format: 20 characters, typed any way');
 $sealed = fleet_seed_seal_key('FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS', '482913');
 check(fleet_seed_open_key($sealed, '482913') === 'FLT-K7Q2-M9XH-4T1R-Z8VB-3NCS', 'the right PIN opens the key');
 check(fleet_seed_open_key($sealed, '482914') === null, 'a wrong PIN does not');
