@@ -98,6 +98,9 @@ check($st === 401 && $js === array(), 'a body that is not JSON is empty');
 check(join_error_of(function () { fleet_http_parse_response('garbage'); }) === 'E105', 'garbage is E105');
 list($st, $js) = fleet_http_parse_response("HTTP/1.0 200 OK\r\nContent-Length: 7\r\n\r\n{\"a\":1}EXTRA");
 check($st === 200 && $js === array('a' => 1), 'a body longer than its Content-Length is cut to it');
+list($st, $js) = fleet_http_parse_response("HTTP/1.1 200 OK\r\nContent-Length: 7\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"a\":1}EXTRA");
+check($st === 200 && $js === array('a' => 1), 'Content-Length is found among other headers (CRLF lines)');
+check(join_error_of(function () { fleet_http_parse_response("HTTP/1.1 200 OK\r\nContent-Length: 20\r\nContent-Type: application/json\r\n\r\n{\"a\":1}"); }) === 'E105', 'a cut-off answer is caught with other headers too');
 check(join_error_of(function () { fleet_http_parse_response("HTTP/1.0 200 OK\r\nContent-Length: 20\r\n\r\n{\"a\":1}"); }) === 'E105', 'an answer cut off before its Content-Length is an error');
 check(fleet_pin_matches($pem, hash('sha256', $der)) && !fleet_pin_matches($pem, str_repeat('0', 64)) &&
     !fleet_pin_matches('', str_repeat('0', 64)), 'the pin compares the certificate fingerprint');

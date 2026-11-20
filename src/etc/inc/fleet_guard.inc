@@ -530,10 +530,33 @@ function fleet_confirm_pending(): array {
 
 /* Snapshot the configuration and start the watchdog. Returns the record. */
 function fleet_confirm_begin(int $seconds, string $label, string $who): array {
-	/* One window at a time: two overlapping snapshots would revert each other's changes. */
-	$open = fleet_confirm_pending();
-	if (!empty($open)) {
-		throw new DomainException(sprintf('A change window ("%s") is still open on this firewall. Confirm or cancel it first.', (string)($open[0]['label'] ?? $open[0]['id'])));
+	/* One window at a time (the check and the write under one lock): two overlapping snapshots would revert each other's changes. */
+	if (!fleet_node_dir(FLEET_CONFIRM_DIR)) {
+		throw new RuntimeException('The configuration snapshot could not be saved.');
+	}
+	$lock = @fopen(FLEET_CONFIRM_DIR . '/begin.lock', 'c');
+	if (($lock === false) || !flock($lock, LOCK_EX)) {
+		throw new RuntimeException('The configuration snapshot could not be saved.');
+	}
+	try {
+		return fleet_confirm_begin_locked($seconds, $label, $who);
+	} finally {
+		flock($lock, LOCK_UN);
+		fclose($lock);
+	}
+}
+
+function fleet_confirm_begin_locked(int $seconds, string $label, string $who): array {
+	foreach (fleet_confirm_pending() as $open) {
+		/* A record whose rollback kept failing for an hour past its deadline is stale: drop it so the firewall is not stuck. */
+		if (fleet_confirm_due($open, time() - 3600)) {
+			$p = fleet_confirm_paths((string)$open['id']);
+			@unlink($p['json']);
+			@unlink($p['xml']);
+			logger(LOG_WARNING, localize_text('FLEET-E310: the change window "%s" could not be reverted for an hour and was dropped.', (string)($open['label'] ?? $open['id'])));
+			continue;
+		}
+		throw new DomainException(sprintf('A change window ("%s") is still open on this firewall. Confirm or cancel it first.', (string)($open['label'] ?? $open['id'])));
 	}
 	$id = 'c-' . bin2hex(random_bytes(8));
 	$record = fleet_confirm_record($id, $seconds, $label, time(), $who);
@@ -603,7 +626,17 @@ function fleet_confirm_watch(string $id): int {
 			return 0;
 		}
 		if (fleet_confirm_due($record, time())) {
-			return fleet_confirm_rollback($id, 'not confirmed in time') ? 0 : 1;
+			/* A restore that fails (a locked config, a full disk) is tried again, a few times. */
+			for ($try = 0; $try < 6; $try++) {
+				if (fleet_confirm_rollback($id, 'not confirmed in time')) {
+					return 0;
+				}
+				if (fleet_confirm_read($id) === null) {
+					return 0;
+				}
+				sleep(10 * ($try + 1));
+			}
+			return 1;
 		}
 		sleep(1);
 	}
