@@ -76,6 +76,9 @@ function fleet_seed_parse(string $text): array {
 		throw new FleetJoinError('E122', 'The fleet-join.conf seed is not valid.');
 	}
 	fleet_join_link_parse($seed['link']);
+	if (isset($seed['expires']) && !is_int($seed['expires'])) {
+		throw new FleetJoinError('E122', 'The fleet-join.conf seed is not valid.');
+	}
 	if (($seed['mode'] === 'unattended') && (fleet_join_key_normalize((string)($seed['key'] ?? '')) === null)) {
 		throw new FleetJoinError('E122', 'The unattended seed holds no valid join key.');
 	}
@@ -146,10 +149,16 @@ function fleet_seed_pending(): ?array {
 		return null;
 	}
 	try {
-		return fleet_seed_parse((string)file_get_contents(FLEET_SEED_FILE));
+		$seed = fleet_seed_parse((string)file_get_contents(FLEET_SEED_FILE));
 	} catch (FleetJoinError $e) {
 		return null;
 	}
+	/* An expired seed is useless (its invitation is gone too) and holds a secret: delete it. */
+	if (isset($seed['expires']) && ($seed['expires'] < time())) {
+		fleet_seed_clear();
+		return null;
+	}
+	return $seed;
 }
 
 /* Forget the seed (after joining, or when an admin discards it). */
