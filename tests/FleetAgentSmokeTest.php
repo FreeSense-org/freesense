@@ -58,6 +58,10 @@ foreach (array(array('public_key' => 'short') + $peer, array('endpoint' => 'bad 
 	check(!fleet_valid_peer($bad), 'refused peer ' . json_encode($bad));
 }
 check(!fleet_valid_peer('x') && !fleet_valid_peer(null), 'a peer is a list of fields');
+foreach (array('0.0.0.0/0', '::/0', '10.0.0.0/7', 'fd00::/15') as $wide) {
+	check(!fleet_valid_peer(array('allowed_ips' => array($wide)) + $peer), "a peer cannot claim {$wide}");
+}
+check(fleet_valid_peer(array('allowed_ips' => array('fd12:3456:789a:f1::2/128', '10.254.0.0/16')) + $peer), 'management-sized peer networks are fine');
 check(fleet_networks_overlap('10.0.0.0/24', '10.0.0.128/25') && fleet_networks_overlap('10.0.0.5/32', '10.0.0.0/24') &&
     !fleet_networks_overlap('10.0.0.0/24', '10.0.1.0/24') && fleet_networks_overlap('fd12:3456:789a:f1::/64', 'fd12:3456:789a:f1::10/128') &&
     !fleet_networks_overlap('fd12:3456:789a:f1::/64', '10.0.0.0/8'), 'overlapping networks');
