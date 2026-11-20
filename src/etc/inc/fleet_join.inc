@@ -420,13 +420,13 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 		return $membership;
 	} catch (FleetJoinError $e) {
 		fleet_join_rollback($undo);
-		$abort();
 		$step('fail', 'fail', $e->fleet_code . ': ' . $e->getMessage());
+		$abort();
 		throw $e;
 	} catch (Throwable $e) {
 		fleet_join_rollback($undo);
-		$abort();
 		$step('fail', 'fail', 'E110: ' . $e->getMessage());
+		$abort();
 		throw new FleetJoinError('E110', 'Joining failed part-way and was undone: ' . $e->getMessage());
 	}
 }
@@ -458,7 +458,7 @@ function fleet_http_parse_response(string $raw): array {
 	}
 	/* An answer cut off on the way (a dropped connection) is an error, not a shorter configuration. */
 	$body = $m[3];
-	if (preg_match('~^Content-Length:[ \t]*(\d{1,10})[ \t]*$~im', $m[2], $cl)) {
+	if (preg_match('~^Content-Length:[ \t]*(\d{1,10})[ \t]*\r?$~im', $m[2], $cl)) {
 		if (strlen($body) < (int)$cl[1]) {
 			throw new FleetJoinError('E105', 'The answer was cut off (' . strlen($body) . ' of ' . (int)$cl[1] . ' bytes). Try again.');
 		}
@@ -586,12 +586,19 @@ function fleet_tailscale_up(string $authkey, callable $say): string {
 		}
 	} finally {
 		/* Used once, whatever happened: it must not stay in config.xml or its backups. */
-		config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
-		write_config('Fleet: the one-time Tailscale key was used and removed.');
-		foreach (fleet_files_containing(glob(g_get('cf_conf_path') . '/backup/config-*.xml') ?: array(), $authkey) as $f) {
-			@unlink($f);
+		/* Each step on its own: one failing must not skip the others, nor replace the error that got us here. */
+		try {
+			config_set_path('installedpackages/tailscaleauth/config/0/preauthkey', '');
+			write_config('Fleet: the one-time Tailscale key was used and removed.');
+		} catch (Throwable $ignore) {
 		}
-		cleanup_backupcache();
+		try {
+			foreach (fleet_files_containing(glob(g_get('cf_conf_path') . '/backup/config-*.xml') ?: array(), $authkey) as $f) {
+				@unlink($f);
+			}
+			cleanup_backupcache();
+		} catch (Throwable $ignore) {
+		}
 	}
 	if ($ip === '') {
 		throw new FleetJoinError('E133', 'Tailscale did not come up within 90 seconds. The key may be used up or expired, or the firewall cannot reach the Tailscale control plane (HTTPS 443).');
