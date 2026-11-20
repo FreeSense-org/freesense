@@ -18,6 +18,10 @@ function check($condition, $message) {
 $pub = base64_encode(str_repeat("\x07", 32));
 $peer = array('public_key' => $pub, 'endpoint' => 'hq.example.net:51830', 'allowed_ips' => array('fd12:3456:789a:f1::/64'));
 
+/* ---- leaving forgets the endpoint check's memory (a new join must not inherit the old controller's "good" endpoint) ---- */
+$agent_src = (string)file_get_contents($root . '/src/etc/inc/fleet_agent.inc');
+check(preg_match('/function fleet_leave_unlocked.*?@unlink\(FLEET_ENDPOINT_STATE\);/s', $agent_src) === 1, 'leaving the fleet deletes the endpoint state');
+
 /* ---- privileges of the fleet-controller user ---- */
 $mon = fleet_access_privs('monitor');
 $man = fleet_access_privs('managed');

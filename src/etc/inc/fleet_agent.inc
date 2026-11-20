@@ -863,6 +863,8 @@ function fleet_leave_unlocked(string $why, ?array $restapi_before): void {
 	fleet_tunnel_down();
 	@unlink(FLEET_WG_KEY);
 	@unlink(FLEET_POLICY_BUNDLE);
+	/* The endpoint check's memory belongs to the old controller: a new join must not inherit it. */
+	@unlink(FLEET_ENDPOINT_STATE);
 	/* Other boxes' replicas are fleet data; a box that left keeps none. */
 	foreach (glob(FLEET_VAULT_DIR . '/*') ?: array() as $file) {
 		@unlink($file);
