@@ -530,6 +530,11 @@ function fleet_confirm_pending(): array {
 
 /* Snapshot the configuration and start the watchdog. Returns the record. */
 function fleet_confirm_begin(int $seconds, string $label, string $who): array {
+	/* One window at a time: two overlapping snapshots would revert each other's changes. */
+	$open = fleet_confirm_pending();
+	if (!empty($open)) {
+		throw new DomainException(sprintf('A change window ("%s") is still open on this firewall. Confirm or cancel it first.', (string)($open[0]['label'] ?? $open[0]['id'])));
+	}
 	$id = 'c-' . bin2hex(random_bytes(8));
 	$record = fleet_confirm_record($id, $seconds, $label, time(), $who);
 	$paths = fleet_confirm_paths($id);

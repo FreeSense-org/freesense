@@ -283,6 +283,8 @@ function restapi_h_mgmt_confirm_begin($req) {
 	} catch (InvalidArgumentException $e) {
 		list($field, $message) = array_pad(explode(': ', $e->getMessage(), 2), 2, '');
 		throw restapi_field_error($field, $message);
+	} catch (DomainException $e) {
+		throw new RestApiError(409, 'confirm_open', $e->getMessage());
 	} catch (RuntimeException $e) {
 		throw new RestApiError(500, 'snapshot_failed', $e->getMessage());
 	}
