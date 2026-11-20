@@ -561,12 +561,27 @@ function fleet_confirm_rollback(string $id, string $why): bool {
 	if (($record === null) || !is_file($paths['xml'])) {
 		return false;
 	}
-	@unlink($paths['json']);
+	/* One rollback at a time (the watchdog, the controller and boot recovery can all ask). */
+	$lock = @fopen($paths['json'] . '.lock', 'c');
+	if (($lock === false) || !flock($lock, LOCK_EX | LOCK_NB)) {
+		return false;
+	}
+	if (!is_file($paths['xml'])) {
+		fclose($lock);
+		return false;
+	}
 	fleet_lock_bypass(true);
 	$ok = config_restore($paths['xml'], 'Fleet commit-confirm ' . $id);
 	fleet_lock_bypass(false);
-	@unlink($paths['xml']);
-	$msg = "FLEET-E310: the change \"{$record['label']}\" was reverted ({$why}).";
+	if ($ok) {
+		/* Only a restore that worked uses up the snapshot and the record: a failed one stays for the next try (the watchdog, boot recovery). */
+		@unlink($paths['json']);
+		@unlink($paths['xml']);
+	}
+	@unlink($paths['json'] . '.lock');
+	fclose($lock);
+	$msg = $ok ? "FLEET-E310: the change \"{$record['label']}\" was reverted ({$why})." :
+	    "FLEET-E310: the change \"{$record['label']}\" could not be reverted ({$why}); the snapshot is kept and tried again.";
 	logger(LOG_WARNING, localize_text('%s', $msg));
 	file_notice('fleet-confirm', $msg, 'Fleet', '', 1, true);
 	if ($ok) {
