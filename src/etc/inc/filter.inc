@@ -6443,10 +6443,21 @@ function filter_get_host_id() {
 	    (strlen($hapfhostid) <= 8)) {
 		$pfhostid = $hapfhostid;
 	} else {
-		/* Not set manually: leave it to pf, which picks a random host ID. */
-		$pfhostid = "";
+		/*
+		 * Not set manually: a fixed one for this firewall, always (also before state sync is set up). pf picks a new random
+		 * host ID at every ruleset load, and a pfsync peer then no longer knows the states it was sent ("creator id" changed):
+		 * it asks for each of them again and the two firewalls trade update requests, hundreds of thousands of packets, after
+		 * a filter reload. A host ID that never changes means the first load after setup changes nothing.
+		 */
+		$pfhostid = filter_derived_host_id((string)get_single_sysctl('kern.hostuuid'), (string)config_get_path('system/hostname', ''));
 	}
 	return $pfhostid;
+}
+
+/* pure: a stable, non-zero 8-digit hex pf host ID for one firewall (from its machine UUID and name). */
+function filter_derived_host_id(string $hostuuid, string $hostname): string {
+	$id = substr(hash('sha256', $hostuuid . '|' . $hostname), 0, 8);
+	return ($id === '00000000') ? '00000001' : $id;
 }
 
 function delete_nat_association(array $associations_to_remove = [], array &$changes = []) {

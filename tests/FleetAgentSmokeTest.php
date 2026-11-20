@@ -64,6 +64,11 @@ foreach (array(array('public_key' => 'short') + $peer, array('endpoint' => 'bad 
 check(!fleet_valid_peer('x') && !fleet_valid_peer(null), 'a peer is a list of fields');
 check(fleet_valid_peer(array('allowed_ips' => array_map(function ($i) { return "10.{$i}.0.0/16"; }, range(1, 8))) + $peer) && !fleet_valid_peer(array('allowed_ips' => array_map(function ($i) { return "10.{$i}.0.0/16"; }, range(1, 9))) + $peer),
     'a peer claims at most 8 networks');
+$filter_src = (string)file_get_contents($root . '/src/etc/inc/filter.inc');
+check(strpos($filter_src, 'function filter_derived_host_id') !== false && strpos($filter_src, "filter_derived_host_id((string)get_single_sysctl('kern.hostuuid')") !== false, 'pf gets a fixed host ID instead of a new random one at every reload');
+eval(preg_replace('/^.*?(function filter_derived_host_id.*?\n}\n).*$/s', '$1', $filter_src));
+check(filter_derived_host_id('uuid-a', 'fw1') === filter_derived_host_id('uuid-a', 'fw1') && filter_derived_host_id('uuid-a', 'fw1') !== filter_derived_host_id('uuid-b', 'fw1') &&
+    preg_match('/^[0-9a-f]{8}$/D', filter_derived_host_id('x', 'y')), 'the derived host ID is stable, per firewall, 8 hex digits');
 $ifc_src = (string)file_get_contents($root . '/src/etc/inc/interfaces.inc');
 check(strpos($ifc_src, 'pfsync0 -syncdev syncpeer 0.0.0.0 down') !== false && strpos($ifc_src, '= "-syncpeer"') === false, 'pfsync clears its peer with the any-address (-syncpeer does not on FreeBSD 16)');
 foreach (array('0.0.0.0/0', '::/0', '10.0.0.0/7', 'fd00::/15') as $wide) {
