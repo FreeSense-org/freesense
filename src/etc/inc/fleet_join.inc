@@ -442,9 +442,17 @@ function fleet_http_parse_response(string $raw): array {
 	if (!preg_match('~^HTTP/1\.[01] (\d{3}) [^\r\n]*\r\n(.*?)\r\n\r\n(.*)$~Ds', $raw, $m)) {
 		throw new FleetJoinError('E105', 'The controller sent no valid HTTP answer.');
 	}
-	$json = json_decode($m[3], true);
+	/* An answer cut off on the way (a dropped connection) is an error, not a shorter configuration. */
+	$body = $m[3];
+	if (preg_match('~^Content-Length:[ \t]*(\d{1,10})[ \t]*$~im', $m[2], $cl)) {
+		if (strlen($body) < (int)$cl[1]) {
+			throw new FleetJoinError('E105', 'The answer was cut off (' . strlen($body) . ' of ' . (int)$cl[1] . ' bytes). Try again.');
+		}
+		$body = substr($body, 0, (int)$cl[1]);
+	}
+	$json = json_decode($body, true);
 	/* The raw body too, for answers that are not JSON (a configuration as XML). */
-	return array((int)$m[1], is_array($json) ? $json : array(), $m[3]);
+	return array((int)$m[1], is_array($json) ? $json : array(), $body);
 }
 
 /* pure: the peer certificate matches the fingerprint from the link. */

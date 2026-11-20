@@ -96,6 +96,9 @@ check($st === 200 && $js === array('a' => 1), 'an HTTP answer parses');
 list($st, $js) = fleet_http_parse_response("HTTP/1.1 401 Unauthorized\r\nX: y\r\n\r\nnot json");
 check($st === 401 && $js === array(), 'a body that is not JSON is empty');
 check(join_error_of(function () { fleet_http_parse_response('garbage'); }) === 'E105', 'garbage is E105');
+list($st, $js) = fleet_http_parse_response("HTTP/1.0 200 OK\r\nContent-Length: 7\r\n\r\n{\"a\":1}EXTRA");
+check($st === 200 && $js === array('a' => 1), 'a body longer than its Content-Length is cut to it');
+check(join_error_of(function () { fleet_http_parse_response("HTTP/1.0 200 OK\r\nContent-Length: 20\r\n\r\n{\"a\":1}"); }) === 'E105', 'an answer cut off before its Content-Length is an error');
 check(fleet_pin_matches($pem, hash('sha256', $der)) && !fleet_pin_matches($pem, str_repeat('0', 64)) &&
     !fleet_pin_matches('', str_repeat('0', 64)), 'the pin compares the certificate fingerprint');
 
