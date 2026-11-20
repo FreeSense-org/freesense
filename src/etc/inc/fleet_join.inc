@@ -321,6 +321,17 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 	$undo = array();
 	$bearer = $link['token_secret'];
 	$step = $io['step'];
+	$eid = '';
+	/* Tell the controller we gave up, so the request does not wait for approval of a box that is no longer joining. Best effort. */
+	$abort = function () use (&$eid, $io, $bearer): void {
+		if ($eid === '') {
+			return;
+		}
+		try {
+			$io['post']('/fleet/join/abort', array('enrollment_id' => $eid), $bearer);
+		} catch (Throwable $ignore) {
+		}
+	};
 	try {
 		$step('connect', 'start', '');
 		$okm = fleet_join_okm($key_data, $link['cert_sha256']);
@@ -355,6 +366,7 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 		}
 		$eid = (string)($enroll['enrollment_id'] ?? '');
 		if (!preg_match('/^e-[0-9a-z]{16,40}$/D', $eid)) {
+			$eid = '';
 			throw new FleetJoinError('E105', 'The controller sent an invalid enrollment id.');
 		}
 		$step('prove', 'done', '');
@@ -408,10 +420,12 @@ function fleet_join_run(array $link, string $key_data, array $io, int $approval_
 		return $membership;
 	} catch (FleetJoinError $e) {
 		fleet_join_rollback($undo);
+		$abort();
 		$step('fail', 'fail', $e->fleet_code . ': ' . $e->getMessage());
 		throw $e;
 	} catch (Throwable $e) {
 		fleet_join_rollback($undo);
+		$abort();
 		$step('fail', 'fail', 'E110: ' . $e->getMessage());
 		throw new FleetJoinError('E110', 'Joining failed part-way and was undone: ' . $e->getMessage());
 	}
