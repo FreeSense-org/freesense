@@ -127,7 +127,8 @@ function fleet_handoff_consume(string $token): ?array {
 function fleet_handoff_signin(string $token): bool {
 	$record = fleet_handoff_consume($token);
 	$user = ($record === null) ? null : getUserEntry($record['user'])['item'] ?? null;
-	if (!is_array($user) || (isset($user['disabled']) && ($user['disabled'] !== false))) {
+	/* The same checks as the sign-in page: not disabled, and not past its end date. */
+	if (!is_array($user) || (isset($user['disabled']) && ($user['disabled'] !== false)) || (function_exists('is_account_expired') && is_account_expired((string)$user['name']))) {
 		log_auth_event(LOG_AUTH_EVENT_ERROR, '(fleet handoff)', get_user_remote_address(false));
 		return false;
 	}
