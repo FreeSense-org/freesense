@@ -184,7 +184,7 @@ function fs_menu_visible_items($name, $items, $target, $current) {
 		}
 		$url = (string)($item[1] ?? '');
 		/* If the user has access to help pages, also show the full help menu. See #5909 */
-		if (!(isAllowedPage($url) || ($url == "/index.php?logout") ||
+		if (!(isAllowedPage($url) ||
 		    (($name == "Help") && isAllowedPage("help.php")) ||
 		    (substr($url, 0, 8) == "https://"))) {
 			continue;
@@ -193,9 +193,8 @@ function fs_menu_visible_items($name, $items, $target, $current) {
 			'label' => $item[0],
 			'url' => $url,
 			'target' => $target,
-			'post' => ($url == "/index.php?logout"),
 			'class' => $item['class'] ?? '',
-			'current' => ($url != "/index.php?logout") ? fs_menu_item_closeness($url, $current) : 0,
+			'current' => fs_menu_item_closeness($url, $current),
 			'group' => $item['group'] ?? null,
 		];
 	}
@@ -215,7 +214,6 @@ function fs_menu_link($it, $extra_class = '') {
 		'class' => trim('dropdown-item navlnk ' . $extra_class . ' ' . $it['class'] . ($it['current'] ? ' active' : '')),
 		'target' => $it['target'] ?: null,
 		'rel' => $it['target'] ? 'noopener' : null,
-		'usepost' => $it['post'] ? true : null,
 		'aria-current' => $it['current'] ? 'page' : null,
 	];
 	/* labels are emitted as given (callers pass gettext strings or escaped values) */
@@ -254,12 +252,7 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 
 	/* grouped panel */
 	$by_group = array_fill_keys(array_keys($groups), []);
-	$trailing = [];
 	foreach ($links as $it) {
-		if ($it['post']) {          // Logout stays last, outside the groups
-			$trailing[] = $it;
-			continue;
-		}
 		$g = $it['group'];
 		if (($g === null) || !isset($groups[$g])) {
 			$g = fs_menu_fallback_group($name, $it['label']);
@@ -295,13 +288,6 @@ function fs_render_nav_menu($name, $title, $icon, $items, $target, $current, $me
 	}
 	$html .= '</div></div>';
 	$html .= '<p class="fs-megamenu-empty" hidden>' . fs_h(gettext('No matching items.')) . '</p>';
-	if (!empty($trailing)) {
-		$html .= '<div class="fs-megamenu-foot">';
-		foreach ($trailing as $it) {
-			$html .= fs_menu_link($it);
-		}
-		$html .= '</div>';
-	}
 
 	return $html . '</div></li>';
 }

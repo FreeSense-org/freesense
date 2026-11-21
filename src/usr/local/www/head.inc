@@ -332,7 +332,7 @@ function output_menu($arrayitem, $target = null, $section = "") {
 	foreach ($arrayitem as $item) {
 
 		/* If the user has access to help pages, also show the full help menu. See #5909 */
-		if (isAllowedPage($item[1]) || $item[1] == "/index.php?logout" ||
+		if (isAllowedPage($item[1]) ||
 		    (($section == "Help") && isAllowedPage("help.php")) ||
 		    (substr($item[1], 0, 8) == "https://")) {
 			$attr = sprintf("href=\"%s\"", htmlentities($item[1]));
@@ -357,7 +357,7 @@ function output_menu($arrayitem, $target = null, $section = "") {
 			if ($item[0] == '-DIVIDER-') {
 				$output .= ' <li><hr class="dropdown-divider"></li>';
 			} else {
-				$output .= "<li>". sprintf("<a %s %s>%s</a>", $attr, ($item[1] == "/index.php?logout") ? "usepost":"",$item[0]) . "</li>\n";
+				$output .= "<li>". sprintf("<a %s>%s</a>", $attr, $item[0]) . "</li>\n";
 			}
 		}
 	}
@@ -405,9 +405,6 @@ if (isAllowedPage("system_usermanager_passwordmg.php")) {
 }
 
 $system_menu = msort(array_merge($system_menu, return_ext_menu("System")), 0);
-
-/* ensure Logout is the last item in the menu */
-$system_menu[] = array(gettext("Logout") . " (" . $_SESSION['Username'] . ")", "/index.php?logout");
 
 // Interfaces
 // NOTE:
