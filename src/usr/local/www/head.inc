@@ -630,7 +630,7 @@ if ($fs_menu_mode === 'icons') {
 			</a>
 			<span class="fs-side-sub" hidden><?=htmlspecialchars(config_get_path('system/hostname') . ' · ' . g_get('product_version_string'))?></span>
 			<ul class="navbar-nav fs-topbar-tools">
-				<li class="nav-item fs-side-crumb" aria-label="<?=gettext('Breadcrumb')?>"><span>FreeSense</span><b><?=htmlspecialchars(is_array($pgtitle ?? null) ? (string)end($pgtitle) : gettext('Dashboard'))?></b></li>
+				<li class="nav-item fs-side-crumb" aria-label="<?=gettext('Breadcrumb')?>"><span>FreeSense</span><b><?=htmlspecialchars(is_array($pgtitle ?? null) ? html_entity_decode(strip_tags((string)end($pgtitle))) : gettext('Dashboard'))?></b></li>
 				<li class="nav-item">
 					<button type="button" class="nav-link fs-nav-search" data-fs-palette-open
 					    data-fs-palette-empty="<?=gettext('No matching pages.')?>"
