@@ -198,8 +198,10 @@ do {
 
 $pgtitle = array(gettext("Wizard"), gettext($pkg['step'][0]['title']));	//First step is main title of the wizard in the breadcrumb
 $pglinks = array("", "wizard.php?xml=" . $xml);
-$pgtitle[] = ($stepid > 0 ? gettext($pkg['step'][$stepid]['title']):'&nbsp;');		//Following steps are sub-level breadcrumbs.
-$pglinks[] = ($stepid > 0 ? "wizard.php?xml=" . $xml . "&stepid=" . $stepid:'&nbsp;');
+if ($stepid > 0) {		//Following steps are sub-level breadcrumbs; the first step has none.
+	$pgtitle[] = gettext($pkg['step'][$stepid]['title']);
+	$pglinks[] = "wizard.php?xml=" . $xml . "&stepid=" . $stepid;
+}
 $shortcut_section = "Wizard";
 include("head.inc");
 
