@@ -597,13 +597,6 @@ form > .fs-actionbar .fs-actionbar-cancel { margin-left: var(--fs-sp-2); }
 	box-shadow: inset 2px 0 0 var(--fs-coral);
 }
 .fs-megamenu-empty { margin: 0; padding: var(--fs-sp-4); color: var(--fs-chrome-fg); text-align: center; }
-.fs-megamenu-foot {
-	display: flex;
-	justify-content: flex-end;
-	padding: var(--fs-sp-2) var(--fs-sp-4);
-	border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-.fs-megamenu-foot .dropdown-item { width: auto; }
 
 /* menu search button */
 .navbar .fs-nav-search {
